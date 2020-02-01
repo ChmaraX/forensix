@@ -1,0 +1,23 @@
+.volumes-wrapper {
+  height: 600px;
+  width: 500px;
+  padding: 30px;
+  text-align: center;
+  overflow: scroll;
+  outline: 20px solid;
+  outline-color: rgba(0, 0, 0, 0.3);
+}
+
+.volume-box {
+  height: 150px;
+  width: 100% !important;
+  margin-bottom: 10px;
+  text-align: left;
+  transition: all 0.5s ease-in-out;
+  border-left: 20px solid #306bac !important;
+  cursor: pointer;
+}
+
+.volume-box:hover {
+  transform: scale(1.02);
+}

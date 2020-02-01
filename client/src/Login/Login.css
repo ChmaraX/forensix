@@ -1,0 +1,29 @@
+.black-base {
+  height: 400px;
+  width: 1000px;
+  opacity: 90%;
+  outline: 1px solid white;
+  outline-offset: 15px;
+}
+
+.form-panel {
+  position: absolute !important;
+  height: 500px;
+  width: 500px;
+  margin-left: 220px !important;
+  padding: 70px 50px 70px 50px !important;
+}
+
+.left-box {
+  max-width: 440px;
+  height: 100%;
+  padding: 70px;
+  text-align: center;
+  border-left: 1px solid #306bac;
+  border-bottom: 1px solid #306bac;
+}
+
+.login-button {
+  color: white !important;
+  background-image: linear-gradient(to right, #306bac, #98b9f2) !important;
+}

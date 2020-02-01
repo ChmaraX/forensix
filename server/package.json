@@ -1,0 +1,26 @@
+{
+  "name": "node-prototype",
+  "version": "1.0.0",
+  "description": "Prototype for BP01",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "bluebird": "^3.7.2",
+    "chalk": "^2.4.2",
+    "cors": "^2.8.5",
+    "create-react-app": "^3.2.0",
+    "express": "^4.17.1",
+    "folder-hash": "^3.3.0",
+    "fs": "0.0.1-security",
+    "jsonwebtoken": "^8.5.1",
+    "moment": "^2.24.0",
+    "mongoose": "^5.8.9",
+    "path": "^0.12.7",
+    "sqlite3": "^4.1.0"
+  }
+}
