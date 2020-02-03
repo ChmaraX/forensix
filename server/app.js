@@ -7,6 +7,8 @@ const cacheRouter = require("./routers/cache");
 const verifyRouter = require("./routers/verify");
 const userRouter = require("./routers/user");
 const volumeRouter = require("./routers/volumes");
+const loginDataRouter = require("./routers/logindata");
+const profileRouter = require("./routers/profile");
 
 const log = require("./middleware/database-logger");
 const auth = require("./middleware/auth");
@@ -23,7 +25,15 @@ const app = express();
 
 // registering routers
 app.use(express.json());
-app.use(historyRouter, cacheRouter, verifyRouter, userRouter, volumeRouter);
+app.use(
+  historyRouter,
+  cacheRouter,
+  verifyRouter,
+  userRouter,
+  volumeRouter,
+  loginDataRouter,
+  profileRouter
+);
 
 // setting global variable with location of data
 if (process.env.DEV) {

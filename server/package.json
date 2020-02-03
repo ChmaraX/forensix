@@ -4,7 +4,8 @@
   "description": "Prototype for BP01",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "DEV=true nodemon --ignore 'sha1_data.json' server.js"
   },
   "author": "",
   "license": "ISC",
@@ -18,9 +19,16 @@
     "folder-hash": "^3.3.0",
     "fs": "0.0.1-security",
     "jsonwebtoken": "^8.5.1",
+    "lodash": "^4.17.15",
     "moment": "^2.24.0",
     "mongoose": "^5.8.9",
+    "npm": "^6.13.7",
     "path": "^0.12.7",
-    "sqlite3": "^4.1.0"
+    "sqlite3": "^4.1.0",
+    "tld-countries": "^1.0.1",
+    "url-parse": "^1.4.7"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.2"
   }
 }

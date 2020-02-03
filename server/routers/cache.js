@@ -1,6 +1,6 @@
 const express = require("express");
 const router = new express.Router();
-const findInCache = require("../cache_operations");
+const findInCache = require("../controllers/cache_operations");
 const chalk = require("chalk");
 
 router.get("/cache", async (req, res) => {
