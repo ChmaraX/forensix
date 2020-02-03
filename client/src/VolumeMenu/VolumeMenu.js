@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import CenteredWrapper from "../common/CenteredWrapper";
+import CenteredWrapper from "../common/CenteredWrapper/CenteredWrapper";
 import { Segment, Divider, Button } from "semantic-ui-react";
 import Logo from "../Logo/Logo";
 import "./VolumeMenu.css";

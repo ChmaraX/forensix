@@ -2,7 +2,7 @@ import React from "react";
 import "./Login.css";
 import { Segment, Divider, Button, Form, Input } from "semantic-ui-react";
 import Logo from "../Logo/Logo";
-import CenteredWrapper from "../common/CenteredWrapper";
+import CenteredWrapper from "../common/CenteredWrapper/CenteredWrapper";
 
 function Login() {
   return (
