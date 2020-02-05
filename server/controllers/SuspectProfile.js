@@ -179,11 +179,35 @@ const systemSpecs = async () => {
   };
 };
 
+const classifyUrls = async () => {
+  const data = await getDbTable({
+    db_name: "History",
+    table: "urls",
+    row: "url"
+  });
+
+  const urls = data.results;
+
+  return new Promise((resolve, reject) => {
+    const spawn = require("child_process").spawn;
+    const pythonProcess = spawn("python3", [
+      "./utils/predictor/url-class.py",
+      JSON.stringify(urls)
+    ]);
+
+    pythonProcess.stdout.on("data", function(data) {
+      let url_categorized = JSON.parse(data.toString());
+      resolve(url_categorized);
+    });
+  });
+};
+
 module.exports = {
   estimateFullname,
   estimateNation,
   getAvatars,
   getBirthday,
   getAccounts,
-  systemSpecs
+  systemSpecs,
+  classifyUrls
 };

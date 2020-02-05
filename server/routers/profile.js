@@ -4,7 +4,8 @@ const {
   estimateFullname,
   estimateNation,
   getAvatars,
-  systemSpecs
+  systemSpecs,
+  classifyUrls
 } = require("../controllers/SuspectProfile");
 const chalk = require("chalk");
 
@@ -31,6 +32,19 @@ router.get("/system-specs", async (req, res) => {
     const specs = await systemSpecs();
 
     res.send({ specs });
+    console.log(chalk.green(" [ OK ]"));
+  } catch (e) {
+    console.log(e);
+    res.status(500).send();
+  }
+});
+
+router.get("/classify", async (req, res) => {
+  try {
+    process.stdout.write(`[GET] ${req.path} ... `);
+    const classified_urls = await classifyUrls();
+
+    res.send({ classified_urls });
     console.log(chalk.green(" [ OK ]"));
   } catch (e) {
     console.log(e);
