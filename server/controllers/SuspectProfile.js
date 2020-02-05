@@ -75,4 +75,115 @@ const getAvatars = () => {
   return avatars;
 };
 
-module.exports = { estimateFullname, estimateNation, getAvatars };
+const getBirthday = () => {
+  const preferencesJSON = fs.readFileSync(
+    path.join(process.env.DATA, "Preferences")
+  );
+
+  const preferences = JSON.parse(preferencesJSON);
+  let birthday,
+    birthyear,
+    gender = "undefined";
+
+  try {
+    birthday = preferences.sync.birthday;
+    birthyear = preferences.sync.demographics.birthyear;
+    gender = preferences.sync.demographics.gender;
+  } catch (e) {
+    console.log(e);
+  }
+
+  return { birthday, birthyear, gender };
+};
+
+const getAccounts = () => {
+  const preferencesJSON = fs.readFileSync(
+    path.join(process.env.DATA, "Preferences")
+  );
+
+  const preferences = JSON.parse(preferencesJSON);
+  const accounts = preferences.account_info;
+
+  return accounts;
+};
+
+const getDeviceProtocols = async () => {
+  const urls = await getDbTable({
+    db_name: "Login Data",
+    table: "logins",
+    row: "origin_url"
+  });
+
+  const deviceProtocols = ["android", "ios"];
+
+  const deviceNativeRequests = urls.results.filter(url => {
+    const protocol = parse(url.origin_url).protocol.split(":")[0];
+    return deviceProtocols.includes(protocol);
+  });
+
+  const devices = deviceNativeRequests.map(
+    req => parse(req.origin_url).protocol.split(":")[0]
+  );
+
+  return _.uniq(devices);
+};
+
+// C:\user\$USER\AppData\Local\Google\Chrome\User
+// Data\Default\
+// /Users/$USER/Library/ApplicationSupport/Google/
+// Chrome/Default/
+// /home/$USER/.config/google-chrome/Default/
+
+const getOperatingSystems = async () => {
+  const osDefaultPath = {
+    mac: "/Users/",
+    linux: "/home/",
+    windows: "C:\\user\\"
+  };
+
+  const downloads = await getDbTable({
+    db_name: "History",
+    table: "downloads",
+    row: "target_path"
+  });
+
+  let os = [];
+  downloads.results.forEach(path => {
+    Object.keys(osDefaultPath).forEach(key => {
+      if (path.target_path.startsWith(osDefaultPath[key])) {
+        if (!os.includes(key)) {
+          os.push(key);
+        }
+      }
+    });
+  });
+
+  return os;
+};
+
+const systemSpecs = async () => {
+  const preferencesJSON = fs.readFileSync(
+    path.join(process.env.DATA, "Preferences")
+  );
+
+  const preferences = JSON.parse(preferencesJSON);
+
+  const chromeVersion = preferences.extensions.last_chrome_version;
+  const { bottom, right } = preferences.browser.window_placement;
+
+  return {
+    chromeVersion,
+    resolution: { bottom, right },
+    mobileDevices: await getDeviceProtocols(),
+    os: await getOperatingSystems()
+  };
+};
+
+module.exports = {
+  estimateFullname,
+  estimateNation,
+  getAvatars,
+  getBirthday,
+  getAccounts,
+  systemSpecs
+};
