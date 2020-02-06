@@ -1,23 +1,36 @@
 const express = require("express");
 const router = new express.Router();
+const { getVolumeInfo } = require("../controllers/VolumesController");
 
 router.get("/volumes", async (req, res) => {
   try {
-    const volume = process.env.VOLUME_INFO.split(" ").filter(
-      el => !["on", "type"].includes(el)
-    );
+    const volume = getVolumeInfo();
 
-    const volume_info = {
-      location: volume[0],
-      mount_point: volume[1],
-      file_system: volume[2],
-      mount_opts: volume[3],
-      hash: process.env.DATA_CHECKSUM
-    };
-
-    res.status(200).send({ volume_info });
+    res.status(200).send(volume);
   } catch (e) {
     res.status(400).send(e);
+  }
+});
+
+router.get("/volumes/verify", async (req, res) => {
+  try {
+    process.stdout.write(`[VERIFY] veryfing integrity ... `);
+    const sum = await generateChecksum(process.env.DATA);
+
+    if (compareChecksums(sum, process.env.VOLUME_CHECKSUM)) {
+      console.log(chalk.green(" [ OK ]"));
+      res.status(200).send({ status: "verified", hash: sum });
+    } else {
+      console.log(chalk.red(" [ COMPROMISED ]"));
+      res.status(200).send({
+        status: "compromised",
+        hashNew: sum,
+        hashOld: process.env.VOLUME_CHECKSUM
+      });
+    }
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("Error veryfiing.");
   }
 });
 

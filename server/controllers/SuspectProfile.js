@@ -202,6 +202,18 @@ const classifyUrls = async () => {
   });
 };
 
+const getHistoryActivity = async () => {
+  const data = await getDbTable({
+    db_name: "History",
+    row:
+      "urls.url, datetime((visit_time/1000000)-11644473600, 'unixepoch', 'localtime') AS visit_date",
+    table: "urls, visits",
+    where: "urls.id = visits.url"
+  });
+
+  return data;
+};
+
 module.exports = {
   estimateFullname,
   estimateNation,
@@ -209,5 +221,6 @@ module.exports = {
   getBirthday,
   getAccounts,
   systemSpecs,
-  classifyUrls
+  classifyUrls,
+  getHistoryActivity
 };

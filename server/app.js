@@ -1,10 +1,12 @@
 const express = require("express");
-const { execSync } = require("child_process");
 // require("./db/mongoose");
 
+const {
+  setVolumeInfo,
+  setVolumePath
+} = require("./controllers/VolumesController");
 const historyRouter = require("./routers/history");
 const cacheRouter = require("./routers/cache");
-const verifyRouter = require("./routers/verify");
 const userRouter = require("./routers/user");
 const volumeRouter = require("./routers/volumes");
 const loginDataRouter = require("./routers/logindata");
@@ -28,7 +30,6 @@ app.use(express.json());
 app.use(
   historyRouter,
   cacheRouter,
-  verifyRouter,
   userRouter,
   volumeRouter,
   loginDataRouter,
@@ -36,20 +37,9 @@ app.use(
 );
 
 // setting global variable with location of data
-if (process.env.DEV) {
-  process.env.DATA = process.env.PWD + "/../data";
-} else {
-  process.env.DATA = "./data";
-}
+setVolumePath();
 
 // get info about mounted volume
-try {
-  process.env.VOLUME_INFO = execSync("mount | grep /app/data").toString();
-  console.log(process.env.VOLUME_INFO);
-} catch (e) {
-  // dev only
-  process.env.VOLUME_INFO =
-    "/dev/sda2 on /app/data type ext4 (ro,relatime,errors=remount-ro,data=ordered)";
-}
+setVolumeInfo();
 
 module.exports = app;

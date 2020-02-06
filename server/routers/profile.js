@@ -5,7 +5,8 @@ const {
   estimateNation,
   getAvatars,
   systemSpecs,
-  classifyUrls
+  classifyUrls,
+  getHistoryActivity
 } = require("../controllers/SuspectProfile");
 const chalk = require("chalk");
 
@@ -45,6 +46,19 @@ router.get("/classify", async (req, res) => {
     const classified_urls = await classifyUrls();
 
     res.send({ classified_urls });
+    console.log(chalk.green(" [ OK ]"));
+  } catch (e) {
+    console.log(e);
+    res.status(500).send();
+  }
+});
+
+router.get("/history-activity", async (req, res) => {
+  try {
+    process.stdout.write(`[GET] ${req.path} ... `);
+    const activity = await getHistoryActivity();
+
+    res.send({ activity });
     console.log(chalk.green(" [ OK ]"));
   } catch (e) {
     console.log(e);
