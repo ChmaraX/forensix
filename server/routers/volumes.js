@@ -1,6 +1,11 @@
 const express = require("express");
 const router = new express.Router();
-const { getVolumeInfo } = require("../controllers/VolumesController");
+const chalk = require("chalk");
+const {
+  getVolumeInfo,
+  generateChecksum,
+  compareChecksums
+} = require("../controllers/VolumesController");
 
 router.get("/volumes", async (req, res) => {
   try {
@@ -15,7 +20,7 @@ router.get("/volumes", async (req, res) => {
 router.get("/volumes/verify", async (req, res) => {
   try {
     process.stdout.write(`[VERIFY] veryfing integrity ... `);
-    const sum = await generateChecksum(process.env.DATA);
+    const sum = await generateChecksum(process.env.VOLUME_PATH);
 
     if (compareChecksums(sum, process.env.VOLUME_CHECKSUM)) {
       console.log(chalk.green(" [ OK ]"));
