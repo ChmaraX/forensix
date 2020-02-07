@@ -16,7 +16,7 @@ const size = props => {
 function Logo(props) {
   return (
     <h1 style={{ fontSize: `${size(props)}` }}>
-      Forensi<span style={{ color: "#306bac" }}>X</span>
+      Forensi<span style={{ color: props.color || "#306bac" }}>X</span>
     </h1>
   );
 }

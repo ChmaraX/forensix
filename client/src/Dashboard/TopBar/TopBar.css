@@ -1,0 +1,20 @@
+.top-bar {
+  height: 50px;
+  margin-left: 300px;
+  padding: 5px 20px 5px 20px;
+  background-color: #306bac;
+  display: flex;
+  justify-content: space-between;
+  color: white;
+}
+
+.top-bar .avatar {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.top-bar .avatar .border {
+  margin-left: 20px;
+  border: 3px solid #6f9ceb;
+}

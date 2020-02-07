@@ -13,13 +13,13 @@ function VolumeMenu() {
 
   useEffect(() => {
     axios.get("/volumes").then(res => {
-      setVolumeInfo(res.data.volume_info);
+      setVolumeInfo(res.data);
     });
   }, []);
 
   function verifyIntegrity() {
     setLoading(true);
-    axios.get("/verify").then(res => {
+    axios.get("/volumes/verify").then(res => {
       setLoading(false);
       setIntegrity(res.data);
     });
@@ -38,7 +38,7 @@ function VolumeMenu() {
         {volumeInfo ? (
           <Volume volumeInfo={volumeInfo} integrity={integrity} />
         ) : (
-          "No volumes available"
+          <p>No volumes available</p>
         )}
       </Segment>
     </CenteredWrapper>

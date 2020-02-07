@@ -1,0 +1,40 @@
+.sidemenu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 100%;
+  background-color: #141b41;
+  color: white;
+  z-index: 100;
+  display: block;
+  padding-top: 30px;
+  padding-bottom: 30px;
+}
+
+.sidemenu .logo {
+  text-align: center;
+}
+
+.sidemenu .nav {
+  color: white;
+  margin-top: 50px;
+}
+
+.sidemenu .nav .item {
+  padding: 7px 7px 7px 30px;
+}
+
+.sidemenu .nav .item:hover {
+  padding-left: 20px;
+  border-left: 10px solid #6f9ceb;
+  background-color: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.sidemenu .nav .item.selected {
+  padding-left: 20px;
+  border-left: 10px solid #6f9ceb;
+  background-color: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
