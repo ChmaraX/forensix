@@ -1,20 +1,33 @@
 const express = require("express");
 const router = new express.Router();
-const getDbTable = require("../controllers/db_operations");
+const {
+  classifyUrls,
+  getHistoryActivity
+} = require("../controllers/HistoryController");
 const chalk = require("chalk");
 
-router.get("/history/:table", async (req, res) => {
+router.get("/history/classify", async (req, res) => {
   try {
-    process.stdout.write(`[GET] ${req.params.table} ... `);
-    const data = await getDbTable({
-      db_name: "History",
-      table: req.params.table,
-      limit: req.query.limit
-    });
+    process.stdout.write(`[GET] ${req.path} ... `);
+    const classified_urls = await classifyUrls();
 
-    res.send(data);
-    console.log(data.count + chalk.green(" [ OK ]"));
+    res.send({ classified_urls });
+    console.log(chalk.green(" [ OK ]"));
   } catch (e) {
+    console.log(e);
+    res.status(500).send();
+  }
+});
+
+router.get("/history/activity", async (req, res) => {
+  try {
+    process.stdout.write(`[GET] ${req.path} ... `);
+    const activity = await getHistoryActivity();
+
+    res.send({ activity });
+    console.log(chalk.green(" [ OK ]"));
+  } catch (e) {
+    console.log(e);
     res.status(500).send();
   }
 });

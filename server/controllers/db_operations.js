@@ -42,7 +42,7 @@ const getDbTable = async ({
 }) => {
   let results = [];
 
-  const dbPath = path.join(process.env.DATA, db_name);
+  const dbPath = path.join(process.env.VOLUME_PATH, db_name);
   const db = getDatabase(dbPath);
   const query = queryBuilder({
     db_name,

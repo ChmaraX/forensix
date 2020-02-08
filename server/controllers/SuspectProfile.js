@@ -17,7 +17,6 @@ const getMostFrequent = arr => {
 
 const estimateFullname = async () => {
   const { all } = await getLoginCredentials();
-  estimateNation();
 
   let parsed = all.map(el => {
     return el.username_value
@@ -62,7 +61,10 @@ const estimateNation = async () => {
 };
 
 const getAvatars = () => {
-  const directoryPath = path.join(process.env.DATA, "/Accounts/Avatar Images");
+  const directoryPath = path.join(
+    process.env.VOLUME_PATH,
+    "/Accounts/Avatar Images"
+  );
   const files = fs.readdirSync(directoryPath);
 
   const avatars = files.map(file => {
@@ -77,7 +79,7 @@ const getAvatars = () => {
 
 const getBirthday = () => {
   const preferencesJSON = fs.readFileSync(
-    path.join(process.env.DATA, "Preferences")
+    path.join(process.env.VOLUME_PATH, "Preferences")
   );
 
   const preferences = JSON.parse(preferencesJSON);
@@ -98,7 +100,7 @@ const getBirthday = () => {
 
 const getAccounts = () => {
   const preferencesJSON = fs.readFileSync(
-    path.join(process.env.DATA, "Preferences")
+    path.join(process.env.VOLUME_PATH, "Preferences")
   );
 
   const preferences = JSON.parse(preferencesJSON);
@@ -163,7 +165,7 @@ const getOperatingSystems = async () => {
 
 const systemSpecs = async () => {
   const preferencesJSON = fs.readFileSync(
-    path.join(process.env.DATA, "Preferences")
+    path.join(process.env.VOLUME_PATH, "Preferences")
   );
 
   const preferences = JSON.parse(preferencesJSON);
@@ -179,48 +181,11 @@ const systemSpecs = async () => {
   };
 };
 
-const classifyUrls = async () => {
-  const data = await getDbTable({
-    db_name: "History",
-    table: "urls",
-    row: "url"
-  });
-
-  const urls = data.results;
-
-  return new Promise((resolve, reject) => {
-    const spawn = require("child_process").spawn;
-    const pythonProcess = spawn("python3", [
-      "./utils/predictor/url-class.py",
-      JSON.stringify(urls)
-    ]);
-
-    pythonProcess.stdout.on("data", function(data) {
-      let url_categorized = JSON.parse(data.toString());
-      resolve(url_categorized);
-    });
-  });
-};
-
-const getHistoryActivity = async () => {
-  const data = await getDbTable({
-    db_name: "History",
-    row:
-      "urls.url, datetime((visit_time/1000000)-11644473600, 'unixepoch', 'localtime') AS visit_date",
-    table: "urls, visits",
-    where: "urls.id = visits.url"
-  });
-
-  return data;
-};
-
 module.exports = {
   estimateFullname,
   estimateNation,
   getAvatars,
   getBirthday,
   getAccounts,
-  systemSpecs,
-  classifyUrls,
-  getHistoryActivity
+  systemSpecs
 };

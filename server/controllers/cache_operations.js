@@ -3,7 +3,7 @@ const fs = Promise.promisifyAll(require("fs"));
 const path = require("path");
 
 const findInCache = async (keyword, limit = 5) => {
-  const directoryPath = path.join(process.env.DATA, "/Cache");
+  const directoryPath = path.join(process.env.VOLUME_PATH, "/Cache");
   const cacheFiles = await readCache(directoryPath);
 
   console.log("Total cache files found: ", cacheFiles.length);

@@ -1,0 +1,15 @@
+.profile {
+  border-left: 10px solid #306bac !important;
+}
+
+.profile .content {
+  padding: 15px 15px 15px 5px;
+}
+
+.profile .content .left {
+  float: left;
+}
+
+.profile .content .right {
+  float: right;
+}
