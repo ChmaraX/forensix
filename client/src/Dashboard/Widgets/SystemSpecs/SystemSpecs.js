@@ -11,7 +11,7 @@ function SystemSpecs(props) {
         </Statistic>
       </Segment>
       <Segment raised color="blue">
-        <Statistic.Group size="tiny" widths={2} color="blue">
+        <Statistic.Group size="mini" widths={2} color="blue">
           <Statistic>
             <Statistic.Value>
               <Icon name={props.systemSpecs?.os} /> {props.systemSpecs?.os}
@@ -31,13 +31,15 @@ function SystemSpecs(props) {
       <Segment raised style={{ textAlign: "center" }} color="blue">
         <Statistic size="tiny" color="blue">
           <Statistic.Value>
-            {props.systemSpecs?.mobileDevices.map(device => {
-              return (
-                <span>
-                  <Icon name={device} /> {device}{" "}
-                </span>
-              );
-            })}
+            {props.systemSpecs?.mobileDevices.length > 0
+              ? props.systemSpecs.mobileDevices.map(device => {
+                  return (
+                    <span>
+                      <Icon name={device} /> {device}{" "}
+                    </span>
+                  );
+                })
+              : "Unknown"}
           </Statistic.Value>
           <Statistic.Label>mobile devices</Statistic.Label>
         </Statistic>

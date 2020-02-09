@@ -75,15 +75,26 @@ const EstimatedContent = profile => (
   <div className="content">
     <Header subheader>{profile.fullname}</Header>
     <p className="left">
-      <b>gender:</b> {profile.birthday.gender === 1 ? "male" : "female"}{" "}
+      <b>gender:</b>{" "}
+      {profile.birthday.gender === 1
+        ? "male"
+        : profile.birthday.gender === 2
+        ? "female"
+        : "unknown"}{" "}
       <Icon
         title="test"
-        name={profile.birthday.gender === "male" ? "man" : "woman"}
+        name={
+          profile.birthday.gender === 1
+            ? "man"
+            : profile.birthday.gender === 2
+            ? "woman"
+            : "dont"
+        }
         color="blue"
       />
       <br />
-      <b>nation:</b> {profile.nation.country} <Flag name={profile.nation.tld} />{" "}
-      <br />
+      <b>nation:</b> {profile.nation.country.substring(0, 15)}{" "}
+      <Flag name={profile.nation.tld} /> <br />
       <b>birthday:</b> {profile.birthday.birthyear} <br />
     </p>
     <p className="right">
@@ -94,29 +105,32 @@ const EstimatedContent = profile => (
   </div>
 );
 
-const AccountContent = accounts => (
-  <List style={{ overflowY: "scroll" }}>
-    {accounts.map((acc, i) => (
-      <List.Item key={i}>
-        <Image avatar src={acc.picture_url} />
-        <List.Content>
-          <List.Header as="a">{acc.full_name}</List.Header>
-          <List.Description>
-            <p className="left">
-              <b>email:</b> {acc.email} <br />
-              <b>locale:</b> {acc.locale} <Flag name={acc.locale} /> <br />
-            </p>
-            <p className="right">
-              <b>adv. protection:</b>{" "}
-              {acc.is_under_advanced_protection.toString()} <br />
-              <b>child account:</b> {acc.is_child_account.toString()} <br />
-            </p>
-          </List.Description>
-        </List.Content>
-      </List.Item>
-    ))}
-  </List>
-);
+const AccountContent = accounts =>
+  accounts ? (
+    <p>No accounts found.</p>
+  ) : (
+    <List style={{ overflowY: "scroll" }}>
+      {accounts.map((acc, i) => (
+        <List.Item key={i}>
+          <Image avatar src={acc.picture_url} />
+          <List.Content>
+            <List.Header as="a">{acc.full_name}</List.Header>
+            <List.Description>
+              <p className="left">
+                <b>email:</b> {acc.email} <br />
+                <b>locale:</b> {acc.locale} <Flag name={acc.locale} /> <br />
+              </p>
+              <p className="right">
+                <b>adv. protection:</b>{" "}
+                {acc.is_under_advanced_protection.toString()} <br />
+                <b>child account:</b> {acc.is_child_account.toString()} <br />
+              </p>
+            </List.Description>
+          </List.Content>
+        </List.Item>
+      ))}
+    </List>
+  );
 
 function Profile(props) {
   const [showAccounts, setShowAccounts] = useState(false);
@@ -135,7 +149,7 @@ function Profile(props) {
         props.loading ? (
           PlaceholderLine()
         ) : (
-          AccountContent(props.accounts)
+          AccountContent(props.accounts || [])
         )
       ) : (
         <Grid>

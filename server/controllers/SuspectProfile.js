@@ -140,7 +140,7 @@ const getOperatingSystems = async () => {
   const osDefaultPath = {
     mac: "/Users/",
     linux: "/home/",
-    windows: "C:\\user\\"
+    windows: "C:\\Users\\"
   };
 
   const downloads = await getDbTable({
