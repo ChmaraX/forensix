@@ -119,7 +119,7 @@ const AccountContent = accounts => (
 );
 
 function Profile(props) {
-  const [showAccounts, setShowAccounts] = useState(true);
+  const [showAccounts, setShowAccounts] = useState(false);
 
   return (
     <Segment className="profile" padded raised>
