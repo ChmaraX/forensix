@@ -1,10 +1,33 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Grid, Segment } from "semantic-ui-react";
 import Sidemenu from "./Sidemenu/Sidemenu";
 import TopBar from "./TopBar/TopBar";
 import Profile from "./Widgets/Profile/Profile";
+import axios from "axios";
 
 function DashboardContainer() {
+  const [profile, setProfile] = useState();
+  const [accounts, setAccounts] = useState();
+  const [loading, setLoading] = useState(true);
+
+  function fetchData() {
+    let profile = axios.get("/profile/estimate").then(res => {
+      setProfile(res.data);
+    });
+
+    let accounts = axios.get("/profile/accounts").then(res => {
+      setAccounts(res.data);
+    });
+
+    Promise.all([profile, accounts]).then(() => {
+      setLoading(false);
+    });
+  }
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   return (
     <div>
       <Sidemenu />
@@ -12,8 +35,12 @@ function DashboardContainer() {
       <div style={{ margin: "30px 30px 30px 330px" }}>
         <Grid columns="equal">
           <Grid.Row>
-            <Grid.Column width={6} style={{ maxHeight: "300px" }}>
-              <Profile />
+            <Grid.Column width={6} style={{ height: "250px" }}>
+              <Profile
+                profile={profile}
+                accounts={accounts}
+                loading={loading}
+              />
             </Grid.Column>
             <Grid.Column>
               <Segment>2</Segment>

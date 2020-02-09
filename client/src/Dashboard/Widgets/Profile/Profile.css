@@ -1,5 +1,6 @@
 .profile {
   border-left: 10px solid #306bac !important;
+  height: inherit;
 }
 
 .profile .content {
@@ -12,4 +13,5 @@
 
 .profile .content .right {
   float: right;
+  margin-left: 10px;
 }

@@ -89,7 +89,7 @@ const getBirthday = () => {
 
   try {
     birthday = preferences.sync.birthday;
-    birthyear = preferences.sync.demographics.birthyear;
+    birthyear = preferences.sync.demographics.birth_year;
     gender = preferences.sync.demographics.gender;
   } catch (e) {
     console.log(e);
