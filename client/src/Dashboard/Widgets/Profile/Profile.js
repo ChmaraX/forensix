@@ -106,7 +106,7 @@ const EstimatedContent = profile => (
 );
 
 const AccountContent = accounts =>
-  accounts ? (
+  accounts.length < 1 ? (
     <p>No accounts found.</p>
   ) : (
     <List style={{ overflowY: "scroll" }}>
@@ -157,7 +157,7 @@ function Profile(props) {
             <Grid.Column width={5}>
               {props.loading
                 ? PlaceholderImage()
-                : Avatar(props.profile.avatars[0])}
+                : Avatar(props.profile?.avatars[0])}
             </Grid.Column>
             <Grid.Column width={11}>
               {props.loading

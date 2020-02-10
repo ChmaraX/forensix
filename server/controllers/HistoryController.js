@@ -17,8 +17,12 @@ const classifyUrls = async () => {
     ]);
 
     pythonProcess.stdout.on("data", function(data) {
-      let url_categorized = JSON.parse(data.toString());
-      resolve(url_categorized);
+      try {
+        let url_categorized = JSON.parse(data.toString());
+        resolve(url_categorized);
+      } catch (e) {
+        console.log(e);
+      }
     });
   });
 };

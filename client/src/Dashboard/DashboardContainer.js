@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { Grid, Segment, Statistic, Icon } from "semantic-ui-react";
+import { Grid, Segment } from "semantic-ui-react";
 import Sidemenu from "./Sidemenu/Sidemenu";
 import TopBar from "./TopBar/TopBar";
 import Profile from "./Widgets/Profile/Profile";
 import axios from "axios";
 import SystemSpecs from "./Widgets/SystemSpecs/SystemSpecs";
+import RadarWidget from "./Widgets/RadarWidget/RadarWidget";
 
 function DashboardContainer() {
   const [profile, setProfile] = useState();
   const [accounts, setAccounts] = useState();
   const [systemSpecs, setSystemSpecs] = useState();
+  const [classified, setClassified] = useState();
   const [loading, setLoading] = useState(true);
 
   function fetchData() {
@@ -23,6 +25,10 @@ function DashboardContainer() {
 
     let systemSpecs = axios.get("/profile/system-specs").then(res => {
       setSystemSpecs(res.data.specs);
+    });
+
+    let classifiedUrls = axios.get("/history/classify").then(res => {
+      setClassified(res.data.classified_urls);
     });
 
     Promise.all([profile, accounts, systemSpecs]).then(() => {
@@ -52,7 +58,7 @@ function DashboardContainer() {
               <SystemSpecs systemSpecs={systemSpecs} />
             </Grid.Column>
             <Grid.Column width={6}>
-              <Segment raised>3</Segment>
+              <RadarWidget classified={classified} />
             </Grid.Column>
           </Grid.Row>
           <Grid.Row>
