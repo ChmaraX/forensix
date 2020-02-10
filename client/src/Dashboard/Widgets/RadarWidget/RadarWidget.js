@@ -7,7 +7,7 @@ import {
   Radar,
   ResponsiveContainer
 } from "recharts";
-import { Segment, Header, List, Placeholder } from "semantic-ui-react";
+import { Segment, Header, List, Dimmer, Loader } from "semantic-ui-react";
 import _ from "lodash";
 
 const transformData = data => {
@@ -15,44 +15,48 @@ const transformData = data => {
     {
       category: "Business",
       count: 0,
-      fullMark: data.length
+      fullMark: 0
     },
     {
       category: "Arts",
       count: 0,
-      fullMark: data.length
+      fullMark: 0
     },
     {
       category: "Computers",
       count: 0,
-      fullMark: data.length
+      fullMark: 0
     },
     {
       category: "Reference",
       count: 0,
-      fullMark: data.length
+      fullMark: 0
     },
     {
       category: "Society",
       count: 0,
-      fullMark: data.length
+      fullMark: 0
     },
     {
       category: "Kids",
       count: 0,
-      fullMark: data.length
+      fullMark: 0
     },
     {
       category: "Health",
       count: 0,
-      fullMark: data.length
+      fullMark: 0
     },
     {
       category: "Science",
       count: 0,
-      fullMark: data.length
+      fullMark: 0
     }
   ];
+
+  if (data === undefined) {
+    return transformedData;
+  }
 
   data.forEach(el => {
     switch (el.category) {
@@ -94,14 +98,6 @@ const transformData = data => {
   return transformedData;
 };
 
-const PlaceholderImage = () => (
-  <Placeholder
-    style={{ height: "inherit", width: "300px", marginLeft: "40px" }}
-  >
-    <Placeholder.Image />
-  </Placeholder>
-);
-
 function RadarWidget(props) {
   return (
     <Segment
@@ -109,6 +105,9 @@ function RadarWidget(props) {
       style={{ display: "flex", justifyContent: "space-between" }}
       color="blue"
     >
+      <Dimmer active={props.classified?.length > 0 ? false : true} inverted>
+        <Loader size="medium">Calculating</Loader>
+      </Dimmer>
       <React.Fragment>
         <div>
           <Header
@@ -118,7 +117,7 @@ function RadarWidget(props) {
           />
           <List>
             {_.orderBy(
-              transformData(props.classified || []),
+              transformData(props.classified),
               ["count"],
               ["desc"]
             ).map((c, i) => {
@@ -131,27 +130,25 @@ function RadarWidget(props) {
           </List>
         </div>
         <ResponsiveContainer width={340}>
-          {props.classified ? (
-            <RadarChart
-              outerRadius={90}
-              data={transformData(props.classified || []).filter(
-                el => el.count >= 10
-              )}
-            >
-              <PolarGrid />
-              <PolarAngleAxis dataKey="category" />
-              <PolarRadiusAxis angle={30} />
-              <Radar
-                name="URL"
-                dataKey="count"
-                stroke="#82ca9d"
-                fill="#82ca9d"
-                fillOpacity={0.6}
-              />
-            </RadarChart>
-          ) : (
-            PlaceholderImage()
-          )}
+          <RadarChart
+            outerRadius={90}
+            width={300}
+            height={150}
+            data={transformData(props.classified).filter(
+              el => el.count >= 7 || el.fullMark === 0
+            )}
+          >
+            <PolarGrid />
+            <PolarAngleAxis dataKey="category" />
+            <PolarRadiusAxis angle={30} ss />
+            <Radar
+              name="URL"
+              dataKey="count"
+              stroke="#82ca9d"
+              fill="#82ca9d"
+              fillOpacity={0.6}
+            />
+          </RadarChart>
         </ResponsiveContainer>
       </React.Fragment>
     </Segment>
