@@ -27,14 +27,16 @@ const getLoginCredentials = async () => {
 
   const { emails, usernames } = divide(credentials.results, validateEmail);
 
-  //   const totalEmails = emails.map(el => el.count).reduce((a, b) => a + b, 0);
-  //   const totalUsernames = usernames
-  //     .map(el => el.count)
-  //     .reduce((a, b) => a + b, 0);
+  const totalEmails = emails.map(el => el.count).reduce((a, b) => a + b, 0);
+  const totalUsernames = usernames
+    .map(el => el.count)
+    .reduce((a, b) => a + b, 0);
 
   return {
     emails,
     usernames,
+    totalEmails,
+    totalUsernames,
     all: credentials.results
   };
 };

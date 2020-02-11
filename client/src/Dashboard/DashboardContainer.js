@@ -6,12 +6,14 @@ import Profile from "./Widgets/Profile/Profile";
 import axios from "axios";
 import SystemSpecs from "./Widgets/SystemSpecs/SystemSpecs";
 import RadarWidget from "./Widgets/RadarWidget/RadarWidget";
+import LoginPie from "./Widgets/LoginPie/LoginPie";
 
 function DashboardContainer() {
   const [profile, setProfile] = useState();
   const [accounts, setAccounts] = useState();
   const [systemSpecs, setSystemSpecs] = useState();
   const [classified, setClassified] = useState();
+  const [credentials, setCredentials] = useState();
   const [loading, setLoading] = useState(true);
 
   function fetchData() {
@@ -27,8 +29,12 @@ function DashboardContainer() {
       setSystemSpecs(res.data.specs);
     });
 
-    let classifiedUrls = axios.get("/history/classify").then(res => {
-      setClassified(res.data.classified_urls);
+    // let classifiedUrls = axios.get("/history/classify").then(res => {
+    //   setClassified(res.data.classified_urls);
+    // });
+
+    let credentials = axios.get("/logindata/credentials").then(res => {
+      setCredentials(res.data);
     });
 
     Promise.all([profile, accounts, systemSpecs]).then(() => {
@@ -62,8 +68,8 @@ function DashboardContainer() {
             </Grid.Column>
           </Grid.Row>
           <Grid.Row>
-            <Grid.Column>
-              <Segment>1</Segment>
+            <Grid.Column width={6}>
+              <LoginPie credentials={credentials} />
             </Grid.Column>
             <Grid.Column>
               <Segment>2</Segment>
