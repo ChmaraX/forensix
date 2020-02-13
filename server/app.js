@@ -11,6 +11,7 @@ const userRouter = require("./routers/user");
 const volumeRouter = require("./routers/volumes");
 const loginDataRouter = require("./routers/logindata");
 const profileRouter = require("./routers/profile");
+const topSitesRouter = require("./routers/topsites");
 
 const log = require("./middleware/database-logger");
 const auth = require("./middleware/auth");
@@ -33,7 +34,8 @@ app.use(
   userRouter,
   volumeRouter,
   loginDataRouter,
-  profileRouter
+  profileRouter,
+  topSitesRouter
 );
 
 // setting global variable with location of data

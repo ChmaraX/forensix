@@ -8,6 +8,7 @@ import SystemSpecs from "./Widgets/SystemSpecs/SystemSpecs";
 import RadarWidget from "./Widgets/RadarWidget/RadarWidget";
 import LoginPie from "./Widgets/LoginPie/LoginPie";
 import BrowsingActivty from "./Widgets/BrowsingActivity/BrowsingActivity";
+import TopSites from "./Widgets/TopSites/TopSites";
 
 function DashboardContainer() {
   const [profile, setProfile] = useState();
@@ -16,6 +17,7 @@ function DashboardContainer() {
   const [classified, setClassified] = useState();
   const [credentials, setCredentials] = useState();
   const [bActivity, setbActivity] = useState();
+  const [topSites, setTopSites] = useState();
   const [loading, setLoading] = useState(true);
 
   function fetchData() {
@@ -41,6 +43,10 @@ function DashboardContainer() {
 
     let bActivity = axios.get("/history/activity").then(res => {
       setbActivity(res.data);
+    });
+
+    let topSites = axios.get("/topsites").then(res => {
+      setTopSites(res.data);
     });
 
     Promise.all([profile, accounts, systemSpecs]).then(() => {
@@ -83,10 +89,12 @@ function DashboardContainer() {
           </Grid.Row>
           <Grid.Row>
             <Grid.Column>
-              <Segment>1</Segment>
+              <TopSites topSites={topSites} />
             </Grid.Column>
             <Grid.Column>
-              <Segment>2</Segment>
+              <Segment padded raised>
+                2
+              </Segment>
             </Grid.Column>
           </Grid.Row>
         </Grid>
