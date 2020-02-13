@@ -26,7 +26,7 @@ const heatmap = bActivity => (
       style={{ marginTop: "50px" }}
       startDate={shiftDate(new Date(), -365)}
       endDate={new Date()}
-      values={bActivity?.byDate}
+      values={bActivity?.byDate || []}
       tooltipDataAttrs={value => {
         return {
           "data-tip": `${value.date?.toString().slice(0, 10)} has count: ${
@@ -58,7 +58,7 @@ const barchart = bActivity => (
 );
 
 function BrowsingActivty(props) {
-  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(true);
 
   return (
     <Segment padded raised color="blue">

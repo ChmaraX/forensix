@@ -140,6 +140,7 @@ function Profile(props) {
       {showAccounts ? AccountsHeader() : EstimatedHeader()}
       <Button
         onClick={() => setShowAccounts(!showAccounts)}
+        primary
         size="tiny"
         style={{ float: "right" }}
       >
