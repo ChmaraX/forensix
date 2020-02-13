@@ -22,9 +22,9 @@ router.get("/history/classify", async (req, res) => {
 router.get("/history/activity", async (req, res) => {
   try {
     process.stdout.write(`[GET] ${req.path} ... `);
-    const activity = await getHistoryActivity();
+    const { all, byMonth, byDate } = await getHistoryActivity();
 
-    res.send({ activity });
+    res.send({ all, byMonth, byDate });
     console.log(chalk.green(" [ OK ]"));
   } catch (e) {
     console.log(e);

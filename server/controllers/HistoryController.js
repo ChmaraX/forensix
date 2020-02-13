@@ -1,4 +1,5 @@
 const getDbTable = require("./db_operations");
+const _ = require("lodash");
 
 const classifyUrls = async () => {
   const data = await getDbTable({
@@ -36,7 +37,36 @@ const getHistoryActivity = async () => {
     where: "urls.id = visits.url"
   });
 
-  return data;
+  let month = new Array();
+  month[0] = "Jan";
+  month[1] = "Feb";
+  month[2] = "Mar";
+  month[3] = "Apr";
+  month[4] = "May";
+  month[5] = "Jun";
+  month[6] = "Jul";
+  month[7] = "Aug";
+  month[8] = "Sep";
+  month[9] = "Oct";
+  month[10] = "Nov";
+  month[11] = "Dec";
+
+  data.results.some((e, i) => {
+    data.results[i].visit_date = e.visit_date.split(" ")[0];
+    data.results[i].visit_month = month[new Date(e.visit_date).getMonth()];
+  });
+
+  const byMonth = _.chain(data.results)
+    .groupBy("visit_month")
+    .map((value, key) => ({ month: key, visits: value.length }))
+    .value();
+
+  const byDate = _.chain(data.results)
+    .groupBy("visit_date")
+    .map((value, key) => ({ date: key, visits: value.length }))
+    .value();
+
+  return { all: data.results, byMonth, byDate };
 };
 
 module.exports = {

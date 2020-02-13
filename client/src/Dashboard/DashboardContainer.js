@@ -7,6 +7,7 @@ import axios from "axios";
 import SystemSpecs from "./Widgets/SystemSpecs/SystemSpecs";
 import RadarWidget from "./Widgets/RadarWidget/RadarWidget";
 import LoginPie from "./Widgets/LoginPie/LoginPie";
+import BrowsingActivty from "./Widgets/BrowsingActivity/BrowsingActivity";
 
 function DashboardContainer() {
   const [profile, setProfile] = useState();
@@ -14,6 +15,7 @@ function DashboardContainer() {
   const [systemSpecs, setSystemSpecs] = useState();
   const [classified, setClassified] = useState();
   const [credentials, setCredentials] = useState();
+  const [bActivity, setbActivity] = useState();
   const [loading, setLoading] = useState(true);
 
   function fetchData() {
@@ -35,6 +37,10 @@ function DashboardContainer() {
 
     let credentials = axios.get("/logindata/credentials").then(res => {
       setCredentials(res.data);
+    });
+
+    let bActivity = axios.get("/history/activity").then(res => {
+      setbActivity(res.data);
     });
 
     Promise.all([profile, accounts, systemSpecs]).then(() => {
@@ -72,10 +78,7 @@ function DashboardContainer() {
               <LoginPie credentials={credentials} />
             </Grid.Column>
             <Grid.Column>
-              <Segment>2</Segment>
-            </Grid.Column>
-            <Grid.Column>
-              <Segment>3</Segment>
+              <BrowsingActivty bActivity={bActivity} />
             </Grid.Column>
           </Grid.Row>
           <Grid.Row>
