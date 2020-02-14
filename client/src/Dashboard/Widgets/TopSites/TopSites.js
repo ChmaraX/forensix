@@ -4,7 +4,7 @@ import { Table, Segment, Header } from "semantic-ui-react";
 function TopSites(props) {
   return (
     <Segment padded raised color="blue">
-      <Header as="h1" content="Top Sites" />
+      <Header as="h1" content="Most visited sites" />
       <Table celled fixed>
         <Table.Header>
           <Table.Row>

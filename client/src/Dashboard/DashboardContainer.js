@@ -9,6 +9,7 @@ import RadarWidget from "./Widgets/RadarWidget/RadarWidget";
 import LoginPie from "./Widgets/LoginPie/LoginPie";
 import BrowsingActivty from "./Widgets/BrowsingActivity/BrowsingActivity";
 import TopSites from "./Widgets/TopSites/TopSites";
+import UserActivity from "./Widgets/UserActivity/UserActivity";
 
 function DashboardContainer() {
   const [profile, setProfile] = useState();
@@ -59,7 +60,7 @@ function DashboardContainer() {
   }, []);
 
   return (
-    <div>
+    <React.Fragment>
       <Sidemenu />
       <TopBar />
       <div style={{ margin: "30px 30px 30px 330px" }}>
@@ -92,14 +93,12 @@ function DashboardContainer() {
               <TopSites topSites={topSites} />
             </Grid.Column>
             <Grid.Column>
-              <Segment padded raised>
-                2
-              </Segment>
+              <UserActivity topSites={topSites} />
             </Grid.Column>
           </Grid.Row>
         </Grid>
       </div>
-    </div>
+    </React.Fragment>
   );
 }
 
