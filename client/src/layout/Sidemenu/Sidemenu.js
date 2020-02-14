@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Logo from "../../Logo/Logo";
+import Logo from "../../common/Logo/Logo";
 import "./Sidemenu.css";
 import { Icon } from "semantic-ui-react";
 

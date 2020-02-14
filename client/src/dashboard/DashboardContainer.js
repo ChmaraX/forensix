@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Grid, Segment } from "semantic-ui-react";
-import Sidemenu from "./Sidemenu/Sidemenu";
-import TopBar from "./TopBar/TopBar";
+import { Grid } from "semantic-ui-react";
+import Sidemenu from "../layout/Sidemenu/Sidemenu";
+import TopBar from "../layout/TopBar/TopBar";
 import Profile from "./Widgets/Profile/Profile";
 import axios from "axios";
 import SystemSpecs from "./Widgets/SystemSpecs/SystemSpecs";

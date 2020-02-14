@@ -1,7 +1,7 @@
 import React from "react";
-import Login from "./Login/Login";
-import VolumeMenu from "./VolumeMenu/VolumeMenu";
-import DashboardContainer from "./Dashboard/DashboardContainer";
+import Login from "./login/Login";
+import VolumeMenu from "./ volumeMenu/VolumeMenu";
+import DashboardContainer from "./dashboard/DashboardContainer";
 
 function App() {
   return <DashboardContainer />;

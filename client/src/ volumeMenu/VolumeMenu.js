@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import CenteredWrapper from "../common/CenteredWrapper/CenteredWrapper";
+import CenteredWrapper from "../layout/CenteredWrapper/CenteredWrapper";
 import { Segment, Divider, Button } from "semantic-ui-react";
-import Logo from "../Logo/Logo";
+import Logo from "../common/Logo/Logo";
 import "./VolumeMenu.css";
 import Volume from "./Volume";
 import axios from "axios";
