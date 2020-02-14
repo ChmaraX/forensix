@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Image, Icon, Loader } from "semantic-ui-react";
+import { Image, Icon, Loader, Dropdown } from "semantic-ui-react";
 import "./TopBar.css";
 import axios from "axios";
+import { useHistory } from "react-router-dom";
 
 function TopBar() {
   const [status, setStatus] = useState();
   const [fetching, setFetching] = useState(true);
   const [volume, setVolume] = useState();
+  const history = useHistory();
 
   useEffect(() => {
     axios.get("/volumes/verify").then(res => {
@@ -39,7 +41,11 @@ function TopBar() {
         </p>
       </div>
       <div className="avatar">
-        <b>Adam Chmara </b>
+        <Dropdown text="Adam Chmara">
+          <Dropdown.Menu>
+            <Dropdown.Item text="Logout" onClick={() => history.push("/")} />
+          </Dropdown.Menu>
+        </Dropdown>
         <Image
           src="https://react.semantic-ui.com/images/avatar/small/elliot.jpg"
           avatar

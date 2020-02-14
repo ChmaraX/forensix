@@ -3,6 +3,7 @@ import "./Login.css";
 import { Segment, Divider, Button, Form, Input } from "semantic-ui-react";
 import Logo from "../common/Logo/Logo";
 import CenteredWrapper from "../layout/CenteredWrapper/CenteredWrapper";
+import { Link } from "react-router-dom";
 
 function Login() {
   return (
@@ -12,14 +13,15 @@ function Login() {
           <Logo />
           <br />
           <p>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer
-            convallis ex sit amet risus lobortis scelerisque.
+            Bachelor thesis project by Adam Chmara <br />
+            Slovak University of Technology in Bratislava <br />
+            Faculty of Informatics and Information Technologies
           </p>
           <Divider horizontal inverted section>
             Don't have an account yet?
           </Divider>
           <Button inverted size="big">
-            Sign Up
+            Click to login
           </Button>
         </div>
       </Segment>
@@ -36,9 +38,11 @@ function Login() {
             <Input icon="key" placeholder="******" />
           </Form.Field>
           <br />
-          <Button fluid size="big" type="submit" className="login-button">
-            Sign In
-          </Button>
+          <Link to="/volumes">
+            <Button fluid size="big" type="submit" className="login-button">
+              Sign In
+            </Button>
+          </Link>
         </Form>
       </Segment>
     </CenteredWrapper>

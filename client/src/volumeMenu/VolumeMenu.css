@@ -11,7 +11,8 @@
 .volume-box {
   height: 150px;
   width: 100% !important;
-  margin-bottom: 10px;
+  margin-bottom: 10px !important;
+  margin-top: 20px !important;
   text-align: left;
   transition: all 0.5s ease-in-out;
   border-left: 20px solid #306bac !important;

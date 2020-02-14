@@ -15,6 +15,7 @@ function VolumeMenu() {
     axios.get("/volumes").then(res => {
       setVolumeInfo(res.data);
     });
+    verifyIntegrity();
   }, []);
 
   function verifyIntegrity() {
