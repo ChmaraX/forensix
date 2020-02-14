@@ -1,5 +1,14 @@
 import React from "react";
-import { Table, Segment, Header } from "semantic-ui-react";
+import { Table, Segment, Header, Placeholder } from "semantic-ui-react";
+
+const PlaceholderRow = () => (
+  <Placeholder fluid>
+    <Placeholder.Paragraph>
+      <Placeholder.Line />
+      <Placeholder.Line />
+    </Placeholder.Paragraph>
+  </Placeholder>
+);
 
 function TopSites(props) {
   return (
@@ -20,7 +29,14 @@ function TopSites(props) {
               <Table.Cell>{title}</Table.Cell>
               <Table.Cell>{url}</Table.Cell>
             </Table.Row>
-          ))}
+          )) ||
+            [...Array(10).keys()].map(() => (
+              <Table.Row>
+                <Table.Cell>{PlaceholderRow()}</Table.Cell>
+                <Table.Cell>{PlaceholderRow()}</Table.Cell>
+                <Table.Cell>{PlaceholderRow()}</Table.Cell>
+              </Table.Row>
+            ))}
         </Table.Body>
       </Table>
     </Segment>

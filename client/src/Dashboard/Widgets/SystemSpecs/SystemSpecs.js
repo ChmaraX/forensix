@@ -6,7 +6,9 @@ function SystemSpecs(props) {
     <React.Fragment>
       <Segment raised style={{ textAlign: "center" }} color="blue">
         <Statistic size="tiny" horizontal color="blue">
-          <Statistic.Value>{props.systemSpecs?.chromeVersion}</Statistic.Value>
+          <Statistic.Value>
+            {props.systemSpecs?.chromeVersion || "Unknown"}
+          </Statistic.Value>
           <Statistic.Label>Chrome Version</Statistic.Label>
         </Statistic>
       </Segment>
@@ -14,7 +16,8 @@ function SystemSpecs(props) {
         <Statistic.Group size="mini" widths={2} color="blue">
           <Statistic>
             <Statistic.Value>
-              <Icon name={props.systemSpecs?.os} /> {props.systemSpecs?.os}
+              <Icon name={props.systemSpecs?.os} />{" "}
+              {props.systemSpecs?.os || "Unknown"}
             </Statistic.Value>
             <Statistic.Label>operating system</Statistic.Label>
           </Statistic>
