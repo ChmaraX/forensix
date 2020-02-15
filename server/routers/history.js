@@ -2,7 +2,8 @@ const express = require("express");
 const router = new express.Router();
 const {
   classifyUrls,
-  getHistoryActivity
+  getHistoryActivity,
+  getHistory
 } = require("../controllers/HistoryController");
 const chalk = require("chalk");
 
@@ -25,6 +26,19 @@ router.get("/history/activity", async (req, res) => {
     const { all, byMonth, byDate } = await getHistoryActivity();
 
     res.send({ all, byMonth, byDate });
+    console.log(chalk.green(" [ OK ]"));
+  } catch (e) {
+    console.log(e);
+    res.status(500).send();
+  }
+});
+
+router.get("/history", async (req, res) => {
+  try {
+    process.stdout.write(`[GET] ${req.path} ... `);
+    const data = await getHistory();
+
+    res.send(data);
     console.log(chalk.green(" [ OK ]"));
   } catch (e) {
     console.log(e);

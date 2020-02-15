@@ -69,7 +69,41 @@ const getHistoryActivity = async () => {
   return { all: data.results, byMonth, byDate };
 };
 
+const TRANSITIONS = [
+  "link",
+  "typed",
+  "auto_bookmark",
+  "auto_subframe",
+  "manual_subframe",
+  "generated",
+  "auto_toplevel",
+  "form_submit",
+  "reload",
+  "keyword",
+  "keyword_generated"
+];
+
+const getHistory = async () => {
+  const data = await getDbTable({
+    db_name: "History",
+    row:
+      "urls.url, urls.title, urls.visit_count, urls.typed_count, datetime((urls.last_visit_time/1000000)-11644473600, 'unixepoch', 'localtime') AS last_visit_time, datetime((visits.visit_time/1000000)-11644473600, 'unixepoch', 'localtime') AS visit_time, visits.from_visit, (visits.visit_duration/1000000) as visit_duration, visits.transition",
+    table: "urls, visits",
+    where: "urls.id = visits.url"
+  });
+
+  const history = data.results.map(record => {
+    return {
+      ...record,
+      transition: TRANSITIONS[("0x" + record.transition.toString(16)) & 0xff]
+    };
+  });
+
+  return history;
+};
+
 module.exports = {
   classifyUrls,
-  getHistoryActivity
+  getHistoryActivity,
+  getHistory
 };
