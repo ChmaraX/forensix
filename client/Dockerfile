@@ -1,8 +1,5 @@
 FROM node:10 
 
-# RUN apt-get update || : && apt-get install python -y
-# RUN apt-get install python3-pip
-
 # Create app directory
 WORKDIR /app
 
@@ -13,5 +10,5 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 3001
-CMD [ "npm", "start" ]
+EXPOSE 3000
+CMD [ "npm", "start"]

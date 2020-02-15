@@ -30,7 +30,7 @@ const getVolumeInfo = () => {
 
 const setVolumePath = () => {
   if (process.env.DEV) {
-    process.env.VOLUME_PATH = process.env.PWD + "/../data";
+    process.env.VOLUME_PATH = process.env.PWD + "/../data1";
   } else {
     process.env.VOLUME_PATH = "./data";
   }

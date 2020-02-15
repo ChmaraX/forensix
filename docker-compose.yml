@@ -9,7 +9,7 @@ services:
     container_name: forensix-server
     volumes:
       - type: bind
-        source: ./data
+        source: ./data2
         target: /app/data
         read_only: true
     ports:
@@ -18,6 +18,18 @@ services:
       - mongodb
     depends_on:
       - mongodb
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    image: forensix-client-image
+    container_name: forensix-client
+    ports:
+      - "3000:3000"
+    links:
+      - server
+    depends_on:
+      - server
   mongodb:
     image: mongo:latest
     container_name: "forensix-mongodb"
