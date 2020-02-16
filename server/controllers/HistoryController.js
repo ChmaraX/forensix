@@ -83,6 +83,20 @@ const TRANSITIONS = [
   "keyword_generated"
 ];
 
+const QUALIFIERS = {
+  0x01000000: "FORWARD_BACK",
+  0x02000000: "FROM_ADDRESS_BAR",
+  0x04000000: "HOME_PAGE",
+  0x10000000: "CHAIN_START",
+  0x20000000: "CHAIN_END",
+  0x40000000: "CLIENT_REDIRECT",
+  0x80000000: "SERVER_REDIRECT",
+  0xc0000000: "IS_REDIRECT_MASK"
+};
+
+const QUAL_MASK = 0xffffff00;
+const TRANS_MASK = 0xff;
+
 const getHistory = async () => {
   const data = await getDbTable({
     db_name: "History",
@@ -95,7 +109,8 @@ const getHistory = async () => {
   const history = data.results.map(record => {
     return {
       ...record,
-      transition: TRANSITIONS[("0x" + record.transition.toString(16)) & 0xff]
+      transition:
+        TRANSITIONS[("0x" + record.transition.toString(16)) & TRANS_MASK]
     };
   });
 
