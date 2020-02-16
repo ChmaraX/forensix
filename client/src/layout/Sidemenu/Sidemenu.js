@@ -2,15 +2,18 @@ import React, { useState } from "react";
 import Logo from "../../common/Logo/Logo";
 import "./Sidemenu.css";
 import { Icon, Divider } from "semantic-ui-react";
+import { Link, withRouter } from "react-router-dom";
 
 const nav = [
   {
     title: "Dashboard",
-    icon: "dashboard"
+    icon: "dashboard",
+    path: "/dashboard"
   },
   {
     title: "History",
-    icon: "history"
+    icon: "history",
+    path: "/history"
   },
   {
     title: "Login Data",
@@ -49,8 +52,13 @@ const navAlt = [
   }
 ];
 
-function Sidemenu() {
+function Sidemenu(props) {
   const [selected, setSelected] = useState(0);
+
+  function selectItem(item) {
+    setSelected(item.title);
+    props.history.push(item.path);
+  }
 
   return (
     <div className="sidemenu">
@@ -64,34 +72,32 @@ function Sidemenu() {
         <Divider horizontal inverted>
           Navigation
         </Divider>{" "}
-        {nav.map((el, i) => (
+        {nav.map(item => (
           <div
-            key={i}
-            onClick={() => setSelected(i)}
-            className={`item ${selected === i ? "selected" : null}`}
+            key={item}
+            onClick={() => selectItem(item)}
+            className={`item ${selected === item.title ? "selected" : null}`}
           >
             <p>
-              <Icon name={el.icon} style={{ marginRight: "20px" }} />
+              <Icon name={item.icon} style={{ marginRight: "20px" }} />
               &nbsp;
-              {el.title}
+              {item.title}
             </p>
           </div>
         ))}
         <Divider horizontal inverted>
           More
         </Divider>
-        {navAlt.map((el, i) => (
+        {navAlt.map(item => (
           <div
-            key={i + nav.length}
-            onClick={() => setSelected(i + nav.length)}
-            className={`item ${
-              selected === i + nav.length ? "selected" : null
-            }`}
+            key={item}
+            onClick={() => selectItem(item)}
+            className={`item ${selected === item.title ? "selected" : null}`}
           >
             <p>
-              <Icon name={el.icon} style={{ marginRight: "20px" }} />
+              <Icon name={item.icon} style={{ marginRight: "20px" }} />
               &nbsp;
-              {el.title}
+              {item.title}
             </p>
           </div>
         ))}
@@ -100,4 +106,4 @@ function Sidemenu() {
   );
 }
 
-export default Sidemenu;
+export default withRouter(Sidemenu);
