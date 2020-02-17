@@ -3,7 +3,18 @@ import axios from "axios";
 import MaterialTable from "material-table";
 import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
 import { MuiThemeProvider, createMuiTheme } from "@material-ui/core";
-import { Header, Modal, Button, Icon } from "semantic-ui-react";
+import { Header, Modal, Button, Icon, Segment, Grid } from "semantic-ui-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from "recharts";
+import BrowsingActivty from "../dashboard/Widgets/BrowsingActivity/BrowsingActivity";
+const _ = require("lodash");
 
 const theme = createMuiTheme({
   palette: {
@@ -18,13 +29,24 @@ const theme = createMuiTheme({
 
 function HistoryContainer() {
   const [history, setHistory] = useState();
+  const [bActivity, setbActivity] = useState();
+  const [avgDurations, setAvgDurations] = useState();
   const [showModal, setShowModal] = useState({
     show: false,
     data: {}
   });
+
   function fetchData() {
     let history = axios.get("/history").then(res => {
       setHistory(res.data);
+    });
+
+    let avgDurations = axios.get("/history/avg").then(res => {
+      setAvgDurations(res.data);
+    });
+
+    let bActivity = axios.get("/history/activity").then(res => {
+      setbActivity(res.data);
     });
   }
 
@@ -72,6 +94,39 @@ function HistoryContainer() {
 
   return (
     <ContentWrapper>
+      <Grid columns="equal" stretched style={{ paddingBottom: "30px" }}>
+        <Grid.Row>
+          <Grid.Column>
+            <Segment color="blue">
+              <Header as="h1">
+                Avg. visit time duration for 5 most common sites
+              </Header>
+              <ResponsiveContainer height={200}>
+                <BarChart
+                  data={_.orderBy(
+                    avgDurations,
+                    ["avg_visit_duration"],
+                    ["desc"]
+                  ).slice(0, 5)}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <YAxis dx={-20} />
+                  <XAxis dataKey="url" />
+                  <Tooltip />
+                  <Bar
+                    dataKey="avg_visit_duration"
+                    barSize={40}
+                    fill="#413ea0"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </Segment>
+          </Grid.Column>
+          <Grid.Column>
+            <BrowsingActivty bActivity={bActivity} onlyHeatmap={true} />
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
       {SaveEvidenceModal()}
       <MuiThemeProvider theme={theme}>
         <MaterialTable

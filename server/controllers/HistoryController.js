@@ -1,5 +1,4 @@
 const getDbTable = require("./db_operations");
-const getTopSites = require("./TopSitesController");
 const _ = require("lodash");
 const parse = require("url-parse");
 

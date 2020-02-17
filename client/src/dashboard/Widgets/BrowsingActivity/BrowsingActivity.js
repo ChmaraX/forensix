@@ -73,6 +73,7 @@ function BrowsingActivty(props) {
         }`}
       />
       <Button
+        disabled={props.onlyHeatmap}
         primary
         onClick={() => setShowHeatmap(!showHeatmap)}
         style={{ float: "right" }}
