@@ -3,8 +3,10 @@ const router = new express.Router();
 const {
   classifyUrls,
   getHistoryActivity,
-  getHistory
+  getHistory,
+  getAvgDuration
 } = require("../controllers/HistoryController");
+const getTopSites = require("../controllers/TopSitesController");
 const chalk = require("chalk");
 
 router.get("/history/classify", async (req, res) => {
@@ -37,6 +39,20 @@ router.get("/history", async (req, res) => {
   try {
     process.stdout.write(`[GET] ${req.path} ... `);
     const data = await getHistory();
+
+    res.send(data);
+    console.log(chalk.green(" [ OK ]"));
+  } catch (e) {
+    console.log(e);
+    res.status(500).send();
+  }
+});
+
+router.get("/history/avg", async (req, res) => {
+  try {
+    process.stdout.write(`[GET] ${req.path} ... `);
+    const topSites = await getTopSites();
+    const data = await getAvgDuration(topSites);
 
     res.send(data);
     console.log(chalk.green(" [ OK ]"));

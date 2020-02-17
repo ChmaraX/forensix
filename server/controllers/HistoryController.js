@@ -1,5 +1,7 @@
 const getDbTable = require("./db_operations");
+const getTopSites = require("./TopSitesController");
 const _ = require("lodash");
+const parse = require("url-parse");
 
 const classifyUrls = async () => {
   const data = await getDbTable({
@@ -117,8 +119,39 @@ const getHistory = async () => {
   return history;
 };
 
+const getAvgDuration = async urls => {
+  let avgDurations = [];
+
+  return new Promise((resolve, reject) => {
+    urls.map(site => {
+      getDbTable({
+        db_name: "History",
+        row:
+          "urls.url, AVG(visits.visit_duration/1000000) as avg_visit_duration",
+        table: "urls, visits",
+        where: `urls.id = visits.url AND visits.visit_duration > 0 AND urls.url LIKE '%${
+          parse(site.url).hostname
+        }%' `
+      }).then(data => {
+        avgDurations.push(data.results[0]);
+
+        if (avgDurations.length === urls.length) {
+          avgDurations = avgDurations.map(site => {
+            return {
+              url: parse(site.url).hostname,
+              avg_visit_duration: Math.round(site.avg_visit_duration)
+            };
+          });
+          resolve(avgDurations);
+        }
+      });
+    });
+  });
+};
+
 module.exports = {
   classifyUrls,
   getHistoryActivity,
-  getHistory
+  getHistory,
+  getAvgDuration
 };
