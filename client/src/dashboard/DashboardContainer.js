@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { Grid } from "semantic-ui-react";
-import Sidemenu from "../layout/Sidemenu/Sidemenu";
-import TopBar from "../layout/TopBar/TopBar";
 import Profile from "./Widgets/Profile/Profile";
 import axios from "axios";
 import SystemSpecs from "./Widgets/SystemSpecs/SystemSpecs";
@@ -10,6 +8,7 @@ import LoginPie from "./Widgets/LoginPie/LoginPie";
 import BrowsingActivty from "./Widgets/BrowsingActivity/BrowsingActivity";
 import TopSites from "./Widgets/TopSites/TopSites";
 import UserActivity from "./Widgets/UserActivity/UserActivity";
+import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
 
 function DashboardContainer() {
   const [profile, setProfile] = useState();
@@ -60,45 +59,37 @@ function DashboardContainer() {
   }, []);
 
   return (
-    <React.Fragment>
-      <Sidemenu />
-      <TopBar />
-      <div style={{ margin: "30px 30px 30px 330px" }}>
-        <Grid columns="equal" stretched>
-          <Grid.Row>
-            <Grid.Column width={6}>
-              <Profile
-                profile={profile}
-                accounts={accounts}
-                loading={loading}
-              />
-            </Grid.Column>
-            <Grid.Column>
-              <SystemSpecs systemSpecs={systemSpecs} />
-            </Grid.Column>
-            <Grid.Column width={6}>
-              <RadarWidget classified={classified} />
-            </Grid.Column>
-          </Grid.Row>
-          <Grid.Row>
-            <Grid.Column width={6}>
-              <LoginPie credentials={credentials} />
-            </Grid.Column>
-            <Grid.Column>
-              <BrowsingActivty bActivity={bActivity} />
-            </Grid.Column>
-          </Grid.Row>
-          <Grid.Row>
-            <Grid.Column>
-              <TopSites topSites={topSites} />
-            </Grid.Column>
-            <Grid.Column>
-              <UserActivity topSites={topSites} />
-            </Grid.Column>
-          </Grid.Row>
-        </Grid>
-      </div>
-    </React.Fragment>
+    <ContentWrapper>
+      <Grid columns="equal" stretched>
+        <Grid.Row>
+          <Grid.Column width={6}>
+            <Profile profile={profile} accounts={accounts} loading={loading} />
+          </Grid.Column>
+          <Grid.Column>
+            <SystemSpecs systemSpecs={systemSpecs} />
+          </Grid.Column>
+          <Grid.Column width={6}>
+            <RadarWidget classified={classified} />
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={6}>
+            <LoginPie credentials={credentials} />
+          </Grid.Column>
+          <Grid.Column>
+            <BrowsingActivty bActivity={bActivity} />
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column>
+            <TopSites topSites={topSites} />
+          </Grid.Column>
+          <Grid.Column>
+            <UserActivity topSites={topSites} />
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+    </ContentWrapper>
   );
 }
 
