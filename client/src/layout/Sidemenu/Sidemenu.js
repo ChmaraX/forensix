@@ -25,7 +25,8 @@ const nav = [
   },
   {
     title: "Downloads",
-    icon: "cloud download"
+    icon: "cloud download",
+    path: "/downloads"
   },
   {
     title: "Bookmarks",

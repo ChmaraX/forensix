@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
-import { Header, Modal, Button, Icon, Grid } from "semantic-ui-react";
+import { Grid } from "semantic-ui-react";
 import BrowsingActivty from "../dashboard/components/BrowsingActivity/BrowsingActivity";
 import HistoryTable from "./components/HistoryTable/HistoryTable";
 import AvgVisitChart from "./components/AvgVisitChart/AvgVisitChart";
+import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
 
 function HistoryContainer() {
   const [history, setHistory] = useState();
@@ -33,44 +34,6 @@ function HistoryContainer() {
     fetchData();
   }, []);
 
-  function saveEvidence() {
-    //todo hook to db
-    setShowModal({ show: false, data: {} });
-  }
-
-  const SaveEvidenceModal = () => (
-    <Modal
-      open={showModal.show}
-      onClose={() => setShowModal({ show: false, data: {} })}
-      basic
-      size="small"
-    >
-      <Header
-        icon="archive"
-        content="Save selected history records as potential evidence?"
-      />
-      <Modal.Content>
-        <p>
-          Selected records will be stored in shared database with other
-          investigators.
-        </p>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button
-          onClick={() => setShowModal({ show: false, data: {} })}
-          basic
-          color="red"
-          inverted
-        >
-          <Icon name="remove" /> No
-        </Button>
-        <Button onClick={() => saveEvidence()} color="green" inverted>
-          <Icon name="checkmark" /> Yes
-        </Button>
-      </Modal.Actions>
-    </Modal>
-  );
-
   return (
     <ContentWrapper>
       <Grid columns="equal" stretched style={{ paddingBottom: "30px" }}>
@@ -83,7 +46,7 @@ function HistoryContainer() {
           </Grid.Column>
         </Grid.Row>
       </Grid>
-      {SaveEvidenceModal()}
+      <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} />
       <HistoryTable history={history} setShowModal={setShowModal} />
     </ContentWrapper>
   );
