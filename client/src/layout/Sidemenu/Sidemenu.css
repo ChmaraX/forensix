@@ -28,7 +28,6 @@
 
 .sidemenu .nav .item:hover {
   padding-left: 20px;
-  border-left: 10px solid #6f9ceb;
   background-color: rgba(255, 255, 255, 0.05);
   cursor: pointer;
 }

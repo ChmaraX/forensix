@@ -54,10 +54,7 @@ const navAlt = [
 ];
 
 function Sidemenu(props) {
-  const [selected, setSelected] = useState(0);
-
   function selectItem(item) {
-    setSelected(item.title);
     props.history.push(item.path);
   }
 
@@ -77,7 +74,9 @@ function Sidemenu(props) {
           <div
             key={item}
             onClick={() => selectItem(item)}
-            className={`item ${selected === item.title ? "selected" : null}`}
+            className={`item ${
+              props.history.location.pathname === item.path ? "selected" : null
+            }`}
           >
             <p>
               <Icon name={item.icon} style={{ marginRight: "20px" }} />
@@ -93,7 +92,9 @@ function Sidemenu(props) {
           <div
             key={item}
             onClick={() => selectItem(item)}
-            className={`item ${selected === item.title ? "selected" : null}`}
+            className={`item ${
+              props.history.location.pathname === item.path ? "selected" : null
+            }`}
           >
             <p>
               <Icon name={item.icon} style={{ marginRight: "20px" }} />
