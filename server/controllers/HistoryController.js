@@ -148,9 +148,101 @@ const getAvgDuration = async urls => {
   });
 };
 
+const INTERRUPT_REASON = [
+  "No Interrupt",
+  "File Error",
+  "Access Denied",
+  "Disk Full",
+  "Path Too Long",
+  "File Too Large",
+  "Virus",
+  "Temporary Problem",
+  "Blocked",
+  "Security Check Failed",
+  "Resume Error",
+  "Network Error",
+  "Operation Timed Out",
+  "Connection Lost",
+  "Server Down",
+  "Server Error",
+  "Range Request Error",
+  "Server Precondition Error",
+  "Unable to get file",
+  "Server Unauthorized",
+  "Server Certificate Problem",
+  "Server Access Forbidden",
+  "Server Unreachable",
+  "Content Length Mismatch",
+  "Cross Origin Redirect",
+  "Cancelled",
+  "Browser Shutdown",
+  "Browser Crashed"
+];
+
+const STATE = [
+  "In Progress",
+  "Complete",
+  "Cancelled",
+  "Interrupted",
+  "Interrupted"
+];
+
+const DANGER_TYPE = [
+  "Not Dangerous",
+  "Dangerous",
+  "Dangerous URL",
+  "Dangerous Content",
+  "Content May Be Malicious",
+  "Uncommon Content",
+  "Dangerous But User Validated",
+  "Dangerous Host",
+  "Potentially Unwanted",
+  "Whitelisted by Policy"
+];
+
+const getDownloads = async () => {
+  const data = await getDbTable({
+    db_name: "History",
+    row:
+      "*, datetime((downloads.start_time/1000000)-11644473600, 'unixepoch', 'localtime') as start_time, datetime((downloads.end_time/1000000)-11644473600, 'unixepoch', 'localtime') as end_time",
+    table: "downloads"
+  });
+
+  const downloads = data.results.map(record => {
+    return {
+      ...record,
+      state: STATE[record.state],
+      interrupt_reason: INTERRUPT_REASON[record.interrupt_reason],
+      danger_type: DANGER_TYPE[record.danger_type]
+    };
+  });
+
+  return downloads;
+};
+
+const getDownloadsMeta = async () => {
+  let downloads = await getDownloads();
+
+  const downloadDirs = downloads.map(record => {
+    return record.target_path.substr(0, record.target_path.lastIndexOf("/"));
+  });
+
+  const mostFreqDownloadDir = _.head(
+    _(downloadDirs)
+      .countBy()
+      .entries()
+      .maxBy(_.last)
+  );
+
+  const biggestFile = _.maxBy(downloads, "received_bytes");
+
+  return { mostFreqDownloadDir, biggestFiles };
+};
+
 module.exports = {
   classifyUrls,
   getHistoryActivity,
   getHistory,
-  getAvgDuration
+  getAvgDuration,
+  getDownloads
 };
