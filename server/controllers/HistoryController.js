@@ -236,7 +236,18 @@ const getDownloadsMeta = async () => {
 
   const biggestFile = _.maxBy(downloads, "received_bytes");
 
-  return { mostFreqDownloadDir, biggestFiles };
+  downloads.some((e, i) => {
+    downloads[i].download_date = e.start_time.split(" ")[0];
+  });
+
+  let byDate = _.chain(downloads)
+    .groupBy("download_date")
+    .map((value, key) => ({ date: key, visits: value.length }))
+    .value();
+
+  byDate = _.orderBy(byDate, ["visits"], ["desc"]);
+
+  return { mostFreqDownloadDir, biggestFile, byDate };
 };
 
 module.exports = {
@@ -244,5 +255,6 @@ module.exports = {
   getHistoryActivity,
   getHistory,
   getAvgDuration,
-  getDownloads
+  getDownloads,
+  getDownloadsMeta
 };

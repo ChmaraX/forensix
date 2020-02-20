@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Grid } from "semantic-ui-react";
-import Profile from "./Widgets/Profile/Profile";
+import Profile from "./components/Profile/Profile";
 import axios from "axios";
-import SystemSpecs from "./Widgets/SystemSpecs/SystemSpecs";
-import RadarWidget from "./Widgets/RadarWidget/RadarWidget";
-import LoginPie from "./Widgets/LoginPie/LoginPie";
-import BrowsingActivty from "./Widgets/BrowsingActivity/BrowsingActivity";
-import TopSites from "./Widgets/TopSites/TopSites";
-import UserActivity from "./Widgets/UserActivity/UserActivity";
+import SystemSpecs from "./components/SystemSpecs/SystemSpecs";
+import RadarWidget from "./components/RadarWidget/RadarWidget";
+import LoginPie from "./components/LoginPie/LoginPie";
+import BrowsingActivty from "./components/BrowsingActivity/BrowsingActivity";
+import TopSites from "./components/TopSites/TopSites";
+import UserActivity from "./components/UserActivity/UserActivity";
 import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
 
 function DashboardContainer() {

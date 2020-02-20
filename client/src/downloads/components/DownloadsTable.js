@@ -61,7 +61,7 @@ function DownloadsTable(props) {
           cellStyle: { overflow: "hidden" },
           searchFieldAlignment: "right",
           searchFieldStyle: { width: "500px" },
-          pageSize: 10
+          pageSize: 5
         }}
       />
     </MuiThemeProvider>
