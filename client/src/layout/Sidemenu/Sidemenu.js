@@ -17,7 +17,8 @@ const nav = [
   },
   {
     title: "Login Data",
-    icon: "key"
+    icon: "key",
+    path: "/logindata"
   },
   {
     title: "Web Data",

@@ -6,6 +6,7 @@ import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 import HistoryContainer from "./history/HistoryContainer";
 import DownloadsContainer from "./downloads/DownloadsContainer";
 import FaviconsContainer from "./favicons/FaviconsContainer";
+import LoginDataContainer from "./logindata/LoginDataContainer";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/history" component={HistoryContainer} />
         <Route path="/downloads" component={DownloadsContainer} />
         <Route path="/favicons" component={FaviconsContainer} />
+        <Route path="/logindata" component={LoginDataContainer} />
         <Route path="/" component={Login} />
       </Switch>
     </Router>
