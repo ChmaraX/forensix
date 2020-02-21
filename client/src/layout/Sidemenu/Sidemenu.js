@@ -34,7 +34,8 @@ const nav = [
   },
   {
     title: "Favicons",
-    icon: "image"
+    icon: "image",
+    path: "/favicons"
   },
   {
     title: "Cache",
