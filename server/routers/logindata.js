@@ -1,21 +1,19 @@
 const express = require("express");
 const router = new express.Router();
-const getDbTable = require("../controllers/db_operations");
-const { getLoginCredentials } = require("../controllers/LoginDataController");
+const {
+  getLoginCredentials,
+  getLoginData
+} = require("../controllers/LoginDataController");
 
 const chalk = require("chalk");
 
-router.get("/logindata/table/:table", async (req, res) => {
+router.get("/logindata", async (req, res) => {
   try {
-    process.stdout.write(`[GET] ${req.path} ... `);
-    const data = await getDbTable({
-      db_name: "Login Data",
-      table: req.params.table,
-      limit: req.query.limit
-    });
+    process.stdout.write(`\n[GET] ${req.path} ... `);
+    const data = await getLoginData();
 
     res.send(data);
-    console.log(data.results.length + chalk.green(" [ OK ]"));
+    console.log(chalk.green(" [ OK ]"));
   } catch (e) {
     res.status(500).send();
   }

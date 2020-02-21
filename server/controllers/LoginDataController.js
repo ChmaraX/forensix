@@ -41,6 +41,18 @@ const getLoginCredentials = async () => {
   };
 };
 
+const getLoginData = async () => {
+  const loginData = await getDbTable({
+    db_name: "Login Data",
+    table: "logins",
+    row:
+      "*, hex(password_value) AS password_value, datetime((date_created/1000000)-11644473600, 'unixepoch', 'localtime') AS date_created, datetime((date_last_used/1000000)-11644473600, 'unixepoch', 'localtime') AS date_last_used"
+  });
+
+  return loginData.results;
+};
+
 module.exports = {
-  getLoginCredentials
+  getLoginCredentials,
+  getLoginData
 };
