@@ -101,6 +101,7 @@ const EstimatedContent = profile => (
       <b>address:</b> {profile.probableAddress}
       <br />
       <b>city:</b> {profile.probableCity} <br />
+      <b>phone:</b> {profile.phone} <br />
     </p>
   </div>
 );

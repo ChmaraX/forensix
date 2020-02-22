@@ -3,7 +3,14 @@ import axios from "axios";
 import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
 import WebDataTable from "./components/WebDataTable";
 import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
-import { Statistic, Grid, Segment, List } from "semantic-ui-react";
+import {
+  Statistic,
+  Grid,
+  Segment,
+  List,
+  Image,
+  Header
+} from "semantic-ui-react";
 import GoogleMaps from "./components/GoogleMaps";
 
 function WebDataContainer() {
@@ -61,15 +68,35 @@ function WebDataContainer() {
             <GoogleMaps />
           </Grid.Column>
           <Grid.Column>
-            <Segment padded color="blue" textAlign="center">
-              <List>
-                <List.Item>Test</List.Item>
-              </List>
+            <Segment padded color="blue">
+              <Grid columns={2}>
+                <Grid.Column>
+                  <Header as="h4">Possible cities and ZIP codes</Header>
+                  <List
+                    celled
+                    style={{ overflowY: "scroll", maxHeight: "200px" }}
+                  >
+                    {geo?.cities.map(city => {
+                      return <List.Item>{city}</List.Item>;
+                    })}
+                  </List>
+                </Grid.Column>
+                <Grid.Column>
+                  <Header as="h4">Possible addresses</Header>
+                  <List
+                    celled
+                    style={{ overflowY: "scroll", maxHeight: "200px" }}
+                  >
+                    {geo?.addresses.map(address => {
+                      return <List.Item>{address}</List.Item>;
+                    })}
+                  </List>
+                </Grid.Column>
+              </Grid>
             </Segment>
           </Grid.Column>
         </Grid.Row>
       </Grid>
-
       <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} />
       <WebDataTable autofills={autofills} setShowModal={setShowModal} />
     </ContentWrapper>

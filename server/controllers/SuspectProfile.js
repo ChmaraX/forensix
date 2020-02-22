@@ -44,7 +44,7 @@ const estimateNation = async () => {
   const data = findPhoneNumbers(await getAutofill());
   let country;
 
-  if (data.length < 1) {
+  if (data.phoneNums.length < 1) {
     const urls = await getDbTable({
       db_name: "History",
       table: "urls",
@@ -65,7 +65,7 @@ const estimateNation = async () => {
   } else {
     country = getCountry(
       getMostFrequent(
-        data.map(e => {
+        data.phoneNums.map(e => {
           return e.parsedNum.country;
         })
       )

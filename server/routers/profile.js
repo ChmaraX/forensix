@@ -25,6 +25,7 @@ router.get("/profile/estimate", async (req, res) => {
     const { probableAddress, probableCity } = findGeolocationData(
       await getAutofill()
     );
+    const phone = findPhoneNumbers(await getAutofill()).probableNum;
 
     res.send({
       fullname,
@@ -32,7 +33,8 @@ router.get("/profile/estimate", async (req, res) => {
       birthday,
       probableAddress,
       probableCity,
-      avatars
+      avatars,
+      phone
     });
     console.log(chalk.green(" [ OK ]"));
   } catch (e) {

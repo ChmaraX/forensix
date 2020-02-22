@@ -22,7 +22,8 @@ const nav = [
   },
   {
     title: "Web Data",
-    icon: "globe"
+    icon: "globe",
+    path: "/webdata"
   },
   {
     title: "Downloads",
