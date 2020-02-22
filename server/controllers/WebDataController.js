@@ -27,7 +27,19 @@ const findPhoneNumbers = data => {
     return nums;
   }, []);
 
-  return phoneNums;
+  const probableNum = _.head(
+    _(
+      phoneNums.reduce((nums, e) => {
+        nums.push(e.phoneNum);
+        return nums;
+      }, [])
+    )
+      .countBy()
+      .entries()
+      .maxBy(_.last)
+  );
+
+  return { phoneNums, probableNum };
 };
 
 const findGeolocationData = data => {
