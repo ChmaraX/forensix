@@ -8,6 +8,11 @@ const {
   getAccounts,
   getBirthday
 } = require("../controllers/SuspectProfile");
+const {
+  getAutofill,
+  findPhoneNumbers,
+  findGeolocationData
+} = require("../controllers/WebDataController");
 const chalk = require("chalk");
 
 router.get("/profile/estimate", async (req, res) => {
@@ -17,15 +22,16 @@ router.get("/profile/estimate", async (req, res) => {
     const nation = await estimateNation();
     const avatars = getAvatars();
     const birthday = getBirthday();
-    const address = "not found";
-    const credit_card = "not found";
+    const { probableAddress, probableCity } = findGeolocationData(
+      await getAutofill()
+    );
 
     res.send({
       fullname,
       nation,
       birthday,
-      address,
-      credit_card,
+      probableAddress,
+      probableCity,
       avatars
     });
     console.log(chalk.green(" [ OK ]"));

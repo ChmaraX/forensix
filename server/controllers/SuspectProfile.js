@@ -1,4 +1,5 @@
 const { getLoginCredentials } = require("./LoginDataController");
+const { findPhoneNumbers, getAutofill } = require("./WebDataController");
 const _ = require("lodash");
 const getDbTable = require("./db_operations");
 const parse = require("url-parse");
@@ -40,22 +41,36 @@ const estimateFullname = async () => {
 };
 
 const estimateNation = async () => {
-  const urls = await getDbTable({
-    db_name: "History",
-    table: "urls",
-    row: "url"
-  });
+  const data = findPhoneNumbers(await getAutofill());
+  let country;
 
-  const tlds = urls.results.map(url => {
-    return parse(url.url)
-      .hostname.split(".")
-      .pop();
-  });
+  if (data.length < 1) {
+    const urls = await getDbTable({
+      db_name: "History",
+      table: "urls",
+      row: "url"
+    });
 
-  const tldCountries = tlds
-    .map(t => getCountry(t))
-    .filter(a => a !== undefined);
-  const country = getMostFrequent(tldCountries);
+    const tlds = urls.results.map(url => {
+      return parse(url.url)
+        .hostname.split(".")
+        .pop();
+    });
+
+    const tldCountries = tlds
+      .map(t => getCountry(t))
+      .filter(a => a !== undefined);
+
+    country = getMostFrequent(tldCountries);
+  } else {
+    country = getCountry(
+      getMostFrequent(
+        data.map(e => {
+          return e.parsedNum.country;
+        })
+      )
+    );
+  }
 
   return { country: country, tld: getTLD(country) };
 };

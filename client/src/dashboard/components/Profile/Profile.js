@@ -98,9 +98,9 @@ const EstimatedContent = profile => (
       <b>birthday:</b> {profile.birthday.birthyear} <br />
     </p>
     <p className="right">
-      <b>address:</b> {profile.address}
+      <b>address:</b> {profile.probableAddress}
       <br />
-      <b>credit card:</b> {profile.credit_card} <br />
+      <b>city:</b> {profile.probableCity} <br />
     </p>
   </div>
 );
