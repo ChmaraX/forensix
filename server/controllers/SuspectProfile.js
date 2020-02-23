@@ -80,14 +80,20 @@ const getAvatars = () => {
     process.env.VOLUME_PATH,
     "/Accounts/Avatar Images"
   );
-  const files = fs.readdirSync(directoryPath);
 
-  const avatars = files.map(file => {
-    const data = fs.readFileSync(path.join(directoryPath, file));
-    const base64Image = new Buffer(data, "binary").toString("base64");
+  let avatars = {};
 
-    return base64Image;
-  });
+  try {
+    const files = fs.readdirSync(directoryPath);
+    avatars = files.map(file => {
+      const data = fs.readFileSync(path.join(directoryPath, file));
+      const base64Image = new Buffer(data, "binary").toString("base64");
+
+      return base64Image;
+    });
+  } catch (e) {
+    console.log(e);
+  }
 
   return avatars;
 };

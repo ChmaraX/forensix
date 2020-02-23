@@ -33,9 +33,9 @@ function DashboardContainer() {
       setSystemSpecs(res.data.specs);
     });
 
-    // let classifiedUrls = axios.get("/history/classify").then(res => {
-    //   setClassified(res.data.classified_urls);
-    // });
+    let classifiedUrls = axios.get("/history/classify").then(res => {
+      setClassified(res.data.classified_urls);
+    });
 
     let credentials = axios.get("/logindata/credentials").then(res => {
       setCredentials(res.data);

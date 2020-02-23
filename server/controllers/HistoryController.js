@@ -9,7 +9,7 @@ const classifyUrls = async () => {
     row: "url"
   });
 
-  const urls = data.results;
+  const urls = data.results.slice(0, 100);
 
   return new Promise((resolve, reject) => {
     const spawn = require("child_process").spawn;
