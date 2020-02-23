@@ -1,5 +1,6 @@
 const { execSync } = require("child_process");
 const { hashElement } = require("folder-hash");
+const dirTree = require("directory-tree");
 const fs = require("fs");
 
 const setVolumeInfo = () => {
@@ -55,10 +56,19 @@ const generateChecksum = dir => {
 
 const compareChecksums = (sum1, sum2) => sum1 === sum2;
 
+const getVolumeDirTree = () => {
+  const tree = dirTree(process.env.VOLUME_PATH, {
+    exclude: [/Service Worker/, /Extensions/, /IndexedDB/, /Cache/]
+  });
+
+  return tree;
+};
+
 module.exports = {
   setVolumeInfo,
   setVolumePath,
   generateChecksum,
   compareChecksums,
-  getVolumeInfo
+  getVolumeInfo,
+  getVolumeDirTree
 };

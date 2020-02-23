@@ -4,7 +4,8 @@ const chalk = require("chalk");
 const {
   getVolumeInfo,
   generateChecksum,
-  compareChecksums
+  compareChecksums,
+  getVolumeDirTree
 } = require("../controllers/VolumesController");
 
 router.get("/volumes", async (req, res) => {
@@ -12,6 +13,16 @@ router.get("/volumes", async (req, res) => {
     const volume = getVolumeInfo();
 
     res.status(200).send(volume);
+  } catch (e) {
+    res.status(400).send(e);
+  }
+});
+
+router.get("/volumes/tree", async (req, res) => {
+  try {
+    const tree = getVolumeDirTree();
+
+    res.status(200).send(tree);
   } catch (e) {
     res.status(400).send(e);
   }
