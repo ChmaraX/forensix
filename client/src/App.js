@@ -8,6 +8,7 @@ import DownloadsContainer from "./downloads/DownloadsContainer";
 import FaviconsContainer from "./favicons/FaviconsContainer";
 import LoginDataContainer from "./logindata/LoginDataContainer";
 import WebDataContainer from "./webdata/WebDataContainer";
+import VolumesContainer from "./volumes/VolumesContainer";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/favicons" component={FaviconsContainer} />
         <Route path="/logindata" component={LoginDataContainer} />
         <Route path="/webdata" component={WebDataContainer} />
+        <Route path="/volume" component={VolumesContainer} />
         <Route path="/" component={Login} />
       </Switch>
     </Router>

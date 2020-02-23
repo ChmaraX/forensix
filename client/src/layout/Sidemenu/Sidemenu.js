@@ -48,7 +48,8 @@ const nav = [
 const navAlt = [
   {
     title: "Volume",
-    icon: "hdd"
+    icon: "hdd",
+    path: "/volume"
   },
   {
     title: "Database",
