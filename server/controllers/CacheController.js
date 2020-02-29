@@ -6,8 +6,9 @@ const anyBase = require("any-base");
 const hex2bin = anyBase(anyBase.HEX, anyBase.BIN);
 const bin2hex = anyBase(anyBase.BIN, anyBase.HEX);
 
-const INDEX_HEADER_LENGTH = 256;
-const LRU_LENGTH = 112;
+const INDEX_HEADER_LENGTH = 256 * 2;
+const LRU_LENGTH = 112 * 2;
+const ZERO_PADDING_LENGTH = 208 * 2;
 
 const hex_to_ascii = hexString => {
   var str = "";
@@ -27,7 +28,10 @@ const hex_to_ascii = hexString => {
 
 const getCacheFileType = binAddr => {
   let fileType = binAddr.substr(1, 3);
-  let fileNum = bin2hex(binAddr.substr(4, 28));
+
+  if (fileType === "0") {
+    var fileNum = bin2hex(binAddr.substr(4, 28));
+  }
 
   switch (fileType) {
     case "000":
@@ -76,8 +80,9 @@ const changeEndianness = string => {
 const getAddressesFromTable = indexTable => {
   let cacheAddrs = [];
   for (let i = 0; i < indexTable.length; i += 8) {
-    if (indexTable[i] !== "0" && indexTable[i + 1] !== "0") {
-      cacheAddrs.push(changeEndianness(indexTable.substr(i, 8)));
+    let entry = indexTable.substr(i, 8);
+    if (entry !== "00000000") {
+      cacheAddrs.push(changeEndianness(entry));
     }
   }
   return cacheAddrs;
@@ -85,27 +90,27 @@ const getAddressesFromTable = indexTable => {
 
 const parseIndexHeader = buff => {
   return {
-    signature: parseInt(buff.substr(0, 4), 16),
-    minorVersion: parseInt(buff.substr(4, 2), 16),
-    majorVersion: parseInt(buff.substr(6, 2), 16),
-    numberOfEntries: parseInt(buff.substr(8, 4), 16),
-    storedDataSize: parseInt(buff.substr(12, 4), 16),
-    lastCreatedFileNum: buff.substr(16, 4),
-    dirtyFlag: parseInt(buff.substr(20, 4), 16),
-    tableSize: parseInt(buff.substr(28, 4), 16),
-    creationTime: new Date(
-      parseInt(buff.substr(40, 8), 16) / 1000000 - 11644473600
+    signature: parseInt(buff.substr(0, 8), 16),
+    minorVersion: parseInt(buff.substr(8, 4), 16),
+    majorVersion: parseInt(buff.substr(12, 4), 16),
+    numberOfEntries: parseInt(changeEndianness(buff.substr(16, 8)), 16),
+    storedDataSize: parseInt(buff.substr(24, 8), 16),
+    lastCreatedFileNum: changeEndianness(buff.substr(32, 8)),
+    dirtyFlag: parseInt(buff.substr(40, 8), 16),
+    tableSize: parseInt(changeEndianness(buff.substr(56, 8)), 16),
+    creationTime: converWebkitTimestamp(
+      parseInt(changeEndianness(buff.substr(80, 16)), 16)
     )
   };
 };
 
 const parseLRU = buff => {
   return {
-    filledFlag: parseInt(buff.substr(8, 4), 16),
-    arrOfSizes: buff.substr(12, 20),
-    arrOfHeadAddr: buff.substr(32, 20),
-    arrOfTailAddr: buff.substr(52, 20),
-    transactionAddr: buff.substr(72, 4)
+    filledFlag: parseInt(buff.substr(16, 8), 16),
+    arrOfSizes: buff.substr(24, 40),
+    arrOfHeadAddr: buff.substr(64, 40),
+    arrOfTailAddr: buff.substr(104, 40),
+    transactionAddr: buff.substr(142, 8)
   };
 };
 
@@ -140,7 +145,7 @@ const getBlocksFromAddr = blockAddresses => {
   return blocks;
 };
 
-const getBlockAddrFromIndex = index => {
+const parseIndexFile = index => {
   const indexFile = fs.readFileSync(index);
   const buff = Buffer.from(indexFile, "ascii");
 
@@ -153,18 +158,22 @@ const getBlockAddrFromIndex = index => {
 
   const parsedIndexHeader = parseIndexHeader(indexHeader);
   const parsedLRU = parseLRU(indexLRU);
+  console.log(parsedIndexHeader);
 
-  const INDEX_TABLE_LENGTH = parsedIndexHeader.tableSize;
+  //const INDEX_TABLE_LENGTH = parsedIndexHeader.tableSize;
+  const INDEX_TABLE_LENGTH =
+    buff.length - INDEX_HEADER_LENGTH + ZERO_PADDING_LENGTH + LRU_LENGTH;
+
   const indexTable = buff.toString(
     "hex",
-    INDEX_HEADER_LENGTH + LRU_LENGTH,
-    INDEX_HEADER_LENGTH + LRU_LENGTH + INDEX_TABLE_LENGTH
+    INDEX_HEADER_LENGTH + ZERO_PADDING_LENGTH + LRU_LENGTH,
+    INDEX_HEADER_LENGTH + ZERO_PADDING_LENGTH + LRU_LENGTH + INDEX_TABLE_LENGTH
   );
 
-  const cacheAddresses = getAddressesFromTable(indexTable).map(addr =>
-    hex2bin(addr)
-  );
+  return { parsedIndexHeader, parsedLRU, indexTable };
+};
 
+const parseCacheAddresses = cacheAddresses => {
   const blockAddresses = cacheAddresses.map(addr => {
     return {
       flag: addr[0],
@@ -188,15 +197,27 @@ const converWebkitTimestamp = webkitTimestamp => {
 
 const getCacheEntries = () => {
   const indexFile = path.join(process.env.VOLUME_PATH, "/Cache/" + "index");
-  const blockAddresses = getBlockAddrFromIndex(indexFile);
+  const { indexTable } = parseIndexFile(indexFile);
+  const cacheAddresses = getAddressesFromTable(indexTable).map(addr =>
+    hex2bin(addr)
+  );
+
+  const blockAddresses = parseCacheAddresses(cacheAddresses);
   const blocks = getBlocksFromAddr(blockAddresses);
   const { parsedBlocks, toBeParsedAddrs } = parseCacheBlocks(blocks);
 
-  // blocks.forEach(block => {
-  //   console.log(hexdump(Buffer.from(block, 'hex')));
-  // });
+  let nextToBeParsedAddrs = toBeParsedAddrs;
 
-  return parsedBlocks;
+  // get next cache addresses till end of list
+  while (nextToBeParsedAddrs.length > 0) {
+    const nextBlockAddresses = parseCacheAddresses(nextToBeParsedAddrs);
+    const nextBlocks = getBlocksFromAddr(nextBlockAddresses);
+    const nextParsedBlocks = parseCacheBlocks(nextBlocks).parsedBlocks;
+    parsedBlocks.push(nextParsedBlocks);
+    nextToBeParsedAddrs = parseCacheBlocks(nextBlocks).toBeParsedAddrs;
+  }
+
+  return { parsedBlocks, blockAddresses };
 };
 
 const parseCacheBlocks = blocks => {
@@ -204,7 +225,7 @@ const parseCacheBlocks = blocks => {
 
   const parsedBlocks = blocks.map(block => {
     if (parseInt(block.substr(8, 8)) !== 0) {
-      toBeParsedAddrs.push(block.substr(8, 8));
+      toBeParsedAddrs.push(hex2bin(changeEndianness(block.substr(8, 8))));
     }
 
     return {
@@ -220,7 +241,8 @@ const parseCacheBlocks = blocks => {
       dataStreamCaheArr: block.substr(112, 32),
       keyData: hex_to_ascii(
         block.substr(192, parseInt(block.substr(64, 8), 16))
-      )
+      ),
+      rawBlock: block
     };
   });
 
