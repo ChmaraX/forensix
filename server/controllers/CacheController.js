@@ -145,6 +145,28 @@ const getBlocksFromAddr = blockAddresses => {
   return blocks;
 };
 
+const getRankingsBlocksFromAddr = blockAddresses => {
+  const blocks = blockAddresses.map(addr => {
+    const filePath = path.join(
+      process.env.VOLUME_PATH,
+      "/Cache/" + addr.file_type["cache_file"]
+    );
+
+    const file = fs.readFileSync(filePath);
+    const buff = Buffer.from(file, "ascii");
+
+    const block = buff.toString(
+      "hex",
+      addr.block_offset,
+      addr.block_offset + addr.file_type.size
+    );
+
+    return block;
+  });
+
+  return blocks;
+};
+
 const parseIndexFile = index => {
   const indexFile = fs.readFileSync(index);
   const buff = Buffer.from(indexFile, "ascii");
@@ -198,13 +220,20 @@ const converWebkitTimestamp = webkitTimestamp => {
 const getCacheEntries = () => {
   const indexFile = path.join(process.env.VOLUME_PATH, "/Cache/" + "index");
   const { indexTable } = parseIndexFile(indexFile);
+
+  // index => index table => hex addrs => bin addrs
   const cacheAddresses = getAddressesFromTable(indexTable).map(addr =>
     hex2bin(addr)
   );
 
+  // bin addr => parsed block addr (filename, offset)
   const blockAddresses = parseCacheAddresses(cacheAddresses);
+
+  // filename + offset => block chunk
   const blocks = getBlocksFromAddr(blockAddresses);
-  const { parsedBlocks, toBeParsedAddrs } = parseCacheBlocks(blocks);
+
+  // block chunk => parsed block
+  let { parsedBlocks, toBeParsedAddrs } = parseCacheBlocks(blocks);
 
   let nextToBeParsedAddrs = toBeParsedAddrs;
 
@@ -217,7 +246,51 @@ const getCacheEntries = () => {
     nextToBeParsedAddrs = parseCacheBlocks(nextBlocks).toBeParsedAddrs;
   }
 
+  parsedBlocks = addRankings(parsedBlocks);
+
   return { parsedBlocks, blockAddresses };
+};
+
+const addRankings = parsedBlocks => {
+  parsedBlocks.forEach(pBlock => {
+    if (pBlock.rankingsAddr) {
+      let binAddr = hex2bin(pBlock.rankingsAddr);
+      let rankingAddressesParsed = parseCacheAddresses([binAddr]);
+      let rankingBlock = getRankingsBlocksFromAddr(rankingAddressesParsed)[0];
+
+      pBlock["rankings"] = {
+        lastUsed: converWebkitTimestamp(
+          parseInt(changeEndianness(rankingBlock.substr(0, 16)), 16)
+        ),
+        lastModified: converWebkitTimestamp(
+          parseInt(changeEndianness(rankingBlock.substr(16, 16)), 16)
+        )
+      };
+    }
+    delete pBlock.rankingsAddr;
+  });
+
+  return parsedBlocks;
+};
+
+const parseCacheEntryState = state => {
+  switch (state) {
+    case 0:
+      return "ENTRY_NORMAL";
+    case 1:
+      return "ENTRY_EVICTED";
+    case 2:
+      return "ENTRY_DOOMED";
+  }
+};
+
+const parseCacheEntryFlag = flag => {
+  switch (flag) {
+    case 1:
+      return "PARENT_ENTRY";
+    case 2:
+      return "CHILD_ENTRY";
+  }
 };
 
 const parseCacheBlocks = blocks => {
@@ -231,14 +304,25 @@ const parseCacheBlocks = blocks => {
     return {
       hashNumber: block.substr(0, 8),
       nextCacheAddr: block.substr(8, 8),
-      cacheEntryState: parseInt(block.substr(40, 8), 16),
+      rankingsAddr: changeEndianness(block.substr(16, 8)),
+      reuseCount: parseInt(block.substr(24, 8), 16),
+      refetchCount: parseInt(block.substr(32, 8), 16),
+      cacheEntryState: parseCacheEntryState(
+        parseInt(changeEndianness(block.substr(40, 8)), 16)
+      ),
       creationTime: converWebkitTimestamp(
         parseInt(changeEndianness(block.substr(48, 16)), 16)
       ),
       keyDataSize: parseInt(changeEndianness(block.substr(64, 8)), 16) * 2,
-      longKeyDataAddr: block.substr(72, 8),
-      dataStreamSizeArr: block.substr(80, 32),
-      dataStreamCaheArr: block.substr(112, 32),
+      longKeyDataAddr: changeEndianness(block.substr(72, 8)),
+      dataStreamSizeArr: block
+        .substr(80, 32)
+        .match(/.{1,8}/g)
+        .map(a => changeEndianness(a)),
+      dataStreamCaheArr: block
+        .substr(112, 32)
+        .match(/.{1,8}/g)
+        .map(a => changeEndianness(a)),
       keyData: hex_to_ascii(
         block.substr(192, parseInt(block.substr(64, 8), 16))
       ),
