@@ -29,8 +29,12 @@ const hex_to_ascii = hexString => {
 const getCacheFileType = binAddr => {
   let fileType = binAddr.substr(1, 3);
 
-  if (fileType === "0") {
+  if (fileType === "000") {
     var fileNum = bin2hex(binAddr.substr(4, 28));
+
+    while (fileNum.length !== 6) {
+      fileNum = "0" + fileNum;
+    }
   }
 
   switch (fileType) {
@@ -115,37 +119,6 @@ const parseLRU = buff => {
 };
 
 const getBlocksFromAddr = blockAddresses => {
-  const blocks = blockAddresses.map(addr => {
-    const filePath = path.join(
-      process.env.VOLUME_PATH,
-      "/Cache/" + addr.file_type["cache_file"]
-    );
-
-    const file = fs.readFileSync(filePath);
-    const buff = Buffer.from(file, "ascii");
-
-    // Offset | Field                     | Size (bytes)
-    // 0x0020 | Key Data Size(URL Length) | 4
-    // 96 bytes (block header) + keyDataSize
-    const keyDataSize = parseInt(
-      changeEndianness(
-        buff.toString("hex", addr.block_offset + 32, addr.block_offset + 36)
-      ),
-      16
-    );
-    const block = buff.toString(
-      "hex",
-      addr.block_offset,
-      addr.block_offset + 96 + keyDataSize
-    );
-
-    return block;
-  });
-
-  return blocks;
-};
-
-const getRankingsBlocksFromAddr = blockAddresses => {
   const blocks = blockAddresses.map(addr => {
     const filePath = path.join(
       process.env.VOLUME_PATH,
@@ -242,35 +215,39 @@ const getCacheEntries = () => {
     const nextBlockAddresses = parseCacheAddresses(nextToBeParsedAddrs);
     const nextBlocks = getBlocksFromAddr(nextBlockAddresses);
     const nextParsedBlocks = parseCacheBlocks(nextBlocks).parsedBlocks;
-    parsedBlocks.push(nextParsedBlocks);
+    parsedBlocks.push(...nextParsedBlocks);
     nextToBeParsedAddrs = parseCacheBlocks(nextBlocks).toBeParsedAddrs;
   }
-
-  parsedBlocks = addRankings(parsedBlocks);
 
   return { parsedBlocks, blockAddresses };
 };
 
-const addRankings = parsedBlocks => {
-  parsedBlocks.forEach(pBlock => {
-    if (pBlock.rankingsAddr) {
-      let binAddr = hex2bin(pBlock.rankingsAddr);
-      let rankingAddressesParsed = parseCacheAddresses([binAddr]);
-      let rankingBlock = getRankingsBlocksFromAddr(rankingAddressesParsed)[0];
+const getRankings = rankingsAddr => {
+  if (rankingsAddr) {
+    let binAddr = hex2bin(rankingsAddr);
+    let rankingAddressesParsed = parseCacheAddresses([binAddr]);
+    let rankingBlock = getBlocksFromAddr(rankingAddressesParsed)[0];
 
-      pBlock["rankings"] = {
-        lastUsed: converWebkitTimestamp(
-          parseInt(changeEndianness(rankingBlock.substr(0, 16)), 16)
-        ),
-        lastModified: converWebkitTimestamp(
-          parseInt(changeEndianness(rankingBlock.substr(16, 16)), 16)
-        )
-      };
+    return {
+      lastUsed: converWebkitTimestamp(
+        parseInt(changeEndianness(rankingBlock.substr(0, 16)), 16)
+      ),
+      lastModified: converWebkitTimestamp(
+        parseInt(changeEndianness(rankingBlock.substr(16, 16)), 16)
+      )
+    };
+  }
+};
+
+const getHTTPHeaders = headerAddresses => {
+  return headerAddresses.map(addr => {
+    if (parseInt(addr, 16) !== 0) {
+      let parsedHTTPAddr = parseCacheAddresses([hex2bin(addr)]);
+      let httpBlock = getBlocksFromAddr(parsedHTTPAddr);
+
+      return httpBlock[0];
     }
-    delete pBlock.rankingsAddr;
   });
-
-  return parsedBlocks;
 };
 
 const parseCacheEntryState = state => {
@@ -297,15 +274,17 @@ const parseCacheBlocks = blocks => {
   let toBeParsedAddrs = [];
 
   const parsedBlocks = blocks.map(block => {
+    // if there is next cache addr to be parsed
     if (parseInt(block.substr(8, 8)) !== 0) {
       toBeParsedAddrs.push(hex2bin(changeEndianness(block.substr(8, 8))));
     }
 
+    //let httpHeaders = getHTTPHeaders(dataStreamCacheArr)
+
     return {
       hashNumber: block.substr(0, 8),
-      nextCacheAddr: block.substr(8, 8),
-      rankingsAddr: changeEndianness(block.substr(16, 8)),
       reuseCount: parseInt(block.substr(24, 8), 16),
+      rankings: getRankings(changeEndianness(block.substr(16, 8))),
       refetchCount: parseInt(block.substr(32, 8), 16),
       cacheEntryState: parseCacheEntryState(
         parseInt(changeEndianness(block.substr(40, 8)), 16)
@@ -319,7 +298,7 @@ const parseCacheBlocks = blocks => {
         .substr(80, 32)
         .match(/.{1,8}/g)
         .map(a => changeEndianness(a)),
-      dataStreamCaheArr: block
+      dataStreamCacheArr: block
         .substr(112, 32)
         .match(/.{1,8}/g)
         .map(a => changeEndianness(a)),
