@@ -6,7 +6,7 @@ const chalk = require("chalk");
 router.get("/cache", async (req, res) => {
   try {
     process.stdout.write(`[SCAN] cache ... `);
-    const data = getCacheEntries();
+    const data = getCacheEntries(req.query.count);
 
     res.send(data);
     console.log(chalk.green(" [ OK ]"));

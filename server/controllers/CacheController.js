@@ -11,11 +11,8 @@ const LRU_LENGTH = 112 * 2;
 const ZERO_PADDING_LENGTH = 208 * 2;
 
 const hex_to_ascii = hexString => {
-  var str = "";
-  for (let n = 0; n < hexString.length; n += 2) {
-    str += String.fromCharCode(parseInt(hexString.substr(n, 2), 16));
-  }
-  return str;
+  var output = Buffer.from(hexString, "hex");
+  return output.toString("ascii");
 };
 
 //  1 | 010 | 00 | 00 | 0000 0001 | 0000 0101 0011 1011
@@ -190,7 +187,7 @@ const converWebkitTimestamp = webkitTimestamp => {
   return new Date(dateInSeconds * 1000);
 };
 
-const getCacheEntries = () => {
+const getCacheEntries = count => {
   const indexFile = path.join(process.env.VOLUME_PATH, "/Cache/" + "index");
   const { indexTable } = parseIndexFile(indexFile);
 
@@ -200,7 +197,7 @@ const getCacheEntries = () => {
   );
 
   // bin addr => parsed block addr (filename, offset)
-  const blockAddresses = parseCacheAddresses(cacheAddresses);
+  const blockAddresses = parseCacheAddresses(cacheAddresses).slice(0, count);
 
   // filename + offset => block chunk
   const blocks = getBlocksFromAddr(blockAddresses);
@@ -219,7 +216,7 @@ const getCacheEntries = () => {
     nextToBeParsedAddrs = parseCacheBlocks(nextBlocks).toBeParsedAddrs;
   }
 
-  return { parsedBlocks, blockAddresses };
+  return parsedBlocks;
 };
 
 const getRankings = rankingsAddr => {
@@ -239,15 +236,13 @@ const getRankings = rankingsAddr => {
   }
 };
 
-const getHTTPHeaders = headerAddresses => {
-  return headerAddresses.map(addr => {
-    if (parseInt(addr, 16) !== 0) {
-      let parsedHTTPAddr = parseCacheAddresses([hex2bin(addr)]);
-      let httpBlock = getBlocksFromAddr(parsedHTTPAddr);
+const getHTTPHeader = headerAddr => {
+  if (parseInt(headerAddr, 16) !== 0) {
+    let parsedHTTPAddr = parseCacheAddresses([hex2bin(headerAddr)]);
+    let httpBlock = getBlocksFromAddr(parsedHTTPAddr);
 
-      return httpBlock[0];
-    }
-  });
+    return httpBlock[0];
+  }
 };
 
 const parseCacheEntryState = state => {
@@ -279,7 +274,27 @@ const parseCacheBlocks = blocks => {
       toBeParsedAddrs.push(hex2bin(changeEndianness(block.substr(8, 8))));
     }
 
-    //let httpHeaders = getHTTPHeaders(dataStreamCacheArr)
+    var dataStreamCacheArr = block
+      .substr(112, 32)
+      .match(/.{1,8}/g)
+      .map(a => changeEndianness(a));
+
+    if (parseInt(dataStreamCacheArr[1], 16) !== 0) {
+      let parsedPayloadAddr = parseCacheAddresses([
+        hex2bin(dataStreamCacheArr[1])
+      ]);
+      var payloadBlock = getBlocksFromAddr(parsedPayloadAddr);
+    }
+
+    let httpHeader = getHTTPHeader(dataStreamCacheArr[0]);
+    if (httpHeader) {
+      let contentTypeMatch = hex_to_ascii(httpHeader)
+        .toString()
+        .match(/(content-type:)([-\w.]+\/[-\w.]+)/gi);
+      var contentType = contentTypeMatch
+        ? contentTypeMatch[0].split(":")[1]
+        : "unknown";
+    }
 
     return {
       hashNumber: block.substr(0, 8),
@@ -294,18 +309,13 @@ const parseCacheBlocks = blocks => {
       ),
       keyDataSize: parseInt(changeEndianness(block.substr(64, 8)), 16) * 2,
       longKeyDataAddr: changeEndianness(block.substr(72, 8)),
-      dataStreamSizeArr: block
-        .substr(80, 32)
-        .match(/.{1,8}/g)
-        .map(a => changeEndianness(a)),
-      dataStreamCacheArr: block
-        .substr(112, 32)
-        .match(/.{1,8}/g)
-        .map(a => changeEndianness(a)),
       keyData: hex_to_ascii(
         block.substr(192, parseInt(block.substr(64, 8), 16))
-      ),
-      rawBlock: block
+      ).replace(/\0/g, ""),
+      contentType: contentType,
+      payload: Buffer.from(payloadBlock ? payloadBlock[0] : "", "hex").toString(
+        "base64"
+      )
     };
   });
 
