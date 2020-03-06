@@ -41,7 +41,8 @@ const nav = [
   },
   {
     title: "Cache",
-    icon: "folder open"
+    icon: "folder open",
+    path: "/cache"
   }
 ];
 

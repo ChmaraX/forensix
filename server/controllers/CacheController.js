@@ -150,7 +150,6 @@ const parseIndexFile = index => {
 
   const parsedIndexHeader = parseIndexHeader(indexHeader);
   const parsedLRU = parseLRU(indexLRU);
-  console.log(parsedIndexHeader);
 
   //const INDEX_TABLE_LENGTH = parsedIndexHeader.tableSize;
   const INDEX_TABLE_LENGTH =
@@ -184,7 +183,7 @@ const parseCacheAddresses = cacheAddresses => {
 
 const converWebkitTimestamp = webkitTimestamp => {
   const dateInSeconds = Math.round(webkitTimestamp / 1000000) - 11644473600;
-  return new Date(dateInSeconds * 1000);
+  return new Date(dateInSeconds * 1000).toLocaleDateString();
 };
 
 const getCacheEntries = count => {
@@ -298,9 +297,9 @@ const parseCacheBlocks = blocks => {
 
     return {
       hashNumber: block.substr(0, 8),
-      reuseCount: parseInt(block.substr(24, 8), 16),
+      reuseCount: parseInt(changeEndianness(block.substr(24, 8)), 16),
       rankings: getRankings(changeEndianness(block.substr(16, 8))),
-      refetchCount: parseInt(block.substr(32, 8), 16),
+      refetchCount: parseInt(changeEndianness(block.substr(32, 8)), 16),
       cacheEntryState: parseCacheEntryState(
         parseInt(changeEndianness(block.substr(40, 8)), 16)
       ),
