@@ -32,7 +32,8 @@ const nav = [
   },
   {
     title: "Bookmarks",
-    icon: "bookmark"
+    icon: "bookmark",
+    path: "/bookmarks"
   },
   {
     title: "Favicons",

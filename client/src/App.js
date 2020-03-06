@@ -10,6 +10,7 @@ import LoginDataContainer from "./logindata/LoginDataContainer";
 import WebDataContainer from "./webdata/WebDataContainer";
 import VolumesContainer from "./volumes/VolumesContainer";
 import CacheContainer from "./cache/CacheContainer";
+import BookmarksContainer from "./bookmarks/BookmarksContainer";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/webdata" component={WebDataContainer} />
         <Route path="/volume" component={VolumesContainer} />
         <Route path="/cache" component={CacheContainer} />
+        <Route path="/bookmarks" component={BookmarksContainer} />
         <Route path="/" component={Login} />
       </Switch>
     </Router>
