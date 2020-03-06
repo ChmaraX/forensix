@@ -25,7 +25,14 @@ function CacheContainer() {
   });
 
   useEffect(() => {
-    axios.get("/cache", { params: { count: 100 } }).then(res => {
+    const token = localStorage.getItem("token");
+
+    const config = {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { count: 100 }
+    };
+
+    axios.get("/cache", config).then(res => {
       setCacheData(res.data);
     });
   }, []);

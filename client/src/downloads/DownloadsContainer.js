@@ -14,7 +14,13 @@ function DownloadsContainer() {
   });
 
   function fetchData() {
-    let downloads = axios.get("/history/downloads").then(res => {
+    const token = localStorage.getItem("token");
+
+    const config = {
+      headers: { Authorization: `Bearer ${token}` }
+    };
+
+    let downloads = axios.get("/history/downloads", config).then(res => {
       setDownloads(res.data.data);
       setDownloadsMeta(res.data.meta);
     });

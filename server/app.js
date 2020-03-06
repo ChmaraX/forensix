@@ -1,5 +1,5 @@
 const express = require("express");
-// require("./db/mongoose");
+require("./db/mongoose");
 
 const {
   setVolumeInfo,
@@ -24,10 +24,15 @@ const cors = require("cors");
 const app = express();
 
 // registering middlewares
-// app.all("/history*", auth, log);
-// app.all("/cache*", auth, log);
-// app.all("/cache*", auth, log);
-// app.all("/volume*", auth, log);
+app.all("/bookmarks", auth);
+app.all("/cache*", auth);
+app.all("/favicons", auth);
+app.all("/history*", auth);
+app.all("/logindata*", auth);
+app.all("/profile*", auth);
+app.all("/topsites*", auth);
+app.all("/volumes*", auth);
+app.all("/webdata*", auth);
 
 // registering routers
 app.use(express.json());

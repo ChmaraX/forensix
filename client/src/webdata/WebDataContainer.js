@@ -23,15 +23,21 @@ function WebDataContainer() {
   });
 
   function fetchData() {
-    axios.get("/webdata/autofills").then(res => {
+    const token = localStorage.getItem("token");
+
+    const config = {
+      headers: { Authorization: `Bearer ${token}` }
+    };
+
+    axios.get("/webdata/autofills", config).then(res => {
       setAutofills(res.data);
     });
 
-    axios.get("/webdata/geo").then(res => {
+    axios.get("/webdata/geo", config).then(res => {
       setGeo(res.data);
     });
 
-    axios.get("/webdata/phonenums").then(res => {
+    axios.get("/webdata/phonenums", config).then(res => {
       setPhoneNums(res.data);
     });
   }

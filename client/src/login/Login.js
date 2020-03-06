@@ -1,11 +1,26 @@
-import React from "react";
+import React, { useState } from "react";
 import "./Login.css";
 import { Segment, Divider, Button, Form, Input } from "semantic-ui-react";
 import Logo from "../common/Logo/Logo";
 import CenteredWrapper from "../layout/CenteredWrapper/CenteredWrapper";
-import { Link } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { auth } from "../store/actions/auth";
 
 function Login() {
+  const dispatch = useDispatch();
+  const [loginData, setLoginData] = useState({
+    username: "",
+    password: ""
+  });
+
+  const handleSubmit = () => {
+    dispatch(auth(loginData.username, loginData.password));
+  };
+
+  const handleChange = (e, { name, value }) => {
+    setLoginData({ ...loginData, [name]: value });
+  };
+
   return (
     <CenteredWrapper>
       <Segment raised inverted className="black-base">
@@ -28,21 +43,30 @@ function Login() {
       <Segment raised className="form-panel">
         <h1>Sign In</h1>
         <br />
-        <Form>
+        <Form onSubmit={handleSubmit}>
           <Form.Field>
             <label>Username</label>
-            <Input icon="user" placeholder="Username" />
+            <Input
+              name="username"
+              icon="user"
+              placeholder="Username"
+              onChange={handleChange}
+            />
           </Form.Field>
           <Form.Field>
             <label>Password</label>
-            <Input icon="key" placeholder="******" />
+            <Input
+              name="password"
+              type="password"
+              icon="key"
+              placeholder="******"
+              onChange={handleChange}
+            />
           </Form.Field>
           <br />
-          <Link to="/volumes">
-            <Button fluid size="big" type="submit" className="login-button">
-              Sign In
-            </Button>
-          </Link>
+          <Button fluid size="big" type="submit" className="login-button">
+            Sign In
+          </Button>
         </Form>
       </Segment>
     </CenteredWrapper>

@@ -17,15 +17,21 @@ function HistoryContainer() {
   });
 
   function fetchData() {
-    let history = axios.get("/history").then(res => {
+    const token = localStorage.getItem("token");
+
+    const config = {
+      headers: { Authorization: `Bearer ${token}` }
+    };
+
+    let history = axios.get("/history", config).then(res => {
       setHistory(res.data);
     });
 
-    let avgDurations = axios.get("/history/avg").then(res => {
+    let avgDurations = axios.get("/history/avg", config).then(res => {
       setAvgDurations(res.data);
     });
 
-    let bActivity = axios.get("/history/activity").then(res => {
+    let bActivity = axios.get("/history/activity", config).then(res => {
       setbActivity(res.data);
     });
   }

@@ -25,7 +25,13 @@ function BookmarksContainer() {
   });
 
   useEffect(() => {
-    axios.get("/bookmarks").then(res => {
+    const token = localStorage.getItem("token");
+
+    const config = {
+      headers: { Authorization: `Bearer ${token}` }
+    };
+
+    axios.get("/bookmarks", config).then(res => {
       setBookmarksData(res.data);
     });
   }, []);

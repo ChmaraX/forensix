@@ -25,7 +25,12 @@ function LoginDataContainer() {
   });
 
   useEffect(() => {
-    axios.get("/logindata").then(res => {
+    const token = localStorage.getItem("token");
+    const config = {
+      headers: { Authorization: `Bearer ${token}` }
+    };
+
+    axios.get("/logindata", config).then(res => {
       setLoginData(res.data);
     });
   }, []);

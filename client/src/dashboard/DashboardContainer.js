@@ -21,31 +21,37 @@ function DashboardContainer() {
   const [loading, setLoading] = useState(true);
 
   function fetchData() {
-    let profile = axios.get("/profile/estimate").then(res => {
+    const token = localStorage.getItem("token");
+
+    const config = {
+      headers: { Authorization: `Bearer ${token}` }
+    };
+
+    let profile = axios.get("/profile/estimate", config).then(res => {
       setProfile(res.data);
     });
 
-    let accounts = axios.get("/profile/accounts").then(res => {
+    let accounts = axios.get("/profile/accounts", config).then(res => {
       setAccounts(res.data);
     });
 
-    let systemSpecs = axios.get("/profile/system-specs").then(res => {
+    let systemSpecs = axios.get("/profile/system-specs", config).then(res => {
       setSystemSpecs(res.data.specs);
     });
 
-    let classifiedUrls = axios.get("/history/classify").then(res => {
+    let classifiedUrls = axios.get("/history/classify", config).then(res => {
       setClassified(res.data.classified_urls);
     });
 
-    let credentials = axios.get("/logindata/credentials").then(res => {
+    let credentials = axios.get("/logindata/credentials", config).then(res => {
       setCredentials(res.data);
     });
 
-    let bActivity = axios.get("/history/activity").then(res => {
+    let bActivity = axios.get("/history/activity", config).then(res => {
       setbActivity(res.data);
     });
 
-    let topSites = axios.get("/topsites").then(res => {
+    let topSites = axios.get("/topsites", config).then(res => {
       setTopSites(res.data);
     });
 

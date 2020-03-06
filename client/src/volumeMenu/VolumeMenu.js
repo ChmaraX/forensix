@@ -11,8 +11,15 @@ function VolumeMenu() {
   const [loading, setLoading] = useState(false);
   const [integrity, setIntegrity] = useState({ status: "verified" });
 
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` },
+    params: { count: 100 }
+  };
+
   useEffect(() => {
-    axios.get("/volumes").then(res => {
+    axios.get("/volumes", config).then(res => {
       setVolumeInfo(res.data);
     });
     verifyIntegrity();
@@ -20,7 +27,7 @@ function VolumeMenu() {
 
   function verifyIntegrity() {
     setLoading(true);
-    axios.get("/volumes/verify").then(res => {
+    axios.get("/volumes/verify", config).then(res => {
       setLoading(false);
       setIntegrity(res.data);
     });

@@ -9,7 +9,14 @@ function VolumesContainer() {
   const [dirTree, setDirTree] = useState();
 
   useEffect(() => {
-    axios.get("/volumes/tree").then(res => {
+    const token = localStorage.getItem("token");
+
+    const config = {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { count: 100 }
+    };
+
+    axios.get("/volumes/tree", config).then(res => {
       setDirTree(res.data);
     });
   });

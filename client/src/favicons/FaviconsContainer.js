@@ -15,7 +15,13 @@ function FaviconsContainer() {
   });
 
   useEffect(() => {
-    axios.get("/favicons").then(res => {
+    const token = localStorage.getItem("token");
+
+    const config = {
+      headers: { Authorization: `Bearer ${token}` }
+    };
+
+    axios.get("/favicons", config).then(res => {
       setFavicons(res.data);
       setResults(res.data);
     });

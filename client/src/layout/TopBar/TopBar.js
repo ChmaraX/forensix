@@ -2,21 +2,29 @@ import React, { useState, useEffect } from "react";
 import { Image, Icon, Loader, Dropdown } from "semantic-ui-react";
 import "./TopBar.css";
 import axios from "axios";
-import { useHistory } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { logout } from "../../store/actions/auth";
 
 function TopBar() {
   const [status, setStatus] = useState();
   const [fetching, setFetching] = useState(true);
   const [volume, setVolume] = useState();
-  const history = useHistory();
+  const username = useSelector(state => state.authReducer.username);
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    axios.get("/volumes/verify").then(res => {
+    const token = localStorage.getItem("token");
+
+    const config = {
+      headers: { Authorization: `Bearer ${token}` }
+    };
+
+    axios.get("/volumes/verify", config).then(res => {
       setStatus(res.data.status);
       setFetching(false);
     });
 
-    axios.get("/volumes").then(res => {
+    axios.get("/volumes", config).then(res => {
       setVolume(res.data);
     });
   }, []);
@@ -41,9 +49,9 @@ function TopBar() {
         </p>
       </div>
       <div className="avatar">
-        <Dropdown text="Adam Chmara">
+        <Dropdown text={username}>
           <Dropdown.Menu>
-            <Dropdown.Item text="Logout" onClick={() => history.push("/")} />
+            <Dropdown.Item text="Logout" onClick={() => dispatch(logout())} />
           </Dropdown.Menu>
         </Dropdown>
         <Image
