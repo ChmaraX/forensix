@@ -35,7 +35,7 @@ function WebDataTable(props) {
           { title: "Last Used", field: "date_last_used" },
           { title: "Count", field: "count", type: "numeric" }
         ]}
-        data={props.autofills}
+        data={props.autofills || []}
         actions={[
           {
             icon: "save",

@@ -5,10 +5,14 @@ import _ from "lodash";
 import axios from "axios";
 import "./FaviconsContainer.css";
 import FaviconsModal from "./components/FaviconModal";
+import { useDispatch, useSelector } from "react-redux";
+import { storeFaviconsData } from "../store/actions/appData";
 
 function FaviconsContainer() {
-  const [favicons, setFavicons] = useState();
-  const [results, setResults] = useState();
+  const dispatch = useDispatch();
+  const faviconsData = useSelector(state => state.appDataReducer.favicons);
+  const [favicons, setFavicons] = useState(faviconsData);
+  const [results, setResults] = useState(faviconsData);
   const [favModal, setFavModal] = useState({
     show: false,
     data: {}
@@ -21,10 +25,12 @@ function FaviconsContainer() {
       headers: { Authorization: `Bearer ${token}` }
     };
 
-    axios.get("/favicons", config).then(res => {
-      setFavicons(res.data);
-      setResults(res.data);
-    });
+    !faviconsData &&
+      axios.get("/favicons", config).then(res => {
+        setFavicons(res.data);
+        setResults(res.data);
+        dispatch(storeFaviconsData(res.data));
+      });
   }, []);
 
   const searchFavicon = keyword => {

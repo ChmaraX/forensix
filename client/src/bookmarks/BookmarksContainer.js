@@ -5,6 +5,8 @@ import MaterialTable from "material-table";
 import { MuiThemeProvider, createMuiTheme } from "@material-ui/core";
 import { Header } from "semantic-ui-react";
 import axios from "axios";
+import { useDispatch, useSelector } from "react-redux";
+import { storeBookmarksData } from "../store/actions/appData";
 
 const theme = createMuiTheme({
   palette: {
@@ -18,7 +20,9 @@ const theme = createMuiTheme({
 });
 
 function BookmarksContainer() {
-  const [bookmarksData, setBookmarksData] = useState();
+  const dispatch = useDispatch();
+  const bookmarks = useSelector(state => state.appDataReducer.bookmarks);
+  const [bookmarksData, setBookmarksData] = useState(bookmarks);
   const [showModal, setShowModal] = useState({
     show: false,
     data: {}
@@ -31,9 +35,11 @@ function BookmarksContainer() {
       headers: { Authorization: `Bearer ${token}` }
     };
 
-    axios.get("/bookmarks", config).then(res => {
-      setBookmarksData(res.data);
-    });
+    !bookmarks &&
+      axios.get("/bookmarks", config).then(res => {
+        setBookmarksData(res.data);
+        dispatch(storeBookmarksData(res.data));
+      });
   }, []);
 
   return (
@@ -61,7 +67,7 @@ function BookmarksContainer() {
               field: "last_visited_desktop"
             }
           ]}
-          data={bookmarksData}
+          data={bookmarksData || []}
           actions={[
             {
               icon: "save",

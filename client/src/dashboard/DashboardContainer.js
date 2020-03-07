@@ -9,16 +9,21 @@ import BrowsingActivty from "./components/BrowsingActivity/BrowsingActivity";
 import TopSites from "./components/TopSites/TopSites";
 import UserActivity from "./components/UserActivity/UserActivity";
 import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
+import { useDispatch, useSelector } from "react-redux";
+import { storeDashboardData } from "../store/actions/appData";
 
 function DashboardContainer() {
-  const [profile, setProfile] = useState();
-  const [accounts, setAccounts] = useState();
-  const [systemSpecs, setSystemSpecs] = useState();
-  const [classified, setClassified] = useState();
-  const [credentials, setCredentials] = useState();
-  const [bActivity, setbActivity] = useState();
-  const [topSites, setTopSites] = useState();
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const dashboardData = useSelector(state => state.appDataReducer.dashboard);
+  const [profile, setProfile] = useState(dashboardData.profile);
+  const [accounts, setAccounts] = useState(dashboardData.accounts);
+  const [systemSpecs, setSystemSpecs] = useState(dashboardData.systemSpecs);
+  const [classifiedUrls, setClassifiedUrls] = useState(
+    dashboardData.classifiedUrls
+  );
+  const [credentials, setCredentials] = useState(dashboardData.credentials);
+  const [bActivity, setbActivity] = useState(dashboardData.bActivity);
+  const [topSites, setTopSites] = useState(dashboardData.topSites);
 
   function fetchData() {
     const token = localStorage.getItem("token");
@@ -27,37 +32,49 @@ function DashboardContainer() {
       headers: { Authorization: `Bearer ${token}` }
     };
 
-    let profile = axios.get("/profile/estimate", config).then(res => {
-      setProfile(res.data);
-    });
+    !dashboardData.profile &&
+      axios.get("/profile/estimate", config).then(res => {
+        setProfile(res.data);
+        dispatch(storeDashboardData({ profile: res.data }));
+      });
 
-    let accounts = axios.get("/profile/accounts", config).then(res => {
-      setAccounts(res.data);
-    });
+    !dashboardData.accounts &&
+      axios.get("/profile/accounts", config).then(res => {
+        setAccounts(res.data);
+        dispatch(storeDashboardData({ accounts: res.data }));
+      });
 
-    let systemSpecs = axios.get("/profile/system-specs", config).then(res => {
-      setSystemSpecs(res.data.specs);
-    });
+    !dashboardData.systemSpecs &&
+      axios.get("/profile/system-specs", config).then(res => {
+        setSystemSpecs(res.data.specs);
+        dispatch(storeDashboardData({ systemSpecs: res.data.specs }));
+      });
 
-    let classifiedUrls = axios.get("/history/classify", config).then(res => {
-      setClassified(res.data.classified_urls);
-    });
+    !dashboardData.classifiedUrls &&
+      axios.get("/history/classify", config).then(res => {
+        setClassifiedUrls(res.data.classified_urls);
+        dispatch(
+          storeDashboardData({ classifiedUrls: res.data.classified_urls })
+        );
+      });
 
-    let credentials = axios.get("/logindata/credentials", config).then(res => {
-      setCredentials(res.data);
-    });
+    !dashboardData.credentials &&
+      axios.get("/logindata/credentials", config).then(res => {
+        setCredentials(res.data);
+        dispatch(storeDashboardData({ credentials: res.data }));
+      });
 
-    let bActivity = axios.get("/history/activity", config).then(res => {
-      setbActivity(res.data);
-    });
+    !dashboardData.bActivity &&
+      axios.get("/history/activity", config).then(res => {
+        setbActivity(res.data);
+        dispatch(storeDashboardData({ bActivity: res.data }));
+      });
 
-    let topSites = axios.get("/topsites", config).then(res => {
-      setTopSites(res.data);
-    });
-
-    Promise.all([profile, accounts, systemSpecs]).then(() => {
-      setLoading(false);
-    });
+    !dashboardData.topSites &&
+      axios.get("/topsites", config).then(res => {
+        setTopSites(res.data);
+        dispatch(storeDashboardData({ topSites: res.data }));
+      });
   }
 
   useEffect(() => {
@@ -69,13 +86,13 @@ function DashboardContainer() {
       <Grid columns="equal" stretched>
         <Grid.Row>
           <Grid.Column width={6}>
-            <Profile profile={profile} accounts={accounts} loading={loading} />
+            <Profile profile={profile} accounts={accounts} />
           </Grid.Column>
           <Grid.Column>
             <SystemSpecs systemSpecs={systemSpecs} />
           </Grid.Column>
           <Grid.Column width={6}>
-            <RadarWidget classified={classified} />
+            <RadarWidget classified={classifiedUrls} />
           </Grid.Column>
         </Grid.Row>
         <Grid.Row>

@@ -4,13 +4,15 @@ import "./TopBar.css";
 import axios from "axios";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../../store/actions/auth";
+import { storeVolumesInfo } from "../../store/actions/appData";
 
 function TopBar() {
-  const [status, setStatus] = useState();
-  const [fetching, setFetching] = useState(true);
-  const [volume, setVolume] = useState();
-  const username = useSelector(state => state.authReducer.username);
   const dispatch = useDispatch();
+  const username = useSelector(state => state.authReducer.username);
+  const volumesInfo = useSelector(state => state.appDataReducer.volumesInfo);
+  const [status, setStatus] = useState(volumesInfo.status);
+  const [fetching, setFetching] = useState(false);
+  const [volume, setVolume] = useState(volumesInfo.volume);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -19,14 +21,20 @@ function TopBar() {
       headers: { Authorization: `Bearer ${token}` }
     };
 
-    axios.get("/volumes/verify", config).then(res => {
-      setStatus(res.data.status);
-      setFetching(false);
-    });
+    if (!status) {
+      setFetching(true);
 
-    axios.get("/volumes", config).then(res => {
-      setVolume(res.data);
-    });
+      axios.get("/volumes/verify", config).then(res => {
+        setStatus(res.data.status);
+        dispatch(storeVolumesInfo({ status: res.data.status }));
+        setFetching(false);
+      });
+
+      axios.get("/volumes", config).then(res => {
+        setVolume(res.data);
+        dispatch(storeVolumesInfo({ volume: res.data }));
+      });
+    }
   }, []);
 
   return (

@@ -3,8 +3,10 @@ import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
 import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
 import MaterialTable from "material-table";
 import { MuiThemeProvider, createMuiTheme } from "@material-ui/core";
-import { Header, Segment, TextArea, Form } from "semantic-ui-react";
+import { Header, TextArea, Form } from "semantic-ui-react";
 import axios from "axios";
+import { useDispatch, useSelector } from "react-redux";
+import { storeCacheData } from "../store/actions/appData";
 
 const theme = createMuiTheme({
   palette: {
@@ -18,7 +20,9 @@ const theme = createMuiTheme({
 });
 
 function CacheContainer() {
-  const [cacheData, setCacheData] = useState();
+  const dispatch = useDispatch();
+  const cache = useSelector(state => state.appDataReducer.cache);
+  const [cacheData, setCacheData] = useState(cache);
   const [showModal, setShowModal] = useState({
     show: false,
     data: {}
@@ -32,9 +36,11 @@ function CacheContainer() {
       params: { count: 100 }
     };
 
-    axios.get("/cache", config).then(res => {
-      setCacheData(res.data);
-    });
+    !cache &&
+      axios.get("/cache", config).then(res => {
+        setCacheData(res.data);
+        dispatch(storeCacheData(res.data));
+      });
   }, []);
 
   return (
@@ -74,7 +80,7 @@ function CacheContainer() {
               field: "rankings.lastModified"
             }
           ]}
-          data={cacheData}
+          data={cacheData || []}
           actions={[
             {
               icon: "save",

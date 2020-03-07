@@ -3,20 +3,17 @@ import axios from "axios";
 import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
 import WebDataTable from "./components/WebDataTable";
 import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
-import {
-  Statistic,
-  Grid,
-  Segment,
-  List,
-  Image,
-  Header
-} from "semantic-ui-react";
+import { Statistic, Grid, Segment, List, Header } from "semantic-ui-react";
 import GoogleMaps from "./components/GoogleMaps";
+import { useDispatch, useSelector } from "react-redux";
+import { storeWebData } from "../store/actions/appData";
 
 function WebDataContainer() {
-  const [autofills, setAutofills] = useState();
-  const [geo, setGeo] = useState();
-  const [phoneNums, setPhoneNums] = useState();
+  const dispatch = useDispatch();
+  const webData = useSelector(state => state.appDataReducer.webData);
+  const [autofills, setAutofills] = useState(webData.autofills);
+  const [geo, setGeo] = useState(webData.geo);
+  const [phoneNums, setPhoneNums] = useState(webData.phoneNums);
   const [showModal, setShowModal] = useState({
     show: false,
     data: {}
@@ -29,17 +26,23 @@ function WebDataContainer() {
       headers: { Authorization: `Bearer ${token}` }
     };
 
-    axios.get("/webdata/autofills", config).then(res => {
-      setAutofills(res.data);
-    });
+    !webData.autofills &&
+      axios.get("/webdata/autofills", config).then(res => {
+        setAutofills(res.data);
+        return res.data;
+      });
 
-    axios.get("/webdata/geo", config).then(res => {
-      setGeo(res.data);
-    });
+    !webData.geo &&
+      axios.get("/webdata/geo", config).then(res => {
+        setGeo(res.data);
+        dispatch(storeWebData({ geo: res.data }));
+      });
 
-    axios.get("/webdata/phonenums", config).then(res => {
-      setPhoneNums(res.data);
-    });
+    !webData.phoneNums &&
+      axios.get("/webdata/phonenums", config).then(res => {
+        setPhoneNums(res.data);
+        dispatch(storeWebData({ phoneNums: res.data }));
+      });
   }
 
   useEffect(() => {

@@ -4,6 +4,8 @@ import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
 import MaterialTable from "material-table";
 import { MuiThemeProvider, createMuiTheme } from "@material-ui/core";
 import { Header } from "semantic-ui-react";
+import { useDispatch, useSelector } from "react-redux";
+import { storeLogindata } from "../store/actions/appData";
 import axios from "axios";
 
 const theme = createMuiTheme({
@@ -18,7 +20,9 @@ const theme = createMuiTheme({
 });
 
 function LoginDataContainer() {
-  const [loginData, setLoginData] = useState();
+  const dispatch = useDispatch();
+  const logindata = useSelector(state => state.appDataReducer.loginData);
+  const [loginData, setLoginData] = useState(logindata);
   const [showModal, setShowModal] = useState({
     show: false,
     data: {}
@@ -30,9 +34,11 @@ function LoginDataContainer() {
       headers: { Authorization: `Bearer ${token}` }
     };
 
-    axios.get("/logindata", config).then(res => {
-      setLoginData(res.data);
-    });
+    !logindata &&
+      axios.get("/logindata", config).then(res => {
+        setLoginData(res.data);
+        dispatch(storeLogindata(res.data));
+      });
   }, []);
 
   return (
@@ -63,7 +69,7 @@ function LoginDataContainer() {
               field: "date_last_used"
             }
           ]}
-          data={loginData}
+          data={loginData || []}
           actions={[
             {
               icon: "save",

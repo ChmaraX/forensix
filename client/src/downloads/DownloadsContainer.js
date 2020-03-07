@@ -4,10 +4,16 @@ import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
 import DownloadsTable from "./components/DownloadsTable";
 import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
 import { Statistic, Grid, Segment } from "semantic-ui-react";
+import { useDispatch, useSelector } from "react-redux";
+import { storeDownloadsData } from "../store/actions/appData";
 
 function DownloadsContainer() {
-  const [downloads, setDownloads] = useState();
-  const [downloadsMeta, setDownloadsMeta] = useState();
+  const dispatch = useDispatch();
+  const downloadsData = useSelector(
+    state => state.appDataReducer.downloadsData
+  );
+  const [downloads, setDownloads] = useState(downloadsData.downloads);
+  const [downloadsMeta, setDownloadsMeta] = useState(downloadsData.meta);
   const [showModal, setShowModal] = useState({
     show: false,
     data: {}
@@ -20,10 +26,14 @@ function DownloadsContainer() {
       headers: { Authorization: `Bearer ${token}` }
     };
 
-    let downloads = axios.get("/history/downloads", config).then(res => {
-      setDownloads(res.data.data);
-      setDownloadsMeta(res.data.meta);
-    });
+    !(downloadsData.meta || downloadsData.downloads) &&
+      axios.get("/history/downloads", config).then(res => {
+        setDownloads(res.data.data);
+        setDownloadsMeta(res.data.meta);
+        dispatch(
+          storeDownloadsData({ downloads: res.data.data, meta: res.data.meta })
+        );
+      });
   }
 
   useEffect(() => {

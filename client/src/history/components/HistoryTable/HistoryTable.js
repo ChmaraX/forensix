@@ -38,7 +38,7 @@ function HistoryTable(props) {
           },
           { title: "Transition", field: "transition" }
         ]}
-        data={props.history}
+        data={props.history || []}
         actions={[
           {
             icon: "save",

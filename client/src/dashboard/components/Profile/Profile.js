@@ -148,7 +148,7 @@ function Profile(props) {
         {showAccounts ? "Show Profile" : "Show Accounts"}
       </Button>
       {showAccounts ? (
-        props.loading ? (
+        !props.accounts ? (
           PlaceholderLine()
         ) : (
           AccountContent(props.accounts || [])
@@ -157,12 +157,12 @@ function Profile(props) {
         <Grid>
           <Grid.Row>
             <Grid.Column width={5}>
-              {props.loading
+              {!props.profile
                 ? PlaceholderImage()
                 : Avatar(props.profile?.avatars[0])}
             </Grid.Column>
             <Grid.Column width={11}>
-              {props.loading
+              {!props.profile
                 ? PlaceholderLine()
                 : EstimatedContent(props.profile)}
             </Grid.Column>

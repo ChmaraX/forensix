@@ -6,11 +6,19 @@ import BrowsingActivty from "../dashboard/components/BrowsingActivity/BrowsingAc
 import HistoryTable from "./components/HistoryTable/HistoryTable";
 import AvgVisitChart from "./components/AvgVisitChart/AvgVisitChart";
 import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
+import { useDispatch, useSelector } from "react-redux";
+import { storeHistoryData } from "../store/actions/appData";
 
 function HistoryContainer() {
-  const [history, setHistory] = useState();
-  const [bActivity, setbActivity] = useState();
-  const [avgDurations, setAvgDurations] = useState();
+  const dispatch = useDispatch();
+  const appData = useSelector(state => state.appDataReducer);
+  const [history, setHistory] = useState(appData.history.history);
+  const [bActivity, setbActivity] = useState(
+    appData.dashboard.bActivity || appData.history.bActivity
+  );
+  const [avgDurations, setAvgDurations] = useState(
+    appData.history.avgDurations
+  );
   const [showModal, setShowModal] = useState({
     show: false,
     data: {}
@@ -23,17 +31,23 @@ function HistoryContainer() {
       headers: { Authorization: `Bearer ${token}` }
     };
 
-    let history = axios.get("/history", config).then(res => {
-      setHistory(res.data);
-    });
+    !appData.history.history &&
+      axios.get("/history", config).then(res => {
+        setHistory(res.data);
+        dispatch(storeHistoryData({ history: res.data }));
+      });
 
-    let avgDurations = axios.get("/history/avg", config).then(res => {
-      setAvgDurations(res.data);
-    });
+    !appData.history.avgDurations &&
+      axios.get("/history/avg", config).then(res => {
+        setAvgDurations(res.data);
+        dispatch(storeHistoryData({ avgDurations: res.data }));
+      });
 
-    let bActivity = axios.get("/history/activity", config).then(res => {
-      setbActivity(res.data);
-    });
+    !(appData.dashboard.bActivity || appData.history.bActivity) &&
+      axios.get("/history/activity", config).then(res => {
+        setbActivity(res.data);
+        dispatch(storeHistoryData({ bActivity: res.data }));
+      });
   }
 
   useEffect(() => {

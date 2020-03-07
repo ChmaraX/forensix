@@ -4,9 +4,13 @@ import axios from "axios";
 import { Grid, Segment, Header } from "semantic-ui-react";
 import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
 import ReactJson from "react-json-view";
+import { useDispatch, useSelector } from "react-redux";
+import { storeDirTreeData } from "../store/actions/appData";
 
 function VolumesContainer() {
-  const [dirTree, setDirTree] = useState();
+  const dispatch = useDispatch();
+  const dirTreeData = useSelector(state => state.appDataReducer.dirTree);
+  const [dirTree, setDirTree] = useState(dirTreeData);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -16,9 +20,12 @@ function VolumesContainer() {
       params: { count: 100 }
     };
 
-    axios.get("/volumes/tree", config).then(res => {
-      setDirTree(res.data);
-    });
+    if (!dirTreeData) {
+      axios.get("/volumes/tree", config).then(res => {
+        setDirTree(res.data);
+        dispatch(storeDirTreeData(res.data));
+      });
+    }
   });
   return (
     <ContentWrapper>

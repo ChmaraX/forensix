@@ -42,7 +42,7 @@ function DownloadsTable(props) {
           { title: "Start Time", field: "start_time" },
           { title: "End Time", field: "end_time" }
         ]}
-        data={props.downloads}
+        data={props.downloads || []}
         actions={[
           {
             icon: "save",

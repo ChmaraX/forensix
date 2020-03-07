@@ -105,7 +105,7 @@ function RadarWidget(props) {
       style={{ display: "flex", justifyContent: "space-between" }}
       color="blue"
     >
-      <Dimmer active={props.classified?.length > 0 ? false : true} inverted>
+      <Dimmer active={!props.classified} inverted>
         <Loader size="medium">Calculating</Loader>
       </Dimmer>
       <React.Fragment>
@@ -117,7 +117,7 @@ function RadarWidget(props) {
           />
           <List>
             {_.orderBy(
-              transformData(props.classified),
+              transformData(props.classified || []),
               ["count"],
               ["desc"]
             ).map((c, i) => {
@@ -134,7 +134,7 @@ function RadarWidget(props) {
             outerRadius={90}
             width={300}
             height={150}
-            data={transformData(props.classified).filter(
+            data={transformData(props.classified || []).filter(
               el => el.count >= 7 || el.fullMark === 0
             )}
           >
