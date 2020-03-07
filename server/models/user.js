@@ -15,6 +15,12 @@ const schema = new mongoose.Schema(
   }
 );
 
+schema.virtual("evidences", {
+  ref: "Evidence",
+  localField: "_id",
+  foreignField: "reporter"
+});
+
 schema.methods.toJSON = function() {
   const userObject = this.toObject();
   delete userObject.password;

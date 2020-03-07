@@ -10,7 +10,10 @@ import TopSites from "./components/TopSites/TopSites";
 import UserActivity from "./components/UserActivity/UserActivity";
 import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
 import { useDispatch, useSelector } from "react-redux";
-import { storeDashboardData } from "../store/actions/appData";
+import {
+  storeDashboardData,
+  storeEvidenceData
+} from "../store/actions/appData";
 
 function DashboardContainer() {
   const dispatch = useDispatch();
@@ -24,6 +27,7 @@ function DashboardContainer() {
   const [credentials, setCredentials] = useState(dashboardData.credentials);
   const [bActivity, setbActivity] = useState(dashboardData.bActivity);
   const [topSites, setTopSites] = useState(dashboardData.topSites);
+  const [evidences, setEvidences] = useState();
 
   function fetchData() {
     const token = localStorage.getItem("token");
@@ -75,6 +79,10 @@ function DashboardContainer() {
         setTopSites(res.data);
         dispatch(storeDashboardData({ topSites: res.data }));
       });
+
+    axios.get("/evidences", config).then(res => {
+      setEvidences(res.data);
+    });
   }
 
   useEffect(() => {
@@ -108,7 +116,7 @@ function DashboardContainer() {
             <TopSites topSites={topSites} />
           </Grid.Column>
           <Grid.Column>
-            <UserActivity topSites={topSites} />
+            <UserActivity evidences={evidences || []} />
           </Grid.Column>
         </Grid.Row>
       </Grid>

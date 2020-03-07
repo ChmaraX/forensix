@@ -66,7 +66,11 @@ function HistoryContainer() {
           </Grid.Column>
         </Grid.Row>
       </Grid>
-      <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} />
+      <SaveEvidenceModal
+        show={showModal.show}
+        setShowModal={setShowModal}
+        showModal={showModal}
+      />
       <HistoryTable history={history} setShowModal={setShowModal} />
     </ContentWrapper>
   );

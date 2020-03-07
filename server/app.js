@@ -15,8 +15,8 @@ const topSitesRouter = require("./routers/topsites");
 const faviconsRouter = require("./routers/favicons");
 const webDataRouter = require("./routers/webdata");
 const bookmarksRouter = require("./routers/bookmarks");
+const evidenceRouter = require("./routers/evidence");
 
-const log = require("./middleware/database-logger");
 const auth = require("./middleware/auth");
 
 const cors = require("cors");
@@ -46,7 +46,8 @@ app.use(
   topSitesRouter,
   faviconsRouter,
   webDataRouter,
-  bookmarksRouter
+  bookmarksRouter,
+  evidenceRouter
 );
 
 // setting global variable with location of data
