@@ -22,7 +22,6 @@ function FaviconModal(props) {
           <Header>Favicon used on:</Header>
           <List animated>
             {metadata?.map(data => {
-              console.log(data);
               return <List.Item as="a">{data.page_url}</List.Item>;
             })}
           </List>

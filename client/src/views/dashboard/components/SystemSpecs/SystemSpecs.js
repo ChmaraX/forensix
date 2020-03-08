@@ -2,7 +2,7 @@ import React from "react";
 import { Segment, Statistic, Icon } from "semantic-ui-react";
 
 function SystemSpecs(props) {
-  console.log(props);
+
   return (
     <React.Fragment>
       <Segment raised style={{ textAlign: "center" }} color="blue">

@@ -29,7 +29,6 @@ function App() {
     dispatch(authCheckState());
   }, []);
 
-  console.log(isAuth);
   let authRoutes = (
     <Switch>
       <Route path="/volumes" component={VolumeMenu} />

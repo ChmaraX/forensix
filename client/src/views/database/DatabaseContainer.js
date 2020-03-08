@@ -26,7 +26,6 @@ function DatabaseContainer() {
 
   const showData = data => {
     setShowModal({ show: true, data: data });
-    console.log(data);
   };
 
   const dataModal = (

@@ -1,5 +1,6 @@
 import React from "react";
 import { Table, Segment, Header, Button, Image } from "semantic-ui-react";
+import { withRouter } from "react-router-dom";
 
 function UserActivity(props) {
   return (
@@ -10,7 +11,11 @@ function UserActivity(props) {
         subheader="last actions by all investigators on this volume"
         style={{ display: "inline-block" }}
       />
-      <Button primary style={{ float: "right" }}>
+      <Button
+        primary
+        onClick={() => props.history.push("/database")}
+        style={{ float: "right" }}
+      >
         Show
       </Button>
       <Table celled fixed>
@@ -51,4 +56,4 @@ function UserActivity(props) {
   );
 }
 
-export default UserActivity;
+export default withRouter(UserActivity);
