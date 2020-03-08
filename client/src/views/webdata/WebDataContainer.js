@@ -106,7 +106,11 @@ function WebDataContainer() {
           </Grid.Column>
         </Grid.Row>
       </Grid>
-      <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} />
+      <SaveEvidenceModal
+        show={showModal.show}
+        setShowModal={setShowModal}
+        showModal={showModal}
+      />
       <WebDataTable autofills={autofills} setShowModal={setShowModal} />
     </ContentWrapper>
   );

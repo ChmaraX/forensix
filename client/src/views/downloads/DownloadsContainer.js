@@ -85,7 +85,7 @@ function DownloadsContainer() {
         </Grid.Row>
       </Grid>
 
-      <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} />
+      <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} showModal={showModal}/>
       <DownloadsTable downloads={downloads} setShowModal={setShowModal} />
     </ContentWrapper>
   );

@@ -45,7 +45,7 @@ function CacheContainer() {
 
   return (
     <ContentWrapper>
-      <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} />
+      <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} showModal={showModal}/>
 
       <MuiThemeProvider theme={theme}>
         <MaterialTable
