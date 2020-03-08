@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import { Grid } from "semantic-ui-react";
 import BrowsingActivty from "../dashboard/components/BrowsingActivity/BrowsingActivity";
 import HistoryTable from "./components/HistoryTable/HistoryTable";
 import AvgVisitChart from "./components/AvgVisitChart/AvgVisitChart";
-import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
+import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
 import { useDispatch, useSelector } from "react-redux";
-import { storeHistoryData } from "../store/actions/appData";
+import { storeHistoryData } from "../../store/actions/appData";
 
 function HistoryContainer() {
   const dispatch = useDispatch();

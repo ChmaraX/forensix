@@ -8,12 +8,9 @@ import LoginPie from "./components/LoginPie/LoginPie";
 import BrowsingActivty from "./components/BrowsingActivity/BrowsingActivity";
 import TopSites from "./components/TopSites/TopSites";
 import UserActivity from "./components/UserActivity/UserActivity";
-import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  storeDashboardData,
-  storeEvidenceData
-} from "../store/actions/appData";
+import { storeDashboardData } from "../../store/actions/appData";
 
 function DashboardContainer() {
   const dispatch = useDispatch();

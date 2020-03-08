@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import DownloadsTable from "./components/DownloadsTable";
-import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
+import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
 import { Statistic, Grid, Segment } from "semantic-ui-react";
 import { useDispatch, useSelector } from "react-redux";
-import { storeDownloadsData } from "../store/actions/appData";
+import { storeDownloadsData } from "../../store/actions/appData";
 
 function DownloadsContainer() {
   const dispatch = useDispatch();

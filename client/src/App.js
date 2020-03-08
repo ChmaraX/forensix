@@ -1,21 +1,22 @@
 import React, { useEffect } from "react";
 import Login from "./login/Login";
 import VolumeMenu from "./volumeMenu/VolumeMenu";
-import DashboardContainer from "./dashboard/DashboardContainer";
+import DashboardContainer from "./views/dashboard/DashboardContainer";
+import HistoryContainer from "./views/history/HistoryContainer";
+import DownloadsContainer from "./views/downloads/DownloadsContainer";
+import FaviconsContainer from "./views/favicons/FaviconsContainer";
+import LoginDataContainer from "./views/logindata/LoginDataContainer";
+import WebDataContainer from "./views/webdata/WebDataContainer";
+import VolumesContainer from "./views/volumes/VolumesContainer";
+import CacheContainer from "./views/cache/CacheContainer";
+import BookmarksContainer from "./views/bookmarks/BookmarksContainer";
+import DatabaseContainer from "./views/database/DatabaseContainer";
 import {
   BrowserRouter as Router,
   Switch,
   Route,
   Redirect
 } from "react-router-dom";
-import HistoryContainer from "./history/HistoryContainer";
-import DownloadsContainer from "./downloads/DownloadsContainer";
-import FaviconsContainer from "./favicons/FaviconsContainer";
-import LoginDataContainer from "./logindata/LoginDataContainer";
-import WebDataContainer from "./webdata/WebDataContainer";
-import VolumesContainer from "./volumes/VolumesContainer";
-import CacheContainer from "./cache/CacheContainer";
-import BookmarksContainer from "./bookmarks/BookmarksContainer";
 
 import { useSelector, useDispatch } from "react-redux";
 import { authCheckState } from "./store/actions/auth";
@@ -41,6 +42,7 @@ function App() {
       <Route path="/volume" component={VolumesContainer} />
       <Route path="/cache" component={CacheContainer} />
       <Route path="/bookmarks" component={BookmarksContainer} />
+      <Route path="/database" component={DatabaseContainer} />
       <Redirect from="/" to="/volumes" />
     </Switch>
   );

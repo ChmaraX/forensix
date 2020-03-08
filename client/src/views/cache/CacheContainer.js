@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
-import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
+import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
 import MaterialTable from "material-table";
 import { MuiThemeProvider, createMuiTheme } from "@material-ui/core";
 import { Header, TextArea, Form } from "semantic-ui-react";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
-import { storeCacheData } from "../store/actions/appData";
+import { storeCacheData } from "../../store/actions/appData";
 
 const theme = createMuiTheme({
   palette: {

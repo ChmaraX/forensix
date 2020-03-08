@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import WebDataTable from "./components/WebDataTable";
-import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
+import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
 import { Statistic, Grid, Segment, List, Header } from "semantic-ui-react";
 import GoogleMaps from "./components/GoogleMaps";
 import { useDispatch, useSelector } from "react-redux";
-import { storeWebData } from "../store/actions/appData";
+import { storeWebData } from "../../store/actions/appData";
 
 function WebDataContainer() {
   const dispatch = useDispatch();

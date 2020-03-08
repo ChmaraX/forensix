@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Grid, Image, Segment, Input } from "semantic-ui-react";
-import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import _ from "lodash";
 import axios from "axios";
 import "./FaviconsContainer.css";
 import FaviconsModal from "./components/FaviconModal";
 import { useDispatch, useSelector } from "react-redux";
-import { storeFaviconsData } from "../store/actions/appData";
+import { storeFaviconsData } from "../../store/actions/appData";
 
 function FaviconsContainer() {
   const dispatch = useDispatch();

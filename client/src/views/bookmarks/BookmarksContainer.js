@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
-import SaveEvidenceModal from "../common/SaveEvidenceModal/SaveEvidenceModal";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
+import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
 import MaterialTable from "material-table";
 import { MuiThemeProvider, createMuiTheme } from "@material-ui/core";
 import { Header } from "semantic-ui-react";
-import { useDispatch, useSelector } from "react-redux";
-import { storeLogindata } from "../store/actions/appData";
 import axios from "axios";
+import { useDispatch, useSelector } from "react-redux";
+import { storeBookmarksData } from "../../store/actions/appData";
 
 const theme = createMuiTheme({
   palette: {
@@ -19,10 +19,10 @@ const theme = createMuiTheme({
   }
 });
 
-function LoginDataContainer() {
+function BookmarksContainer() {
   const dispatch = useDispatch();
-  const logindata = useSelector(state => state.appDataReducer.loginData);
-  const [loginData, setLoginData] = useState(logindata);
+  const bookmarks = useSelector(state => state.appDataReducer.bookmarks);
+  const [bookmarksData, setBookmarksData] = useState(bookmarks);
   const [showModal, setShowModal] = useState({
     show: false,
     data: {}
@@ -30,14 +30,15 @@ function LoginDataContainer() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     const config = {
       headers: { Authorization: `Bearer ${token}` }
     };
 
-    !logindata &&
-      axios.get("/logindata", config).then(res => {
-        setLoginData(res.data);
-        dispatch(storeLogindata(res.data));
+    !bookmarks &&
+      axios.get("/bookmarks", config).then(res => {
+        setBookmarksData(res.data);
+        dispatch(storeBookmarksData(res.data));
       });
   }, []);
 
@@ -47,29 +48,26 @@ function LoginDataContainer() {
 
       <MuiThemeProvider theme={theme}>
         <MaterialTable
-          title={<Header as="h1">Login Data</Header>}
+          title={<Header as="h1">Bookmarks</Header>}
           columns={[
             {
-              title: "Action URL",
-              field: "action_url"
+              title: "Name",
+              field: "name"
             },
             {
-              title: "Username",
-              field: "username_value"
+              title: "URL",
+              field: "url"
             },
             {
-              title: "Password (hex)",
-              field: "password_value"
+              title: "Date Added",
+              field: "date_added"
             },
-            { title: "Preferred", field: "preferred", type: "numeric" },
-            { title: "Times Used", field: "times_used", type: "numeric" },
-            { title: "Created", field: "date_created" },
             {
-              title: "Last Used",
-              field: "date_last_used"
+              title: "Last Visited",
+              field: "last_visited_desktop"
             }
           ]}
-          data={loginData || []}
+          data={bookmarksData || []}
           actions={[
             {
               icon: "save",
@@ -96,4 +94,4 @@ function LoginDataContainer() {
   );
 }
 
-export default LoginDataContainer;
+export default BookmarksContainer;

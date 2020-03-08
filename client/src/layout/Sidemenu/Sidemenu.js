@@ -55,7 +55,8 @@ const navAlt = [
   },
   {
     title: "Database",
-    icon: "database"
+    icon: "database",
+    path: "/database"
   }
 ];
 

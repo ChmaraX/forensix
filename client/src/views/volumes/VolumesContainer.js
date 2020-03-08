@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import { ResponsiveSunburst } from "@nivo/sunburst";
 import axios from "axios";
 import { Grid, Segment, Header } from "semantic-ui-react";
-import ContentWrapper from "../layout/ContentWrapper/ContentWrapper";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import ReactJson from "react-json-view";
 import { useDispatch, useSelector } from "react-redux";
-import { storeDirTreeData } from "../store/actions/appData";
+import { storeDirTreeData } from "../../store/actions/appData";
 
 function VolumesContainer() {
   const dispatch = useDispatch();
