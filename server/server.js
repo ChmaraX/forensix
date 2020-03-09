@@ -1,8 +1,18 @@
 const app = require("./app");
+const https = require("https");
+const fs = require("fs");
 const { generateChecksum } = require("./controllers/VolumesController");
 
 const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
+
+const httpsServer = https.createServer(
+  {
+    key: fs.readFileSync("./certificates/server.key"),
+    cert: fs.readFileSync("./certificates/server.cert")
+  },
+  app
+);
 
 // first generate SHA1 hash out of data medium
 console.log(
@@ -15,7 +25,7 @@ generateChecksum(process.env.VOLUME_PATH).then(checksum => {
   console.log("SHA1 hash of medium: %s", checksum);
 
   // then make server available
-  app.listen(PORT, HOST, () => {
+  httpsServer.listen(PORT, HOST, () => {
     console.log("Server is listening on %s:%s", HOST, PORT);
   });
 });
