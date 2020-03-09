@@ -7,12 +7,6 @@ import { Statistic, Grid, Segment } from "semantic-ui-react";
 import { useDispatch, useSelector } from "react-redux";
 import { storeDownloadsData } from "../../store/actions/appData";
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` }
-};
-
 function DownloadsContainer() {
   const dispatch = useDispatch();
   const downloadsData = useSelector(
@@ -24,6 +18,12 @@ function DownloadsContainer() {
     show: false,
     data: {}
   });
+
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
 
   function fetchData() {
     !(downloadsData.meta || downloadsData.downloads) &&

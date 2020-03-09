@@ -19,12 +19,6 @@ const theme = createMuiTheme({
   }
 });
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` }
-};
-
 function LoginDataContainer() {
   const dispatch = useDispatch();
   const logindata = useSelector(state => state.appDataReducer.loginData);
@@ -33,6 +27,12 @@ function LoginDataContainer() {
     show: false,
     data: {}
   });
+
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
 
   useEffect(() => {
     !logindata &&

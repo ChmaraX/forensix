@@ -2,14 +2,14 @@ import React, { useState } from "react";
 import { Header, Modal, Button, Icon, TextArea } from "semantic-ui-react";
 import axios from "../../axios-api";
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` }
-};
-
 function SaveEvidenceModal(props) {
   const [description, setDescription] = useState();
+
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
 
   function saveEvidence() {
     let body = {

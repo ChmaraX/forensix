@@ -9,12 +9,6 @@ import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal"
 import { useDispatch, useSelector } from "react-redux";
 import { storeHistoryData } from "../../store/actions/appData";
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` }
-};
-
 function HistoryContainer() {
   const dispatch = useDispatch();
   const appData = useSelector(state => state.appDataReducer);
@@ -29,6 +23,12 @@ function HistoryContainer() {
     show: false,
     data: {}
   });
+
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
 
   function fetchData() {
     !appData.history.history &&

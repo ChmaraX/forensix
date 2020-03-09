@@ -19,12 +19,6 @@ const theme = createMuiTheme({
   }
 });
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` }
-};
-
 function BookmarksContainer() {
   const dispatch = useDispatch();
   const bookmarks = useSelector(state => state.appDataReducer.bookmarks);
@@ -33,6 +27,12 @@ function BookmarksContainer() {
     show: false,
     data: {}
   });
+
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
 
   useEffect(() => {
     !bookmarks &&

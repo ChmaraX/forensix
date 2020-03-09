@@ -8,12 +8,6 @@ import FaviconsModal from "./components/FaviconModal";
 import { useDispatch, useSelector } from "react-redux";
 import { storeFaviconsData } from "../../store/actions/appData";
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` }
-};
-
 function FaviconsContainer() {
   const dispatch = useDispatch();
   const faviconsData = useSelector(state => state.appDataReducer.favicons);
@@ -23,6 +17,12 @@ function FaviconsContainer() {
     show: false,
     data: {}
   });
+
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
 
   useEffect(() => {
     !faviconsData &&

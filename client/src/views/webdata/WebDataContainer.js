@@ -8,12 +8,6 @@ import GoogleMaps from "./components/GoogleMaps";
 import { useDispatch, useSelector } from "react-redux";
 import { storeWebData } from "../../store/actions/appData";
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` }
-};
-
 function WebDataContainer() {
   const dispatch = useDispatch();
   const webData = useSelector(state => state.appDataReducer.webData);
@@ -24,6 +18,12 @@ function WebDataContainer() {
     show: false,
     data: {}
   });
+
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
 
   function fetchData() {
     !webData.autofills &&

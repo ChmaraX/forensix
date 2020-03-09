@@ -186,7 +186,7 @@ const converWebkitTimestamp = webkitTimestamp => {
   return new Date(dateInSeconds * 1000).toLocaleDateString();
 };
 
-const getCacheEntries = count => {
+const getCacheEntries = (from = 0) => {
   const indexFile = path.join(process.env.VOLUME_PATH, "/Cache/" + "index");
   const { indexTable } = parseIndexFile(indexFile);
 
@@ -196,7 +196,10 @@ const getCacheEntries = count => {
   );
 
   // bin addr => parsed block addr (filename, offset)
-  const blockAddresses = parseCacheAddresses(cacheAddresses).slice(0, count);
+  const blockAddresses = parseCacheAddresses(cacheAddresses).slice(
+    +from,
+    +from + 20
+  );
 
   // filename + offset => block chunk
   const blocks = getBlocksFromAddr(blockAddresses);

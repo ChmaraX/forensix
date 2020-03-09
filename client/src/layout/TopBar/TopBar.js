@@ -6,12 +6,6 @@ import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../../store/actions/auth";
 import { storeVolumesInfo } from "../../store/actions/appData";
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` }
-};
-
 function TopBar() {
   const dispatch = useDispatch();
   const username = useSelector(state => state.authReducer.username);
@@ -19,6 +13,12 @@ function TopBar() {
   const [status, setStatus] = useState(volumesInfo.status);
   const [fetching, setFetching] = useState(false);
   const [volume, setVolume] = useState(volumesInfo.volume);
+
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
 
   useEffect(() => {
     if (!volumesInfo.status) {

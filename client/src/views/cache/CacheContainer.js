@@ -19,13 +19,6 @@ const theme = createMuiTheme({
   }
 });
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` },
-  params: { count: 100 }
-};
-
 function CacheContainer() {
   const dispatch = useDispatch();
   const cache = useSelector(state => state.appDataReducer.cache);
@@ -35,6 +28,13 @@ function CacheContainer() {
     data: {}
   });
 
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` },
+    params: { count: 0 }
+  };
+
   useEffect(() => {
     !cache &&
       axios.get("/cache", config).then(res => {
@@ -42,6 +42,15 @@ function CacheContainer() {
         dispatch(storeCacheData(res.data));
       });
   }, [cache, dispatch]);
+
+  const pollEntries = pNum => {
+    axios
+      .get("/cache", { ...config, params: { count: pNum * 20 } })
+      .then(res => {
+        setCacheData([...cache, ...res.data]);
+        dispatch(storeCacheData([...cache, ...res.data]));
+      });
+  };
 
   return (
     <ContentWrapper>
@@ -96,6 +105,7 @@ function CacheContainer() {
                 })
             }
           ]}
+          onChangePage={pNum => pollEntries(pNum)}
           options={{
             selection: true,
             exportButton: true,

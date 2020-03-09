@@ -4,19 +4,18 @@ import axios from "../../axios-api";
 import ReactJson from "react-json-view";
 import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` },
-  params: { count: 100 }
-};
-
 function DatabaseContainer() {
   const [evidences, setEvidences] = useState([]);
   const [showModal, setShowModal] = useState({
     show: false,
     data: []
   });
+
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
 
   useEffect(() => {
     axios.get("/evidences", config).then(res => {

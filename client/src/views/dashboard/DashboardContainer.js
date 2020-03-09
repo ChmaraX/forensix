@@ -12,12 +12,6 @@ import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import { useDispatch, useSelector } from "react-redux";
 import { storeDashboardData } from "../../store/actions/appData";
 
-const token = localStorage.getItem("token");
-
-const config = {
-  headers: { Authorization: `Bearer ${token}` }
-};
-
 function DashboardContainer() {
   const dispatch = useDispatch();
   const dashboardData = useSelector(state => state.appDataReducer.dashboard);
@@ -31,6 +25,12 @@ function DashboardContainer() {
   const [bActivity, setbActivity] = useState(dashboardData.bActivity);
   const [topSites, setTopSites] = useState(dashboardData.topSites);
   const [evidences, setEvidences] = useState();
+
+  const token = localStorage.getItem("token");
+
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
 
   function fetchData() {
     !dashboardData.profile &&

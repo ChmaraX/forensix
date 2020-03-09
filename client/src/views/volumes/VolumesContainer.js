@@ -16,8 +16,7 @@ function VolumesContainer() {
     const token = localStorage.getItem("token");
 
     const config = {
-      headers: { Authorization: `Bearer ${token}` },
-      params: { count: 100 }
+      headers: { Authorization: `Bearer ${token}` }
     };
 
     if (!dirTreeData) {
