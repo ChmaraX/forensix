@@ -2,11 +2,17 @@ import React, { useState, useEffect } from "react";
 import { Grid, Image, Segment, Input } from "semantic-ui-react";
 import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import _ from "lodash";
-import axios from "axios";
+import axios from "../../axios-api";
 import "./FaviconsContainer.css";
 import FaviconsModal from "./components/FaviconModal";
 import { useDispatch, useSelector } from "react-redux";
 import { storeFaviconsData } from "../../store/actions/appData";
+
+const token = localStorage.getItem("token");
+
+const config = {
+  headers: { Authorization: `Bearer ${token}` }
+};
 
 function FaviconsContainer() {
   const dispatch = useDispatch();
@@ -19,19 +25,13 @@ function FaviconsContainer() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-
     !faviconsData &&
       axios.get("/favicons", config).then(res => {
         setFavicons(res.data);
         setResults(res.data);
         dispatch(storeFaviconsData(res.data));
       });
-  }, []);
+  });
 
   const searchFavicon = keyword => {
     if (keyword.length < 1) return setResults(favicons);

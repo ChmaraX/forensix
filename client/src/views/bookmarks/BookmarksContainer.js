@@ -4,7 +4,7 @@ import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal"
 import MaterialTable from "material-table";
 import { MuiThemeProvider, createMuiTheme } from "@material-ui/core";
 import { Header } from "semantic-ui-react";
-import axios from "axios";
+import axios from "../../axios-api";
 import { useDispatch, useSelector } from "react-redux";
 import { storeBookmarksData } from "../../store/actions/appData";
 
@@ -19,6 +19,12 @@ const theme = createMuiTheme({
   }
 });
 
+const token = localStorage.getItem("token");
+
+const config = {
+  headers: { Authorization: `Bearer ${token}` }
+};
+
 function BookmarksContainer() {
   const dispatch = useDispatch();
   const bookmarks = useSelector(state => state.appDataReducer.bookmarks);
@@ -29,18 +35,12 @@ function BookmarksContainer() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-
     !bookmarks &&
       axios.get("/bookmarks", config).then(res => {
         setBookmarksData(res.data);
         dispatch(storeBookmarksData(res.data));
       });
-  }, []);
+  }, [bookmarks, dispatch]);
 
   return (
     <ContentWrapper>

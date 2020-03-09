@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../../axios-api";
 import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import DownloadsTable from "./components/DownloadsTable";
 import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
 import { Statistic, Grid, Segment } from "semantic-ui-react";
 import { useDispatch, useSelector } from "react-redux";
 import { storeDownloadsData } from "../../store/actions/appData";
+
+const token = localStorage.getItem("token");
+
+const config = {
+  headers: { Authorization: `Bearer ${token}` }
+};
 
 function DownloadsContainer() {
   const dispatch = useDispatch();
@@ -20,12 +26,6 @@ function DownloadsContainer() {
   });
 
   function fetchData() {
-    const token = localStorage.getItem("token");
-
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-
     !(downloadsData.meta || downloadsData.downloads) &&
       axios.get("/history/downloads", config).then(res => {
         setDownloads(res.data.data);
@@ -85,7 +85,11 @@ function DownloadsContainer() {
         </Grid.Row>
       </Grid>
 
-      <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} showModal={showModal}/>
+      <SaveEvidenceModal
+        show={showModal.show}
+        setShowModal={setShowModal}
+        showModal={showModal}
+      />
       <DownloadsTable downloads={downloads} setShowModal={setShowModal} />
     </ContentWrapper>
   );

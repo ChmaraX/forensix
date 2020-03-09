@@ -4,19 +4,19 @@ import { Segment, Divider, Button } from "semantic-ui-react";
 import Logo from "../common/Logo/Logo";
 import "./VolumeMenu.css";
 import Volume from "./Volume";
-import axios from "axios";
+import axios from "../axios-api";
+
+const token = localStorage.getItem("token");
+
+const config = {
+  headers: { Authorization: `Bearer ${token}` },
+  params: { count: 100 }
+};
 
 function VolumeMenu() {
   const [volumeInfo, setVolumeInfo] = useState();
   const [loading, setLoading] = useState(false);
   const [integrity, setIntegrity] = useState({ status: "verified" });
-
-  const token = localStorage.getItem("token");
-
-  const config = {
-    headers: { Authorization: `Bearer ${token}` },
-    params: { count: 100 }
-  };
 
   useEffect(() => {
     axios.get("/volumes", config).then(res => {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Grid } from "semantic-ui-react";
 import Profile from "./components/Profile/Profile";
-import axios from "axios";
+import axios from "../../axios-api";
 import SystemSpecs from "./components/SystemSpecs/SystemSpecs";
 import RadarWidget from "./components/RadarWidget/RadarWidget";
 import LoginPie from "./components/LoginPie/LoginPie";
@@ -11,6 +11,12 @@ import UserActivity from "./components/UserActivity/UserActivity";
 import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import { useDispatch, useSelector } from "react-redux";
 import { storeDashboardData } from "../../store/actions/appData";
+
+const token = localStorage.getItem("token");
+
+const config = {
+  headers: { Authorization: `Bearer ${token}` }
+};
 
 function DashboardContainer() {
   const dispatch = useDispatch();
@@ -27,12 +33,6 @@ function DashboardContainer() {
   const [evidences, setEvidences] = useState();
 
   function fetchData() {
-    const token = localStorage.getItem("token");
-
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-
     !dashboardData.profile &&
       axios.get("/profile/estimate", config).then(res => {
         setProfile(res.data);

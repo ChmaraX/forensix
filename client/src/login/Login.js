@@ -5,7 +5,7 @@ import Logo from "../common/Logo/Logo";
 import CenteredWrapper from "../layout/CenteredWrapper/CenteredWrapper";
 import { useDispatch } from "react-redux";
 import { auth } from "../store/actions/auth";
-import axios from "axios";
+import axios from "../axios-api";
 
 function Login() {
   const dispatch = useDispatch();

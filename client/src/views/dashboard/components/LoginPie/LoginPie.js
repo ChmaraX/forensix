@@ -107,7 +107,7 @@ function LoginPie(props) {
             <Header
               as="h4"
               content="Most used usernames"
-              style={{ marginTop: "0", marginTop: "20px", marginBottom: "5px" }}
+              style={{ marginTop: "20px", marginBottom: "5px" }}
             />
             <Legend
               layout="vertical"

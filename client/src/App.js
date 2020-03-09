@@ -27,7 +27,7 @@ function App() {
 
   useEffect(() => {
     dispatch(authCheckState());
-  }, []);
+  }, [dispatch]);
 
   let authRoutes = (
     <Switch>

@@ -1,7 +1,7 @@
 .black-base {
   height: 400px;
   width: 1000px;
-  opacity: 90%;
+  opacity: 0.9;
   outline: 1px solid white;
   outline-offset: 15px;
 }

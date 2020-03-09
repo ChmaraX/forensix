@@ -22,6 +22,7 @@ const auth = require("./middleware/auth");
 const cors = require("cors");
 
 const app = express();
+app.use(cors());
 
 // registering middlewares
 app.all("/bookmarks", auth);

@@ -84,6 +84,8 @@ const transformData = data => {
       case "Science":
         transformedData[7].count += 1;
         break;
+      default:
+        break;
     }
   });
 

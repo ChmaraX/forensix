@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Header, Modal, Button, Icon, TextArea } from "semantic-ui-react";
-import axios from "axios";
+import axios from "../../axios-api";
 
 const token = localStorage.getItem("token");
 

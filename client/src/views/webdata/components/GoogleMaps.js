@@ -1,6 +1,6 @@
 import React from "react";
 import { Segment } from "semantic-ui-react";
-import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
+import { GoogleMap, LoadScript } from "@react-google-maps/api";
 
 const center = {
   lat: 48.14816,

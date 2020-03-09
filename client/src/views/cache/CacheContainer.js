@@ -4,7 +4,7 @@ import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal"
 import MaterialTable from "material-table";
 import { MuiThemeProvider, createMuiTheme } from "@material-ui/core";
 import { Header, TextArea, Form } from "semantic-ui-react";
-import axios from "axios";
+import axios from "../../axios-api";
 import { useDispatch, useSelector } from "react-redux";
 import { storeCacheData } from "../../store/actions/appData";
 
@@ -19,6 +19,13 @@ const theme = createMuiTheme({
   }
 });
 
+const token = localStorage.getItem("token");
+
+const config = {
+  headers: { Authorization: `Bearer ${token}` },
+  params: { count: 100 }
+};
+
 function CacheContainer() {
   const dispatch = useDispatch();
   const cache = useSelector(state => state.appDataReducer.cache);
@@ -29,23 +36,20 @@ function CacheContainer() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    const config = {
-      headers: { Authorization: `Bearer ${token}` },
-      params: { count: 100 }
-    };
-
     !cache &&
       axios.get("/cache", config).then(res => {
         setCacheData(res.data);
         dispatch(storeCacheData(res.data));
       });
-  }, []);
+  }, [cache, dispatch]);
 
   return (
     <ContentWrapper>
-      <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} showModal={showModal}/>
+      <SaveEvidenceModal
+        show={showModal.show}
+        setShowModal={setShowModal}
+        showModal={showModal}
+      />
 
       <MuiThemeProvider theme={theme}>
         <MaterialTable
@@ -108,7 +112,7 @@ function CacheContainer() {
             return (
               <div>
                 {rowData.contentType?.includes("image") ? (
-                  <img src={image} />
+                  <img src={image} alt="parsed payload" />
                 ) : (
                   <Form>
                     <TextArea rows={10}>{rowData.payload}</TextArea>

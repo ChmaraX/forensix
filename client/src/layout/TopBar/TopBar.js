@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { Image, Icon, Loader, Dropdown } from "semantic-ui-react";
 import "./TopBar.css";
-import axios from "axios";
+import axios from "../../axios-api";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../../store/actions/auth";
 import { storeVolumesInfo } from "../../store/actions/appData";
+
+const token = localStorage.getItem("token");
+
+const config = {
+  headers: { Authorization: `Bearer ${token}` }
+};
 
 function TopBar() {
   const dispatch = useDispatch();
@@ -15,21 +21,16 @@ function TopBar() {
   const [volume, setVolume] = useState(volumesInfo.volume);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-
-    if (!status) {
+    if (!volumesInfo.status) {
       setFetching(true);
-
       axios.get("/volumes/verify", config).then(res => {
         setStatus(res.data.status);
         dispatch(storeVolumesInfo({ status: res.data.status }));
         setFetching(false);
       });
+    }
 
+    if (!volumesInfo.volume) {
       axios.get("/volumes", config).then(res => {
         setVolume(res.data);
         dispatch(storeVolumesInfo({ volume: res.data }));

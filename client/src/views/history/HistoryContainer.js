@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../../axios-api";
 import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import { Grid } from "semantic-ui-react";
 import BrowsingActivty from "../dashboard/components/BrowsingActivity/BrowsingActivity";
@@ -8,6 +8,12 @@ import AvgVisitChart from "./components/AvgVisitChart/AvgVisitChart";
 import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
 import { useDispatch, useSelector } from "react-redux";
 import { storeHistoryData } from "../../store/actions/appData";
+
+const token = localStorage.getItem("token");
+
+const config = {
+  headers: { Authorization: `Bearer ${token}` }
+};
 
 function HistoryContainer() {
   const dispatch = useDispatch();
@@ -25,12 +31,6 @@ function HistoryContainer() {
   });
 
   function fetchData() {
-    const token = localStorage.getItem("token");
-
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-
     !appData.history.history &&
       axios.get("/history", config).then(res => {
         setHistory(res.data);

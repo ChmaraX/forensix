@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ResponsiveSunburst } from "@nivo/sunburst";
-import axios from "axios";
+import axios from "../../axios-api";
 import { Grid, Segment, Header } from "semantic-ui-react";
 import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import ReactJson from "react-json-view";

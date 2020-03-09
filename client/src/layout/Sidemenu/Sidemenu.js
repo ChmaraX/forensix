@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import Logo from "../../common/Logo/Logo";
 import "./Sidemenu.css";
 import { Icon, Divider } from "semantic-ui-react";
-import { Link, withRouter } from "react-router-dom";
+import { withRouter } from "react-router-dom";
 
 const nav = [
   {

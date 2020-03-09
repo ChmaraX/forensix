@@ -89,7 +89,10 @@ const reducer = (state = initialState, action) => {
     }
     case STORE_VOLUMES_INFO: {
       const { volumesInfo } = action;
-      return { ...state, volumesInfo };
+      return {
+        ...state,
+        volumesInfo: { ...state.volumesInfo, ...volumesInfo }
+      };
     }
     default:
       break;

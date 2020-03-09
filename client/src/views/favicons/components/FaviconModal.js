@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Image, Modal, Button, Header, List } from "semantic-ui-react";
-import axios from "axios";
+import { Image, Modal, Header, List } from "semantic-ui-react";
+import axios from "../../../axios-api";
 
 function FaviconModal(props) {
   const [metadata, setMetadata] = useState();

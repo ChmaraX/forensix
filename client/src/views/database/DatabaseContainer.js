@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Table, Header, Button, Image, Modal } from "semantic-ui-react";
-import axios from "axios";
+import axios from "../../axios-api";
 import ReactJson from "react-json-view";
 import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 

@@ -6,7 +6,7 @@ import { MuiThemeProvider, createMuiTheme } from "@material-ui/core";
 import { Header } from "semantic-ui-react";
 import { useDispatch, useSelector } from "react-redux";
 import { storeLogindata } from "../../store/actions/appData";
-import axios from "axios";
+import axios from "../../axios-api";
 
 const theme = createMuiTheme({
   palette: {
@@ -19,6 +19,12 @@ const theme = createMuiTheme({
   }
 });
 
+const token = localStorage.getItem("token");
+
+const config = {
+  headers: { Authorization: `Bearer ${token}` }
+};
+
 function LoginDataContainer() {
   const dispatch = useDispatch();
   const logindata = useSelector(state => state.appDataReducer.loginData);
@@ -29,21 +35,20 @@ function LoginDataContainer() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-
     !logindata &&
       axios.get("/logindata", config).then(res => {
         setLoginData(res.data);
         dispatch(storeLogindata(res.data));
       });
-  }, []);
+  }, [logindata, dispatch]);
 
   return (
     <ContentWrapper>
-      <SaveEvidenceModal show={showModal.show} setShowModal={setShowModal} showModal={showModal}/>
+      <SaveEvidenceModal
+        show={showModal.show}
+        setShowModal={setShowModal}
+        showModal={showModal}
+      />
 
       <MuiThemeProvider theme={theme}>
         <MaterialTable

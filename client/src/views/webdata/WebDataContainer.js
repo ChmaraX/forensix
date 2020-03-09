@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../../axios-api";
 import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import WebDataTable from "./components/WebDataTable";
 import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
@@ -7,6 +7,12 @@ import { Statistic, Grid, Segment, List, Header } from "semantic-ui-react";
 import GoogleMaps from "./components/GoogleMaps";
 import { useDispatch, useSelector } from "react-redux";
 import { storeWebData } from "../../store/actions/appData";
+
+const token = localStorage.getItem("token");
+
+const config = {
+  headers: { Authorization: `Bearer ${token}` }
+};
 
 function WebDataContainer() {
   const dispatch = useDispatch();
@@ -20,12 +26,6 @@ function WebDataContainer() {
   });
 
   function fetchData() {
-    const token = localStorage.getItem("token");
-
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-
     !webData.autofills &&
       axios.get("/webdata/autofills", config).then(res => {
         setAutofills(res.data);
