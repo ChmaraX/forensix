@@ -1,6 +1,7 @@
 const express = require("express");
 const https = require("https");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 
@@ -13,6 +14,14 @@ app.get("/*", function(req, res) {
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 
-app.listen(PORT, HOST, function() {
-  console.log("Server is listening on port %s", PORT);
+const httpsServer = https.createServer(
+  {
+    key: fs.readFileSync("./certificates/server.key"),
+    cert: fs.readFileSync("./certificates/server.cert")
+  },
+  app
+);
+
+httpsServer.listen(PORT, HOST, function() {
+  console.log("Production UI server is listening on %s:%s", HOST, PORT);
 });
