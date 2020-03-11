@@ -3,6 +3,7 @@ const router = new express.Router();
 const chalk = require("chalk");
 const fs = require("fs");
 const path = require("path");
+const _ = require("lodash");
 
 const converWebkitTimestamp = webkitTimestamp => {
   const dateInSeconds = Math.round(webkitTimestamp / 1000000) - 11644473600;
@@ -20,14 +21,14 @@ router.get("/bookmarks", async (req, res) => {
     let bookmarksOther = bookmarks.roots.other.children;
     let bookmarksSynced = bookmarks.roots.synced.children;
 
-    let bookmarksFlat = [...bookmarksBar, ...bookmarksOther, ...bookmarksSynced]
-      .map(b => {
+    let bookmarksFlat = _.flatten(
+      [...bookmarksBar, bookmarksOther, bookmarksSynced].map(b => {
         if (b.children) {
           return b.children;
         }
         return b;
       })
-      .flat();
+    );
 
     bookmarksFlat = bookmarksFlat.map(b => {
       return {
@@ -42,6 +43,7 @@ router.get("/bookmarks", async (req, res) => {
     res.send(bookmarksFlat);
     console.log(chalk.green(" [ OK ]"));
   } catch (e) {
+    console.log(e);
     res.status(500).send();
   }
 });

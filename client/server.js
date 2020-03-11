@@ -7,6 +7,13 @@ const app = express();
 
 app.use(express.static(path.join(__dirname, "build")));
 
+app.get("/api*", function(req, res) {
+  const apiPath = req.path.split("/api/").pop();
+  var newurl = `https://${process.env.API_HOST}:3001/` + apiPath;
+
+  res.redirect(newurl);
+});
+
 app.get("/*", function(req, res) {
   res.sendFile(path.join(__dirname, "build", "index.html"));
 });

@@ -4,11 +4,10 @@ FROM node:10
 WORKDIR /app
 
 # Install app dependencies
-COPY package*.json ./
-
-RUN npm install
-
 COPY . .
 
+RUN npm install -qy
+RUN npm run build
+
 EXPOSE 3000
-CMD [ "npm", "start"]
+CMD [ "sh", "-c", "API_HOST=${API_HOST} node server.js"]

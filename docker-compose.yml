@@ -9,7 +9,7 @@ services:
     container_name: forensix-server
     volumes:
       - type: bind
-        source: ./data2
+        source: ./dataExample
         target: /app/data
         read_only: true
     ports:
@@ -24,6 +24,8 @@ services:
       dockerfile: Dockerfile
     image: forensix-client-image
     container_name: forensix-client
+    environment:
+      - API_HOST=localhost
     ports:
       - "3000:3000"
     links:
@@ -40,10 +42,3 @@ services:
       - MONGO_LOG_DIR=/dev/null
     ports:
       - "27017:27017"
-  mongoclient:
-    image: mongoclient/mongoclient:latest
-    container_name: forensix-mongoclient
-    depends_on:
-      - mongodb
-    ports:
-      - 3300:3000
