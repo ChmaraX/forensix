@@ -1,7 +1,10 @@
-FROM node:10 
+FROM nikolaik/python-nodejs:latest
 
-# RUN apt-get update || : && apt-get install python -y
-# RUN apt-get install python3-pip
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir pathlib sklearn
+
+# && \
+# pip install --no-cache-dir med2image
 
 # Create app directory
 WORKDIR /app
