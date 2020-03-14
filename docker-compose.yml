@@ -5,7 +5,7 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
-    image: forensix-server-image
+    image: chmaraxx/forensix:server
     container_name: forensix-server
     volumes:
       - type: bind
@@ -22,7 +22,7 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
-    image: forensix-client-image
+    image: chmarax/forensix:client
     container_name: forensix-client
     environment:
       - API_HOST=localhost

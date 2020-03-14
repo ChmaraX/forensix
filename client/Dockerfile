@@ -10,4 +10,4 @@ RUN npm install -qy
 RUN npm run build
 
 EXPOSE 3000
-CMD [ "sh", "-c", "API_HOST=${API_HOST} node server.js"]
+CMD [ "sh", "-c", "node server.js"]
