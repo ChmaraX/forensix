@@ -7,9 +7,11 @@ const app = express();
 
 app.use(express.static(path.join(__dirname, "build")));
 
+const PROTOCOL = process.env.API_HOST === "localhost" ? "http" : "https"
+
 app.get("/api*", function(req, res) {
   const apiPath = req.path.split("/api/").pop();
-  var newurl = `https://${process.env.API_HOST}:3001/` + apiPath;
+  var newurl = `${PROTOCOL}://${process.env.API_HOST}:3001/` + apiPath;
 
   res.redirect(newurl);
 });
