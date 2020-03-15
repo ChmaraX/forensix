@@ -20,13 +20,13 @@ cp -r /Default/. /forensix/data
 cp -r /Cache /forensix/data
 ```
 
-To download prebuild images:
+To download prebuild images (recommended):
 
 ```bash
 ./install
 ```
 
-To build images from local source:
+Note: to build images from local source use `-b`:
 
 ```bash
 ./install -b
