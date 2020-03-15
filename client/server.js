@@ -1,5 +1,6 @@
 const express = require("express");
 const https = require("https");
+const http = require("http");
 const path = require("path");
 const fs = require("fs");
 
@@ -14,14 +15,31 @@ app.get("/*", function(req, res) {
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 
-const httpsServer = https.createServer(
-  {
-    key: fs.readFileSync("./certificates/server.key"),
-    cert: fs.readFileSync("./certificates/server.cert")
-  },
-  app
-);
+fs.readdir("./certificates", function(err, files) {
+  if (files.length <= 1) {
+    const httpServer = http.createServer(app);
 
-httpsServer.listen(PORT, HOST, function() {
-  console.log("Production UI server is listening on %s:%s", HOST, PORT);
+    httpServer.listen(PORT, HOST, function() {
+      console.log(
+        "Production UI server (http) is listening on %s:%s",
+        HOST,
+        PORT
+      );
+    });
+  } else {
+    const httpsServer = https.createServer(
+      {
+        key: fs.readFileSync("./certificates/server.key"),
+        cert: fs.readFileSync("./certificates/server.cert")
+      },
+      app
+    );
+    httpsServer.listen(PORT, HOST, function() {
+      console.log(
+        "Production UI server (https) is listening on %s:%s",
+        HOST,
+        PORT
+      );
+    });
+  }
 });

@@ -1,6 +1,8 @@
 import axios from "axios";
 
-var baseURL = `https://${window.location.hostname}:3001`;
+// change protocol to https in case of https
+var baseURL = `http://${window.location.hostname}:3001`;
+
 if (process.env.REACT_APP_DEV) {
   baseURL = "http://localhost:3001";
 }

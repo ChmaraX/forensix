@@ -9,7 +9,7 @@ services:
     container_name: forensix-server
     volumes:
       - type: bind
-        source: ./dataExample
+        source: ./data
         target: /app/data
         read_only: true
     ports:
@@ -24,8 +24,6 @@ services:
       dockerfile: Dockerfile
     image: chmarax/forensix:client
     container_name: forensix-client
-    environment:
-      - API_HOST=localhost
     ports:
       - "3000:3000"
     links:
