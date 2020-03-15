@@ -5,7 +5,7 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
-    image: chmaraxx/forensix:server
+    image: chmarax/forensix:server
     container_name: forensix-server
     volumes:
       - type: bind
