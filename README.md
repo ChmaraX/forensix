@@ -4,8 +4,8 @@
 
 Requirements:
 
-- docker
-- docker-compose
+- [docker](https://docs.docker.com/install/)
+- [docker-compose](https://docs.docker.com/compose/install/)
 
 Clone repository:
 
@@ -21,6 +21,7 @@ cp -r /Cache /forensix/data
 ```
 
 To download prebuild images (recommended):
+Note: If there is error, you may need to use `sudo` or set docker to not need a sudo prompt.
 
 ```bash
 ./install
