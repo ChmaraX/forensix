@@ -1,7 +1,8 @@
 <h1 align="center" color="blue">ForensiX</h1>
 <p align="center" text>Google Chrome forensic tool</p>
 
-Forensic tool for processing, analyzing and visually presenting Google Chrome artifacts. 
+<p align="center" text>Forensic tool for processing, analyzing and visually presenting Google Chrome artifacts.</p>
+<p align="center" text><sub>this project was made as a part of bachelor thesis</sub></p>
 
 ## Features 
 * Mounting of volume with Google Chrome data and preserving integrity trough manipulation process
