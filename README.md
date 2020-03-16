@@ -2,7 +2,7 @@
 <p align="center" text>Google Chrome forensic tool</p>
 
 <p align="center">
-<a href="https://lgtm.com/projects/g/ChmaraX/forensix/alerts/" ><img alt="Total alerts" src="https://img.shields.io/lgtm/alerts/g/ChmaraX/forensix.svg?logo=lgtm&logoWidth=18"/></a>
+<a href="https://github.com/ChmaraX/forensix/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 </p>
 
 <p align="center" text>Forensic tool for processing, analyzing and visually presenting Google Chrome artifacts.</p>
