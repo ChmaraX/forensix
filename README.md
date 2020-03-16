@@ -1,4 +1,49 @@
-# ForensiX
+<h1 align="center" color="blue">ForensiX</h1>
+<p align="center" text>Google Chrome forensic tool</p>
+
+Forensic tool for processing, analyzing and visually presenting Google Chrome artifacts. 
+
+## Features 
+* Mounting of volume with Google Chrome data and preserving integrity trough manipulation process
+  - read only
+  - hash checking
+* Suspect profile and behavior estimations including:
+  - personal information (emails, phone nums, date of birth, gender, nation, city, adress...) 
+  - Chrome metadata
+    - Accounts
+    - Version
+  - Target system metadata
+    - Operating system
+    - Display resolution
+    - Mobile Devices
+  - Browsing history URL category classification using ML model
+  - Login data frequency (most used emails and credentials)
+  - Browsing activity during time periods (heatmap, barchart)
+  - Most visited websites
+* Browsing history
+  - transition types
+  - visit durations
+  - avg. visit duration for most common sites
+* Login data (including parsed metadata)
+* Autofills
+  - estimated cities and zip codes
+  - estimated phone number
+  - other possible addresses 
+  - geolocation API (needed to be registered to Google)
+* Downloads (including default download directory, download statistics...)
+ - default download directory
+ - download statistics
+* Bookmarks
+* Favicons (including all subdomains used for respective favicon)
+* Cache 
+  - URLs
+  - content types
+  - payloads (images or base64)
+  - additional parsed metadata
+* Volume
+  - volume structure data (visual, JSON)
+* Shared database to save potential evidence found by investigators
+
 
 ## Installation
 
