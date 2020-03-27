@@ -290,9 +290,11 @@ const parseCacheBlocks = blocks => {
 
     let httpHeader = getHTTPHeader(dataStreamCacheArr[0]);
     if (httpHeader) {
-      let contentTypeMatch = hex_to_ascii(httpHeader)
+      // e.g.: (C|content-T|type:(<space>|<nospace>)image/jpeg)
+      let contentTypeRegExp = /(([A-Z]|[a-z])ontent-([A-Z]|[a-z])ype:)[ ]?([a-z]+\/[a-z]+)/g;
+      var contentTypeMatch = hex_to_ascii(httpHeader)
         .toString()
-        .match(/(content-type:)([-\w.]+\/[-\w.]+)/gi);
+        .match(contentTypeRegExp);
       var contentType = contentTypeMatch
         ? contentTypeMatch[0].split(":")[1]
         : "unknown";
