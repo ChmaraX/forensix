@@ -1,10 +1,10 @@
 const Promise = require("bluebird");
 const fs = Promise.promisifyAll(require("fs"));
 const path = require("path");
-const hexdump = require("hexdump-nodejs");
 const anyBase = require("any-base");
 const hex2bin = anyBase(anyBase.HEX, anyBase.BIN);
 const bin2hex = anyBase(anyBase.BIN, anyBase.HEX);
+const zlib = require("zlib");
 
 const INDEX_HEADER_LENGTH = 256 * 2;
 const LRU_LENGTH = 112 * 2;
@@ -131,6 +131,52 @@ const getBlocksFromAddr = blockAddresses => {
       addr.block_offset + addr.file_type.size
     );
 
+    return block;
+  });
+
+  return blocks;
+};
+
+const gunzip = block => {
+  let decompressedBlock = zlib.gunzipSync(Buffer.from(block, "hex"));
+  return decompressedBlock.toString("hex");
+};
+
+const brunzip = block => {
+  let decompressedBlock = zlib.brotliDecompressSync(Buffer.from(block, "hex"));
+  return decompressedBlock.toString("hex");
+};
+
+const getPayloadBlock = (blockAddresses, size) => {
+  const blocks = blockAddresses.map(addr => {
+    const filePath = path.join(
+      process.env.VOLUME_PATH,
+      "/Cache/" + addr.file_type["cache_file"]
+    );
+
+    const file = fs.readFileSync(filePath);
+    const buff = Buffer.from(file, "ascii");
+
+    const block = buff.toString(
+      "hex",
+      addr.block_offset,
+      addr.block_offset + parseInt(size)
+    );
+
+    const GZIP_SIGN = "1f8b08";
+    const PNG_SIGN = "89504e470d0a1a0a";
+    const JPEG_SIGN = "ffd8ff";
+    const BR_ENCODING = "f158";
+
+    if (block.startsWith(GZIP_SIGN)) {
+      return Buffer.from(gunzip(block), "hex").toString("utf8");
+    }
+    if (block.startsWith(PNG_SIGN) || block.startsWith(JPEG_SIGN)) {
+      return Buffer.from(block, "hex").toString("base64");
+    }
+    if (block.startsWith(BR_ENCODING)) {
+      return Buffer.from(brunzip(block), "hex").toString("utf8");
+    }
     return block;
   });
 
@@ -267,6 +313,31 @@ const parseCacheEntryFlag = flag => {
   }
 };
 
+const parseHttpHeader = httpHeader => {
+  // e.g.: (C|content-T|type:(<space>|<nospace>)image/jpeg)
+  let contentTypeRegExp = /(([A-Z]|[a-z])ontent-([A-Z]|[a-z])ype:)[ ]?([a-z]+\/[a-z]+)/g;
+  // e.g.: (C|content-L|length:(<space>|<nospace>)[0-9]+)
+  let contentLengthRegExp = /(([A-Z]|[a-z])ontent-([A-Z]|[a-z])ength:)[ ]?([0-9]+)/g;
+
+  var contentTypeMatch = hex_to_ascii(httpHeader)
+    .toString()
+    .match(contentTypeRegExp);
+
+  var contentLengthMatch = hex_to_ascii(httpHeader)
+    .toString()
+    .match(contentLengthRegExp);
+
+  var contentType = contentTypeMatch
+    ? contentTypeMatch[0].split(":")[1]
+    : "unknown";
+
+  var contentLength = contentLengthMatch
+    ? contentLengthMatch[0].split(":")[1]
+    : "unknown";
+
+  return { contentType, contentLength };
+};
+
 const parseCacheBlocks = blocks => {
   let toBeParsedAddrs = [];
 
@@ -281,23 +352,18 @@ const parseCacheBlocks = blocks => {
       .match(/.{1,8}/g)
       .map(a => changeEndianness(a));
 
+    // parse header
+    let httpHeader = getHTTPHeader(dataStreamCacheArr[0]);
+    if (httpHeader) {
+      var { contentType, contentLength } = parseHttpHeader(httpHeader);
+    }
+
+    // get and parse payload
     if (parseInt(dataStreamCacheArr[1], 16) !== 0) {
       let parsedPayloadAddr = parseCacheAddresses([
         hex2bin(dataStreamCacheArr[1])
       ]);
-      var payloadBlock = getBlocksFromAddr(parsedPayloadAddr);
-    }
-
-    let httpHeader = getHTTPHeader(dataStreamCacheArr[0]);
-    if (httpHeader) {
-      // e.g.: (C|content-T|type:(<space>|<nospace>)image/jpeg)
-      let contentTypeRegExp = /(([A-Z]|[a-z])ontent-([A-Z]|[a-z])ype:)[ ]?([a-z]+\/[a-z]+)/g;
-      var contentTypeMatch = hex_to_ascii(httpHeader)
-        .toString()
-        .match(contentTypeRegExp);
-      var contentType = contentTypeMatch
-        ? contentTypeMatch[0].split(":")[1]
-        : "unknown";
+      var payloadBlock = getPayloadBlock(parsedPayloadAddr, contentLength);
     }
 
     return {
@@ -317,9 +383,8 @@ const parseCacheBlocks = blocks => {
         block.substr(192, parseInt(block.substr(64, 8), 16))
       ).replace(/\0/g, ""),
       contentType: contentType,
-      payload: Buffer.from(payloadBlock ? payloadBlock[0] : "", "hex").toString(
-        "base64"
-      )
+      contentLength: contentLength,
+      payload: payloadBlock ? payloadBlock[0] : ""
     };
   });
 
