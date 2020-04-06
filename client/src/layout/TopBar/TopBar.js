@@ -1,37 +1,34 @@
-import React, { useState, useEffect } from "react";
-import { Image, Icon, Loader, Dropdown } from "semantic-ui-react";
-import "./TopBar.css";
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Dropdown, Icon, Image, Loader } from "semantic-ui-react";
 import axios from "../../axios-api";
-import { useSelector, useDispatch } from "react-redux";
-import { logout } from "../../store/actions/auth";
 import { storeVolumesInfo } from "../../store/actions/appData";
+import { logout } from "../../store/actions/auth";
+import "./TopBar.css";
 
 function TopBar() {
   const dispatch = useDispatch();
-  const username = useSelector(state => state.authReducer.username);
-  const volumesInfo = useSelector(state => state.appDataReducer.volumesInfo);
+  const username = useSelector((state) => state.authReducer.username);
+  const volumesInfo = useSelector((state) => state.appDataReducer.volumesInfo);
   const [status, setStatus] = useState(volumesInfo.status);
-  const [fetching, setFetching] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [volume, setVolume] = useState(volumesInfo.volume);
 
   const token = localStorage.getItem("token");
 
   const config = {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
   };
 
   useEffect(() => {
-    if (!volumesInfo.status) {
-      setFetching(true);
-      axios.get("/volumes/verify", config).then(res => {
-        setStatus(res.data.status);
-        dispatch(storeVolumesInfo({ status: res.data.status }));
-        setFetching(false);
-      });
-    }
+    axios.get("/volumes/verify", config).then((res) => {
+      setStatus(res.data.status);
+      dispatch(storeVolumesInfo({ status: res.data.status }));
+      setFetching(false);
+    });
 
     if (!volumesInfo.volume) {
-      axios.get("/volumes", config).then(res => {
+      axios.get("/volumes", config).then((res) => {
         setVolume(res.data);
         dispatch(storeVolumesInfo({ volume: res.data }));
       });
