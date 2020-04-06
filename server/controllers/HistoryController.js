@@ -6,7 +6,7 @@ const classifyUrls = async () => {
   const data = await getDbTable({
     db_name: "History",
     table: "urls",
-    row: "url"
+    row: "url",
   });
 
   const urls = data.results.slice(0, 100);
@@ -15,10 +15,10 @@ const classifyUrls = async () => {
     const spawn = require("child_process").spawn;
     const pythonProcess = spawn("python3", [
       "./utils/predictor/url-class.py",
-      JSON.stringify(urls)
+      JSON.stringify(urls),
     ]);
 
-    pythonProcess.stdout.on("data", function(data) {
+    pythonProcess.stdout.on("data", function (data) {
       try {
         let url_categorized = JSON.parse(data.toString());
         resolve(url_categorized);
@@ -35,7 +35,7 @@ const getHistoryActivity = async () => {
     row:
       "urls.url, datetime((visit_time/1000000)-11644473600, 'unixepoch', 'localtime') AS visit_date",
     table: "urls, visits",
-    where: "urls.id = visits.url"
+    where: "urls.id = visits.url",
   });
 
   let month = new Array();
@@ -81,7 +81,7 @@ const TRANSITIONS = [
   "form_submit",
   "reload",
   "keyword",
-  "keyword_generated"
+  "keyword_generated",
 ];
 
 const QUALIFIERS = {
@@ -92,7 +92,7 @@ const QUALIFIERS = {
   0x20000000: "CHAIN_END",
   0x40000000: "CLIENT_REDIRECT",
   0x80000000: "SERVER_REDIRECT",
-  0xc0000000: "IS_REDIRECT_MASK"
+  0xc0000000: "IS_REDIRECT_MASK",
 };
 
 const QUAL_MASK = 0xffffff00;
@@ -104,25 +104,25 @@ const getHistory = async () => {
     row:
       "urls.url, urls.title, urls.visit_count, urls.typed_count, datetime((urls.last_visit_time/1000000)-11644473600, 'unixepoch', 'localtime') AS last_visit_time, datetime((visits.visit_time/1000000)-11644473600, 'unixepoch', 'localtime') AS visit_time, visits.from_visit, (visits.visit_duration/1000000) as visit_duration, visits.transition",
     table: "urls, visits",
-    where: "urls.id = visits.url"
+    where: "urls.id = visits.url",
   });
 
-  const history = data.results.map(record => {
+  const history = data.results.map((record) => {
     return {
       ...record,
       transition:
-        TRANSITIONS[("0x" + record.transition.toString(16)) & TRANS_MASK]
+        TRANSITIONS[("0x" + record.transition.toString(16)) & TRANS_MASK],
     };
   });
 
   return history;
 };
 
-const getAvgDuration = async urls => {
+const getAvgDuration = async (urls) => {
   let avgDurations = [];
 
   return new Promise((resolve, reject) => {
-    urls.map(site => {
+    urls.map((site) => {
       getDbTable({
         db_name: "History",
         row:
@@ -130,15 +130,15 @@ const getAvgDuration = async urls => {
         table: "urls, visits",
         where: `urls.id = visits.url AND visits.visit_duration > 0 AND urls.url LIKE '%${
           parse(site.url).hostname
-        }%' `
-      }).then(data => {
+        }%' `,
+      }).then((data) => {
         avgDurations.push(data.results[0]);
 
         if (avgDurations.length === urls.length) {
-          avgDurations = avgDurations.map(site => {
+          avgDurations = avgDurations.map((site) => {
             return {
               url: parse(site.url).hostname,
-              avg_visit_duration: Math.round(site.avg_visit_duration)
+              avg_visit_duration: Math.round(site.avg_visit_duration),
             };
           });
           resolve(avgDurations);
@@ -176,7 +176,7 @@ const INTERRUPT_REASON = [
   "Cross Origin Redirect",
   "Cancelled",
   "Browser Shutdown",
-  "Browser Crashed"
+  "Browser Crashed",
 ];
 
 const STATE = [
@@ -184,7 +184,7 @@ const STATE = [
   "Complete",
   "Cancelled",
   "Interrupted",
-  "Interrupted"
+  "Interrupted",
 ];
 
 const DANGER_TYPE = [
@@ -197,7 +197,7 @@ const DANGER_TYPE = [
   "Dangerous But User Validated",
   "Dangerous Host",
   "Potentially Unwanted",
-  "Whitelisted by Policy"
+  "Whitelisted by Policy",
 ];
 
 const getDownloads = async () => {
@@ -205,15 +205,15 @@ const getDownloads = async () => {
     db_name: "History",
     row:
       "*, datetime((downloads.start_time/1000000)-11644473600, 'unixepoch', 'localtime') as start_time, datetime((downloads.end_time/1000000)-11644473600, 'unixepoch', 'localtime') as end_time",
-    table: "downloads"
+    table: "downloads",
   });
 
-  const downloads = data.results.map(record => {
+  const downloads = data.results.map((record) => {
     return {
       ...record,
       state: STATE[record.state],
       interrupt_reason: INTERRUPT_REASON[record.interrupt_reason],
-      danger_type: DANGER_TYPE[record.danger_type]
+      danger_type: DANGER_TYPE[record.danger_type],
     };
   });
 
@@ -223,15 +223,15 @@ const getDownloads = async () => {
 const getDownloadsMeta = async () => {
   let downloads = await getDownloads();
 
-  const downloadDirs = downloads.map(record => {
-    return record.target_path.substr(0, record.target_path.lastIndexOf("/"));
+  const downloadDirs = downloads.map((record) => {
+    return (
+      record.target_path.substr(0, record.target_path.lastIndexOf("/")) ||
+      record.target_path.substr(0, record.target_path.lastIndexOf("\\"))
+    );
   });
 
   const mostFreqDownloadDir = _.head(
-    _(downloadDirs)
-      .countBy()
-      .entries()
-      .maxBy(_.last)
+    _(downloadDirs).countBy().entries().maxBy(_.last)
   );
 
   const biggestFile = _.maxBy(downloads, "received_bytes");
@@ -256,5 +256,5 @@ module.exports = {
   getHistory,
   getAvgDuration,
   getDownloads,
-  getDownloadsMeta
+  getDownloadsMeta,
 };

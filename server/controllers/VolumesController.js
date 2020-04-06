@@ -15,7 +15,7 @@ const setVolumeInfo = () => {
 
 const getVolumeInfo = () => {
   const volume = process.env.VOLUME_INFO.split(" ").filter(
-    el => !["on", "type"].includes(el)
+    (el) => !["on", "type"].includes(el)
   );
 
   const volume_info = {
@@ -23,7 +23,7 @@ const getVolumeInfo = () => {
     mount_point: volume[1],
     file_system: volume[2],
     mount_opts: volume[3],
-    hash: process.env.DATA_CHECKSUM
+    hash: process.env.DATA_CHECKSUM,
   };
 
   return volume_info;
@@ -37,17 +37,17 @@ const setVolumePath = () => {
   }
 };
 
-const generateChecksum = dir => {
+const generateChecksum = (dir) => {
   return new Promise((resolve, reject) => {
     hashElement(dir)
-      .then(hash => {
+      .then((hash) => {
         const hashFile = "sha1_data.json";
         const dataHash = hash.hash;
 
         fs.writeFileSync(hashFile, JSON.stringify(hash, null, 2));
         resolve(dataHash);
       })
-      .catch(error => {
+      .catch((error) => {
         reject();
         return console.error("hashing failed:", error);
       });
@@ -58,7 +58,7 @@ const compareChecksums = (sum1, sum2) => sum1 === sum2;
 
 const getVolumeDirTree = () => {
   const tree = dirTree(process.env.VOLUME_PATH, {
-    exclude: [/Service Worker/, /Extensions/, /IndexedDB/, /Cache/]
+    exclude: [/Service Worker/, /Extensions/, /IndexedDB/, /Cache/],
   });
 
   return tree;
@@ -70,5 +70,5 @@ module.exports = {
   generateChecksum,
   compareChecksums,
   getVolumeInfo,
-  getVolumeDirTree
+  getVolumeDirTree,
 };
