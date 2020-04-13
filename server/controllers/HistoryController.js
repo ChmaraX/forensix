@@ -1,6 +1,7 @@
 const getDbTable = require("./db_operations");
 const _ = require("lodash");
 const parse = require("url-parse");
+const axios = require("axios");
 
 const classifyUrls = async () => {
   const data = await getDbTable({
@@ -250,6 +251,12 @@ const getDownloadsMeta = async () => {
   return { mostFreqDownloadDir, biggestFile, byDate };
 };
 
+const websiteSecurityCheck = async (url) => {
+  const apiUrl = `https://sitecheck.sucuri.net/api/v3/?scan=${url}`;
+
+  return axios.get(apiUrl);
+};
+
 module.exports = {
   classifyUrls,
   getHistoryActivity,
@@ -257,4 +264,5 @@ module.exports = {
   getAvgDuration,
   getDownloads,
   getDownloadsMeta,
+  websiteSecurityCheck,
 };

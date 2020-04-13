@@ -3,7 +3,7 @@ require("./db/mongoose");
 
 const {
   setVolumeInfo,
-  setVolumePath
+  setVolumePath,
 } = require("./controllers/VolumesController");
 const historyRouter = require("./routers/history");
 const cacheRouter = require("./routers/cache");

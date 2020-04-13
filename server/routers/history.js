@@ -6,7 +6,8 @@ const {
   getHistory,
   getAvgDuration,
   getDownloads,
-  getDownloadsMeta
+  getDownloadsMeta,
+  websiteSecurityCheck,
 } = require("../controllers/HistoryController");
 const getTopSites = require("../controllers/TopSitesController");
 const chalk = require("chalk");
@@ -71,6 +72,19 @@ router.get("/history/downloads", async (req, res) => {
     const meta = await getDownloadsMeta();
 
     res.send({ data, meta });
+    console.log(chalk.green(" [ OK ]"));
+  } catch (e) {
+    console.log(e);
+    res.status(500).send();
+  }
+});
+
+router.get("/history/check", async (req, res) => {
+  try {
+    process.stdout.write(`[GET] ${req.path} ... `);
+    const result = await websiteSecurityCheck(req.query.url);
+
+    res.send(result.data);
     console.log(chalk.green(" [ OK ]"));
   } catch (e) {
     console.log(e);
