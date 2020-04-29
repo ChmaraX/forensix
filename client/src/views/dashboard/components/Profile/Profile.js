@@ -1,15 +1,15 @@
 import React, { useState } from "react";
 import {
-  Grid,
-  Segment,
-  Header,
-  Image,
-  Icon,
-  Flag,
   Button,
+  Flag,
+  Grid,
+  Header,
+  Icon,
+  Image,
+  List,
   Placeholder,
   Popup,
-  List
+  Segment,
 } from "semantic-ui-react";
 import "./Profile.css";
 
@@ -29,11 +29,11 @@ const PlaceholderImage = () => (
   </Placeholder>
 );
 
-const Avatar = avatar => (
+const Avatar = (avatar) => (
   <Image
     circular
     style={{
-      maxHeight: "150px"
+      maxHeight: "150px",
     }}
     src={`data:image/png;base64, ${avatar}`}
   />
@@ -71,7 +71,7 @@ const AccountsHeader = () => (
   />
 );
 
-const EstimatedContent = profile => (
+const EstimatedContent = (profile) => (
   <div className="content">
     <Header subheader>{profile.fullname}</Header>
     <p className="left">
@@ -95,18 +95,18 @@ const EstimatedContent = profile => (
       <br />
       <b>nation:</b> {profile.nation.country.substring(0, 15)}{" "}
       <Flag name={profile.nation.tld} /> <br />
-      <b>birthday:</b> {profile.birthday.birthyear} <br />
+      <b>birthday:</b> {profile.birthday.birthyear || "unknown"} <br />
     </p>
     <p className="right">
-      <b>address:</b> {profile.probableAddress}
+      <b>address:</b> {profile.probableAddress || "unknown"}
       <br />
-      <b>city:</b> {profile.probableCity} <br />
-      <b>phone:</b> {profile.phone} <br />
+      <b>city:</b> {profile.probableCity || "unknown"} <br />
+      <b>phone:</b> {profile.phone || "unknown"} <br />
     </p>
   </div>
 );
 
-const AccountContent = accounts =>
+const AccountContent = (accounts) =>
   accounts.length < 1 ? (
     <p>No accounts found.</p>
   ) : (

@@ -1,45 +1,45 @@
 import React, { useEffect, useState } from "react";
-import axios from "../../axios-api";
-import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
-import WebDataTable from "./components/WebDataTable";
-import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
-import { Statistic, Grid, Segment, List, Header } from "semantic-ui-react";
-import GoogleMaps from "./components/GoogleMaps";
 import { useDispatch, useSelector } from "react-redux";
+import { Grid, Header, List, Segment, Statistic } from "semantic-ui-react";
+import axios from "../../axios-api";
+import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import { storeWebData } from "../../store/actions/appData";
+import GoogleMaps from "./components/GoogleMaps";
+import WebDataTable from "./components/WebDataTable";
 
 function WebDataContainer() {
   const dispatch = useDispatch();
-  const webData = useSelector(state => state.appDataReducer.webData);
+  const webData = useSelector((state) => state.appDataReducer.webData);
   const [autofills, setAutofills] = useState(webData.autofills);
   const [geo, setGeo] = useState(webData.geo);
   const [phoneNums, setPhoneNums] = useState(webData.phoneNums);
   const [showModal, setShowModal] = useState({
     show: false,
-    data: {}
+    data: {},
   });
 
   const token = localStorage.getItem("token");
 
   const config = {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
   };
 
   function fetchData() {
     !webData.autofills &&
-      axios.get("/webdata/autofills", config).then(res => {
+      axios.get("/webdata/autofills", config).then((res) => {
         setAutofills(res.data);
         return res.data;
       });
 
     !webData.geo &&
-      axios.get("/webdata/geo", config).then(res => {
+      axios.get("/webdata/geo", config).then((res) => {
         setGeo(res.data);
         dispatch(storeWebData({ geo: res.data }));
       });
 
     !webData.phoneNums &&
-      axios.get("/webdata/phonenums", config).then(res => {
+      axios.get("/webdata/phonenums", config).then((res) => {
         setPhoneNums(res.data);
         dispatch(storeWebData({ phoneNums: res.data }));
       });
@@ -57,19 +57,25 @@ function WebDataContainer() {
             <Segment color="blue" textAlign="center">
               <Statistic size="tiny" color="blue">
                 <Statistic.Label>City</Statistic.Label>
-                <Statistic.Value>{geo?.probableCity}</Statistic.Value>
+                <Statistic.Value>
+                  {geo?.probableCity || "unknown"}
+                </Statistic.Value>
               </Statistic>
             </Segment>
             <Segment color="blue" textAlign="center">
               <Statistic size="tiny" color="blue">
                 <Statistic.Label>Address</Statistic.Label>
-                <Statistic.Value>{geo?.probableAddress}</Statistic.Value>
+                <Statistic.Value>
+                  {geo?.probableAddress || "unknown"}
+                </Statistic.Value>
               </Statistic>
             </Segment>
             <Segment color="blue" textAlign="center">
               <Statistic size="tiny" color="blue">
                 <Statistic.Label>Phone Number</Statistic.Label>
-                <Statistic.Value>{phoneNums?.probableNum}</Statistic.Value>
+                <Statistic.Value>
+                  {phoneNums?.probableNum || "unknown"}
+                </Statistic.Value>
               </Statistic>
             </Segment>
           </Grid.Column>
@@ -85,7 +91,7 @@ function WebDataContainer() {
                     celled
                     style={{ overflowY: "scroll", maxHeight: "200px" }}
                   >
-                    {geo?.cities.map(city => {
+                    {geo?.cities.map((city) => {
                       return <List.Item>{city}</List.Item>;
                     })}
                   </List>
@@ -96,7 +102,7 @@ function WebDataContainer() {
                     celled
                     style={{ overflowY: "scroll", maxHeight: "200px" }}
                   >
-                    {geo?.addresses.map(address => {
+                    {geo?.addresses.map((address) => {
                       return <List.Item>{address}</List.Item>;
                     })}
                   </List>

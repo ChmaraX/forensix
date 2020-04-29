@@ -49,7 +49,7 @@ function DownloadsContainer() {
               <Statistic size="small" color="blue">
                 <Statistic.Label>Default download directory</Statistic.Label>
                 <Statistic.Value>
-                  {downloadsMeta?.mostFreqDownloadDir}
+                  {downloadsMeta?.mostFreqDownloadDir || "unknown"}
                 </Statistic.Value>
               </Statistic>
             </Segment>
@@ -60,13 +60,13 @@ function DownloadsContainer() {
                 <Statistic color="blue">
                   <Statistic.Label>Most files downloaded</Statistic.Label>
                   <Statistic.Value>
-                    {downloadsMeta?.byDate[0]?.date}
+                    {downloadsMeta?.byDate[0]?.date || "unknown"}
                   </Statistic.Value>
                 </Statistic>
                 <Statistic color="blue">
                   <Statistic.Label>Count</Statistic.Label>
                   <Statistic.Value>
-                    {downloadsMeta?.byDate[0]?.visits}
+                    {downloadsMeta?.byDate[0]?.visits || "?"}
                   </Statistic.Value>
                 </Statistic>
               </Statistic.Group>
