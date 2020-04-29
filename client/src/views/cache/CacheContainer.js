@@ -1,52 +1,55 @@
-import React, { useState, useEffect } from "react";
-import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
-import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
+import { createMuiTheme, MuiThemeProvider } from "@material-ui/core";
 import MaterialTable from "material-table";
-import { MuiThemeProvider, createMuiTheme } from "@material-ui/core";
-import { Header, TextArea, Form } from "semantic-ui-react";
-import axios from "../../axios-api";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { Form, Header, TextArea } from "semantic-ui-react";
+import axios from "../../axios-api";
+import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import { storeCacheData } from "../../store/actions/appData";
 
 const theme = createMuiTheme({
   palette: {
     primary: {
-      main: "rgb(111, 156, 235)"
+      main: "rgb(111, 156, 235)",
     },
     secondary: {
-      main: "rgb(111, 156, 235)"
-    }
-  }
+      main: "rgb(111, 156, 235)",
+    },
+  },
 });
 
 function CacheContainer() {
   const dispatch = useDispatch();
-  const cache = useSelector(state => state.appDataReducer.cache);
-  const [cacheData, setCacheData] = useState(cache);
+  const cache = useSelector((state) => state.appDataReducer.cache);
+  const [cacheData, setCacheData] = useState(cache?.parsedBlocks);
+  const [totalCount, setTotalCount] = useState(cache?.totalCount);
   const [showModal, setShowModal] = useState({
     show: false,
-    data: {}
+    data: {},
   });
 
   const token = localStorage.getItem("token");
 
   const config = {
     headers: { Authorization: `Bearer ${token}` },
-    params: { count: 0 }
+    params: { count: 0 },
   };
 
   useEffect(() => {
     !cache &&
-      axios.get("/cache", config).then(res => {
-        setCacheData(res.data);
+      axios.get("/cache", config).then((res) => {
+        console.log(res);
+        setCacheData(res.data.parsedBlocks);
+        setTotalCount(res.data.totalCount);
         dispatch(storeCacheData(res.data));
       });
   }, [cache, dispatch]);
 
-  const pollEntries = pNum => {
+  const pollEntries = (pNum) => {
     axios
       .get("/cache", { ...config, params: { count: pNum * 20 } })
-      .then(res => {
+      .then((res) => {
         setCacheData([...cache, ...res.data]);
         dispatch(storeCacheData([...cache, ...res.data]));
       });
@@ -62,36 +65,36 @@ function CacheContainer() {
 
       <MuiThemeProvider theme={theme}>
         <MaterialTable
-          title={<Header as="h1">Cache Data</Header>}
+          title={<Header as="h1">Cache Data ({totalCount})</Header>}
           columns={[
             {
               title: "Creation Time",
-              field: "creationTime"
+              field: "creationTime",
             },
             {
               title: "URL",
-              field: "keyData"
+              field: "keyData",
             },
             {
               title: "Entry State",
-              field: "cacheEntryState"
+              field: "cacheEntryState",
             },
             {
               title: "Content Type",
-              field: "contentType"
+              field: "contentType",
             },
             {
               title: "Reuse Count",
-              field: "reuseCount"
+              field: "reuseCount",
             },
             {
               title: "Last Used",
-              field: "rankings.lastUsed"
+              field: "rankings.lastUsed",
             },
             {
               title: "Last Modified",
-              field: "rankings.lastModified"
-            }
+              field: "rankings.lastModified",
+            },
           ]}
           data={cacheData || []}
           actions={[
@@ -101,11 +104,11 @@ function CacheContainer() {
               onClick: (event, rowData) =>
                 setShowModal({
                   show: true,
-                  data: rowData
-                })
-            }
+                  data: rowData,
+                }),
+            },
           ]}
-          onChangePage={pNum => pollEntries(pNum)}
+          onChangePage={(pNum) => pollEntries(pNum)}
           options={{
             selection: true,
             exportButton: true,
@@ -113,9 +116,9 @@ function CacheContainer() {
             cellStyle: { overflow: "hidden" },
             searchFieldAlignment: "right",
             searchFieldStyle: { width: "500px" },
-            pageSize: 10
+            pageSize: 10,
           }}
-          detailPanel={rowData => {
+          detailPanel={(rowData) => {
             if (rowData.contentType?.includes("image")) {
               var image = `data:${rowData.contentType};base64,${rowData.payload}`;
             }

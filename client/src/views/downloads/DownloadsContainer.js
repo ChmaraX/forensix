@@ -1,33 +1,33 @@
 import React, { useEffect, useState } from "react";
-import axios from "../../axios-api";
-import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
-import DownloadsTable from "./components/DownloadsTable";
-import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
-import { Statistic, Grid, Segment } from "semantic-ui-react";
 import { useDispatch, useSelector } from "react-redux";
+import { Grid, Segment, Statistic } from "semantic-ui-react";
+import axios from "../../axios-api";
+import SaveEvidenceModal from "../../common/SaveEvidenceModal/SaveEvidenceModal";
+import ContentWrapper from "../../layout/ContentWrapper/ContentWrapper";
 import { storeDownloadsData } from "../../store/actions/appData";
+import DownloadsTable from "./components/DownloadsTable";
 
 function DownloadsContainer() {
   const dispatch = useDispatch();
   const downloadsData = useSelector(
-    state => state.appDataReducer.downloadsData
+    (state) => state.appDataReducer.downloadsData
   );
   const [downloads, setDownloads] = useState(downloadsData.downloads);
   const [downloadsMeta, setDownloadsMeta] = useState(downloadsData.meta);
   const [showModal, setShowModal] = useState({
     show: false,
-    data: {}
+    data: {},
   });
 
   const token = localStorage.getItem("token");
 
   const config = {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
   };
 
   function fetchData() {
     !(downloadsData.meta || downloadsData.downloads) &&
-      axios.get("/history/downloads", config).then(res => {
+      axios.get("/history/downloads", config).then((res) => {
         setDownloads(res.data.data);
         setDownloadsMeta(res.data.meta);
         dispatch(
@@ -60,13 +60,13 @@ function DownloadsContainer() {
                 <Statistic color="blue">
                   <Statistic.Label>Most files downloaded</Statistic.Label>
                   <Statistic.Value>
-                    {downloadsMeta?.byDate[0].date}
+                    {downloadsMeta?.byDate[0]?.date}
                   </Statistic.Value>
                 </Statistic>
                 <Statistic color="blue">
                   <Statistic.Label>Count</Statistic.Label>
                   <Statistic.Value>
-                    {downloadsMeta?.byDate[0].visits}
+                    {downloadsMeta?.byDate[0]?.visits}
                   </Statistic.Value>
                 </Statistic>
               </Statistic.Group>
@@ -77,7 +77,9 @@ function DownloadsContainer() {
               <Statistic color="blue">
                 <Statistic.Label>Biggest file (MB)</Statistic.Label>
                 <Statistic.Value>
-                  {Math.round(downloadsMeta?.biggestFile.total_bytes / 1000000)}
+                  {Math.round(
+                    downloadsMeta?.biggestFile?.total_bytes / 1000000
+                  )}
                 </Statistic.Value>
               </Statistic>
             </Segment>

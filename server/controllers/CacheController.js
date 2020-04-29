@@ -266,6 +266,8 @@ const getCacheEntries = (from = 0) => {
     hex2bin(addr)
   );
 
+  console.log(cacheAddresses.length);
+
   // bin addr => parsed block addr (filename, offset)
   const blockAddresses = parseCacheAddresses(cacheAddresses).slice(
     +from,
@@ -289,7 +291,7 @@ const getCacheEntries = (from = 0) => {
     nextToBeParsedAddrs = parseCacheBlocks(nextBlocks).toBeParsedAddrs;
   }
 
-  return parsedBlocks;
+  return {parsedBlocks, totalCount: cacheAddresses.length};
 };
 
 const getRankings = (rankingsAddr) => {
