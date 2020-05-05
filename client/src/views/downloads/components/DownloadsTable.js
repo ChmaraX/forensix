@@ -57,7 +57,7 @@ function DownloadsTable(props) {
         options={{
           selection: true,
           exportButton: true,
-          tableLayout: "fixed",
+          tableLayout: "auto",
           cellStyle: { overflow: "hidden" },
           searchFieldAlignment: "right",
           searchFieldStyle: { width: "500px" },
