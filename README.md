@@ -65,11 +65,15 @@ Clone repository:
 git clone https://github.com/ChmaraX/forensix.git
 ```
 
+Note: ML model need to be pulled using since its size is ~700MB. This model is already included in pre-built Docker image.
+```bash
+git lfs pull
+```
+
 Put directory with Google Chrome artifacts to analyze into default project directory. Data folder will me mounted as a volume on server startup. The directory name must be named `/data` .
 
 ```bash
 cp -r /Default/. /forensix/data
-cp -r /Cache /forensix/data
 ```
 
 To download prebuild images (recommended):
