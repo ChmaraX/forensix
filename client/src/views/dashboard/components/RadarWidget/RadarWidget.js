@@ -131,7 +131,7 @@ function RadarWidget(props) {
             })}
           </List>
         </div>
-        <ResponsiveContainer width={340}>
+        <ResponsiveContainer width={300}>
           <RadarChart
             outerRadius={90}
             width={300}
