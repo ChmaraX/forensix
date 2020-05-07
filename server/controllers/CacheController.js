@@ -182,9 +182,7 @@ const getPayloadBlock = (blockAddresses, size) => {
     }
 
     const file = fs.readFileSync(filePath);
-    //const buff = Buffer.from(file, "ascii");
     const buff = Buffer.from(file);
-
 
     const block = buff.toString(
       "hex",
@@ -195,10 +193,6 @@ const getPayloadBlock = (blockAddresses, size) => {
     const PNG_SIGN = "89504e470d0a1a0a";
     const JPEG_SIGN = "ffd8ff";
     const decompressedBlock = decompress(block);
-
-    console.log('-------\n\n\n')
-    console.log(buff)
-    console.log(block)
 
     if (decompressedBlock.startsWith(PNG_SIGN) || decompressedBlock.startsWith(JPEG_SIGN)) {
       return Buffer.from(decompressedBlock, "hex").toString('base64')
@@ -404,16 +398,7 @@ const parseCacheBlocks = (blocks) => {
       let parsedPayloadAddr = parseCacheAddresses([
         hex2bin(dataStreamCacheArr[1]),
       ]);
-      console.log(parsedPayloadAddr)
       var payloadBlock = getPayloadBlock(parsedPayloadAddr, contentLength);
-    }
-
-    if (hex_to_ascii(
-      block.substr(192, parseInt(block.substr(64, 8), 16))
-    ).replace(/\0/g, "").includes('single/print')) {
-      console.log('======\n\n\n\n\n\n')
-      console.log(payloadBlock)
-      console.log(contentLength)
     }
 
     return {
