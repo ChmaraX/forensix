@@ -154,6 +154,19 @@ const brunzip = (block) => {
   return decompressedBlock.toString("hex");
 };
 
+const decompress = (block) => {
+  const GZIP_SIGN = "1f8b08";
+  const BR_ENCODING = "f158";
+
+  if (block.startsWith(GZIP_SIGN)) {
+    return gunzip(block)
+  }
+  if (block.startsWith(BR_ENCODING)) {
+    return brunzip(block)
+  }
+  return block
+}
+
 const getPayloadBlock = (blockAddresses, size) => {
   const blocks = blockAddresses.map((addr) => {
     var filePath = path.join(
@@ -169,29 +182,30 @@ const getPayloadBlock = (blockAddresses, size) => {
     }
 
     const file = fs.readFileSync(filePath);
-    const buff = Buffer.from(file, "ascii");
+    //const buff = Buffer.from(file, "ascii");
+    const buff = Buffer.from(file);
+
 
     const block = buff.toString(
       "hex",
-      addr.block_offset,
-      addr.block_offset + parseInt(size)
+      addr.file_type.file_type === 0 ? 0 : addr.block_offset,
+      addr.file_type.file_type === 0 ? parseInt(size) : addr.block_offset + parseInt(size)
     );
 
-    const GZIP_SIGN = "1f8b08";
     const PNG_SIGN = "89504e470d0a1a0a";
     const JPEG_SIGN = "ffd8ff";
-    const BR_ENCODING = "f158";
+    const decompressedBlock = decompress(block);
 
-    if (block.startsWith(GZIP_SIGN)) {
-      return Buffer.from(gunzip(block), "hex").toString("utf8");
+    console.log('-------\n\n\n')
+    console.log(buff)
+    console.log(block)
+
+    if (decompressedBlock.startsWith(PNG_SIGN) || decompressedBlock.startsWith(JPEG_SIGN)) {
+      return Buffer.from(decompressedBlock, "hex").toString('base64')
+    } else {
+      return Buffer(decompressedBlock, "hex").toString('utf8')
     }
-    if (block.startsWith(PNG_SIGN) || block.startsWith(JPEG_SIGN)) {
-      return Buffer.from(block, "hex").toString("base64");
-    }
-    if (block.startsWith(BR_ENCODING)) {
-      return Buffer.from(brunzip(block), "hex").toString("utf8");
-    }
-    return block;
+
   });
 
   return blocks;
@@ -390,7 +404,16 @@ const parseCacheBlocks = (blocks) => {
       let parsedPayloadAddr = parseCacheAddresses([
         hex2bin(dataStreamCacheArr[1]),
       ]);
+      console.log(parsedPayloadAddr)
       var payloadBlock = getPayloadBlock(parsedPayloadAddr, contentLength);
+    }
+
+    if (hex_to_ascii(
+      block.substr(192, parseInt(block.substr(64, 8), 16))
+    ).replace(/\0/g, "").includes('single/print')) {
+      console.log('======\n\n\n\n\n\n')
+      console.log(payloadBlock)
+      console.log(contentLength)
     }
 
     return {
