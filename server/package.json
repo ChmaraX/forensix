@@ -26,7 +26,7 @@
     "jsonwebtoken": "^8.5.1",
     "libphonenumber-js": "^1.7.44",
     "lodash": "^4.17.21",
-    "moment": "^2.24.0",
+    "moment": "^2.29.1",
     "mongoose": "^5.8.9",
     "npm": "^6.14.6",
     "path": "^0.12.7",
