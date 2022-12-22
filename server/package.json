@@ -23,7 +23,7 @@
     "folder-hash": "^3.3.0",
     "fs": "0.0.1-security",
     "hexdump-nodejs": "^0.1.0",
-    "jsonwebtoken": "^8.5.1",
+    "jsonwebtoken": "^9.0.0",
     "libphonenumber-js": "^1.7.44",
     "lodash": "^4.17.21",
     "moment": "^2.24.0",
