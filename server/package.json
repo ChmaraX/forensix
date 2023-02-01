@@ -27,7 +27,7 @@
     "libphonenumber-js": "^1.7.44",
     "lodash": "^4.17.21",
     "moment": "^2.24.0",
-    "mongoose": "^5.8.9",
+    "mongoose": "^5.13.15",
     "npm": "^6.14.6",
     "path": "^0.12.7",
     "sqlite3": "^4.1.0",
