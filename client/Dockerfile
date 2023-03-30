@@ -1,4 +1,4 @@
-FROM node:16.14-bullseye-slim 
+FROM node:gallium-bullseye-slim 
 
 # Create app directory
 WORKDIR /app
