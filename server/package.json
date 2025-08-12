@@ -17,7 +17,7 @@
     "bluebird": "^3.7.2",
     "chalk": "^2.4.2",
     "cors": "^2.8.5",
-    "create-react-app": "^3.2.0",
+    "create-react-app": "^5.0.0",
     "directory-tree": "^2.2.4",
     "express": "^4.17.1",
     "folder-hash": "^3.3.0",
