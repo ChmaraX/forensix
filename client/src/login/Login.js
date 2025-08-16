@@ -124,9 +124,9 @@ function Login() {
           <Logo />
           <br />
           <p>
-            Bachelor thesis project by Adam Chmara <br />
-            Slovak University of Technology in Bratislava <br />
-            Faculty of Informatics and Information Technologies
+            ForensiX - Digital Forensics Tool <br />
+            Browser Artifact Analysis & Investigation <br />
+            Open Source Forensic Software
           </p>
           <Divider horizontal inverted section>
             Don't have an account yet?

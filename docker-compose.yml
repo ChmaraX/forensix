@@ -5,8 +5,12 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
-    image: chmarax/forensix:server
     container_name: forensix-server
+    healthcheck:
+      test: ["CMD", "test", "-f", "/app/utils/predictor/finalized_model.sav"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     volumes:
       - type: bind
         source: ./data
@@ -22,7 +26,6 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
-    image: chmarax/forensix:client
     container_name: forensix-client
     ports:
       - "3000:3000"

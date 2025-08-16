@@ -5,36 +5,32 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "DEV=true nodemon --ignore 'sha1_data.json' server.js",
-    "start": "nodemon --ignore 'sha1_data.json' server.js"
+    "dev": "DEV=true nodemon --ignore 'sha1_data.json' --ignore 'data/' server.js",
+    "start": "nodemon --ignore 'sha1_data.json' --ignore 'data/' server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "any-base": "^1.1.0",
-    "axios": "^0.21.1",
+    "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "bluebird": "^3.7.2",
-    "chalk": "^2.4.2",
+    "chalk": "^4.1.2",
     "cors": "^2.8.5",
-    "create-react-app": "^3.2.0",
-    "directory-tree": "^2.2.4",
-    "express": "^4.17.1",
-    "folder-hash": "^3.3.0",
-    "fs": "0.0.1-security",
+    "directory-tree": "^3.5.1",
+    "express": "^4.21.1",
+    "folder-hash": "^4.0.4",
     "hexdump-nodejs": "^0.1.0",
-    "jsonwebtoken": "^8.5.1",
-    "libphonenumber-js": "^1.7.44",
+    "jsonwebtoken": "^9.0.2",
+    "libphonenumber-js": "^1.11.14",
     "lodash": "^4.17.21",
-    "moment": "^2.24.0",
-    "mongoose": "^5.8.9",
-    "npm": "^6.14.6",
-    "path": "^0.12.7",
-    "sqlite3": "^4.1.0",
+    "moment": "^2.30.1",
+    "mongoose": "^6.12.8",
+    "better-sqlite3": "^12.2.0",
     "tld-countries": "^1.0.1",
-    "url-parse": "^1.5.2"
+    "url-parse": "^1.5.10"
   },
   "devDependencies": {
-    "nodemon": "^2.0.2"
+    "nodemon": "^3.1.7"
   }
 }

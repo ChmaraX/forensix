@@ -117,31 +117,47 @@ const parseLRU = (buff) => {
 
 const getBlocksFromAddr = (blockAddresses) => {
   const blocks = blockAddresses.map((addr) => {
-    var filePath = path.join(
-      process.env.VOLUME_PATH,
-      "/Cache/" + addr.file_type["cache_file"]
-    );
+    // Try multiple cache directories (prioritize working formats)
+    const cacheDirs = [
+      "/Cache/",                          // Original Chrome cache
+      "/Application Cache/Cache/",        // Alternative Chrome cache
+      "/GPUCache/",                       // GPU cache
+      "/DawnWebGPUCache/",                // Dawn WebGPU cache
+      "/DawnGraphiteCache/",              // Dawn Graphite cache
+    ];
 
-    if (!fs.existsSync(filePath)) {
-      filePath = path.join(
-        process.env.VOLUME_PATH,
-        "/Application Cache/Cache/" + addr.file_type["cache_file"]
-      );
+    let filePath = null;
+    for (const dir of cacheDirs) {
+      const testPath = path.join(process.env.VOLUME_PATH, dir + addr.file_type["cache_file"]);
+      if (fs.existsSync(testPath)) {
+        filePath = testPath;
+        break;
+      }
     }
 
-    const file = fs.readFileSync(filePath);
-    const buff = Buffer.from(file, "ascii");
+    if (!filePath) {
+      console.log(`Cache file not found: ${addr.file_type["cache_file"]}`);
+      return ""; // Return empty block
+    }
 
-    const block = buff.toString(
-      "hex",
-      addr.block_offset,
-      addr.block_offset + addr.file_type.size
-    );
+    try {
+      const file = fs.readFileSync(filePath);
+      const buff = Buffer.from(file, "ascii");
 
-    return block;
+      const block = buff.toString(
+        "hex",
+        addr.block_offset,
+        addr.block_offset + addr.file_type.size
+      );
+
+      return block;
+    } catch (error) {
+      console.log(`Error reading cache file: ${error.message}`);
+      return ""; // Return empty block on error
+    }
   });
 
-  return blocks;
+  return blocks.filter(block => block !== ""); // Filter out empty blocks
 };
 
 const gunzip = (block) => {
@@ -169,40 +185,55 @@ const decompress = (block) => {
 
 const getPayloadBlock = (blockAddresses, size) => {
   const blocks = blockAddresses.map((addr) => {
-    var filePath = path.join(
-      process.env.VOLUME_PATH,
-      "/Cache/" + addr.file_type["cache_file"]
-    );
+    // Try multiple cache directories (prioritize working formats)
+    const cacheDirs = [
+      "/Cache/",                          // Original Chrome cache
+      "/Application Cache/Cache/",        // Alternative Chrome cache
+      "/GPUCache/",                       // GPU cache
+      "/DawnWebGPUCache/",                // Dawn WebGPU cache
+      "/DawnGraphiteCache/",              // Dawn Graphite cache
+    ];
 
-    if (!fs.existsSync(filePath)) {
-      filePath = path.join(
-        process.env.VOLUME_PATH,
-        "/Application Cache/Cache/" + addr.file_type["cache_file"]
+    let filePath = null;
+    for (const dir of cacheDirs) {
+      const testPath = path.join(process.env.VOLUME_PATH, dir + addr.file_type["cache_file"]);
+      if (fs.existsSync(testPath)) {
+        filePath = testPath;
+        break;
+      }
+    }
+
+    if (!filePath) {
+      console.log(`Payload cache file not found: ${addr.file_type["cache_file"]}`);
+      return ""; // Return empty payload
+    }
+
+    try {
+      const file = fs.readFileSync(filePath);
+      const buff = Buffer.from(file);
+
+      const block = buff.toString(
+        "hex",
+        addr.file_type.file_type === 0 ? 0 : addr.block_offset,
+        addr.file_type.file_type === 0 ? parseInt(size) : addr.block_offset + parseInt(size)
       );
+
+      const PNG_SIGN = "89504e470d0a1a0a";
+      const JPEG_SIGN = "ffd8ff";
+      const decompressedBlock = decompress(block);
+
+      if (decompressedBlock.startsWith(PNG_SIGN) || decompressedBlock.startsWith(JPEG_SIGN)) {
+        return Buffer.from(decompressedBlock, "hex").toString('base64')
+      } else {
+        return Buffer(decompressedBlock, "hex").toString('utf8')
+      }
+    } catch (error) {
+      console.log(`Error reading payload cache file: ${error.message}`);
+      return ""; // Return empty payload on error
     }
-
-    const file = fs.readFileSync(filePath);
-    const buff = Buffer.from(file);
-
-    const block = buff.toString(
-      "hex",
-      addr.file_type.file_type === 0 ? 0 : addr.block_offset,
-      addr.file_type.file_type === 0 ? parseInt(size) : addr.block_offset + parseInt(size)
-    );
-
-    const PNG_SIGN = "89504e470d0a1a0a";
-    const JPEG_SIGN = "ffd8ff";
-    const decompressedBlock = decompress(block);
-
-    if (decompressedBlock.startsWith(PNG_SIGN) || decompressedBlock.startsWith(JPEG_SIGN)) {
-      return Buffer.from(decompressedBlock, "hex").toString('base64')
-    } else {
-      return Buffer(decompressedBlock, "hex").toString('utf8')
-    }
-
   });
 
-  return blocks;
+  return blocks.filter(block => block !== ""); // Filter out empty blocks
 };
 
 const parseIndexFile = (index) => {
@@ -255,18 +286,88 @@ const converWebkitTimestamp = (webkitTimestamp) => {
 };
 
 const getCacheEntries = (from = 0) => {
-  var indexFile = path.join(process.env.VOLUME_PATH, "/Cache/" + "index");
+  // Try multiple cache locations in the data directory (prioritize working formats)
+  const cacheLocations = [
+    path.join(process.env.VOLUME_PATH, "/Cache/index"),                    // Original Chrome cache
+    path.join(process.env.VOLUME_PATH, "/Application Cache/Cache/index"),  // Alternative Chrome cache
+    path.join(process.env.VOLUME_PATH, "/GPUCache/index"),                 // GPU cache (classic format)
+    path.join(process.env.VOLUME_PATH, "/DawnWebGPUCache/index"),          // Dawn WebGPU cache (classic format)
+    path.join(process.env.VOLUME_PATH, "/DawnGraphiteCache/index"),        // Dawn Graphite cache (classic format)
+  ];
 
-  if (!fs.existsSync(indexFile)) {
-    console.log(
-      "Default Cache folder not found. Using Application Cache instead."
-    );
-    indexFile = path.join(
-      process.env.VOLUME_PATH,
-      "/Application Cache/Cache/" + "index"
-    );
+  let indexFile = null;
+  let cacheType = "unknown";
+
+  // Find the first existing cache with proper format
+  for (const location of cacheLocations) {
+    if (fs.existsSync(location)) {
+      // Check if it's a valid classic cache format
+      try {
+        const indexContent = fs.readFileSync(location);
+        if (indexContent.length > 100) {
+          const signature = indexContent.slice(0, 4).toString('hex');
+          if (signature === 'c103cac3' || signature === 'c3ca03c1') {
+            indexFile = location;
+            if (location.includes("GPUCache")) cacheType = "GPU Cache";
+            else if (location.includes("DawnWebGPUCache")) cacheType = "Dawn WebGPU Cache";
+            else if (location.includes("DawnGraphiteCache")) cacheType = "Dawn Graphite Cache";
+            else if (location.includes("Application Cache")) cacheType = "Application Cache";
+            else cacheType = "Default Cache";
+            
+            console.log(`Found ${cacheType} at: ${location}`);
+            break;
+          }
+        }
+      } catch (error) {
+        console.log(`Skipping invalid cache at ${location}: ${error.message}`);
+      }
+    }
   }
 
+  // If no valid cache found, return empty data with helpful message
+  if (!indexFile) {
+    console.log("No valid cache index file found.");
+    console.log("Modern browsers use a new cache format that ForensiX doesn't support yet.");
+    console.log("ForensiX can analyze:");
+    console.log("  ✅ Classic Chrome/Chromium cache (data_0, data_1, etc. + index)");
+    console.log("  ✅ GPU cache (for graphics-related content)");
+    console.log("  ❌ Modern HTTP cache (Cache_Data format) - not supported");
+    console.log("");
+    console.log("Available cache data in your data directory:");
+    
+    // Show what cache data is available - WITH PROPER ERROR HANDLING
+    try {
+      const cacheDataPath = path.join(process.env.VOLUME_PATH, "/Cache_Data");
+      const gpuCachePath = path.join(process.env.VOLUME_PATH, "/GPUCache");
+      
+      if (fs.existsSync(cacheDataPath)) {
+        try {
+          // Use a safer approach to count files without opening all at once
+          const stats = fs.statSync(cacheDataPath);
+          if (stats.isDirectory()) {
+            console.log(`  📁 Cache_Data: directory exists (modern format - not supported)`);
+          }
+        } catch (err) {
+          console.log(`  📁 Cache_Data: exists but cannot read (${err.message})`);
+        }
+      }
+      
+      if (fs.existsSync(gpuCachePath)) {
+        try {
+          const files = fs.readdirSync(gpuCachePath);
+          console.log(`  📁 GPUCache: ${files.length} files (classic format - supported)`);
+        } catch (err) {
+          console.log(`  📁 GPUCache: exists but cannot read (${err.message})`);
+        }
+      }
+    } catch (error) {
+      console.log(`Error checking cache directories: ${error.message}`);
+    }
+    
+    return { parsedBlocks: [], totalCount: 0 };
+  }
+
+  // Continue with existing logic for valid cache files...
   const { indexTable } = parseIndexFile(indexFile);
 
   // index => index table => hex addrs => bin addrs
@@ -274,7 +375,7 @@ const getCacheEntries = (from = 0) => {
     hex2bin(addr)
   );
 
-  console.log(cacheAddresses.length);
+  console.log(`Found ${cacheAddresses.length} cache addresses`);
 
   // bin addr => parsed block addr (filename, offset)
   const blockAddresses = parseCacheAddresses(cacheAddresses).slice(

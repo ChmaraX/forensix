@@ -10,22 +10,89 @@ const classifyUrls = async () => {
     row: "url",
   });
 
-  const urls = data.results.slice(0, 100);
+  // Filter out chrome-extension URLs, localhost URLs, and other non-browsing URLs
+  const filteredUrls = data.results.filter(urlObj => {
+    const url = Object.values(urlObj)[0]; // Get the URL value
+    return url && 
+           !url.startsWith('chrome-extension://') &&
+           !url.startsWith('chrome://') &&
+           !url.startsWith('edge://') &&
+           !url.startsWith('about:') &&
+           !url.startsWith('file://') &&
+           !url.includes('localhost') &&
+           !url.includes('127.0.0.1') &&
+           (url.startsWith('http://') || url.startsWith('https://')) &&
+           !url.match(/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/)/);
+  });
+  
+  const urls = filteredUrls.slice(0, 100);
+  
+  console.log(`Filtered ${data.results.length} URLs down to ${filteredUrls.length} real browsing URLs`);
+  
+  if (urls.length === 0) {
+    return { classified_urls: [] };
+  }
 
   return new Promise((resolve, reject) => {
     const spawn = require("child_process").spawn;
-    const pythonProcess = spawn("python3", [
-      "./utils/predictor/url-class.py",
-      JSON.stringify(urls),
-    ]);
+    const path = require("path");
+    
+    // Use absolute path and better Python detection
+    const scriptPath = path.join(__dirname, "../utils/predictor/url-class.py");
+    const pythonCommands = ["python3", "python", "/usr/bin/python3", "/usr/local/bin/python3"];
+    
+    let pythonProcess;
+    let pythonCmd = "python3"; // Default
+    
+    // Try to find working Python command
+    for (const cmd of pythonCommands) {
+      try {
+        pythonProcess = spawn(cmd, [scriptPath, JSON.stringify(urls)], {
+          cwd: path.join(__dirname, "..") // Set working directory to server root
+        });
+        pythonCmd = cmd;
+        break;
+      } catch (err) {
+        continue;
+      }
+    }
+
+    if (!pythonProcess) {
+      console.error("Could not find Python executable");
+      return reject(new Error("Python not found"));
+    }
+
+    let outputData = "";
+    let errorData = "";
 
     pythonProcess.stdout.on("data", function (data) {
-      try {
-        let url_categorized = JSON.parse(data.toString());
-        resolve(url_categorized);
-      } catch (e) {
-        console.log(e);
+      outputData += data.toString();
+    });
+
+    pythonProcess.stderr.on("data", function (data) {
+      errorData += data.toString();
+    });
+
+    pythonProcess.on("close", function (code) {
+      if (code === 0) {
+        try {
+          let url_categorized = JSON.parse(outputData);
+          resolve(url_categorized);
+        } catch (e) {
+          console.error("Failed to parse Python output:", e);
+          console.error("Output was:", outputData);
+          reject(e);
+        }
+      } else {
+        console.error(`Python process exited with code ${code}`);
+        console.error("Error output:", errorData);
+        reject(new Error(`Python process failed with code ${code}: ${errorData}`));
       }
+    });
+
+    pythonProcess.on("error", function (err) {
+      console.error("Failed to start Python process:", err);
+      reject(err);
     });
   });
 };

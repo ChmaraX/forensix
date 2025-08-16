@@ -1,12 +1,13 @@
-const sqlite3 = require("sqlite3").verbose();
+const Database = require("better-sqlite3");
 const path = require("path");
 
-const getDatabase = path => {
-  return new sqlite3.Database(path, err => {
-    if (err) {
-      console.log("Cant open database.");
-    }
-  });
+const getDatabase = dbPath => {
+  try {
+    return new Database(dbPath, { readonly: true });
+  } catch (err) {
+    console.log("Cant open database.");
+    throw err;
+  }
 };
 
 const queryBuilder = ({ ...params }) => {
@@ -40,37 +41,31 @@ const getDbTable = async ({
   groupBy,
   orderBy
 }) => {
-  let results = [];
-
   const dbPath = path.join(process.env.VOLUME_PATH, db_name);
-  const db = getDatabase(dbPath);
-  const query = queryBuilder({
-    db_name,
-    table,
-    limit,
-    row,
-    where,
-    groupBy,
-    orderBy
-  });
+  let db;
+  
+  try {
+    db = getDatabase(dbPath);
+    const query = queryBuilder({
+      db_name,
+      table,
+      limit,
+      row,
+      where,
+      groupBy,
+      orderBy
+    });
 
-  return new Promise(resolve => {
-    db.each(
-      query,
-      (err, row) => {
-        if (err) {
-          console.log(err);
-        }
-        results.push(row);
-      },
-      err => {
-        if (err) {
-          console.log(err);
-        }
-        resolve({ results });
-      }
-    );
-  });
+    const results = db.prepare(query).all();
+    return { results };
+  } catch (err) {
+    console.error("Database query error:", err.message);
+    return { results: [] };
+  } finally {
+    if (db) {
+      db.close();
+    }
+  }
 };
 
 module.exports = getDbTable;

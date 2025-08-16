@@ -53,46 +53,68 @@
 
 ## Installation
 
-Requirements:
+### Requirements
 
-- [docker](https://docs.docker.com/install/)
-- [docker-compose](https://docs.docker.com/compose/install/)
+- [Docker](https://docs.docker.com/install/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
 
-Clone repository:
+### Quick Start
 
-```bash
-git clone https://github.com/ChmaraX/forensix.git
-```
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/ChmaraX/forensix.git
+   cd forensix
+   ```
 
-Note: ML model need to be pulled using since its size is ~700MB. This model is already included in pre-built Docker image.
-```bash
-git lfs pull
-```
+2. **Prepare your browser data:**
+   Copy your Chrome/Brave browser data to the `data` directory:
+   ```bash
+   # For Chrome (replace with your actual profile path)
+   cp -r "/Users/username/Library/Application Support/Google/Chrome/Default/." ./data/
+   
+   # For Brave (replace with your actual profile path)
+   cp -r "/Users/username/Library/Application Support/BraveSoftware/Brave-Browser/Profile 2/." ./data/
+   ```
 
-Put directory with Google Chrome artifacts to analyze into default project directory. Data folder will me mounted as a volume on server startup. The directory name must be named `/data` .
+3. **Build and start the application:**
+   ```bash
+   docker-compose up --build
+   ```
 
-```bash
-cp -r /Default/. /forensix/data
-```
+**That's it!** The Docker setup will automatically:
+- Build all services from source code
+- Install Node.js and Python dependencies
+- Download the ML model (~700MB) for URL classification
+- Start all services
 
-To download prebuild images (recommended):
-Note: If there is error, you may need to use `sudo` or set docker to not need a sudo prompt.
+**Note:** The first build may take several minutes due to downloading dependencies and the ML model.
 
-```bash
-./install
-```
+### Manual Installation (Alternative)
 
-Note: to build images from local source use `-b`:
+If you prefer to run without Docker:
 
-```bash
-./install -b
-```
+1. **Install Python dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Wait for images to download and then start them with:
+2. **Download the ML model:**
+   ```bash
+   ./download-model.sh
+   ```
 
-```bash
-./startup
-```
+3. **Install and start services manually:**
+   ```bash
+   # Server
+   cd server
+   npm install
+   npm start
+   
+   # Client (in another terminal)
+   cd client
+   npm install
+   npm start
+   ```
 
 The runninng services are listenning on:
 
