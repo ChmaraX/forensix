@@ -4,7 +4,7 @@
   "private": true,
   "dependencies": {
     "@material-ui/core": "^4.12.4",
-    "@nivo/sunburst": "^0.61.0",
+    "@nivo/sunburst": "^0.67.0",
     "@react-google-maps/api": "^1.13.0",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.5.0",
@@ -17,7 +17,7 @@
     "react-json-view": "^1.21.3",
     "react-redux": "^7.2.9",
     "react-router-dom": "^5.3.4",
-    "react-scripts": "4.0.3",
+    "react-scripts": "5.0.0",
     "react-tooltip": "^4.5.1",
     "recharts": "^2.12.7",
     "redux-thunk": "^2.4.2",
