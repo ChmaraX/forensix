@@ -17,7 +17,7 @@
     "react-json-view": "^1.21.3",
     "react-redux": "^7.2.9",
     "react-router-dom": "^5.3.4",
-    "react-scripts": "4.0.3",
+    "react-scripts": "5.0.0",
     "react-tooltip": "^4.5.1",
     "recharts": "^2.12.7",
     "redux-thunk": "^2.4.2",
