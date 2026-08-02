@@ -1,0 +1,773 @@
+{
+  "first_party_sets.db": {
+    "tables": {
+      "browser_context_sets_version": 0,
+      "browser_context_sites_to_clear": 0,
+      "browser_contexts_cleared": 2,
+      "manual_configurations": 0,
+      "meta": 4,
+      "policy_configurations": 0,
+      "public_sets": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "5",
+      "last_compatible_version": "5",
+      "run_count": "1"
+    }
+  },
+  "Profile 1/Account Web Data": {
+    "tables": {
+      "autofill_model_type_state": 0,
+      "autofill_sync_metadata": 0,
+      "benefit_merchant_domains": 0,
+      "credit_cards": 0,
+      "generic_payment_instruments": 0,
+      "local_ibans": 0,
+      "local_stored_cvc": 0,
+      "masked_bank_accounts": 0,
+      "masked_bank_accounts_metadata": 0,
+      "masked_credit_card_benefits": 0,
+      "masked_credit_cards": 0,
+      "masked_ibans": 0,
+      "masked_ibans_metadata": 0,
+      "meta": 3,
+      "offer_data": 0,
+      "offer_eligible_instrument": 0,
+      "offer_merchant_domain": 0,
+      "payment_instrument_creation_options": 0,
+      "payments_customer_data": 0,
+      "server_card_cloud_token_data": 0,
+      "server_card_metadata": 0,
+      "server_stored_cvc": 0,
+      "virtual_card_usage_data": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "152",
+      "last_compatible_version": "151"
+    }
+  },
+  "Profile 1/Affiliation Database": {
+    "tables": {
+      "eq_class_groups": 0,
+      "eq_class_members": 0,
+      "eq_classes": 0,
+      "meta": 3,
+      "psl_extensions": 0,
+      "sqlite_sequence": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "7",
+      "last_compatible_version": "1"
+    }
+  },
+  "Profile 1/BrowsingTopicsSiteData": {
+    "tables": {
+      "browsing_topics_api_hashed_to_unhashed_domain": 0,
+      "browsing_topics_api_usages": 0,
+      "meta": 3
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "1",
+      "last_compatible_version": "1"
+    }
+  },
+  "Profile 1/Cookies": {
+    "tables": {
+      "cookies": 1,
+      "meta": 3
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "24",
+      "last_compatible_version": "24"
+    }
+  },
+  "Profile 1/DIPS": {
+    "tables": {
+      "bounces": 0,
+      "config": 1,
+      "meta": 3,
+      "popups": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "11",
+      "last_compatible_version": "11"
+    }
+  },
+  "Profile 1/Favicons": {
+    "tables": {
+      "favicon_bitmaps": 2,
+      "favicons": 1,
+      "icon_mapping": 1,
+      "meta": 3
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "9",
+      "last_compatible_version": "9"
+    }
+  },
+  "Profile 1/History": {
+    "tables": {
+      "cluster_keywords": 0,
+      "cluster_visit_duplicates": 0,
+      "clusters": 0,
+      "clusters_and_visits": 0,
+      "content_annotations": 2,
+      "context_annotations": 2,
+      "downloads": 0,
+      "downloads_slices": 0,
+      "downloads_url_chains": 0,
+      "history_sync_metadata": 0,
+      "keyword_search_terms": 0,
+      "meta": 4,
+      "segment_usage": 0,
+      "segments": 0,
+      "sqlite_sequence": 2,
+      "urls": 3,
+      "visit_source": 0,
+      "visited_links": 0,
+      "visits": 3
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "70",
+      "last_compatible_version": "16",
+      "early_expiration_threshold": "13422663094942376"
+    }
+  },
+  "Profile 1/Login Data": {
+    "tables": {
+      "insecure_credentials": 0,
+      "logins": 0,
+      "meta": 3,
+      "password_notes": 0,
+      "sqlite_sequence": 0,
+      "stats": 0,
+      "sync_entities_metadata": 0,
+      "sync_model_metadata": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "43",
+      "last_compatible_version": "40"
+    }
+  },
+  "Profile 1/Login Data For Account": {
+    "tables": {
+      "insecure_credentials": 0,
+      "logins": 0,
+      "meta": 3,
+      "password_notes": 0,
+      "sqlite_sequence": 0,
+      "stats": 0,
+      "sync_entities_metadata": 0,
+      "sync_model_metadata": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "43",
+      "last_compatible_version": "40"
+    }
+  },
+  "Profile 1/Network Action Predictor": {
+    "tables": {
+      "lcp_critical_path_predictor": 0,
+      "lcp_critical_path_predictor_initiator_origin": 0,
+      "network_action_predictor": 0,
+      "resource_prefetch_predictor_host_redirect": 1,
+      "resource_prefetch_predictor_metadata": 1,
+      "resource_prefetch_predictor_origin": 1
+    },
+    "meta": {}
+  },
+  "Profile 1/Reporting and NEL": {
+    "tables": {
+      "meta": 3,
+      "nel_policies": 0,
+      "reporting_endpoint_groups": 3,
+      "reporting_endpoints": 3
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "2",
+      "last_compatible_version": "2"
+    }
+  },
+  "Profile 1/ServerCertificate": {
+    "tables": {
+      "certificates": 0,
+      "meta": 3
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "1",
+      "last_compatible_version": "1"
+    }
+  },
+  "Profile 1/Shortcuts": {
+    "tables": {
+      "meta": 3,
+      "omni_box_shortcuts": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "2",
+      "last_compatible_version": "1"
+    }
+  },
+  "Profile 1/Top Sites": {
+    "tables": {
+      "meta": 3,
+      "top_sites": 1
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "5",
+      "last_compatible_version": "5"
+    }
+  },
+  "Profile 1/Trust Tokens": {
+    "tables": {
+      "meta": 3,
+      "trust_tokens_issuer_config": 0,
+      "trust_tokens_issuer_toplevel_pair_config": 0,
+      "trust_tokens_toplevel_config": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "2",
+      "last_compatible_version": "2"
+    }
+  },
+  "Profile 1/Web Data": {
+    "tables": {
+      "address_type_tokens": 0,
+      "addresses": 0,
+      "autofill": 0,
+      "autofill_ai_attributes": 0,
+      "autofill_ai_entities": 0,
+      "autofill_ai_entities_metadata": 0,
+      "autofill_model_type_state": 0,
+      "autofill_sync_metadata": 0,
+      "benefit_merchant_domains": 0,
+      "credit_cards": 0,
+      "generic_payment_instruments": 0,
+      "keywords": 14,
+      "local_ibans": 0,
+      "local_stored_cvc": 0,
+      "loyalty_card_merchant_domain": 0,
+      "loyalty_cards": 0,
+      "masked_bank_accounts": 0,
+      "masked_bank_accounts_metadata": 0,
+      "masked_credit_card_benefits": 0,
+      "masked_credit_cards": 0,
+      "masked_ibans": 0,
+      "masked_ibans_metadata": 0,
+      "meta": 7,
+      "offer_data": 0,
+      "offer_eligible_instrument": 0,
+      "offer_merchant_domain": 0,
+      "payment_instrument_creation_options": 0,
+      "payment_method_manifest": 0,
+      "payments_customer_data": 0,
+      "plus_address_sync_entity_metadata": 0,
+      "plus_address_sync_model_type_state": 0,
+      "plus_addresses": 0,
+      "secure_payment_confirmation_browser_bound_key": 0,
+      "secure_payment_confirmation_instrument": 0,
+      "server_card_cloud_token_data": 0,
+      "server_card_metadata": 0,
+      "server_stored_cvc": 0,
+      "token_service": 0,
+      "valuables_metadata": 0,
+      "virtual_card_usage_data": 0,
+      "web_app_manifest_section": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "152",
+      "last_compatible_version": "151",
+      "Builtin Keyword Version": "209",
+      "Builtin Keyword Country": "21323",
+      "Is Prepopulated Engines Migration Enabled": "0",
+      "Starter Pack Keyword Version": "13"
+    }
+  },
+  "Profile 1/declarative_performance_observer.db": {
+    "tables": {
+      "declarative_performance_observer_policies": 0,
+      "declarative_performance_observer_reports": 0,
+      "meta": 3,
+      "sqlite_sequence": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "1",
+      "last_compatible_version": "1"
+    }
+  },
+  "Profile 1/heavy_ad_intervention_opt_out.db": {
+    "tables": {
+      "enabled_previews_v1": 1,
+      "previews_v1": 0
+    },
+    "meta": {}
+  },
+  "Profile 1/WebStorage/QuotaManager": {
+    "tables": {
+      "buckets": 2,
+      "meta": 5,
+      "sqlite_sequence": 1
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "11",
+      "last_compatible_version": "11",
+      "IsBucketsBootstrapped": "1",
+      "IsMediaLicenseDatabaseRemoved": "1"
+    }
+  },
+  "Profile 1/Storage/ext/nmmhkkegccagdldgiimedpiccmgmieda/def/Trust Tokens": {
+    "tables": {
+      "meta": 3,
+      "trust_tokens_issuer_config": 0,
+      "trust_tokens_issuer_toplevel_pair_config": 0,
+      "trust_tokens_toplevel_config": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "2",
+      "last_compatible_version": "2"
+    }
+  },
+  "Profile 1/Storage/ext/nmmhkkegccagdldgiimedpiccmgmieda/def/declarative_performance_observer.db": {
+    "tables": {
+      "declarative_performance_observer_policies": 0,
+      "declarative_performance_observer_reports": 0,
+      "meta": 3,
+      "sqlite_sequence": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "1",
+      "last_compatible_version": "1"
+    }
+  },
+  "Profile 1/Storage/ext/nmmhkkegccagdldgiimedpiccmgmieda/def/Shared Dictionary/db": {
+    "tables": {
+      "dictionaries": 0,
+      "meta": 4,
+      "sqlite_sequence": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "4",
+      "last_compatible_version": "4",
+      "total_dict_size": "0"
+    }
+  },
+  "Profile 1/Shared Dictionary/db": {
+    "tables": {
+      "dictionaries": 0,
+      "meta": 4,
+      "sqlite_sequence": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "4",
+      "last_compatible_version": "4",
+      "total_dict_size": "0"
+    }
+  },
+  "Default/Account Web Data": {
+    "tables": {
+      "autofill_model_type_state": 0,
+      "autofill_sync_metadata": 0,
+      "benefit_merchant_domains": 0,
+      "credit_cards": 0,
+      "generic_payment_instruments": 0,
+      "local_ibans": 0,
+      "local_stored_cvc": 0,
+      "masked_bank_accounts": 0,
+      "masked_bank_accounts_metadata": 0,
+      "masked_credit_card_benefits": 0,
+      "masked_credit_cards": 0,
+      "masked_ibans": 0,
+      "masked_ibans_metadata": 0,
+      "meta": 3,
+      "offer_data": 0,
+      "offer_eligible_instrument": 0,
+      "offer_merchant_domain": 0,
+      "payment_instrument_creation_options": 0,
+      "payments_customer_data": 0,
+      "server_card_cloud_token_data": 0,
+      "server_card_metadata": 0,
+      "server_stored_cvc": 0,
+      "virtual_card_usage_data": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "152",
+      "last_compatible_version": "151"
+    }
+  },
+  "Default/Affiliation Database": {
+    "tables": {
+      "eq_class_groups": 0,
+      "eq_class_members": 0,
+      "eq_classes": 0,
+      "meta": 3,
+      "psl_extensions": 0,
+      "sqlite_sequence": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "7",
+      "last_compatible_version": "1"
+    }
+  },
+  "Default/BrowsingTopicsSiteData": {
+    "tables": {
+      "browsing_topics_api_hashed_to_unhashed_domain": 0,
+      "browsing_topics_api_usages": 0,
+      "meta": 3
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "1",
+      "last_compatible_version": "1"
+    }
+  },
+  "Default/Cookies": {
+    "tables": {
+      "cookies": 7,
+      "meta": 3
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "24",
+      "last_compatible_version": "24"
+    }
+  },
+  "Default/DIPS": {
+    "tables": {
+      "bounces": 0,
+      "config": 1,
+      "meta": 3,
+      "popups": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "11",
+      "last_compatible_version": "11"
+    }
+  },
+  "Default/Favicons": {
+    "tables": {
+      "favicon_bitmaps": 6,
+      "favicons": 3,
+      "icon_mapping": 3,
+      "meta": 3
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "9",
+      "last_compatible_version": "9"
+    }
+  },
+  "Default/History": {
+    "tables": {
+      "cluster_keywords": 0,
+      "cluster_visit_duplicates": 0,
+      "clusters": 0,
+      "clusters_and_visits": 0,
+      "content_annotations": 5,
+      "context_annotations": 5,
+      "downloads": 0,
+      "downloads_slices": 0,
+      "downloads_url_chains": 0,
+      "history_sync_metadata": 0,
+      "keyword_search_terms": 0,
+      "meta": 4,
+      "segment_usage": 0,
+      "segments": 0,
+      "sqlite_sequence": 2,
+      "urls": 6,
+      "visit_source": 0,
+      "visited_links": 0,
+      "visits": 6
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "70",
+      "last_compatible_version": "16",
+      "early_expiration_threshold": "13422663071195218"
+    }
+  },
+  "Default/Login Data": {
+    "tables": {
+      "insecure_credentials": 0,
+      "logins": 0,
+      "meta": 3,
+      "password_notes": 0,
+      "sqlite_sequence": 0,
+      "stats": 0,
+      "sync_entities_metadata": 0,
+      "sync_model_metadata": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "43",
+      "last_compatible_version": "40"
+    }
+  },
+  "Default/Login Data For Account": {
+    "tables": {
+      "insecure_credentials": 0,
+      "logins": 0,
+      "meta": 3,
+      "password_notes": 0,
+      "sqlite_sequence": 0,
+      "stats": 0,
+      "sync_entities_metadata": 0,
+      "sync_model_metadata": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "43",
+      "last_compatible_version": "40"
+    }
+  },
+  "Default/Network Action Predictor": {
+    "tables": {
+      "lcp_critical_path_predictor": 0,
+      "lcp_critical_path_predictor_initiator_origin": 0,
+      "network_action_predictor": 0,
+      "resource_prefetch_predictor_host_redirect": 2,
+      "resource_prefetch_predictor_metadata": 1,
+      "resource_prefetch_predictor_origin": 2
+    },
+    "meta": {}
+  },
+  "Default/Reporting and NEL": {
+    "tables": {
+      "meta": 3,
+      "nel_policies": 1,
+      "reporting_endpoint_groups": 2,
+      "reporting_endpoints": 2
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "2",
+      "last_compatible_version": "2"
+    }
+  },
+  "Default/ServerCertificate": {
+    "tables": {
+      "certificates": 0,
+      "meta": 3
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "1",
+      "last_compatible_version": "1"
+    }
+  },
+  "Default/SharedStorage": {
+    "tables": {},
+    "meta": {}
+  },
+  "Default/Shortcuts": {
+    "tables": {
+      "meta": 3,
+      "omni_box_shortcuts": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "2",
+      "last_compatible_version": "1"
+    }
+  },
+  "Default/Top Sites": {
+    "tables": {
+      "meta": 3,
+      "top_sites": 1
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "5",
+      "last_compatible_version": "5"
+    }
+  },
+  "Default/Trust Tokens": {
+    "tables": {
+      "meta": 3,
+      "trust_tokens_issuer_config": 0,
+      "trust_tokens_issuer_toplevel_pair_config": 0,
+      "trust_tokens_toplevel_config": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "2",
+      "last_compatible_version": "2"
+    }
+  },
+  "Default/Web Data": {
+    "tables": {
+      "address_type_tokens": 0,
+      "addresses": 0,
+      "autofill": 0,
+      "autofill_ai_attributes": 0,
+      "autofill_ai_entities": 0,
+      "autofill_ai_entities_metadata": 0,
+      "autofill_model_type_state": 0,
+      "autofill_sync_metadata": 0,
+      "benefit_merchant_domains": 0,
+      "credit_cards": 0,
+      "generic_payment_instruments": 0,
+      "keywords": 14,
+      "local_ibans": 0,
+      "local_stored_cvc": 0,
+      "loyalty_card_merchant_domain": 0,
+      "loyalty_cards": 0,
+      "masked_bank_accounts": 0,
+      "masked_bank_accounts_metadata": 0,
+      "masked_credit_card_benefits": 0,
+      "masked_credit_cards": 0,
+      "masked_ibans": 0,
+      "masked_ibans_metadata": 0,
+      "meta": 7,
+      "offer_data": 0,
+      "offer_eligible_instrument": 0,
+      "offer_merchant_domain": 0,
+      "payment_instrument_creation_options": 0,
+      "payment_method_manifest": 0,
+      "payments_customer_data": 0,
+      "plus_address_sync_entity_metadata": 0,
+      "plus_address_sync_model_type_state": 0,
+      "plus_addresses": 0,
+      "secure_payment_confirmation_browser_bound_key": 0,
+      "secure_payment_confirmation_instrument": 0,
+      "server_card_cloud_token_data": 0,
+      "server_card_metadata": 0,
+      "server_stored_cvc": 0,
+      "token_service": 0,
+      "valuables_metadata": 0,
+      "virtual_card_usage_data": 0,
+      "web_app_manifest_section": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "152",
+      "last_compatible_version": "151",
+      "Builtin Keyword Version": "209",
+      "Builtin Keyword Country": "21323",
+      "Is Prepopulated Engines Migration Enabled": "0",
+      "Starter Pack Keyword Version": "13"
+    }
+  },
+  "Default/declarative_performance_observer.db": {
+    "tables": {
+      "declarative_performance_observer_policies": 0,
+      "declarative_performance_observer_reports": 0,
+      "meta": 3,
+      "sqlite_sequence": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "1",
+      "last_compatible_version": "1"
+    }
+  },
+  "Default/heavy_ad_intervention_opt_out.db": {
+    "tables": {
+      "enabled_previews_v1": 1,
+      "previews_v1": 0
+    },
+    "meta": {}
+  },
+  "Default/WebStorage/QuotaManager": {
+    "tables": {
+      "buckets": 2,
+      "meta": 5,
+      "sqlite_sequence": 1
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "11",
+      "last_compatible_version": "11",
+      "IsBucketsBootstrapped": "1",
+      "IsMediaLicenseDatabaseRemoved": "1"
+    }
+  },
+  "Default/Storage/ext/nmmhkkegccagdldgiimedpiccmgmieda/def/SharedStorage": {
+    "tables": {},
+    "meta": {}
+  },
+  "Default/Storage/ext/nmmhkkegccagdldgiimedpiccmgmieda/def/Trust Tokens": {
+    "tables": {
+      "meta": 3,
+      "trust_tokens_issuer_config": 0,
+      "trust_tokens_issuer_toplevel_pair_config": 0,
+      "trust_tokens_toplevel_config": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "2",
+      "last_compatible_version": "2"
+    }
+  },
+  "Default/Storage/ext/nmmhkkegccagdldgiimedpiccmgmieda/def/declarative_performance_observer.db": {
+    "tables": {
+      "declarative_performance_observer_policies": 0,
+      "declarative_performance_observer_reports": 0,
+      "meta": 3,
+      "sqlite_sequence": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "1",
+      "last_compatible_version": "1"
+    }
+  },
+  "Default/Storage/ext/nmmhkkegccagdldgiimedpiccmgmieda/def/Shared Dictionary/db": {
+    "tables": {
+      "dictionaries": 0,
+      "meta": 4,
+      "sqlite_sequence": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "4",
+      "last_compatible_version": "4",
+      "total_dict_size": "0"
+    }
+  },
+  "Default/Shared Dictionary/db": {
+    "tables": {
+      "dictionaries": 0,
+      "meta": 4,
+      "sqlite_sequence": 0
+    },
+    "meta": {
+      "mmap_status": "-1",
+      "version": "4",
+      "last_compatible_version": "4",
+      "total_dict_size": "0"
+    }
+  },
+  "segmentation_platform/ukm_db": {
+    "tables": {
+      "metrics": 3,
+      "uma_metrics": 7,
+      "urls": 8
+    },
+    "meta": {}
+  }
+}

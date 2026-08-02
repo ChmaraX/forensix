@@ -1,0 +1,267 @@
+.
+./ActorSafetyLists
+./ActorSafetyLists/9.5220.3721
+./AmountExtractionHeuristicRegexes
+./AmountExtractionHeuristicRegexes/4
+./BrowserMetrics
+./BrowserMetrics-spare.pma
+./CaptchaProviders
+./CaptchaProviders/8.5419.4434
+./CertificateRevocation
+./CertificateRevocation/10690
+./ChromeFeatureState
+./component_crx_cache
+./component_crx_cache/3eb16d6c28b502ac4cfee8f4a148df05f4d93229fa36a71db8b08d06329ff18a
+./component_crx_cache/4448b37acb13eb51a842a8ebc85ea826729571c7293f2213d855d3a76cb9a4f8
+./component_crx_cache/545666a4efd056351597bb386aea1368105ededc976ed5650d8682daab9f37ff
+./component_crx_cache/56c21927faa028be6ce18c931660eec37e41da4bfbfd47cafa48350f828c0dbd
+./component_crx_cache/6f684d84ae5dcaccdb9edc30aaa04d9fd5a915b5d68429e817b5cecfa9c45c1d
+./component_crx_cache/733776833212346a1018b95197c61bed2d107fbb7790a985ef692780e02f31cb
+./component_crx_cache/7b05c14dba04ed522210b733f004cb0e74d7679a653b19bd029f9bc0e6b19903
+./component_crx_cache/95ff39d8ef1186d8b10dd3a57c6a4a426732b5fca36bdea4670fc4eb0f0b04b5
+./component_crx_cache/9bec6c2c0185d3305ac8495047a1aa01e725d58f8f18d219742a2988f07cd93a
+./component_crx_cache/9f157bd09a986baa46110a0acb7e3d7407208e58d02250c637902962e5ed2c5e
+./component_crx_cache/abd93867c038d4d17c101ace2226d7e21303d984d7097271392bae6be478495b
+./component_crx_cache/ae216724654f3e52d3c502328caf83f773e66cc5818c38850165864005a35169
+./component_crx_cache/b7d5d5f2dff829172ebff2f8b31c8883bf1ee8e8872d25d35a9f508bfb8015a0
+./component_crx_cache/c8c2fd0acdb7eecaf4f66d5164204c4e8e5ebbabb6398e0ee6ec6d8af71ea672
+./component_crx_cache/c9a5816cb8c42c8a0b6423d60db2dd18dad016b03a57d617117a43b35449dba2
+./component_crx_cache/db4091def7a293b2d99bb68bdc56e0c7052a663aa529f9f0bd55a76a363c55ff
+./component_crx_cache/fd8fd38c229ab33755ff429ccc9919eba21b566551cbfb17d8e11e35e941ee0e
+./component_crx_cache/metadata.json
+./Crowd Deny
+./Crowd Deny/2026.7.30.63
+./Default
+./Default/Account Web Data
+./Default/Account Web Data-journal
+./Default/Affiliation Database
+./Default/Affiliation Database-journal
+./Default/AutofillAiModelCache
+./Default/AutofillStrikeDatabase
+./Default/blob_storage
+./Default/BookmarkMergedSurfaceOrdering
+./Default/BrowsingTopicsSiteData
+./Default/BrowsingTopicsSiteData-journal
+./Default/BrowsingTopicsState
+./Default/BudgetDatabase
+./Default/Cache
+./Default/chrome_cart_db
+./Default/ClientCertificates
+./Default/Code Cache
+./Default/commerce_subscription_db
+./Default/Cookies
+./Default/Cookies-journal
+./Default/DawnGraphiteCache
+./Default/DawnWebGPUCache
+./Default/declarative_performance_observer.db
+./Default/declarative_performance_observer.db-journal
+./Default/DIPS
+./Default/DIPS-wal
+./Default/discount_infos_db
+./Default/discounts_db
+./Default/Download Service
+./Default/engine_allowlist.bf
+./Default/Extension Rules
+./Default/Extension Scripts
+./Default/Extension State
+./Default/Extensions
+./Default/Favicons
+./Default/Favicons-journal
+./Default/Feature Engagement Tracker
+./Default/GCM Store
+./Default/GPUCache
+./Default/heavy_ad_intervention_opt_out.db
+./Default/heavy_ad_intervention_opt_out.db-journal
+./Default/History
+./Default/History-journal
+./Default/Local Extension Settings
+./Default/Local Storage
+./Default/LOCK
+./Default/LOG
+./Default/Login Data
+./Default/Login Data For Account
+./Default/Login Data For Account-journal
+./Default/Login Data-journal
+./Default/Network Action Predictor
+./Default/Network Action Predictor-journal
+./Default/Network Persistent State
+./Default/optimization_guide_hint_cache_store
+./Default/parcel_tracking_db
+./Default/PersistentOriginTrials
+./Default/Preferences
+./Default/PreferredApps
+./Default/README
+./Default/Reporting and NEL
+./Default/Reporting and NEL-journal
+./Default/Secure Preferences
+./Default/Segmentation Platform
+./Default/ServerCertificate
+./Default/ServerCertificate-journal
+./Default/Service Worker
+./Default/Session Storage
+./Default/Sessions
+./Default/Shared Dictionary
+./Default/shared_proto_db
+./Default/SharedStorage
+./Default/Shortcuts
+./Default/Shortcuts-journal
+./Default/Site Characteristics Database
+./Default/Storage
+./Default/Sync Data
+./Default/Top Sites
+./Default/Top Sites-journal
+./Default/Trust Tokens
+./Default/Trust Tokens-journal
+./Default/trusted_vault.pb
+./Default/Web Applications
+./Default/Web Data
+./Default/Web Data-journal
+./Default/WebStorage
+./DeferredBrowserMetrics
+./DeferredBrowserMetrics/BrowserMetrics-6A6FB6F0-2B79.pma
+./DeferredBrowserMetrics/BrowserMetrics-6A6FB6FA-2C28.pma
+./extensions_crx_cache
+./extensions_crx_cache/metadata.json
+./FileTypePolicies
+./FileTypePolicies/145.0.7584.0
+./first_party_sets.db
+./first_party_sets.db-journal
+./FirstPartySetsPreloaded
+./FirstPartySetsPreloaded/2025.7.24.0
+./GPUPersistentCache
+./GPUPersistentCache/GPUCache
+./GraphiteDawnCache
+./GraphiteDawnCache/data_0
+./GraphiteDawnCache/data_1
+./GraphiteDawnCache/data_2
+./GraphiteDawnCache/data_3
+./GraphiteDawnCache/f_000001
+./GraphiteDawnCache/index
+./Last Version
+./Local State
+./MEIPreload
+./MEIPreload/1.1.0.3
+./NativeMessagingHosts
+./OnDeviceHeadSuggestModel
+./OnDeviceHeadSuggestModel/20251024.824731831.14
+./optimization_guide_model_store
+./optimization_guide_model_store/13
+./optimization_guide_model_store/15
+./optimization_guide_model_store/2
+./optimization_guide_model_store/20
+./optimization_guide_model_store/24
+./optimization_guide_model_store/25
+./optimization_guide_model_store/26
+./optimization_guide_model_store/43
+./optimization_guide_model_store/45
+./optimization_guide_model_store/9
+./OptimizationHints
+./OptimizationHints/719
+./OriginTrials
+./PKIMetadata
+./PKIMetadata/1733
+./PrivacySandboxAttestationsPreloaded
+./Profile 1
+./Profile 1/Account Web Data
+./Profile 1/Account Web Data-journal
+./Profile 1/Affiliation Database
+./Profile 1/Affiliation Database-journal
+./Profile 1/AutofillAiModelCache
+./Profile 1/AutofillStrikeDatabase
+./Profile 1/blob_storage
+./Profile 1/BookmarkMergedSurfaceOrdering
+./Profile 1/BrowsingTopicsSiteData
+./Profile 1/BrowsingTopicsSiteData-journal
+./Profile 1/BrowsingTopicsState
+./Profile 1/BudgetDatabase
+./Profile 1/Cache
+./Profile 1/chrome_cart_db
+./Profile 1/ClientCertificates
+./Profile 1/Code Cache
+./Profile 1/commerce_subscription_db
+./Profile 1/Cookies
+./Profile 1/Cookies-journal
+./Profile 1/DawnGraphiteCache
+./Profile 1/DawnWebGPUCache
+./Profile 1/declarative_performance_observer.db
+./Profile 1/declarative_performance_observer.db-journal
+./Profile 1/DIPS
+./Profile 1/DIPS-wal
+./Profile 1/discount_infos_db
+./Profile 1/discounts_db
+./Profile 1/engine_allowlist.bf
+./Profile 1/Extension Rules
+./Profile 1/Extension Scripts
+./Profile 1/Extension State
+./Profile 1/Extensions
+./Profile 1/Favicons
+./Profile 1/Favicons-journal
+./Profile 1/Feature Engagement Tracker
+./Profile 1/GCM Store
+./Profile 1/GPUCache
+./Profile 1/heavy_ad_intervention_opt_out.db
+./Profile 1/heavy_ad_intervention_opt_out.db-journal
+./Profile 1/History
+./Profile 1/History-journal
+./Profile 1/Local Extension Settings
+./Profile 1/Local Storage
+./Profile 1/LOCK
+./Profile 1/LOG
+./Profile 1/Login Data
+./Profile 1/Login Data For Account
+./Profile 1/Login Data For Account-journal
+./Profile 1/Login Data-journal
+./Profile 1/Network Action Predictor
+./Profile 1/Network Action Predictor-journal
+./Profile 1/Network Persistent State
+./Profile 1/optimization_guide_hint_cache_store
+./Profile 1/parcel_tracking_db
+./Profile 1/PersistentOriginTrials
+./Profile 1/Preferences
+./Profile 1/PreferredApps
+./Profile 1/README
+./Profile 1/Reporting and NEL
+./Profile 1/Reporting and NEL-journal
+./Profile 1/Secure Preferences
+./Profile 1/Segmentation Platform
+./Profile 1/ServerCertificate
+./Profile 1/ServerCertificate-journal
+./Profile 1/Service Worker
+./Profile 1/Session Storage
+./Profile 1/Sessions
+./Profile 1/Shared Dictionary
+./Profile 1/shared_proto_db
+./Profile 1/Shortcuts
+./Profile 1/Shortcuts-journal
+./Profile 1/Site Characteristics Database
+./Profile 1/Storage
+./Profile 1/Sync Data
+./Profile 1/Top Sites
+./Profile 1/Top Sites-journal
+./Profile 1/Translate Ranker Model
+./Profile 1/Trust Tokens
+./Profile 1/Trust Tokens-journal
+./Profile 1/trusted_vault.pb
+./Profile 1/Web Applications
+./Profile 1/Web Data
+./Profile 1/Web Data-journal
+./Profile 1/WebStorage
+./RecoveryImproved
+./Safe Browsing
+./SafetyTips
+./SafetyTips/3091
+./segmentation_platform
+./segmentation_platform/ukm_db
+./SSLErrorAssistant
+./SSLErrorAssistant/7
+./Subresource Filter
+./Subresource Filter/Indexed Rules
+./Subresource Filter/Unindexed Rules
+./TrustTokenKeyCommitments
+./TrustTokenKeyCommitments/2026.3.23.1
+./Variations
+./WasmTtsEngine
+./WasmTtsEngine/20260723.1
+./WidevineCdm
+./ZxcvbnData
+./ZxcvbnData/3
