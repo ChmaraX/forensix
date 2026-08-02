@@ -1,7 +1,9 @@
 # 117 — Characterize a modern Chrome profile directly
 
 **Ticket:** [Characterize a modern Chrome profile directly](https://github.com/ChmaraX/forensix/issues/117)
-**Method:** direct acquisition and characterisation. v1 was **not** run against this profile.
+**Method:** direct acquisition. v1 was **not** run against this profile.
+**Status:** **scouting pass**, not a controlled characterisation — see [Scope of this run](#scope-of-this-run).
+**Revised** after review: the §3 WAL claim was overclaimed and is corrected in place.
 
 ---
 
@@ -103,20 +105,45 @@ a `PRAGMA` on a copied file.
 Everything except `DIPS` is `journal_mode=TRUNCATE` — a persistent, zero-length
 `-journal` file. Exactly **one** database per profile is WAL.
 
-**The consequence is the opposite of the intuition.** For a WAL database the main file
-can be a hollow shell:
+On this profile, the `DIPS` main file was a hollow shell:
 
 ```
 DIPS, main file only (WAL discarded)   →  0 tables,  0 rows
 DIPS, main file + -wal                 →  4 tables (meta, config, bounces, popups)
 ```
 
-Not "recent rows are missing" — *the entire schema* lives in the WAL. A reader that
-drops `-wal` does not under-report `DIPS`; it sees an empty database and cannot tell
-that from a genuinely empty one.
+### Correction: the 0-tables result is a young-profile artifact, not steady state
 
-**The `-wal` survived a graceful quit.** Chrome does not checkpoint `DIPS` on exit, so
-this is not a hot-acquisition-only hazard — it is the steady state.
+An earlier revision of this report claimed the `-wal` surviving a graceful quit made
+total loss "the steady state." **That was wrong**, and the measurement says so:
+
+```
+page_size = 4096      page_count = 9       -wal = 45,352 B ≈ 11 frames
+wal_autocheckpoint = 1000 pages (default) → threshold ~4000 KB
+                                          → 11/1000. Never checkpointed.
+
+pragma wal_checkpoint(TRUNCATE)
+  main file             4,096 B  →  36,864 B
+  main-file-only after  0 tables →  4 tables [bounces, config, meta, popups]
+```
+
+The profile was minutes old, so `DIPS` had accumulated ~1% of the pages needed to
+trigger an automatic checkpoint. The schema had simply never been written back. On an
+aged profile the main file **will** carry the schema.
+
+What survives the correction, and what does not:
+
+| Claim | Status |
+|---|---|
+| A reader that drops `-wal` silently under-reports `DIPS` | **Holds.** Post-checkpoint, rows written since the last checkpoint still live only in the WAL |
+| `-wal` persists across a graceful Chrome quit | **Holds** — observed, 45,352 B still present after quit |
+| Main file → 0 tables; empty-vs-dropped-WAL is indistinguishable | **Young profiles only.** Generalised from n=1 on a minutes-old profile |
+
+The practical requirement is unchanged — copy and read the sidecars — but the failure
+mode is ordinary under-reporting, not catastrophic total loss, on any profile with real
+age. **The catastrophic case is still reachable**: a freshly-created or freshly-reset
+profile is exactly the young-profile condition, so a parser must still distinguish
+"no `-wal` supplied" from "empty database" rather than assuming age.
 
 ---
 
@@ -240,14 +267,35 @@ v1's bare `catch` (defect #6) would render this indistinguishable from a parse f
 
 ---
 
+## Scope of this run
+
+This was a **scouting pass**, not a controlled characterisation. Two limits bound every
+finding below:
+
+- **Behaviour was not exercised for most artifacts.** `logins` 0 rows, `downloads` 0,
+  `autofill` 0, `credit_cards` 0, `keyword_search_terms` 0, `visit_source` 0,
+  `segments` 0. Their DDL is captured; their timestamps, enum values and encodings are
+  **unverified**. These are precisely the artifacts ForensiX exists to recover.
+- **No controlled ground truth.** Inputs were browsed, not scripted against known
+  values, so outputs were observed rather than checked. Nothing here was typed in the
+  omnibox, so transition codes and `typed_count` are unexercised.
+
+The rigorous version of this belongs in
+[Fixture strategy and sandbox design](https://github.com/ChmaraX/forensix/issues/127) —
+building a characterisation harness and then a fixture harness is the same work twice.
+
 ## Findings that bear on the build
 
-1. **WAL is one database per profile, and it is total.** `DIPS` main-file-only yields
-   zero tables. Sidecar handling is not an accuracy refinement; without it that artifact
-   reads as empty. The `-wal` persists across graceful shutdown.
+1. **Exactly one database per profile is WAL (`DIPS`); everything else is TRUNCATE.**
+   Sidecars must still be copied and read, or rows written since the last checkpoint are
+   silently dropped. The `-wal` persists across graceful shutdown. The observed
+   *total* loss (main file → 0 tables) was a **young-profile artifact** — see the
+   correction in §3 — but remains reachable on freshly-created or reset profiles.
 2. **Live acquisition loses data through process memory, not just sidecars.** A cookie
    written during the session was absent from disk entirely until Chrome quit. Correct
-   sidecar handling cannot recover it.
+   sidecar handling cannot recover it. **The window is unmeasured** — snapshot timing
+   here was arbitrary (14 s / 10 s / 12 s sleeps), so this establishes that the loss
+   channel exists, not its size.
 3. **`Local State` carries no key material on macOS.** The Windows-shaped assumption
    behind v1 defect #3 does not generalise. Key acquisition is a platform-dispatched
    step, and on macOS it requires Keychain access — which has its own consent and
@@ -263,10 +311,16 @@ v1's bare `catch` (defect #6) would render this indistinguishable from a parse f
 
 ## Open
 
-- Windows and Linux profiles are not characterised here. Findings 3, 5 and the
-  journal-mode table are platform-specific and need the same treatment on Windows before
-  the acquisition contract is settled.
-- A signed-in/synced profile was not acquired, so the `sync.transport_data_per_account`
-  shape from #118 is unverified against a live profile.
-- No `downloads` rows were generated; the downloads schema is captured but its
-  timestamps and `state`/`danger_type` enumerations are unexercised.
+- **Windows and Linux are uncharacterised.** Findings 3, 5 and the journal-mode table
+  are platform-specific. Tracked as
+  [Characterize Chrome profiles on Windows and Linux](https://github.com/ChmaraX/forensix/issues/135).
+  Treat these macOS numbers as a scouting result, not a baseline to diff against.
+- **The write-lag window is unmeasured.** Needs timed sampling, not a single arbitrary
+  snapshot, before any acquisition mode can be called "acceptably lossy".
+- **The aged-profile case is untested.** Every observation here comes from a profile
+  minutes old. The checkpoint correction in §3 was only caught because the numbers were
+  re-derived; other young-profile artifacts may be hiding in this report.
+- **No synced profile**, so #118's `sync.transport_data_per_account` shape is unverified
+  against a live profile.
+- **No populated `downloads`, `logins`, or `autofill`.** Schemas captured; timestamps and
+  `state`/`danger_type` enumerations unexercised.
