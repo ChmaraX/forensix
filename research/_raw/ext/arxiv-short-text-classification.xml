@@ -1,0 +1,854 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/8ebn2zbYmA5qy5VVE6yVjZW1a64</id>
+  <title>arXiv Query: search_query=all:"short text classification"&amp;id_list=&amp;start=0&amp;max_results=50</title>
+  <updated>2026-08-08T09:44:55Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=all:%22short+text+classification%22&amp;start=0&amp;max_results=50&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>50</opensearch:itemsPerPage>
+  <opensearch:totalResults>35</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2603.03652v1</id>
+    <title>Linguistically Informed Graph Model and Semantic Contrastive Learning for Korean Short Text Classification</title>
+    <updated>2026-03-04T02:17:13Z</updated>
+    <link href="https://arxiv.org/abs/2603.03652v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2603.03652v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short text classification (STC) remains a challenging task due to the scarcity of contextual information and labeled data. However, existing approaches have pre-dominantly focused on English because most benchmark datasets for the STC are primarily available in English. Consequently, existing methods seldom incorporate the linguistic and structural characteristics of Korean, such as its agglutinative morphology and flexible word order. To address these limitations, we propose LIGRAM, a hierarchical heterogeneous graph model for Korean short-text classification. The proposed model constructs sub-graphs at the morpheme, part-of-speech, and named-entity levels and hierarchically integrates them to compensate for the limited contextual information in short texts while precisely capturing the grammatical and semantic dependencies inherent in Korean. In addition, we apply Semantics-aware Contrastive Learning (SemCon) to reflect semantic similarity across documents, enabling the model to establish clearer decision boundaries even in short texts where class distinctions are often ambiguous. We evaluate LIGRAM on four Korean short-text datasets, where it consistently outperforms existing baseline models. These outcomes validate that integrating language-specific graph representations with SemCon provides an effective solution for short text classification in agglutinative languages such as Korean.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-03-04T02:17:13Z</published>
+    <arxiv:comment>16 pages, 1 Figure, Accepted at DASFAA 2026 (Full Research Paper)</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>JaeGeon Yoo</name>
+    </author>
+    <author>
+      <name>Byoungwook Kim</name>
+    </author>
+    <author>
+      <name>Yeongwook Yang</name>
+    </author>
+    <author>
+      <name>Hong-Jun Jang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2508.17490v1</id>
+    <title>Efficient Zero-Shot Long Document Classification by Reducing Context Through Sentence Ranking</title>
+    <updated>2025-08-24T18:52:37Z</updated>
+    <link href="https://arxiv.org/abs/2508.17490v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2508.17490v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Transformer-based models like BERT excel at short text classification but struggle with long document classification (LDC) due to input length limitations and computational inefficiencies. In this work, we propose an efficient, zero-shot approach to LDC that leverages sentence ranking to reduce input context without altering the model architecture. Our method enables the adaptation of models trained on short texts, such as headlines, to long-form documents by selecting the most informative sentences using a TF-IDF-based ranking strategy. Using the MahaNews dataset of long Marathi news articles, we evaluate three context reduction strategies that prioritize essential content while preserving classification accuracy. Our results show that retaining only the top 50\% ranked sentences maintains performance comparable to full-document inference while reducing inference time by up to 35\%. This demonstrates that sentence ranking is a simple yet effective technique for scalable and efficient zero-shot LDC.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-08-24T18:52:37Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Prathamesh Kokate</name>
+    </author>
+    <author>
+      <name>Mitali Sarnaik</name>
+    </author>
+    <author>
+      <name>Manavi Khopade</name>
+    </author>
+    <author>
+      <name>Mukta Takalikar</name>
+    </author>
+    <author>
+      <name>Raviraj Joshi</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2501.09219v1</id>
+    <title>A Simple Graph Contrastive Learning Framework for Short Text Classification</title>
+    <updated>2025-01-16T00:35:56Z</updated>
+    <link href="https://arxiv.org/abs/2501.09219v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2501.09219v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short text classification has gained significant attention in the information age due to its prevalence and real-world applications. Recent advancements in graph learning combined with contrastive learning have shown promising results in addressing the challenges of semantic sparsity and limited labeled data in short text classification. However, existing models have certain limitations. They rely on explicit data augmentation techniques to generate contrastive views, resulting in semantic corruption and noise. Additionally, these models only focus on learning the intrinsic consistency between the generated views, neglecting valuable discriminative information from other potential views. To address these issues, we propose a Simple graph contrastive learning framework for Short Text Classification (SimSTC). Our approach involves performing graph learning on multiple text-related component graphs to obtain multi-view text embeddings. Subsequently, we directly apply contrastive learning on these embeddings. Notably, our method eliminates the need for data augmentation operations to generate contrastive views while still leveraging the benefits of multi-view contrastive learning. Despite its simplicity, our model achieves outstanding performance, surpassing large language models on various datasets.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-01-16T00:35:56Z</published>
+    <arxiv:comment>AAAI2025</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Yonghao Liu</name>
+    </author>
+    <author>
+      <name>Fausto Giunchiglia</name>
+    </author>
+    <author>
+      <name>Lan Huang</name>
+    </author>
+    <author>
+      <name>Ximing Li</name>
+    </author>
+    <author>
+      <name>Xiaoyue Feng</name>
+    </author>
+    <author>
+      <name>Renchu Guan</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2501.09214v1</id>
+    <title>Boosting Short Text Classification with Multi-Source Information Exploration and Dual-Level Contrastive Learning</title>
+    <updated>2025-01-16T00:26:15Z</updated>
+    <link href="https://arxiv.org/abs/2501.09214v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2501.09214v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short text classification, as a research subtopic in natural language processing, is more challenging due to its semantic sparsity and insufficient labeled samples in practical scenarios. We propose a novel model named MI-DELIGHT for short text classification in this work. Specifically, it first performs multi-source information (i.e., statistical information, linguistic information, and factual information) exploration to alleviate the sparsity issues. Then, the graph learning approach is adopted to learn the representation of short texts, which are presented in graph forms. Moreover, we introduce a dual-level (i.e., instance-level and cluster-level) contrastive learning auxiliary task to effectively capture different-grained contrastive information within massive unlabeled data. Meanwhile, previous models merely perform the main task and auxiliary tasks in parallel, without considering the relationship among tasks. Therefore, we introduce a hierarchical architecture to explicitly model the correlations between tasks. We conduct extensive experiments across various benchmark datasets, demonstrating that MI-DELIGHT significantly surpasses previous competitive models. It even outperforms popular large language models on several datasets.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-01-16T00:26:15Z</published>
+    <arxiv:comment>AAAI2025</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Yonghao Liu</name>
+    </author>
+    <author>
+      <name>Mengyu Li</name>
+    </author>
+    <author>
+      <name>Wei Pang</name>
+    </author>
+    <author>
+      <name>Fausto Giunchiglia</name>
+    </author>
+    <author>
+      <name>Lan Huang</name>
+    </author>
+    <author>
+      <name>Xiaoyue Feng</name>
+    </author>
+    <author>
+      <name>Renchu Guan</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2412.12754v1</id>
+    <title>Token-Level Graphs for Short Text Classification</title>
+    <updated>2024-12-17T10:19:44Z</updated>
+    <link href="https://arxiv.org/abs/2412.12754v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2412.12754v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The classification of short texts is a common subtask in Information Retrieval (IR). Recent advances in graph machine learning have led to interest in graph-based approaches for low resource scenarios, showing promise in such settings. However, existing methods face limitations such as not accounting for different meanings of the same words or constraints from transductive approaches. We propose an approach which constructs text graphs entirely based on tokens obtained through pre-trained language models (PLMs). By applying a PLM to tokenize and embed the texts when creating the graph(-nodes), our method captures contextual and semantic information, overcomes vocabulary constraints, and allows for context-dependent word meanings. Our approach also makes classification more efficient with reduced parameters compared to classical PLM fine-tuning, resulting in more robust training with few samples. Experimental results demonstrate how our method consistently achieves higher scores or on-par performance with existing methods, presenting an advancement in graph-based text classification techniques. To support reproducibility of our work we make all implementations publicly available to the community\footnote{\url{https://github.com/doGregor/TokenGraph}}.</summary>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-12-17T10:19:44Z</published>
+    <arxiv:comment>Preprint accepted at the 47th European Conference on Information Retrieval (ECIR 2025)</arxiv:comment>
+    <arxiv:primary_category term="cs.IR"/>
+    <author>
+      <name>Gregor Donabauer</name>
+    </author>
+    <author>
+      <name>Udo Kruschwitz</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2407.20462v1</id>
+    <title>Graphite: A Graph-based Extreme Multi-Label Short Text Classifier for Keyphrase Recommendation</title>
+    <updated>2024-07-29T23:41:26Z</updated>
+    <link href="https://arxiv.org/abs/2407.20462v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2407.20462v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Keyphrase Recommendation has been a pivotal problem in advertising and e-commerce where advertisers/sellers are recommended keyphrases (search queries) to bid on to increase their sales. It is a challenging task due to the plethora of items shown on online platforms and various possible queries that users search while showing varying interest in the displayed items. Moreover, query/keyphrase recommendations need to be made in real-time and in a resource-constrained environment. This problem can be framed as an Extreme Multi-label (XML) Short text classification by tagging the input text with keywords as labels. Traditional neural network models are either infeasible or have slower inference latency due to large label spaces. We present Graphite, a graph-based classifier model that provides real-time keyphrase recommendations that are on par with standard text classification models. Furthermore, it doesn't utilize GPU resources, which can be limited in production environments. Due to its lightweight nature and smaller footprint, it can train on very large datasets, where state-of-the-art XML models fail due to extreme resource requirements. Graphite is deterministic, transparent, and intrinsically more interpretable than neural network-based models. We present a comprehensive analysis of our model's performance across forty categories spanning eBay's English-speaking sites.</summary>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-07-29T23:41:26Z</published>
+    <arxiv:primary_category term="cs.IR"/>
+    <author>
+      <name>Ashirbad Mishra</name>
+    </author>
+    <author>
+      <name>Soumik Dey</name>
+    </author>
+    <author>
+      <name>Jinyu Zhao</name>
+    </author>
+    <author>
+      <name>Marshall Wu</name>
+    </author>
+    <author>
+      <name>Binbin Li</name>
+    </author>
+    <author>
+      <name>Kamesh Madduri</name>
+    </author>
+    <arxiv:doi>10.3233/FAIA241061</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.3233/FAIA241061" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2404.08664v1</id>
+    <title>Identifying Banking Transaction Descriptions via Support Vector Machine Short-Text Classification Based on a Specialized Labelled Corpus</title>
+    <updated>2024-03-29T13:15:46Z</updated>
+    <link href="https://arxiv.org/abs/2404.08664v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2404.08664v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short texts are omnipresent in real-time news, social network commentaries, etc. Traditional text representation methods have been successfully applied to self-contained documents of medium size. However, information in short texts is often insufficient, due, for example, to the use of mnemonics, which makes them hard to classify. Therefore, the particularities of specific domains must be exploited. In this article we describe a novel system that combines Natural Language Processing techniques with Machine Learning algorithms to classify banking transaction descriptions for personal finance management, a problem that was not previously considered in the literature. We trained and tested that system on a labelled dataset with real customer transactions that will be available to other researchers on request. Motivated by existing solutions in spam detection, we also propose a short text similarity detector to reduce training set size based on the Jaccard distance. Experimental results with a two-stage classifier combining this detector with a SVM indicate a high accuracy in comparison with alternative approaches, taking into account complexity and computing time. Finally, we present a use case with a personal finance application, CoinScrap, which is available at Google Play and App Store.</summary>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-03-29T13:15:46Z</published>
+    <arxiv:primary_category term="cs.IR"/>
+    <author>
+      <name>Silvia García-Méndez</name>
+    </author>
+    <author>
+      <name>Milagros Fernández-Gavilanes</name>
+    </author>
+    <author>
+      <name>Jonathan Juncal-Martínez</name>
+    </author>
+    <author>
+      <name>Francisco J. González-Castaño</name>
+    </author>
+    <author>
+      <name>Oscar Barba Seara</name>
+    </author>
+    <arxiv:doi>10.1109/ACCESS.2020.2983584</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1109/ACCESS.2020.2983584" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2401.03158v2</id>
+    <title>CoT-Driven Framework for Short Text Classification: Enhancing and Transferring Capabilities from Large to Smaller Model</title>
+    <updated>2025-01-19T12:56:59Z</updated>
+    <link href="https://arxiv.org/abs/2401.03158v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2401.03158v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short Text Classification (STC) is crucial for processing and understanding the brief but substantial content prevalent on contemporary digital platforms. The STC encounters difficulties in grasping the semantic and syntactic intricacies, an issue that is apparent in traditional pre-trained language models. Although Graph Convolutional Networks enhance performance by integrating external knowledge bases, these methods are limited by the quality and extent of the knowledge applied. Recently, the emergence of Large Language Models (LLMs) and Chain-of-Thought (CoT) has significantly improved the performance of complex reasoning tasks. However, some studies have highlighted the limitations of their application in fundamental NLP tasks. Consequently, this study first employs CoT to investigate and enhance the capabilities of LLMs in STC tasks. We propose the Syntactic and Semantic Enrichment CoT (SSE-CoT) method, effectively decomposing the STC tasks into four distinct steps: (i) essential concept identification, (ii) common-sense knowledge retrieval, (iii) text rewriting, and (iv) classification. Furthermore, recognizing resource constraints in sectors like finance and healthcare, we then introduce the CoT-Driven Multi-Task Learning (CDMT) framework to extend these capabilities to smaller models. This framework begins by extracting rationales from LLMs and subsequently fine-tunes smaller models to optimize their performance. Extensive experimentation across six short-text benchmarks validated the efficacy of the proposed methods. In particular, SSE-CoT achieved state-of-the-art performance with substantial improvements on all datasets, particularly on the Ohsumed and TagMyNews datasets.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-01-06T08:28:20Z</published>
+    <arxiv:comment>Knowledge-Based Systems</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Hui Wu</name>
+    </author>
+    <author>
+      <name>Yuanben Zhang</name>
+    </author>
+    <author>
+      <name>Zhonghe Han</name>
+    </author>
+    <author>
+      <name>Yingyan Hou</name>
+    </author>
+    <author>
+      <name>Lei Wang</name>
+    </author>
+    <author>
+      <name>Siye Liu</name>
+    </author>
+    <author>
+      <name>Qihang Gong</name>
+    </author>
+    <author>
+      <name>Yunping Ge</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2310.04452v1</id>
+    <title>Short text classification with machine learning in the social sciences: The case of climate change on Twitter</title>
+    <updated>2023-10-03T22:09:43Z</updated>
+    <link href="https://arxiv.org/abs/2310.04452v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2310.04452v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>To analyse large numbers of texts, social science researchers are increasingly confronting the challenge of text classification. When manual labeling is not possible and researchers have to find automatized ways to classify texts, computer science provides a useful toolbox of machine-learning methods whose performance remains understudied in the social sciences. In this article, we compare the performance of the most widely used text classifiers by applying them to a typical research scenario in social science research: a relatively small labeled dataset with infrequent occurrence of categories of interest, which is a part of a large unlabeled dataset. As an example case, we look at Twitter communication regarding climate change, a topic of increasing scholarly interest in interdisciplinary social science research. Using a novel dataset including 5,750 tweets from various international organizations regarding the highly ambiguous concept of climate change, we evaluate the performance of methods in automatically classifying tweets based on whether they are about climate change or not. In this context, we highlight two main findings. First, supervised machine-learning methods perform better than state-of-the-art lexicons, in particular as class balance increases. Second, traditional machine-learning methods, such as logistic regression and random forest, perform similarly to sophisticated deep-learning methods, whilst requiring much less training time and computational resources. The results have important implications for the analysis of short texts in social science research.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="stat.ME" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-10-03T22:09:43Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <arxiv:journal_ref>PLoS ONE 18(9): e0290762 (2023)</arxiv:journal_ref>
+    <author>
+      <name>Karina Shyrokykh</name>
+    </author>
+    <author>
+      <name>Maksym Girnyk</name>
+    </author>
+    <author>
+      <name>Lisa Dellmuth</name>
+    </author>
+    <arxiv:doi>10.1371/journal.pone.0290762</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1371/journal.pone.0290762" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2211.16878v3</id>
+    <title>Transformers are Short Text Classifiers: A Study of Inductive Short Text Classifiers on Benchmarks and Real-world Datasets</title>
+    <updated>2023-08-11T11:25:49Z</updated>
+    <link href="https://arxiv.org/abs/2211.16878v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2211.16878v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short text classification is a crucial and challenging aspect of Natural Language Processing. For this reason, there are numerous highly specialized short text classifiers. However, in recent short text research, State of the Art (SOTA) methods for traditional text classification, particularly the pure use of Transformers, have been unexploited. In this work, we examine the performance of a variety of short text classifiers as well as the top performing traditional text classifier. We further investigate the effects on two new real-world short text datasets in an effort to address the issue of becoming overly dependent on benchmark datasets with a limited number of characteristics. Our experiments unambiguously demonstrate that Transformers achieve SOTA accuracy on short text classification tasks, raising the question of whether specialized short text techniques are necessary.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2022-11-30T10:25:24Z</published>
+    <arxiv:comment>Accepted at CD-MAKE 2023</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Fabian Karl</name>
+    </author>
+    <author>
+      <name>Ansgar Scherp</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2205.10981v1</id>
+    <title>Improving Short Text Classification With Augmented Data Using GPT-3</title>
+    <updated>2022-05-23T01:10:38Z</updated>
+    <link href="https://arxiv.org/abs/2205.10981v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2205.10981v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>GPT-3 is a large-scale natural language model developed by OpenAI that can perform many different tasks, including topic classification. Although researchers claim that it requires only a small number of in-context examples to learn a task, in practice GPT-3 requires these training examples to be either of exceptional quality or a higher quantity than easily created by hand. To address this issue, this study teaches GPT-3 to classify whether a question is related to data science by augmenting a small training set with additional examples generated by GPT-3 itself. This study compares two classifiers: the GPT-3 Classification Endpoint with augmented examples, and the GPT-3 Completion Endpoint with an optimal training set chosen using a genetic algorithm. We find that while the augmented Completion Endpoint achieves upwards of 80 percent validation accuracy, using the augmented Classification Endpoint yields more consistent accuracy on unseen examples. In this way, giving large-scale machine learning models like GPT-3 the ability to propose their own additional training examples can result in improved classification performance.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2022-05-23T01:10:38Z</published>
+    <arxiv:comment>27 pages, 7 figures, submitted to Natural Language Engineering</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Salvador Balkus</name>
+    </author>
+    <author>
+      <name>Donghui Yan</name>
+    </author>
+    <arxiv:doi>10.1017/S1351324923000438</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1017/S1351324923000438" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2202.11345v2</id>
+    <title>Prompt-Learning for Short Text Classification</title>
+    <updated>2022-03-31T08:15:49Z</updated>
+    <link href="https://arxiv.org/abs/2202.11345v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2202.11345v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>In the short text, the extremely short length, feature sparsity, and high ambiguity pose huge challenges to classification tasks. Recently, as an effective method for tuning Pre-trained Language Models for specific downstream tasks, prompt-learning has attracted a vast amount of attention and research. The main intuition behind the prompt-learning is to insert the template into the input and convert the text classification tasks into equivalent cloze-style tasks. However, most prompt-learning methods expand label words manually or only consider the class name for knowledge incorporating in cloze-style prediction, which will inevitably incur omissions and bias in short text classification tasks. In this paper, we propose a simple short text classification approach that makes use of prompt-learning based on knowledgeable expansion. Taking the special characteristics of short text into consideration, the method can consider both the short text itself and class name during expanding label words space. Specifically, the top $N$ concepts related to the entity in the short text are retrieved from the open Knowledge Graph like Probase, and we further refine the expanded label words by the distance calculation between selected concepts and class labels. Experimental results show that our approach obtains obvious improvement compared with other fine-tuning, prompt-learning, and knowledgeable prompt-tuning methods, outperforming the state-of-the-art by up to 6 Accuracy points on three well-known datasets.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2022-02-23T08:07:06Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Yi Zhu</name>
+    </author>
+    <author>
+      <name>Xinke Zhou</name>
+    </author>
+    <author>
+      <name>Jipeng Qiang</name>
+    </author>
+    <author>
+      <name>Yun Li</name>
+    </author>
+    <author>
+      <name>Yunhao Yuan</name>
+    </author>
+    <author>
+      <name>Xindong Wu</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2112.02611v2</id>
+    <title>Multi-View Active Learning for Short Text Classification in User-Generated Data</title>
+    <updated>2022-12-21T03:02:43Z</updated>
+    <link href="https://arxiv.org/abs/2112.02611v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2112.02611v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Mining user-generated data often suffers from the lack of enough labeled data, short document lengths, and the informal user language. In this paper, we propose a novel active learning model to overcome these obstacles in the tasks tailored for query phrases--e.g., detecting positive reports of natural disasters. Our model has three novelties: 1) It is the first approach to employ multi-view active learning in this domain. 2) It uses the Parzen-Rosenblatt window method to integrate the representativeness measure into multi-view active learning. 3) It employs a query-by-committee strategy, based on the agreement between predictors, to address the usually noisy language of the documents in this domain. We evaluate our model in four publicly available Twitter datasets with distinctly different applications. We also compare our model with a wide range of baselines including those with multiple classifiers. The experiments testify that our model is highly consistent and outperforms existing models.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2021-12-05T16:17:21Z</published>
+    <arxiv:comment>EMNLP Findings 2022</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Payam Karisani</name>
+    </author>
+    <author>
+      <name>Negin Karisani</name>
+    </author>
+    <author>
+      <name>Li Xiong</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2111.00180v1</id>
+    <title>Hierarchical Heterogeneous Graph Representation Learning for Short Text Classification</title>
+    <updated>2021-10-30T05:33:05Z</updated>
+    <link href="https://arxiv.org/abs/2111.00180v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2111.00180v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short text classification is a fundamental task in natural language processing. It is hard due to the lack of context information and labeled data in practice. In this paper, we propose a new method called SHINE, which is based on graph neural network (GNN), for short text classification. First, we model the short text dataset as a hierarchical heterogeneous graph consisting of word-level component graphs which introduce more semantic and syntactic information. Then, we dynamically learn a short document graph that facilitates effective label propagation among similar short texts. Thus, compared with existing GNN-based methods, SHINE can better exploit interactions between nodes of the same types and capture similarities between short texts. Extensive experiments on various benchmark short text datasets show that SHINE consistently outperforms state-of-the-art methods, especially with fewer labels.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2021-10-30T05:33:05Z</published>
+    <arxiv:comment>Accepted to EMNLP 2021</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Yaqing Wang</name>
+    </author>
+    <author>
+      <name>Song Wang</name>
+    </author>
+    <author>
+      <name>Quanming Yao</name>
+    </author>
+    <author>
+      <name>Dejing Dou</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2110.15721v2</id>
+    <title>Paperswithtopic: Topic Identification from Paper Title Only</title>
+    <updated>2022-04-01T03:57:16Z</updated>
+    <link href="https://arxiv.org/abs/2110.15721v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2110.15721v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The deep learning field is growing rapidly as witnessed by the exponential growth of papers submitted to journals, conferences, and pre-print servers. To cope with the sheer number of papers, several text mining tools from natural language processing (NLP) have been proposed that enable researchers to keep track of recent findings. In this context, our paper makes two main contributions: first, we collected and annotated a dataset of papers paired by title and sub-field from the field of artificial intelligence (AI), and, second, we present results on how to predict a paper's AI sub-field from a given paper title only. Importantly, for the latter, short-text classification task we compare several algorithms from conventional machine learning all the way up to recent, larger transformer architectures. Finally, for the transformer models, we also present gradient-based, attention visualizations to further explain the model's classification process. All code can be found at \url{https://github.com/1pha/paperswithtopic}</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2021-10-09T06:32:09Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Daehyun Cho</name>
+    </author>
+    <author>
+      <name>Christian Wallraven</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2105.12995v1</id>
+    <title>ProtAugment: Unsupervised diverse short-texts paraphrasing for intent detection meta-learning</title>
+    <updated>2021-05-27T08:31:27Z</updated>
+    <link href="https://arxiv.org/abs/2105.12995v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2105.12995v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Recent research considers few-shot intent detection as a meta-learning problem: the model is learning to learn from a consecutive set of small tasks named episodes. In this work, we propose ProtAugment, a meta-learning algorithm for short texts classification (the intent detection task). ProtAugment is a novel extension of Prototypical Networks, that limits overfitting on the bias introduced by the few-shots classification objective at each episode. It relies on diverse paraphrasing: a conditional language model is first fine-tuned for paraphrasing, and diversity is later introduced at the decoding stage at each meta-learning episode. The diverse paraphrasing is unsupervised as it is applied to unlabelled data, and then fueled to the Prototypical Network training objective as a consistency loss. ProtAugment is the state-of-the-art method for intent detection meta-learning, at no extra labeling efforts and without the need to fine-tune a conditional language model on a given application domain.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2021-05-27T08:31:27Z</published>
+    <arxiv:comment>Accepted at the 59th Annual Meeting of the Association for Computational Linguistics (ACL2021)</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Thomas Dopierre</name>
+    </author>
+    <author>
+      <name>Christophe Gravier</name>
+    </author>
+    <author>
+      <name>Wilfried Logerais</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2011.01113v2</id>
+    <title>Short Text Classification Approach to Identify Child Sexual Exploitation Material</title>
+    <updated>2020-11-13T09:39:29Z</updated>
+    <link href="https://arxiv.org/abs/2011.01113v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2011.01113v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Producing or sharing Child Sexual Exploitation Material (CSEM) is a serious crime fought vigorously by Law Enforcement Agencies (LEAs). When an LEA seizes a computer from a potential producer or consumer of CSEM, they need to analyze the suspect's hard disk's files looking for pieces of evidence. However, a manual inspection of the file content looking for CSEM is a time-consuming task. In most cases, it is unfeasible in the amount of time available for the Spanish police using a search warrant. Instead of analyzing its content, another approach that can be used to speed up the process is to identify CSEM by analyzing the file names and their absolute paths. The main challenge for this task lies behind dealing with short text distorted deliberately by the owners of this material using obfuscated words and user-defined naming patterns. This paper presents and compares two approaches based on short text classification to identify CSEM files. The first one employs two independent supervised classifiers, one for the file name and the other for the path, and their outputs are later on fused into a single score. Conversely, the second approach uses only the file name classifier to iterate over the file's absolute path. Both approaches operate at the character n-grams level, while binary and orthographic features enrich the file name representation, and a binary Logistic Regression model is used for classification. The presented file classifier achieved an average class recall of 0.98. This solution could be integrated into forensic tools and services to support Law Enforcement Agencies to identify CSEM without tackling every file's visual content, which is computationally much more highly demanding.</summary>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2020-10-29T09:37:16Z</published>
+    <arxiv:primary_category term="cs.IR"/>
+    <author>
+      <name>Mhd Wesam Al-Nabki</name>
+    </author>
+    <author>
+      <name>Eduardo Fidalgo</name>
+    </author>
+    <author>
+      <name>Enrique Alegre</name>
+    </author>
+    <author>
+      <name>Rocío Alaiz-Rodríguez</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2010.11851v1</id>
+    <title>Hawkes Process Classification through Discriminative Modeling of Text</title>
+    <updated>2020-10-22T16:42:48Z</updated>
+    <link href="https://arxiv.org/abs/2010.11851v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2010.11851v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Social media has provided a platform for users to gather and share information and stay updated with the news. Such networks also provide a platform to users where they can engage in conversations. However, such micro-blogging platforms like Twitter restricts the length of text. Due to paucity of sufficient word occurrences in such posts, classification of this information is a challenging task using standard tools of natural language processing (NLP). Moreover, high complexity and dynamics of the posts in social media makes text classification a challenging problem. However, considering additional cues in the form of past labels and times associated with the post can be potentially helpful for performing text classification in a better way. To address this problem, we propose models based on the Hawkes process (HP) which can naturally incorporate the temporal features and past labels along with textual features for improving short text classification. In particular, we propose a discriminative approach to model text in HP where the text features parameterize the base intensity and/or the triggering kernel. Another major contribution is to consider kernel to be a function of both time and text, and further use a neural network to model the kernel. This enables modelling and effectively learning the text along with the historical influences for tweet classification. We demonstrate the advantages of the proposed techniques on standard benchmarks for rumour stance classification.</summary>
+    <category term="cs.SI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2020-10-22T16:42:48Z</published>
+    <arxiv:comment>9 pages, 10 figures</arxiv:comment>
+    <arxiv:primary_category term="cs.SI"/>
+    <author>
+      <name>Rohan Tondulkar</name>
+    </author>
+    <author>
+      <name>Manisha Dubey</name>
+    </author>
+    <author>
+      <name>P. K. Srijith</name>
+    </author>
+    <author>
+      <name>Michal Lukasik</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2004.05801v2</id>
+    <title>ProFormer: Towards On-Device LSH Projection Based Transformers</title>
+    <updated>2021-04-24T00:27:50Z</updated>
+    <link href="https://arxiv.org/abs/2004.05801v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2004.05801v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>At the heart of text based neural models lay word representations, which are powerful but occupy a lot of memory making it challenging to deploy to devices with memory constraints such as mobile phones, watches and IoT. To surmount these challenges, we introduce ProFormer -- a projection based transformer architecture that is faster and lighter making it suitable to deploy to memory constraint devices and preserve user privacy. We use LSH projection layer to dynamically generate word representations on-the-fly without embedding lookup tables leading to significant memory footprint reduction from O(V.d) to O(T), where V is the vocabulary size, d is the embedding dimension size and T is the dimension of the LSH projection representation.
+  We also propose a local projection attention (LPA) layer, which uses self-attention to transform the input sequence of N LSH word projections into a sequence of N/K representations reducing the computations quadratically by O(K^2). We evaluate ProFormer on multiple text classification tasks and observed improvements over prior state-of-the-art on-device approaches for short text classification and comparable performance for long text classification tasks. In comparison with a 2-layer BERT model, ProFormer reduced the embedding memory footprint from 92.16 MB to 1.3 KB and requires 16 times less computation overhead, which is very impressive making it the fastest and smallest on-device model.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2020-04-13T07:31:31Z</published>
+    <arxiv:comment>EACL 2021 - BEST PAPER AWARD, Honorable Mention</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Chinnadhurai Sankar</name>
+    </author>
+    <author>
+      <name>Sujith Ravi</name>
+    </author>
+    <author>
+      <name>Zornitsa Kozareva</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2002.03350v2</id>
+    <title>Short Text Classification via Knowledge powered Attention with Similarity Matrix based CNN</title>
+    <updated>2021-02-28T23:40:10Z</updated>
+    <link href="https://arxiv.org/abs/2002.03350v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2002.03350v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short text is becoming more and more popular on the web, such as Chat Message, SMS and Product Reviews. Accurately classifying short text is an important and challenging task. A number of studies have difficulties in addressing this problem because of the word ambiguity and data sparsity. To address this issue, we propose a knowledge powered attention with similarity matrix based convolutional neural network (KASM) model, which can compute comprehensive information by utilizing the knowledge and deep neural network. We use knowledge graph (KG) to enrich the semantic representation of short text, specially, the information of parent-entity is introduced in our model. Meanwhile, we consider the word interaction in the literal-level between short text and the representation of label, and utilize similarity matrix based convolutional neural network (CNN) to extract it. For the purpose of measuring the importance of knowledge, we introduce the attention mechanisms to choose the important information. Experimental results on five standard datasets show that our model significantly outperforms state-of-the-art methods.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2020-02-09T12:08:43Z</published>
+    <arxiv:comment>there is an error in this paper</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Mingchen Li</name>
+    </author>
+    <author>
+      <name>Gabtone. Clinton</name>
+    </author>
+    <author>
+      <name>Yijia Miao</name>
+    </author>
+    <author>
+      <name>Feng Gao</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2001.10338v1</id>
+    <title>Short Text Classification via Term Graph</title>
+    <updated>2020-01-20T04:32:13Z</updated>
+    <link href="https://arxiv.org/abs/2001.10338v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2001.10338v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short text classi cation is a method for classifying short sentence with prede ned labels. However, short text is limited in shortness in text length that leads to a challenging problem of sparse features. Most of existing methods treat each short sentences as independently and identically distributed (IID), local context only in the sentence itself is focused and the relational information between sentences are lost. To overcome these limitations, we propose a PathWalk model that combine the strength of graph networks and short sentences to solve the sparseness of short text. Experimental results on four different available datasets show that our PathWalk method achieves the state-of-the-art results, demonstrating the efficiency and robustness of graph networks for short text classification.</summary>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="stat.ML" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2020-01-20T04:32:13Z</published>
+    <arxiv:comment>9 pages, 15 figures, Short Text Classification, Term Graph</arxiv:comment>
+    <arxiv:primary_category term="cs.IR"/>
+    <author>
+      <name>Wei Pang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1909.07512v1</id>
+    <title>Short-Text Classification Using Unsupervised Keyword Expansion</title>
+    <updated>2019-09-16T22:51:29Z</updated>
+    <link href="https://arxiv.org/abs/1909.07512v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1909.07512v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short-text classification, like all data science, struggles to achieve high performance using limited data. As a solution, a short sentence may be expanded with new and relevant feature words to form an artificially enlarged dataset, and add new features to testing data. This paper applies a novel approach to text expansion by generating new words directly for each input sentence, thus requiring no additional datasets or previous training. In this unsupervised approach, new keywords are formed within the hidden states of a pre-trained language model and then used to create extended pseudo documents. The word generation process was assessed by examining how well the predicted words matched to topics of the input sentence. It was found that this method could produce 3-10 relevant new words for each target topic, while generating just 1 word related to each non-target topic. Generated words were then added to short news headlines to create extended pseudo headlines. Experimental results have shown that models trained using the pseudo headlines can improve classification accuracy when limiting the number of training examples.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2019-09-16T22:51:29Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Duncan Cameron-Steinke</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1907.03752v2</id>
+    <title>Improving short text classification through global augmentation methods</title>
+    <updated>2020-12-10T14:41:38Z</updated>
+    <link href="https://arxiv.org/abs/1907.03752v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1907.03752v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>We study the effect of different approaches to text augmentation. To do this we use 3 datasets that include social media and formal text in the form of news articles. Our goal is to provide insights for practitioners and researchers on making choices for augmentation for classification use cases. We observe that Word2vec-based augmentation is a viable option when one does not have access to a formal synonym model (like WordNet-based augmentation). The use of \emph{mixup} further improves performance of all text based augmentations and reduces the effects of overfitting on a tested deep learning model. Round-trip translation with a translation service proves to be harder to use due to cost and as such is less accessible for both normal and low resource use-cases.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2019-07-07T18:05:12Z</published>
+    <arxiv:comment>Final version published in CD-MAKE 2020: Machine Learning and Knowledge Extraction pp 385-399</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <arxiv:journal_ref>Machine Learning and Knowledge Extraction. CD-MAKE 2020. Lecture Notes in Computer Science, vol 12279 (2020)</arxiv:journal_ref>
+    <author>
+      <name>Vukosi Marivate</name>
+    </author>
+    <author>
+      <name>Tshephisho Sefara</name>
+    </author>
+    <arxiv:doi>10.1007/978-3-030-57321-8_21</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1007/978-3-030-57321-8_21" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1904.01313v1</id>
+    <title>Short Text Classification Improved by Feature Space Extension</title>
+    <updated>2019-04-02T10:00:58Z</updated>
+    <link href="https://arxiv.org/abs/1904.01313v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1904.01313v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>With the explosive development of mobile Internet, short text has been applied extensively. The difference between classifying short text and long documents is that short text is of shortness and sparsity. Thus, it is challenging to deal with short text classification owing to its less semantic information. In this paper, we propose a novel topic-based convolutional neural network (TB-CNN) based on Latent Dirichlet Allocation (LDA) model and convolutional neural network. Comparing to traditional CNN methods, TB-CNN generates topic words with LDA model to reduce the sparseness and combines the embedding vectors of topic words and input words to extend feature space of short text. The validation results on IMDB movie review dataset show the improvement and effectiveness of TB-CNN.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2019-04-02T10:00:58Z</published>
+    <arxiv:comment>8 pages,2 figures and 7 tables.to be published in</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Yanxuan Li</name>
+    </author>
+    <arxiv:doi>10.1088/1757-899X/533/1/012046</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1088/1757-899X/533/1/012046" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1902.08050v1</id>
+    <title>Deep Short Text Classification with Knowledge Powered Attention</title>
+    <updated>2019-02-21T13:50:56Z</updated>
+    <link href="https://arxiv.org/abs/1902.08050v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1902.08050v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Short text classification is one of important tasks in Natural Language Processing (NLP). Unlike paragraphs or documents, short texts are more ambiguous since they have not enough contextual information, which poses a great challenge for classification. In this paper, we retrieve knowledge from external knowledge source to enhance the semantic representation of short texts. We take conceptual information as a kind of knowledge and incorporate it into deep neural networks. For the purpose of measuring the importance of knowledge, we introduce attention mechanisms and propose deep Short Text Classification with Knowledge powered Attention (STCKA). We utilize Concept towards Short Text (C- ST) attention and Concept towards Concept Set (C-CS) attention to acquire the weight of concepts from two aspects. And we classify a short text with the help of conceptual information. Unlike traditional approaches, our model acts like a human being who has intrinsic ability to make decisions based on observation (i.e., training data for machines) and pays more attention to important knowledge. We also conduct extensive experiments on four public datasets for different tasks. The experimental results and case studies show that our model outperforms the state-of-the-art methods, justifying the effectiveness of knowledge powered attention.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2019-02-21T13:50:56Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Jindong Chen</name>
+    </author>
+    <author>
+      <name>Yizhou Hu</name>
+    </author>
+    <author>
+      <name>Jingping Liu</name>
+    </author>
+    <author>
+      <name>Yanghua Xiao</name>
+    </author>
+    <author>
+      <name>Haiyun Jiang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1902.00438v3</id>
+    <title>tax2vec: Constructing Interpretable Features from Taxonomies for Short Text Classification</title>
+    <updated>2020-04-23T08:28:24Z</updated>
+    <link href="https://arxiv.org/abs/1902.00438v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1902.00438v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The use of background knowledge is largely unexploited in text classification tasks. This paper explores word taxonomies as means for constructing new semantic features, which may improve the performance and robustness of the learned classifiers. We propose tax2vec, a parallel algorithm for constructing taxonomy-based features, and demonstrate its use on six short text classification problems: prediction of gender, personality type, age, news topics, drug side effects and drug effectiveness. The constructed semantic features, in combination with fast linear classifiers, tested against strong baselines such as hierarchical attention neural networks, achieves comparable classification results on short text documents. The algorithm's performance is also tested in a few-shot learning setting, indicating that the inclusion of semantic features can improve the performance in data-scarce situations. The tax2vec capability to extract corpus-specific semantic keywords is also demonstrated. Finally, we investigate the semantic space of potential features, where we observe a similarity with the well known Zipf's law.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2019-02-01T16:23:17Z</published>
+    <arxiv:comment>Accepted at CSL journal</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Blaž Škrlj</name>
+    </author>
+    <author>
+      <name>Matej Martinc</name>
+    </author>
+    <author>
+      <name>Jan Kralj</name>
+    </author>
+    <author>
+      <name>Nada Lavrač</name>
+    </author>
+    <author>
+      <name>Senja Pollak</name>
+    </author>
+    <arxiv:doi>10.1016/j.csl.2020.101104</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1016/j.csl.2020.101104" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1812.01885v1</id>
+    <title>Improving Medical Short Text Classification with Semantic Expansion Using Word-Cluster Embedding</title>
+    <updated>2018-12-05T10:02:59Z</updated>
+    <link href="https://arxiv.org/abs/1812.01885v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1812.01885v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Automatic text classification (TC) research can be used for real-world problems such as the classification of in-patient discharge summaries and medical text reports, which is beneficial to make medical documents more understandable to doctors. However, in electronic medical records (EMR), the texts containing sentences are shorter than that in general domain, which leads to the lack of semantic features and the ambiguity of semantic. To tackle this challenge, we propose to add word-cluster embedding to deep neural network for improving short text classification. Concretely, we first use hierarchical agglomerative clustering to cluster the word vectors in the semantic space. Then we calculate the cluster center vector which represents the implicit topic information of words in the cluster. Finally, we expand word vector with cluster center vector, and implement classifiers using CNN and LSTM respectively. To evaluate the performance of our proposed method, we conduct experiments on public data sets TREC and the medical short sentences data sets which is constructed and released by us. The experimental results demonstrate that our proposed method outperforms state-of-the-art baselines in short sentence classification on both medical domain and general domain.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2018-12-05T10:02:59Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <arxiv:journal_ref>International Conference on Information Science and Applications ICISA 2018: Information Science and Applications 2018 pp 401-411</arxiv:journal_ref>
+    <author>
+      <name>Ying Shen</name>
+    </author>
+    <author>
+      <name>Qiang Zhang</name>
+    </author>
+    <author>
+      <name>Jin Zhang</name>
+    </author>
+    <author>
+      <name>Jiyue Huang</name>
+    </author>
+    <author>
+      <name>Yuming Lu</name>
+    </author>
+    <author>
+      <name>Kai Lei</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1809.03664v1</id>
+    <title>Topic Memory Networks for Short Text Classification</title>
+    <updated>2018-09-11T03:03:37Z</updated>
+    <link href="https://arxiv.org/abs/1809.03664v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1809.03664v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Many classification models work poorly on short texts due to data sparsity. To address this issue, we propose topic memory networks for short text classification with a novel topic memory mechanism to encode latent topic representations indicative of class labels. Different from most prior work that focuses on extending features with external knowledge or pre-trained topics, our model jointly explores topic inference and text classification with memory networks in an end-to-end manner. Experimental results on four benchmark datasets show that our model outperforms state-of-the-art models on short text classification, meanwhile generates coherent topics.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2018-09-11T03:03:37Z</published>
+    <arxiv:comment>EMNLP 2018</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Jichuan Zeng</name>
+    </author>
+    <author>
+      <name>Jing Li</name>
+    </author>
+    <author>
+      <name>Yan Song</name>
+    </author>
+    <author>
+      <name>Cuiyun Gao</name>
+    </author>
+    <author>
+      <name>Michael R. Lyu</name>
+    </author>
+    <author>
+      <name>Irwin King</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1804.05260v1</id>
+    <title>ClassiNet -- Predicting Missing Features for Short-Text Classification</title>
+    <updated>2018-04-14T18:24:06Z</updated>
+    <link href="https://arxiv.org/abs/1804.05260v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1804.05260v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The fundamental problem in short-text classification is \emph{feature sparseness} -- the lack of feature overlap between a trained model and a test instance to be classified. We propose \emph{ClassiNet} -- a network of classifiers trained for predicting missing features in a given instance, to overcome the feature sparseness problem. Using a set of unlabeled training instances, we first learn binary classifiers as feature predictors for predicting whether a particular feature occurs in a given instance. Next, each feature predictor is represented as a vertex $v_i$ in the ClassiNet where a one-to-one correspondence exists between feature predictors and vertices. The weight of the directed edge $e_{ij}$ connecting a vertex $v_i$ to a vertex $v_j$ represents the conditional probability that given $v_i$ exists in an instance, $v_j$ also exists in the same instance. We show that ClassiNets generalize word co-occurrence graphs by considering implicit co-occurrences between features. We extract numerous features from the trained ClassiNet to overcome feature sparseness. In particular, for a given instance $\vec{x}$, we find similar features from ClassiNet that did not appear in $\vec{x}$, and append those features in the representation of $\vec{x}$. Moreover, we propose a method based on graph propagation to find features that are indirectly related to a given short-text. We evaluate ClassiNets on several benchmark datasets for short-text classification. Our experimental results show that by using ClassiNet, we can statistically significantly improve the accuracy in short-text classification tasks, without having to use any external resources such as thesauri for finding related features.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2018-04-14T18:24:06Z</published>
+    <arxiv:comment>Accepted to ACM TKDD</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Danushka Bollegala</name>
+    </author>
+    <author>
+      <name>Vincent Atanasov</name>
+    </author>
+    <author>
+      <name>Takanori Maehara</name>
+    </author>
+    <author>
+      <name>Ken-ichi Kawarabayashi</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1710.09589v1</id>
+    <title>ALL-IN-1: Short Text Classification with One Model for All Languages</title>
+    <updated>2017-10-26T08:41:50Z</updated>
+    <link href="https://arxiv.org/abs/1710.09589v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1710.09589v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>We present ALL-IN-1, a simple model for multilingual text classification that does not require any parallel data. It is based on a traditional Support Vector Machine classifier exploiting multilingual word embeddings and character n-grams. Our model is simple, easily extendable yet very effective, overall ranking 1st (out of 12 teams) in the IJCNLP 2017 shared task on customer feedback analysis in four languages: English, French, Japanese and Spanish.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2017-10-26T08:41:50Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Barbara Plank</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1710.06071v1</id>
+    <title>PubMed 200k RCT: a Dataset for Sequential Sentence Classification in Medical Abstracts</title>
+    <updated>2017-10-17T03:22:00Z</updated>
+    <link href="https://arxiv.org/abs/1710.06071v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1710.06071v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>We present PubMed 200k RCT, a new dataset based on PubMed for sequential sentence classification. The dataset consists of approximately 200,000 abstracts of randomized controlled trials, totaling 2.3 million sentences. Each sentence of each abstract is labeled with their role in the abstract using one of the following classes: background, objective, method, result, or conclusion. The purpose of releasing this dataset is twofold. First, the majority of datasets for sequential short-text classification (i.e., classification of short texts that appear in sequences) are small: we hope that releasing a new large dataset will help develop more accurate algorithms for this task. Second, from an application perspective, researchers need better tools to efficiently skim through the literature. Automatically classifying each sentence in an abstract would help researchers read abstracts more efficiently, especially in fields where abstracts may be long, such as the medical field.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="stat.ML" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2017-10-17T03:22:00Z</published>
+    <arxiv:comment>Accepted as a conference paper at IJCNLP 2017</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Franck Dernoncourt</name>
+    </author>
+    <author>
+      <name>Ji Young Lee</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1709.06671v1</id>
+    <title>Think Globally, Embed Locally --- Locally Linear Meta-embedding of Words</title>
+    <updated>2017-09-19T22:58:02Z</updated>
+    <link href="https://arxiv.org/abs/1709.06671v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1709.06671v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Distributed word embeddings have shown superior performances in numerous Natural Language Processing (NLP) tasks. However, their performances vary significantly across different tasks, implying that the word embeddings learnt by those methods capture complementary aspects of lexical semantics. Therefore, we believe that it is important to combine the existing word embeddings to produce more accurate and complete \emph{meta-embeddings} of words. For this purpose, we propose an unsupervised locally linear meta-embedding learning method that takes pre-trained word embeddings as the input, and produces more accurate meta embeddings. Unlike previously proposed meta-embedding learning methods that learn a global projection over all words in a vocabulary, our proposed method is sensitive to the differences in local neighbourhoods of the individual source word embeddings. Moreover, we show that vector concatenation, a previously proposed highly competitive baseline approach for integrating word embeddings, can be derived as a special case of the proposed method. Experimental results on semantic similarity, word analogy, relation classification, and short-text classification tasks show that our meta-embeddings to significantly outperform prior methods in several benchmark datasets, establishing a new state of the art for meta-embeddings.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.NE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2017-09-19T22:58:02Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Danushka Bollegala</name>
+    </author>
+    <author>
+      <name>Kohei Hayashi</name>
+    </author>
+    <author>
+      <name>Ken-ichi Kawarabayashi</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1709.00389v1</id>
+    <title>End-to-end Learning for Short Text Expansion</title>
+    <updated>2017-08-30T04:24:06Z</updated>
+    <link href="https://arxiv.org/abs/1709.00389v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1709.00389v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Effectively making sense of short texts is a critical task for many real world applications such as search engines, social media services, and recommender systems. The task is particularly challenging as a short text contains very sparse information, often too sparse for a machine learning algorithm to pick up useful signals. A common practice for analyzing short text is to first expand it with external information, which is usually harvested from a large collection of longer texts. In literature, short text expansion has been done with all kinds of heuristics. We propose an end-to-end solution that automatically learns how to expand short text to optimize a given learning task. A novel deep memory network is proposed to automatically find relevant information from a collection of longer documents and reformulate the short text through a gating mechanism. Using short text classification as a demonstrating task, we show that the deep memory network significantly outperforms classical text expansion methods with comprehensive experiments on real world data sets.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2017-08-30T04:24:06Z</published>
+    <arxiv:comment>KDD'2017</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Jian Tang</name>
+    </author>
+    <author>
+      <name>Yue Wang</name>
+    </author>
+    <author>
+      <name>Kai Zheng</name>
+    </author>
+    <author>
+      <name>Qiaozhu Mei</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1705.04253v2</id>
+    <title>Sketching Word Vectors Through Hashing</title>
+    <updated>2018-08-30T10:27:55Z</updated>
+    <link href="https://arxiv.org/abs/1705.04253v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1705.04253v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>We propose a new fast word embedding technique using hash functions. The method is a derandomization of a new type of random projections: By disregarding the classic constraint used in designing random projections (i.e., preserving pairwise distances in a particular normed space), our solution exploits extremely sparse non-negative random projections. Our experiments show that the proposed method can achieve competitive results, comparable to neural embedding learning techniques, however, with only a fraction of the computational complexity of these methods. While the proposed derandomization enhances the computational and space complexity of our method, the possibility of applying weighting methods such as positive pointwise mutual information (PPMI) to our models after their construction (and at a reduced dimensionality) imparts a high discriminatory power to the resulting embeddings. Obviously, this method comes with other known benefits of random projection-based techniques such as ease of update.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2017-05-11T15:53:00Z</published>
+    <arxiv:comment>Results regarding the neural network are updated/ part-of-speech tagging is replaced by short text classification</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Behrang QasemiZadeh</name>
+    </author>
+    <author>
+      <name>Laura Kallmeyer</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1603.03827v1</id>
+    <title>Sequential Short-Text Classification with Recurrent and Convolutional Neural Networks</title>
+    <updated>2016-03-12T00:02:51Z</updated>
+    <link href="https://arxiv.org/abs/1603.03827v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1603.03827v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Recent approaches based on artificial neural networks (ANNs) have shown promising results for short-text classification. However, many short texts occur in sequences (e.g., sentences in a document or utterances in a dialog), and most existing ANN-based systems do not leverage the preceding short texts when classifying a subsequent one. In this work, we present a model based on recurrent neural networks and convolutional neural networks that incorporates the preceding short texts. Our model achieves state-of-the-art results on three different datasets for dialog act prediction.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.NE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="stat.ML" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2016-03-12T00:02:51Z</published>
+    <arxiv:comment>Accepted as a conference paper at NAACL 2016</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Ji Young Lee</name>
+    </author>
+    <author>
+      <name>Franck Dernoncourt</name>
+    </author>
+  </entry>
+</feed>

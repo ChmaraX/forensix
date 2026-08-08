@@ -1,0 +1,127 @@
+system_template: |-
+  Your task is to classify the topic of web pages into one of the following 24 categories:
+  {choices}
+
+  Choose which topic from the above list is the best match for describing what the web page content is about. If the content is about multiple topics, choose the one that is most prominent.
+  Remember to focus on the topic, and not the format, e.g., a book excerpt about a first date is related to 'Social Life' and not 'Literature'.
+  The URL might help you understand the content. Avoid shortcuts such as word overlap between the page and the topic descriptions or simple patterns in the URL.
+  Start your response with the single-letter ID of the correct topic followed by an explanation.
+template: |-
+  Consider the following web page:
+
+  URL: `{url}`
+  Content: ```
+  {text}
+  ```
+
+  Your task is to classify the topic of web pages into one of the following 24 categories:
+  {choices}
+
+  Choose which topic from the above list is the best match for describing what the web page content is about. If the content is about multiple topics, choose the one that is most prominent.
+  Remember to focus on the topic, and not the format, e.g., a book excerpt about a first date is related to 'Social Life' and not 'Literature'.
+  The URL might help you understand the content. Avoid shortcuts such as word overlap between the page and the topic descriptions or simple patterns in the URL.
+  Start your response with the single-letter ID of the correct topic followed by an explanation.
+choices:
+- |-
+  Adult Content
+- |-
+  Art & Design
+   - Includes: architecture
+- |-
+  Software Development
+   - Includes: algorithms, coding, and web development
+- |-
+  Crime & Law
+   - Includes: law enforcement
+   - For financial crime and litigation, choose 'Finance & Business' instead
+   - For social issues and the legislative process, choose 'Politics & Social Issues' instead
+- |-
+  Education & Jobs
+   - Includes: pedagogy, training & certification, academia
+   - If the page is educational about a specific topic, e.g. food or mathematics, choose that topic instead
+- |-
+  Electronics & Hardware
+   - Includes: computer hardware, phones, televisions, other consumer electronics
+- |-
+  Entertainment
+   - Includes: music, movies, TV shows, videos, celebrities, humor, nightlife
+   - If the page discusses music or film as art rather than entertainment, choose 'Art & Design' instead
+- |-
+  Social Life
+   - Includes: family, friends, relationships, community
+   - If the article focuses on a specific social activity (e.g. sports or board games), choose the topic of the activity instead
+- |-
+  Fashion & Beauty
+   - Includes: clothing, accessories, cosmetics
+- |-
+  Finance & Business
+   - Includes: taxes, regulations, investments, insurance, credit cards, personal finance, corporate communication, marketing, human resources
+- |-
+  Food & Dining
+   - Includes: recipes, groceries, beverages, restaurants.
+   - For nutritional science, choose 'Health' instead
+- |-
+  Games
+   - Includes: video games, board games, gambling
+- |-
+  Health
+   - Includes: medicine, wellness, mental health, veterinary science, nutritional science
+   - For health insurance, choose 'Finance & Business' instead
+- |-
+  History & Geography
+   - Includes: archaeology
+- |-
+  Home & Hobbies
+   - Includes: real estate, renting, relocation, furniture, applicanes, home improvement, DIY, gardening, pets, toys, collecting
+- |-
+  Industrial
+   - Topics related to mining, agriculture, manufacturing, utilities and construction
+   - Includes: raw materials, industrial goods, chemicals, textiles
+   - For general business topics or business finance, choose 'Finance & Business' instead
+- |-
+  Literature
+   - Includes: literary criticism, linguistics, philosophy, related subjects in the humanities
+   - For text written in literary style, choose the topic of the contents instead
+- |-
+  Politics
+   - Includes: social issues, political campaigns, the legislative process, geopolitics, protests, activism
+- |-
+  Religion
+   - Includes: spirituality
+- |-
+  Science, Math & Technology
+   - Includes: physics, chemistry, biology, environmental science, mathematics, statistics, biotech, engineering
+- |-
+  Software
+   - Topics related to the use of software and the internet
+- |-
+  Sports & Fitness
+   - Includes: martial arts, motor sports, outdoor activities, sports equipment
+- |-
+  Transportation
+   - Includes: cars and other vehicles, taxis, public transportation, traffic, commuting, aviation, rail, shipping, logistics
+- |-
+  Travel & Tourism
+   - Includes: hospitality, hotels, sight-seeing, cruises
+   - For detailed descriptions of tourist destinations, choose 'History & Geography' instead
+demonstrations: # All demonstrations from dclm-refinedweb/global-shard_01_of_10/local-shard_0_of_10/shard_00000000_processed.jsonl.zstd
+- url: http://www.creazaeducation.com/cartoonist?goback=.gde_2845660_member_189359695
+  text: "Make a Comic Strip!\n\n\nCreaza Cartoonist\n\n\n\n\n\n  • Here, you can cut, paste, and copy elements from a frame.\n\n  • Here, you will find functions for the frame.\n  • You can give the frame a name or a descriptive text under Properties.  The text can be the name of the frame, or part of your story, and becomes visible when you display or print out your cartoon.\n  • If you want to re-use a frame you have made, first, you select the frame you want to copy, then click Copy.\n  • Here, you can also delete a frame and create a new frame.\n\n  • Functions for drawing are activated when you select an element to work with.\n  • You can choose between several different bubbles, as well as free-hand drawing, ellipses, and squares.\n  • You can arrange elements in sequence, meaning that you can add depth to your cartoon by placing elements behind or in front of each other.\n  • When you have your characters and other elements in place, it can be a good idea to lock what you have done so far.  When you choose unlock, all elements will be unlocked at the same time.\n\n  • Here, you can work with the appearance of your text, lines, and bubbles.  You can choose thick or thin lines.  Your lines can have different line styles, and your bubbles can be in all kinds of colours and gradients.\n\n  • You can either click on the button for expression or click on the arrow to get an overview of alternative expressions you can choose from."
+  choice: "Software"
+  explanation: "The page discusses how to use a web tool for creating comic strips, which falls under the software category, rather than art or entertainment."
+- url: http://seanwes.com/tag/ideas/
+  text: "Skip to Content\n\nYou decided to show up. “I’m going to do this thing,” you say to yourself. “I’m going to dedicate time every day to practicing hand lettering.”\n\nIt’s morning. You sit down at your desk in front of a blank page. The sun is just now starting to come through the blinds in the window. It’s casting a beam of light onto your fresh, white paper.\n\nBut there’s a problem: your mind is absolutely blank. You have no idea what to write. You look around frantically for inspiration, but nothing interesting stands out.\n\nWhat went wrong?\n\nWhen it comes to thinking of a concept or approach for a design project, it’s not all that hard to have a first idea. In fact, just about everyone does. When you hold a word association experiment, you find that when given a specific word or concept, people largely think of many of the same  Continue Reading »"
+  choice: "Art & Design"
+  explanation: "The page appears to be about creative ideas for design projects, so the best fit is the art and design category."
+- url: http://www.ironrealms.com/game/helpview/imperian/the-scorched
+  text: "THE SCORCHED - Imperian Online Help\n\n\nThe thick flesh of a scorched is coated with a thin, oily substance that \nallows their bodies to withstand the inferno that constantly rages over their \nform. The ever-burning flames allow one to heal within the confines of fire, but makes them exceptionally vulnerable to the chill of winter. Their race had long been lost until Christof discovered their power within an ancestral stone, \nreleasing them into the world.\n\nRacial Skills:\n\n- Fire Resistance\n- Burning Skin\n  Can IGNITE SKIN once every 60 seconds to burn off webs and ropes.\n- Smother\n  Can SMOTHER rooms that are on fire\n- Combustion\n  Can COMBUST when they die, causing them to regenerate in an adjacent room.\n\nLanguages: Common, Feur"
+  choice: "Games"
+  explanation: "The page appears to be about a character in an online game, which falls under the category of games."
+- url: http://www.iris.edu/hq/news/story/first_earthscope_transportable_array_station_installed_in_virginia
+  text: "First EarthScope Transportable Array Station Installed in Virginia\n\nEarthScope Transportable Array Station R58B in Mineral, Virginia.\n\nOn August 8, EarthScope installed its first seismic station in Mineral, Virginia, near the epicenter of last year's magnitude 5.8 earthquake. This Transportable Array station, R58B, is a complement to other seismic stations in the area and is capable of detecting small regional aftershocks as well as earthquakes of about magnitude 5 occurring anywhere in the world. Both a high-quality broadband seismometer and a strong motion accelerometer were installed. The station will operate for about 2.5 years. In Spring 2013, an additional 18 stations will be installed in Virginia when the Transportable Array blankets the Mid-Atlantic states. To view the the most recent 24-hour seismogram at Station R58B or any other operating EarthScope seismic station, click here.\n\n\nBecause of the station's proximity to Washington, DC, the installation was observed by a small group of visitors including the Virginia state geologist, geoscience researchers from James Madison University in Harrisonburg, Virginia, and staff from IRIS Headquarters."
+  choice: "Science, Math & Technology"
+  explanation: "The page is about the installation of a seismic station in Virginia, which is a topic related to earth sciences and technology."
+- url: https://www.voyageairguitar.com/component/content/article/42/196-a-letter-from-voyage-air-ceo-jeff-cohen-
+  text: "A Letter From Voyage-Air CEO Jeff Cohen\n\nA big thank you to all of the many fans of Voyage-Air Guitar! Your comments and well wishes are much appreciated. Our email boxes are stuffed with mail from people that want to either buy a guitar, invest in the company, or just tell us how cool our guitar really is.\n\nThank you also to the producers ofShark Tank! It is not an easy thing to edit a one hour negotiation between me and the Sharks into just a few minutes ofairtime. One point I'd like to clarify about the show was the actual deal on the table. For $1 million, I was offering the Sharks a 49% stake in a new company, not Voyage-Air Guitar. The new company would license the technology to build Voyage-Air type guitars to other guitar manufacturers. Voyage-Air Guitar would continue to build its brand and build and sell guitars just the way it does today! The nuances of this deal were a bit much for the producers to work into our short segment. But, the Sharks and I knew exactly what was on the table!\n\nWe accomplished our goal of demonstrating the benefits of the Voyage-Air Guitar to millions of people and we are getting an overwhelming response! If you like the idea of having a guitar that folds in half, fits in a backpack and can be carried everywhere you go, then I hope you'll consider buying one for yourself.\n\nBest regards,"
+  choice: "Finance & Business"
+  explanation: "The page is a letter from a company CEO discussing business negotiations and product marketing."

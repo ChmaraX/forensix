@@ -1,0 +1,474 @@
+[
+  {
+    "id": "minishlab/potion-base-8M",
+    "downloads": 607750,
+    "likes": 78,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2026-03-27T07:46:29.000Z"
+  },
+  {
+    "id": "Jarbas/ovos-model2vec-intents-distiluse-base-multilingual-cased-v2",
+    "downloads": 178003,
+    "likes": 1,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Jarbas",
+    "lastModified": "2025-05-20T21:08:40.000Z"
+  },
+  {
+    "id": "minishlab/potion-base-32M",
+    "downloads": 84128,
+    "likes": 27,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2026-03-27T07:46:31.000Z"
+  },
+  {
+    "id": "minishlab/potion-retrieval-32M",
+    "downloads": 74662,
+    "likes": 29,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2026-03-27T07:34:42.000Z"
+  },
+  {
+    "id": "minishlab/potion-multilingual-128M",
+    "downloads": 64644,
+    "likes": 59,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2026-04-07T13:23:07.000Z"
+  },
+  {
+    "id": "minishlab/M2V_base_output",
+    "downloads": 44427,
+    "likes": 10,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2026-03-26T08:22:49.000Z"
+  },
+  {
+    "id": "cnmoro/nomic-embed-text-v2-moe-distilled-high-quality",
+    "downloads": 37521,
+    "likes": 5,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "cnmoro",
+    "lastModified": "2026-04-15T20:58:08.000Z"
+  },
+  {
+    "id": "minishlab/potion-code-16M",
+    "downloads": 24104,
+    "likes": 27,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2026-07-13T11:54:37.000Z"
+  },
+  {
+    "id": "minishlab/potion-code-16M-v2",
+    "downloads": 19865,
+    "likes": 6,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2026-07-13T11:57:58.000Z"
+  },
+  {
+    "id": "minishlab/potion-base-2M",
+    "downloads": 13280,
+    "likes": 17,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2026-03-27T07:46:26.000Z"
+  },
+  {
+    "id": "CISCai/jina-embeddings-v3-separation-distilled",
+    "downloads": 9547,
+    "likes": 2,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-nc-4.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "CISCai",
+    "lastModified": "2024-11-05T11:31:57.000Z"
+  },
+  {
+    "id": "minishlab/M2V_multilingual_output",
+    "downloads": 9542,
+    "likes": 19,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2025-01-21T19:15:08.000Z"
+  },
+  {
+    "id": "minishlab/potion-base-4M",
+    "downloads": 6311,
+    "likes": 10,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2026-03-27T07:46:27.000Z"
+  },
+  {
+    "id": "Tokenade/potion-multilingual-128M-i8-tokenade",
+    "downloads": 2742,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Tokenade",
+    "lastModified": "2026-07-17T08:10:08.000Z"
+  },
+  {
+    "id": "Jarbas/m2v-256-serafim-100m-portuguese-pt-sentence-encoder",
+    "downloads": 1339,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Jarbas",
+    "lastModified": "2025-05-20T14:09:33.000Z"
+  },
+  {
+    "id": "minishlab/potion-science-32M",
+    "downloads": 806,
+    "likes": 2,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2025-01-21T19:20:00.000Z"
+  },
+  {
+    "id": "NAMAA-Space/bojji",
+    "downloads": 659,
+    "likes": 2,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "NAMAA-Space",
+    "lastModified": "2025-06-16T07:25:58.000Z"
+  },
+  {
+    "id": "cnmoro/static-nomic-eng-ptbr-tiny",
+    "downloads": 625,
+    "likes": 2,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "cnmoro",
+    "lastModified": "2025-06-01T21:00:53.000Z"
+  },
+  {
+    "id": "NeuML/pubmedbert-base-embeddings-8M",
+    "downloads": 282,
+    "likes": 10,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "NeuML",
+    "lastModified": "2026-04-17T11:07:05.000Z"
+  },
+  {
+    "id": "jalbarracin/multilingual-e5-small-distilled-256d",
+    "downloads": 263,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "jalbarracin",
+    "lastModified": "2025-08-10T03:22:49.000Z"
+  },
+  {
+    "id": "NeuML/pubmedbert-base-embeddings-2M",
+    "downloads": 262,
+    "likes": 3,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "NeuML",
+    "lastModified": "2026-04-17T11:08:28.000Z"
+  },
+  {
+    "id": "NeuML/pubmedbert-base-embeddings-500K",
+    "downloads": 260,
+    "likes": 2,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "NeuML",
+    "lastModified": "2026-04-17T11:09:37.000Z"
+  },
+  {
+    "id": "NeuML/pubmedbert-base-embeddings-1M",
+    "downloads": 254,
+    "likes": 2,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "NeuML",
+    "lastModified": "2026-04-17T11:09:01.000Z"
+  },
+  {
+    "id": "NeuML/pubmedbert-base-embeddings-100K",
+    "downloads": 249,
+    "likes": 2,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "NeuML",
+    "lastModified": "2026-04-17T11:10:06.000Z"
+  },
+  {
+    "id": "minishlab/M2V_base_glove",
+    "downloads": 247,
+    "likes": 4,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2025-01-21T19:17:15.000Z"
+  }
+]

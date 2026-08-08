@@ -1,0 +1,474 @@
+[
+  {
+    "id": "tokiers/potion-retrieval-32M",
+    "downloads": 22,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "tokiers",
+    "lastModified": "2026-07-23T22:15:55.000Z"
+  },
+  {
+    "id": "yrrhall/AraModernBert_m2v_model",
+    "downloads": 22,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "yrrhall",
+    "lastModified": "2026-07-17T20:35:01.000Z"
+  },
+  {
+    "id": "Jarbas/ovos-model2vec-intents-distilroberta-base-ca-v2",
+    "downloads": 21,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Jarbas",
+    "lastModified": "2025-05-20T21:19:54.000Z"
+  },
+  {
+    "id": "tokiers/potion-base-2M",
+    "downloads": 21,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "tokiers",
+    "lastModified": "2026-07-23T22:15:35.000Z"
+  },
+  {
+    "id": "alikia2x/jina-embedding-v3-m2v-256",
+    "downloads": 20,
+    "likes": 1,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "alikia2x",
+    "lastModified": "2025-03-02T14:30:13.000Z"
+  },
+  {
+    "id": "bhavnicksm/brown-beetle-small-v1.1",
+    "downloads": 19,
+    "likes": 1,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "bhavnicksm",
+    "lastModified": "2025-01-25T00:40:18.000Z"
+  },
+  {
+    "id": "SethBurkart/potion-base-8m",
+    "downloads": 19,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model_quantized.onnx",
+      "onnx/model.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "SethBurkart",
+    "lastModified": "2025-04-11T02:20:15.000Z"
+  },
+  {
+    "id": "tokiers/M2V_base_output",
+    "downloads": 19,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "tokiers",
+    "lastModified": "2026-07-23T22:12:56.000Z"
+  },
+  {
+    "id": "bhavnicksm/brown-beetle-base-v1.1",
+    "downloads": 17,
+    "likes": 2,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "bhavnicksm",
+    "lastModified": "2025-01-25T00:39:02.000Z"
+  },
+  {
+    "id": "Jarbas/m2v-256-distiluse-base-multilingual-cased-v2",
+    "downloads": 17,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Jarbas",
+    "lastModified": "2025-05-14T13:08:14.000Z"
+  },
+  {
+    "id": "OpenVoiceOS/ovos-model2vec-intents-roberta-large-ca-v2-massive",
+    "downloads": 17,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "OpenVoiceOS",
+    "lastModified": "2025-05-29T16:09:48.000Z"
+  },
+  {
+    "id": "tokiers/potion-base-32M",
+    "downloads": 17,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "tokiers",
+    "lastModified": "2026-07-23T22:15:38.000Z"
+  },
+  {
+    "id": "tokiers/potion-science-32M",
+    "downloads": 17,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "tokiers",
+    "lastModified": "2026-07-23T22:15:59.000Z"
+  },
+  {
+    "id": "Nourh7/granite-embedding-97m-multilingual-r2",
+    "downloads": 17,
+    "likes": 1,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Nourh7",
+    "lastModified": "2026-05-07T17:04:14.000Z"
+  },
+  {
+    "id": "cnmoro/multilingual-e5-small-distilled-16m",
+    "downloads": 16,
+    "likes": 1,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "cnmoro",
+    "lastModified": "2024-12-03T19:47:26.000Z"
+  },
+  {
+    "id": "tokiers/potion-8m-edu-classifier",
+    "downloads": 16,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "tokiers",
+    "lastModified": "2026-07-23T22:15:31.000Z"
+  },
+  {
+    "id": "tokiers/potion-science-8M",
+    "downloads": 16,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "tokiers",
+    "lastModified": "2026-07-23T22:16:02.000Z"
+  },
+  {
+    "id": "Jarbas/m2v-256-albertina-100m-portuguese-ptbr-encoder",
+    "downloads": 15,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Jarbas",
+    "lastModified": "2025-05-20T14:08:31.000Z"
+  },
+  {
+    "id": "OpenVoiceOS/ovos-model2vec-intents-bertinho-gl-base-cased",
+    "downloads": 15,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "OpenVoiceOS",
+    "lastModified": "2025-05-29T16:12:09.000Z"
+  },
+  {
+    "id": "Jarbas/m2v-256-bge-large-zh-v1.5",
+    "downloads": 15,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Jarbas",
+    "lastModified": "2025-05-20T22:15:45.000Z"
+  },
+  {
+    "id": "OpenVoiceOS/ovos-model2vec-intents-BERnaT-base",
+    "downloads": 15,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "OpenVoiceOS",
+    "lastModified": "2025-05-29T19:04:26.000Z"
+  },
+  {
+    "id": "cnmoro/static-nomic-eng-ptbr-large",
+    "downloads": 15,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "cnmoro",
+    "lastModified": "2025-06-01T20:58:12.000Z"
+  },
+  {
+    "id": "allura-forge/m2v_granite-embedding-125m_distill-pca512",
+    "downloads": 15,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "allura-forge",
+    "lastModified": "2025-06-03T03:22:10.000Z"
+  },
+  {
+    "id": "enguard/tiny-guard-8m-en-response-safety-binary-nvidia-aegis",
+    "downloads": 15,
+    "likes": 0,
+    "pipeline_tag": "text-classification",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "enguard",
+    "lastModified": "2025-11-05T20:35:09.000Z"
+  },
+  {
+    "id": "enguard/tiny-guard-8m-en-prompt-jailbreak-binary-sok",
+    "downloads": 15,
+    "likes": 0,
+    "pipeline_tag": "text-classification",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "enguard",
+    "lastModified": "2025-11-05T20:47:37.000Z"
+  }
+]

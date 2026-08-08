@@ -1,0 +1,455 @@
+[
+  {
+    "id": "pyannote/speaker-diarization-community-1",
+    "downloads": 5080558,
+    "likes": 957,
+    "pipeline_tag": "automatic-speech-recognition",
+    "library_name": "pyannote-audio",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-4.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": "auto",
+    "author": "pyannote",
+    "lastModified": "2025-09-29T08:43:24.000Z"
+  },
+  {
+    "id": "ProsusAI/finbert",
+    "downloads": 5073387,
+    "likes": 1212,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "ProsusAI",
+    "lastModified": "2023-05-23T12:43:35.000Z"
+  },
+  {
+    "id": "Falconsai/nsfw_image_detection",
+    "downloads": 4952613,
+    "likes": 1157,
+    "pipeline_tag": "image-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "Falconsai",
+    "lastModified": "2025-04-06T13:42:07.000Z"
+  },
+  {
+    "id": "hmellor/tiny-random-LlamaForCausalLM",
+    "downloads": 4813313,
+    "likes": 0,
+    "pipeline_tag": "text-generation",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "hmellor",
+    "lastModified": "2025-04-29T22:01:04.000Z"
+  },
+  {
+    "id": "nomic-ai/nomic-embed-text-v1",
+    "downloads": 4734706,
+    "likes": 580,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "nomic-ai",
+    "lastModified": "2026-04-07T14:16:41.000Z"
+  },
+  {
+    "id": "jonatasgrosman/wav2vec2-large-xlsr-53-portuguese",
+    "downloads": 4607856,
+    "likes": 55,
+    "pipeline_tag": "automatic-speech-recognition",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "jonatasgrosman",
+    "lastModified": "2022-12-14T01:59:47.000Z"
+  },
+  {
+    "id": "mistralai/Mistral-7B-Instruct-v0.3",
+    "downloads": 4551024,
+    "likes": 2804,
+    "pipeline_tag": null,
+    "library_name": "vllm",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "mistralai",
+    "lastModified": "2025-12-03T12:13:48.000Z"
+  },
+  {
+    "id": "microsoft/mdeberta-v3-base",
+    "downloads": 4546853,
+    "likes": 231,
+    "pipeline_tag": "fill-mask",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "microsoft",
+    "lastModified": "2023-04-06T05:32:33.000Z"
+  },
+  {
+    "id": "Qwen/Qwen3-4B",
+    "downloads": 4546845,
+    "likes": 674,
+    "pipeline_tag": "text-generation",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Qwen",
+    "lastModified": "2025-07-26T03:46:39.000Z"
+  },
+  {
+    "id": "ornith-ai/Ornith-1.0-9B-GGUF",
+    "downloads": 4529700,
+    "likes": 616,
+    "pipeline_tag": "text-generation",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "ornith-ai",
+    "lastModified": "2026-06-25T14:12:12.000Z"
+  },
+  {
+    "id": "BAAI/bge-small-zh-v1.5",
+    "downloads": 4527053,
+    "likes": 134,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "BAAI",
+    "lastModified": "2023-10-12T03:35:59.000Z"
+  },
+  {
+    "id": "Qwen/Qwen3-VL-8B-Instruct",
+    "downloads": 4508512,
+    "likes": 1036,
+    "pipeline_tag": "image-text-to-text",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Qwen",
+    "lastModified": "2025-10-15T16:16:59.000Z"
+  },
+  {
+    "id": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "downloads": 4479493,
+    "likes": 49,
+    "pipeline_tag": "text-generation",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Qwen",
+    "lastModified": "2024-10-09T12:26:45.000Z"
+  },
+  {
+    "id": "mixedbread-ai/mxbai-embed-large-v1",
+    "downloads": 4462773,
+    "likes": 820,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "mixedbread-ai",
+    "lastModified": "2026-01-23T11:59:58.000Z"
+  },
+  {
+    "id": "google/vit-base-patch16-224",
+    "downloads": 4433250,
+    "likes": 990,
+    "pipeline_tag": "image-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "google",
+    "lastModified": "2023-09-05T15:27:12.000Z"
+  },
+  {
+    "id": "dphn/dolphin-2.9.1-yi-1.5-34b",
+    "downloads": 4341751,
+    "likes": 65,
+    "pipeline_tag": "text-generation",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "dphn",
+    "lastModified": "2025-09-08T05:56:56.000Z"
+  },
+  {
+    "id": "meta-llama/Prompt-Guard-86M",
+    "downloads": 4270220,
+    "likes": 385,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:llama3.1"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": "manual",
+    "author": "meta-llama",
+    "lastModified": "2025-11-12T21:27:00.000Z"
+  },
+  {
+    "id": "BAAI/bge-reranker-base",
+    "downloads": 4237520,
+    "likes": 242,
+    "pipeline_tag": "text-classification",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "BAAI",
+    "lastModified": "2024-06-24T14:10:03.000Z"
+  },
+  {
+    "id": "openai/whisper-base",
+    "downloads": 4236640,
+    "likes": 283,
+    "pipeline_tag": "automatic-speech-recognition",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "openai",
+    "lastModified": "2024-02-29T10:26:57.000Z"
+  },
+  {
+    "id": "Qwen/Qwen3-ASR-0.6B",
+    "downloads": 4173671,
+    "likes": 328,
+    "pipeline_tag": "automatic-speech-recognition",
+    "library_name": null,
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Qwen",
+    "lastModified": "2026-01-30T03:00:21.000Z"
+  },
+  {
+    "id": "openai/gpt-oss-120b",
+    "downloads": 4133677,
+    "likes": 5087,
+    "pipeline_tag": "text-generation",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "openai",
+    "lastModified": "2025-08-26T17:25:03.000Z"
+  },
+  {
+    "id": "facebook/dinov2-small",
+    "downloads": 4132531,
+    "likes": 70,
+    "pipeline_tag": "image-feature-extraction",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-09-06T11:24:10.000Z"
+  },
+  {
+    "id": "RedHatAI/gemma-4-31B-it-FP8-block",
+    "downloads": 4127374,
+    "likes": 44,
+    "pipeline_tag": "image-text-to-text",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "RedHatAI",
+    "lastModified": "2026-08-07T19:37:03.000Z"
+  },
+  {
+    "id": "ibm-granite/granite-4.1-8b",
+    "downloads": 4109113,
+    "likes": 247,
+    "pipeline_tag": "text-generation",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "ibm-granite",
+    "lastModified": "2026-05-04T17:36:29.000Z"
+  },
+  {
+    "id": "openai/clip-vit-large-patch14-336",
+    "downloads": 3993913,
+    "likes": 308,
+    "pipeline_tag": "zero-shot-image-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "openai",
+    "lastModified": "2022-10-04T09:41:39.000Z"
+  }
+]

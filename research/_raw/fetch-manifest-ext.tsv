@@ -1,0 +1,16 @@
+mteb-space-info.json	https://huggingface.co/api/spaces/mteb/leaderboard	200	28030	2026-08-08T09:44:49.607958+00:00
+mteb-models-overview.py	https://raw.githubusercontent.com/embeddings-benchmark/mteb/main/mteb/models/overview.py	404	14	2026-08-08T09:44:49.903530+00:00
+homepage2vec-README.md	https://raw.githubusercontent.com/epfl-dlab/homepage2vec/master/README.md	200	6484	2026-08-08T09:44:50.273541+00:00
+homepage2vec-LICENSE	https://raw.githubusercontent.com/epfl-dlab/homepage2vec/master/LICENSE	200	1073	2026-08-08T09:44:50.733642+00:00
+weborganizer-github-README.md	https://raw.githubusercontent.com/CodeCreator/WebOrganizer/main/README.md	200	7481	2026-08-08T09:44:51.023861+00:00
+weborganizer-hf-models.json	https://huggingface.co/api/models?author=WebOrganizer&full=true	200	716861	2026-08-08T09:44:51.532867+00:00
+fasttext-LICENSE	https://raw.githubusercontent.com/facebookresearch/fastText/main/LICENSE	200	1080	2026-08-08T09:44:51.823536+00:00
+model2vec-README.md	https://raw.githubusercontent.com/MinishLab/model2vec/main/README.md	200	13035	2026-08-08T09:44:52.207570+00:00
+model2vec-LICENSE	https://raw.githubusercontent.com/MinishLab/model2vec/main/LICENSE	200	1074	2026-08-08T09:44:52.501305+00:00
+setfit-LICENSE	https://raw.githubusercontent.com/huggingface/setfit/main/LICENSE	200	11357	2026-08-08T09:44:52.780464+00:00
+onnxruntime-LICENSE	https://raw.githubusercontent.com/microsoft/onnxruntime/main/LICENSE	200	1073	2026-08-08T09:44:53.061369+00:00
+transformersjs-LICENSE	https://raw.githubusercontent.com/huggingface/transformers.js/main/LICENSE	200	11358	2026-08-08T09:44:53.332816+00:00
+citizenlab-test-lists-LICENSE	https://raw.githubusercontent.com/citizenlab/test-lists/master/LICENSE	404	14	2026-08-08T09:44:53.573525+00:00
+tldts-LICENSE	https://raw.githubusercontent.com/remusao/tldts/master/LICENSE	200	1078	2026-08-08T09:44:54.068297+00:00
+arxiv-webpage-classification.xml	https://export.arxiv.org/api/query?search_query=all:%22webpage%20classification%22+AND+all:%22URL%22&sortBy=submittedDate&sortOrder=descending&max_results=50	200	3615	2026-08-08T09:44:54.727364+00:00
+arxiv-short-text-classification.xml	https://export.arxiv.org/api/query?search_query=all:%22short%20text%20classification%22&sortBy=submittedDate&sortOrder=descending&max_results=50	200	75024	2026-08-08T09:44:55.474183+00:00

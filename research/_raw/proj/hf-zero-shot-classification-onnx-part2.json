@@ -1,0 +1,589 @@
+[
+  {
+    "id": "cross-encoder/nli-deberta-base",
+    "downloads": 3221,
+    "likes": 17,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "cross-encoder",
+    "lastModified": "2025-04-15T07:59:34.000Z"
+  },
+  {
+    "id": "MoritzLaurer/deberta-v3-large-zeroshot-v1.1-all-33",
+    "downloads": 3103,
+    "likes": 58,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "MoritzLaurer",
+    "lastModified": "2024-04-01T15:10:33.000Z"
+  },
+  {
+    "id": "cointegrated/rubert-base-cased-nli-threeway",
+    "downloads": 3085,
+    "likes": 38,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "cointegrated",
+    "lastModified": "2024-04-05T09:31:57.000Z"
+  },
+  {
+    "id": "Xenova/nli-deberta-v3-base",
+    "downloads": 2896,
+    "likes": 2,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-14T03:30:38.000Z"
+  },
+  {
+    "id": "Xenova/nli-deberta-v3-small",
+    "downloads": 1908,
+    "likes": 0,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-14T03:30:19.000Z"
+  },
+  {
+    "id": "knowledgator/gliclass-small-v1.0",
+    "downloads": 1753,
+    "likes": 3,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model-int8-quantized.onnx",
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "knowledgator",
+    "lastModified": "2025-08-12T14:31:38.000Z"
+  },
+  {
+    "id": "cmarkea/distilcamembert-base-nli",
+    "downloads": 601,
+    "likes": 14,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx",
+      "model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "cmarkea",
+    "lastModified": "2024-10-26T07:15:42.000Z"
+  },
+  {
+    "id": "onnx-community/multilingual-MiniLMv2-L6-mnli-xnli-ONNX",
+    "downloads": 537,
+    "likes": 0,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "onnx-community",
+    "lastModified": "2026-03-13T10:51:13.000Z"
+  },
+  {
+    "id": "protectai/MoritzLaurer-roberta-base-zeroshot-v2.0-c-onnx",
+    "downloads": 507,
+    "likes": 0,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "protectai",
+    "lastModified": "2026-07-09T16:43:07.000Z"
+  },
+  {
+    "id": "knowledgator/gliclass-base-v1.0",
+    "downloads": 447,
+    "likes": 4,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model-int8-quantized.onnx",
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "knowledgator",
+    "lastModified": "2025-08-12T14:31:58.000Z"
+  },
+  {
+    "id": "onnx-community/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7-ONNX",
+    "downloads": 412,
+    "likes": 0,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "onnx-community",
+    "lastModified": "2026-05-26T06:53:10.000Z"
+  },
+  {
+    "id": "nutrientdocs/grounding-en",
+    "downloads": 395,
+    "likes": 8,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "nutrientdocs",
+    "lastModified": "2026-07-15T02:22:39.000Z"
+  },
+  {
+    "id": "Xenova/DeBERTa-v3-base-mnli-fever-anli",
+    "downloads": 379,
+    "likes": 0,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-11T15:51:51.000Z"
+  },
+  {
+    "id": "Xenova/DeBERTa-v3-base-mnli",
+    "downloads": 283,
+    "likes": 0,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-11T15:52:00.000Z"
+  },
+  {
+    "id": "onnx-community/distilbert-base-uncased-mnli-ONNX",
+    "downloads": 275,
+    "likes": 1,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "onnx-community",
+    "lastModified": "2025-11-24T03:09:18.000Z"
+  },
+  {
+    "id": "Xenova/nli-deberta-v3-large",
+    "downloads": 222,
+    "likes": 0,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-14T03:31:37.000Z"
+  },
+  {
+    "id": "Xenova/deberta-v3-base-tasksource-nli",
+    "downloads": 207,
+    "likes": 1,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-11T15:51:35.000Z"
+  },
+  {
+    "id": "Xenova/nli-deberta-base",
+    "downloads": 192,
+    "likes": 0,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-14T03:31:09.000Z"
+  },
+  {
+    "id": "Xenova/DeBERTa-v3-large-mnli-fever-anli-ling-wanli",
+    "downloads": 192,
+    "likes": 0,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-14T03:20:15.000Z"
+  },
+  {
+    "id": "Xenova/DeBERTa-v3-xsmall-mnli-fever-anli-ling-binary",
+    "downloads": 187,
+    "likes": 0,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-14T03:30:54.000Z"
+  },
+  {
+    "id": "Xenova/deberta-v3-large-tasksource-nli",
+    "downloads": 183,
+    "likes": 1,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-11T15:48:53.000Z"
+  },
+  {
+    "id": "Xenova/deberta-large-mnli-zero-cls",
+    "downloads": 181,
+    "likes": 2,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-14T03:31:25.000Z"
+  },
+  {
+    "id": "knowledgator/gliclass-modern-base-v2.0-init",
+    "downloads": 165,
+    "likes": 26,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": null,
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model-int4-quantized.onnx",
+      "onnx/model-int8-quantized.onnx",
+      "onnx/model-uint4-quantized.onnx",
+      "onnx/model-uint8-quantized.onnx",
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "knowledgator",
+    "lastModified": "2025-08-12T14:36:53.000Z"
+  },
+  {
+    "id": "kucukkanat/LFM2.5-Encoder-350M-Prompt-Router-ONNX",
+    "downloads": 152,
+    "likes": 1,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [
+      "license:other"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model_q4.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "kucukkanat",
+    "lastModified": "2026-07-29T10:13:12.000Z"
+  },
+  {
+    "id": "deepanwa/NuNerZero_onnx",
+    "downloads": 145,
+    "likes": 2,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": null,
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "deepanwa",
+    "lastModified": "2025-12-01T16:59:22.000Z"
+  }
+]

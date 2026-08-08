@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>A research-oriented top sites ranking hardened against manipulation - Tranco</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.2/css/bootstrap.min.css" integrity="sha512-rt/SrQ4UNIaGfDyEXZtNcyWvQeOq0QLygHluFQcSjaGB04IxWhal71tKuzP6K8eYXYB6vJV4pHkXcmFGGQ1/0w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css">
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+    </style>
+    <link href="/assets/style.css?20210905" rel="stylesheet">
+    
+</head>
+<body>
+<header>
+<nav class="navbar navbar-expand-lg navbar-light bg-light mb-3">
+    <div class="container">
+        <a class="navbar-brand tranco-logo-font tranco-logo-navbar" href="/">Tranco</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav mr-auto">
+                
+                  <li class="nav-item active">
+                      <a class="nav-link" href="/" target="_self">Home <span class="sr-only">(current)</span></a>
+                  </li>
+                
+                  <li class="nav-item">
+                      <a class="nav-link" href="/#download" target="_self">Download</a>
+                  </li>
+                
+                  <li class="nav-item">
+                      <a class="nav-link" href="/configure" target="_self">Configure</a>
+                  </li>
+                
+                  <li class="nav-item">
+                      <a class="nav-link" href="/methodology" target="_self">Methodology</a>
+                  </li>
+                
+                  <li class="nav-item">
+                      <a class="nav-link" href="/#aboutus" target="_self">About us</a>
+                  </li>
+                
+            </ul>
+            <ul class="navbar-nav ml-auto">
+                
+                    <li class="nav-item"><a class="nav-link" href="/login">Log in</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/register">Register</a></li>
+                
+            </ul>
+        </div>
+    </div>
+</nav>
+</header>
+<main role="main">
+<div class="container">
+
+    <div class="jumbotron text-center py-4" id="intro">
+        <h1 class="display-5 tranco-logo-font tranco-logo-jumbotron">Tranco</h1>
+        <p class="lead">A Research-Oriented Top Sites Ranking Hardened Against Manipulation</p>
+        
+        <p class="intro-link"><i>By <a href="https://lepoch.at/">Victor Le Pochat</a>, <a href="https://tom.vg/">Tom Van
+            Goethem</a>, <a href="https://www.icann.org/profiles/149472">Samaneh Tajalizadehkhoob</a>, <a
+                href="https://mkorczynski.com/">Maciej Korczyński</a> and Wouter Joosen</i></p>
+        <a href="/latest_list" class="btn btn-success btn-lg btn-block mt-4">Download the
+            latest Tranco list</a>
+    </div>
+    <div class="my-4 ">
+        <div class="pb-2">
+            <div class="alert alert-info" role="alert">
+                The Chrome User Experience Report and Cloudflare Radar rankings
+                have been integrated into the default Tranco list,
+                starting from the daily updated list of August 1, 2023.
+                The Alexa ranking has been removed from the default Tranco list, as it is no longer available.
+            </div>
+        </div>
+        <div class="pb-2 ">
+            <p> Researchers in web security or Internet measurements often use rankings of popular websites.
+                However, <a href="assets/tranco-ndss19.pdf">in our paper</a> we showed that these rankings disagree on
+                which domains are most popular, can change significantly on a daily basis and can be manipulated (by
+                malicious actors).
+            </p>
+            <p> As the research community still benefits from regularly updated lists of popular domains, we provide <b>Tranco</b>,
+                a ranking that improves upon the shortcomings of current lists.
+                We also emphasize the reproducibility of these rankings and the studies using them by providing
+                permanent citable references.
+            </p>
+        </div>
+        <h4 id="download" class="border-top pt-4">Access the Tranco ranking</h4>
+        <div class="card-deck mt-4 mb-1">
+            <div class="card">
+                <div class="card-body">
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-md-9">
+                                <p class="card-text main-text  align-middle">
+                                    We advise to use the <b>latest standard Tranco list</b>: <br>one million domains
+                                    obtained by averaging all four rankings over the past 30 days.</p>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-center">
+                                <a href="/latest_list" type="submit"
+                                   class="btn btn-success btn-lg float-right ml-auto mt-auto">Retrieve latest list</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-deck mt-1 mb-sm-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <p class="card-text align-middle">
+                                    You can also use the latest standard Tranco list <b>with subdomains</b>.</p>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-center">
+                                <a href="/latest_list?subdomains=true" type="submit"
+                                   class="btn btn-success float-right ml-auto mt-auto">Retrieve latest list with subdomains</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-deck my-sm-4">
+            <div class="card">
+                <div class="card-body">
+                    <p class="card-text">
+                        You can directly retrieve the latest Tranco list at <a href="/top-1m.csv.zip"
+                                                                               class="card-link">this <b>permanent
+                        URL</b></a> <span class="small">(<a href="/top-1m-incl-subdomains.csv.zip"
+                                                                               class="card-link">with subdomains</a>)</span>,
+                        e.g. for use in daily crawls. You can retrieve <a href="/top-1m-id">the permanent
+                        ID of
+                        this list</a> <span class="small">(<a href="/top-1m-id?subdomains=true"
+                                                                               class="card-link">with subdomains</a>)</span>
+                        separately to refer to it later on.
+                    <p class="card-text small">
+                        The file uses the same format as the Alexa and Cisco Umbrella lists.
+                        A daily update to the list is made available by 0:00 UTC;
+                        the <span class="text-monospace">Last-Modified</span>
+                        header provides an exact timestamp.
+                    </p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body d-flex flex-column">
+                    <p class="card-text"> You can <b>query</b> (historical) ranks of individual domains.
+                    </p>
+                    <a href="/query" class="btn btn-outline-info mt-auto">Query domain rank</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-deck my-sm-4">
+            <div class="card">
+                <div class="card-body">
+                    <p class="card-text">
+                        You can access the Tranco ranking programmatically through our <b><a href="api_documentation">API</a></b>. 
+                    </p>
+                    <p class="card-text small">Many thanks to <a href="https://blog.sigterm.se/">Patrik Lundin</a> for creating <a href="https://github.com/eest/tranco-list-api">his own Tranco API</a>
+                    and inspiring the further development of the API that we provide.</p>
+                </div>
+            </div>
+             <div class="card">
+                <div class="card-body">
+                    <p class="card-text">
+                        You can use the Tranco ranking through <a href="https://console.cloud.google.com/bigquery">BigQuery</a>. The table <span class="text-monospace"><a href="https://console.cloud.google.com/bigquery?p=tranco&d=daily&t=daily&page=table
+">tranco.daily.daily</a></span> contains the full daily list. <span class="text-monospace"><a href="https://console.cloud.google.com/bigquery?p=tranco&d=list_ids&t=list_ids&page=table
+">tranco.list_ids.list_ids</a></span> contains the corresponding list IDs.
+                    </p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <p class="card-text">
+                        You can access Tranco directly from within your code using these packages:
+                    </p>
+                    <ul>
+                        <li><a href="https://pypi.org/project/tranco/">Python (<span class="text-monospace">tranco</span>)</a></li>
+                        <li><a href="https://github.com/WangYihang/tranco-go-package">Go (<span class="text-monospace">tranco</span>)</a><br>
+                            <small>contributed by <a href="https://netsec.ccert.edu.cn/people/wyh22">Yihang Wang (王一航)</a></small>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-deck mt-sm-4 mb-4">
+
+            <div class="card">
+                <div class="card-body d-flex flex-column">
+                    <p class="card-text">You can retrieve <b>past versions</b> of the standard Tranco list.</p>
+                    <form action="/daily_list" method="get" class="d-flex mt-auto" autocomplete="off">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <label for="date" class="input-group-text">Date</label>
+                            </div>
+                            <input type="date" id="date" name="date"
+                                   min="2018-12-01" class="form-control">
+                            <div class="input-group-prepend">
+                                <div class="input-group-text">
+                                    <input type="checkbox" id="subdomains" name="subdomains" value="true">
+                                    <span class="ml-2">
+                                        <label for="subdomains" class="mb-0">with subdomains</label>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-outline-primary form-control">Download</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body d-flex flex-column">
+                    <p class="card-text"> You can <b>customize</b> your list to have specific properties.
+                    </p>
+                    <a href="/configure" class="btn btn-outline-info mt-auto">Configure a custom list</a>
+                </div>
+            </div>
+        </div>
+        <p class="mt-2"><b>Attribution:</b>
+            We currently use the lists from five providers:
+            <a href="https://umbrella-static.s3-us-west-1.amazonaws.com/index.html">Cisco Umbrella</a>
+            (available free of charge),
+            and <a href="https://majestic.com/reports/majestic-million">Majestic</a>
+            (available under a <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0
+                license</a>),
+            <a href="https://www.domaintools.com/resources/blog/mirror-mirror-on-the-wall-whos-the-fairest-website-of-them-all">Farsight</a>
+                    (only for the default list),
+            the <a href="https://developer.chrome.com/docs/crux/">Chrome User Experience Report</a> (CrUX)
+            (<a href="https://research.google/resources/datasets/chrome-user-experience-report/">available</a> under a <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> license),
+            and
+            <a href="https://radar.cloudflare.com/domains">Cloudflare Radar</a>
+            (<a href="https://radar.cloudflare.com/about">available</a> under a <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a> license).
+            Tranco is not affiliated with any of these providers.
+        </p>
+    </div>
+
+    <div class="my-4 pt-4 border-top">
+        <div class="row">
+            <div class="col-md-6">
+                <h4 id="news">Updates</h4>
+
+                <ul>
+                    <li>
+                        <span class="badge badge-success">New</span>
+                        The Chrome User Experience Report and Cloudflare Radar rankings
+                        have been integrated into the default Tranco list since August 1, 2023.
+                        The Alexa ranking has been deprecated, as it is no longer available.
+                    </li>
+                    <li>
+                        Tranco received the <a href="https://www.acsac.org/2022/program/artifacts_competition/">2022 ACSAC Cybersecurity Artifacts Competition - Impactful Dataset Award</a>.
+                    </li>
+                    <li>
+                        The
+                        <a href="https://www.domaintools.com/resources/blog/mirror-mirror-on-the-wall-whos-the-fairest-website-of-them-all">
+                            Farsight ranking</a>
+                        has been integrated into the default Tranco list since May 1, 2022.
+                    </li>
+                    <li>
+                        Additional API endpoints are now available,
+                        including one to generate custom lists. Find your API key on the <a href="account">account</a> page. </li>
+                    <li>
+                        The Quantcast ranking has become unavailable since
+                        April 1, 2020, and is therefore no longer included in the default Tranco list.<br>
+                        <span class="small">Many thanks to <a href="https://statistics.ucdavis.edu/people/jeremia-halim">Jeremia Halim</a> for
+                            notifying us of this change!</span>
+                    </li>
+                    <li>
+                        The daily Tranco list is available through <a href="https://console.cloud.google.com/bigquery?p=tranco">Google BigQuery</a>.
+                    </li>
+                    <li>
+                        We presented a long-term evaluation of Tranco at the <a
+                            href="https://www.usenix.org/conference/cset19/presentation/lepochat">12th USENIX Workshop
+                        on Cyber Security Experimentation and Test</a>.
+                    </li>
+                    <li>We posted a summary of our findings on the <a
+                            href="https://labs.ripe.net/Members/samaneh_tajalizadehkhoob_1/the-tale-of-website-popularity-rankings">RIPE
+                        Labs blog</a>.
+                    </li>
+                    <li>We have enabled filters on <a href="https://safebrowsing.google.com/">Google Safe Browsing</a>
+                        (to remove malicious websites) and the <a
+                                href="https://developers.google.com/web/tools/chrome-user-experience-report/">Chrome
+                            User
+                            Experience Report</a> (to keep only sites regularly visited in Chrome).
+                    </li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h4 id="usage">Usage of Tranco</h4>
+                <ul>
+                    <li><a href="https://scholar.google.be/scholar?cites=1499698348405075976,12310897642415669786,7381118552932709740,9919943453693575920,17561612968641621035,17164930216976848747,16528707062020431078,2498818699077926289,10362748629387431454,5884213478940873180">Over
+                        600 academic publications</a> have referenced and/or used Tranco.</li>
+                    <li>Mozilla runs a regular scan on Tranco to <a
+                            href="https://hacks.mozilla.org/2019/05/tls-1-0-and-1-1-removal-update/">find websites using
+                        TLS 1.0 or 1.1</a>.</li>
+                    <li>The Norwegian public broadcaster NRK used Tranco to <a
+                            href="https://nrkbeta.no/2019/05/28/dette-er-de-norske-nettsidene-som-sporer-deg-mest/">study
+                        cookies on Norwegian websites</a>.
+                    </li>
+                    <li>The <a href="http://noleaks.eu/reports.html">NoLeaks project</a> analyzes tracking on EU domains
+                        in Tranco.</li>
+                    <li><a href="https://scotthelme.co.uk/top-1-million-analysis-september-2019/">Scott Helme</a> scans
+                        Tranco to assess the state of security on the web.</li>
+                    <li>The <a href="https://whynohttps.com/">Why No HTTPS?</a> project lists domains in Tranco that do
+                    not yet support HTTPS.</li>
+                    <li>Tranco is used in <a href="https://urlhaus.abuse.ch/api/">URLhaus</a> by abuse.ch.</li>
+                    <li><a href="https://w3techs.com/technologies">W3Techs</a> covers Tranco domains in their web technology survey.</li>
+                    <li>Tranco is available as a feed in The Honeynet Project's
+                        <a href="https://www.honeynet.org/2020/07/05/intel-owl-release-v1-0-0/">Intel Owl</a>
+                        as well as <a href="https://threatconnect.com/blog/cal-2-4-introducing-cal-feeds/">ThreatConnect</a>'s
+                        threat intelligence platform.</li>
+
+                    <li>Tranco is used in the Internet Society's <a href="https://insights.internetsociety.org">Insights</a> project.</li>
+                    <li>The Markup used Tranco to analyze
+                        <a href="https://themarkup.org/blacklight/2020/09/22/blacklight-tracking-advertisers-digital-privacy-sensitive-websites">online tracking</a>.</li>
+                    <li><a href="https://builtwith.com/">BuiltWith</a> covers sites in Tranco for its web technologies analysis.</li>
+                    <li>CloudFlare evaluated performance of its <a href="https://blog.cloudflare.com/oblivious-dns/">Oblivious DoH</a> service on Tranco sites.</li>
+                    <li>BitSight measured <a href="https://www.bitsight.com/blog/domain-insecurity-state-dmarc">DMARC adoption</a> of domains on the Tranco list.</li>
+                    
+                    <li>The Tranco API is available as an integrated data provider for data enrichment on <a href="https://databar.ai/explore/databar-data-collectors/tranco-domain-ranks">Databar</a>.</li>
+                </ul>
+                <p>If you're using Tranco, <a href="#aboutus">let us know</a>!</p>
+            </div>
+        </div>
+    </div>
+    <div class="my-4 pt-4 border-top">
+        <h4 id="aboutservice">About this service</h4>
+        <p> Researchers often use rankings of popular websites when measuring security practices, evaluating defenses,
+            analyzing ecosystems or conducting Internet-wide observations.
+            However, little is known about the data collection and processing methodologies of these rankings, even
+            though this affects the validity of conclusions based upon the results obtained using these rankings.</p>
+        <p>
+            <a href="assets/tranco-ndss19.pdf">We uncovered</a> how both inherent properties and vulnerabilities
+            to adversarial manipulation of these rankings may affect the conclusions of security studies.
+            In addition, we found that researchers overwhelmingly lack any comment on when the list was downloaded, when
+            the websites on the lists were visited and what proportion was actually reachable.
+            This hampers reproducibility of these studies given the daily changes in list compositions and ranks. </p>
+
+        <p>Overall, our study revealed significant shortcomings of current rankings and calls for a more cautious
+            approach from the research community.
+            In order to make researchers more aware of the properties and effects of these popularity rankings and to
+            help in ensuring that studies using these rankings are reproducible,
+            we provide this service where researchers can obtain rankings with properties that are more appropriate to
+            their studies, and where the methodology and composition of these rankings is
+            stored for future reference and reproduction.</p>
+
+        <p>We propose a ranking that is suitable for most research purposes, consisting of data from all available
+            rankings over a period of 30 days. We also allow researchers to customize rankings, applying multiple
+            filters in order to
+            best reflect their needs. We archive all generated rankings and supply a permanent link to a page
+            with additional information on the methodology behind the ranking and the ability to download the exact same
+            list as was used in the study.
+            This improves the validity of research results through a better understanding and awareness of these
+            rankings, as well as reproducibility by keeping a permanent reference to the rankings. </p>
+    </div>
+    <div class="my-4 pt-4 border-top">
+        <h4 id="aboutus">About us</h4>
+        <p>Feel free to contact us regarding Tranco and our research: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a0ccc9c5d6c5ce8ec4c5d3cdc5d4e0cbd5ccc5d5d6c5ce8ec2c5">[email&#160;protected]</a> <i>(main contact)</i></p>
+        <p>The source code for the Tranco ranking is available on <a href="https://github.com/DistriNet/tranco-list">GitHub</a>.
+            If you run into any problems with the ranking or the website, you can create <a
+                    href="https://github.com/DistriNet/tranco-list/issues">an issue there</a>.</p>
+        <div class="container d-flex justify-content-center">
+            
+            <a href="https://distrinet.cs.kuleuven.be/"><img class="img-fluid mr-4" src="/assets/DistriNet.png" alt="imec-DistriNet, KU Leuven"></a>
+            <a href="https://www.tudelft.nl/"><img class="img-fluid" src="/assets/TUDelft.png" alt="TU Delft"></a>
+            <a href="https://www.liglab.fr/"><img class="img-fluid ml-4" src="/assets/LIG.png" alt="LIG, Université Grenoble Alpes"></a>
+        </div>
+    </div>
+
+</div>
+</main>
+<footer class="text-muted text-center my-3">
+    <div class="container">
+        <hr>
+        <a href="/privacy_policy"><small>Privacy policy</small></a>
+        </div>
+</footer>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js" integrity="sha512-ubuT8Z88WxezgSqf3RLuNi5lmjstiJcyezx34yIU2gAHonIi27Na7atqzUZCOoY4CExaoFumzOsFQ2Ch+I/HCw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.2/js/bootstrap.min.js" integrity="sha512-7rusk8kGPFynZWu26OKbTeI+QPoYchtxsmPeBqkHIEXJxeun4yJ4ISYe7C6sz9wdxeE1Gk3VxsIWgCZTc+vX3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js" integrity="sha512-qTXRIMyZIFb8iQcfjXWCO8+M5Tbc38Qi5WzdPOYZHIlZpzBHG3L3by84BBBOiRGiEb7KKtAOAs5qYdUiZiQNNQ==" crossorigin="anonymous"></script>
+
+    <script>
+        // Initialize date field to yesterday
+        let dateField = $("#date");
+        let yesterday = moment.utc().subtract(1, "days").format("YYYY-MM-DD");
+        dateField.val(yesterday);
+        dateField.attr("max", yesterday);
+    </script>
+
+</body>
+</html>

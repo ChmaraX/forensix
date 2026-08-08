@@ -1,0 +1,603 @@
+[
+  {
+    "id": "nomic-ai/modernbert-embed-base",
+    "downloads": 358090,
+    "likes": 233,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "nomic-ai",
+    "lastModified": "2025-01-24T15:31:46.000Z"
+  },
+  {
+    "id": "Alibaba-NLP/gte-base-en-v1.5",
+    "downloads": 340687,
+    "likes": 71,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Alibaba-NLP",
+    "lastModified": "2024-11-15T14:10:57.000Z"
+  },
+  {
+    "id": "sentence-transformers/paraphrase-albert-small-v2",
+    "downloads": 290754,
+    "likes": 11,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:26:11.000Z"
+  },
+  {
+    "id": "Snowflake/snowflake-arctic-embed-m-v1.5",
+    "downloads": 263949,
+    "likes": 72,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Snowflake",
+    "lastModified": "2025-04-24T17:36:32.000Z"
+  },
+  {
+    "id": "jinaai/jina-embeddings-v2-base-de",
+    "downloads": 260321,
+    "likes": 84,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "jinaai",
+    "lastModified": "2025-01-06T16:26:47.000Z"
+  },
+  {
+    "id": "Qdrant/Splade_PP_en_v1",
+    "downloads": 256785,
+    "likes": 7,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Qdrant",
+    "lastModified": "2024-07-15T12:55:11.000Z"
+  },
+  {
+    "id": "sentence-transformers/bert-base-nli-mean-tokens",
+    "downloads": 248745,
+    "likes": 40,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:34:57.000Z"
+  },
+  {
+    "id": "Qdrant/multilingual-e5-large-onnx",
+    "downloads": 231305,
+    "likes": 4,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Qdrant",
+    "lastModified": "2024-07-15T12:53:04.000Z"
+  },
+  {
+    "id": "sentence-transformers/msmarco-MiniLM-L6-v3",
+    "downloads": 226364,
+    "likes": 15,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:17:32.000Z"
+  },
+  {
+    "id": "ibm-granite/granite-embedding-97m-multilingual-r2",
+    "downloads": 222726,
+    "likes": 130,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "ibm-granite",
+    "lastModified": "2026-05-18T20:17:17.000Z"
+  },
+  {
+    "id": "sentence-transformers/stsb-roberta-base-v2",
+    "downloads": 221480,
+    "likes": 6,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:36:30.000Z"
+  },
+  {
+    "id": "LazarusNLP/all-indo-e5-small-v4",
+    "downloads": 211149,
+    "likes": 15,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "LazarusNLP",
+    "lastModified": "2026-01-21T00:57:56.000Z"
+  },
+  {
+    "id": "Qdrant/all_miniLM_L6_v2_with_attentions",
+    "downloads": 210422,
+    "likes": 15,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Qdrant",
+    "lastModified": "2025-06-09T14:12:57.000Z"
+  },
+  {
+    "id": "sentence-transformers/msmarco-distilbert-base-tas-b",
+    "downloads": 204199,
+    "likes": 43,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:31:42.000Z"
+  },
+  {
+    "id": "unsloth/bge-small-en-v1.5",
+    "downloads": 179766,
+    "likes": 1,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "unsloth",
+    "lastModified": "2026-06-01T10:03:06.000Z"
+  },
+  {
+    "id": "avsolatorio/GIST-all-MiniLM-L6-v2",
+    "downloads": 177380,
+    "likes": 10,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "avsolatorio",
+    "lastModified": "2024-04-24T23:15:05.000Z"
+  },
+  {
+    "id": "sentence-transformers/distilbert-base-nli-mean-tokens",
+    "downloads": 162725,
+    "likes": 13,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:33:34.000Z"
+  },
+  {
+    "id": "sentence-transformers/msmarco-distilbert-cos-v5",
+    "downloads": 158236,
+    "likes": 10,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2024-11-05T17:05:46.000Z"
+  },
+  {
+    "id": "Alibaba-NLP/gte-modernbert-base",
+    "downloads": 155918,
+    "likes": 200,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "Alibaba-NLP",
+    "lastModified": "2025-07-04T10:03:26.000Z"
+  },
+  {
+    "id": "Snowflake/snowflake-arctic-embed-m-v2.0",
+    "downloads": 153839,
+    "likes": 106,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Snowflake",
+    "lastModified": "2025-04-24T17:37:05.000Z"
+  },
+  {
+    "id": "onnx-community/embeddinggemma-300m-ONNX",
+    "downloads": 146814,
+    "likes": 73,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [
+      "license:gemma"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_no_gather_q4.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "onnx-community",
+    "lastModified": "2025-09-04T15:43:56.000Z"
+  },
+  {
+    "id": "intfloat/e5-small",
+    "downloads": 137959,
+    "likes": 45,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "intfloat",
+    "lastModified": "2023-08-07T04:58:08.000Z"
+  },
+  {
+    "id": "sentence-transformers/msmarco-MiniLM-L12-cos-v5",
+    "downloads": 136850,
+    "likes": 10,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2024-11-05T16:57:30.000Z"
+  },
+  {
+    "id": "jinaai/jina-embeddings-v5-text-small-retrieval",
+    "downloads": 136420,
+    "likes": 27,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "llama.cpp",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-nc-4.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "jinaai",
+    "lastModified": "2026-04-15T09:39:05.000Z"
+  },
+  {
+    "id": "lightonai/GTE-ModernColBERT-v1",
+    "downloads": 135069,
+    "likes": 176,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "PyLate",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx",
+      "model_int8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "lightonai",
+    "lastModified": "2026-01-21T12:09:40.000Z"
+  }
+]

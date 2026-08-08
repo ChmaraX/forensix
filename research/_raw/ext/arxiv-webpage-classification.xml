@@ -1,0 +1,37 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/MqETGObePK6TwU9CH2qRcOGoJ7k</id>
+  <title>arXiv Query: search_query=all:"webpage classification" AND all:"URL"&amp;id_list=&amp;start=0&amp;max_results=50</title>
+  <updated>2026-08-08T09:44:54Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=all:%22webpage+classification%22+AND+all:%22URL%22&amp;start=0&amp;max_results=50&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>50</opensearch:itemsPerPage>
+  <opensearch:totalResults>1</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2402.11495v2</id>
+    <title>Continuous Multi-Task Pre-training for Malicious URL Detection and Webpage Classification</title>
+    <updated>2025-05-24T08:18:17Z</updated>
+    <link href="https://arxiv.org/abs/2402.11495v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2402.11495v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Malicious URL detection and webpage classification are critical tasks in cybersecurity and information management. In recent years, extensive research has explored using BERT or similar language models to replace traditional machine learning methods for detecting malicious URLs and classifying webpages. While previous studies show promising results, they often apply existing language models to these tasks without accounting for the inherent differences in domain data (e.g., URLs being loosely structured and semantically sparse compared to text), leaving room for performance improvement. Furthermore, current approaches focus on single tasks and have not been tested in multi-task scenarios. To address these challenges, we propose urlBERT, a pre-trained URL encoder leveraging Transformer to encode foundational knowledge from billions of unlabeled URLs. To achieve it, we propose to use 5 unsupervised pretraining tasks to capture multi-level information of URL lexical, syntax, and semantics, and generate contrastive and adversarial representations. Furthermore, to avoid inter-pre-training competition and interference, we proposed a grouped sequential learning method to ensure effective training across multi-tasks. Finally, we leverage a two-stage fine-tuning approach to improve the training stability and efficiency of the task model. To assess the multitasking potential of urlBERT, we fine-tune the task model in both single-task and multi-task modes. The former creates a classification model for a single task, while the latter builds a classification model capable of handling multiple tasks. We evaluate urlBERT on three downstream tasks: phishing URL detection, advertising URL detection, and webpage classification. The results demonstrate that urlBERT outperforms standard pre-trained models, and its multi-task mode is capable of addressing the real-world demands of multitasking.</summary>
+    <category term="cs.CR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-02-18T07:51:20Z</published>
+    <arxiv:primary_category term="cs.CR"/>
+    <author>
+      <name>Yujie Li</name>
+    </author>
+    <author>
+      <name>Yiwei Liu</name>
+    </author>
+    <author>
+      <name>Peiyue Li</name>
+    </author>
+    <author>
+      <name>Yifan Jia</name>
+    </author>
+    <author>
+      <name>Yanbin Wang</name>
+    </author>
+  </entry>
+</feed>

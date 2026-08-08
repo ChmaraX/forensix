@@ -1,0 +1,35 @@
+{
+  "_name_or_path": "jinaai/jina-bert-implementation",
+  "model_max_length": 8192,
+  "architectures": [
+    "JinaBertForMaskedLM"
+  ],
+  "attention_probs_dropout_prob": 0.0,
+  "auto_map": {
+    "AutoConfig": "jinaai/jina-bert-implementation--configuration_bert.JinaBertConfig",
+    "AutoModelForMaskedLM": "jinaai/jina-bert-implementation--modeling_bert.JinaBertForMaskedLM",
+    "AutoModel": "jinaai/jina-bert-implementation--modeling_bert.JinaBertModel",
+    "AutoModelForSequenceClassification": "jinaai/jina-bert-implementation--modeling_bert.JinaBertForSequenceClassification"
+  },
+  "classifier_dropout": null,
+  "gradient_checkpointing": false,
+  "hidden_act": "gelu",
+  "hidden_dropout_prob": 0.1,
+  "hidden_size": 512,
+  "initializer_range": 0.02,
+  "intermediate_size": 2048,
+  "layer_norm_eps": 1e-12,
+  "max_position_embeddings": 8192,
+  "model_type": "bert",
+  "num_attention_heads": 8,
+  "num_hidden_layers": 4,
+  "pad_token_id": 0,
+  "position_embedding_type": "alibi",
+  "torch_dtype": "float32",
+  "transformers_version": "4.26.0",
+  "type_vocab_size": 2,
+  "use_cache": true,
+  "vocab_size": 30528,
+  "feed_forward_type": "geglu",
+  "emb_pooler": "mean"
+}

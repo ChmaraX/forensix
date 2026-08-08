@@ -1,0 +1,563 @@
+[
+  {
+    "id": "onnx-community/bert-tiny-finetuned-sms-spam-detection-ONNX",
+    "downloads": 5283,
+    "likes": 0,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "onnx-community",
+    "lastModified": "2025-09-01T11:25:28.000Z"
+  },
+  {
+    "id": "Xenova/finbert",
+    "downloads": 4850,
+    "likes": 2,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-06-30T05:13:39.000Z"
+  },
+  {
+    "id": "Xenova/distilbert-base-multilingual-cased-sentiments-student",
+    "downloads": 4614,
+    "likes": 2,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-06-30T05:17:41.000Z"
+  },
+  {
+    "id": "protectai/distilroberta-base-rejection-v1",
+    "downloads": 4566,
+    "likes": 9,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "protectai",
+    "lastModified": "2026-07-09T16:25:25.000Z"
+  },
+  {
+    "id": "llm-semantic-router/mmbert32k-jailbreak-detector-merged",
+    "downloads": 4401,
+    "likes": 1,
+    "pipeline_tag": "text-classification",
+    "library_name": null,
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fa_fp16.onnx",
+      "onnx/model_sdpa_fp16.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "llm-semantic-router",
+    "lastModified": "2026-03-06T02:20:21.000Z"
+  },
+  {
+    "id": "philomath-1209/programming-language-identification",
+    "downloads": 4347,
+    "likes": 12,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:wtfpl"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "philomath-1209",
+    "lastModified": "2024-02-02T13:45:35.000Z"
+  },
+  {
+    "id": "Cohee/distilbert-base-uncased-go-emotions-onnx",
+    "downloads": 4013,
+    "likes": 9,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Cohee",
+    "lastModified": "2023-09-09T01:19:25.000Z"
+  },
+  {
+    "id": "Xenova/ms-marco-TinyBERT-L-2-v2",
+    "downloads": 3326,
+    "likes": 4,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-06-30T05:15:37.000Z"
+  },
+  {
+    "id": "gravitee-io/Llama-Prompt-Guard-2-86M-onnx",
+    "downloads": 3310,
+    "likes": 9,
+    "pipeline_tag": "text-classification",
+    "library_name": null,
+    "license": null,
+    "license_tag": [
+      "license:llama4"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx",
+      "model.quant.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "gravitee-io",
+    "lastModified": "2026-05-07T18:07:05.000Z"
+  },
+  {
+    "id": "cross-encoder/nli-deberta-base",
+    "downloads": 3221,
+    "likes": 17,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "cross-encoder",
+    "lastModified": "2025-04-15T07:59:34.000Z"
+  },
+  {
+    "id": "latishab/turnsense",
+    "downloads": 3146,
+    "likes": 8,
+    "pipeline_tag": "text-classification",
+    "library_name": null,
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model_preprocessed.onnx",
+      "model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "latishab",
+    "lastModified": "2026-03-20T12:21:38.000Z"
+  },
+  {
+    "id": "MoritzLaurer/deberta-v3-large-zeroshot-v1.1-all-33",
+    "downloads": 3103,
+    "likes": 58,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "MoritzLaurer",
+    "lastModified": "2024-04-01T15:10:33.000Z"
+  },
+  {
+    "id": "cointegrated/rubert-base-cased-nli-threeway",
+    "downloads": 3085,
+    "likes": 38,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "cointegrated",
+    "lastModified": "2024-04-05T09:31:57.000Z"
+  },
+  {
+    "id": "Xenova/nli-deberta-v3-base",
+    "downloads": 2896,
+    "likes": 2,
+    "pipeline_tag": "zero-shot-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-07-14T03:30:38.000Z"
+  },
+  {
+    "id": "gravitee-io/distilbert-multilingual-toxicity-classifier",
+    "downloads": 2810,
+    "likes": 0,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:openrail++"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx",
+      "model.quant.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "gravitee-io",
+    "lastModified": "2026-05-08T13:35:52.000Z"
+  },
+  {
+    "id": "llm-semantic-router/mmbert32k-factcheck-classifier-merged",
+    "downloads": 2564,
+    "likes": 1,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fa_fp16.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "llm-semantic-router",
+    "lastModified": "2026-03-06T02:25:29.000Z"
+  },
+  {
+    "id": "gravitee-io/Llama-Prompt-Guard-2-22M-onnx",
+    "downloads": 2529,
+    "likes": 2,
+    "pipeline_tag": "text-classification",
+    "library_name": null,
+    "license": null,
+    "license_tag": [
+      "license:llama4"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx",
+      "model.quant.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "gravitee-io",
+    "lastModified": "2026-05-07T18:05:45.000Z"
+  },
+  {
+    "id": "jinaai/jina-embeddings-v5-text-small-classification",
+    "downloads": 2481,
+    "likes": 4,
+    "pipeline_tag": "text-classification",
+    "library_name": "llama.cpp",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-nc-4.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "jinaai",
+    "lastModified": "2026-04-15T09:39:47.000Z"
+  },
+  {
+    "id": "Xenova/bert-base-multilingual-uncased-sentiment",
+    "downloads": 2468,
+    "likes": 3,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers.js",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Xenova",
+    "lastModified": "2025-06-30T19:05:54.000Z"
+  },
+  {
+    "id": "llm-semantic-router/mmbert32k-feedback-detector-merged",
+    "downloads": 2337,
+    "likes": 1,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fa_fp16.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "llm-semantic-router",
+    "lastModified": "2026-03-06T02:28:07.000Z"
+  },
+  {
+    "id": "patronus-studio/wolf-defender-prompt-injection-small",
+    "downloads": 2246,
+    "likes": 10,
+    "pipeline_tag": "text-classification",
+    "library_name": null,
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "l2/aggregators/main/aggregator.onnx",
+      "l2/aggregators/main/promote_router.onnx",
+      "l2/heads/jayavibhav/ntdb_head.onnx",
+      "l2/heads/jayavibhav/projection.onnx",
+      "l2/heads/mirror/ntdb_head.onnx",
+      "l2/heads/mirror/projection.onnx",
+      "l2/heads/necent/ntdb_head.onnx",
+      "l2/heads/necent/projection.onnx",
+      "l2/heads/patronus/ntdb_head.onnx",
+      "l2/heads/patronus/projection.onnx",
+      "onnx/onnx_fp16/model_fp16.onnx",
+      "onnx/onnx_mixed/model_mixed.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "patronus-studio",
+    "lastModified": "2026-07-20T05:15:31.000Z"
+  },
+  {
+    "id": "GenTelLab/gentelshield-v1",
+    "downloads": 2241,
+    "likes": 7,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "GenTelLab",
+    "lastModified": "2024-10-24T07:46:12.000Z"
+  },
+  {
+    "id": "llm-semantic-router/mmbert32k-modality-router-merged",
+    "downloads": 2168,
+    "likes": 1,
+    "pipeline_tag": "text-classification",
+    "library_name": null,
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fa_fp16.onnx",
+      "onnx/model_sdpa_fp16.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "llm-semantic-router",
+    "lastModified": "2026-03-16T15:03:24.000Z"
+  },
+  {
+    "id": "jinaai/jina-embeddings-v5-text-nano-classification",
+    "downloads": 2053,
+    "likes": 10,
+    "pipeline_tag": "text-classification",
+    "library_name": "llama.cpp",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-nc-4.0"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "jinaai",
+    "lastModified": "2026-04-15T09:38:02.000Z"
+  },
+  {
+    "id": "logasanjeev/bert-emotion-classifier",
+    "downloads": 1949,
+    "likes": 11,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "logasanjeev",
+    "lastModified": "2026-06-18T18:15:06.000Z"
+  }
+]

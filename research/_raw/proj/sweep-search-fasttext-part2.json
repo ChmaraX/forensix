@@ -1,0 +1,450 @@
+[
+  {
+    "id": "RichardErkhov/Tristan_-_dclm-fasttext-oh-eli5-1b-gguf",
+    "downloads": 153,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": null,
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "RichardErkhov",
+    "lastModified": "2025-02-20T23:10:11.000Z"
+  },
+  {
+    "id": "lapa-llm/fasttext-quality-score",
+    "downloads": 147,
+    "likes": 0,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "lapa-llm",
+    "lastModified": "2025-11-13T18:06:48.000Z"
+  },
+  {
+    "id": "kenhktsui/fineweb-edu-fasttext-classifier",
+    "downloads": 145,
+    "likes": 5,
+    "pipeline_tag": "text-classification",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:odc-by"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "kenhktsui",
+    "lastModified": "2025-07-03T11:12:34.000Z"
+  },
+  {
+    "id": "facebook/fasttext-id-vectors",
+    "downloads": 144,
+    "likes": 3,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:12:22.000Z"
+  },
+  {
+    "id": "facebook/fasttext-ru-vectors",
+    "downloads": 141,
+    "likes": 5,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:15:42.000Z"
+  },
+  {
+    "id": "facebook/fasttext-ro-vectors",
+    "downloads": 110,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:15:38.000Z"
+  },
+  {
+    "id": "facebook/fasttext-fa-vectors",
+    "downloads": 101,
+    "likes": 2,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:11:14.000Z"
+  },
+  {
+    "id": "facebook/fasttext-hi-vectors",
+    "downloads": 92,
+    "likes": 2,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:11:54.000Z"
+  },
+  {
+    "id": "facebook/fasttext-vi-vectors",
+    "downloads": 89,
+    "likes": 2,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:17:24.000Z"
+  },
+  {
+    "id": "NeuML/fasttext-quantized",
+    "downloads": 85,
+    "likes": 2,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "staticvectors",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "NeuML",
+    "lastModified": "2025-01-26T17:28:22.000Z"
+  },
+  {
+    "id": "facebook/fasttext-cy-vectors",
+    "downloads": 84,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:10:33.000Z"
+  },
+  {
+    "id": "facebook/fasttext-sv-vectors",
+    "downloads": 80,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:16:33.000Z"
+  },
+  {
+    "id": "facebook/fasttext-uk-vectors",
+    "downloads": 79,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:17:11.000Z"
+  },
+  {
+    "id": "kenhktsui/llm-data-textbook-quality-fasttext-classifier-v2",
+    "downloads": 77,
+    "likes": 28,
+    "pipeline_tag": "text-classification",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "kenhktsui",
+    "lastModified": "2025-06-26T12:40:38.000Z"
+  },
+  {
+    "id": "facebook/fasttext-ko-vectors",
+    "downloads": 76,
+    "likes": 10,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:01:38.000Z"
+  },
+  {
+    "id": "kenhktsui/code-natural-language-fasttext-classifier",
+    "downloads": 72,
+    "likes": 5,
+    "pipeline_tag": "text-classification",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "kenhktsui",
+    "lastModified": "2025-07-03T11:14:55.000Z"
+  },
+  {
+    "id": "facebook/fasttext-fi-vectors",
+    "downloads": 66,
+    "likes": 1,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:11:17.000Z"
+  },
+  {
+    "id": "facebook/fasttext-ms-vectors",
+    "downloads": 64,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:13:58.000Z"
+  },
+  {
+    "id": "facebook/fasttext-eo-vectors",
+    "downloads": 60,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:11:00.000Z"
+  },
+  {
+    "id": "facebook/fasttext-cs-vectors",
+    "downloads": 59,
+    "likes": 2,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:10:26.000Z"
+  },
+  {
+    "id": "facebook/fasttext-af-vectors",
+    "downloads": 58,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:03:41.000Z"
+  },
+  {
+    "id": "facebook/fasttext-th-vectors",
+    "downloads": 54,
+    "likes": 2,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:16:50.000Z"
+  },
+  {
+    "id": "facebook/fasttext-yo-vectors",
+    "downloads": 54,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:17:49.000Z"
+  },
+  {
+    "id": "facebook/fasttext-hr-vectors",
+    "downloads": 53,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:12:01.000Z"
+  },
+  {
+    "id": "facebook/fasttext-sk-vectors",
+    "downloads": 53,
+    "likes": 2,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "fasttext",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-sa-3.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": false,
+    "has_pickle": true,
+    "gated": false,
+    "author": "facebook",
+    "lastModified": "2023-06-03T22:16:15.000Z"
+  }
+]

@@ -1,0 +1,51 @@
+{
+  "_name_or_path": "gte-reranker-modernbert-base",
+  "architectures": [
+    "ModernBertForSequenceClassification"
+  ],
+  "attention_bias": false,
+  "attention_dropout": 0.0,
+  "bos_token_id": 50281,
+  "classifier_activation": "gelu",
+  "classifier_bias": false,
+  "classifier_dropout": 0.0,
+  "classifier_pooling": "mean",
+  "cls_token_id": 50281,
+  "decoder_bias": true,
+  "deterministic_flash_attn": false,
+  "embedding_dropout": 0.0,
+  "eos_token_id": 50282,
+  "global_attn_every_n_layers": 3,
+  "global_rope_theta": 160000.0,
+  "gradient_checkpointing": false,
+  "hidden_activation": "gelu",
+  "hidden_size": 768,
+  "id2label": {
+    "0": "LABEL_0"
+  },
+  "initializer_cutoff_factor": 2.0,
+  "initializer_range": 0.02,
+  "intermediate_size": 1152,
+  "label2id": {
+    "LABEL_0": 0
+  },
+  "layer_norm_eps": 1e-05,
+  "local_attention": 128,
+  "local_rope_theta": 10000.0,
+  "max_position_embeddings": 8192,
+  "mlp_bias": false,
+  "mlp_dropout": 0.0,
+  "model_type": "modernbert",
+  "norm_bias": false,
+  "norm_eps": 1e-05,
+  "num_attention_heads": 12,
+  "num_hidden_layers": 22,
+  "pad_token_id": 50283,
+  "position_embedding_type": "absolute",
+  "sep_token_id": 50282,
+  "sparse_pred_ignore_index": -100,
+  "sparse_prediction": false,
+  "torch_dtype": "float32",
+  "transformers_version": "4.48.0.dev0",
+  "vocab_size": 50368
+}

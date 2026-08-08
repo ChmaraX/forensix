@@ -1,0 +1,615 @@
+[
+  {
+    "id": "jinaai/jina-embeddings-v2-base-en",
+    "downloads": 125910,
+    "likes": 736,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "model-w-mean-pooling.onnx",
+      "model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "jinaai",
+    "lastModified": "2025-01-06T16:24:38.000Z"
+  },
+  {
+    "id": "AITeamVN/Vietnamese_Embedding",
+    "downloads": 125380,
+    "likes": 68,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "AITeamVN",
+    "lastModified": "2025-08-25T13:32:21.000Z"
+  },
+  {
+    "id": "shibing624/text2vec-base-multilingual",
+    "downloads": 121027,
+    "likes": 58,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "shibing624",
+    "lastModified": "2024-07-31T09:01:11.000Z"
+  },
+  {
+    "id": "sentence-transformers/clip-ViT-B-32-multilingual-v1",
+    "downloads": 119359,
+    "likes": 192,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2024-11-05T16:39:09.000Z"
+  },
+  {
+    "id": "sentence-transformers/stsb-roberta-large",
+    "downloads": 117217,
+    "likes": 4,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:22:33.000Z"
+  },
+  {
+    "id": "Snowflake/snowflake-arctic-embed-l",
+    "downloads": 116996,
+    "likes": 103,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Snowflake",
+    "lastModified": "2024-12-19T13:32:48.000Z"
+  },
+  {
+    "id": "sentence-transformers/paraphrase-xlm-r-multilingual-v1",
+    "downloads": 98069,
+    "likes": 71,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:25:10.000Z"
+  },
+  {
+    "id": "sentence-transformers/msmarco-distilbert-base-v4",
+    "downloads": 90033,
+    "likes": 12,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:31:08.000Z"
+  },
+  {
+    "id": "sentence-transformers/multi-qa-mpnet-base-cos-v1",
+    "downloads": 88201,
+    "likes": 42,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-08-19T10:19:32.000Z"
+  },
+  {
+    "id": "perplexity-ai/pplx-embed-context-v1-4b",
+    "downloads": 84901,
+    "likes": 39,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "perplexity-ai",
+    "lastModified": "2026-06-16T12:04:32.000Z"
+  },
+  {
+    "id": "sentence-transformers/multi-qa-MiniLM-L6-dot-v1",
+    "downloads": 80929,
+    "likes": 17,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2024-11-05T20:22:38.000Z"
+  },
+  {
+    "id": "redis/langcache-embed-v1",
+    "downloads": 80796,
+    "likes": 15,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "redis",
+    "lastModified": "2025-12-08T11:48:53.000Z"
+  },
+  {
+    "id": "sentence-transformers/paraphrase-distilroberta-base-v1",
+    "downloads": 80779,
+    "likes": 7,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:25:59.000Z"
+  },
+  {
+    "id": "ibm-granite/granite-embedding-125m-english",
+    "downloads": 77664,
+    "likes": 38,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "ibm-granite",
+    "lastModified": "2025-08-19T01:31:48.000Z"
+  },
+  {
+    "id": "sentence-transformers/distiluse-base-multilingual-cased",
+    "downloads": 74936,
+    "likes": 18,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:32:18.000Z"
+  },
+  {
+    "id": "jinaai/jina-embeddings-v5-text-nano-retrieval",
+    "downloads": 73392,
+    "likes": 16,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "llama.cpp",
+    "license": null,
+    "license_tag": [
+      "license:cc-by-nc-4.0"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_q4f16.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "jinaai",
+    "lastModified": "2026-04-15T09:36:21.000Z"
+  },
+  {
+    "id": "avsolatorio/GIST-small-Embedding-v0",
+    "downloads": 72355,
+    "likes": 33,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "avsolatorio",
+    "lastModified": "2025-04-17T04:22:08.000Z"
+  },
+  {
+    "id": "Qdrant/bge-base-en-v1.5-onnx-Q",
+    "downloads": 69643,
+    "likes": 1,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model_optimized.onnx"
+    ],
+    "has_safetensors": false,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Qdrant",
+    "lastModified": "2024-09-12T18:12:31.000Z"
+  },
+  {
+    "id": "jinaai/jina-clip-v1",
+    "downloads": 67419,
+    "likes": 256,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "onnx/text_model.onnx",
+      "onnx/text_model_bnb4.onnx",
+      "onnx/text_model_fp16.onnx",
+      "onnx/text_model_int8.onnx",
+      "onnx/text_model_q4.onnx",
+      "onnx/text_model_quantized.onnx",
+      "onnx/text_model_uint8.onnx",
+      "onnx/vision_model.onnx",
+      "onnx/vision_model_bnb4.onnx",
+      "onnx/vision_model_fp16.onnx",
+      "onnx/vision_model_int8.onnx",
+      "onnx/vision_model_q4.onnx",
+      "onnx/vision_model_quantized.onnx",
+      "onnx/vision_model_uint8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "jinaai",
+    "lastModified": "2026-04-08T14:04:01.000Z"
+  },
+  {
+    "id": "sentence-transformers/multi-qa-distilbert-dot-v1",
+    "downloads": 60102,
+    "likes": 1,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2024-11-05T20:21:39.000Z"
+  },
+  {
+    "id": "sentence-transformers/distilbert-base-nli-stsb-mean-tokens",
+    "downloads": 57811,
+    "likes": 11,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:33:22.000Z"
+  },
+  {
+    "id": "Snowflake/snowflake-arctic-embed-m-long",
+    "downloads": 57460,
+    "likes": 38,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_bnb4.onnx",
+      "onnx/model_fp16.onnx",
+      "onnx/model_int8.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_quantized.onnx",
+      "onnx/model_uint8.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Snowflake",
+    "lastModified": "2024-12-13T20:53:23.000Z"
+  },
+  {
+    "id": "sentence-transformers/stsb-xlm-r-multilingual",
+    "downloads": 53350,
+    "likes": 53,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_O1.onnx",
+      "onnx/model_O2.onnx",
+      "onnx/model_O3.onnx",
+      "onnx/model_O4.onnx",
+      "onnx/model_qint8_arm64.onnx",
+      "onnx/model_qint8_avx512.onnx",
+      "onnx/model_qint8_avx512_vnni.onnx",
+      "onnx/model_quint8_avx2.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "sentence-transformers",
+    "lastModified": "2025-03-06T13:22:22.000Z"
+  },
+  {
+    "id": "ibm-granite/granite-embedding-107m-multilingual",
+    "downloads": 50201,
+    "likes": 51,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "ibm-granite",
+    "lastModified": "2025-08-19T01:34:26.000Z"
+  },
+  {
+    "id": "perplexity-ai/pplx-embed-v1-0.6b",
+    "downloads": 50182,
+    "likes": 226,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": true,
+    "onnx_files": [
+      "onnx/model.onnx",
+      "onnx/model_q4.onnx",
+      "onnx/model_quantized.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "perplexity-ai",
+    "lastModified": "2026-06-02T12:27:55.000Z"
+  }
+]

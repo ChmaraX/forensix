@@ -1,0 +1,36 @@
+[
+  {
+    "id": "SanandaDutta/website-category-distilbert",
+    "downloads": 24,
+    "likes": 1,
+    "pipeline_tag": "text-classification",
+    "library_name": "transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": true,
+    "gated": false,
+    "author": "SanandaDutta",
+    "lastModified": "2026-06-17T12:25:10.000Z"
+  },
+  {
+    "id": "SanandaDutta/website-category-classifier",
+    "downloads": 4,
+    "likes": 1,
+    "pipeline_tag": null,
+    "library_name": null,
+    "license": null,
+    "license_tag": [],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "SanandaDutta",
+    "lastModified": "2026-05-17T06:17:35.000Z"
+  }
+]

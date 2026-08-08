@@ -1,0 +1,456 @@
+[
+  {
+    "id": "minishlab/M2V_base_glove_subword",
+    "downloads": 235,
+    "likes": 2,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "minishlab",
+    "lastModified": "2025-01-21T19:18:20.000Z"
+  },
+  {
+    "id": "andersborges/model2vecdk",
+    "downloads": 225,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "andersborges",
+    "lastModified": "2025-11-20T13:53:34.000Z"
+  },
+  {
+    "id": "andersborges/model2vecdk-stem",
+    "downloads": 219,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "andersborges",
+    "lastModified": "2025-11-20T13:48:33.000Z"
+  },
+  {
+    "id": "rasgaard/m2v-dfm-large",
+    "downloads": 212,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "rasgaard",
+    "lastModified": "2025-10-08T13:44:57.000Z"
+  },
+  {
+    "id": "OpenVoiceOS/ovos-model2vec-intents-potion-32M",
+    "downloads": 157,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "OpenVoiceOS",
+    "lastModified": "2025-05-20T21:12:55.000Z"
+  },
+  {
+    "id": "albertobarnabo/ecommerce-product-search-embeddings-static",
+    "downloads": 157,
+    "likes": 0,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "albertobarnabo",
+    "lastModified": "2026-07-21T07:42:56.000Z"
+  },
+  {
+    "id": "OpenVoiceOS/ovos-model2vec-intents-LaBSE",
+    "downloads": 135,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "OpenVoiceOS",
+    "lastModified": "2025-05-25T14:46:15.000Z"
+  },
+  {
+    "id": "blobbybob/potion-mxbai-256d-v2",
+    "downloads": 125,
+    "likes": 3,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "blobbybob",
+    "lastModified": "2026-04-02T20:42:10.000Z"
+  },
+  {
+    "id": "cnmoro/static-nomic-384-pten",
+    "downloads": 113,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "cnmoro",
+    "lastModified": "2026-03-31T17:01:34.000Z"
+  },
+  {
+    "id": "777Radik/potion-multilingual-128M-int8",
+    "downloads": 103,
+    "likes": 5,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "777Radik",
+    "lastModified": "2026-07-25T15:10:24.000Z"
+  },
+  {
+    "id": "cnmoro/static-nomic-384-pten-v2",
+    "downloads": 96,
+    "likes": 1,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "sentence-transformers",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "cnmoro",
+    "lastModified": "2026-05-29T18:59:50.000Z"
+  },
+  {
+    "id": "tss-deposium/m2v-bge-m3-1024d",
+    "downloads": 92,
+    "likes": 1,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "tss-deposium",
+    "lastModified": "2025-12-05T00:16:54.000Z"
+  },
+  {
+    "id": "enguard/small-guard-32m-en-prompt-violence-binary-moderation",
+    "downloads": 82,
+    "likes": 0,
+    "pipeline_tag": "text-classification",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "enguard",
+    "lastModified": "2025-11-05T20:30:56.000Z"
+  },
+  {
+    "id": "mikeee/m2v-gemma-embedding-300m",
+    "downloads": 82,
+    "likes": 1,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "mikeee",
+    "lastModified": "2025-12-15T03:42:22.000Z"
+  },
+  {
+    "id": "flipbitsnotburgers/m2v-e5-small-european",
+    "downloads": 75,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "flipbitsnotburgers",
+    "lastModified": "2026-04-17T04:54:16.000Z"
+  },
+  {
+    "id": "Jarbas/m2v-256-serafim-100m-portuguese-pt-sentence-encoder-ir",
+    "downloads": 61,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Jarbas",
+    "lastModified": "2025-05-20T14:09:46.000Z"
+  },
+  {
+    "id": "alikia2x/potion-multilingual-128M-int8",
+    "downloads": 60,
+    "likes": 0,
+    "pipeline_tag": null,
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [
+      "onnx/model.onnx"
+    ],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "alikia2x",
+    "lastModified": "2026-03-31T20:33:29.000Z"
+  },
+  {
+    "id": "tss-deposium/gemma-deposium-768d",
+    "downloads": 57,
+    "likes": 0,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "tss-deposium",
+    "lastModified": "2025-10-12T23:37:56.000Z"
+  },
+  {
+    "id": "enguard/small-guard-32m-en-prompt-harassment-binary-moderation",
+    "downloads": 57,
+    "likes": 0,
+    "pipeline_tag": "text-classification",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "enguard",
+    "lastModified": "2025-11-05T20:01:51.000Z"
+  },
+  {
+    "id": "guilherme-miranda/m2v-bge-m3-ptbr-en",
+    "downloads": 57,
+    "likes": 0,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "guilherme-miranda",
+    "lastModified": "2026-06-25T21:46:32.000Z"
+  },
+  {
+    "id": "enguard/tiny-guard-8m-en-prompt-self-harm-binary-moderation",
+    "downloads": 56,
+    "likes": 0,
+    "pipeline_tag": "text-classification",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "enguard",
+    "lastModified": "2025-11-05T20:21:45.000Z"
+  },
+  {
+    "id": "sarthak1/codemalt",
+    "downloads": 55,
+    "likes": 2,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "distiller",
+    "license": null,
+    "license_tag": [
+      "license:apache-2.0"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "sarthak1",
+    "lastModified": "2025-06-01T08:38:34.000Z"
+  },
+  {
+    "id": "NAMAA-Space/zarra",
+    "downloads": 54,
+    "likes": 2,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "NAMAA-Space",
+    "lastModified": "2025-06-16T07:20:05.000Z"
+  },
+  {
+    "id": "sarthak1/Qodo-Embed-M-1-1.5B-M2V-Distilled",
+    "downloads": 50,
+    "likes": 0,
+    "pipeline_tag": "feature-extraction",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:other"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "sarthak1",
+    "lastModified": "2025-05-25T10:27:44.000Z"
+  },
+  {
+    "id": "Mihaiii/Venusaur_m2v",
+    "downloads": 43,
+    "likes": 0,
+    "pipeline_tag": "sentence-similarity",
+    "library_name": "model2vec",
+    "license": null,
+    "license_tag": [
+      "license:mit"
+    ],
+    "trust_remote_code": false,
+    "onnx_files": [],
+    "has_safetensors": true,
+    "has_pickle": false,
+    "gated": false,
+    "author": "Mihaiii",
+    "lastModified": "2025-02-07T13:00:14.000Z"
+  }
+]

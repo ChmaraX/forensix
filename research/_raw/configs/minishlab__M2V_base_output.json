@@ -1,0 +1,10 @@
+{
+    "model_type": "model2vec",
+    "architectures": ["StaticModel"],
+    "tokenizer_name": "BAAI/bge-base-en-v1.5",
+    "apply_pca": 256,
+    "apply_zipf": true,
+    "normalize": false,
+    "hidden_dim": 256,
+    "seq_length": 1000000
+}

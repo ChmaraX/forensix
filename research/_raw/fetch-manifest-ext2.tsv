@@ -1,0 +1,9 @@
+mteb-model_meta.py	https://raw.githubusercontent.com/embeddings-benchmark/mteb/main/mteb/models/model_meta.py	200	70995	2026-08-08T09:45:12.842317+00:00
+mteb-get_model_meta.py	https://raw.githubusercontent.com/embeddings-benchmark/mteb/main/mteb/models/get_model_meta.py	200	8859	2026-08-08T09:45:13.143154+00:00
+mteb-model_implementations-listing.json	https://api.github.com/repos/embeddings-benchmark/mteb/contents/mteb/models/model_implementations	200	247987	2026-08-08T09:45:13.559346+00:00
+mteb-repo-LICENSE	https://raw.githubusercontent.com/embeddings-benchmark/mteb/main/LICENSE	200	11357	2026-08-08T09:45:13.870919+00:00
+citizenlab-README.md	https://raw.githubusercontent.com/citizenlab/test-lists/master/README.md	200	3227	2026-08-08T09:45:14.148370+00:00
+ut1-blacklists-index_en.html	https://dsi.ut-capitole.fr/blacklists/index_en.php	200	23312	2026-08-08T09:45:14.699193+00:00
+tranco-faq.html	https://tranco-list.eu/faq	404	14	2026-08-08T09:45:15.183928+00:00
+tranco-home.html	https://tranco-list.eu/	200	25636	2026-08-08T09:45:15.480558+00:00
+publicsuffix-home.html	https://publicsuffix.org/	200	3018	2026-08-08T09:45:15.717147+00:00

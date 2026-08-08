@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>List methodology - Tranco</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.2/css/bootstrap.min.css" integrity="sha512-rt/SrQ4UNIaGfDyEXZtNcyWvQeOq0QLygHluFQcSjaGB04IxWhal71tKuzP6K8eYXYB6vJV4pHkXcmFGGQ1/0w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css">
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+    </style>
+    <link href="/assets/style.css?20210905" rel="stylesheet">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.1.0/css/all.css"
+          integrity="sha384-lKuwvrZot6UHsBSfcMvOkWwlCMgc0TaWr+30HWe3a4ltaBwTZhyTEggF5tJv8tbt" crossorigin="anonymous">
+
+</head>
+<body>
+<header>
+<nav class="navbar navbar-expand-lg navbar-light bg-light mb-3">
+    <div class="container">
+        <a class="navbar-brand tranco-logo-font tranco-logo-navbar" href="/">Tranco</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav mr-auto">
+                
+                  <li class="nav-item">
+                      <a class="nav-link" href="/" target="_self">Home</a>
+                  </li>
+                
+                  <li class="nav-item">
+                      <a class="nav-link" href="/#download" target="_self">Download</a>
+                  </li>
+                
+                  <li class="nav-item">
+                      <a class="nav-link" href="/configure" target="_self">Configure</a>
+                  </li>
+                
+                  <li class="nav-item active">
+                      <a class="nav-link" href="/methodology" target="_self">Methodology <span class="sr-only">(current)</span></a>
+                  </li>
+                
+                  <li class="nav-item">
+                      <a class="nav-link" href="/#aboutus" target="_self">About us</a>
+                  </li>
+                
+            </ul>
+            <ul class="navbar-nav ml-auto">
+                
+                    <li class="nav-item"><a class="nav-link" href="/login">Log in</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/register">Register</a></li>
+                
+            </ul>
+        </div>
+    </div>
+</nav>
+</header>
+<main role="main">
+<div class="container">
+
+   <div class="my-3">
+        <h2>Methodology</h2>
+        <div>
+            <p>Full details on the methodology behind the Tranco list are available in <a
+                    href="assets/tranco-ndss19.pdf">our paper</a>. You can also browse <a
+                    href="https://github.com/DistriNet/tranco-list">the source code</a>.</p>
+        </div>
+    </div>
+    <div class="my-3">
+        <h3 class="d-flex justify-content-between align-items-center mb-3">
+            <span>Construction of the Tranco list</span>
+        </h3>
+        <div>
+            <p>We designed the standard configuration of the Tranco list to improve agreement on the popularity of
+                domains and stability over time,
+                using the available rankings from (currently) five providers as our source data.
+                To achieve this, we average ranks over the lists of all four providers over the past 30 days.
+                We apply the <a href="https://en.wikipedia.org/wiki/Borda_count#Dowdall_system_(Nauru)">Dowdall rule</a>
+                (scoring items with 1, 1/2, ..., 1/(N-1), 1/N points) to calculate the new score on which domains are ranked.
+            </p>
+            <p>Where ranks are "bucketed", meaning that only a coarse range is given (e.g., a domain is in the top 10,000),
+                we first normalize each bucket to the <a href="https://en.wikipedia.org/wiki/Geometric_mean">geometric mean</a>
+                of its boundaries, and use this as its 'virtual' rank in the rest of the computation.
+            </p>
+        </div>
+    </div>
+
+
+    <div class="my-3">
+        <h3 class="d-flex justify-content-between align-items-center mb-3">
+            <span>Properties of source lists</span>
+        </h3>
+
+        <div>
+            <h5 class="my-1">Chrome User Experience Report (CrUX)
+                <div class="btn-group btn-group-sm float-right" role="group" aria-label="Chrome User Experience Report">
+                    <a href="https://developer.chrome.com/docs/crux/" class="btn btn-outline-primary">
+                        Visit provider page</a>
+                </div>
+            </h5>
+
+            <p>The Chrome User Experience Report (CrUX) is a monthly updated ranking published by Google,
+                since March 9, 2021 (for data of February 2021).
+                It consists of a variable number of entries, with the June 2023 list having around 18 million entries.
+                Only websites are included.
+                The <a href="https://developer.chrome.com/docs/crux/bigquery/">original data set on BigQuery</a> contains origins;
+                we normalize these to their respective subdomain.
+                Because of this normalization, the number of entries that we take into account is slightly lower than
+                the number of entries in the CrUX data set, as some subdomains (in the order of a few thousand) appear
+                under multiple origins (<span class="text-monospace">http</span> vs. <span class="text-monospace">https</span>, or with different ports).
+            </p>
+
+            <p>The ranks are based on browser traffic contributed by opt-in Chrome users. Only "sufficiently popular" origins are
+                included.
+                The published ranks are bucketed, in buckets of 1000, 5000, 10000, 50000, 100000, 500000, 1 million, 5 million, 10 million, and the remaining ~8 million origins.
+
+                A more detailed description of CrUX's methodology is available <a href="https://developer.chrome.com/docs/crux/methodology/">on this page</a>.
+            </p>
+
+            <p>
+               The Chrome User Experience Report was considered the most accurate ranking in a 2022 study by <a href="https://kcruth.com/papers/2022-Toplists.pdf">Ruth et al.</a>
+            </p>
+        </div>
+
+
+        <div>
+            <h5 class="my-1">Cloudflare Radar
+                <div class="btn-group btn-group-sm float-right" role="group" aria-label="Cloudflare Radar">
+                    <a href="https://radar.cloudflare.com/domains"
+                       class="btn btn-outline-primary">Visit provider page</a>
+                </div>
+            </h5>
+
+            <p>Cloudflare publishes a list called 'Radar', consisting of one million entries,
+                The list is updated weekly, except for the top 100, which is updated daily.
+                The list is available since September 26, 2022.
+                Both websites and infrastructural domains are included.
+                Only pay-level domains are ranked.</p>
+
+            <p>The ranks are based on DNS traffic to Cloudflare's 1.1.1.1 resolver.
+                Ranks are computed based on a popularity metric that is designed to reflect
+                "the estimated relative size of the user population that accesses a domain over some period of time",
+                calculated using a machine learning model on the aggregated resolver data.
+
+                The published ranks are bucketed, in buckets of 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, and 1 million.
+
+                except for the top 100, which is individually ranked.
+
+                A more detailed description of Radar's methodology is available <a href="https://blog.cloudflare.com/radar-domain-rankings/">on this page</a>.
+            </p>
+
+
+
+        </div>
+
+        <div>
+            <h5 class="my-1">Farsight
+                <div class="btn-group btn-group-sm float-right" role="group" aria-label="Farsight">
+                    <a href="https://www.domaintools.com/resources/blog/mirror-mirror-on-the-wall-whos-the-fairest-website-of-them-all"
+                       class="btn btn-outline-primary">Visit provider blog</a>
+                </div>
+            </h5>
+
+            <p>Farsight Security, part of DomainTools, provides a daily updated list consisting of one million entries.
+                Both websites and infrastructural domains are included.
+                Only pay-level domains are ranked. This list is available since May 1, 2022.
+            </p>
+
+            <p>
+                The ranks calculated by Farsight are based on passive DNS traffic from its DNSDB
+                dataset.
+                This data originates from a certain set of organizations (or ISPs)
+                who share their "above-resolver" DNS traffic with Farsight Security,
+                meaning the DNS queries for domains that are not present in the cache of the organization's
+                recursive DNS resolver
+                and that therefore are sent over the Internet to the authoritative nameservers of those
+                domains (cache misses).
+            </p>
+        </div>
+
+        <div>
+            <h5 class="my-1">Majestic
+                <div class="btn-group btn-group-sm float-right" role="group" aria-label="Majestic">
+                    <a href="https://majestic.com/reports/majestic-million" class="btn btn-outline-primary">Visit
+                        provider page</a>
+                    <a href="http://downloads.majestic.com/majestic_million.csv" class="btn btn-outline-primary">Download
+                        current list</a>
+                </div>
+            </h5>
+
+
+            <p>Majestic publishes the daily updated 'Majestic Million' list consisting of one million websites.
+                The list
+                comprises mostly pay-level domains, but includes subdomains for certain very popular sites (e.g. <span
+                        class="text-monospace">plus.google.com</span>, <span
+                        class="text-monospace">en.wikipedia.org</span>).</p>
+
+            <p>
+                The ranks calculated by Majestic are <a
+                    href="https://blog.majestic.com/development/majestic-million-csv-daily/">based on</a> backlinks to
+                websites, obtained by a crawl of around 450 billion URLs over 120 days. Sites are ranked on the number
+                of class C (IPv4 /24) subnets that refer to the site at least once. Majestic's data collection method
+                means only domains linked to from other websites are considered, implying a bias towards browser-based
+                traffic, however without counting actual page visits. Similarly to search engines, the completeness of
+                their data is affected by how their crawler discovers websites.
+            </p>
+        </div>
+
+        <div>
+            <h5 class="my-1">Cisco Umbrella
+                <div class="btn-group btn-group-sm float-right" role="group" aria-label="Cisco Umbrella">
+                    <a href="https://umbrella-static.s3-us-west-1.amazonaws.com/index.html"
+                       class="btn btn-outline-primary">Visit provider page</a>
+                    <a href="https://umbrella-static.s3-us-west-1.amazonaws.com/top-1m.csv.zip"
+                       class="btn btn-outline-primary">Download current list</a>
+                </div>
+            </h5>
+
+            <p>Cisco Umbrella publishes a daily updated list consisting of one million entries.
+                Both websites and infrastructural domains are included.
+                Any domain name may be
+                included, with it being ranked on the aggregated traffic counts of itself and all its subdomains.</p>
+
+            <p>The ranks calculated by Cisco Umbrella are based on DNS traffic to its two DNS resolvers (marketed as
+                OpenDNS),
+                <a href="https://umbrella.cisco.com/blog/2016/12/14/cisco-umbrella-1-million/">claimed</a> to amount to
+                over 100 billion daily requests from 65 million users. Domains are ranked on the number of unique IPs
+                issuing DNS queries for them Not all traffic is said to
+                be used: instead the DNS data is sampled and <a
+                        href="https://umbrella-static.s3-us-west-1.amazonaws.com/index.html">"data normalization
+                    methodologies"</a>
+                are applied to reduce biases, taking the distribution of client IPs into account.
+                Umbrella's data collection method means that non-browser-based traffic is also accounted for.
+                A side effect is that invalid domains are also included (e.g. internal domains such as <span
+                        class="text-monospace">*.ec2.internal</span> for Amazon EC2 instances, or typos such as <span
+                        class="text-monospace">google.conm</span>).</p>
+        </div>
+
+        <h4 class="d-flex justify-content-between align-items-center mb-3">
+            <span>Deprecated lists</span>
+        </h4>
+
+        <div>
+            <h5 class="my-1">Alexa
+                <div class="btn-group btn-group-sm float-right" role="group" aria-label="Alexa">
+                    <a href="https://www.alexa.com/" class="btn btn-outline-primary">Visit provider page</a>
+                    <a href="https://alexa-static.s3.amazonaws.com/top-1m.csv.zip" class="btn btn-outline-primary">Download
+                        current list</a>
+                </div>
+            </h5>
+            <p>Alexa, a subsidiary of Amazon, published a daily updated list consisting of up to one million websites,
+                until August 1, 2023.
+                Usually
+                only <span class="has-tooltip" data-toggle="tooltip"
+                           data-placement="top"
+                           title="A domain name that a consumer or business can directly register">pay-level domains</span>
+                are ranked, except for subdomains of certain sites that provide <a
+                        href="https://support.alexa.com/hc/en-us/articles/200449744">"personal home pages or
+                    blogs"</a> (e.g. <span class="text-monospace">tmall.com</span>, <span
+                        class="text-monospace">wordpress.com</span>).</p>
+            <p>The ranks calculated by Alexa are based on traffic data from a <a
+                    href="https://blog.alexa.com/top-questions-about-alexa-answered/">"global data panel"</a>, with
+                domains being
+                ranked on a proprietary measure of unique visitors and page views, where one visitor can have at most
+                one
+                page view count towards the page views of a URL. Alexa <a
+                        href="https://support.alexa.com/hc/en-us/articles/200449744">states</a> that it applies
+                "data normalization" to account for biases in their user panel. The panel is claimed to consist of millions of users, who have installed one of <a
+                    href="https://support.alexa.com/hc/en-us/articles/200080859">"many different"</a>
+                browser extensions that include Alexa's measurement code. However, through a crawl of all
+                available extensions for Google Chrome and Firefox, we found only Alexa's own extension (<a
+                        href="https://www.alexa.com/toolbar">'Alexa Traffic Rank'</a>)
+                to report traffic data. Moreover, this extension is only available for the desktop version of these two
+                browsers.
+                <a href="https://chrome.google.com/webstore/detail/alexa-traffic-rank/cknebhggccemgcnbidipinkifmmegdel">Chrome's
+                    extension</a> is reported to have around 570,000 users; no user statistics are known for Firefox,
+                but extrapolation based on browser usage suggests at most one million users for two
+                extensions, far less than Alexa's claim.</p>
+
+            <p>In addition, sites can install an <a
+                    href="https://support.alexa.com/hc/en-us/sections/200063374-Certified-Site-Metrics">'Alexa
+                Certify'</a>
+                tracking script that collects traffic data for all visitors; the rank can then be based on these actual
+                traffic counts instead of on estimates from the extension. This service is <a
+                        href="https://trends.builtwith.com/analytics/Alexa-Certified-Site-Metrics">estimated</a> to be
+                used by 1.06% of the top one million and 4% of the top 10,000.
+            </p>
+
+
+            <p>The rank shown in a domain's profile on Alexa's website is based on data over three months, while the
+                downloadable list was based on data over one month. However, since January 30, 2018 the list is based
+                on data for one day; this was confirmed to us by Alexa but was otherwise unannounced.</p>
+            <p>Alexa's data collection method leads to a focus on sites that are visited in the top-level browsing
+                context of a web browser (i.e. HTTP traffic). They also <a
+                        href="https://support.alexa.com/hc/en-us/articles/200449744">indicate</a> that ranks worse than
+                100,000 are not
+                statistically meaningful, and that for these sites small changes in measured traffic may cause large
+                rank changes, negatively affecting the stability of the list.</p>
+        </div>
+
+        <div>
+            <h5 class="my-1">Quantcast
+                <div class="btn-group btn-group-sm float-right" role="group" aria-label="Quantcast">
+                    <a href="https://web.archive.org/web/20200105223115/https://www.quantcast.com/top-sites/"
+                       class="btn btn-outline-primary">Visit archived provider page</a>
+
+
+                </div>
+            </h5>
+
+            <p>Quantcast published a list of the websites visited the most in the United States until April 1, 2020.
+                The size of the list
+                varied daily, but usually was around 520,000 mostly pay-level domains; subdomains reflected sites that
+                publish user content (e.g. <span class="text-monospace">blogspot.com</span>, <span
+                        class="text-monospace">github.io</span>). The list also included 'hidden profiles', where sites
+                are ranked but the domain is hidden.</p>
+
+            <p>The ranks calculated by Quantcast were based on the number of people visiting a site within the previous
+                month, and comprised 'quantified' sites where Quantcast directly measured traffic through a tracking
+                script as well as sites where Quantcast estimated traffic based on data from 'ISPs and toolbar
+                providers'. These estimates were only calculated for traffic in the United States, with only
+                quantified sites being ranked in other countries; the list of top sites also only considered US traffic.
+                Moreover, while quantified sites saw their visit count updated daily, estimated counts were only updated
+                monthly, which may have inflated the stability of the list.</p>
+        </div>
+    </div>
+
+    <!--
+    <div class="my-3">
+        <h4 class="d-flex justify-content-between align-items-center mb-3">
+            <span>Determining service types</span>
+        </h4>
+        <div>
+            We distinguish web services, mail servers and name servers.
+        </div>
+    </div>
+    <div class="my-3">
+        <h4 class="d-flex justify-content-between align-items-center mb-3">
+            <span>Determining domain availability</span>
+        </h4>
+        <div>
+            status code, repeat or not
+        </div>
+    </div>
+    <div class="my-3">
+        <h4 class="d-flex justify-content-between align-items-center mb-3">
+            <span>Best practices</span>
+        </h4>
+        <div>
+            - include the date of the list
+            - include the number of reachable sites
+            - clearly indicate whether percentages are in terms of 1M or of the reachable population
+        </div>
+    </div>
+    <div class="my-3">
+        <h4 class="d-flex justify-content-between align-items-center mb-3">
+            <span>Determining domain availability</span>
+        </h4>
+        <div>
+            status code, repeat or not
+        </div>
+    </div>
+
+    <div class="my-3">
+        <h5>References</h5>
+    </div>
+    -->
+
+</div>
+</main>
+<footer class="text-muted text-center my-3">
+    <div class="container">
+        <hr>
+        <a href="/privacy_policy"><small>Privacy policy</small></a>
+        </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js" integrity="sha512-ubuT8Z88WxezgSqf3RLuNi5lmjstiJcyezx34yIU2gAHonIi27Na7atqzUZCOoY4CExaoFumzOsFQ2Ch+I/HCw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.2/js/bootstrap.min.js" integrity="sha512-7rusk8kGPFynZWu26OKbTeI+QPoYchtxsmPeBqkHIEXJxeun4yJ4ISYe7C6sz9wdxeE1Gk3VxsIWgCZTc+vX3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js" integrity="sha512-qTXRIMyZIFb8iQcfjXWCO8+M5Tbc38Qi5WzdPOYZHIlZpzBHG3L3by84BBBOiRGiEb7KKtAOAs5qYdUiZiQNNQ==" crossorigin="anonymous"></script>
+
+<script>
+    $(function () {
+        $('[data-toggle="tooltip"]').tooltip()
+    });
+</script>
+
+</body>
+</html>
