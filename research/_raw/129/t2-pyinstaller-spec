@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>What PyInstaller Does and How It Does It &mdash; PyInstaller 6.21.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/tabs.css?v=4c969af8" />
+      <link rel="stylesheet" type="text/css" href="_static/css/pyinstaller.css?v=8216350b" />
+
+  
+    <link rel="shortcut icon" href="_static/pyinstaller-draft1a.ico"/>
+    <link rel="canonical" href="https://pyinstaller.org/en/stable/operating-mode.html" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=31945cea"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+        <script src="_static/copybutton.js?v=f281be69"></script>
+        <script src="_static/tabs.js?v=3ee01567"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Using PyInstaller" href="usage.html" />
+    <link rel="prev" title="How to Install PyInstaller" href="installation.html" /> 
+<script async type="text/javascript" src="/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pyinstaller" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/operating-mode.html" /><meta name="readthedocs-http-status" content="200" /></head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            PyInstaller
+              <img src="_static/pyinstaller-draft1a-100_trans.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                6.21.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="requirements.html">Requirements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">How To Contribute</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">How to Install PyInstaller</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">What PyInstaller Does and How It Does It</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#analysis-finding-the-files-your-program-needs">Analysis: Finding the Files Your Program Needs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#bundling-to-one-folder">Bundling to One Folder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-the-one-folder-program-works">How the One-Folder Program Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#bundling-to-one-file">Bundling to One File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-the-one-file-program-works">How the One-File Program Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-a-console-window">Using a Console Window</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hiding-the-source-code">Hiding the Source Code</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Using PyInstaller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="common-issues-and-pitfalls.html">Common Issues and Pitfalls</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime-information.html">Run-time Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spec-files.html">Using Spec Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="feature-notes.html">Notes about specific Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="when-things-go-wrong.html">When Things Go Wrong</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced-topics.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hooks.html">Understanding PyInstaller Hooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hooks-config.html">Hook Configuration Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bootloader-building.html">Building the Bootloader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="CHANGES.html">Changelog for PyInstaller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="CREDITS.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="man-pages.html">Man Pages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development/index.html">Development Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PyInstaller</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">What PyInstaller Does and How It Does It</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/operating-mode.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="what-pyinstaller-does-and-how-it-does-it">
+<h1>What PyInstaller Does and How It Does It<a class="headerlink" href="#what-pyinstaller-does-and-how-it-does-it" title="Link to this heading"></a></h1>
+<p>This section covers the basic ideas of PyInstaller.
+These ideas apply to all platforms.
+Options and special cases are covered below, under <a class="reference internal" href="usage.html#using-pyinstaller"><span class="std std-ref">Using PyInstaller</span></a>.</p>
+<p>PyInstaller reads a Python script written by you.
+It analyzes your code to discover every other module and library
+your script needs in order to execute.
+Then it collects copies of all those files – including
+the active Python interpreter! – and puts them with
+your script in a single folder,
+or optionally in a single executable file.</p>
+<p>For the great majority of programs, this can be done with one short command,</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pyinstaller</span> <span class="n">myscript</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<p>or with a few added options, for example a windowed application
+as a single-file executable,</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pyinstaller</span> <span class="o">--</span><span class="n">onefile</span> <span class="o">--</span><span class="n">windowed</span> <span class="n">myscript</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<p>You distribute the bundle as a folder or file to other people,
+and they can execute
+your program.
+To your users, the app is self-contained.
+They do not need to install any particular version of Python or any modules.
+They do not need to have Python installed at all.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The output of  PyInstaller is specific to the active operating system
+and the active version of Python.
+This means that to prepare a distribution for:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>a different OS</p></li>
+<li><p>a different version of Python</p></li>
+<li><p>a 32-bit or 64-bit OS</p></li>
+</ul>
+</div></blockquote>
+<p>you run PyInstaller on that OS, under that version of Python.
+The Python interpreter that executes PyInstaller is part of
+the bundle, and it is specific to the OS and the word size.</p>
+</div>
+<section id="analysis-finding-the-files-your-program-needs">
+<h2>Analysis: Finding the Files Your Program Needs<a class="headerlink" href="#analysis-finding-the-files-your-program-needs" title="Link to this heading"></a></h2>
+<p>What other modules and libraries does your script need in order to run?
+(These are sometimes called its “dependencies”.)</p>
+<p>To find out, PyInstaller finds all the <code class="docutils literal notranslate"><span class="pre">import</span></code> statements
+in your script.
+It finds the imported modules and looks in them for <code class="docutils literal notranslate"><span class="pre">import</span></code>
+statements, and so on recursively, until it has a complete list of
+modules your script may use.</p>
+<p>PyInstaller understands the “egg” distribution format often used
+for Python packages.
+If your script imports a module from an “egg”, PyInstaller adds
+the egg and its dependencies to the set of needed files.</p>
+<p>PyInstaller also knows about many major Python packages,
+including the GUI packages
+<a class="reference external" href="http://www.qt-project.org">Qt</a> (imported via <a class="reference external" href="http://www.riverbankcomputing.co.uk/software/pyqt/intro">PyQt</a> or <a class="reference external" href="http://qt-project.org/wiki/About-PySide">PySide</a>), <a class="reference external" href="http://www.wxpython.org/">WxPython</a>, <a class="reference external" href="http://wiki.python.org/moin/TkInter">TkInter</a>, <a class="reference external" href="https://matplotlib.org">matplotlib</a>,
+and other major packages.
+For a complete list, see <a class="reference external" href="https://github.com/pyinstaller/pyinstaller/wiki/Supported-Packages">Supported Packages</a>.</p>
+<p>Some Python scripts import modules in ways that PyInstaller cannot detect:
+for example, by using the <a class="reference external" href="https://docs.python.org/3/library/functions.html#import__" title="(in Python v3.14)"><code class="xref py py-func docutils literal notranslate"><span class="pre">__import__()</span></code></a> function with variable data,
+using <a class="reference external" href="https://docs.python.org/3/library/importlib.html#importlib.import_module" title="(in Python v3.14)"><code class="xref py py-func docutils literal notranslate"><span class="pre">importlib.import_module()</span></code></a>,
+or manipulating the <a class="reference external" href="https://docs.python.org/3/library/sys.html#sys.path" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">sys.path</span></code></a> value at run time.
+If your script requires files that PyInstaller does not know about,
+you must help it:</p>
+<ul class="simple">
+<li><p>You can give additional files on the <code class="docutils literal notranslate"><span class="pre">pyinstaller</span></code> command line.</p></li>
+<li><p>You can give additional import paths on the command line.</p></li>
+<li><p>You can edit the <code class="file docutils literal notranslate"><em><span class="pre">myscript</span></em><span class="pre">.spec</span></code> file
+that PyInstaller writes the first time you run it for your script.
+In the spec file you can tell PyInstaller about code modules
+that are unique to your script.</p></li>
+<li><p>You can write “hook” files that inform PyInstaller of hidden imports.
+If you create a “hook” for a package that other users might also use,
+you can contribute your hook file to PyInstaller.</p></li>
+</ul>
+<p>If your program depends on access to certain data files,
+you can tell PyInstaller to include them in the bundle as well.
+You do this by modifying the spec file, an advanced topic that is
+covered under <a class="reference internal" href="spec-files.html#using-spec-files"><span class="std std-ref">Using Spec Files</span></a>.</p>
+<p>In order to locate included files at run time,
+your program needs to be able to learn its path at run time
+in a way that works regardless of
+whether or not it is running from a bundle.
+This is covered under <a class="reference internal" href="runtime-information.html#run-time-information"><span class="std std-ref">Run-time Information</span></a>.</p>
+<p>PyInstaller does <em>not</em> include libraries that should exist in
+any installation of this OS.
+For example in GNU/Linux, it does not bundle any file
+from <code class="file docutils literal notranslate"><span class="pre">/lib</span></code> or <code class="file docutils literal notranslate"><span class="pre">/usr/lib</span></code>, assuming
+these will be found in every system.</p>
+</section>
+<section id="bundling-to-one-folder">
+<span id="id1"></span><h2>Bundling to One Folder<a class="headerlink" href="#bundling-to-one-folder" title="Link to this heading"></a></h2>
+<p>When you apply PyInstaller to <code class="file docutils literal notranslate"><span class="pre">myscript.py</span></code> the default
+result is a single folder named <code class="file docutils literal notranslate"><span class="pre">myscript</span></code>.
+This folder contains all your script’s dependencies,
+and an executable file also named <code class="file docutils literal notranslate"><span class="pre">myscript</span></code>
+(<code class="file docutils literal notranslate"><span class="pre">myscript.exe</span></code> in Windows).</p>
+<p>You compress the folder
+to <code class="file docutils literal notranslate"><span class="pre">myscript.zip</span></code> and transmit it to your users.
+They install the program simply by unzipping it.
+A user runs your app by
+opening the folder and launching the <code class="file docutils literal notranslate"><span class="pre">myscript</span></code> executable inside it.</p>
+<p>It is easy to debug problems that occur when building the app
+when you use one-folder mode.
+You can see exactly what files PyInstaller collected into the folder.</p>
+<p>Another advantage of a one-folder bundle
+is that when you change your code, as long
+as it imports <cite>exactly the same set of dependencies</cite>, you could send out
+only the updated <code class="file docutils literal notranslate"><span class="pre">myscript</span></code> executable.
+That is typically much smaller
+than the entire folder.
+(If you change the script so that it imports more
+or different dependencies, or if the dependencies
+are upgraded, you must redistribute the whole bundle.)</p>
+</section>
+<section id="how-the-one-folder-program-works">
+<span id="id2"></span><h2>How the One-Folder Program Works<a class="headerlink" href="#how-the-one-folder-program-works" title="Link to this heading"></a></h2>
+<p>A bundled program always starts execution in the PyInstaller bootloader.
+This is the heart of the <code class="docutils literal notranslate"><span class="pre">myscript</span></code> executable in the folder.</p>
+<p>The PyInstaller bootloader is a binary
+executable program for the active platform
+(Windows, GNU/Linux, macOS, etc.).
+When the user launches your program, it is the bootloader that runs.
+The bootloader creates a temporary Python environment
+such that the Python interpreter will find all imported modules and
+libraries in the <code class="docutils literal notranslate"><span class="pre">myscript</span></code> folder.</p>
+<p>The bootloader starts a copy of the Python interpreter
+to execute your script.
+Everything follows normally from there, provided
+that all the necessary support files were included.</p>
+<p>(This is an overview.
+For more detail, see <a class="reference internal" href="advanced-topics.html#the-bootstrap-process-in-detail"><span class="std std-ref">The Bootstrap Process in Detail</span></a> below.)</p>
+</section>
+<section id="bundling-to-one-file">
+<span id="id3"></span><h2>Bundling to One File<a class="headerlink" href="#bundling-to-one-file" title="Link to this heading"></a></h2>
+<p>PyInstaller can bundle your script and all its dependencies into a single
+executable named <code class="file docutils literal notranslate"><span class="pre">myscript</span></code> (<code class="file docutils literal notranslate"><span class="pre">myscript.exe</span></code> in Windows).</p>
+<p>The advantage is that your users get something they understand,
+a single executable to launch.
+A disadvantage is that any related files
+such as a README must be distributed separately.
+Also, the single executable is a little slower to start up than
+the one-folder bundle.</p>
+<p>Before you attempt to bundle to one file, make sure your app
+works correctly when bundled to one folder.
+It is is <em>much</em> easier to diagnose problems in one-folder mode.</p>
+</section>
+<section id="how-the-one-file-program-works">
+<span id="id4"></span><h2>How the One-File Program Works<a class="headerlink" href="#how-the-one-file-program-works" title="Link to this heading"></a></h2>
+<p>The bootloader is the heart of the one-file bundle also.
+When started it creates a temporary folder
+in the appropriate temp-folder location for this OS.
+The folder is named <code class="file docutils literal notranslate"><span class="pre">_MEI</span><em><span class="pre">xxxxxx</span></em></code>, where <em>xxxxxx</em> is a random number.</p>
+<p>The one executable file contains an embedded archive of all the Python
+modules used by your script, as well as
+compressed copies of any non-Python support files (e.g. <code class="docutils literal notranslate"><span class="pre">.so</span></code> files).
+The bootloader uncompresses the support files and writes copies
+into the the temporary folder.
+This can take a little time.
+That is why a one-file app is a little slower to start
+than a one-folder app.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>PyInstaller currently does not preserve file attributes.
+see <a class="reference external" href="https://github.com/pyinstaller/pyinstaller/issues/3926">#3926</a>.</p>
+</div>
+<p>After creating the temporary folder, the bootloader
+proceeds exactly as for the one-folder bundle,
+in the context of the temporary folder.
+When the bundled code terminates,
+the bootloader deletes the temporary folder.</p>
+<p>(In GNU/Linux and related systems, it is possible
+to mount the <code class="docutils literal notranslate"><span class="pre">/tmp</span></code> folder with a “no-execution” option.
+That option is not compatible with a PyInstaller
+one-file bundle. It needs to execute code out of <code class="file docutils literal notranslate"><span class="pre">/tmp</span></code>.
+If you know the target environment,
+<a class="reference internal" href="usage.html#cmdoption-runtime-tmpdir"><code class="xref std std-option docutils literal notranslate"><span class="pre">--runtime-tmpdir</span></code></a> might be a workaround. Alternatively,
+you can set the environment variable that controls the temporary
+directory before launching the program. See <a class="reference internal" href="usage.html#defining-the-extraction-location"><span class="std std-ref">Defining the Extraction Location</span></a>).</p>
+<p>Because the program makes a temporary folder with a unique name,
+you can run multiple copies of the app;
+they won’t interfere with each other.
+However, running multiple copies is expensive in disk space because
+nothing is shared.</p>
+<p>The <code class="file docutils literal notranslate"><span class="pre">_MEI</span><em><span class="pre">xxxxxx</span></em></code> folder is not removed if the program crashes
+or is killed (kill -9 on Unix, killed by the Task Manager on Windows,
+“Force Quit” on macOS).
+Thus if your app crashes frequently, your users will lose disk space to
+multiple <code class="file docutils literal notranslate"><span class="pre">_MEI</span><em><span class="pre">xxxxxx</span></em></code> temporary folders.</p>
+<p>It is possible to control the location of the <code class="file docutils literal notranslate"><span class="pre">_MEI</span><em><span class="pre">xxxxxx</span></em></code> folder by
+using the <a class="reference internal" href="usage.html#cmdoption-runtime-tmpdir"><code class="xref std std-option docutils literal notranslate"><span class="pre">--runtime-tmpdir</span></code></a> command line option. The specified path is
+stored in the executable, and the bootloader will create the
+<code class="file docutils literal notranslate"><span class="pre">_MEI</span><em><span class="pre">xxxxxx</span></em></code> folder inside of the specified folder. Please see
+<a class="reference internal" href="usage.html#defining-the-extraction-location"><span class="std std-ref">Defining the Extraction Location</span></a> for details.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Do <em>not</em> give administrator privileges to a one-file executable on Windows
+(“Run this program as an administrator”).
+There is an unlikely but not impossible way in which a malicious attacker could
+corrupt one of the shared libraries in the temp folder
+while the bootloader is preparing it.
+When distributing a privileged program in general, ensure that file
+permissions prevent shared libraries or executables from being tampered with.
+Otherwise, an unelevated process which has write access to these files may
+escalate privileges by modifying them.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Applications that use <cite>os.setuid()</cite> may encounter permissions errors.
+The temporary folder where the bundled app runs may not being readable
+after <cite>setuid</cite> is called. If your script needs to
+call <cite>setuid</cite>, it may be better to use one-folder mode
+so as to have more control over the permissions on its files.</p>
+</div>
+</section>
+<section id="using-a-console-window">
+<h2>Using a Console Window<a class="headerlink" href="#using-a-console-window" title="Link to this heading"></a></h2>
+<p>By default the bootloader creates a command-line console
+(a terminal window in GNU/Linux and macOS, a command window in Windows).
+It gives this window to the Python interpreter for its standard input and output.
+Your script’s use of <code class="docutils literal notranslate"><span class="pre">print</span></code> and <code class="docutils literal notranslate"><span class="pre">input()</span></code> are directed here.
+Error messages from Python and default logging output
+also appear in the console window.</p>
+<p>An option for Windows and macOS is to tell PyInstaller to not provide a console window.
+The bootloader starts Python with no target for standard output or input.
+Do this when your script has a graphical interface for user input and can properly
+report its own diagnostics.</p>
+<p>As noted in the <a class="reference external" href="https://docs.python.org/3/tutorial/appendix.html#executable-python-scripts">CPython tutorial Appendix</a>,
+for Windows a file extension of <cite>.pyw</cite> suppresses the console window
+that normally appears.
+Likewise, a console window will not be provided when using
+a <code class="file docutils literal notranslate"><span class="pre">myscript.pyw</span></code> script with PyInstaller.</p>
+</section>
+<section id="hiding-the-source-code">
+<h2>Hiding the Source Code<a class="headerlink" href="#hiding-the-source-code" title="Link to this heading"></a></h2>
+<p>The bundled app does not include any source code.
+However, PyInstaller bundles compiled Python scripts (<code class="docutils literal notranslate"><span class="pre">.pyc</span></code> files).
+These could in principle be decompiled to reveal the logic of
+your code.</p>
+<p>If you want to hide your source code more thoroughly, one possible option
+is to compile some of your modules with <a class="reference external" href="http://www.cython.org/">Cython</a>.
+Using Cython you can convert Python modules into C and compile
+the C to machine language.
+PyInstaller can follow import statements that refer to
+Cython C object modules and bundle them.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="How to Install PyInstaller" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="usage.html" class="btn btn-neutral float-right" title="Using PyInstaller" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright This document has been placed in the public domain..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+
+  
+<script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

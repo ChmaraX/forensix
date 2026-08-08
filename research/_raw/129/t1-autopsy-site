@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Autopsy</title>
+        <meta name="description" content="Autopsy is an open source graphical interface to The Sleuth Kit and other digital forensics tools.">
+    
+    <!-- Bootstrap CSS (Bootswatch Slate) -->
+    <link href="/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Site Custom CSS -->
+    <link href="/css/styles.css" rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- =========== Navbar =========== -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color:#1c2130;">
+        <div class="container">
+
+            <!-- Logo -->
+            <a class="navbar-brand" href="https://sleuthkitlabs.com">
+                <img src="/images/skl_logo2.png"
+                     alt="Sleuth Kit Labs"
+                     height="36"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                <span style="display:none; color:#fff; font-weight:700; font-family:Inter,sans-serif;">Sleuth Kit Labs</span>
+            </a>
+
+            <!-- Mobile toggle -->
+            <button class="navbar-toggler" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#navbarMain"
+                    aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <ul class="navbar-nav ms-auto">
+
+                    <!-- Home -->
+                    <li class="nav-item">
+                        <a class="nav-link " href="/index.php">Home</a>
+                    </li>
+
+                    <!-- Autopsy -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle active"
+                           href="/autopsy/" data-bs-toggle="dropdown" aria-expanded="false">Autopsy</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item "
+                                   href="/autopsy/features.php">Features</a></li>
+                            <li><a class="dropdown-item "
+                                   href="/autopsy/download.php">Download <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-top;opacity:0.5;margin-left:2px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a></li>
+                            <li><a class="dropdown-item" href="http://www.autopsy.com/training" target="_blank">Training <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-top;opacity:0.5;margin-left:2px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a></li>
+                            <li><a class="dropdown-item "
+                                   href="/autopsy/docs.php">Documents</a></li>
+                            <li><a class="dropdown-item "
+                                   href="/autopsy/history.php">History</a></li>
+                            <li><a class="dropdown-item "
+                                   href="/autopsy/licenses.php">Licenses</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- The Sleuth Kit -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle "
+                           href="/sleuthkit/" data-bs-toggle="dropdown" aria-expanded="false">The Sleuth Kit</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item "
+                                   href="/sleuthkit/desc.php">File Systems</a></li>
+                            <li><a class="dropdown-item "
+                                   href="/sleuthkit/download.php">Download</a></li>
+                            <li><a class="dropdown-item "
+                                   href="/sleuthkit/docs.php">Documents</a></li>
+                            <li><a class="dropdown-item "
+                                   href="/sleuthkit/history.php">History</a></li>
+                            <li><a class="dropdown-item "
+                                   href="/sleuthkit/licenses.php">Licenses</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Other Projects -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle "
+                           href="/proj.php" data-bs-toggle="dropdown" aria-expanded="false">Other Projects</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item "
+                                   href="/tsk_hadoop/index.php">Hadoop</a></li>
+                            <li><a class="dropdown-item "
+                                   href="/mac-robber/index.php">mac-robber</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Support -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle "
+                           href="/support.php" data-bs-toggle="dropdown" aria-expanded="false">Support</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="http://www.autopsy.com/category/blog/" target="_blank">Blog (www.autopsy.com)</a></li>
+                            <li><a class="dropdown-item" href="http://forum.sleuthkit.org/" target="_blank">Forum (forum.sleuthkit.org)</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- About -->
+                    <li class="nav-item">
+                        <a class="nav-link " href="/about.php">About</a>
+                    </li>
+
+                </ul>
+            </div><!-- .navbar-collapse -->
+        </div><!-- .container -->
+    </nav><!-- .navbar -->
+
+    <!-- =========== Page Body =========== -->
+    <div class="page-body">
+
+    <!-- End: header.php -->
+
+            <div class="container-fluid horizontal-section-container clearfix">
+                <div class="row">
+                    <div class="col-sm-12">
+
+                        <!-- Main Page Content -->
+                        <div id="main-page-content" class="section-container main-page-content clearfix">
+
+                            <div class="section-content clearfix">
+
+                                <div class="col-sm-8">
+                                    <div id="home-intro-paragraph" class="section-container clearfix">
+<p>Autopsy&reg; is a digital forensics platform and graphical interface to  <a href="/sleuthkit/index.php"> The
+Sleuth Kit&reg;</a> and other digital forensics tools.  It is used by law enforcement, military, and corporate examiners to investigate what happened on a computer. You can even use it to recover photos from your camera's memory card.</p>
+
+<div align="center"><a href="download.php" border=0><img width=140 src="/picts/download_now.png"></a></div>
+
+<p><a href="http://www.autopsy.com/training/">Training</a> and <a href="http://www.autopsy.com/support/">Commercial Support</a> are available from Sleuth Kit Labs.</p>
+                                    </div>
+                                </div> <!-- col8 -->
+								<div class="col-sm-4" align="center" valign="center">
+                            		<img src="/picts/renzik_sm.jpg" width=160>
+								</div> <!-- col4 -->
+                            </div> <!-- secition -->
+                        </div> <!-- main -->
+						
+					</div> <!-- 12 -->
+                </div> <!-- row -->
+					
+				<div class="row">
+						<div class="col-sm-12">
+                          	<div id="home-intro-paragraph" class="section-container clearfix">
+
+<h3>Easy to Use</h3>
+<p>Autopsy was designed to be intuitive out of the box. Installation is easy and wizards guide you through every step. All results are found in a single tree.  See the <a href="intuitive.php">intuitive</a> page for more details.</p>
+
+<h3>Extensible</h3>
+<p>Autopsy was designed to be an end-to-end platform with modules that come with it out of the box and others that are available from <a href="download.php#modules">third-parties</a>. Some of the modules provide:
+
+<ul>
+  <li><a href="timeline.php">Timeline Analysis</a> - Advanced graphical event viewing interface (video tutorial included).</li>
+  <li>Hash Filtering - Flag known bad files and ignore known good.</li>
+  <li><a href="keyword.php">Keyword Search</a> - Indexed keyword search to find files that mention relevant terms.</li>
+  <li><a href="web_artifacts.php">Web Artifacts</a> - Extract history, bookmarks, and cookies from Firefox, Chrome, and IE. </li>
+  <li>Data Carving - Recover deleted files from unallocated space using <a href="http://www.cgsecurity.org/wiki/PhotoRec">PhotoRec</a></li>
+  <li>Multimedia - Extract EXIF from pictures and watch videos. </li>
+  <li>Malware Scanning</li>
+</ul>
+
+<p>See the <a href="features.php">Features</a> page for more details.  Developers should refer to the <a href="http://www.sleuthkit.org/autopsy/docs/api-docs/"> module development page</a> for details on building modules.  </p>
+
+<h3>Fast</h3>
+<p>Everyone wants results yesterday. Autopsy runs background tasks in parallel using multiple cores and provides results to you as soon as they are found. It may take hours to fully search the drive, but you will know in minutes if your keywords were found in the user's home folder.  See the <a href="fast.php">fast results</a> page for more details.</p>
+
+<h3>Cost Effective</h3>
+<p>Autopsy is free.  As budgets are decreasing, cost effective digital forensics solutions are essential.  Autopsy offers the same core features as other digital forensics tools and offers other essential features, such as web artifact analysis and registry analysis, that other commercial tools do not provide. </p>
+
+<center><a href="./images/v3/overview.png" border=0><img src="./images/v3/overview.png" width=400 /></a></center>
+
+
+                            </div><!-- .section-container -->
+                            <!-- End: Website Intro Paragraph -->
+                        </div><!--  -->
+
+                    </div><!-- .row -->
+                </div><!-- .container-fluid -->
+    </div><!-- .page-body -->
+
+    <!-- =========== Footer =========== -->
+    <footer style="background:#1c2130; color:#5a6b88; text-align:center; padding:22px 0; font-size:0.85rem; border-top:1px solid #2a2f34;">
+        <div class="container">
+            <p class="mb-0">
+                &copy; 2003-2026 Brian Carrier &nbsp;&middot;&nbsp;
+                <!-- <a href="http://www.digital-evidence.org/fsfa/" style="color:#5b8fd4; text-decoration:none;">File System Forensic Analysis</a> -->
+                &nbsp;&middot;&nbsp; 
+                <a href="https://sleuthkitlabs.com" style="color:#5b8fd4; text-decoration:none;">Sleuth Kit Labs</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
+   

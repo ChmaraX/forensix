@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<link href="sqlite.css" rel="stylesheet">
+<title>Implementation Limits For SQLite</title>
+<!-- path= -->
+</head>
+<body>
+<div class=nosearch>
+<a href="index.html">
+<img class="logo" src="images/sqlite370_banner.svg" alt="SQLite" border="0">
+</a>
+<div><!-- IE hack to prevent disappearing logo --></div>
+<div class="tagline desktoponly">
+Small. Fast. Reliable.<br>Choose any three.
+</div>
+<div class="menu mainmenu">
+<ul>
+<li><a href="index.html">Home</a>
+<li class='mobileonly'><a href="javascript:void(0)" onclick='toggle_div("submenu")'>Menu</a>
+<li class='wideonly'><a href='about.html'>About</a>
+<li class='desktoponly'><a href="docs.html">Documentation</a>
+<li class='desktoponly'><a href="download.html">Download</a>
+<li class='wideonly'><a href='copyright.html'>License</a>
+<li class='desktoponly'><a href="support.html">Support</a>
+<li class='desktoponly'><a href="prosupport.html">Purchase</a>
+<li class='search' id='search_menubutton'>
+<a href="javascript:void(0)" onclick='toggle_search()'>Search</a>
+</ul>
+</div>
+<div class="menu submenu" id="submenu">
+<ul>
+<li><a href='about.html'>About</a>
+<li><a href='docs.html'>Documentation</a>
+<li><a href='download.html'>Download</a>
+<li><a href='support.html'>Support</a>
+<li><a href='prosupport.html'>Purchase</a>
+</ul>
+</div>
+<div class="searchmenu" id="searchmenu">
+<form method="GET" action="search">
+<select name="s" id="searchtype">
+<option value="d">Search Documentation</option>
+<option value="c">Search Changelog</option>
+</select>
+<input type="text" name="q" id="searchbox" value="">
+<input type="submit" value="Go">
+</form>
+</div>
+</div>
+<script>
+function toggle_div(nm) {
+var w = document.getElementById(nm);
+if( w.style.display=="block" ){
+w.style.display = "none";
+}else{
+w.style.display = "block";
+}
+}
+function toggle_search() {
+var w = document.getElementById("searchmenu");
+if( w.style.display=="block" ){
+w.style.display = "none";
+} else {
+w.style.display = "block";
+setTimeout(function(){
+document.getElementById("searchbox").focus()
+}, 30);
+}
+}
+function div_off(nm){document.getElementById(nm).style.display="none";}
+window.onbeforeunload = function(e){div_off("submenu");}
+/* Disable the Search feature if we are not operating from CGI, since */
+/* Search is accomplished using CGI and will not work without it. */
+if( !location.origin || !location.origin.match || !location.origin.match(/http/) ){
+document.getElementById("search_menubutton").style.display = "none";
+}
+/* Used by the Hide/Show button beside syntax diagrams, to toggle the */
+function hideorshow(btn,obj){
+var x = document.getElementById(obj);
+var b = document.getElementById(btn);
+if( x.style.display!='none' ){
+x.style.display = 'none';
+b.innerHTML='show';
+}else{
+x.style.display = '';
+b.innerHTML='hide';
+}
+return false;
+}
+var antiRobot = 0;
+function antiRobotGo(){
+if( antiRobot!=3 ) return;
+antiRobot = 7;
+var j = document.getElementById("mtimelink");
+if(j && j.hasAttribute("data-href")) j.href=j.getAttribute("data-href");
+}
+function antiRobotDefense(){
+document.body.onmousedown=function(){
+antiRobot |= 2;
+antiRobotGo();
+document.body.onmousedown=null;
+}
+document.body.onmousemove=function(){
+antiRobot |= 2;
+antiRobotGo();
+document.body.onmousemove=null;
+}
+setTimeout(function(){
+antiRobot |= 1;
+antiRobotGo();
+}, 100)
+antiRobotGo();
+}
+antiRobotDefense();
+</script>
+
+
+
+<h2>Limits In SQLite</h2>
+
+<p>
+"Limits" in the context of this article means sizes or
+quantities that can not be exceeded.  We are concerned
+with things like the maximum number of bytes in a
+BLOB or the maximum number of columns in a table.
+</p>
+
+<p>
+SQLite was originally designed with a policy of avoiding
+arbitrary limits.
+Of course, every program that runs on a machine with finite
+memory and disk space has limits of some kind.  But in SQLite, 
+those limits
+were not well defined.  The policy was that if it would fit
+in memory and you could count it with a 32-bit integer, then
+it should work.
+</p>
+
+<p>
+Unfortunately, the no-limits policy has been shown to create
+problems.  Because the upper bounds were not well
+defined, they were not tested, and bugs were often found
+when pushing SQLite to extremes.  For this reason, versions
+of SQLite since about release 3.5.8 (2008-04-16)
+have well-defined limits, and those limits are tested as part of
+the <a href="testing.html">test suite</a>.
+</p>
+
+<p>
+This article defines what the limits of SQLite are and how they
+can be customized for specific applications.  The default settings
+for limits are normally quite large and adequate for almost every
+application.  Some applications may want to increase a limit here
+or there, but we expect such needs to be rare.  More commonly,
+an application might want to recompile SQLite with much lower
+limits to avoid excess resource utilization in the event of
+bugs in higher-level SQL statement generators or to help thwart 
+attackers who inject malicious SQL statements.
+</p>
+
+<p>
+Some limits can be changed at run-time on a per-connection basis
+using the <a href="c3ref/limit.html">sqlite3_limit()</a> interface with one of the
+<a href="c3ref/c_limit_attached.html#sqlitelimitlength">limit categories</a> defined for that interface.
+Run-time limits are designed for applications that have multiple
+databases, some of which are for internal use only and others which
+can be influenced or controlled by potentially hostile external agents.
+For example, a web browser application might use an internal database
+to track historical page views but have one or more separate databases
+that are created and controlled by javascript applications that are
+downloaded from the internet.
+The <a href="c3ref/limit.html">sqlite3_limit()</a> interface allows internal databases managed by
+trusted code to be unconstrained while simultaneously  placing tight
+limitations on databases created or controlled by untrusted external
+code in order to help prevent a denial of service attack.
+</p>
+
+
+<ol>
+<a name="max_length"></a>
+<li><p><b>Maximum length of a string or BLOB</b></p>
+
+<p>
+The maximum number of bytes in a string or BLOB in SQLite is defined
+by the preprocessor macro SQLITE_MAX_LENGTH.  The default value
+of this macro is 1 billion (1 thousand million or 1,000,000,000).
+You can raise or lower this value at compile-time using a command-line 
+option like this:
+</p>
+
+<blockquote>-DSQLITE_MAX_LENGTH=123456789</blockquote>
+
+<p>
+The current implementation will only support a string or BLOB
+length up to 2<small><sup>31</sup></small>-3 or 2147483645.  And
+some built-in functions such as hex() might fail well before that
+point.  In security-sensitive applications it is best not to
+try to increase the maximum string and blob length.  In fact,
+you might do well to lower the maximum string and blob length
+to something more in the range of a few million if that is
+possible.
+</p>
+
+<p>
+During part of SQLite's INSERT and SELECT processing, the complete
+content of each row in the database is encoded as a single BLOB.
+So the SQLITE_MAX_LENGTH parameter also determines the maximum
+number of bytes in a row.
+</p>
+
+<p>
+The maximum string or BLOB length can be lowered at run-time using
+the <a href="c3ref/limit.html">sqlite3_limit</a>(db,<a href="c3ref/c_limit_attached.html#sqlitelimitlength">SQLITE_LIMIT_LENGTH</a>,size) interface.
+</p>
+</li><a name="max_column"></a>
+<li><p><b>Maximum Number Of Columns</b></p>
+
+<p>
+The SQLITE_MAX_COLUMN compile-time parameter is used to set an upper
+bound on:
+</p>
+
+<ul>
+<li>The number of columns in a table</li>
+<li>The number of columns in an index</li>
+<li>The number of columns in a view</li>
+<li>The number of terms in the SET clause of an UPDATE statement</li>
+<li>The number of columns in the result set of a SELECT statement</li>
+<li>The number of terms in a GROUP BY or ORDER BY clause</li>
+<li>The number of values in an INSERT statement</li>
+</ul>
+
+<p>
+The default setting for SQLITE_MAX_COLUMN is 2000.  You can change it
+at compile time to values as large as 32767. On the other hand, many
+experienced database designers will argue that a well-normalized database
+will never need more than 100 columns in a table.
+</p>
+
+<p>
+In most applications, the number of columns is small - a few dozen.
+There are places in the SQLite code generator that use algorithms
+that are O(N&sup2;) where N is the number of columns.  
+So if you redefine SQLITE_MAX_COLUMN to be a
+really huge number and you generate SQL that uses a large number of
+columns, you may find that <a href="c3ref/prepare.html">sqlite3_prepare_v2()</a>
+runs slowly.</p>
+
+
+<p>
+The maximum number of columns can be lowered at run-time using
+the <a href="c3ref/limit.html">sqlite3_limit</a>(db,<a href="c3ref/c_limit_attached.html#sqlitelimitcolumn">SQLITE_LIMIT_COLUMN</a>,size) interface.
+</p>
+
+</li><a name="max_sql_length"></a>
+<li><p><b>Maximum Length Of An SQL Statement</b></p>
+
+<p>
+The maximum number of bytes in the text of an SQL statement is 
+limited to SQLITE_MAX_SQL_LENGTH which defaults to 1,000,000,000.
+</p>
+
+<p>
+If an SQL statement is limited to be a million bytes in length, then
+obviously you will not be able to insert multi-million byte strings
+by embedding them as literals inside of INSERT statements.  But
+you should not do that anyway.  Use host <a href="lang_expr.html#varparam">parameters</a> 
+for your data.  Prepare short SQL statements like this:
+</p>
+
+<blockquote>
+INSERT INTO tab1 VALUES(?,?,?);
+</blockquote>
+
+<p>
+Then use the <a href="c3ref/bind_blob.html">sqlite3_bind_XXXX()</a> functions
+to bind your large string values to the SQL statement.  The use of binding
+obviates the need to escape quote characters in the string, reducing the
+risk of SQL injection attacks.  It also runs faster since the large
+string does not need to be parsed or copied as much.
+</p>
+
+<p>
+The maximum length of an SQL statement can be lowered at run-time using
+the <a href="c3ref/limit.html">sqlite3_limit</a>(db,<a href="c3ref/c_limit_attached.html#sqlitelimitsqllength">SQLITE_LIMIT_SQL_LENGTH</a>,size) interface.
+</p>
+</li><li><p><b>Maximum Number Of Tables In A Join</b></p>
+
+<p>
+SQLite does not support joins containing more than 64 tables.
+This limit arises from the fact that the SQLite code generator
+uses bitmaps with one bit per join-table in the query optimizer.
+</p>
+
+<p>
+SQLite uses an efficient <a href="queryplanner-ng.html">query planner algorithm</a>
+and so even a large join can be <a href="c3ref/prepare.html">prepared</a> quickly.
+Hence, there is no mechanism to raise or lower the limit on the
+number of tables in a join.
+</p>
+</li><a name="max_expr_depth"></a>
+<li><p><b>Maximum Depth Of An Expression Tree</b></p>
+
+<p>
+SQLite parses expressions into a tree for processing.  During
+code generation, SQLite walks this tree recursively.  The depth
+of expression trees is therefore limited in order to avoid
+using too much stack space.
+</p>
+
+<p>
+The SQLITE_MAX_EXPR_DEPTH parameter determines the maximum expression
+tree depth.  If the value is 0, then no limit is enforced.  The
+current implementation has a default value of 1000.
+</p>
+
+<p>
+The maximum depth of an expression tree can be lowered at run-time using
+the <a href="c3ref/limit.html">sqlite3_limit</a>(db,<a href="c3ref/c_limit_attached.html#sqlitelimitexprdepth">SQLITE_LIMIT_EXPR_DEPTH</a>,size) interface if the
+SQLITE_MAX_EXPR_DEPTH is initially positive.  In other words, the maximum
+expression depth can be lowered at run-time if there is already a 
+compile-time limit on the expression depth.  If SQLITE_MAX_EXPR_DEPTH is
+set to 0 at compile time (if the depth of expressions is unlimited) then
+the <a href="c3ref/limit.html">sqlite3_limit</a>(db,<a href="c3ref/c_limit_attached.html#sqlitelimitexprdepth">SQLITE_LIMIT_EXPR_DEPTH</a>,size) is a no-op.
+</p>
+
+
+</li><a name="max_function_arg"></a>
+<li><p><b>Maximum Number Of Arguments On A Function</b></p>
+
+<p>
+The SQLITE_MAX_FUNCTION_ARG parameter determines the maximum number
+of parameters that can be passed to an SQL function.  For many years, the
+default value was about 100 but the default was raised to 1000 beginning
+with SQLite version 3.48.0 (2025-01-14).
+
+<p>The number of arguments to a function is sometimes stored in a signed
+16-bit integer.  So there is a hard upper bound on SQLITE_MAX_FUNCTION_ARG
+of 32767.</p>
+
+<p>
+The maximum number of arguments in a function can be lowered at run-time using
+the <a href="c3ref/limit.html">sqlite3_limit</a>(db,<a href="c3ref/c_limit_attached.html#sqlitelimitfunctionarg">SQLITE_LIMIT_FUNCTION_ARG</a>,size) interface.
+</p>
+</li><a name="max_compound_select"></a>
+<li><p><b>Maximum Number Of Terms In A Compound SELECT Statement</b></p>
+
+<p>
+A compound <a href="lang_select.html">SELECT</a> statement is two or more SELECT statements connected
+by operators UNION, UNION ALL, EXCEPT, or INTERSECT.  We call each
+individual SELECT statement within a compound SELECT a "term".
+</p>
+
+<p>
+The code generator in SQLite processes compound SELECT statements using
+a recursive algorithm.  In order to limit the size of the stack, we
+therefore limit the number of terms in a compound SELECT.  The maximum
+number of terms is SQLITE_MAX_COMPOUND_SELECT which defaults to 500.
+We think this is a generous allotment since in practice we almost
+never see the number of terms in a compound select exceed single digits.
+</p>
+
+<p>
+The maximum number of compound SELECT terms can be lowered at run-time using
+the <a href="c3ref/limit.html">sqlite3_limit</a>(db,<a href="c3ref/c_limit_attached.html#sqlitelimitcompoundselect">SQLITE_LIMIT_COMPOUND_SELECT</a>,size) interface.
+</p>
+
+
+</li><a name="max_like_pattern_length"></a>
+<li><p><b>Maximum Length Of A LIKE Or GLOB Pattern</b></p>
+
+<p>
+The pattern matching algorithm used in the default <a href="lang_expr.html#like">LIKE</a> and <a href="lang_expr.html#glob">GLOB</a>
+implementation of SQLite can exhibit O(N&sup2;) performance (where
+N is the number of characters in the pattern) for certain pathological
+cases.  To avoid denial-of-service attacks from miscreants who are able
+to specify their own LIKE or GLOB patterns, the length of the LIKE
+or GLOB pattern is limited to SQLITE_MAX_LIKE_PATTERN_LENGTH bytes.
+The default value of this limit is 50000.  A modern workstation can
+evaluate even a pathological LIKE or GLOB pattern of 50000 bytes
+relatively quickly.  The denial of service problem only comes into
+play when the pattern length gets into millions of bytes.  Nevertheless,
+since most useful LIKE or GLOB patterns are at most a few dozen bytes
+in length, paranoid application developers may want to reduce this
+parameter to something in the range of a few hundred if they know that
+external users are able to generate arbitrary patterns.
+</p>
+
+<p>
+The maximum length of a LIKE or GLOB pattern can be lowered at run-time using
+the <a href="c3ref/limit.html">sqlite3_limit</a>(db,<a href="c3ref/c_limit_attached.html#sqlitelimitlikepatternlength">SQLITE_LIMIT_LIKE_PATTERN_LENGTH</a>,size) interface.
+</p>
+</li><a name="max_variable_number"></a>
+<li><p><b>Maximum Number Of Host Parameters In A Single SQL Statement</b></p>
+
+<p>
+A host <a href="lang_expr.html#varparam">parameter</a> is a place-holder in an SQL statement that is filled
+in using one of the
+<a href="c3ref/bind_blob.html">sqlite3_bind_XXXX()</a> interfaces.
+Many SQL programmers are familiar with using a question mark ("?") as a
+host parameter.  SQLite also supports named host parameters prefaced
+by ":", "$", or "@" and numbered host parameters of the form "?123".
+</p>
+
+<p>
+Each host parameter in an SQLite statement is assigned a number.  The
+numbers normally begin with 1 and increase by one with each new
+parameter.  However, when the "?123" form is used, the host parameter
+number is the number that follows the question mark.
+</p>
+
+<p>
+SQLite allocates space to hold all host parameters between 1 and the
+largest host parameter number used.  Hence, an SQL statement that contains
+a host parameter like ?1000000000 would require gigabytes of storage.
+This could easily overwhelm the resources of the host machine.
+To prevent excessive memory allocations, 
+the maximum value of a host parameter number is SQLITE_MAX_VARIABLE_NUMBER,
+which defaults to 999 for SQLite versions prior to 3.32.0 (2020-05-22)
+or 32766 for SQLite versions after 3.32.0.
+</p>
+
+<p>
+The maximum host parameter number can be lowered at run-time using
+the <a href="c3ref/limit.html">sqlite3_limit</a>(db,<a href="c3ref/c_limit_attached.html#sqlitelimitvariablenumber">SQLITE_LIMIT_VARIABLE_NUMBER</a>,size) interface.
+</p>
+</li><a name="max_trigger_depth"></a>
+<li><p><b>Maximum Depth Of Trigger Recursion</b></p>
+
+<p>
+SQLite limits the depth of recursion of triggers in order to prevent
+a statement involving recursive triggers from using an unbounded amount
+of memory.  
+</p>
+
+<p>Prior to SQLite <a href="releaselog/3_6_18.html">version 3.6.18</a> (2009-09-11), 
+triggers were not recursive and so
+this limit was meaningless.  Beginning with version 3.6.18, recursive triggers
+are supported but have to be explicitly enabled using the
+<a href="pragma.html#pragma_recursive_triggers">PRAGMA recursive_triggers</a> statement.  
+The SQLITE_MAX_TRIGGER_DEPTH is
+only meaningful if recursive triggers are enabled.</p>
+
+<p>The default maximum trigger recursion depth is 1000.</p>
+</li><a name="max_attached"></a>
+<li><p><b>Maximum Number Of Attached Databases</b></p>
+
+<p>
+The <a href="lang_attach.html">ATTACH</a> statement is an SQLite extension
+that allows two or more databases to be associated to the same database
+connection and to operate as if they were a single database.  The number
+of simultaneously attached databases is limited to SQLITE_MAX_ATTACHED
+which is set to 10 by default.
+The maximum number of attached databases cannot be increased above 125.</p>
+
+<p>
+The maximum number of attached databases can be lowered at run-time using
+the <a href="c3ref/limit.html">sqlite3_limit</a>(db,<a href="c3ref/c_limit_attached.html#sqlitelimitattached">SQLITE_LIMIT_ATTACHED</a>,size) interface.
+</p>
+</li><a name="max_page_count"></a>
+<li><p><b>Maximum Number Of Pages In A Database File</b></p>
+
+<p>
+SQLite is able to limit the size of a database file to prevent
+the database file from growing too large and consuming too much
+disk space.
+The SQLITE_MAX_PAGE_COUNT parameter
+is the maximum number of pages allowed in a single
+database file.  An attempt to insert new data that would cause
+the database file to grow larger than this will return
+SQLITE_FULL.
+</p>
+
+<p>
+The largest possible setting for SQLITE_MAX_PAGE_COUNT is 4294967294
+(2<sup><small>32</small></sup>-2).
+Since version 3.45.0 (2024-01-15), 4294967294 is
+also the default value for SQLITE_MAX_PAGE_COUNT.
+When used with the default page size of 4096 bytes, this gives a
+maximum database size of about 17.5 terabytes.
+If the page size is increased to the maximum of 65536 bytes, then the
+database file can grow to be as large as about 281 terabytes.</p>
+
+<p>
+The <a href="pragma.html#pragma_max_page_count">
+max_page_count PRAGMA</a> can be used to raise or lower this
+limit at run-time.
+</p>
+</li><li><p><b>Maximum Number Of Rows In A Table</b></p>
+
+<p>
+The theoretical maximum number of rows in a table is
+2<sup><small>64</small></sup> (18446744073709551616 or about 1.8e+19).
+This limit is unreachable since the maximum database size of 281 terabytes
+will be reached first.  A 281 terabytes database can hold no more than
+approximately 2e+13 rows, and then only if there are no indices and if
+each row contains very little data.
+</li><li><p><b>Maximum Database Size</b></p>
+
+<p>
+Every database consists of one or more "pages".  Within a single database,
+every page is the same size, but different databases can have page sizes
+that are powers of two between 512 and 65536, inclusive.  The maximum
+size of a database file is 4294967294 pages.  At the maximum page size
+of 65536 bytes, this translates into a maximum database size of 
+approximately 2.8e+14 bytes (281 terabytes, or 256 tebibytes, or
+281474 gigabytes, or 262143 gibibytes).
+<p>
+This particular upper bound is untested since the developers do not 
+have access to hardware capable of reaching this limit.  However, tests
+do verify that SQLite behaves correctly and sanely when a database 
+reaches the maximum file size of the underlying filesystem (which is
+usually much less than the maximum theoretical database size) and when
+a database is unable to grow due to disk space exhaustion.
+</li><li><p><b>Maximum Number Of Tables In A Schema</b></p>
+
+<p>
+Each table and index requires at least one page in the database file.
+Thus the maximum number of pages in a database file is also the upper
+bound on the number of tables and indices in a schema.  An "index" in
+the previous sentences means an index created explicitly using a
+<a href="lang_createindex.html">CREATE INDEX</a> statement or implicit indices created by UNIQUE and
+PRIMARY KEY constraints.
+<p>
+Whenever a database is opened, the entire schema is scanned and parsed
+and a parse tree for the schema is held in memory.  That means that
+database connection startup time and initial memory usage
+is proportional to the size of the schema.
+</li>
+</ol>
+<p align="center"><small><i>This page was last updated on 2026-07-10 16:44:46Z </small></i></p>
+

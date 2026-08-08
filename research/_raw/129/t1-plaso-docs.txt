@@ -1,0 +1,143 @@
+Plaso (log2timeline)
+
+- User documentation
+
+- Developer documentation
+
+- Troubleshooting
+
+- Supported formats
+
+- API documentation
+
+Plaso (log2timeline)
+
+-
+
+- Welcome to the Plaso documentation
+
+-
+View page source
+
+Welcome to the Plaso documentation 
+
+Plaso (Plaso Langar Að Safna Öllu), or super timeline all the things , is a
+Python-based engine used by several tools for automatic creation of timelines.
+Plaso default behavior is to create super timelines but it also supports
+creating more targeted timelines .
+
+These timelines support digital forensic investigators/analysts, to correlate
+the large amount of information found in logs and other files found on an
+average computer.
+
+The source code is available from the project page .
+
+- User documentation
+
+- How to get started
+
+- Creating a timeline
+
+- Using collection Filters
+
+- Event filters
+
+- Analysis plugins
+
+- Tips and Tricks
+
+- Feature requests and bug reports
+
+- Log2Timeline Perl (Legacy)
+
+- Developer documentation
+
+- Developers Guide
+
+- Style guide
+
+- Testing
+
+- How to write a parser or (parser) plugin
+
+- How to write an analysis plugin
+
+- How to write an output module
+
+- Packaging with Docker
+
+- Troubleshooting
+
+- Quick list
+
+- Isolating errors
+
+- Producing debug logs
+
+- Import errors
+
+- Crashes, hangs and tracebacks
+
+- High memory usage
+
+- MacOS specific issues
+
+- Ubuntu Linux specific issues
+
+- Windows specific issues
+
+- Supported formats
+
+- Storage media image file formats
+
+- Volume system formats
+
+- File system formats
+
+- File formats
+
+- Bencode file formats
+
+- Browser cookie formats
+
+- Compound ZIP file formats
+
+- ESE database file formats
+
+- JSON-L log file formats
+
+- OLE Compound File formats
+
+- Property list (plist) formats
+
+- SQLite database file formats
+
+- Text-based log file formats
+
+- Windows Registry formats
+
+- Hashers Supported
+
+- API documentation
+
+- Subpackages
+
+- Submodules
+
+- plaso.dependencies module
+
+- Module contents
+
+Indices and tables 
+
+- Index
+
+- Module Index
+
+Next
+
+© Copyright The Plaso (log2timeline) authors.
+
+Built with Sphinx using a
+theme
+provided by Read the Docs .

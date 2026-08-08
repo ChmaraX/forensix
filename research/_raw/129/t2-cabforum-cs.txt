@@ -1,0 +1,89 @@
+- Home
+
+- About
+
+- Server Cert WG
+
+- Code Signing Cert WG
+
+- NetSec WG
+
+- S/MIME Cert WG
+
+- Definitions WG
+
+- Proceedings
+
+- Resources
+
+Search
+
+-
+
+Home »
+Working Groups »
+Code Signing Cert WG »
+BR Documents
+Baseline Requirements (Code Signing)
+
+Baseline Requirements
+Current Version
+Baseline Requirements for Code-Signing Certificates, v.3.11 ( redline ) adopted by ballot CSCWG-32 .
+Previous Versions
+Baseline Requirements for Code-Signing Certificates, v.3.10 ( redline ) adopted by ballot CSCWG-31 .
+Baseline Requirements for Code-Signing Certificates, v.3.9 ( redline ) adopted by ballot CSCWG-26 .
+Baseline Requirements for Code-Signing Certificates, v.3.8 ( redline ) adopted by ballot CSCWG-25 .
+Baseline Requirements for Code-Signing Certificates, v.3.7 ( redline ) adopted by ballot CSCWG-22 .
+Baseline Requirements for Code-Signing Certificates, v.3.6 ( redline ) adopted by ballot CSCWG-21 .
+Baseline Requirements for Code-Signing Certificates, v.3.5 ( redline ) adopted by ballot CSCWG-20 .
+Baseline Requirements for Code-Signing Certificates, v.3.4 ( redline ) adopted by ballot CSCWG-19 .
+Baseline Requirements for Code-Signing Certificates, v.3.3 ( redline ) adopted by ballot CSCWG-18 .
+Baseline Requirements for Code-Signing Certificates, v.3.2 ( redline ne ) adopted by ballot CSCWG-17 .
+Baseline Requirements for Code-Signing Certificates, v.3.1 ( redline ne ) adopted by ballot CSCWG-15 .
+Baseline Requirements for Code-Signing Certificates, v.3.0 ( redline ) adopted by ballot CSCWG-14 .
+Baseline Requirements for Code-Signing Certificates, v.2.8 ( redline ) adopted by ballot CSCWG-13 .
+Baseline Requirements for Code-Signing Certificates, v.2.7 ( redline ) adopted by ballot CSCWG-12 .
+Baseline Requirements for Code-Signing Certificates, v.2.6 ( redline ) adopted by ballot CSCWG-11 .
+Baseline Requirements for Code-Signing Certificates, v.2.5 ( redline ) adopted by ballot CSCWG-10 .
+Baseline Requirements for Code-Signing Certificates, v.2.4 ( redline ) adopted by ballot CSCWG-9 .
+Baseline Requirements for Code-Signing Certificates, v.2.3 ( redline ) adopted by ballot CSCWGv3-8 .
+Baseline Requirements for Code-Signing Certificates, v.2.2 ( redline ) adopted by ballot CSCWGv2-7 .
+Baseline Requirements for Code-Signing Certificates, v.2.1 ( redline ) adopted by ballot CSCWG-4 .
+Baseline Requirements for Code-Signing Certificates, v2.0 ( redline ), adopted by ballot CSCWG-2 .
+Baseline Requirements for Code-Signing Certificates, v1.2
+
+Code Signing Cert WG
+
+- Charter
+
+- Requirements
+
+- Minutes
+
+- Ballots
+
+- BR Documents
+
+- EV Documents
+
+Search
+
+Latest releases
+Server Certificate Requirements
+SC098: Process RFC 8657 CAA Parameters - Jun 16, 2026
+
+Code Signing Requirements
+v3.8 - Aug 5, 2024
+What’s Changed CSC-25: Import EV Guidelines to CS Baseline Requirements by @dzacharo in https://github.com/cabforum/code-signing/pull/38 Full Changelog: https://github.com/cabforum/code-signing/compare/v3.7...v3.8
+
+S/MIME Requirements
+v1.0.15 - Ballot SMC017v2 - Jul 30, 2026
+This ballot increases the minimum RSA key size for Root and Subordinate CA certificates in the S/MIME BRs from 2048 to 4096 bits for keys created after September 15, 2026, while retaining the 2048-bit minimum for Subscriber certificates. The ballot further requires that by September 15, 2027, CAs SHALL NOT issue Subscriber certificates from any Sub-CA whose RSA key modulus is less than 3072 bits, effectively sunsetting issuance from legacy 2048-bit Sub-CAs. The ballot also includes minor typographic corrections.
+This ballot is proposed by Martijn Katerbarg (Sectigo) and endorsed by Ben Wilson (Mozilla) and Stephen Davidson (DigiCert)
+
+Network and Certificate System Security Requirements
+Version 2.0.5 (Ballot NS-008) - Jul 9, 2025
+
+Edit this page
+
+The Certification Authority Browser Forum (CA/Browser Forum) is a voluntary gathering of Certificate Issuers and suppliers of Internet browser software and other applications that use certificates (Certificate Consumers).

@@ -1,0 +1,217 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" />
+  <meta name="readthedocs-addons-api-version" content="1"><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to the Plaso documentation &mdash; Plaso (log2timeline) 20260720 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=6bb55643"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <script src="_static/js/versions.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="User documentation" href="sources/user/index.html" /> 
+<script async type="text/javascript" src="/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="plaso" /><meta name="readthedocs-version-slug" content="latest" /><meta name="readthedocs-resolver-filename" content="/" /><meta name="readthedocs-http-status" content="200" /></head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            Plaso (log2timeline)
+          </a>
+              <div class="switch-menus">
+                <div class="version-switch"></div>
+                <div class="language-switch"></div>
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="sources/user/index.html">User documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources/developer/index.html">Developer documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources/Troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources/Supported-formats.html">Supported formats</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources/api/plaso.html">API documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">Plaso (log2timeline)</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Welcome to the Plaso documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="welcome-to-the-plaso-documentation">
+<h1>Welcome to the Plaso documentation<a class="headerlink" href="#welcome-to-the-plaso-documentation" title="Link to this heading"></a></h1>
+<p>Plaso (Plaso Langar Að Safna Öllu), or <em>super timeline all the things</em>, is a
+Python-based engine used by several tools for automatic creation of timelines.
+Plaso default behavior is to create super timelines but it also supports
+creating more <a class="reference external" href="http://blog.kiddaland.net/2013/02/targeted-timelines-part-i.html">targeted timelines</a>.</p>
+<p>These timelines support digital forensic investigators/analysts, to correlate
+the large amount of information found in logs and other files found on an
+average computer.</p>
+<p>The source code is available from the <a class="reference external" href="https://github.com/log2timeline/plaso">project page</a>.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources/user/index.html">User documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sources/user/Users-Guide.html">How to get started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/user/Creating-a-timeline.html">Creating a timeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/user/Collection-Filters.html">Using collection Filters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/user/Event-filters.html">Event filters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/user/Analysis-plugins.html">Analysis plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/user/Tips-and-Tricks.html">Tips and Tricks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/user/Feature-requests-and-bug-reports.html">Feature requests and bug reports</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/user/Log2Timeline-Perl-%28Legacy%29.html">Log2Timeline Perl (Legacy)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources/developer/index.html">Developer documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sources/developer/Developers-Guide.html">Developers Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/developer/Style-guide.html">Style guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/developer/Testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/developer/How-to-write-a-parser.html">How to write a parser or (parser) plugin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/developer/How-to-write-an-analysis-plugin.html">How to write an analysis plugin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/developer/How-to-write-an-output-module.html">How to write an output module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/developer/Packaging-with-docker.html">Packaging with Docker</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources/Troubleshooting.html">Troubleshooting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sources/Troubleshooting.html#quick-list">Quick list</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Troubleshooting.html#isolating-errors">Isolating errors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Troubleshooting.html#producing-debug-logs">Producing debug logs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Troubleshooting.html#import-errors">Import errors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Troubleshooting.html#crashes-hangs-and-tracebacks">Crashes, hangs and tracebacks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Troubleshooting.html#high-memory-usage">High memory usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Troubleshooting.html#macos-specific-issues">MacOS specific issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Troubleshooting.html#ubuntu-linux-specific-issues">Ubuntu Linux specific issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Troubleshooting.html#windows-specific-issues">Windows specific issues</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources/Supported-formats.html">Supported formats</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#storage-media-image-file-formats">Storage media image file formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#volume-system-formats">Volume system formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#file-system-formats">File system formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#file-formats">File formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#bencode-file-formats">Bencode file formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#browser-cookie-formats">Browser cookie formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#compound-zip-file-formats">Compound ZIP file formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#ese-database-file-formats">ESE database file formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#json-l-log-file-formats">JSON-L log file formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#ole-compound-file-formats">OLE Compound File formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#property-list-plist-formats">Property list (plist) formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#sqlite-database-file-formats">SQLite database file formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#text-based-log-file-formats">Text-based log file formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#windows-registry-formats">Windows Registry formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/Supported-formats.html#hashers-supported">Hashers Supported</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources/api/plaso.html">API documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sources/api/plaso.html#subpackages">Subpackages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/api/plaso.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/api/plaso.html#module-plaso.dependencies">plaso.dependencies module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sources/api/plaso.html#module-plaso">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="sources/user/index.html" class="btn btn-neutral float-right" title="User documentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright The Plaso (log2timeline) authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

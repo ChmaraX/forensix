@@ -1,0 +1,524 @@
+Skip to main content
+
+An official website of the United States government
+
+Here’s how you know
+
+Here’s how you know
+
+Official websites use .gov
+
+A .gov website belongs to an official government organization in the United States.
+
+Secure .gov websites use HTTPS
+
+A lock (
+
+) or https:// means you’ve safely connected to the .gov website. Share sensitive information only on official, secure websites.
+
+https://www.nist.gov/itl/csd/secure-systems-and-applications/computer-forensics-tool-testing-program-cftt/cftt-technical
+
+Search NIST
+
+Menu
+
+Close
+
+-
+Publications
+
+-
+What We Do
+
+-
+All Topics
+
+-
+Advanced communications
+
+-
+Artificial intelligence
+
+-
+Bioscience
+
+-
+Buildings and construction
+
+-
+Chemistry
+
+-
+Cybersecurity and Privacy
+
+-
+Electronics
+
+-
+Energy
+
+-
+Environment
+
+-
+Fire
+
+-
+Forensic science
+
+-
+Health
+
+-
+Information technology
+
+-
+Infrastructure
+
+-
+Manufacturing
+
+-
+Materials
+
+-
+Mathematics and statistics
+
+-
+Metrology
+
+-
+Nanotechnology
+
+-
+Neutron research
+
+-
+Performance excellence
+
+-
+Physics
+
+-
+Public safety
+
+-
+Quantum information science
+
+-
+Resilience
+
+-
+Standards
+
+-
+Transportation
+
+-
+Labs & Major Programs
+
+-
+Laboratories
+
+-
+Communications Technology Laboratory
+
+-
+Engineering Laboratory
+
+-
+Information Technology Laboratory
+
+-
+Material Measurement Laboratory
+
+-
+Physical Measurement Laboratory
+
+-
+User Facilities
+
+-
+NIST Center for Neutron Research
+
+-
+CNST NanoFab
+
+-
+Research Test Beds
+
+-
+Research Projects
+
+-
+Tools & Instruments
+
+-
+Major Programs
+
+-
+CHIPS for America Initiative
+
+-
+Congressionally Identified Project Program (CIPP)
+
+-
+Manufacturing Extension Partnership (MEP)
+
+-
+Manufacturing USA
+
+-
+Office of Advanced Manufacturing
+
+-
+Technology Partnerships Office
+
+-
+Services & Resources
+
+-
+Measurements and Standards
+
+-
+Calibration Services
+
+-
+Laboratory Accreditation (NVLAP)
+
+-
+Quality System
+
+-
+Standard Reference Materials (SRMs)
+
+-
+Standard Reference Instruments (SRIs)
+
+-
+Standards.gov
+
+-
+Time Services
+
+-
+Office of Weights and Measures
+
+-
+Software
+
+-
+Data
+
+-
+Chemistry WebBook
+
+-
+National Vulnerability Database
+
+-
+Physical Reference Data
+
+-
+Standard Reference Data (SRD)
+
+-
+Storefront
+
+-
+License & Patents
+
+-
+Computer Security Resource Center (CSRC)
+
+-
+NIST Research Library
+
+-
+News & Events
+
+-
+News
+
+-
+Events
+
+-
+Blogs
+
+-
+NIST In Focus
+
+-
+Feature Stories
+
+-
+Awards
+
+-
+Video Gallery
+
+-
+Image Gallery
+
+-
+Media Contacts
+
+-
+About NIST
+
+-
+About Us
+
+-
+Leadership
+
+-
+Organization Structure
+
+-
+Budget & Planning
+
+-
+Contact Us
+
+-
+Visit
+
+-
+Careers
+
+-
+Student programs
+
+-
+Work with NIST
+
+-
+History
+
+-
+NIST Digital Archives
+
+-
+NIST Museum
+
+-
+NIST and the Nobel
+
+-
+Educational Resources
+
+Information Technology Laboratory / Computer Security Division
+
+Software Security Group
+
+Computer Forensics Tool Testing Program (CFTT)
+
+-
+
+Previous
+
+-
+
+Menu
+
+-
+Next
+
+-
+CFTT General Information
+Expand or Collapse
+
+-
+Methodology Overview
+
+-
+Presentations
+
+-
+Contact Information
+
+-
+CFTT Technical Information
+Expand or Collapse
+
+-
+Cloud Data Extraction (CDX)
+
+-
+Deleted File Recovery
+
+-
+Disk Imaging
+
+-
+Forensic File Carving
+
+-
+Forensic Media Preparation
+
+-
+Forensic String Search
+
+-
+Hardware Write Block
+Expand or Collapse
+
+-
+Write-Protected Drives
+
+-
+Mobile Devices
+Expand or Collapse
+
+-
+Archived Mobile Specs and Test Plans
+
+-
+MS Windows Registry Tools
+
+-
+Software Write Block
+
+-
+SQLite
+
+-
+Archived Documents
+
+-
+CFTT Raw Test Files
+
+-
+Federated Testing Project
+
+-
+CFReDS
+
+-
+Computer Forensics Tools & Techniques Catalog
+
+-
+Software & Algorithms Catalog
+
+-
+Digital Evidence Preservation: Considerations for Evidence Handlers
+
+-
+Useful Links
+
+CFTT Technical Information
+
+-
+Cloud Data Extraction (CDX)
+
+- Deleted File Recovery
+
+- Disk Imaging
+
+- Forensic File Carving
+
+- Forensic Media Preparation
+
+- Mobile Devices
+
+- MS Windows Registry Tools
+
+- SQLite
+
+- String Search
+
+- Write Block (Software)
+
+- Write Block (Hardware)
+
+- Download Raw Test Files
+
+- Archived Documents
+
+All DHS Reports for these technical areas can be found here
+
+Forensic science , Digital evidence , Software research and Software testing
+
+Created May 9, 2017, Updated May 1, 2026
+
+-
+
+Contact Information
+
+-
+Cloud Data Extraction (CDX)
+
+Was this page helpful?
+
+HEADQUARTERS
+
+100 Bureau Drive
+
+Gaithersburg, MD 20899
+
+301-975-2000
+
+Webmaster | Contact Us | Our Other Offices
+
+X.com
+
+Facebook
+
+LinkedIn
+
+Instagram
+
+YouTube
+
+Giphy
+
+RSS Feed
+
+Mailing List
+
+How are we doing?
+Feedback
+
+-
+Site Privacy
+
+-
+Accessibility
+
+-
+Privacy Program
+
+-
+Copyright & Disclaimers
+
+-
+Vulnerability Disclosure
+
+-
+No Fear Act Policy
+
+-
+FOIA
+
+-
+Environmental Policy
+
+-
+Scientific Integrity
+
+-
+Information Quality Standards
+
+-
+Commerce.gov
+
+-
+Science.gov
+
+-
+USA.gov
+
+-
+Vote.gov

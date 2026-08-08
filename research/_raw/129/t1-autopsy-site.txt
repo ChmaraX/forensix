@@ -1,0 +1,91 @@
+Sleuth Kit Labs
+
+-
+Home
+
+-
+Autopsy
+
+- Features
+
+- Download
+
+- Training
+
+- Documents
+
+- History
+
+- Licenses
+
+-
+The Sleuth Kit
+
+- File Systems
+
+- Download
+
+- Documents
+
+- History
+
+- Licenses
+
+-
+Other Projects
+
+- Hadoop
+
+- mac-robber
+
+-
+Support
+
+- Blog (www.autopsy.com)
+
+- Forum (forum.sleuthkit.org)
+
+-
+About
+
+Autopsy® is a digital forensics platform and graphical interface to The
+Sleuth Kit® and other digital forensics tools. It is used by law enforcement, military, and corporate examiners to investigate what happened on a computer. You can even use it to recover photos from your camera's memory card.
+
+Training and Commercial Support are available from Sleuth Kit Labs.
+
+Easy to Use
+
+Autopsy was designed to be intuitive out of the box. Installation is easy and wizards guide you through every step. All results are found in a single tree. See the intuitive page for more details.
+
+Extensible
+
+Autopsy was designed to be an end-to-end platform with modules that come with it out of the box and others that are available from third-parties . Some of the modules provide:
+
+- Timeline Analysis - Advanced graphical event viewing interface (video tutorial included).
+
+- Hash Filtering - Flag known bad files and ignore known good.
+
+- Keyword Search - Indexed keyword search to find files that mention relevant terms.
+
+- Web Artifacts - Extract history, bookmarks, and cookies from Firefox, Chrome, and IE.
+
+- Data Carving - Recover deleted files from unallocated space using PhotoRec
+
+- Multimedia - Extract EXIF from pictures and watch videos.
+
+- Malware Scanning
+
+See the Features page for more details. Developers should refer to the module development page for details on building modules.
+
+Fast
+
+Everyone wants results yesterday. Autopsy runs background tasks in parallel using multiple cores and provides results to you as soon as they are found. It may take hours to fully search the drive, but you will know in minutes if your keywords were found in the user's home folder. See the fast results page for more details.
+
+Cost Effective
+
+Autopsy is free. As budgets are decreasing, cost effective digital forensics solutions are essential. Autopsy offers the same core features as other digital forensics tools and offers other essential features, such as web artifact analysis and registry analysis, that other commercial tools do not provide.
+
+© 2003-2026 Brian Carrier ·
+
+·
+Sleuth Kit Labs

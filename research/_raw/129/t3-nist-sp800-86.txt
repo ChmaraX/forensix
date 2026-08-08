@@ -1,0 +1,262 @@
+You are viewing this page in an unauthorized frame window.
+This is a potential security issue, you are being redirected to https://csrc.nist.gov .
+
+An official website of the United States government
+
+Here’s how you know
+
+Here’s how you know
+
+Official websites use .gov
+A
+.gov website belongs to an official government
+organization in the United States.
+
+Secure .gov websites use HTTPS
+A
+lock (
+
+) or https:// means you’ve safely connected to
+the .gov website. Share sensitive information only on official,
+secure websites.
+
+Search
+
+Search
+
+CSRC MENU
+
+Search
+
+Search
+
+- Projects
+
+-
+
+Publications
+
+Expand or Collapse
+
+Drafts for Public Comment
+
+All Public Drafts
+
+Final Pubs
+
+FIPS (standards)
+
+Special Publications (SP s )
+
+IR (interagency/internal reports)
+
+CSWP (cybersecurity white papers)
+
+ITL Bulletins
+
+Project Descriptions
+
+Journal Articles
+
+Conference Papers
+
+Books
+
+-
+
+Topics
+
+Expand or Collapse
+
+Security & Privacy
+
+Applications
+
+Technologies
+
+Sectors
+
+Laws & Regulations
+
+Activities & Products
+
+- News & Updates
+
+- Events
+
+- Glossary
+
+-
+
+About CSRC
+
+Expand or Collapse
+
+Computer Security Division
+
+- Cryptographic Technology
+
+- Software Security Group
+
+- Hardware Security Group
+
+- Security Engineering and Risk Management
+
+Applied Cybersecurity Division
+
+- Cybersecurity and Privacy Applications
+
+- National Cybersecurity Center of Excellence (NCCoE)
+
+- National Initiative for Cybersecurity Education (NICE)
+
+Contact Us
+
+Information Technology Laboratory
+
+Computer Security Resource Center
+
+Publications
+
+NIST SP 800-86
+
+Guide to Integrating Forensic Techniques into Incident Response
+
+Share to Facebook
+Share to X
+Share to LinkedIn
+Share ia Email
+
+Documentation
+
+Topics
+
+Date Published: August 2006
+
+Author(s)
+
+Karen Kent (NIST) , Suzanne Chevalier (BAH) , Tim Grance (NIST) , Hung Dang (BAH)
+
+Abstract
+
+This publication is intended to help organizations in investigating computer security incidents and troubleshooting some information technology (IT) operational problems by providing practical guidance on performing computer and network forensics. The guide presents forensics from an IT view, not a law enforcement view. Specifically, the publication describes the processes for performing effective forensics activities and provides advice regarding different data sources, including files, operating systems (OS), network traffic, and applications.
+
+The publication is not to be used as an all-inclusive step-by-step guide for executing a digital forensic investigation or construed as legal advice. Its purpose is to inform readers of various technologies and potential ways of using them in performing incident response or troubleshooting activities. Readers are advised to apply the recommended practices only after consulting with management and legal counsel for compliance concerning laws and regulations (i.e., local, state, Federal, and international) that pertain to their situation.
+
+This publication is intended to help organizations in investigating computer security incidents and troubleshooting some information technology (IT) operational problems by providing practical guidance on performing computer and network forensics. The guide presents forensics from an IT view, not a...
+See full abstract
+
+This publication is intended to help organizations in investigating computer security incidents and troubleshooting some information technology (IT) operational problems by providing practical guidance on performing computer and network forensics. The guide presents forensics from an IT view, not a law enforcement view. Specifically, the publication describes the processes for performing effective forensics activities and provides advice regarding different data sources, including files, operating systems (OS), network traffic, and applications.
+
+The publication is not to be used as an all-inclusive step-by-step guide for executing a digital forensic investigation or construed as legal advice. Its purpose is to inform readers of various technologies and potential ways of using them in performing incident response or troubleshooting activities. Readers are advised to apply the recommended practices only after consulting with management and legal counsel for compliance concerning laws and regulations (i.e., local, state, Federal, and international) that pertain to their situation.
+
+Hide full abstract
+
+Keywords
+
+FISMA ; Forensics ; Incident Response
+
+Control Families
+
+Audit and Accountability ; Configuration Management ; Contingency Planning ; Identification and Authentication ; Media Protection ; Physical and Environmental Protection ; System and Information Integrity
+
+Documentation
+
+Publication:
+
+https://doi.org/10.6028/NIST.SP.800-86
+
+Download URL
+
+Supplemental Material:
+
+None available
+
+Document History:
+
+09/01/06: SP 800-86 (Final)
+
+Topics
+
+Security and Privacy
+
+incident response
+
+Applications
+
+forensics
+
+Laws and Regulations
+
+Federal Information Security Modernization Act
+
+HEADQUARTERS
+
+100 Bureau Drive
+
+Gaithersburg, MD 20899
+
+-
+
+X (link is external)
+
+-
+
+facebook (link is external)
+
+-
+
+linkedin (link is external)
+
+-
+
+instagram
+(link is external)
+
+-
+
+youtube (link is external)
+
+-
+
+rss
+
+-
+
+govdelivery (link is external)
+
+Want updates about CSRC and our publications?
+Subscribe
+
+Contact Us |
+Our Other Offices
+
+Send inquiries to [email protected]
+
+- Site Privacy
+
+- Accessibility
+
+- Privacy Program
+
+- Copyrights
+
+- Vulnerability Disclosure
+
+- No Fear Act Policy
+
+- FOIA
+
+- Environmental Policy
+
+- Scientific Integrity
+
+- Information Quality Standards
+
+- Commerce.gov
+
+- Science.gov
+
+- USA.gov
+
+- Vote.gov

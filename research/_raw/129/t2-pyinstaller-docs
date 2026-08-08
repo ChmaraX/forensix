@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PyInstaller Manual &mdash; PyInstaller 6.21.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/tabs.css?v=4c969af8" />
+      <link rel="stylesheet" type="text/css" href="_static/css/pyinstaller.css?v=8216350b" />
+
+  
+    <link rel="shortcut icon" href="_static/pyinstaller-draft1a.ico"/>
+    <link rel="canonical" href="https://pyinstaller.org/en/stable/index.html" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=31945cea"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+        <script src="_static/copybutton.js?v=f281be69"></script>
+        <script src="_static/tabs.js?v=3ee01567"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Requirements" href="requirements.html" /> 
+<script async type="text/javascript" src="/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pyinstaller" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/" /><meta name="readthedocs-http-status" content="200" /></head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            PyInstaller
+              <img src="_static/pyinstaller-draft1a-100_trans.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                6.21.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="requirements.html">Requirements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">How To Contribute</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">How to Install PyInstaller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="operating-mode.html">What PyInstaller Does and How It Does It</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Using PyInstaller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="common-issues-and-pitfalls.html">Common Issues and Pitfalls</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime-information.html">Run-time Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spec-files.html">Using Spec Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="feature-notes.html">Notes about specific Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="when-things-go-wrong.html">When Things Go Wrong</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced-topics.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hooks.html">Understanding PyInstaller Hooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hooks-config.html">Hook Configuration Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bootloader-building.html">Building the Bootloader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="CHANGES.html">Changelog for PyInstaller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="CREDITS.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="man-pages.html">Man Pages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development/index.html">Development Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">PyInstaller</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">PyInstaller Manual</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="pyinstaller-manual">
+<h1>PyInstaller Manual<a class="headerlink" href="#pyinstaller-manual" title="Link to this heading"></a></h1>
+<dl class="field-list simple">
+<dt class="field-odd">Version<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PyInstaller 6.21.0</p>
+</dd>
+<dt class="field-even">Homepage<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://pyinstaller.org/">https://pyinstaller.org/</a></p>
+</dd>
+<dt class="field-odd">Contact<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="mailto:pyinstaller&#37;&#52;&#48;googlegroups&#46;com">pyinstaller<span>&#64;</span>googlegroups<span>&#46;</span>com</a></p>
+</dd>
+<dt class="field-even">Authors<span class="colon">:</span></dt>
+<dd class="field-even"><p>David Cortesi, based on structure by Giovanni Bajo &amp; William Caban, based on Gordon McMillan’s manual</p>
+</dd>
+<dt class="field-odd">Copyright<span class="colon">:</span></dt>
+<dd class="field-odd"><p>This document has been placed in the public domain.</p>
+</dd>
+</dl>
+<p>PyInstaller bundles a Python application and all its dependencies into a single package.
+The user can run the packaged app without installing a Python interpreter or any modules.
+PyInstaller supports Python 3.8 and newer, and correctly bundles many major Python packages
+such as numpy, matplotlib, PyQt, wxPython, and others.</p>
+<p>PyInstaller is tested against Windows, macOS, and Linux.
+However, it is not a cross-compiler; to make a Windows app you run PyInstaller on Windows,
+and to make a Linux app you run it on Linux, etc.
+x
+PyInstaller has been used successfully with AIX, Solaris, FreeBSD and OpenBSD but testing
+against them is not part of our continuous integration tests, and the development team offers
+no guarantee (all code for these platforms comes from external contributions)
+that PyInstaller will work on these platforms or that they will continue to be supported.</p>
+<section id="quickstart">
+<h2>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading"></a></h2>
+<p>Make sure you have the <a class="reference internal" href="requirements.html#pyinstaller-requirements"><span class="std std-ref">Requirements</span></a> installed, and then install PyInstaller from PyPI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-U<span class="w"> </span>pyinstaller
+</pre></div>
+</div>
+<p>Open a command prompt/shell window, and navigate to the directory where your <cite>.py</cite> file is
+located, then build your app with the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pyinstaller<span class="w"> </span>your_program.py
+</pre></div>
+</div>
+<p>Your bundled application should now be available in the <cite>dist</cite> folder.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>See <a class="reference internal" href="installation.html#pyinstaller-not-in-path"><span class="std std-ref">Troubleshooting missing PyInstaller command</span></a> if you get some kind of <em>pyinstaller
+command not found</em> error.</p>
+</div>
+</section>
+<section id="contents">
+<h2>Contents:<a class="headerlink" href="#contents" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="requirements.html">Requirements</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="requirements.html#windows">Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="requirements.html#macos">macOS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="requirements.html#gnu-linux">GNU/Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="requirements.html#aix-solaris-freebsd-and-openbsd">AIX, Solaris, FreeBSD and OpenBSD</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">How To Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="contributing.html#some-ideas-how-you-can-help">Some ideas how you can help</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">How to Install PyInstaller</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#installing-from-the-source-archive">Installing from the source archive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#troubleshooting-missing-pyinstaller-command">Troubleshooting missing PyInstaller command</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#installed-commands">Installed commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="operating-mode.html">What PyInstaller Does and How It Does It</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="operating-mode.html#analysis-finding-the-files-your-program-needs">Analysis: Finding the Files Your Program Needs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operating-mode.html#bundling-to-one-folder">Bundling to One Folder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operating-mode.html#how-the-one-folder-program-works">How the One-Folder Program Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operating-mode.html#bundling-to-one-file">Bundling to One File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operating-mode.html#how-the-one-file-program-works">How the One-File Program Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operating-mode.html#using-a-console-window">Using a Console Window</a></li>
+<li class="toctree-l2"><a class="reference internal" href="operating-mode.html#hiding-the-source-code">Hiding the Source Code</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Using PyInstaller</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#shortening-the-command">Shortening the Command</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#running-pyinstaller-from-python-code">Running PyInstaller from Python code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#using-upx">Using UPX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#splash-screen-experimental">Splash Screen <em>(Experimental)</em></a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#defining-the-extraction-location">Defining the Extraction Location</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#supporting-multiple-platforms">Supporting Multiple Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#capturing-windows-version-data">Capturing Windows Version Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#building-macos-app-bundles">Building macOS App Bundles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#platform-specific-notes">Platform-specific Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="common-issues-and-pitfalls.html">Common Issues and Pitfalls</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="common-issues-and-pitfalls.html#requirements-imposed-by-symbolic-links-in-frozen-application">Requirements Imposed by Symbolic Links in Frozen Application</a></li>
+<li class="toctree-l2"><a class="reference internal" href="common-issues-and-pitfalls.html#launching-external-programs-from-the-frozen-application">Launching External Programs from the Frozen Application</a></li>
+<li class="toctree-l2"><a class="reference internal" href="common-issues-and-pitfalls.html#multi-processing">Multi-processing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="common-issues-and-pitfalls.html#using-sys-executable-to-spawn-subprocesses-that-outlive-the-application-process-implementing-application-restart">Using <code class="docutils literal notranslate"><span class="pre">sys.executable</span></code> to spawn subprocesses that outlive the application process / Implementing application restart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="common-issues-and-pitfalls.html#sys-stdin-sys-stdout-and-sys-stderr-in-noconsole-windowed-applications-windows-only"><code class="docutils literal notranslate"><span class="pre">sys.stdin</span></code>, <code class="docutils literal notranslate"><span class="pre">sys.stdout</span></code>, and <code class="docutils literal notranslate"><span class="pre">sys.stderr</span></code> in <code class="docutils literal notranslate"><span class="pre">noconsole</span></code>/<code class="docutils literal notranslate"><span class="pre">windowed</span></code> Applications (Windows only)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="common-issues-and-pitfalls.html#icon-seemingly-not-being-updated-on-rebuilt-windows-executables">Icon seemingly not being updated on rebuilt Windows executables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="common-issues-and-pitfalls.html#windows-executables-and-control-flow-guard-cfg">Windows executables and Control Flow Guard (CFG)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="runtime-information.html">Run-time Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="runtime-information.html#using-file">Using <code class="docutils literal notranslate"><span class="pre">__file__</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="runtime-information.html#using-sys-executable-and-sys-argv-0">Using <code class="docutils literal notranslate"><span class="pre">sys.executable</span></code> and <code class="docutils literal notranslate"><span class="pre">sys.argv[0]</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="runtime-information.html#ld-library-path-libpath-considerations">LD_LIBRARY_PATH / LIBPATH considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="spec-files.html">Using Spec Files</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="spec-files.html#spec-file-operation">Spec File Operation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spec-files.html#adding-files-to-the-bundle">Adding Files to the Bundle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spec-files.html#specifying-python-interpreter-options">Specifying Python Interpreter Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spec-files.html#spec-file-options-for-a-macos-bundle">Spec File Options for a macOS Bundle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spec-files.html#posix-specific-options">POSIX Specific Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spec-files.html#the-splash-target">The <code class="xref py py-mod docutils literal notranslate"><span class="pre">Splash</span></code> Target</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spec-files.html#multipackage-bundles">Multipackage Bundles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spec-files.html#globals-available-to-the-spec-file">Globals Available to the Spec File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spec-files.html#adding-parameters-to-spec-files">Adding parameters to spec files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spec-files.html#using-shared-code-and-configuration-in-spec-files">Using shared code and configuration in spec files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="feature-notes.html">Notes about specific Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="feature-notes.html#ctypes-dependencies">Ctypes Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature-notes.html#swig-support">SWIG support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature-notes.html#cython-support">Cython support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature-notes.html#bytecode-optimization-level">Bytecode Optimization Level</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature-notes.html#macos-multi-arch-support">macOS multi-arch support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature-notes.html#macos-binary-code-signing">macOS binary code signing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature-notes.html#macos-event-forwarding-and-argv-emulation-in-app-bundles">macOS event forwarding and argv emulation in app bundles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature-notes.html#signal-handling-in-console-windows-applications-and-onefile-application-cleanup">Signal handling in console Windows applications and onefile application cleanup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature-notes.html#automatic-hiding-and-minimization-of-console-window-under-windows">Automatic hiding and minimization of console window under Windows</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="when-things-go-wrong.html">When Things Go Wrong</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="when-things-go-wrong.html#recipes-and-examples-for-specific-problems">Recipes and Examples for Specific Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="when-things-go-wrong.html#finding-out-what-went-wrong">Finding out What Went Wrong</a></li>
+<li class="toctree-l2"><a class="reference internal" href="when-things-go-wrong.html#helping-pyinstaller-find-modules">Helping PyInstaller Find Modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="when-things-go-wrong.html#getting-the-latest-version">Getting the Latest Version</a></li>
+<li class="toctree-l2"><a class="reference internal" href="when-things-go-wrong.html#asking-for-help">Asking for Help</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="advanced-topics.html">Advanced Topics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="advanced-topics.html#the-bootstrap-process-in-detail">The Bootstrap Process in Detail</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced-topics.html#environment-variables-used-by-frozen-applications">Environment Variables Used by Frozen Applications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced-topics.html#pyi-splash-module-detailed"><code class="xref py py-mod docutils literal notranslate"><span class="pre">pyi_splash</span></code> Module (Detailed)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced-topics.html#the-table-of-contents-toc-lists-and-the-tree-class">The Table of Contents (TOC) lists and the Tree Class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced-topics.html#inspecting-archives">Inspecting Archives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced-topics.html#inspecting-executables">Inspecting Executables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced-topics.html#creating-a-reproducible-build">Creating a Reproducible Build</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="hooks.html">Understanding PyInstaller Hooks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="hooks.html#how-a-hook-is-loaded">How a Hook Is Loaded</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hooks.html#providing-pyinstaller-hooks-with-your-package">Providing PyInstaller Hooks with your Package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hooks.html#hook-global-variables">Hook Global Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hooks.html#module-PyInstaller.compat">Useful Items in <code class="docutils literal notranslate"><span class="pre">PyInstaller.compat</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="hooks.html#module-PyInstaller.utils.hooks">Useful Items in <code class="docutils literal notranslate"><span class="pre">PyInstaller.utils.hooks</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="hooks.html#module-PyInstaller.isolated">Subprocess isolation with <code class="xref py py-mod docutils literal notranslate"><span class="pre">PyInstaller.isolated</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="hooks.html#the-hook-hook-api-function">The <code class="docutils literal notranslate"><span class="pre">hook(hook_api)</span></code> Function</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hooks.html#the-pre-find-module-path-pfmp-api-method">The <code class="docutils literal notranslate"><span class="pre">pre_find_module_path(</span> <span class="pre">pfmp_api</span> <span class="pre">)</span></code> Method</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hooks.html#the-pre-safe-import-module-psim-api-method">The <code class="docutils literal notranslate"><span class="pre">pre_safe_import_module(</span> <span class="pre">psim_api</span> <span class="pre">)</span></code> Method</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="hooks-config.html">Hook Configuration Options</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="hooks-config.html#supported-hooks-and-options">Supported hooks and options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hooks-config.html#adding-an-option-to-the-hook">Adding an option to the hook</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="bootloader-building.html">Building the Bootloader</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="bootloader-building.html#building-and-installing-bootloader-from-source-distribution-or-repository-checkout">Building and installing bootloader from source distribution or repository checkout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bootloader-building.html#forcing-bootloader-rebuild-as-part-of-package-installation">Forcing bootloader rebuild as part of package installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bootloader-building.html#building-for-gnu-linux">Building for GNU/Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bootloader-building.html#building-for-macos">Building for macOS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bootloader-building.html#building-for-windows">Building for Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bootloader-building.html#building-for-aix">Building for AIX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bootloader-building.html#building-for-freebsd">Building for FreeBSD</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bootloader-building.html#vagrantfile-virtual-machines">Vagrantfile Virtual Machines</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="CHANGES.html">Changelog for PyInstaller</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id1">6.16.0 (2026-06-13)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id2">6.20.0 (2026-04-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id4">6.19.0 (2026-02-14)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id7">6.18.0 (2026-01-13)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id12">6.17.0 (2025-11-24)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id15">6.16.0 (2025-09-13)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id18">6.15.0 (2025-08-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id21">6.14.2 (2025-07-04)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id24">6.14.1 (2025-06-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id26">6.14.0 (2025-06-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id32">6.13.0 (2025-04-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id37">6.12.0 (2025-02-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id44">6.11.1 (2024-11-10)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id47">6.11.0 (2024-10-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id54">6.10.0 (2024-08-10)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id65">6.9.0 (2024-07-06)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id69">6.8.0 (2024-06-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id74">6.7.0 (2024-05-21)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id78">6.6.0 (2024-04-13)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id84">6.5.0 (2024-03-09)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id91">6.4.0 (2024-02-10)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id97">6.3.0 (2023-12-10)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id101">6.2.0 (2023-11-11)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id105">6.1.0 (2023-10-13)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id110">6.0.0 (2023-09-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id117">5.13.2 (2023-08-29)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id121">5.13.1 (2023-08-26)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id125">5.13.0 (2023-06-24)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id128">5.12.0 (2023-06-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id132">5.11.0 (2023-05-13)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id139">5.10.1 (2023-04-14)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id141">5.10.0 (2023-04-11)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id146">5.9.0 (2023-03-13)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id149">5.8.0 (2023-02-11)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id155">5.7.0 (2022-12-04)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id163">5.6.2 (2022-10-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id165">5.6.1 (2022-10-25)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id167">5.6 (2022-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id172">5.5 (2022-10-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id176">5.4.1 (2022-09-11)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id178">5.4 (2022-09-10)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id183">5.3 (2022-07-30)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id188">5.2 (2022-07-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id192">5.1 (2022-05-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id197">5.0.1 (2022-04-25)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id200">5.0 (2022-04-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id209">4.10 (2022-03-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id214">4.9 (2022-02-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id217">4.8 (2022-01-06)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id223">4.7 (2021-11-10)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id227">4.6 (2021-10-29)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id233">4.5.1 (2021-08-06)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id235">4.5 (2021-08-01)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id243">4.4 (2021-07-13)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id251">4.3 (2021-04-16)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id258">4.2 (2021-01-13)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id264">4.1 (2020-11-18)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#id272">4.0 (2020-08-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHANGES.html#older-versions">Older Versions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="CREDITS.html">Credits</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-21-0">Contributions to PyInstaller 6.21.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-20-0">Contributions to PyInstaller 6.20.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-19-0">Contributions to PyInstaller 6.19.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-18-0">Contributions to PyInstaller 6.18.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-17-0">Contributions to PyInstaller 6.17.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-16-0">Contributions to PyInstaller 6.16.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-15-0">Contributions to PyInstaller 6.15.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-14-2">Contributions to PyInstaller 6.14.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-14-1">Contributions to PyInstaller 6.14.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-14-0">Contributions to PyInstaller 6.14.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-13-0">Contributions to PyInstaller 6.13.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-12-0">Contributions to PyInstaller 6.12.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-11-1">Contributions to PyInstaller 6.11.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-11-0">Contributions to PyInstaller 6.11.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-10-0">Contributions to PyInstaller 6.10.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-9-0">Contributions to PyInstaller 6.9.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-8-0">Contributions to PyInstaller 6.8.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-7-0">Contributions to PyInstaller 6.7.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-6-0">Contributions to PyInstaller 6.6.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-5-0">Contributions to PyInstaller 6.5.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-4-0">Contributions to PyInstaller 6.4.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-3-0">Contributions to PyInstaller 6.3.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-2-0">Contributions to PyInstaller 6.2.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-1-0">Contributions to PyInstaller 6.1.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-6-0-0">Contributions to PyInstaller 6.0.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-13-2">Contributions to PyInstaller 5.13.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-13-1">Contributions to PyInstaller 5.13.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-13-0">Contributions to PyInstaller 5.13.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-12-0">Contributions to PyInstaller 5.12.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-11-0">Contributions to PyInstaller 5.11.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-10-1">Contributions to PyInstaller 5.10.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-10-0">Contributions to PyInstaller 5.10.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-9-0">Contributions to PyInstaller 5.9.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-8-0">Contributions to PyInstaller 5.8.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-7-0">Contributions to PyInstaller 5.7.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-6-2">Contributions to PyInstaller 5.6.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-6-1">Contributions to PyInstaller 5.6.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-6">Contributions to PyInstaller 5.6</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-5">Contributions to PyInstaller 5.5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-4-1">Contributions to PyInstaller 5.4.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-4">Contributions to PyInstaller 5.4</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-3">Contributions to PyInstaller 5.3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-2">Contributions to PyInstaller 5.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-1">Contributions to PyInstaller 5.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-0-1">Contributions to PyInstaller 5.0.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-5-0">Contributions to PyInstaller 5.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-10">Contributions to PyInstaller 4.10</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-9">Contributions to PyInstaller 4.9</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-8">Contributions to PyInstaller 4.8</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-7">Contributions to PyInstaller 4.7</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-6">Contributions to PyInstaller 4.6</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-5-1">Contributions to PyInstaller 4.5.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-5">Contributions to PyInstaller 4.5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-4">Contributions to PyInstaller 4.4</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-3">Contributions to PyInstaller 4.3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-2">Contributions to PyInstaller 4.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-1">Contributions to PyInstaller 4.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-4-0">Contributions to PyInstaller 4.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-3-6">Contributions to PyInstaller 3.6</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-3-5">Contributions to PyInstaller 3.5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-3-4">Contributions to PyInstaller 3.4</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-3-3-1">Contributions to PyInstaller 3.3.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-3-3">Contributions to PyInstaller 3.3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-3-2-1">Contributions to PyInstaller 3.2.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-3-2">Contributions to PyInstaller 3.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-3-1-1">Contributions to PyInstaller 3.1.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-3-1">Contributions to PyInstaller 3.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-3-0">Contributions to PyInstaller 3.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CREDITS.html#contributions-to-pyinstaller-2-1-and-older">Contributions to PyInstaller 2.1 and older</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="man-pages.html">Man Pages</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="man/pyinstaller.html">pyinstaller</a></li>
+<li class="toctree-l2"><a class="reference internal" href="man/pyi-makespec.html">pyi-makespec</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="development/index.html">Development Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="development/quickstart.html">Quickstart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/git.html">New to GitHub or Git?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/coding-conventions.html">Coding conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/testing.html">Running the Test Suite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/commit-messages.html">Guidelines for Commits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/documentation.html">Improving and Building the Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/pull-requests.html">Creating Pull-Requests</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/changelog-entries.html">Changelog Entries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/venv.html">pyenv and PyInstaller</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/branch-model.html">PyInstaller’s Branch Model</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<section id="indices-and-tables">
+<h3>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="requirements.html" class="btn btn-neutral float-right" title="Requirements" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright This document has been placed in the public domain..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+
+  
+<script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

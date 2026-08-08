@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<!-- Global site tag (gtag.js) - Google Analytics -->
+	<script async src="https://www.googletagmanager.com/gtag/js?id=UA-1734385-15"></script>
+	<script>
+		window.dataLayer = window.dataLayer || [];
+		function gtag() { dataLayer.push(arguments); }
+		gtag('js', new Date());
+
+		gtag('config', 'UA-1734385-15');
+	</script>
+	<!-- Google tag (gtag.js) -->
+	<script async src="https://www.googletagmanager.com/gtag/js?id=G-PDVVHXRDE6"></script>
+	<script>
+		window.dataLayer = window.dataLayer || [];
+		function gtag() { dataLayer.push(arguments); }
+		gtag('js', new Date());
+
+		gtag('config', 'G-PDVVHXRDE6');
+	</script>
+
+	<meta charset="utf-8" />
+	<meta name="version" content="v10.20.0" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="shortcut icon" href="https://www.law.cornell.edu/sites/www.law.cornell.edu/files/favicon_0.ico"
+		type="image/vnd.microsoft.icon" />
+	<link rel="canonical" href="https://www.law.cornell.edu/rules/fre/rule_702">
+
+	<meta property="og:site_name" content="LII / Legal Information Institute" />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="https://www.law.cornell.edu/rules/fre/rule_702" />
+	<meta property="og:title" content="Rule 702. Testimony by Expert Witnesses" />
+	<meta property="og:image" content="https://www.law.cornell.edu/images/liibracketlogo.gif" />
+	
+	<meta name="twitter:card" content="Federal Rules of Evidence - 
+Rule 702. Testimony by Expert Witnesses
+" />
+	<meta name="twitter:site" content="@LIICornell" />
+	<meta name="twitter:url" content="https://www.law.cornell.edu/rules/fre/rule_702" />
+	<meta name="twitter:title" content="Rule 702. Testimony by Expert Witnesses" />
+	<meta name="twitter:image" content="https://www.law.cornell.edu/images/liibracketlogo.gif" />
+	<meta name="dcterms.title" content="Rule 702. Testimony by Expert Witnesses" />
+
+
+	<title>Rule 702. Testimony by Expert Witnesses | Federal Rules of Evidence | US Law | LII / Legal Information Institute</title>
+	
+
+	<!-- schema.org metadata -->
+	<script type="application/ld+json">
+		{"@context": "http://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "item": {"@id": "https://www.law.cornell.edu", "name": "LII"}}, {"@type": "ListItem", "position": 2, "item": {"@id": "https://www.law.cornell.edu/rules/fre", "name": "Federal Rules of Evidence"}}, {"@type": "ListItem", "position": 5, "item": {"@id": "https://www.law.cornell.edu/rules/fre/rule_702", "name": "\nRule 702. Testimony by Expert Witnesses\n"}}]}, {"@type": "WebSite", "url": "https://www.law.cornell.edu/rules/fre/rule_702", "name": "\nRule 702. Testimony by Expert Witnesses\n", "author": {"@type": "Organization", "name": "Administrative Office of the U.S. Courts", "url": "https://www.uscourts.gov/topics/administrative-office-us-courts"}, "description": "Federal Rules of Evidence - \nRule 702. Testimony by Expert Witnesses\n", "publisher": {"@type": "Organization", "name": "LII / Legal Information Institute", "url": "https://www.law.cornell.edu"}}]}
+	</script>
+	<!-- /schema.org -->
+
+	<!-- API url -->
+	<script>
+		SEARCH_URL = 'https://api.law.cornell.edu/lii/search';
+	</script>
+
+	<script src="/js/jquery-3.6.1.min.js"></script>
+	<script src="/js/js.cookie.min.js"></script>
+	<script src="/js/bootstrap.min.js"></script>
+	<link rel="stylesheet" href="/fonts/open-sans.css">
+
+	
+	<link rel="stylesheet" type="text/css" href="/staticsite_styles/lii_stylenator_v48.min.css" />
+	 
+
+	
+
+	<!-- include adcode -->
+	<script type='text/javascript'>
+		!function (a) { var b = /iPhone/i, c = /iPod/i, d = /iPad/i, e = /(?=.*\bAndroid\b)(?=.*\bMobile\b)/i, f = /Android/i, g = /(?=.*\bAndroid\b)(?=.*\bSD4930UR\b)/i, h = /(?=.*\bAndroid\b)(?=.*\b(?:KFOT|KFTT|KFJWI|KFJWA|KFSOWI|KFTHWI|KFTHWA|KFAPWI|KFAPWA|KFARWI|KFASWI|KFSAWI|KFSAWA)\b)/i, i = /IEMobile/i, j = /(?=.*\bWindows\b)(?=.*\bARM\b)/i, k = /BlackBerry/i, l = /BB10/i, m = /Opera Mini/i, n = /(CriOS|Chrome)(?=.*\bMobile\b)/i, o = /(?=.*\bFirefox\b)(?=.*\bMobile\b)/i, p = new RegExp('(?:Nexus 7|BNTV250|Kindle Fire|Silk|GT-P1000)', 'i'), q = function (a, b) { return a.test(b) }, r = function (a) { var r = a || navigator.userAgent, s = r.split('[FBAN'); return 'undefined' != typeof s[1] && (r = s[0]), s = r.split('Twitter'), 'undefined' != typeof s[1] && (r = s[0]), this.apple = { phone: q(b, r), ipod: q(c, r), tablet: !q(b, r) && q(d, r), device: q(b, r) || q(c, r) || q(d, r) }, this.amazon = { phone: q(g, r), tablet: !q(g, r) && q(h, r), device: q(g, r) || q(h, r) }, this.android = { phone: q(g, r) || q(e, r), tablet: !q(g, r) && !q(e, r) && (q(h, r) || q(f, r)), device: q(g, r) || q(h, r) || q(e, r) || q(f, r) }, this.windows = { phone: q(i, r), tablet: q(j, r), device: q(i, r) || q(j, r) }, this.other = { blackberry: q(k, r), blackberry10: q(l, r), opera: q(m, r), firefox: q(o, r), chrome: q(n, r), device: q(k, r) || q(l, r) || q(m, r) || q(o, r) || q(n, r) }, this.seven_inch = q(p, r), this.any = this.apple.device || this.android.device || this.windows.device || this.other.device || this.seven_inch, this.phone = this.apple.phone || this.android.phone || this.windows.phone, this.tablet = this.apple.tablet || this.android.tablet || this.windows.tablet, 'undefined' == typeof window ? this : void 0 }, s = function () { var a = new r; return a.Class = r, a }; 'undefined' != typeof module && module.exports && 'undefined' == typeof window ? module.exports = r : 'undefined' != typeof module && module.exports && 'undefined' != typeof window ? module.exports = s() : 'function' == typeof define && define.amd ? define('isMobile', [], a.isMobile = s()) : a.isMobile = s() }(this);
+	</script>
+
+	<!-- mobile: vignettes and page-level -->
+	<script async src='//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js'>
+	</script>
+	<script>
+		(adsbygoogle = window.adsbygoogle || []).push({
+			google_ad_client: 'ca-pub-6351434937294517',
+			enable_page_level_ads: true,
+
+		});
+	</script>
+
+	<!-- adsense -->
+	<script type='text/javascript'>
+		var googletag = googletag || {};
+		googletag.cmd = googletag.cmd || [];
+		(function () {
+			var gads = document.createElement('script');
+			gads.async = true;
+			gads.type = 'text/javascript';
+			var useSSL = 'https:' == document.location.protocol;
+			gads.src = (useSSL ? 'https:' : 'http:') +
+				'//www.googletagservices.com/tag/js/gpt.js';
+			var node = document.getElementsByTagName('script')[0];
+			node.parentNode.insertBefore(gads, node);
+		})();
+	</script>
+
+	<script type='text/javascript'>
+		function makeDefs() {
+			var width = window.innerWidth || document.documentElement.clientWidth;
+			if (width >= 1200) {
+				var topsize = '[336,280]';
+				var midsize = '[[1,1],[336,280]]';
+				var bottomsize = '[[2,1],[728,90]]';
+				var sponsorcaptionsize = '[[3,1],[336,15]]';
+			}
+			else if ((width >= 992) && (width < 1199)) {
+				var topsize = '[336,280]';
+				var midsize = '[[1,1],[336,280]]';
+				var bottomsize = '[[2,1],[468,60]]';
+				var sponsorcaptionsize = '[[3,1],[336,15]]';
+			}
+			else if ((width >= 768) && (width < 992)) {
+				var topsize = '[300,250]';
+				var midsize = '[[1,1],[300,250]]';
+				var bottomsize = '[[2,1],[320,100],[320,50]]';
+				var sponsorcaptionsize = '[[3,1],[300,15]]';
+			}
+			else if ((width >= 576) && (width < 768)) {
+				var topsize = '[180,150]';
+				var midsize = '[[1,1],[180,150]]';
+				var bottomsize = '[[2,1],[320,100],[320,50]]';
+				var sponsorcaptionsize = '[[3,1],[180,15]]';
+			}
+			else if ((width >= 360) && (width < 576)) {
+				var topsize = '[336,280]';
+				var midsize = '[[1,1],[336,280]]';
+				var bottomsize = '[[2,1],[468,60]]';
+				var sponsorcaptionsize = '[[3,1],[336,15]]';
+			}
+			else {
+				var topsize = '[300,250]';
+				var midsize = '[[1,1],[300,250]]';
+				var bottomsize = '[[2,1],[300,250],[320,100],[320,50]]';
+				var sponsorcaptionsize = '[[3,1],[300,15]]';
+			}
+
+			var topdefp1 = 'googletag.defineSlot(';
+			var topdefp2 = "'/1519273/Rules_Evidence_Procedure_ROC_TopRight_300x250', ".concat(topsize, ',');
+			var topdef = topdefp1.concat(topdefp2, '\'', 'div-gpt-ad-top', '\'', ').addService(googletag.pubads());   ');
+
+			var middefp1 = 'googletag.defineSlot(';
+			var middefp2 = "'/1519273/Rules_Evidence_Procedure_ROC_MidRight_300x250', ".concat(midsize, ',');
+			var middef = middefp1.concat(middefp2, '\'', 'div-gpt-ad-middle', '\'', ').addService(googletag.pubads());   ');
+
+			var bottomdefp1 = 'googletag.defineSlot(';
+			var bottomdefp2 = "'/1519273/Rules_Evidence_Procedure_ROC_Footer_728x90', ".concat(bottomsize, ',');
+			var bottomdef = bottomdefp1.concat(bottomdefp2, '\'', 'div-gpt-ad-bottom', '\'', ').addService(googletag.pubads());   ');
+
+			var sponsorcaptiondefp1 = 'googletag.defineSlot(';
+			var sponsorcaptiondefp2 = "'/1519273/Rules_Evidence_Procedure_ROC_SponsorCaption', ".concat(sponsorcaptionsize, ',');
+			var sponsorcaptiondef = sponsorcaptiondefp1.concat(sponsorcaptiondefp2, '\'', 'div-gpt-ad-sponsorcaption', '\'', ').addService(googletag.pubads());   ');
+
+			var defs = topdef + middef + bottomdef + sponsorcaptiondef
+			return defs;
+
+		};
+
+
+
+		googletag.cmd.push(function () {
+			{
+				mydefs = makeDefs();
+				eval(mydefs);
+			};
+
+			googletag.pubads().enableSingleRequest();
+			googletag.enableServices();
+		});
+			//-->
+	</script>
+	<!-- /adsense -->
+	<!-- /include adcode -->
+
+</head>
+
+
+
+<body>
+	
+
+	
+<div id="liisurveymodal" class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="liisurveymodal" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+                <div class="modal-title-box">Please help us improve our site!</div>	
+            <div class="modal-header">
+                <button type="button" class="close" onclick="snooze_survey()" data-dismiss="modal">&times;</button>
+            </div>			
+            <div class="modal-body">	  
+                <iframe title="Survey Frame" class="survey-content" id="iframeHolder"></iframe>
+            </div>		
+            <div class="modal-footer">
+                <a href="#" class="btn btn-primary" class="close" data-dismiss="modal" onclick="snooze_survey()">No thank you</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+	<header id="conannav" class="navbar navbar-fixed-top active">
+		<a href="#content" class="skip">Skip to main content</a>
+
+		<div id="cu-identity">
+			<div class="container-fluid">
+				<a href="https://www.cornell.edu" id="insignialink" title="Cornell University">
+					<img class="img-responsive"
+						src="https://www.law.cornell.edu/sites/all/themes/liizenboot/images/insignia.gif"
+						alt="Cornell University insignia" />
+				</a>
+				<a href="https://www.lawschool.cornell.edu/" id="clslink" title="Cornell Law School">Cornell Law
+					School</a>
+				<a href="https://www.cornell.edu/search/" id="cusearch" title="Search Cornell University">Search
+					Cornell</a>
+			</div>
+		</div>
+
+		<div id="lii-identity" class="col-12 identity-header">
+			<div id="liiheader" class="container-fluid">
+				<nav id="liiallnav" class="navbar" aria-label="Main">
+					<div id="liibanner" class="navbar-header">
+						<button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#liinav"
+							href="#liinav">
+							<span class="sr-only">Toggle navigation</span>
+							<span class="icon-bar"></span>
+							<span class="icon-bar"></span>
+							<span class="icon-bar"></span>
+						</button>
+						<div id="liilogodiv">
+							<a id="liilogo" class="navbar-brand" href="/" aria-label="lii logo"></a>
+						</div>
+						<div class="navbar-right" id="liinavbarstuff">
+							
+							<button id="survey" class="btn btn-primary icon-pencil icon-white"
+								style="display: none; margin-bottom: 10px; margin-top:-20px; height: 42px">Please help
+								us improve our site!</button>
+
+							<div id="liidonatewrap">
+								<a id="liidonate" class="navbar-link mdblueinv" href="/donate"
+									aria-label="Donate to LII">
+									<span class="glyphicon glyphicon-gift"></span>
+									<span class="gltxt">Support Us!</span>
+								</a>
+							</div>
+
+							<div id="liisearchlinkwrap">
+								<a id="liisearchlink" href="#" class="navbar-link cured" aria-label="Search LII">
+									<span class="glyphicon glyphicon-search"></span>
+									<span class="gltxt">Search</span>
+								</a>
+							</div>
+
+							<div id="liisearch" href="#">
+								<div class="input-group" id="adv-search" role="search">
+									<input label="Enter the terms you wish to search for." placeholder="Search"
+										class="form-control form-text" type="text" id="edit-keys" name="keys" value=""
+										list="autocomplete_list" aria-label="Enter search terms text box">
+									<datalist id="autocomplete_list">
+									</datalist>
+									<div class="input-group-btn">
+										<div class="btn-group" role="group" aria-label="Filter and search buttons">
+											<button type="button" class="btn btn-primary" onclick="findNowClickEvent()"
+												aria-label="Find now"><span class="glyphicon glyphicon-search"
+													aria-hidden="true" role="button"></span></button>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div id="liinav" class="collapse navbar-collapse">
+							<ul id="liiheadernav" class="nav navbar-nav" role="menubar" aria-hidden="false">
+								<li role="menuitem" aria-haspopup="true" class="menu-item dropdown dropdown-submenu">
+									<a href="/lii/about/about_lii" class="dropdown-toggle" data-toggle="dropdown"
+										aria-expanded="false">About
+										LII</a>
+									<ul role="menu" aria-hidden="true" class="dropdown-menu sub-menu">
+										<li role="menuitem">
+											<a href="/lii/about/who_we_are">Who We Are</a>
+										</li>
+										<li role="menuitem">
+											<a href="/lii/about/what_we_do">What We Do</a>
+										</li>
+										<li role="menuitem">
+											<a href="/lii/about/who_pays_for_this">Who Pays For This</a>
+										</li>
+										<li role="menuitem">
+											<a href="/lii/about/contact_us">Contact Us</a>
+										</li>
+									</ul>
+								</li>
+								<li role="menuitem" aria-haspopup="true" class="menu-item dropdown dropdown-submenu">
+									<a href="/lii/get_the_law" class="dropdown-toggle" data-toggle="dropdown"
+										aria-expanded="false">Get the
+										law</a>
+									<ul role="menu" aria-hidden="true" class="dropdown-menu sub-menu">
+										<li role="menuitem">
+											<a title="U.S. Constitution" href="/constitution">Constitution</a>
+										</li>
+										<li role="menuitem">
+											<a title="Supreme Court" href="/supremecourt/text/home">Supreme Court</a>
+										</li>
+										<li role="menuitem">
+											<a title="U.S. Code" href="/uscode/text">U.S. Code</a>
+										</li>
+										<li role="menuitem">
+											<a title="C.F.R." href="/cfr/text">CFR</a>
+										</li>
+										<li role="menuitem" aria-haspopup="true"
+											class="menu-item dropdown dropdown-submenu">
+											<a title="Federal Rules" href="/rules" class="dropdown-toggle"
+												data-toggle="dropdown" aria-expanded="false">Federal Rules</a>
+											<ul role="menu" aria-hidden="true" class="dropdown-menu submenu-menu">
+												<li role="menuitem">
+													<a href="/rules/frap">Federal Rules of Appellate Procedure</a>
+												</li>
+												<li role="menuitem">
+													<a href="/rules/frcp">Federal Rules of Civil Procedure</a>
+												</li>
+												<li role="menuitem">
+													<a href="/rules/frcrmp">Federal Rules of Criminal Procedure</a>
+												</li>
+												<li role="menuitem">
+													<a href="/rules/fre">Federal Rules of Evidence</a>
+												</li>
+												<li role="menuitem">
+													<a href="/rules/frbp">Federal Rules of Bankruptcy Procedure</a>
+												</li>
+											</ul>
+										</li>
+										<li role="menuitem">
+											<a title="U.C.C." href="/ucc">U.C.C.</a>
+										</li>
+										<li aria-haspopup="true" class="menu-item dropdown dropdown-submenu">
+											<a title="Law by jurisdiction" href="#" class="dropdown-toggle"
+												data-toggle="dropdown" aria-expanded="false">Law by jurisdiction</a>
+											<ul role="menu" class="dropdown-menu submenu-menu">
+												<li role="menuitem">
+													<a href="/states">State law</a>
+												</li>
+												<li role="menuitem">
+													<a href="/uniform">Uniform laws</a>
+												</li>
+												<li role="menuitem">
+													<a href="/federal">Federal law</a>
+												</li>
+												<li role="menuitem">
+													<a href="/world">World law</a>
+												</li>
+											</ul>
+										</li>
+									</ul>
+								</li>
+								<li role="menuitem">
+									<a href="https://lawyers.law.cornell.edu/">Lawyer directory</a>
+								</li>
+								<li role="menuitem" class="menu-item dropdown dropdown-submenu">
+									<a href="/wex" class="dropdown-toggle" data-toggle="dropdown"
+										aria-expanded="false">Legal encyclopedia</a>
+									<ul role="menu" class="dropdown-menu sub-menu">
+										<li role="menuitem">
+											<a href="/wex/category/business_law">Business law</a>
+										</li>
+										<li role="menuitem">
+											<a href="/wex/category/constitutional_law">Constitutional law</a>
+										</li>
+										<li role="menuitem">
+											<a href="/wex/category/criminal_law_and_procedure">Criminal law</a>
+										</li>
+										<li role="menuitem">
+											<a href="/wex/category/family_law">Family law</a>
+										</li>
+										<li role="menuitem">
+											<a href="/wex/category/employment_law">Employment law</a>
+										</li>
+										<li role="menuitem">
+											<a href="/wex/category/money_and_financial_problems">Money and Finances</a>
+										</li>
+
+										<li role="menuitem">
+											<a href="/wex/wex_articles">More...</a>
+										</li>
+									</ul>
+								</li>
+								<li role="menuitem" class="menu-item dropdown dropdown-submenu">
+									<a href="/lii/help_out" class="dropdown-toggle" data-toggle="dropdown"
+										aria-expanded="false">Help out</a>
+									<ul role="menu" class="dropdown-menu sub-menu">
+										<li role="menuitem" aria-hidden="true">
+											<a href="/donate">Give</a>
+										</li>
+										<li role="menuitem" aria-hidden="true">
+											<a href="/lii/help_out/sponsor">Sponsor</a>
+										</li>
+										<li role="menuitem">
+											<a href="/lii/help_out/advertise">Advertise</a>
+										</li>
+										<li role="menuitem">
+											<a href="/lii/help_out/create">Create</a>
+										</li>
+										<li role="menuitem">
+											<a href="/lii/help_out/promote">Promote</a>
+										</li>
+										<li role="menuitem">
+											<a href="/lii/help_out/join_directory">Join Lawyer Directory</a>
+										</li>
+									</ul>
+								</li>
+							</ul>
+							<ul id="liinavsoc" class="nav navbar-nav navbar-right">
+								<li>
+									
+									<div class="addthis_horizontal_follow_toolbox"></div>
+								</li>
+							</ul>
+						</div>
+					</div>
+					
+				</nav>
+			</div>
+		</div>
+		
+		
+	</header>
+	<br><br>
+	
+	<div id="breadcrumb" class="container-fluid">
+		<div class="row">
+			<div class="navbar-header">
+				<nav aria-label="breadcrumb" class="bc-icons-2">
+					<ol class="breadcrumb">
+						
+						
+						
+						<li class="breadcrumb-item"><a href="/">LII</a></li>
+						
+						 
+						
+						<li class="breadcrumb-item"><a href="/rules/fre">Federal Rules of Evidence</a></li>
+						
+						 
+						
+						<li class="breadcrumb-item breadcrumb-last">
+Rule 702. Testimony by Expert Witnesses
+</li>
+						
+						 
+					</ol>
+				</nav>
+			</div>
+		</div>
+	</div>
+	
+
+	<main id="main" class="container-fluid">
+		<div id="content" class="col-sm-8">
+			<div class="pagewrapper">
+				<div class="container-fluid">
+					<div class="row">
+						
+						<div title="Definitions Frame"></div>
+						
+						
+						
+						<div id="extracted-content">
+<div id="main-content">
+<h1 class="title" id="page-title">
+Rule 702. Testimony by Expert Witnesses
+</h1><div class="region region--content grid-full layout--pass--content-medium" id="content">
+<div id="block-starksub-liizenboot-system-main">
+<article data-history-node-id="4940320">
+<div>
+<div>
+<div><p>A witness who is qualified as an expert by knowledge, skill, experience, training, or education may testify in the form of an opinion or otherwise if the proponent demonstrates to the court that it is more likely than not that:</p>
+<p><strong>(a)</strong> the expert’s scientific, technical, or other specialized knowledge will help the trier of fact to understand the evidence or to determine a fact in issue;</p>
+<p><strong>(b)</strong> the testimony is based on sufficient facts or data;</p>
+<p><strong>(c)</strong> the testimony is the product of reliable principles and methods; and</p>
+<p><strong>(d)</strong> the expert's opinion reflects a reliable application of the principles and methods to the facts of the case.</p>
+<h4>Notes</h4>
+<p class="source-credit">(Pub. L. 93–595, §1, Jan. 2, 1975, 88 Stat. 1937; Apr. 17, 2000, eff. Dec. 1, 2000; Apr. 26, 2011, eff. Dec. 1, 2011.)</p>
+<p class="note-head">Notes of Advisory Committee on Proposed Rules</p>
+<p class="note-body">An intelligent evaluation of facts is often difficult or impossible without the application of some scientific, technical, or other specialized knowledge. The most common source of this knowledge is the expert witness, although there are other techniques for supplying it.</p>
+<p class="note-body">Most of the literature assumes that experts testify only in the form of opinions. The assumption is logically unfounded. The rule accordingly recognizes that an expert on the stand may give a dissertation or exposition of scientific or other principles relevant to the case, leaving the trier of fact to apply them to the facts. Since much of the criticism of expert testimony has centered upon the hypothetical question, it seems wise to recognize that opinions are not indispensable and to encourage the use of expert testimony in non-opinion form when counsel believes the trier can itself draw the requisite inference. The use of opinions is not abolished by the rule, however. It will continue to be permissible for the experts to take the further step of suggesting the inference which should be drawn from applying the specialized knowledge to the facts. See Rules 703 to 705.</p>
+<p class="note-body">Whether the situation is a proper one for the use of expert testimony is to be determined on the basis of assisting the trier. “There is no more certain test for determining when experts may be used than the common sense inquiry whether the untrained layman would be qualified to determine intelligently and to the best possible degree the particular issue without enlightenment from those having a specialized understanding of the subject involved in the dispute.” Ladd, Expert Testimony, 5 Vand.L.Rev. 414, 418 (1952). When opinions are excluded, it is because they are unhelpful and therefore superfluous and a waste of time. 7 Wigmore §1918.</p>
+<p class="note-body">The rule is broadly phrased. The fields of knowledge which may be drawn upon are not limited merely to the “scientific” and “technical” but extend to all “specialized” knowledge. Similarly, the expert is viewed, not in a narrow sense, but as a person qualified by “knowledge, skill, experience, training or education.” Thus within the scope of the rule are not only experts in the strictest sense of the word, e.g., physicians, physicists, and architects, but also the large group sometimes called “skilled” witnesses, such as bankers or landowners testifying to land values.</p>
+<p class="note-head">Committee Notes on Rules—2000 Amendment</p>
+<p class="note-body">Rule 702 has been amended in response to <em>Daubert v. Merrell Dow Pharmaceuticals, Inc</em>., 509 U.S. 579 (1993), and to the many cases applying <em>Daubert</em>, including <em>Kumho Tire Co. v. Carmichael</em>, 119 S.Ct. 1167 (1999). In <em>Daubert</em> the Court charged trial judges with the responsibility of acting as gatekeepers to exclude unreliable expert testimony, and the Court in <em>Kumho</em> clarified that this gatekeeper function applies to all expert testimony, not just testimony based in science. <em>See also Kumho</em>, 119 S.Ct. at 1178 (citing the Committee Note to the proposed amendment to Rule 702, which had been released for public comment before the date of the <em>Kumho</em> decision). The amendment affirms the trial court's role as gatekeeper and provides some general standards that the trial court must use to assess the reliability and helpfulness of proffered expert testimony. Consistently with <em>Kumho</em>, the Rule as amended provides that all types of expert testimony present questions of admissibility for the trial court in deciding whether the evidence is reliable and helpful. Consequently, the admissibility of all expert testimony is governed by the principles of Rule 104(a). Under that Rule, the proponent has the burden of establishing that the pertinent admissibility requirements are met by a preponderance of the evidence. <em>See Bourjaily v. United States</em>, <a aria-label="483 U.S. 171 (1987)" href="https://www.law.cornell.edu/supremecourt/text/483/171">483 U.S. 171 (1987)</a>.</p>
+<p class="note-body"><em>Daubert</em> set forth a non-exclusive checklist for trial courts to use in assessing the reliability of scientific expert testimony. The specific factors explicated by the <em>Daubert</em> Court are (1) whether the expert's technique or theory can be or has been tested—that is, whether the expert's theory can be challenged in some objective sense, or whether it is instead simply a subjective, conclusory approach that cannot reasonably be assessed for reliability; (2) whether the technique or theory has been subject to peer review and publication; (3) the known or potential rate of error of the technique or theory when applied; (4) the existence and maintenance of standards and controls; and (5) whether the technique or theory has been generally accepted in the scientific community. The Court in <em>Kumho</em> held that these factors might also be applicable in assessing the reliability of nonscientific expert testimony, depending upon “the particular circumstances of the particular case at issue.” 119 S.Ct. at 1175.</p>
+<p class="note-body">No attempt has been made to “codify” these specific factors. <em>Daubert</em> itself emphasized that the factors were neither exclusive nor dispositive. Other cases have recognized that not all of the specific <em>Daubert</em> factors can apply to every type of expert testimony. In addition to <em>Kumho</em>, 119 S.Ct. at 1175, <em>see Tyus v. Urban Search Management</em>, <a href="/rio/citation/102_F.3d_256">102 F.3d 256</a> (7th Cir. 1996) (noting that the factors mentioned by the Court in <em>Daubert</em> do not neatly apply to expert testimony from a sociologist). <em>See also Kannankeril v. Terminix Int'l, Inc</em>., <a href="/rio/citation/128_F.3d_802">128 F.3d 802</a>, 809 (3d Cir. 1997) (holding that lack of peer review or publication was not dispositive where the expert's opinion was supported by “widely accepted scientific knowledge”). The standards set forth in the amendment are broad enough to require consideration of any or all of the specific <em>Daubert</em> factors where appropriate.</p>
+<p class="note-body">Courts both before and after <em>Daubert</em> have found other factors relevant in determining whether expert testimony is sufficiently reliable to be considered by the trier of fact. These factors include:</p>
+<p class="note-body">(1) Whether experts are “proposing to testify about matters growing naturally and directly out of research they have conducted independent of the litigation, or whether they have developed their opinions expressly for purposes of testifying.” <em>Daubert v. Merrell Dow Pharmaceuticals, Inc</em>., <a href="/rio/citation/43_F.3d_1311">43 F.3d 1311</a>, 1317 (9th Cir. 1995).</p>
+<p class="note-body">(2) Whether the expert has unjustifiably extrapolated from an accepted premise to an unfounded conclusion. <em>See General Elec. Co. v. Joiner</em>, 522 U.S. 136, 146 (1997) (noting that in some cases a trial court “may conclude that there is simply too great an analytical gap between the data and the opinion proffered”).</p>
+<p class="note-body">(3) Whether the expert has adequately accounted for obvious alternative explanations. <em>See Claar v. Burlington N.R.R</em>., 29 F.3d 499 (9th Cir. 1994) (testimony excluded where the expert failed to consider other obvious causes for the plaintiff's condition). <em>Compare Ambrosini v. Labarraque</em>, 101 F.3d 129 (D.C.Cir. 1996) (the possibility of some uneliminated causes presents a question of weight, so long as the most obvious causes have been considered and reasonably ruled out by the expert).</p>
+<p class="note-body">(4) Whether the expert “is being as careful as he would be in his regular professional work outside his paid litigation consulting.” <em>Sheehan v. Daily Racing Form, Inc</em>., <a href="/rio/citation/104_F.3d_940">104 F.3d 940</a>, 942 (7th Cir. 1997). <em>See Kumho Tire Co. v. Carmichael</em>, 119 S.Ct. 1167, 1176 (1999) (<em>Daubert</em> requires the trial court to assure itself that the expert “employs in the courtroom the same level of intellectual rigor that characterizes the practice of an expert in the relevant field”).</p>
+<p class="note-body">(5) Whether the field of expertise claimed by the expert is known to reach reliable results for the type of opinion the expert would give. <em>See Kumho Tire Co. v. Carmichael</em>, 119 S.Ct. 1167, 1175 (1999) (<em>Daubert's</em> general acceptance factor does not “help show that an expert's testimony is reliable where the discipline itself lacks reliability, as, for example, do theories grounded in any so-called generally accepted principles of astrology or necromancy.”); <em>Moore v. Ashland Chemical, Inc</em>., <a href="/rio/citation/151_F.3d_269">151 F.3d 269</a> (5th Cir. 1998) (en banc) (clinical doctor was properly precluded from testifying to the toxicological cause of the plaintiff's respiratory problem, where the opinion was not sufficiently grounded in scientific methodology); <em>Sterling v. Velsicol Chem. Corp</em>., <a href="/rio/citation/855_F.2d_1188">855 F.2d 1188</a> (6th Cir. 1988) (rejecting testimony based on “clinical ecology” as unfounded and unreliable).</p>
+<p class="note-body">All of these factors remain relevant to the determination of the reliability of expert testimony under the Rule as amended. Other factors may also be relevant. <em>See Kumho</em>, 119 S.Ct. 1167, 1176 (“[W]e conclude that the trial judge must have considerable leeway in deciding in a particular case how to go about determining whether particular expert testimony is reliable.”). Yet no single factor is necessarily dispositive of the reliability of a particular expert's testimony. <em>See, e.g., Heller v. Shaw Industries, Inc</em>., <a href="/rio/citation/167_F.3d_146">167 F.3d 146</a>, 155 (3d Cir. 1999) (“not only must each stage of the expert's testimony be reliable, but each stage must be evaluated practically and flexibly without bright-line exclusionary (or inclusionary) rules.”); <em>Daubert v. Merrell Dow Pharmaceuticals, Inc</em>., <a href="/rio/citation/43_F.3d_1311">43 F.3d 1311</a>, 1317, n.5 (9th Cir. 1995) (noting that some expert disciplines “have the courtroom as a principal theatre of operations” and as to these disciplines “the fact that the expert has developed an expertise principally for purposes of litigation will obviously not be a substantial consideration.”).</p>
+<p class="note-body">A review of the caselaw after <em>Daubert</em> shows that the rejection of expert testimony is the exception rather than the rule. <em>Daubert</em> did not work a “seachange over federal evidence law,” and “the trial court's role as gatekeeper is not intended to serve as a replacement for the adversary system.” <em>United States v. 14.38 Acres of Land Situated in Leflore County, Mississippi</em>, <a href="/rio/citation/80_F.3d_1074">80 F.3d 1074</a>, 1078 (5th Cir. 1996). As the Court in <em>Daubert</em> stated: “Vigorous cross-examination, presentation of contrary evidence, and careful instruction on the burden of proof are the traditional and appropriate means of attacking shaky but admissible evidence.” 509 U.S. at 595. Likewise, this amendment is not intended to provide an excuse for an automatic challenge to the testimony of every expert. <em>See Kumho Tire Co. v. Carmichael</em>, 119 S.Ct. 1167, 1176 (1999) (noting that the trial judge has the discretion “both to avoid unnecessary ‘reliability’ proceedings in ordinary cases where the reliability of an expert's methods is properly taken for granted, and to require appropriate proceedings in the less usual or more complex cases where cause for questioning the expert's reliability arises.”).</p>
+<p class="note-body">When a trial court, applying this amendment, rules that an expert's testimony is reliable, this does not necessarily mean that contradictory expert testimony is unreliable. The amendment is broad enough to permit testimony that is the product of competing principles or methods in the same field of expertise. <em>See, e.g., Heller v. Shaw Industries, Inc</em>., <a href="/rio/citation/167_F.3d_146">167 F.3d 146</a>, 160 (3d Cir. 1999) (expert testimony cannot be excluded simply because the expert uses one test rather than another, when both tests are accepted in the field and both reach reliable results). As the court stated in <em>In re Paoli R.R. Yard PCB Litigation</em>, <a href="/rio/citation/35_F.3d_717">35 F.3d 717</a>, 744 (3d Cir. 1994), proponents “do not have to demonstrate to the judge by a preponderance of the evidence that the assessments of their experts are correct, they only have to demonstrate by a preponderance of evidence that their opinions are reliable. . . . The evidentiary requirement of reliability is lower than the merits standard of correctness.” <em>See also Daubert v. Merrell Dow Pharmaceuticals, Inc</em>., <a href="/rio/citation/43_F.3d_1311">43 F.3d 1311</a>, 1318 (9th Cir. 1995) (scientific experts might be permitted to testify if they could show that the methods they used were also employed by “a recognized minority of scientists in their field.”); <em>Ruiz-Troche v. Pepsi Cola</em>, <a href="/rio/citation/161_F.3d_77">161 F.3d 77</a>, 85 (1st Cir. 1998) (“ <em>Daubert</em> neither requires nor empowers trial courts to determine which of several competing scientific theories has the best provenance.”).</p>
+<p class="note-body">The Court in <em>Daubert</em> declared that the “focus, of course, must be solely on principles and methodology, not on the conclusions they generate.” 509 U.S. at 595. Yet as the Court later recognized, “conclusions and methodology are not entirely distinct from one another.” <em>General Elec. Co. v. Joiner</em>, <a aria-label="522 U.S. 136, 146 (1997)" href="https://www.law.cornell.edu/supremecourt/text/522/136">522 U.S. 136, 146 (1997)</a>. Under the amendment, as under <em>Daubert</em>, when an expert purports to apply principles and methods in accordance with professional standards, and yet reaches a conclusion that other experts in the field would not reach, the trial court may fairly suspect that the principles and methods have not been faithfully applied. <em>See Lust v. Merrell Dow Pharmaceuticals, Inc</em>., <a href="/rio/citation/89_F.3d_594">89 F.3d 594</a>, 598 (9th Cir. 1996). The amendment specifically provides that the trial court must scrutinize not only the principles and methods used by the expert, but also whether those principles and methods have been properly applied to the facts of the case. As the court noted in <em>In re Paoli R.R. Yard PCB Litig</em>., <a href="/rio/citation/35_F.3d_717">35 F.3d 717</a>, 745 (3d Cir. 1994), “ <em>any</em> step that renders the analysis unreliable . . . renders the expert's testimony inadmissible. <em>This is true whether the step completely changes a reliable methodology or merely misapplies that methodology</em>.”</p>
+<p class="note-body">If the expert purports to apply principles and methods to the facts of the case, it is important that this application be conducted reliably. Yet it might also be important in some cases for an expert to educate the factfinder about general principles, without ever attempting to apply these principles to the specific facts of the case. For example, experts might instruct the factfinder on the principles of thermodynamics, or bloodclotting, or on how financial markets respond to corporate reports, without ever knowing about or trying to tie their testimony into the facts of the case. The amendment does not alter the venerable practice of using expert testimony to educate the factfinder on general principles. For this kind of generalized testimony, Rule 702 simply requires that: (1) the expert be qualified; (2) the testimony address a subject matter on which the factfinder can be assisted by an expert; (3) the testimony be reliable; and (4) the testimony “fit” the facts of the case.</p>
+<p class="note-body">As stated earlier, the amendment does not distinguish between scientific and other forms of expert testimony. The trial court's gatekeeping function applies to testimony by any expert. <em>See Kumho Tire Co. v. Carmichael</em>, 119 S.Ct. 1167, 1171 (1999) (“We conclude that <em>Daubert's</em> general holding—setting forth the trial judge's general ‘gatekeeping’ obligation—applies not only to testimony based on ‘scientific’ knowledge, but also to testimony based on ‘technical’ and ‘other specialized’ knowledge.”). While the relevant factors for determining reliability will vary from expertise to expertise, the amendment rejects the premise that an expert's testimony should be treated more permissively simply because it is outside the realm of science. An opinion from an expert who is not a scientist should receive the same degree of scrutiny for reliability as an opinion from an expert who purports to be a scientist. <em>See Watkins v. Telsmith, Inc</em>., <a href="/rio/citation/121_F.3d_984">121 F.3d 984</a>, 991 (5th Cir. 1997) (“[I]t seems exactly backwards that experts who purport to rely on general engineering principles and practical experience might escape screening by the district court simply by stating that their conclusions were not reached by any particular method or technique.”). Some types of expert testimony will be more objectively verifiable, and subject to the expectations of falsifiability, peer review, and publication, than others. Some types of expert testimony will not rely on anything like a scientific method, and so will have to be evaluated by reference to other standard principles attendant to the particular area of expertise. The trial judge in all cases of proffered expert testimony must find that it is properly grounded, well-reasoned, and not speculative before it can be admitted. The expert's testimony must be grounded in an accepted body of learning or experience in the expert's field, and the expert must explain how the conclusion is so grounded. <em>See, e.g</em>., American College of Trial Lawyers, <em>Standards and Procedures for Determining the Admissibility of Expert Testimony after Daubert</em>, 157 F.R.D. 571, 579 (1994) (“[W]hether the testimony concerns economic principles, accounting standards, property valuation or other non-scientific subjects, it should be evaluated by reference to the ‘knowledge and experience’ of that particular field.”).</p>
+<p class="note-body">The amendment requires that the testimony must be the product of reliable principles and methods that are reliably applied to the facts of the case. While the terms “principles” and “methods” may convey a certain impression when applied to scientific knowledge, they remain relevant when applied to testimony based on technical or other specialized knowledge. For example, when a law enforcement agent testifies regarding the use of code words in a drug transaction, the principle used by the agent is that participants in such transactions regularly use code words to conceal the nature of their activities. The method used by the agent is the application of extensive experience to analyze the meaning of the conversations. So long as the principles and methods are reliable and applied reliably to the facts of the case, this type of testimony should be admitted.</p>
+<p class="note-body">Nothing in this amendment is intended to suggest that experience alone—or experience in conjunction with other knowledge, skill, training or education—may not provide a sufficient foundation for expert testimony. To the contrary, the text of Rule 702 expressly contemplates that an expert may be qualified on the basis of experience. In certain fields, experience is the predominant, if not sole, basis for a great deal of reliable expert testimony. <em>See, e.g., United States v. Jones</em>, <a href="/rio/citation/107_F.3d_1147">107 F.3d 1147</a> (6th Cir. 1997) (no abuse of discretion in admitting the testimony of a handwriting examiner who had years of practical experience and extensive training, and who explained his methodology in detail); <em>Tassin v. Sears Roebuck</em>, 946 F.Supp. 1241, 1248 (M.D.La. 1996) (design engineer's testimony can be admissible when the expert's opinions “are based on facts, a reasonable investigation, and traditional technical/mechanical expertise, and he provides a reasonable link between the information and procedures he uses and the conclusions he reaches”). <em>See also Kumho Tire Co. v. Carmichael</em>, 119 S.Ct. 1167, 1178 (1999) (stating that “no one denies that an expert might draw a conclusion from a set of observations based on extensive and specialized experience.”).</p>
+<p class="note-body">If the witness is relying solely or primarily on experience, then the witness must explain how that experience leads to the conclusion reached, why that experience is a sufficient basis for the opinion, and how that experience is reliably applied to the facts. The trial court's gatekeeping function requires more than simply “taking the expert's word for it.” <em>See Daubert v. Merrell Dow Pharmaceuticals, Inc</em>., <a href="/rio/citation/43_F.3d_1311">43 F.3d 1311</a>, 1319 (9th Cir. 1995) (“We've been presented with only the experts’ qualifications, their conclusions and their assurances of reliability. Under <em>Daubert</em>, that's not enough.”). The more subjective and controversial the expert's inquiry, the more likely the testimony should be excluded as unreliable. <em>See O'Conner v. Commonwealth Edison Co</em>., <a href="/rio/citation/13_F.3d_1090">13 F.3d 1090</a> (7th Cir. 1994) (expert testimony based on a completely subjective methodology held properly excluded). <em>See also Kumho Tire Co. v. Carmichael</em>, 119 S.Ct. 1167, 1176 (1999) (“[I]t will at times be useful to ask even of a witness whose expertise is based purely on experience, say, a perfume tester able to distinguish among 140 odors at a sniff, whether his preparation is of a kind that others in the field would recognize as acceptable.”).</p>
+<p class="note-body">Subpart (1) of Rule 702 calls for a quantitative rather than qualitative analysis. The amendment requires that expert testimony be based on sufficient underlying “facts or data.” The term “data” is intended to encompass the reliable opinions of other experts. See the original Advisory Committee Note to Rule 703. The language “facts or data” is broad enough to allow an expert to rely on hypothetical facts that are supported by the evidence. <em>Id.</em></p>
+<p class="note-body">When facts are in dispute, experts sometimes reach different conclusions based on competing versions of the facts. The emphasis in the amendment on “sufficient facts or data” is not intended to authorize a trial court to exclude an expert's testimony on the ground that the court believes one version of the facts and not the other.</p>
+<p class="note-body">There has been some confusion over the relationship between Rules <a href="/rules/fre/rule_702">702</a> and <a href="/rules/fre/rule_703">703</a>. The amendment makes clear that the sufficiency of the basis of an expert's testimony is to be decided under Rule 702. Rule 702 sets forth the overarching requirement of reliability, and an analysis of the sufficiency of the expert's basis cannot be divorced from the ultimate reliability of the expert's opinion. In contrast, the “reasonable reliance” requirement of Rule 703 is a relatively narrow inquiry. When an expert relies on inadmissible information, Rule 703 requires the trial court to determine whether that information is of a type reasonably relied on by other experts in the field. If so, the expert can rely on the information in reaching an opinion. However, the question whether the expert is relying on a <em>sufficient</em> basis of information—whether admissible information or not—is governed by the requirements of Rule 702.</p>
+<p class="note-body">The amendment makes no attempt to set forth procedural requirements for exercising the trial court's gatekeeping function over expert testimony. <em>See</em> Daniel J. Capra, <em>The Daubert Puzzle</em>, 38 Ga.L.Rev. 699, 766 (1998) (“Trial courts should be allowed substantial discretion in dealing with <em>Daubert</em> questions; any attempt to codify procedures will likely give rise to unnecessary changes in practice and create difficult questions for appellate review.”). Courts have shown considerable ingenuity and flexibility in considering challenges to expert testimony under <em>Daubert</em>, and it is contemplated that this will continue under the amended Rule. <em>See, e.g., Cortes-Irizarry v. Corporacion Insular</em>, <a href="/rio/citation/111_F.3d_184">111 F.3d 184</a> (1st Cir. 1997) (discussing the application of <em>Daubert</em> in ruling on a motion for summary judgment); <em>In re Paoli R.R. Yard PCB Litig</em>., <a href="/rio/citation/35_F.3d_717">35 F.3d 717</a>, 736, 739 (3d Cir. 1994) (discussing the use of <em>in limine</em> hearings); <em>Claar v. Burlington N.R.R</em>., <a href="/rio/citation/29_F.3d_499">29 F.3d 499</a>, 502–05 (9th Cir. 1994) (discussing the trial court's technique of ordering experts to submit serial affidavits explaining the reasoning and methods underlying their conclusions).</p>
+<p class="note-body">The amendment continues the practice of the original Rule in referring to a qualified witness as an “expert.” This was done to provide continuity and to minimize change. The use of the term “expert” in the Rule does not, however, mean that a jury should actually be informed that a qualified witness is testifying as an “expert.” Indeed, there is much to be said for a practice that prohibits the use of the term “expert” by both the parties and the court at trial. Such a practice “ensures that trial courts do not inadvertently put their stamp of authority” on a witness's opinion, and protects against the jury's being “overwhelmed by the so-called ‘experts’.” Hon. Charles Richey, <em>Proposals to Eliminate the Prejudicial Effect of the Use of the Word “Expert” Under the Federal Rules of Evidence in Criminal and Civil Jury Trials</em>, 154 F.R.D. 537, 559 (1994) (setting forth limiting instructions and a standing order employed to prohibit the use of the term “expert” in jury trials).</p>
+<p class="note-body"><em>GAP Report—Proposed Amendment to Rule 702</em>. The Committee made the following changes to the published draft of the proposed amendment to Evidence Rule 702:</p>
+<p class="note-body">1. The word “reliable” was deleted from Subpart (1) of the proposed amendment, in order to avoid an overlap with Evidence Rule 703, and to clarify that an expert opinion need not be excluded simply because it is based on hypothetical facts. The Committee Note was amended to accord with this textual change.</p>
+<p class="note-body">2. The Committee Note was amended throughout to include pertinent references to the Supreme Court's decision in <em>Kumho Tire Co. v. Carmichael</em>, which was rendered after the proposed amendment was released for public comment. Other citations were updated as well.</p>
+<p class="note-body">3. The Committee Note was revised to emphasize that the amendment is not intended to limit the right to jury trial, nor to permit a challenge to the testimony of every expert, nor to preclude the testimony of experience-based experts, nor to prohibit testimony based on competing methodologies within a field of expertise.</p>
+<p class="note-body">4. Language was added to the Committee Note to clarify that no single factor is necessarily dispositive of the reliability inquiry mandated by Evidence Rule 702.</p>
+<p class="note-body"><span>Committee Notes on Rules—2011 Amendment</span></p>
+<p class="note-body">The language of Rule 702 has been amended as part of the restyling of the Evidence Rules to make them more easily understood and to make style and terminology consistent throughout the rules. These changes are intended to be stylistic only. There is no intent to change any result in any ruling on evidence admissibility.</p>
+<h4>Committee Notes on Rules—2023 Amendment</h4>
+<p>Rule 702 has been amended in two respects:</p>
+<p>(1) First, the rule has been amended to clarify and emphasize that expert testimony may not be admitted unless the proponent demonstrates to the court that it is more likely than not that the proffered testimony meets the admissibility requirements set forth in the rule. See Rule 104(a). This is the preponderance of the evidence standard that applies to most of the admissibility requirements set forth in the evidence rules. See Bourjaily v. United States, 483 U.S. 171, 175 (1987) (“The preponderance standard ensures that before admitting evidence, the court will have found it more likely than not that the technical issues and policy concerns addressed by the Federal Rules of Evidence have been afforded due consideration.”); Huddleston v. United States, 485 U.S. 681, 687 n.5 (1988) (“preliminary factual findings under Rule 104(a) are subject to the preponderance-of-theevidence standard”). But many courts have held that the critical questions of the sufficiency of an expert’s basis, and the application of the expert’s methodology, are questions of weight and not admissibility. These rulings are an incorrect application of Rules 702 and 104(a).</p>
+<p>There is no intent to raise any negative inference regarding the applicability of the Rule 104(a) standard of proof for other rules. The Committee concluded that emphasizing the preponderance standard in Rule 702 specifically was made necessary by the courts that have failed to apply correctly the reliability requirements of that rule. Nor does the amendment require that the court make a finding of reliability in the absence of objection.</p>
+<p><br/>
+	The amendment clarifies that the preponderance standard applies to the three reliability-based requirements added in 2000—requirements that many courts have incorrectly determined to be governed by the more permissive Rule 104(b) standard. But it remains the case that other admissibility requirements in the rule (such as that the expert must be qualified and the expert’s testimony must help the trier of fact) are governed by the Rule 104(a) standard as well.</p>
+<p><br/>
+	Some challenges to expert testimony will raise matters of weight rather than admissibility even under the Rule 104(a) standard. For example, if the court finds it more likely than not that an expert has a sufficient basis to support an opinion, the fact that the expert has not read every single study that exists will raise a question of weight and not admissibility. But this does not mean, as certain courts have held, that arguments about the sufficiency of an expert’s basis always go to weight and not admissibility. Rather it means that once the court has found it more likely than not that the admissibility requirement has been met, any attack by the opponent will go only to the weight of the evidence.</p>
+<p><br/>
+	It will often occur that experts come to different conclusions based on contested sets of facts. Where that is so, the Rule 104(a) standard does not necessarily require exclusion of either side’s experts. Rather, by deciding the disputed facts, the jury can decide which side’s experts to credit. “[P]roponents ‘do not have to demonstrate to the judge by a preponderance of the evidence that the assessments of their experts are correct, they only have to demonstrate by a preponderance of evidence that their opinions are reliable. . . . The evidentiary requirement of reliability is lower than the merits standard of correctness.’” Advisory Committee Note to the 2000 amendment to Rule 702, quoting In re Paoli R.R. Yard PCB Litigation, 35 F.3d 717, 744 (3d Cir. 1994).</p>
+<p><br/>
+	Rule 702 requires that the expert’s knowledge “help” the trier of fact to understand the evidence or to determine a fact in issue. Unfortunately, some courts have required the expert’s testimony to “appreciably help” the trier of fact. Applying a higher standard than helpfulness to otherwise reliable expert testimony is unnecessarily strict.</p>
+<p><br/>
+	(2) Rule 702(d) has also been amended to emphasize that each expert opinion must stay within the bounds of what can be concluded from a reliable application of the expert’s basis and methodology. Judicial gatekeeping is essential because just as jurors may be unable, due to lack of specialized knowledge, to evaluate meaningfully the reliability of scientific and other methods underlying expert opinion, jurors may also lack the specialized knowledge to determine whether the conclusions of an expert go beyond what the expert’s basis and methodology may reliably support.</p>
+<p><br/>
+	The amendment is especially pertinent to the testimony of forensic experts in both criminal and civil cases. Forensic experts should avoid assertions of absolute or one hundred percent certainty—or to a reasonable degree of scientific certainty—if the methodology is subjective and thus potentially subject to error. In deciding whether to admit forensic expert testimony, the judge should (where possible) receive an estimate of the known or potential rate of error of the methodology employed, based (where appropriate) on studies that reflect how often the method produces accurate results. Expert opinion testimony regarding the weight of feature comparison evidence (i.e., evidence that a set of features corresponds between two examined items) must be limited to those inferences that can reasonably be drawn from a reliable application of the principles and methods. This amendment does not, however, bar testimony that comports with substantive law requiring opinions to a particular degree of certainty.</p>
+<p><br/>
+	Nothing in the amendment imposes any new, specific procedures. Rather, the amendment is simply intended to clarify that Rule 104(a)’s requirement applies to expert opinions under Rule 702. Similarly, nothing in the amendment requires the court to nitpick an expert’s opinion in order to reach a perfect expression of what the basis and methodology can support. The Rule 104(a) standard does not require perfection. On the other hand, it does not permit the expert to make claims that are unsupported by the expert’s basis and methodology.</p></div>
+</div>
+<nav aria-labelledby="book-label-4940270" role="navigation">
+<a href="/rules/fre/rule_701" rel="prev" title="Go to previous page"><strong>‹</strong> Rule 701. Opinion Testimony by Lay Witnesses</a>
+<a href="/rules/fre/article_VII" title="Go to parent page">Up</a>
+<a href="/rules/fre/rule_703" rel="next" title="Go to next page">Rule 703. Bases of an Expert <strong>›</strong></a>
+</nav></div></article></div></div></div>
+</div>
+						
+						
+					</div>
+				</div>
+			</div>
+			
+
+			<div id="page-bottom" aria-hidden="true">
+				<div class="region region-bottom">
+					<div id="block-liidfp-2" class="block block-liidfp first last odd">
+
+
+						<div class="gfs">
+							<div id="div-gpt-ad-bottom" data-google-query-id="CNH77Z7C7d8CFURLAQodp9oMpg">
+								<script type="text/javascript">
+									googletag.cmd.push(function () { googletag.display('div-gpt-ad-bottom'); });
+								</script>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+		</div>
+
+
+
+		<aside id="supersizeme" class="col-sm-4" aria-label="Sponsor Listings and Toolbox panel">
+			
+			<div class="block" id="toolbox">
+
+				<h2 class="title toolbox"><span class="glyphicon glyphicon-briefcase"></span> Federal Rules of Evidence Toolbox
+				</h2>
+
+				
+<ul>
+    <li>Wex: <a href="/wex/evidence">Evidence: Overview</a></li>
+</ul>
+
+
+				
+				<div class="socSep">
+					<hr />
+				</div>
+
+				<div class="addthis_sharing_toolbox"></div>
+
+				<div class="socSep">
+					<hr />
+				</div>
+
+				<script type="text/javascript">
+					var addthis_config = {
+						data_track_addressbar: false,
+						data_track_clickback: true,
+						publid: 'liiadverts',
+						ui_tabindex: 0,
+						ui_508_compliant: true
+					};
+					var addthis_share = {
+						url_transforms: {
+							shorten: {
+								twitter: 'bitly'
+							}
+						},
+						shorteners: {
+							bitly: {
+								login: 'liicornell',
+								apiKey: 'R_75b99d95e1c3033c4dbea23ce04bf5d3'
+							}
+						},
+						passthrough: {
+							twitter: {
+								via: 'LIICornell'
+							}
+						}
+					};
+				</script>
+
+				<script type="text/javascript" src="https://s7.addthis.com/js/300/addthis_widget.js#pubid=liiadverts"
+					async="async"></script>
+
+				
+
+			</div>
+			
+
+			<div class="block" aria-hidden="true">
+				<div class="gfs">
+					<div id='div-gpt-ad-top'>
+						<script type='text/javascript'>
+							googletag.cmd.push(function () { googletag.display('div-gpt-ad-top'); });
+						</script>
+					</div>
+				</div>
+
+			</div>
+
+			<div class="block" aria-hidden="true">
+				<div class="gfs">
+					<div id='div-gpt-ad-middle'>
+						<script type='text/javascript'>
+							googletag.cmd.push(function () { googletag.display('div-gpt-ad-middle'); });
+						</script>
+					</div>
+				</div>
+
+			</div>
+
+			
+			<div id="block-lii-justia-find-lawyers-sidebar" class="block block-lii last even">
+				<div id="block-lii-justia-lawyers" class="block block-lii last even">
+					<div class="sidebar">
+						<div class="results-sponsored">
+							<div data-directive="j-find-a-lawyer" data-crosslink="seemorelawyers"
+								data-domain="lawyers.law.cornell.edu">
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			
+
+		</aside>
+
+
+	</main>
+
+	<footer id="liifooter" class="container-fluid">
+		<ul id="liifooternav" class="nav navbar-nav">
+			<li class="first">
+				<a href="/lii/about/accessibility" class="nav">Accessibility</a>
+			</li>
+			<li class="first">
+				<a href="/lii/about/about_lii" class="nav">About LII</a>
+			</li>
+			<li>
+				<a href="/lii/about/contact_us" class="nav">Contact us</a>
+			</li>
+			<li>
+				<a href="/lii/help_out/sponsor">Advertise here</a>
+			</li>
+			<li>
+				<a href="/lii/help" class="nav">Help</a>
+			</li>
+			<li>
+				<a href="/lii/terms/documentation" class="nav">Terms of use</a>
+			</li>
+			<li class="last">
+				<a href="/lii/terms/privacy_policy" class="nav">Privacy</a>
+			</li>
+		</ul>
+		<ul class="nav navbar-nav navbar-right">
+			<li>
+				<a href="/" title="LII home page">
+					<img width="62" height="43"
+						src="https://www.law.cornell.edu/sites/all/themes/liizenboot/images/LII_logo_footer.gif"
+						alt="LII logo">
+				</a>
+			</li>
+		</ul>
+	</footer>
+
+	<script>
+		jQuery(document).ready(function () {
+			jQuery("#liisearchlink").click(function () {
+				jQuery("#liisearch").toggle('slide');
+				jQuery("#liinavbarstuff").toggleClass('searchboxslid');
+			});
+		});
+
+		jQuery(document).ready(function () {
+			jQuery('[data-toggle="tooltip"]').each(function () {
+				var $elem = jQuery(this);
+				$elem.tooltip({
+					html: true,
+					container: $elem,
+					delay: { hide: 400 }
+				});
+			});
+		});
+	</script>
+
+	
+	<script type="text/javascript" src="/staticsite_scripts/htmldiff.js"> </script>
+	 
+	<script type="text/javascript" src="/staticsite_scripts/lii_scriptinator.min.js"> </script>
+	 
+	
+	<script>
+		window.addEventListener("load", function () {
+			window.cookieconsent.initialise(
+				{
+					"palette": {
+						"popup": {
+							"background": "#000"
+						}, "button": {
+							"background": "#f1d600"
+						}
+					}
+				})
+		});
+	</script>
+	
+
+</body>
+</html>

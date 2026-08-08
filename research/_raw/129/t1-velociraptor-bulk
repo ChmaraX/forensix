@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en" class="js csstransforms3d">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="Hugo 0.164.0">
+    <meta name="description" content="Being able to quickly and efficiently collect and preserve file-based evidence
+_at scale_ is an important aspect of most DFIR investigations. You may also want
+to analyze these collected files with other forensic tools that provide
+specialized analysis capabilities for certain file formats.
+">
+
+
+    <link rel="icon" href="/images/favicon.png" type="image/png">
+
+    <title>Bulk File Acquisition</title>
+
+    
+    <link href="/css/nucleus.css?1785713324" rel="stylesheet">
+    <link href="/css/font-awesome-all.min.css?1785713324" rel="stylesheet">
+    <link href="/css/featherlight.min.css?1785713324" rel="stylesheet">
+    <link href="/css/perfect-scrollbar.min.css?1785713324" rel="stylesheet">
+    <link href="/css/auto-complete.css?1785713324" rel="stylesheet">
+    <link href="/css/theme.css?1785713324" rel="stylesheet">
+    <link href="/css/tabs.css?1785713324" rel="stylesheet">
+    <link href="/css/hugo-theme.css?1785713324" rel="stylesheet">
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex.min.css"
+      integrity="sha384-WcoG4HRXMzYzfCgiyfrySxx90XSl2rxY5mnVY5TwtWE6KLrArNKn0T/mOgNL0Mmi"
+      crossorigin="anonymous"
+      >
+    
+    <link href="/css/theme-mine.css?1785713324" rel="stylesheet">
+    
+    <link href="/css/dark.css?1785713324" rel="stylesheet"><link href="/css/syntax.css?1785713324" rel="stylesheet"><link href="/css/light.css?1785713324" rel="stylesheet"><link href="/css/hljs.css?1785713324" rel="stylesheet"><link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css?1785713324" rel="stylesheet">
+
+    <script src="/js/jquery-3.3.1.min.js?1785713324"></script>
+
+    <style>
+      :root #header + #content > #left > #rlblock_left{
+          display:none !important;
+      }
+      
+    </style>
+    
+
+<script>
+
+
+</script>
+
+  </head>
+  <body class="" data-url="/docs/file_collection/bulk/">
+    
+    <script src="/js/theme.js"></script>
+
+<nav id="sidebar" class=""><div id="header-wrapper">
+    <div id="header">
+      <a href="https://docs.velociraptor.app/">
+  <img class="logo dark" alt="logo dark" src="https://docs.velociraptor.app//images/VeloR7_DarkMode.svg" />
+  <img class="logo light" alt="logo light" src="https://docs.velociraptor.app//images/VeloR7_LightMode.svg" />
+</a>
+
+<div class="ThemeSelector darkmode">
+  <i class="fas fa-moon"></i>
+</div>
+
+<div class="ThemeSelector lightmode">
+  <i class="fas fa-sun"></i>
+</div>
+
+<script>
+  const regex = new RegExp('theme=darkmode');
+  if (regex.test(document.cookie)) {
+      $("body").addClass("dark").removeClass("light");
+  } else {
+      $("body").addClass("light").removeClass("dark");
+  }
+
+  $(".ThemeSelector.darkmode").on("click", function(e) {
+      $("body").addClass("dark").removeClass("light");
+      document.cookie = "theme=darkmode;path=/";
+      return false;
+  });
+
+  $(".ThemeSelector.lightmode").on("click", function(e) {
+      $("body").addClass("light").removeClass("dark");
+      document.cookie = "theme=lightmode;path=/";
+      return false;
+  });
+
+</script>
+
+    </div>
+    
+  </div>
+  
+
+    
+    
+       
+    
+
+    
+
+    <script src="/js/menu-35872c80.js" type="text/javascript"></script>
+
+    <div class="highlightable">
+      <ul class="sidemenu sidebar hidden"></ul>
+    <hr />
+    
+    
+      <section id="shortcuts">
+        <h3></h3>
+        <ul>
+          
+              <li>
+                  <a rel="nofollow" class="padding" href="https://github.com/Velocidex/velociraptor"><i class='fab fa-github'></i>GitHub</a>
+              </li>
+          
+              <li>
+                  <a rel="nofollow" class="padding" href="https://docs.velociraptor.app/discord/"><i class='fab fa-discord'></i>Discord</a>
+              </li>
+          
+              <li>
+                  <a rel="nofollow" class="padding" href="https://docs.velociraptor.app/youtube/"><i class='fab fa-youtube'></i>YouTube</a>
+              </li>
+          
+              <li>
+                  <a rel="nofollow" class="padding" href="mailto:velociraptor-discuss@googlegroups.com"><i class='fas fa-envelope'></i>Mailing List</a>
+              </li>
+          
+              <li>
+                  <a rel="nofollow" class="padding" href="https://docs.velociraptor.app/rss/"><i class='fas fa-rss'></i>RSS</a>
+              </li>
+          
+              <li>
+                  <a rel="nofollow" class="padding" href="https://docs.rapid7.com/insightidr/velociraptor-integration/"><i class='fa fa-question-circle'></i>Rapid7 Docs</a>
+              </li>
+          
+        </ul>
+      </section>
+    
+
+    
+    <section id="footer">
+      <div class="footer-copyright">Brought to you by
+  <img src="/images/Rapid7_logo.svg" alt="rapid7 logo" class="rapid7">
+  <br> <i class="fas fa-copyright"></i> 2025
+</div>
+
+    </section>
+  </div>
+</nav>
+
+<script>
+
+  findlink(window.menu, "\/docs\/file_collection\/bulk\/");
+
+  let menu = $(".sidemenu.hidden");
+  addToNode(menu, window.menu);
+
+  menu.find("i.fa-angle-right").each(function() {
+      $( this ).parent().parent().find("ul").hide();
+  });
+
+  
+  menu.removeClass("hidden");
+
+  
+  $(window).on('load', function(){
+      $("li.dd-item.active").each(function() {
+          $(this)[0].scrollIntoView();
+      })
+  })
+
+  menu.find("li.dd-item.active").each(function() {
+      $(this)[0].scrollIntoView();
+  })
+
+
+  menu.find("li[linkTo]").click(function(e) {
+      let target = $(this).attr("linkTo");
+      return navigateTo(target);
+  });
+
+  
+  $(document).ready(function () {
+      decorateLinks();
+  });
+
+</script>
+
+    
+        <section id="body">
+        <div id="overlay"></div>
+        <div class="padding highlightable scroller">
+          
+          
+          
+          
+          
+             
+              <div>
+                <div id="top-bar">
+                
+                  
+                  
+                  
+                  <div id="top-github-link">
+                    <a class="github-link" title='Edit this page' href="https://github.com/Velocidex/velociraptor-docs/edit/master/content/docs/file_collection/bulk/_index.md" target="blank">
+                      <i class="fas fa-code-branch"></i>
+                      <span id="top-github-link-text">Edit this page</span>
+                    </a>
+                  </div>
+                  
+                
+                
+                <div id="breadcrumbs" itemscope="" itemtype="http://schema.org/BreadcrumbList">
+                    <span id="sidebar-toggle-span">
+                        <a href="#" id="sidebar-toggle" data-sidebar-toggle="">
+                          <i class="fas fa-bars"></i>
+                        </a>
+                    </span>
+                  
+                  <span id="toc-menu"><i class="fas fa-list-alt"></i></span>
+                  
+                  <span class="links" itemprop="itemListElement" itemscope="" itemtype="http://schema.org/ListItem">
+                 
+                 
+                    <span itemprop="item"><span itemprop="name">Bulk File Acquisition</span></span>
+                    <meta itemprop="position" content="1" />
+                 
+                  </span>
+                </div>
+                
+                    <div class="progress">
+    <div class="wrapper">
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#bulk-file-collection-using-generic-collection-artifacts">Bulk file collection using generic collection artifacts</a></li>
+    <li><a href="#bulk-file-collection-using-velociraptor-triage-artifacts">Bulk file collection using Velociraptor Triage Artifacts</a>
+      <ul>
+        <li><a href="#using-the-windowskapefilestargets-artifact">Using the Windows.KapeFiles.Targets artifact</a></li>
+      </ul>
+    </li>
+    <li><a href="#bulk-file-collection-using-offline-collectors">Bulk file collection using Offline Collectors</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+
+                
+              </div>
+            </div>
+            
+        <div id="head-tags">
+        
+        </div>
+        
+        <div id="body-inner">
+          <div id="loading">
+            <i class="fas fa-spinner fa-spin fa-10x"></i>
+          </div>
+          
+            <h1>
+              
+              Bulk File Acquisition
+            </h1>
+            
+          
+
+        
+
+
+
+	<p>Being able to quickly and efficiently collect and preserve file-based evidence
+<em>at scale</em> is an important aspect of most DFIR investigations. You may also want
+to analyze these collected files with other forensic tools that provide
+specialized analysis capabilities for certain file formats.</p>
+<p>In the previous section we looked at the basic mechanisms that Velociraptor
+provides in support of file acquisition. The VQL <code>upload()</code> function allows us
+to copy files from endpoints to the server, which is the default method of file
+acquisition, but several other functions are available for copying files to
+<a href="/docs/file_collection/#remote-upload-destinations">remote network destinations</a>
+other than the Velociraptor server.</p>
+<p>In this section we explain how file acquisition is scaled up via
+<a href="/docs/artifacts/">artifacts</a>,
+making it easy to target the collection of many files in a single operation.</p>
+
+<div class="mynotices warning">
+  <div heading=" Be careful with large file collections! "><p>When collecting many files it is often hard to determine in advance how much
+data will be collected or how long it will take.</p>
+<p>Consider the storage requirements:</p>
+<ul>
+<li>Collecting 100 MB  from 10,000 endpoints = 1 TB!</li>
+<li>A typical <code>$MFT</code> is around 300 to 400 MB, so collecting the <code>$MFT</code> from many
+endpoints will require a huge amount of server disk space!</li>
+</ul>
+<p>Velociraptor is, in general, very careful to avoid causing performance and
+resource impacts on endpoints. However, many clients collecting many files can
+have significant impacts on your server, or even the network.</p>
+<p>See the section
+<a href="/docs/file_collection/#mitigating-network-and-server-impacts">Mitigating Network and Server Impacts</a>
+for advice on ways to mitigate potential impacts to your server and network,
+especially when performing bulk file collections.</p>
+</div>
+</div>
+
+
+
+<div class="mynotices tip">
+  <div heading=" File Upload Deduplication "><p>Velociraptor automatically deduplicates files before uploading them. If
+different artifacts request the same file within the same collection on an
+endpoint, the file is only transferred and stored once. This deduplication is
+based on unique file path (including accessor) on the endpoint.</p>
+<p>Files collected in separate collections are not deduplicated.</p>
+</div>
+</div>
+
+
+<h2 id="bulk-file-collection-using-generic-collection-artifacts">Bulk file collection using generic collection artifacts</h2>
+<p>Velociraptor ships with several general-purpose filesystem search artifacts that
+include a file upload option.</p>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure>
+  <div class="figure">
+    <img src="/docs/file_collection/bulk/upload_files_parameter.png"
+         class="inline"
+         alt="Enabling upload for a FileFinder artifact"
+         width="1135" height="664">
+  </div>
+  <figcaption>
+    <a class="image-link"
+       target="_blank" rel="noopener noreferrer"
+       href="upload_files_parameter.png">
+      <i class="fa fa-download"></i></a>
+    Enabling upload for a FileFinder artifact
+  </figcaption>
+</figure>
+
+
+
+
+</p>
+<p>The following are examples of FileFinder artifacts that all have this option:</p>
+<ul>
+<li><code>Windows.Search.FileFinder</code></li>
+<li><code>MacOS.Search.FileFinder</code></li>
+<li><code>Linux.Search.FileFinder</code></li>
+<li><code>Windows.Search.SMBFileFinder</code></li>
+<li><code>Windows.Search.WSLFileFinder</code></li>
+</ul>
+<p>In these artifacts you specify one or more glob patterns or exact paths for the
+files that you want to match, and then enable the <code>Upload_File</code> artifact
+parameter to tell it to also upload the file to the server.</p>
+<p>The <code>Generic.Collectors.File</code> artifact is a utility artifact dedicated to the
+task of uploading files. Usually it&rsquo;s not used on its own, and is instead
+called from other artifacts
+(see <a href="/docs/artifacts/use_cases/#wrapper-artifacts">wrapper artifacts</a>).
+The <code>Windows.Triage.Targets</code> artifact described below is an example of a more
+sophisticated artifact that wraps this much simpler utility artifact.</p>
+<p>
+
+
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
+  
+<figure>
+  <div class="figure">
+    <img src="/docs/file_collection/bulk/generic_collectors_file_.svg" alt="Configuring the Generic.Collectors.File artifact"
+         class="inline"
+         height="638"
+         width="1247.8145695364237"  />
+  </div>
+  <figcaption>
+    <a class="image-link"
+       target="_blank" rel="noopener noreferrer"
+       href="generic_collectors_file.svg"><i class="fa fa-download"></i></a>
+    Configuring the Generic.Collectors.File artifact
+  </figcaption>
+</figure>
+
+
+
+
+</p>
+<h2 id="bulk-file-collection-using-velociraptor-triage-artifacts">Bulk file collection using Velociraptor Triage Artifacts</h2>
+<p>You might prefer to curate your own lists of file paths that you routinely make
+copies of for preservation purposes. In that case, the <code>Generic.Collectors.File</code>
+artifact will be perfectly suitable for acquiring these files.</p>
+<p>However, there are public projects within the DFIR community that curate lists
+of file paths (also called &ldquo;forensic artifacts&rdquo; or &ldquo;targets&rdquo;) that responders
+and analysts consider to be likely sources of evidence. One such initiative is
+the very popular
+<a href="https://github.com/EricZimmerman/KapeFiles" target="_blank" >KapeFiles project</a>.
+This project collects and curates an extensive list of community-contributed
+file collection targets, broken down into categories. Each Kape &ldquo;Target&rdquo; is
+essentially a glob expression with a name.</p>
+<p>To make the collection targets from the KapeFiles project available within
+Velociraptor, we have a separate project - the
+<a href="https://triage.velocidex.com/" target="_blank" >Velociraptor Triage Artifacts project</a> -
+that transforms the latest KapeFiles targets into a Velociraptor artifact. In
+addition to the targets from the KapeFiles project, we augment the targets with
+several volatile non-file data sources that are particularly useful to have from
+a live endpoint.</p>
+<p>The Velociraptor Triage Artifacts project also maintains a similar artifact for
+Linux, based on the open source
+<a href="https://github.com/tclahr/uac" target="_blank" >Unix-like Artifacts Collector (UAC)</a> project,
+which has the same goals as KapeFiles but for Linux systems.</p>
+<p>The Velociraptor Triage Artifacts project currently produces two artifacts:</p>
+<ul>
+<li><code>Windows.Triage.Targets</code></li>
+<li><code>Linux.Triage.UAC</code></li>
+</ul>
+<p>You can read more about these artifacts on the
+<a href="https://triage.velocidex.com/" target="_blank" >project&rsquo;s website</a>.</p>
+<p>Since these artifacts are not built into Velociraptor, and are frequently
+updated, you need to add them to your Velociraptor&rsquo;s artifacts repository. You
+can do this by manually downloading and importing the artifacts, but we
+recommend that you use the built-in <code>Server.Import.Extras</code> server artifact
+to simplify
+<a href="/docs/deployment/quickstart/#step-6-import-artifacts-from-external-projects">adding and updating externally maintained artifacts</a>.</p>
+
+<div class="mynotices note">
+  <div heading=" Triage vs. Bulk File Collection "><p>In the DFIR world, the term &ldquo;triage&rdquo; refers to the process of collecting
+information from an endpoint in order to assess and rank its relevance to an
+incident, particularly in high-pressure situations where time is critical.
+Usually this is an initial phase of the investigation, and is done for the
+purpose of identifying affected systems and scoping an incident. In other words,
+in Velociraptor terms &ldquo;triage&rdquo; is really just
+<a href="/docs/hunting/">hunting</a> done with specific constraints and
+objectives in mind. Velociraptor can be used to assess an endpoint without
+copying any files.</p>
+<p>However, due to their prior experience with other DFIR tools many forensic
+practitioners tend to equate the term &ldquo;triage&rdquo; with bulk file acquisition
+itself, rather than the assessment and ranking process. The term is often used
+loosely to contrast the generally expeditious file acquisition approach with the
+traditional, much slower process of disk image acquisition.</p>
+<p>Users who are new to Velociraptor, especially those who have prior experience
+with solutions that centralize file processing, often want to repeat the
+familiar process that centralized solutions advocate, but using Velociraptor.
+That is, they use Velociraptor clients and/or Offline Collectors to copy files
+with the intention of analyzing/querying them later. This is not how
+Velociraptor is intended to work, as we
+<a href="/docs/file_collection/#why-collect-files">explained in the introduction</a>.
+Even though it is technically possible and supported, it is an inefficient and
+cumbersome approach that isn&rsquo;t aligned with Velociraptor&rsquo;s philosophy and design goals.</p>
+<h6 id="the-velociraptor-way">The Velociraptor Way</h6>
+<p>With Velociraptor, bulk file collection is usually done in parallel with
+investigating the endpoint itself. We don&rsquo;t collect files and then investigate -
+we investigate and <em>conditionally</em> collect files (usually as a preservation
+action).</p>
+<p>So despite the use of &ldquo;triage&rdquo; in the name of these artifacts, you should keep
+in mind that they are really file preservation artifacts. You can perform triage
+on endpoints using Velociraptor artifacts such as <code>Windows.Hayabusa.Rules</code> and
+only copy files if they turn out to contain evidence that you want to preserve.</p>
+</div>
+</div>
+
+
+<h3 id="using-the-windowskapefilestargets-artifact">Using the Windows.KapeFiles.Targets artifact</h3>
+<p>In Velociraptor, the  <code>Windows.KapeFiles.Targets</code> artifact is the most popular
+artifact for bulk file collection.  It does no analysis, but simply performs
+bulk collection of files based on the targets specified.</p>
+<ol>
+<li>
+<p>Select the artifact from the <strong>New Collection</strong> wizard.</p>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure>
+  <div class="figure">
+    <img src="/docs/file_collection/bulk/image2.png"
+         class="inline"
+         alt="The Windows.KapeFiles.Targets artifact"
+         width="1280" height="960">
+  </div>
+  <figcaption>
+    <a class="image-link"
+       target="_blank" rel="noopener noreferrer"
+       href="image2.png">
+      <i class="fa fa-download"></i></a>
+    The Windows.KapeFiles.Targets artifact
+  </figcaption>
+</figure>
+
+
+
+
+</p>
+</li>
+<li>
+<p>Select the desired targets in the <strong>Configure Parameters</strong> tab. Many targets
+are just groupings of other targets. For example the <code>_BasicCollection</code>
+target consists of a number of other commonly used targets.</p>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure>
+  <div class="figure">
+    <img src="/docs/file_collection/bulk/image7.png"
+         class="inline"
+         alt="Selecting recursive targets"
+         width="1280" height="960">
+  </div>
+  <figcaption>
+    <a class="image-link"
+       target="_blank" rel="noopener noreferrer"
+       href="image7.png">
+      <i class="fa fa-download"></i></a>
+    Selecting recursive targets
+  </figcaption>
+</figure>
+
+
+
+
+</p>
+</li>
+<li>
+<p>The <code>Windows.KapeFiles.Targets</code> artifact can transfer a large amount of data
+from the endpoints, and take a long time to run. We therefore often need to
+update the resource limits for the collection.</p>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure>
+  <div class="figure">
+    <img src="/docs/file_collection/bulk/image6.png"
+         class="inline"
+         alt="Specifying a maximum upload limit"
+         width="1280" height="960">
+  </div>
+  <figcaption>
+    <a class="image-link"
+       target="_blank" rel="noopener noreferrer"
+       href="image6.png">
+      <i class="fa fa-download"></i></a>
+    Specifying a maximum upload limit
+  </figcaption>
+</figure>
+
+
+
+
+</p>
+</li>
+<li>
+<p>Once the collection is launched, we can monitor progress in the <strong>Artifact
+Collection</strong> tab.</p>
+<p>
+
+
+
+
+
+
+
+
+
+
+
+<figure>
+  <div class="figure">
+    <img src="/docs/file_collection/bulk/image4.png"
+         class="inline"
+         alt="Monitoring collection progress"
+         width="1280" height="960">
+  </div>
+  <figcaption>
+    <a class="image-link"
+       target="_blank" rel="noopener noreferrer"
+       href="image4.png">
+      <i class="fa fa-download"></i></a>
+    Monitoring collection progress
+  </figcaption>
+</figure>
+
+
+
+
+</p>
+</li>
+</ol>
+<h2 id="bulk-file-collection-using-offline-collectors">Bulk file collection using Offline Collectors</h2>
+<p>Sometimes your are unable to deploy Velociraptor on a new network in the
+conventional client/server mode. Sometimes you might also have to rely on
+external assistance (such as a local administrator) to actually perform the
+collection on your behalf, and usually these assistants are not DFIR experts.</p>
+<p>Velociraptor <a href="/docs/deployment/offline_collections/">Offline Collectors</a>
+allow you to perform bulk file collections (and run any other artifacts)
+without installing a Velociraptor client on the endpoint.</p>
+<p>An offline collector is a custom preconfigured Velociraptor binary that will
+automatically collect any artifacts that you&rsquo;ve specified. Offline Collectors
+are a solution that performs the required collection with no need for DFIR
+expertise and with minimal intervention - to the point where the on-site
+personnel do not even need to type any command line arguments.</p>
+<p>The <code>Windows.Triage.Targets</code> artifact described above is popularly used with
+Offline Collectors, but any combination of artifacts can be used and we strongly
+recommend that you do not use Offline Collectors to <em>only</em> perform file
+acquisition. Offline Collectors are capable of collecting any artifacts that you
+would normally collect from an online client.</p>
+
+
+
+
+
+<footer class=" footline" >
+	
+</footer>
+
+        
+        </div>
+        
+
+      </div>
+
+    </section>
+
+    <div style="left: -1000px; overflow: scroll; position: absolute; top: -1000px; border: none; box-sizing: content-box; height: 200px; margin: 0px; padding: 0px; width: 200px;">
+      <div style="border: none; box-sizing: content-box; height: 200px; margin: 0px; padding: 0px; width: 200px;"></div>
+    </div>
+    <script src="/js/clipboard.min.js?1785713324"></script>
+    <script src="/js/perfect-scrollbar.min.js?1785713324"></script>
+    <script src="/js/perfect-scrollbar.jquery.min.js?1785713324"></script>
+    <script src="/js/jquery.sticky.js?1785713324"></script>
+    <script src="/js/featherlight.min.js?1785713324"></script>
+    <script src="/js/highlight.min.js?1785713324"></script>
+    <script>
+      hljs.highlightAll();
+    </script>
+
+    <script src="/js/modernizr.custom-3.6.0.js?1785713324"></script>
+    <script src="/js/learn.js?1785713324"></script>
+    <script src="/js/hugo-learn.js?1785713324"></script>
+    
+    
+
+  </body>
+</html>

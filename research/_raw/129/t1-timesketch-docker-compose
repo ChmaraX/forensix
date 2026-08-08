@@ -1,0 +1,193 @@
+# Timesketch container dependencies
+x-timesketch-dependencies: &timesketch-dependencies
+  depends_on:
+    opensearch:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  timesketch-web:
+    container_name: timesketch-web
+    image: us-docker.pkg.dev/osdfir-registry/timesketch/timesketch:${TIMESKETCH_VERSION}
+    environment:
+      - NUM_WSGI_WORKERS=${NUM_WSGI_WORKERS}
+      - WSGI_WORKER_CLASS=${WSGI_WORKER_CLASS}
+      - NUM_WSGI_THREADS=${NUM_WSGI_THREADS}
+      # To enable telemetry, set TIMESKETCH_OTEL_MODE=otlp-grpc when running with '--profile telemetry'
+      # (Note: The default is intentionally empty to prevent connection errors when the profile is not active)
+      - TIMESKETCH_OTEL_MODE=${TIMESKETCH_OTEL_MODE:-}
+      - TIMESKETCH_OTLP_GRPC_ENDPOINT=${TIMESKETCH_OTLP_GRPC_ENDPOINT:-otel-collector:4317}
+      - TIMESKETCH_OTLP_HTTP_ENDPOINT=${TIMESKETCH_OTLP_HTTP_ENDPOINT:-http://otel-collector:4318/v1/traces}
+      - TIMESKETCH_OTLP_INSECURE=${TIMESKETCH_OTLP_INSECURE:-true}
+    restart: always
+    command: timesketch-web
+    volumes:
+      - ${TIMESKETCH_CONFIG_PATH}:/etc/timesketch/
+      - ${TIMESKETCH_UPLOAD_PATH}:/usr/share/timesketch/upload/
+      - ${TIMESKETCH_LOGS_PATH}:/var/log/timesketch/
+    <<: *timesketch-dependencies
+
+  # [DEPRECATED] Add "--profile legacy-ui" to your docker compose command to use the legacy UI
+  timesketch-web-legacy:
+    container_name: timesketch-web-legacy
+    image: us-docker.pkg.dev/osdfir-registry/timesketch/timesketch:${TIMESKETCH_VERSION}
+    environment:
+      - NUM_WSGI_WORKERS=${NUM_WSGI_WORKERS}
+      - WSGI_WORKER_CLASS=${WSGI_WORKER_CLASS}
+      - NUM_WSGI_THREADS=${NUM_WSGI_THREADS}
+      # To enable telemetry, set TIMESKETCH_OTEL_MODE=otlp-grpc when running with '--profile telemetry'
+      # (Note: The default is intentionally empty to prevent connection errors when the profile is not active)
+      - TIMESKETCH_OTEL_MODE=${TIMESKETCH_OTEL_MODE:-}
+      - TIMESKETCH_OTLP_GRPC_ENDPOINT=${TIMESKETCH_OTLP_GRPC_ENDPOINT:-otel-collector:4317}
+      - TIMESKETCH_OTLP_HTTP_ENDPOINT=${TIMESKETCH_OTLP_HTTP_ENDPOINT:-http://otel-collector:4318/v1/traces}
+      - TIMESKETCH_OTLP_INSECURE=${TIMESKETCH_OTLP_INSECURE:-true}
+    restart: always
+    command: timesketch-web-legacy
+    profiles:
+      - "legacy-ui"
+    volumes:
+      - ${TIMESKETCH_CONFIG_PATH}:/etc/timesketch/
+      - ${TIMESKETCH_UPLOAD_PATH}:/usr/share/timesketch/upload/
+      - ${TIMESKETCH_LOGS_PATH}:/var/log/timesketch/
+    <<: *timesketch-dependencies
+
+  # [WIP] Add "--profile v3-ui" to your docker compose command to use the vue3 UI
+  timesketch-web-v3:
+    container_name: timesketch-web-v3
+    image: us-docker.pkg.dev/osdfir-registry/timesketch/timesketch:${TIMESKETCH_VERSION}
+    environment:
+      - NUM_WSGI_WORKERS=${NUM_WSGI_WORKERS}
+      - WSGI_WORKER_CLASS=${WSGI_WORKER_CLASS}
+      - NUM_WSGI_THREADS=${NUM_WSGI_THREADS}
+      # To enable telemetry, set TIMESKETCH_OTEL_MODE=otlp-grpc when running with '--profile telemetry'
+      # (Note: The default is intentionally empty to prevent connection errors when the profile is not active)
+      - TIMESKETCH_OTEL_MODE=${TIMESKETCH_OTEL_MODE:-}
+      - TIMESKETCH_OTLP_GRPC_ENDPOINT=${TIMESKETCH_OTLP_GRPC_ENDPOINT:-otel-collector:4317}
+      - TIMESKETCH_OTLP_HTTP_ENDPOINT=${TIMESKETCH_OTLP_HTTP_ENDPOINT:-http://otel-collector:4318/v1/traces}
+      - TIMESKETCH_OTLP_INSECURE=${TIMESKETCH_OTLP_INSECURE:-true}
+    restart: always
+    command: timesketch-web-v3
+    profiles:
+      - "v3-ui"
+    volumes:
+      - ${TIMESKETCH_CONFIG_PATH}:/etc/timesketch/
+      - ${TIMESKETCH_UPLOAD_PATH}:/usr/share/timesketch/upload/
+      - ${TIMESKETCH_LOGS_PATH}:/var/log/timesketch/
+    <<: *timesketch-dependencies
+
+  timesketch-worker:
+    container_name: timesketch-worker
+    image: us-docker.pkg.dev/osdfir-registry/timesketch/timesketch:${TIMESKETCH_VERSION}
+    environment:
+      - WORKER_LOG_LEVEL=${WORKER_LOG_LEVEL}
+      # To enable telemetry, set TIMESKETCH_OTEL_MODE=otlp-grpc when running with '--profile telemetry'
+      # (Note: The default is intentionally empty to prevent connection errors when the profile is not active)
+      - TIMESKETCH_OTEL_MODE=${TIMESKETCH_OTEL_MODE:-}
+      - TIMESKETCH_OTLP_GRPC_ENDPOINT=${TIMESKETCH_OTLP_GRPC_ENDPOINT:-otel-collector:4317}
+      - TIMESKETCH_OTLP_HTTP_ENDPOINT=${TIMESKETCH_OTLP_HTTP_ENDPOINT:-http://otel-collector:4318/v1/traces}
+      - TIMESKETCH_OTLP_INSECURE=${TIMESKETCH_OTLP_INSECURE:-true}
+    restart: always
+    command: timesketch-worker
+    volumes:
+      - ${TIMESKETCH_CONFIG_PATH}:/etc/timesketch/
+      - ${TIMESKETCH_UPLOAD_PATH}:/usr/share/timesketch/upload/
+      - ${TIMESKETCH_LOGS_PATH}:/var/log/timesketch/
+    <<: *timesketch-dependencies
+
+  opensearch:
+    container_name: opensearch
+    image: opensearchproject/opensearch:${OPENSEARCH_VERSION}
+    restart: always
+    environment:
+      - TAKE_FILE_OWNERSHIP=1
+      - discovery.type=single-node
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "DISABLE_SECURITY_PLUGIN=true" # TODO: Enable when we have migrated the python client to Opensearch as well.
+      - "OPENSEARCH_JAVA_OPTS=-Xms${OPENSEARCH_MEM_USE_GB}g -Xmx${OPENSEARCH_MEM_USE_GB}g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - ${OPENSEARCH_DATA_PATH}:/usr/share/opensearch/data/
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=50s"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  postgres:
+    container_name: postgres
+    image: postgres:${POSTGRES_VERSION}
+    environment:
+      - POSTGRES_USER=timesketch
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    restart: always
+    volumes:
+      - ${POSTGRES_DATA_PATH}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U timesketch -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    container_name: redis
+    image: redis:${REDIS_VERSION}
+    command: "redis-server"
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    container_name: nginx
+    image: nginx:${NGINX_VERSION}
+    restart: always
+    ports:
+      - ${NGINX_HTTP_PORT}:80
+      - ${NGINX_HTTPS_PORT}:443
+    volumes:
+      - ${NGINX_CONFIG_PATH}:/etc/nginx/nginx.conf
+    depends_on:
+      # Nginx should wait for the web backends to be started.
+      - timesketch-web
+      # - timesketch-web-legacy
+      # - timesketch-web-v3
+
+  otel-collector:
+    container_name: otel-collector
+    image: otel/opentelemetry-collector:0.100.0
+    user: "0"
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ${TIMESKETCH_OTEL_CONFIG_PATH:-./etc/otel-collector-config.yaml}:/etc/otel-collector-config.yaml
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    depends_on:
+      - jaeger
+    profiles:
+      - telemetry
+
+  jaeger:
+    container_name: jaeger
+    image: jaegertracing/jaeger:2.17.0
+    restart: always
+    command: #security settings to enable otel from outside
+      - "--set"
+      - "receivers.otlp.protocols.grpc.endpoint=0.0.0.0:4317"
+      - "--set"
+      - "receivers.otlp.protocols.http.endpoint=0.0.0.0:4318"
+    ports:
+      - "127.0.0.1:16686:16686"
+    profiles:
+      - telemetry

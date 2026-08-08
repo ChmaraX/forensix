@@ -1,0 +1,153 @@
+Skip to content
+
+- Cyber Triage
+
+- Sleuth Kit Labs
+
+- Download
+
+- Add-On Modules
+
+- Cyber Triage Malware Scanner
+
+- Cyber Triage Importer
+
+- Law Enforcement Bundle
+
+- Video Triage
+
+- 3rd Party Module Directory
+
+- Community & Support
+
+- User Guide
+
+- Module Writer’s Guide
+
+- Training
+
+- About
+
+- Use Cases
+
+- Custom Development
+
+- Blog
+
+- Download
+
+- Add-On Modules
+
+- Cyber Triage Malware Scanner
+
+- Cyber Triage Importer
+
+- Law Enforcement Bundle
+
+- Video Triage
+
+- 3rd Party Module Directory
+
+- Community & Support
+
+- User Guide
+
+- Module Writer’s Guide
+
+- Training
+
+- About
+
+- Use Cases
+
+- Custom Development
+
+- Blog
+
+Download and Register
+
+Linux and macOS Download
+
+To run on Linux and macOS:
+
+- Download the Autopsy ZIP file
+
+- Linux will need The Sleuth Kit Java .deb Debian package
+
+- Follow the instructions to install other dependencies
+
+Windows Download
+
+64-bit MSI Installer
+
+3 rd Party Modules
+
+3rd party add-on modules can be found in the Module github repository .
+
+Also Try Cyber Triage
+
+Cyber Triage is commercial, automated DFIR software also from Sleuth Kit Labs that empowers your team to quickly investigate intrusions.
+
+Key Features:
+
+- Scores artifacts so you have relevant data fast.
+
+- Imports EDR telemetry + DFIR artifacts for complete data.
+
+- Integrates with your tech stack + supports team collaboration.
+
+- Integrates with Claude to enrich and summarize results.
+
+Evaluate free for 7-days with scenario data.
+
+Additional Autopsy Details
+
+Release Files
+
+Six files are made available with each release:
+
+- autopsy-X.X.X-32bit.msi: A 32-bit Windows installer.
+
+- autopsy-X.X.X-64bit.msi: A 64-bit Windows installer.
+
+- autopsy-X.X.X.zip: Used for Linux and OS X installations and for module developers.
+
+- One .asc file (GPG signature) for each of the above files.
+
+Older Versions
+
+You can find other versions of Autopsy at:
+
+- Autopsy 4.4.0 and later: GitHub
+
+- Autopsy 4.3.0 and earlier: Source Forge
+
+Signing
+
+- The MSI and ZIP files are signed by Brian’s GPG key ( local copy or MIT’s server )
+
+- The Autopsy EXE is signed by Sleuth Kit Labs, LLC
+
+Bugs
+
+See the support page for details on reporting bugs.
+
+Announcements
+
+Announcements of new releases are tweeted from the @sleuthkit account and published to the RSS feed .
+
+Source Code
+
+Source code is at github.com . See the Developer’s Guide for details on the source code repository.
+
+By submitting these forms, you agree that Sleuth Kit Labs may process your information in accordance with our Privacy Policy . We’ll use your information to provide services as necessary and may also send related educational and marketing communications.
+
+You can unsubscribe or update your preferences at any time using the link in our emails.
+
+Sleuth Kit Labs • 1070 Broadway, Somerville, MA 02144-2078 • info@sleuthkitlabs.com
+
+© 2026 SLEUTH KIT LABS . ALL RIGHTS RESERVED.
+
+- Terms of Use
+
+- Privacy Policy

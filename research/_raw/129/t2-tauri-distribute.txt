@@ -1,0 +1,546 @@
+Skip to content Tauri
+Guides References Blog Releases
+Search Ctrl K Cancel
+
+GitHub Discord Twitter Bluesky Mastodon RSS
+Select language English Français Español 简体中文 日本語 German
+
+-
+Guides
+
+-
+References
+
+-
+Blog
+
+- Quick Start
+- What is Tauri?
+
+- Prerequisites
+
+- Create a Project
+
+- Project Structure
+
+- Frontend Configuration
+- Overview
+
+- Leptos
+
+- Next.js
+
+- Nuxt
+
+- Qwik
+
+- SvelteKit
+
+- Trunk
+
+- Vite
+
+- Upgrade & Migrate
+- Overview
+
+- Upgrade from Tauri 1.0
+
+- Upgrade from Tauri 2.0 Beta
+
+- Core Concepts
+- Overview
+
+- Tauri Architecture
+
+- Process Model
+
+- App Size
+
+- Inter-Process Communication
+- Overview
+
+- Brownfield Pattern
+
+- Isolation Pattern
+
+- Security
+- Overview
+
+- Permissions
+
+- Command Scopes
+
+- Capabilities
+
+- Asset protocol scope
+
+- Content Security Policy (CSP)
+
+- HTTP Headers
+
+- Tauri Ecosystem Security
+
+- Application Lifecycle Threats
+
+- Future Work
+
+- Runtime Authority
+
+- Develop
+- Overview
+
+- Configuration Files
+
+- Calling Rust from the Frontend
+
+- Calling the Frontend from Rust
+
+- Embedding Additional Files
+
+- Embedding External Binaries
+
+- State Management
+
+- Updating Dependencies
+
+- App Icons
+
+- Debug
+- Overview
+
+- CrabNebula DevTools New
+
+- Linux Graphics Issues
+
+- Debug in Neovim
+
+- Debug in JetBrains IDEs
+
+- Debug in VS Code
+
+- Plugins
+- Overview
+
+- Mobile Plugin Development
+
+- Tests
+- Overview
+
+- Mock Tauri APIs
+
+- WebDriver
+- Overview
+
+- Manual setup
+
+- Continuous Integration
+
+- Example
+- Selenium
+
+- WebdriverIO
+
+- Distribute
+- Overview
+
+- App Store
+
+- AppImage
+
+- AUR
+
+- CrabNebula Cloud
+
+- Debian
+
+- DMG
+
+- Flathub
+
+- Google Play
+
+- macOS Application Bundle
+
+- Microsoft Store
+
+- RPM
+
+- Snapcraft
+
+- Windows Installer
+
+- Sign
+- macOS
+
+- Windows
+
+- Linux
+
+- iOS
+
+- Android
+
+- Pipelines
+- CrabNebula Cloud
+
+- GitHub
+
+- Learn
+- Overview
+
+- Node.js as a sidecar
+
+- Splashscreen
+
+- System Tray
+
+- Window Customization
+
+- Multi-Window on Mobile
+
+- File Associations on Mobile
+
+- Security
+- Using Plugin Permissions
+
+- Capabilities for Different Windows and Platforms
+
+- Writing Plugin Permissions
+
+- Window Menu
+
+- Plugins
+- Overview
+
+- Autostart
+
+- Barcode Scanner
+
+- Biometric
+
+- Command Line Interface (CLI)
+
+- Clipboard
+
+- Deep Linking
+
+- Dialog
+
+- File System
+
+- Geolocation
+
+- Global Shortcut
+
+- Haptics
+
+- HTTP Client
+
+- Localhost
+
+- Logging
+
+- NFC
+
+- Notifications
+
+- Opener
+
+- OS Information
+
+- Persisted Scope
+
+- Positioner
+
+- Process
+
+- Shell
+
+- Single Instance
+
+- SQL
+
+- Store
+
+- Stronghold
+
+- Updater
+
+- Upload
+
+- Websocket
+
+- Window State
+
+- About
+- About Tauri
+
+- The Tauri Book
+
+- Tauri Governance
+
+- Tauri Philosophy
+
+- Trademark Guidelines
+
+GitHub Discord Twitter Bluesky Mastodon RSS
+Select language English Français Español 简体中文 日本語 German
+
+On this page
+- Overview
+
+- Building
+- Bundling
+
+- Versioning
+
+- Signing
+
+- Distributing
+- Linux
+
+- macOS
+
+- Windows
+
+- Android
+
+- iOS
+
+- Cloud Services
+
+On this page
+
+- Overview
+
+- Building
+- Bundling
+
+- Versioning
+
+- Signing
+
+- Distributing
+- Linux
+
+- macOS
+
+- Windows
+
+- Android
+
+- iOS
+
+- Cloud Services
+
+Distribute
+
+Tauri provides the tooling you need to distribute your application either to the platform app stores or as platform-specific installers.
+
+Building
+Section titled “Building”
+
+Tauri builds your application directly from its CLI via the build , android build and ios build commands.
+
+- npm
+
+- yarn
+
+- pnpm
+
+- deno
+
+- bun
+
+- cargo
+
+- npm run tauri build
+
+yarn tauri build
+
+pnpm tauri build
+
+deno task tauri build
+
+bun tauri build
+
+cargo tauri build
+
+See the distributing section to learn more about the configuration options available for each bundle
+and how to distribute them to your users.
+
+Note
+Most platforms requires code signing. See the signing section for more information.
+
+Bundling
+Section titled “Bundling”
+
+By default the build command automatically bundles your application for the configured formats.
+
+If you need further customization on how the platform bundles are generated, you can split the build and bundle steps:
+
+- npm
+
+- yarn
+
+- pnpm
+
+- deno
+
+- bun
+
+- cargo
+
+npm run tauri build -- --no-bundle
+
+# bundle for distribution outside the macOS App Store
+
+npm run tauri bundle -- --bundles app,dmg
+
+# bundle for App Store distribution
+
+npm run tauri bundle -- --bundles app --config src-tauri/tauri.appstore.conf.json
+
+yarn tauri build --no-bundle
+
+# bundle for distribution outside the macOS App Store
+
+yarn tauri bundle --bundles app,dmg
+
+# bundle for App Store distribution
+
+yarn tauri bundle --bundles app --config src-tauri/tauri.appstore.conf.json
+
+pnpm tauri build --no-bundle
+
+# bundle for distribution outside the macOS App Store
+
+pnpm tauri bundle --bundles app,dmg
+
+# bundle for App Store distribution
+
+pnpm tauri bundle --bundles app --config src-tauri/tauri.appstore.conf.json
+
+deno task tauri build --no-bundle
+
+# bundle for distribution outside the macOS App Store
+
+deno task tauri bundle --bundles app,dmg
+
+# bundle for App Store distribution
+
+deno task tauri bundle --bundles app --config src-tauri/tauri.appstore.conf.json
+
+bun tauri build --no-bundle
+
+# bundle for distribution outside the macOS App Store
+
+bun tauri bundle --bundles app,dmg
+
+# bundle for App Store distribution
+
+bun tauri bundle --bundles app --config src-tauri/tauri.appstore.conf.json
+
+cargo tauri build --no-bundle
+
+# bundle for distribution outside the macOS App Store
+
+cargo tauri bundle --bundles app,dmg
+
+# bundle for App Store distribution
+
+cargo tauri bundle --bundles app --config src-tauri/tauri.appstore.conf.json
+
+Versioning
+Section titled “Versioning”
+
+Your application version can be defined in the tauri.conf.json > version configuration option,
+which is the recommended way for managing the app version. If that config value is not set,
+Tauri uses the package > version value from your src-tauri/Cargo.toml file instead.
+
+Note
+Some platforms have some limitations and special cases for the version string.
+See the individual distribution documentation pages for more information.
+
+Signing
+Section titled “Signing”
+
+Code signing enhances the security of your application by applying a digital signature to your
+application’s executables and bundles, validating your identity of the provider of your application.
+
+Signing is required on most platforms. See the documentation for each platform for more information.
+
+macOS Code signing and notarization for macOS apps
+Windows Code signing Windows installers
+Linux Code signing Linux packages
+Android Code signing for Android
+iOS Code signing for iOS
+
+Distributing
+Section titled “Distributing”
+
+Learn how to distribute your application for each platform.
+
+Linux
+Section titled “Linux”
+
+For Linux you can distribute your app using the Debian package, Snap, AppImage, Flatpak, RPM or Arch User Repository (AUR) formats.
+
+AppImage Distribute as an AppImage
+AUR Publishing To The Arch User Repository
+Debian Distribute as a Debian package
+RPM Distribute as an RPM package
+Snapcraft Distribute on Snapcraft.io
+
+Code signing
+macOS
+Section titled “macOS”
+
+For macOS you can either distribute your application directly to the App Store or ship a DMG installer as direct download.
+Both methods requires code signing, and distributing outside the App Store also requires notarization.
+
+App Bundle Distribute macOS apps as an App Bundle
+App Store Distribute iOS and macOS apps to the App Store
+DMG Distribute macOS apps as Apple Disk Images
+
+Code signing and notarization
+
+Windows
+Section titled “Windows”
+
+Learn how to distribute to the Microsoft Store or configure a Windows installer.
+
+Microsoft Store Distribute Windows apps to the Microsoft Store
+Windows Installer Distribute installers for Windows
+
+Code signing
+Android
+Section titled “Android”
+
+Distribute your Android application to Google Play.
+
+Google Play Distribute Android apps to Google Play
+
+Code signing
+iOS
+Section titled “iOS”
+
+Learn how to upload your application to the App Store.
+
+App Store Distribute iOS and macOS apps to the App Store
+
+Code signing
+Cloud Services
+Section titled “Cloud Services”
+
+Distribute your application to Cloud services that globally distribute your application and support auto updates out of the box.
+
+CrabNebula Cloud Distribute your app using CrabNebula
+
+Edit page Last updated: Jul 22, 2026
+
+Previous
+WebdriverIO Next
+App Store
+Support on Open Collective Sponsor on GitHub
+© 2026 Tauri Contributors. CC-BY / MIT

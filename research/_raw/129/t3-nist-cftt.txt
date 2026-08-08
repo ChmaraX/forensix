@@ -1,0 +1,503 @@
+Skip to main content
+
+An official website of the United States government
+
+Here’s how you know
+
+Here’s how you know
+
+Official websites use .gov
+
+A .gov website belongs to an official government organization in the United States.
+
+Secure .gov websites use HTTPS
+
+A lock (
+
+) or https:// means you’ve safely connected to the .gov website. Share sensitive information only on official, secure websites.
+
+https://www.nist.gov/itl/csd/secure-systems-and-applications/computer-forensics-tool-testing-program-cftt
+
+Search NIST
+
+Menu
+
+Close
+
+-
+Publications
+
+-
+What We Do
+
+-
+All Topics
+
+-
+Advanced communications
+
+-
+Artificial intelligence
+
+-
+Bioscience
+
+-
+Buildings and construction
+
+-
+Chemistry
+
+-
+Cybersecurity and Privacy
+
+-
+Electronics
+
+-
+Energy
+
+-
+Environment
+
+-
+Fire
+
+-
+Forensic science
+
+-
+Health
+
+-
+Information technology
+
+-
+Infrastructure
+
+-
+Manufacturing
+
+-
+Materials
+
+-
+Mathematics and statistics
+
+-
+Metrology
+
+-
+Nanotechnology
+
+-
+Neutron research
+
+-
+Performance excellence
+
+-
+Physics
+
+-
+Public safety
+
+-
+Quantum information science
+
+-
+Resilience
+
+-
+Standards
+
+-
+Transportation
+
+-
+Labs & Major Programs
+
+-
+Laboratories
+
+-
+Communications Technology Laboratory
+
+-
+Engineering Laboratory
+
+-
+Information Technology Laboratory
+
+-
+Material Measurement Laboratory
+
+-
+Physical Measurement Laboratory
+
+-
+User Facilities
+
+-
+NIST Center for Neutron Research
+
+-
+CNST NanoFab
+
+-
+Research Test Beds
+
+-
+Research Projects
+
+-
+Tools & Instruments
+
+-
+Major Programs
+
+-
+CHIPS for America Initiative
+
+-
+Congressionally Identified Project Program (CIPP)
+
+-
+Manufacturing Extension Partnership (MEP)
+
+-
+Manufacturing USA
+
+-
+Office of Advanced Manufacturing
+
+-
+Technology Partnerships Office
+
+-
+Services & Resources
+
+-
+Measurements and Standards
+
+-
+Calibration Services
+
+-
+Laboratory Accreditation (NVLAP)
+
+-
+Quality System
+
+-
+Standard Reference Materials (SRMs)
+
+-
+Standard Reference Instruments (SRIs)
+
+-
+Standards.gov
+
+-
+Time Services
+
+-
+Office of Weights and Measures
+
+-
+Software
+
+-
+Data
+
+-
+Chemistry WebBook
+
+-
+National Vulnerability Database
+
+-
+Physical Reference Data
+
+-
+Standard Reference Data (SRD)
+
+-
+Storefront
+
+-
+License & Patents
+
+-
+Computer Security Resource Center (CSRC)
+
+-
+NIST Research Library
+
+-
+News & Events
+
+-
+News
+
+-
+Events
+
+-
+Blogs
+
+-
+NIST In Focus
+
+-
+Feature Stories
+
+-
+Awards
+
+-
+Video Gallery
+
+-
+Image Gallery
+
+-
+Media Contacts
+
+-
+About NIST
+
+-
+About Us
+
+-
+Leadership
+
+-
+Organization Structure
+
+-
+Budget & Planning
+
+-
+Contact Us
+
+-
+Visit
+
+-
+Careers
+
+-
+Student programs
+
+-
+Work with NIST
+
+-
+History
+
+-
+NIST Digital Archives
+
+-
+NIST Museum
+
+-
+NIST and the Nobel
+
+-
+Educational Resources
+
+Information Technology Laboratory / Computer Security Division
+
+Software Security Group
+
+Computer Forensics Tool Testing Program (CFTT)
+
+-
+
+-
+
+Menu
+
+-
+Next
+
+-
+CFTT General Information
+Expand or Collapse
+
+-
+Methodology Overview
+
+-
+Presentations
+
+-
+Contact Information
+
+-
+CFTT Technical Information
+Expand or Collapse
+
+-
+Cloud Data Extraction (CDX)
+
+-
+Deleted File Recovery
+
+-
+Disk Imaging
+
+-
+Forensic File Carving
+
+-
+Forensic Media Preparation
+
+-
+Forensic String Search
+
+-
+Hardware Write Block
+Expand or Collapse
+
+-
+Write-Protected Drives
+
+-
+Mobile Devices
+Expand or Collapse
+
+-
+Archived Mobile Specs and Test Plans
+
+-
+MS Windows Registry Tools
+
+-
+Software Write Block
+
+-
+SQLite
+
+-
+Archived Documents
+
+-
+CFTT Raw Test Files
+
+-
+Federated Testing Project
+
+-
+CFReDS
+
+-
+Computer Forensics Tools & Techniques Catalog
+
+-
+Software & Algorithms Catalog
+
+-
+Digital Evidence Preservation: Considerations for Evidence Handlers
+
+-
+Useful Links
+
+Welcome to the Computer Forensics Tool Testing (CFTT) Project Web Site.
+
+There is a critical need in the law enforcement community to ensure the reliability of computer forensic tools. The goal of the Computer Forensic Tool Testing (CFTT) project at the National Institute of Standards and Technology (NIST) is to establish a methodology for testing computer forensic software tools by development of general tool specifications, test procedures, test criteria, test sets, and test hardware. The results provide the information necessary for toolmakers to improve tools, for users to make informed choices about acquiring and using computer forensics tools, and for interested parties to understand the tools capabilities. A capability is required to ensure that forensic software tools consistently produce accurate and objective test results. Our approach for testing computer forensic tools is based on well-recognized international methodologies for conformance testing and quality testing.
+
+The Computer Forensics Tool Testing Program is a project in The Software and Systems Division supported by the Special Programs Office and the Department of Homeland Security . Through the Cyber Security Division Cyber Forensics project, the Department of Homeland Security's Science and Technology partners with the NIST CFTT project to provide forensic tool testing reports to the public.
+
+NEW: Federated Testing -- Guidance for common test methods & test report sharing via downloaded CD iso is available.
+
+Forensic science , Digital evidence , Software research and Software testing
+
+Contacts
+
+-
+
+Questions or Comments
+
+[email protected]
+
+Created May 8, 2017, Updated May 1, 2026
+
+-
+CFTT General Information
+
+Was this page helpful?
+
+HEADQUARTERS
+
+100 Bureau Drive
+
+Gaithersburg, MD 20899
+
+301-975-2000
+
+Webmaster | Contact Us | Our Other Offices
+
+X.com
+
+Facebook
+
+LinkedIn
+
+Instagram
+
+YouTube
+
+Giphy
+
+RSS Feed
+
+Mailing List
+
+How are we doing?
+Feedback
+
+-
+Site Privacy
+
+-
+Accessibility
+
+-
+Privacy Program
+
+-
+Copyright & Disclaimers
+
+-
+Vulnerability Disclosure
+
+-
+No Fear Act Policy
+
+-
+FOIA
+
+-
+Environmental Policy
+
+-
+Scientific Integrity
+
+-
+Information Quality Standards
+
+-
+Commerce.gov
+
+-
+Science.gov
+
+-
+USA.gov
+
+-
+Vote.gov

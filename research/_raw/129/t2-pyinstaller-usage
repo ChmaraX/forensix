@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Using PyInstaller &mdash; PyInstaller 6.21.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/tabs.css?v=4c969af8" />
+      <link rel="stylesheet" type="text/css" href="_static/css/pyinstaller.css?v=8216350b" />
+
+  
+    <link rel="shortcut icon" href="_static/pyinstaller-draft1a.ico"/>
+    <link rel="canonical" href="https://pyinstaller.org/en/stable/usage.html" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=31945cea"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+        <script src="_static/copybutton.js?v=f281be69"></script>
+        <script src="_static/tabs.js?v=3ee01567"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Common Issues and Pitfalls" href="common-issues-and-pitfalls.html" />
+    <link rel="prev" title="What PyInstaller Does and How It Does It" href="operating-mode.html" /> 
+<script async type="text/javascript" src="/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pyinstaller" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/usage.html" /><meta name="readthedocs-http-status" content="200" /></head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            PyInstaller
+              <img src="_static/pyinstaller-draft1a-100_trans.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                6.21.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="requirements.html">Requirements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">How To Contribute</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">How to Install PyInstaller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="operating-mode.html">What PyInstaller Does and How It Does It</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Using PyInstaller</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#options">Options</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#positional-arguments">Positional Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id3">Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#what-to-generate">What To Generate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#what-to-bundle-where-to-search">What To Bundle, Where To Search</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#how-to-generate">How To Generate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#windows-and-macos-specific-options">Windows And Macos Specific Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#windows-specific-options">Windows Specific Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#macos-specific-options">Macos Specific Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#rarely-used-special-options">Rarely Used Special Options</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#shortening-the-command">Shortening the Command</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#running-pyinstaller-from-python-code">Running PyInstaller from Python code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-upx">Using UPX</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#excluding-problematic-files-from-upx-processing">Excluding problematic files from UPX processing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#splash-screen-experimental">Splash Screen <em>(Experimental)</em></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#splash-screen-centering">Splash screen centering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#the-pyi-splash-module">The <code class="docutils literal notranslate"><span class="pre">pyi_splash</span></code> Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issues-caused-by-splash-screen-in-onedir-applications">Issues caused by splash screen in <code class="docutils literal notranslate"><span class="pre">onedir</span></code> applications</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#defining-the-extraction-location">Defining the Extraction Location</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#using-environment-variables">Using environment variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#using-the-runtime-tmpdir-option">Using the <code class="xref std std-option docutils literal notranslate"><span class="pre">--runtime-tmpdir</span></code> option</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#supporting-multiple-platforms">Supporting Multiple Platforms</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#supporting-multiple-python-environments">Supporting Multiple Python Environments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#supporting-multiple-operating-systems">Supporting Multiple Operating Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#capturing-windows-version-data">Capturing Windows Version Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#building-macos-app-bundles">Building macOS App Bundles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#platform-specific-notes">Platform-specific Notes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#gnu-linux">GNU/Linux</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#making-gnu-linux-apps-forward-compatible">Making GNU/Linux Apps Forward-Compatible</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#windows">Windows</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#macos">macOS</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#making-macos-apps-forward-compatible">Making macOS apps Forward-Compatible</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#building-32-bit-apps-in-macos">Building 32-bit Apps in macOS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#getting-the-opened-document-names">Getting the Opened Document Names</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#aix">AIX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cygwin">Cygwin</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#cygwin-based-frozen-applications-and-cygwin1-dll">Cygwin-based Frozen Applications and <code class="docutils literal notranslate"><span class="pre">cygwin1.dll</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="common-issues-and-pitfalls.html">Common Issues and Pitfalls</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime-information.html">Run-time Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spec-files.html">Using Spec Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="feature-notes.html">Notes about specific Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="when-things-go-wrong.html">When Things Go Wrong</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced-topics.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hooks.html">Understanding PyInstaller Hooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hooks-config.html">Hook Configuration Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bootloader-building.html">Building the Bootloader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="CHANGES.html">Changelog for PyInstaller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="CREDITS.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="man-pages.html">Man Pages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development/index.html">Development Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PyInstaller</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Using PyInstaller</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/usage.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="using-pyinstaller">
+<span id="id1"></span><h1>Using PyInstaller<a class="headerlink" href="#using-pyinstaller" title="Link to this heading"></a></h1>
+<p>The syntax of the <code class="docutils literal notranslate"><span class="pre">pyinstaller</span></code> command is:</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">pyinstaller</span></code> [<em>options</em>] <em>script</em> [<em>script</em> …] | <em>specfile</em></p>
+</div></blockquote>
+<p>In the most simple case,
+set the current directory to the location of your program <code class="docutils literal notranslate"><span class="pre">myscript.py</span></code>
+and execute:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pyinstaller</span> <span class="n">myscript</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<p>PyInstaller analyzes <code class="file docutils literal notranslate"><span class="pre">myscript.py</span></code> and:</p>
+<ul class="simple">
+<li><p>Writes <code class="file docutils literal notranslate"><span class="pre">myscript.spec</span></code> in the same folder as the script.</p></li>
+<li><p>Creates a folder <code class="file docutils literal notranslate"><span class="pre">build</span></code> in the same folder as the script if it does not exist.</p></li>
+<li><p>Writes some log files and working files in the <code class="docutils literal notranslate"><span class="pre">build</span></code> folder.</p></li>
+<li><p>Creates a folder <code class="file docutils literal notranslate"><span class="pre">dist</span></code> in the same folder as the script if it does not exist.</p></li>
+<li><p>Writes the <code class="file docutils literal notranslate"><span class="pre">myscript</span></code> executable folder in the <code class="file docutils literal notranslate"><span class="pre">dist</span></code> folder.</p></li>
+</ul>
+<p>In the <code class="file docutils literal notranslate"><span class="pre">dist</span></code> folder you find the bundled app you distribute to your users.</p>
+<p>Normally you name one script on the command line.
+If you name more, all are analyzed and included in the output.
+However, the first script named supplies the name for the
+spec file and for the executable folder or file.
+Its code is the first to execute at run-time.</p>
+<p>For certain uses you may edit the contents of <code class="docutils literal notranslate"><span class="pre">myscript.spec</span></code>
+(described under <a class="reference internal" href="spec-files.html#using-spec-files"><span class="std std-ref">Using Spec Files</span></a>).
+After you do this, you name the spec file to PyInstaller instead of the script:</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">pyinstaller</span> <span class="pre">myscript.spec</span></code></p>
+</div></blockquote>
+<p>The <code class="file docutils literal notranslate"><span class="pre">myscript.spec</span></code> file contains most of the information
+provided by the options that were specified when
+<strong class="command">pyinstaller</strong> (or <strong class="command">pyi-makespec</strong>)
+was run with the script file as the argument.
+You typically do not need to specify any options when running
+<strong class="command">pyinstaller</strong> with the spec file.
+Only <a class="reference internal" href="spec-files.html#using-spec-files"><span class="std std-ref">a few command-line options</span></a>
+have an effect when building from a spec file.</p>
+<p>You may give a path to the script or spec file, for example</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">pyinstaller</span></code> <cite>options…</cite> <code class="docutils literal notranslate"><span class="pre">~/myproject/source/myscript.py</span></code></p>
+</div></blockquote>
+<p>or, on Windows,</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">pyinstaller</span> <span class="pre">&quot;C:\Documents</span> <span class="pre">and</span> <span class="pre">Settings\project\myscript.spec&quot;</span></code></p>
+</div></blockquote>
+<section id="options">
+<h2>Options<a class="headerlink" href="#options" title="Link to this heading"></a></h2>
+<p>A full list of the <code class="docutils literal notranslate"><span class="pre">pyinstaller</span></code> command’s options are as follows:</p>
+<section id="positional-arguments">
+<span id="id2"></span><h3>Positional Arguments<a class="headerlink" href="#positional-arguments" title="Link to this heading"></a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-scriptname">
+<span class="sig-name descname"><span class="pre">scriptname</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-scriptname" title="Link to this definition"></a></dt>
+<dd><p>Name of scriptfiles to be processed or exactly one
+.spec file. If a .spec file is specified, most options
+are unnecessary and are ignored.</p>
+</dd></dl>
+
+</section>
+<section id="id3">
+<span id="id4"></span><h3>Options<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-h">
+<span id="cmdoption-help"></span><span class="sig-name descname"><span class="pre">-h</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--help</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-h" title="Link to this definition"></a></dt>
+<dd><p>show this help message and exit</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-v">
+<span id="cmdoption-version"></span><span class="sig-name descname"><span class="pre">-v</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--version</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-v" title="Link to this definition"></a></dt>
+<dd><p>Show program version info and exit.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-distpath">
+<span class="sig-name descname"><span class="pre">--distpath</span></span><span class="sig-prename descclassname"> <span class="pre">DIR</span></span><a class="headerlink" href="#cmdoption-distpath" title="Link to this definition"></a></dt>
+<dd><p>Where to put the bundled app (default: ./dist)</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-workpath">
+<span class="sig-name descname"><span class="pre">--workpath</span></span><span class="sig-prename descclassname"> <span class="pre">WORKPATH</span></span><a class="headerlink" href="#cmdoption-workpath" title="Link to this definition"></a></dt>
+<dd><p>Where to put all the temporary work files, .log, .pyz
+and etc. (default: ./build)</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-y">
+<span id="cmdoption-noconfirm"></span><span class="sig-name descname"><span class="pre">-y</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--noconfirm</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-y" title="Link to this definition"></a></dt>
+<dd><p>Replace output directory (default:
+SPECPATH/dist/SPECNAME) without asking for
+confirmation</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-upx-dir">
+<span class="sig-name descname"><span class="pre">--upx-dir</span></span><span class="sig-prename descclassname"> <span class="pre">UPX_DIR</span></span><a class="headerlink" href="#cmdoption-upx-dir" title="Link to this definition"></a></dt>
+<dd><p>Path to UPX utility (default: search the execution
+path)</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-clean">
+<span class="sig-name descname"><span class="pre">--clean</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-clean" title="Link to this definition"></a></dt>
+<dd><p>Clean PyInstaller cache and remove temporary files
+before building.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-log-level">
+<span class="sig-name descname"><span class="pre">--log-level</span></span><span class="sig-prename descclassname"> <span class="pre">LEVEL</span></span><a class="headerlink" href="#cmdoption-log-level" title="Link to this definition"></a></dt>
+<dd><p>Amount of detail in build-time console messages. LEVEL
+may be one of TRACE, DEBUG, INFO, WARN, DEPRECATION,
+ERROR, FATAL (default: INFO). Also settable via and
+overrides the PYI_LOG_LEVEL environment variable.</p>
+</dd></dl>
+
+</section>
+<section id="what-to-generate">
+<span id="id5"></span><h3>What To Generate<a class="headerlink" href="#what-to-generate" title="Link to this heading"></a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-D">
+<span id="cmdoption-onedir"></span><span class="sig-name descname"><span class="pre">-D</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--onedir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-D" title="Link to this definition"></a></dt>
+<dd><p>Create a one-folder bundle containing an executable
+(default)</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-F">
+<span id="cmdoption-onefile"></span><span class="sig-name descname"><span class="pre">-F</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--onefile</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-F" title="Link to this definition"></a></dt>
+<dd><p>Create a one-file bundled executable.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-specpath">
+<span class="sig-name descname"><span class="pre">--specpath</span></span><span class="sig-prename descclassname"> <span class="pre">DIR</span></span><a class="headerlink" href="#cmdoption-specpath" title="Link to this definition"></a></dt>
+<dd><p>Folder to store the generated spec file (default:
+current directory)</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-n">
+<span id="cmdoption-name"></span><span class="sig-name descname"><span class="pre">-n</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--name</span></span><span class="sig-prename descclassname"> <span class="pre">NAME</span></span><a class="headerlink" href="#cmdoption-n" title="Link to this definition"></a></dt>
+<dd><p>Name to assign to the bundled app and spec file
+(default: first script’s basename)</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-contents-directory">
+<span class="sig-name descname"><span class="pre">--contents-directory</span></span><span class="sig-prename descclassname"> <span class="pre">CONTENTS_DIRECTORY</span></span><a class="headerlink" href="#cmdoption-contents-directory" title="Link to this definition"></a></dt>
+<dd><p>For onedir builds only, specify the name of the directory in which all
+supporting files (i.e. everything except the executable itself) will be
+placed in. Use “.” to re-enable old onedir layout without contents
+directory.</p>
+</dd></dl>
+
+</section>
+<section id="what-to-bundle-where-to-search">
+<span id="id6"></span><h3>What To Bundle, Where To Search<a class="headerlink" href="#what-to-bundle-where-to-search" title="Link to this heading"></a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-add-data">
+<span class="sig-name descname"><span class="pre">--add-data</span></span><span class="sig-prename descclassname"> <span class="pre">SOURCE:DEST</span></span><a class="headerlink" href="#cmdoption-add-data" title="Link to this definition"></a></dt>
+<dd><p>Additional data files or directories containing data files to be added to
+the application. The argument value should be in form of “source:dest_dir”,
+where source is the path to file (or directory) to be collected, dest_dir
+is the destination directory relative to the top-level application
+directory, and both paths are separated by a colon (:). To put a file in
+the top-level application directory, use . as a dest_dir. This option can
+be used multiple times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-add-binary">
+<span class="sig-name descname"><span class="pre">--add-binary</span></span><span class="sig-prename descclassname"> <span class="pre">SOURCE:DEST</span></span><a class="headerlink" href="#cmdoption-add-binary" title="Link to this definition"></a></dt>
+<dd><p>Additional binary files to be added to the executable. See the
+<code class="docutils literal notranslate"><span class="pre">--add-data</span></code> option for the format. This option can be used multiple
+times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-p">
+<span id="cmdoption-paths"></span><span class="sig-name descname"><span class="pre">-p</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--paths</span></span><span class="sig-prename descclassname"> <span class="pre">DIR</span></span><a class="headerlink" href="#cmdoption-p" title="Link to this definition"></a></dt>
+<dd><p>A path to search for imports (like using PYTHONPATH).
+Multiple paths are allowed, separated by <code class="docutils literal notranslate"><span class="pre">':'</span></code>, or
+use this option multiple times. Equivalent to
+supplying the <code class="docutils literal notranslate"><span class="pre">pathex</span></code> argument in the spec file.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-hidden-import">
+<span id="cmdoption-hiddenimport"></span><span class="sig-name descname"><span class="pre">--hidden-import</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--hiddenimport</span></span><span class="sig-prename descclassname"> <span class="pre">MODULENAME</span></span><a class="headerlink" href="#cmdoption-hidden-import" title="Link to this definition"></a></dt>
+<dd><p>Name an import not visible in the code of the script(s). This option can be
+used multiple times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-collect-submodules">
+<span class="sig-name descname"><span class="pre">--collect-submodules</span></span><span class="sig-prename descclassname"> <span class="pre">MODULENAME</span></span><a class="headerlink" href="#cmdoption-collect-submodules" title="Link to this definition"></a></dt>
+<dd><p>Collect all submodules from the specified package or module. This option
+can be used multiple times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-collect-data">
+<span id="cmdoption-collect-datas"></span><span class="sig-name descname"><span class="pre">--collect-data</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--collect-datas</span></span><span class="sig-prename descclassname"> <span class="pre">MODULENAME</span></span><a class="headerlink" href="#cmdoption-collect-data" title="Link to this definition"></a></dt>
+<dd><p>Collect all data from the specified package or module. This option can be
+used multiple times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-collect-binaries">
+<span class="sig-name descname"><span class="pre">--collect-binaries</span></span><span class="sig-prename descclassname"> <span class="pre">MODULENAME</span></span><a class="headerlink" href="#cmdoption-collect-binaries" title="Link to this definition"></a></dt>
+<dd><p>Collect all binaries from the specified package or module. This option can
+be used multiple times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-collect-all">
+<span class="sig-name descname"><span class="pre">--collect-all</span></span><span class="sig-prename descclassname"> <span class="pre">MODULENAME</span></span><a class="headerlink" href="#cmdoption-collect-all" title="Link to this definition"></a></dt>
+<dd><p>Collect all submodules, data files, and binaries from the specified package
+or module. This option can be used multiple times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-copy-metadata">
+<span class="sig-name descname"><span class="pre">--copy-metadata</span></span><span class="sig-prename descclassname"> <span class="pre">PACKAGENAME</span></span><a class="headerlink" href="#cmdoption-copy-metadata" title="Link to this definition"></a></dt>
+<dd><p>Copy metadata for the specified package. This option can be used multiple
+times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-recursive-copy-metadata">
+<span class="sig-name descname"><span class="pre">--recursive-copy-metadata</span></span><span class="sig-prename descclassname"> <span class="pre">PACKAGENAME</span></span><a class="headerlink" href="#cmdoption-recursive-copy-metadata" title="Link to this definition"></a></dt>
+<dd><p>Copy metadata for the specified package and all its dependencies. This
+option can be used multiple times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-additional-hooks-dir">
+<span class="sig-name descname"><span class="pre">--additional-hooks-dir</span></span><span class="sig-prename descclassname"> <span class="pre">HOOKSPATH</span></span><a class="headerlink" href="#cmdoption-additional-hooks-dir" title="Link to this definition"></a></dt>
+<dd><p>An additional path to search for hooks. This option can be used multiple
+times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-runtime-hook">
+<span class="sig-name descname"><span class="pre">--runtime-hook</span></span><span class="sig-prename descclassname"> <span class="pre">RUNTIME_HOOKS</span></span><a class="headerlink" href="#cmdoption-runtime-hook" title="Link to this definition"></a></dt>
+<dd><p>Path to a custom runtime hook file. A runtime hook is code that is bundled
+with the executable and is executed before any other code or module to set
+up special features of the runtime environment. This option can be used
+multiple times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-exclude-module">
+<span class="sig-name descname"><span class="pre">--exclude-module</span></span><span class="sig-prename descclassname"> <span class="pre">EXCLUDES</span></span><a class="headerlink" href="#cmdoption-exclude-module" title="Link to this definition"></a></dt>
+<dd><p>Optional module or package (the Python name, not the path name) that will
+be ignored (as though it was not found). This option can be used multiple
+times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-splash">
+<span class="sig-name descname"><span class="pre">--splash</span></span><span class="sig-prename descclassname"> <span class="pre">IMAGE_FILE</span></span><a class="headerlink" href="#cmdoption-splash" title="Link to this definition"></a></dt>
+<dd><p>(EXPERIMENTAL) Add an splash screen with the image
+IMAGE_FILE to the application. The splash screen can
+display progress updates while unpacking.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-splash-center">
+<span class="sig-name descname"><span class="pre">--splash-center</span></span><span class="sig-prename descclassname"> <span class="pre">{default,virtual,active,primary}</span></span><a class="headerlink" href="#cmdoption-splash-center" title="Link to this definition"></a></dt>
+<dd><p>Splash screen centering mode. See the splash screen documentation for
+details.</p>
+</dd></dl>
+
+</section>
+<section id="how-to-generate">
+<span id="id7"></span><h3>How To Generate<a class="headerlink" href="#how-to-generate" title="Link to this heading"></a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-d">
+<span id="cmdoption-debug"></span><span class="sig-name descname"><span class="pre">-d</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--debug</span></span><span class="sig-prename descclassname"> <span class="pre">{all,imports,bootloader,noarchive}</span></span><a class="headerlink" href="#cmdoption-d" title="Link to this definition"></a></dt>
+<dd><p>Provide assistance with debugging a frozen application. This argument may
+be provided multiple times to select several of the following options.  -
+all: All three of the following options.  - imports: specify the -v option
+to the underlying   Python interpreter, causing it to print a message
+each time a module is initialized, showing the   place (filename or
+built-in module) from which it   is loaded. See
+<a class="reference external" href="https://docs.python.org/3/using/cmdline.html#id4">https://docs.python.org/3/using/cmdline.html#id4</a>.  - bootloader: tell the
+bootloader to issue progress   messages while initializing and starting the
+bundled app. Used to diagnose problems with   missing imports.  -
+noarchive: instead of storing all frozen Python   source files as an
+archive inside the resulting   executable, store them as files in the
+resulting   output directory.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-optimize">
+<span class="sig-name descname"><span class="pre">--optimize</span></span><span class="sig-prename descclassname"> <span class="pre">LEVEL</span></span><a class="headerlink" href="#cmdoption-optimize" title="Link to this definition"></a></dt>
+<dd><p>Bytecode optimization level used for collected python
+modules and scripts. For details, see the section
+“Bytecode Optimization Level” in PyInstaller manual.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-python-option">
+<span class="sig-name descname"><span class="pre">--python-option</span></span><span class="sig-prename descclassname"> <span class="pre">PYTHON_OPTION</span></span><a class="headerlink" href="#cmdoption-python-option" title="Link to this definition"></a></dt>
+<dd><p>Specify a command-line option to pass to the Python interpreter at runtime.
+Currently supports “v” (equivalent to “–debug imports”), “u”, “W &lt;warning
+control&gt;”, “X &lt;xoption&gt;”, and “hash_seed=&lt;value&gt;”. For details, see the
+section “Specifying Python Interpreter Options” in PyInstaller manual.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-s">
+<span id="cmdoption-strip"></span><span class="sig-name descname"><span class="pre">-s</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--strip</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-s" title="Link to this definition"></a></dt>
+<dd><p>Apply a symbol-table strip to the executable and
+shared libs (not recommended for Windows)</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-noupx">
+<span class="sig-name descname"><span class="pre">--noupx</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-noupx" title="Link to this definition"></a></dt>
+<dd><p>Do not use UPX even if it is available (works
+differently between Windows and *nix)</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-upx-exclude">
+<span class="sig-name descname"><span class="pre">--upx-exclude</span></span><span class="sig-prename descclassname"> <span class="pre">FILE</span></span><a class="headerlink" href="#cmdoption-upx-exclude" title="Link to this definition"></a></dt>
+<dd><p>Prevent a binary from being compressed when using upx.
+This is typically used if upx corrupts certain
+binaries during compression. FILE is the filename of
+the binary without path. This option can be used
+multiple times.</p>
+</dd></dl>
+
+</section>
+<section id="windows-and-macos-specific-options">
+<span id="id8"></span><h3>Windows And Macos Specific Options<a class="headerlink" href="#windows-and-macos-specific-options" title="Link to this heading"></a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-c">
+<span id="cmdoption-console"></span><span id="cmdoption-nowindowed"></span><span class="sig-name descname"><span class="pre">-c</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--console</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--nowindowed</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-c" title="Link to this definition"></a></dt>
+<dd><p>Open a console window for standard i/o (default). On Windows this option
+has no effect if the first script is a ‘.pyw’ file.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-w">
+<span id="cmdoption-windowed"></span><span id="cmdoption-noconsole"></span><span class="sig-name descname"><span class="pre">-w</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--windowed</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--noconsole</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-w" title="Link to this definition"></a></dt>
+<dd><p>Windows and macOS: do not provide a console window for standard i/o. On
+macOS this also triggers building a macOS .app bundle. On Windows this
+option is automatically set if the first script is a ‘.pyw’ file. This
+option is ignored on *NIX systems.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-hide-console">
+<span class="sig-name descname"><span class="pre">--hide-console</span></span><span class="sig-prename descclassname"> <span class="pre">{hide-late,minimize-late,hide-early,minimize-early}</span></span><a class="headerlink" href="#cmdoption-hide-console" title="Link to this definition"></a></dt>
+<dd><p>Windows only: in console-enabled executable, have bootloader automatically
+hide or minimize the console window if the program owns the console window
+(i.e., was not launched from an existing console window).</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-i">
+<span id="cmdoption-icon"></span><span class="sig-name descname"><span class="pre">-i</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--icon</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;FILE.ico</span> <span class="pre">or</span> <span class="pre">FILE.exe,ID</span> <span class="pre">or</span> <span class="pre">FILE.icns</span> <span class="pre">or</span> <span class="pre">Image</span> <span class="pre">or</span> <span class="pre">&quot;NONE&quot;&gt;</span></span><a class="headerlink" href="#cmdoption-i" title="Link to this definition"></a></dt>
+<dd><p>FILE.ico: apply the icon to a Windows executable. FILE.exe,ID: extract the
+icon with ID from an exe. FILE.icns: apply the icon to the .app bundle on
+macOS. If an image file is entered that isn’t in the platform format (ico
+on Windows, icns on Mac), PyInstaller tries to use Pillow to translate the
+icon into the correct format (if Pillow is installed). Use “NONE” to not
+apply any icon, thereby making the OS show some default (default: apply
+PyInstaller’s icon). This option can be used multiple times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-disable-windowed-traceback">
+<span class="sig-name descname"><span class="pre">--disable-windowed-traceback</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-disable-windowed-traceback" title="Link to this definition"></a></dt>
+<dd><p>Disable traceback dump of unhandled exception in windowed (noconsole) mode
+(Windows and macOS only), and instead display a message that this feature
+is disabled.</p>
+</dd></dl>
+
+</section>
+<section id="windows-specific-options">
+<span id="id9"></span><h3>Windows Specific Options<a class="headerlink" href="#windows-specific-options" title="Link to this heading"></a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-version-file">
+<span class="sig-name descname"><span class="pre">--version-file</span></span><span class="sig-prename descclassname"> <span class="pre">FILE</span></span><a class="headerlink" href="#cmdoption-version-file" title="Link to this definition"></a></dt>
+<dd><p>Add a version resource from FILE to the exe.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-manifest">
+<span class="sig-name descname"><span class="pre">--manifest</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;FILE</span> <span class="pre">or</span> <span class="pre">XML&gt;</span></span><a class="headerlink" href="#cmdoption-manifest" title="Link to this definition"></a></dt>
+<dd><p>Add manifest FILE or XML to the exe.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-m">
+<span class="sig-name descname"><span class="pre">-m</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;FILE</span> <span class="pre">or</span> <span class="pre">XML&gt;</span></span><a class="headerlink" href="#cmdoption-m" title="Link to this definition"></a></dt>
+<dd><p>Deprecated shorthand for –manifest.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-r">
+<span id="cmdoption-resource"></span><span class="sig-name descname"><span class="pre">-r</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--resource</span></span><span class="sig-prename descclassname"> <span class="pre">RESOURCE</span></span><a class="headerlink" href="#cmdoption-r" title="Link to this definition"></a></dt>
+<dd><p>Add or update a resource to a Windows executable. The RESOURCE is one to
+four items, FILE[,TYPE[,NAME[,LANGUAGE]]]. FILE can be a data file or an
+exe/dll. For data files, at least TYPE and NAME must be specified. LANGUAGE
+defaults to 0 or may be specified as wildcard * to update all resources of
+the given TYPE and NAME. For exe/dll files, all resources from FILE will be
+added/updated to the final executable if TYPE, NAME and LANGUAGE are
+omitted or specified as wildcard *. This option can be used multiple
+times.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-uac-admin">
+<span class="sig-name descname"><span class="pre">--uac-admin</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uac-admin" title="Link to this definition"></a></dt>
+<dd><p>Using this option creates a Manifest that will request
+elevation upon application start.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-uac-uiaccess">
+<span class="sig-name descname"><span class="pre">--uac-uiaccess</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uac-uiaccess" title="Link to this definition"></a></dt>
+<dd><p>Using this option allows an elevated application to
+work with Remote Desktop.</p>
+</dd></dl>
+
+</section>
+<section id="macos-specific-options">
+<span id="id10"></span><h3>Macos Specific Options<a class="headerlink" href="#macos-specific-options" title="Link to this heading"></a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-argv-emulation">
+<span class="sig-name descname"><span class="pre">--argv-emulation</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-argv-emulation" title="Link to this definition"></a></dt>
+<dd><p>Enable argv emulation for macOS app bundles. If
+enabled, the initial open document/URL event is
+processed by the bootloader and the passed file paths
+or URLs are appended to sys.argv.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-osx-bundle-identifier">
+<span class="sig-name descname"><span class="pre">--osx-bundle-identifier</span></span><span class="sig-prename descclassname"> <span class="pre">BUNDLE_IDENTIFIER</span></span><a class="headerlink" href="#cmdoption-osx-bundle-identifier" title="Link to this definition"></a></dt>
+<dd><p>macOS .app bundle identifier is used as the default unique program name for
+code signing purposes. The usual form is a hierarchical name in reverse DNS
+notation. For example: com.mycompany.department.appname (default: first
+script’s basename)</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-target-architecture">
+<span id="cmdoption-target-arch"></span><span class="sig-name descname"><span class="pre">--target-architecture</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--target-arch</span></span><span class="sig-prename descclassname"> <span class="pre">ARCH</span></span><a class="headerlink" href="#cmdoption-target-architecture" title="Link to this definition"></a></dt>
+<dd><p>Target architecture (macOS only; valid values: x86_64, arm64, universal2).
+Enables switching between universal2 and single-arch version of frozen
+application (provided python installation supports the target
+architecture). If not target architecture is not specified, the current
+running architecture is targeted.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-codesign-identity">
+<span class="sig-name descname"><span class="pre">--codesign-identity</span></span><span class="sig-prename descclassname"> <span class="pre">IDENTITY</span></span><a class="headerlink" href="#cmdoption-codesign-identity" title="Link to this definition"></a></dt>
+<dd><p>Code signing identity (macOS only). Use the provided identity to sign
+collected binaries and generated executable. If signing identity is not
+provided, ad- hoc signing is performed instead.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-osx-entitlements-file">
+<span class="sig-name descname"><span class="pre">--osx-entitlements-file</span></span><span class="sig-prename descclassname"> <span class="pre">FILENAME</span></span><a class="headerlink" href="#cmdoption-osx-entitlements-file" title="Link to this definition"></a></dt>
+<dd><p>Entitlements file to use when code-signing the collected binaries (macOS
+only).</p>
+</dd></dl>
+
+</section>
+<section id="rarely-used-special-options">
+<span id="id11"></span><h3>Rarely Used Special Options<a class="headerlink" href="#rarely-used-special-options" title="Link to this heading"></a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-runtime-tmpdir">
+<span class="sig-name descname"><span class="pre">--runtime-tmpdir</span></span><span class="sig-prename descclassname"> <span class="pre">PATH</span></span><a class="headerlink" href="#cmdoption-runtime-tmpdir" title="Link to this definition"></a></dt>
+<dd><p>Where to extract libraries and support files in <cite>onefile</cite> mode. If this
+option is given, the bootloader will ignore any temp-folder location
+defined by the run-time OS. The <code class="docutils literal notranslate"><span class="pre">_MEIxxxxxx</span></code>-folder will be created here.
+Please use this option only if you know what you are doing. Note that on
+POSIX systems, PyInstaller’s bootloader does NOT perform shell-style
+environment variable expansion on the given path string. Therefore, using
+environment variables (e.g., <code class="docutils literal notranslate"><span class="pre">~</span></code> or <code class="docutils literal notranslate"><span class="pre">$HOME</span></code>) in path will NOT work.</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-bootloader-ignore-signals">
+<span class="sig-name descname"><span class="pre">--bootloader-ignore-signals</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-bootloader-ignore-signals" title="Link to this definition"></a></dt>
+<dd><p>Tell the bootloader to ignore signals rather than forwarding them to the
+child process. Useful in situations where for example a supervisor process
+signals both the bootloader and the child (e.g., via a process group) to
+avoid signalling the child twice.</p>
+</dd></dl>
+
+</section>
+</section>
+<section id="shortening-the-command">
+<h2>Shortening the Command<a class="headerlink" href="#shortening-the-command" title="Link to this heading"></a></h2>
+<p>Because of its numerous options, a full <code class="docutils literal notranslate"><span class="pre">pyinstaller</span></code> command
+can become very long.
+You will run the same command again and again as you develop
+your script.
+You can put the command in a shell script or batch file,
+using line continuations to make it readable.
+For example, in GNU/Linux:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pyinstaller</span> <span class="o">--</span><span class="n">noconfirm</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">level</span><span class="o">=</span><span class="n">WARN</span> \
+    <span class="o">--</span><span class="n">onefile</span> <span class="o">--</span><span class="n">nowindow</span> \
+    <span class="o">--</span><span class="n">add</span><span class="o">-</span><span class="n">data</span><span class="o">=</span><span class="s2">&quot;README:.&quot;</span> \
+    <span class="o">--</span><span class="n">add</span><span class="o">-</span><span class="n">data</span><span class="o">=</span><span class="s2">&quot;image1.png:img&quot;</span> \
+    <span class="o">--</span><span class="n">add</span><span class="o">-</span><span class="n">binary</span><span class="o">=</span><span class="s2">&quot;libfoo.so:lib&quot;</span> \
+    <span class="o">--</span><span class="n">hidden</span><span class="o">-</span><span class="n">import</span><span class="o">=</span><span class="n">secret1</span> \
+    <span class="o">--</span><span class="n">hidden</span><span class="o">-</span><span class="n">import</span><span class="o">=</span><span class="n">secret2</span> \
+    <span class="o">--</span><span class="n">upx</span><span class="o">-</span><span class="nb">dir</span><span class="o">=/</span><span class="n">usr</span><span class="o">/</span><span class="n">local</span><span class="o">/</span><span class="n">share</span><span class="o">/</span> \
+    <span class="n">myscript</span><span class="o">.</span><span class="n">spec</span>
+</pre></div>
+</div>
+<p>Or in Windows, use the little-known BAT file line continuation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pyinstaller</span> <span class="o">--</span><span class="n">noconfirm</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">level</span><span class="o">=</span><span class="n">WARN</span> <span class="o">^</span>
+    <span class="o">--</span><span class="n">onefile</span> <span class="o">--</span><span class="n">nowindow</span> <span class="o">^</span>
+    <span class="o">--</span><span class="n">add</span><span class="o">-</span><span class="n">data</span><span class="o">=</span><span class="s2">&quot;README:.&quot;</span> <span class="o">^</span>
+    <span class="o">--</span><span class="n">add</span><span class="o">-</span><span class="n">data</span><span class="o">=</span><span class="s2">&quot;image1.png:img&quot;</span> <span class="o">^</span>
+    <span class="o">--</span><span class="n">add</span><span class="o">-</span><span class="n">binary</span><span class="o">=</span><span class="s2">&quot;libfoo.so:lib&quot;</span> <span class="o">^</span>
+    <span class="o">--</span><span class="n">hidden</span><span class="o">-</span><span class="n">import</span><span class="o">=</span><span class="n">secret1</span> <span class="o">^</span>
+    <span class="o">--</span><span class="n">hidden</span><span class="o">-</span><span class="n">import</span><span class="o">=</span><span class="n">secret2</span> <span class="o">^</span>
+    <span class="o">--</span><span class="n">icon</span><span class="o">=..</span>\<span class="n">MLNMFLCN</span><span class="o">.</span><span class="n">ICO</span> <span class="o">^</span>
+    <span class="n">myscript</span><span class="o">.</span><span class="n">spec</span>
+</pre></div>
+</div>
+</section>
+<section id="running-pyinstaller-from-python-code">
+<h2>Running PyInstaller from Python code<a class="headerlink" href="#running-pyinstaller-from-python-code" title="Link to this heading"></a></h2>
+<p>If you want to run PyInstaller from Python code, you can use the <code class="docutils literal notranslate"><span class="pre">run</span></code> function
+defined in <code class="docutils literal notranslate"><span class="pre">PyInstaller.__main__</span></code>. For instance, the following code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">PyInstaller.__main__</span>
+
+<span class="n">PyInstaller</span><span class="o">.</span><span class="n">__main__</span><span class="o">.</span><span class="n">run</span><span class="p">([</span>
+    <span class="s1">&#39;my_script.py&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;--onefile&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;--windowed&#39;</span>
+<span class="p">])</span>
+</pre></div>
+</div>
+<p>Is equivalent to:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pyinstaller<span class="w"> </span>my_script.py<span class="w"> </span>--onefile<span class="w"> </span>--windowed
+</pre></div>
+</div>
+</section>
+<section id="using-upx">
+<h2>Using UPX<a class="headerlink" href="#using-upx" title="Link to this heading"></a></h2>
+<p><a class="reference external" href="https://upx.github.io/">UPX</a> is a free utility for compressing executable files and libraries.
+It is available for most operating systems and can compress a large number
+of executable file formats. See the <a class="reference external" href="https://upx.github.io/">UPX</a> home page for downloads, and for
+the list of supported file formats.</p>
+<p>When UPX is available, PyInstaller uses it to individually compress
+each collected binary file (executable, shared library, or python
+extension) in order to reduce the overall size of the frozen application
+(the one-dir bundle directory, or the one-file executable). The frozen
+application’s executable itself is not UPX-compressed (regardless of one-dir
+or one-file mode), as most of its size comprises the embedded archive that
+already contains individually compressed files.</p>
+<p>PyInstaller looks for the UPX in the standard executable path(s) (defined
+by <code class="docutils literal notranslate"><span class="pre">PATH</span></code> environment variable), or in the path specified via the
+<a class="reference internal" href="#cmdoption-upx-dir"><code class="xref std std-option docutils literal notranslate"><span class="pre">--upx-dir</span></code></a> command-line option. If found, it is used automatically.
+The use of UPX can be completely disabled using the <a class="reference internal" href="#cmdoption-noupx"><code class="xref std std-option docutils literal notranslate"><span class="pre">--noupx</span></code></a>
+command-line option.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>UPX is currently used only on Windows. On other operating systems,
+the collected binaries are not processed even if UPX is found. The
+shared libraries (e.g., the Python shared library) built on modern
+linux distributions seem to break when processed with UPX, resulting
+in defunct application bundles. On macOS, UPX currently fails to
+process .dylib shared libraries; furthermore the UPX-compressed files
+fail the validation check of the <code class="docutils literal notranslate"><span class="pre">codesign</span></code> utility, and therefore
+cannot be code-signed (which is a requirement on the Apple M1 platform).</p>
+</div>
+<section id="excluding-problematic-files-from-upx-processing">
+<h3>Excluding problematic files from UPX processing<a class="headerlink" href="#excluding-problematic-files-from-upx-processing" title="Link to this heading"></a></h3>
+<p>Using UPX may end up corrupting a collected shared library. Known examples
+of such corruption are Windows DLLs with <a class="reference external" href="https://github.com/upx/upx/issues/398">Control Flow Guard (CFG) enabled</a>, as well as <a class="reference external" href="https://github.com/upx/upx/issues/107">Qt5 and Qt6
+plugins</a>. In such cases,
+individual files may be need to be excluded from UPX processing, using
+the <a class="reference internal" href="#cmdoption-upx-exclude"><code class="xref std std-option docutils literal notranslate"><span class="pre">--upx-exclude</span></code></a> option (or using the <code class="docutils literal notranslate"><span class="pre">upx_exclude</span></code> argument
+in the <a class="reference internal" href="spec-files.html#using-spec-files"><span class="std std-ref">.spec file</span></a>).</p>
+<div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 4.2: </span>PyInstaller detects CFG-enabled DLLs and automatically excludes
+them from UPX processing.</p>
+</div>
+<div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 4.3: </span>PyInstaller automatically excludes Qt5 and Qt6 plugins from
+UPX processing.</p>
+</div>
+<p>Although PyInstaller attempts to automatically detect and exclude some of
+the problematic files from UPX processing, there are cases where the
+UPX excludes need to be specified manually. For example, 32-bit Windows
+binaries from the <code class="docutils literal notranslate"><span class="pre">PySide2</span></code> package (Qt5 DLLs and python extension modules)
+have been <a class="reference external" href="https://github.com/pyinstaller/pyinstaller/issues/4178#issuecomment-868985789">reported</a>
+to be corrupted by UPX.</p>
+<div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 5.0: </span>Unlike earlier releases that compared the provided UPX-exclude names
+against basenames of the collect binary files (and, due to incomplete
+case normalization, required provided exclude names to be lowercase
+on Windows), the UPX-exclude pattern matching now uses OS-default
+case sensitivity and supports the wildcard (<code class="docutils literal notranslate"><span class="pre">*</span></code>) operator. It also
+supports specifying (full or partial) parent path of the file.</p>
+</div>
+<p>The provided UPX exclude patterns are matched against <em>source</em> (origin)
+paths of the collected binary files, and the matching is performed from
+right to left.</p>
+<p>For example, to exclude Qt5 DLLs from the PySide2 package, use
+<code class="docutils literal notranslate"><span class="pre">--upx-exclude</span> <span class="pre">&quot;Qt*.dll&quot;</span></code>, and to exclude the python extensions
+from the PySide2 package, use <code class="docutils literal notranslate"><span class="pre">--upx-exclude</span> <span class="pre">&quot;PySide2\*.pyd&quot;</span></code>.</p>
+</section>
+</section>
+<section id="splash-screen-experimental">
+<span id="splash-screen"></span><h2>Splash Screen <em>(Experimental)</em><a class="headerlink" href="#splash-screen-experimental" title="Link to this heading"></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This feature is incompatible with macOS. In the current design, the
+splash screen operates in a secondary thread, which is disallowed by
+the Tcl/Tk (or rather, the underlying GUI toolkit) on macOS.</p>
+</div>
+<p>Some applications may require a splash screen as soon as the application
+(bootloader) has been started, because especially in <code class="docutils literal notranslate"><span class="pre">onefile</span></code> mode large
+applications may have long extraction/startup times, while the bootloader
+prepares everything, where the user cannot judge whether the application
+was started successfully or not.</p>
+<p>The bootloader is able to display a one-image (i.e. only an image) splash
+screen, which is displayed before the actual main extraction process starts.
+The splash screen supports non-transparent and hard-cut-transparent images as background
+image, so non-rectangular splash screens can also be displayed.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Splash images with transparent regions are not supported on Linux due to
+Tcl/Tk platform limitations. The <code class="docutils literal notranslate"><span class="pre">-transparentcolor</span></code> and <code class="docutils literal notranslate"><span class="pre">-transparent</span></code> wm attributes
+used by PyInstaller are not available to Linux.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>On Windows, the transparency in splash screen is implemented by marking the
+<code class="docutils literal notranslate"><span class="pre">magenta</span></code> color (<code class="docutils literal notranslate"><span class="pre">#ff00ff</span></code>) as transparent color, and overlaying the
+splash screen image over magenta background. This has two implications.</p>
+<p>First, any region of splash screen image that uses magenta color will be rendered as
+transparent; if splash screen originally contains magenta regions, they should
+be changed to a slightly different color instead (for example, <code class="docutils literal notranslate"><span class="pre">#ff00fe</span></code>).</p>
+<p>Second, <strong>semi-transparent pixels in the splash screen image are not supported, and
+will be rendered as a shade of magenta color that depends on transparency of
+each pixel</strong>, due to image being overlaid on magenta background. For example, if
+splash screen image contains <strong>feathered edges</strong> (i.e., smooth edges made up of
+semi-transparent pixels), these will end up manifesting as magenta-colored glow around
+the opaque part of the splash screen - see <a class="reference external" href="https://github.com/pyinstaller/pyinstaller/issues/8579">#8579</a>. To mitigate this problem,
+use an image processing utility to convert your image into a hard-cut transparent
+image, where every pixel is either fully transparent or fully opaque.</p>
+</div>
+<p>This splash screen is based on <a class="reference external" href="http://www.tcl.tk/">Tcl/Tk</a>, which is the same library used by the Python
+module <a class="reference external" href="http://wiki.python.org/moin/TkInter">tkinter</a>. PyInstaller bundles the dynamic libraries of tcl and tk into the
+application at compile time. These are loaded into the bootloader at startup of the
+application after they have been extracted (if the program has been packaged as an
+onefile archive). Since the file sizes of the necessary dynamic libraries are very small,
+there is almost no delay between the start of the application and the splash screen.
+The compressed size of the files necessary for the splash screen is about <em>1.5 MB</em>.</p>
+<p>As an additional feature, text can optionally be displayed on the splash screen. This
+can be changed/updated from within Python. This offers the possibility to
+display the splash screen during longer startup procedures of a Python program
+(e.g. waiting for a network response or loading large files into memory). You
+can also start a GUI behind the splash screen, and only after it is completely
+initialized the splash screen can be closed. Optionally, the font, color and
+size of the text can be set. However, the font must be installed on the user
+system, as it is not bundled. If the font is not available, a fallback font is used.</p>
+<p>If the splash screen is configured to show text, it will automatically (as onefile archive)
+display the name of the file that is currently being unpacked, this acts as a progress bar.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>While splash screen can be enabled in either <code class="docutils literal notranslate"><span class="pre">onefile</span></code> or <code class="docutils literal notranslate"><span class="pre">onedir</span></code> mode,
+using it in <code class="docutils literal notranslate"><span class="pre">onedir</span></code> mode may cause issues with your application’s own UI -
+see <a class="reference internal" href="#splash-screen-onedir-issues"><span class="std std-ref">Issues caused by splash screen in onedir applications</span></a>.</p>
+</div>
+<section id="splash-screen-centering">
+<span id="id12"></span><h3>Splash screen centering<a class="headerlink" href="#splash-screen-centering" title="Link to this heading"></a></h3>
+<p>By default, the splash screen script attempts to center the splash screen based on screen
+dimensions obtained by the Tk’s <code class="docutils literal notranslate"><span class="pre">winfo</span></code> command (i.e., <code class="docutils literal notranslate"><span class="pre">winfo</span> <span class="pre">screenwidth</span></code> and
+<code class="docutils literal notranslate"><span class="pre">winfo</span> <span class="pre">screenheight</span></code>). In the case of multi-monitor setups, this may result in a platform-specific
+behavior; on Windows, the size of the primary screen seems to be reported, while on other platforms,
+the size of the whole virtual screen seems to be reported.</p>
+<p>Therefore, the splash screen implementation provides additional centering modes, where the target
+screen dimensions are obtained by bootloader using low-level platform-specific API, and passed to
+the splash screen script for centering purposes. The preferred splash screen centering mode can
+be set at build-time via the <code class="docutils literal notranslate"><span class="pre">center</span></code> argument passed to <a class="reference internal" href="spec-files.html#splash-screen-target"><span class="std std-ref">the Splash target in the spec file</span></a>, or via the <a class="reference internal" href="#cmdoption-splash-center"><code class="xref std std-option docutils literal notranslate"><span class="pre">--splash-center</span></code></a> command-line option when generating
+the spec file. The centering mode can be overridden at run-time using the <span class="target" id="index-0"></span><a class="reference internal" href="advanced-topics.html#envvar-PYINSTALLER_SPLASH_SCREEN_CENTER"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">PYINSTALLER_SPLASH_SCREEN_CENTER</span></code></a>
+environment variable.</p>
+<p>The following modes can be set at either build-time and the run-time:</p>
+<ul class="simple">
+<li><p><strong>default</strong>: have the splash screen script use Tk’s <code class="docutils literal notranslate"><span class="pre">winfo</span></code> to obtain platform-specific screen
+dimensions. No additional information is required from the bootloader.</p></li>
+<li><p><strong>primary</strong>: have the bootloader use low-level API to obtain dimensions of the primary screen,
+so that splash screen is centered on the primary monitor.</p></li>
+<li><p><strong>virtual</strong>: have the bootloader use low-level API to obtain dimensions of the whole virtual
+screen, so that splash screen is centered on the virtual screen.</p></li>
+<li><p><strong>active</strong>: have the bootloader use low-level API to obtain mouse cursor position, and obtain the
+dimensions of corresponding screen. This way, the splash screen is centered on “active” monitor,
+i.e., the one where the mouse cursor is located at the time when application is started. This mode
+is currently supported only on Windows - on other platforms, <strong>primary</strong> mode is used instead.</p></li>
+</ul>
+<p>If the bootloader cannot obtain the required information, the splash screen script falls back to
+using the information obtained via the <code class="docutils literal notranslate"><span class="pre">winfo</span></code> command.</p>
+</section>
+<section id="the-pyi-splash-module">
+<h3>The <code class="docutils literal notranslate"><span class="pre">pyi_splash</span></code> Module<a class="headerlink" href="#the-pyi-splash-module" title="Link to this heading"></a></h3>
+<p>The splash screen is controlled from within Python by the <a class="reference internal" href="advanced-topics.html#module-pyi_splash" title="pyi_splash"><code class="xref py py-mod docutils literal notranslate"><span class="pre">pyi_splash</span></code></a> module, which can
+be imported at runtime. This module <strong>cannot</strong> be installed by a package manager
+because it is part of PyInstaller and is included as needed.
+This module must be imported within the Python program. The usage is as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pyi_splash</span>
+
+<span class="c1"># Update the text on the splash screen</span>
+<span class="n">pyi_splash</span><span class="o">.</span><span class="n">update_text</span><span class="p">(</span><span class="s2">&quot;PyInstaller is a great software!&quot;</span><span class="p">)</span>
+<span class="n">pyi_splash</span><span class="o">.</span><span class="n">update_text</span><span class="p">(</span><span class="s2">&quot;Second time&#39;s a charm!&quot;</span><span class="p">)</span>
+
+<span class="c1"># Close the splash screen. It does not matter when the call</span>
+<span class="c1"># to this function is made, the splash screen remains open until</span>
+<span class="c1"># this function is called or the Python program is terminated.</span>
+<span class="n">pyi_splash</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Of course the import should be in a <code class="docutils literal notranslate"><span class="pre">try</span> <span class="pre">...</span> <span class="pre">except</span></code> block, in case the program is
+used externally as a normal Python script, without a bootloader.
+For a detailed description see <a class="reference internal" href="advanced-topics.html#pyi-splash-module"><span class="std std-ref">pyi_splash Module (Detailed)</span></a>.</p>
+</section>
+<section id="issues-caused-by-splash-screen-in-onedir-applications">
+<span id="splash-screen-onedir-issues"></span><h3>Issues caused by splash screen in <code class="docutils literal notranslate"><span class="pre">onedir</span></code> applications<a class="headerlink" href="#issues-caused-by-splash-screen-in-onedir-applications" title="Link to this heading"></a></h3>
+<p>Splash screen was primarily designed for <code class="docutils literal notranslate"><span class="pre">onefile</span></code> mode, to indicate
+the application activity and progress during extraction to the temporary
+directory. In this mode, the splash screen and your application’s own UI
+(if any) run in different processes; the splash screen runs in the parent
+process of the onefile application, while the application’s UI runs in
+the child process of the onefile application (which is the main application
+process).</p>
+<p>While splash screen can be also used with <code class="docutils literal notranslate"><span class="pre">onedir</span></code> applications, be aware
+that in this mode, both the splash screen and the application’s own UI run
+in the same process. This might have implications for the application’s own
+windows, which are instantiated and shown after the splash screen’s window,
+and might manifest in subtle issues, independently of whether your application
+also uses <code class="docutils literal notranslate"><span class="pre">tkinter</span></code> or some other UI framework.</p>
+<p>So far, the following issues have been observed:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/pyinstaller/pyinstaller/issues/8338">#8338</a> (Windows): using splash screen in <code class="docutils literal notranslate"><span class="pre">onedir</span></code> application causes
+focus issues in windows and dialogs shown by the application; closing the splash
+screen might send other application windows to the background.</p></li>
+<li><p><a class="reference external" href="https://github.com/pyinstaller/pyinstaller/issues/9394">#9394</a> (Windows): using splash screen in <code class="docutils literal notranslate"><span class="pre">onedir</span></code> application that
+uses <code class="docutils literal notranslate"><span class="pre">tkinter</span></code> prevents the default/application-wide window icon from
+being set via <code class="docutils literal notranslate"><span class="pre">Tk.iconphoto()</span></code>.</p></li>
+</ul>
+<p>These issues likely stem from the fact that splash screen is the first
+displayed window in the process, and therefore the OS ends up treating it
+as the “main” application window. A proper fix would likely require the
+redesign of splash screen to run in a separate process rather than in
+a secondary thread of the main process.</p>
+</section>
+</section>
+<section id="defining-the-extraction-location">
+<span id="id13"></span><h2>Defining the Extraction Location<a class="headerlink" href="#defining-the-extraction-location" title="Link to this heading"></a></h2>
+<p>When building your application in <code class="docutils literal notranslate"><span class="pre">onefile</span></code> mode (see <a class="reference internal" href="operating-mode.html#bundling-to-one-file"><span class="std std-ref">Bundling to One File</span></a> and <a class="reference internal" href="operating-mode.html#how-the-one-file-program-works"><span class="std std-ref">How the One-File Program Works</span></a>), you might encounter
+situations where you want to control the location of the temporary directory
+where the application unpacks itself. For example:</p>
+<ul class="simple">
+<li><p>your application is supposed to be running for long periods of time,
+and you need to prevent its files from being deleted by the OS that
+performs periodic clean-up in standard temporary directories.</p></li>
+<li><p>your target POSIX system does not use standard temporary directory
+location (i.e., <code class="docutils literal notranslate"><span class="pre">/tmp</span></code>) and the standard environment variables for
+temporary directory are not set in the environment.</p></li>
+<li><p>the default temporary directory on the target POSIX system is mounted
+with <code class="docutils literal notranslate"><span class="pre">noexec</span></code> option, which prevents the frozen application from
+loading the unpacked shared libraries.</p></li>
+</ul>
+<p>The location of the temporary directory can be overridden dynamically,
+by setting corresponding environment variable(s) before launching the
+application, or set statically, using the <a class="reference internal" href="#cmdoption-runtime-tmpdir"><code class="xref std std-option docutils literal notranslate"><span class="pre">--runtime-tmpdir</span></code></a> option
+during the build process.</p>
+<section id="using-environment-variables">
+<h3>Using environment variables<a class="headerlink" href="#using-environment-variables" title="Link to this heading"></a></h3>
+<p>The extraction location can be controlled dynamically, by setting the
+environment variable(s) that PyInstaller uses to determine the temporary
+directory. This can, for example, be done in a wrapper shell script that
+sets the environment variable(s) before running the frozen application’s
+executable.</p>
+<p>On POSIX systems, the environment variables used for temporary
+directory location are <code class="docutils literal notranslate"><span class="pre">TMPDIR</span></code>, <code class="docutils literal notranslate"><span class="pre">TEMP</span></code>, and <code class="docutils literal notranslate"><span class="pre">TMP</span></code>, in that
+order; if none are defined (or the corresponding directories do not
+exist or cannot be used), <code class="docutils literal notranslate"><span class="pre">/tmp</span></code>, <code class="docutils literal notranslate"><span class="pre">/var/tmp</span></code>, and <code class="docutils literal notranslate"><span class="pre">/usr/tmp</span></code> are
+used as hard-coded fall-backs, in the specified order. The directory
+specified via the environment variable must exist (i.e., the application
+attempts to create only its own directory under the base temporary directory).</p>
+<p>On Windows, the default temporary directory location is determined via
+<a class="reference external" href="https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-gettemppathw">GetTempPathW</a>
+function (which looks at <code class="docutils literal notranslate"><span class="pre">TMP</span></code> and <code class="docutils literal notranslate"><span class="pre">TEMP</span></code> environment variables for
+initial temporary directory candidates).</p>
+</section>
+<section id="using-the-runtime-tmpdir-option">
+<h3>Using the <a class="reference internal" href="#cmdoption-runtime-tmpdir"><code class="xref std std-option docutils literal notranslate"><span class="pre">--runtime-tmpdir</span></code></a> option<a class="headerlink" href="#using-the-runtime-tmpdir-option" title="Link to this heading"></a></h3>
+<p>The location of the temporary directory can be set statically, at compile
+time, using the <a class="reference internal" href="#cmdoption-runtime-tmpdir"><code class="xref std std-option docutils literal notranslate"><span class="pre">--runtime-tmpdir</span></code></a> option. If this option is used,
+the bootloader will ignore temporary directory locations defined by
+the OS, and use the specified path. The path can be either absolute
+or relative (which makes it relative to the current working directory).</p>
+<p>Please use this option only if you know what you are doing.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>On POSIX systems, PyInstaller’s bootloader does <strong>not</strong> perform shell-style
+environment variable expansion on the path string given via
+<a class="reference internal" href="#cmdoption-runtime-tmpdir"><code class="xref std std-option docutils literal notranslate"><span class="pre">--runtime-tmpdir</span></code></a> option. Therefore, using environment
+variables (e.g., <code class="docutils literal notranslate"><span class="pre">~</span></code> or <code class="docutils literal notranslate"><span class="pre">$HOME</span></code>) in the path will <strong>not</strong> work.</p>
+</div>
+</section>
+</section>
+<section id="supporting-multiple-platforms">
+<span id="id14"></span><h2>Supporting Multiple Platforms<a class="headerlink" href="#supporting-multiple-platforms" title="Link to this heading"></a></h2>
+<p>If you distribute your application for only one combination of OS and Python,
+just install PyInstaller like any other package and use it in your
+normal development setup.</p>
+<section id="supporting-multiple-python-environments">
+<h3>Supporting Multiple Python Environments<a class="headerlink" href="#supporting-multiple-python-environments" title="Link to this heading"></a></h3>
+<p>When you need to bundle your application within one OS
+but for different versions of Python and support libraries – for example,
+a Python 3.6 version and a Python 3.7 version;
+or a supported version that uses Qt4 and a development version that uses Qt5 –
+we recommend you use <a class="reference external" href="https://docs.python.org/3/library/venv.html">venv</a>.
+With <cite>venv</cite> you can maintain different combinations of Python
+and installed packages, and switch from one combination to another easily.
+These are called <cite>virtual environments</cite> or <cite>venvs</cite> in short.</p>
+<ul class="simple">
+<li><p>Use <cite>venv</cite> to create as many different development environments as you need,
+each with its unique combination of Python and installed packages.</p></li>
+<li><p>Install PyInstaller in each virtual environment.</p></li>
+<li><p>Use PyInstaller to build your application in each virtual environment.</p></li>
+</ul>
+<p>Note that when using <cite>venv</cite>, the path to the PyInstaller commands is:</p>
+<ul class="simple">
+<li><p>Windows: ENV_ROOT\Scripts</p></li>
+<li><p>Others:  ENV_ROOT/bin</p></li>
+</ul>
+<p>Under Windows, the <a class="reference external" href="https://sites.google.com/site/pydatalog/python/pip-for-windows">pip-Win</a> package makes it
+especially easy to set up different environments and switch between them.
+Under GNU/Linux and macOS, you switch environments at the command line.</p>
+<p>See <span class="target" id="index-1"></span><a class="pep reference external" href="https://peps.python.org/pep-0405/"><strong>PEP 405</strong></a>
+and the official <a class="reference external" href="https://docs.python.org/3/tutorial/venv.html">Python Tutorial on Virtual Environments and Packages</a>
+for more information about Python virtual environments.</p>
+</section>
+<section id="supporting-multiple-operating-systems">
+<h3>Supporting Multiple Operating Systems<a class="headerlink" href="#supporting-multiple-operating-systems" title="Link to this heading"></a></h3>
+<p>If you need to distribute your application for more than one OS,
+for example both Windows and macOS, you must install PyInstaller
+on each platform and bundle your app separately on each.</p>
+<p>You can do this from a single machine using virtualization.
+The free <a class="reference external" href="https://www.virtualbox.org">virtualBox</a> or the paid <a class="reference external" href="http://www.vmware.com/solutions/desktop/">VMWare</a> and <a class="reference external" href="http://www.parallels.com">Parallels</a>
+allow you to run another complete operating system as a “guest”.
+You set up a virtual machine for each “guest” OS.
+In it you install
+Python, the support packages your application needs, and PyInstaller.</p>
+<p>A <a class="reference external" href="https://en.wikipedia.org/wiki/Enterprise_file_synchronization_and_sharing">File Sync &amp; Share</a> system like <a class="reference external" href="https://nextcloud.org">NextCloud</a> is useful with virtual machines.
+Install the synchronization client in each virtual machine,
+all linked to your synchronization account.
+Keep a single copy of your script(s) in a synchronized folder.
+Then on any virtual machine you can run PyInstaller thus:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="o">~/</span><span class="n">NextCloud</span><span class="o">/</span><span class="n">project_folder</span><span class="o">/</span><span class="n">src</span> <span class="c1"># GNU/Linux, Mac -- Windows similar</span>
+<span class="n">rm</span> <span class="o">*.</span><span class="n">pyc</span> <span class="c1"># get rid of modules compiled by another Python</span>
+<span class="n">pyinstaller</span> <span class="o">--</span><span class="n">workpath</span><span class="o">=</span><span class="n">path</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">local</span><span class="o">-</span><span class="n">temp</span><span class="o">-</span><span class="n">folder</span>  \
+            <span class="o">--</span><span class="n">distpath</span><span class="o">=</span><span class="n">path</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">local</span><span class="o">-</span><span class="n">dist</span><span class="o">-</span><span class="n">folder</span>  \
+            <span class="o">...</span><span class="n">other</span> <span class="n">options</span> <span class="k">as</span> <span class="n">required</span><span class="o">...</span>       \
+            <span class="o">./</span><span class="n">myscript</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<p>PyInstaller reads scripts from the common synchronized folder,
+but writes its work files and the bundled app in folders that
+are local to the virtual machine.</p>
+<p>If you share the same home directory on multiple platforms, for
+example GNU/Linux and macOS, you will need to set the PYINSTALLER_CONFIG_DIR
+environment variable to different values on each platform otherwise
+PyInstaller may cache files for one platform and use them on the other
+platform, as by default it uses a subdirectory of your home directory
+as its cache location.</p>
+<p>It is said to be possible to cross-develop for Windows under GNU/Linux
+using the free <a class="reference external" href="http://www.winehq.org/">Wine</a> environment.
+Further details are needed, see <a class="reference external" href="https://pyinstaller.readthedocs.io/en/latest/contributing.html">How to Contribute</a>.</p>
+</section>
+</section>
+<section id="capturing-windows-version-data">
+<span id="id16"></span><h2>Capturing Windows Version Data<a class="headerlink" href="#capturing-windows-version-data" title="Link to this heading"></a></h2>
+<p>A Windows app may require a Version resource file.
+A Version resource contains a group of data structures,
+some containing binary integers and some containing strings,
+that describe the properties of the executable.
+For details see the Microsoft <a class="reference external" href="http://msdn.microsoft.com/en-us/library/ff468916(v=vs.85).aspx">Version Information Structures</a> page.</p>
+<p>Version resources are complex and
+some elements are optional, others required.
+When you view the version tab of a Properties dialog,
+there’s no simple relationship between
+the data displayed and the structure of the resource.
+For this reason PyInstaller includes the <code class="docutils literal notranslate"><span class="pre">pyi-grab_version</span></code> command.
+It is invoked with the full path name of any Windows executable
+that has a Version resource:</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">pyi-grab_version</span></code> <em>executable_with_version_resource</em></p>
+</div></blockquote>
+<p>The command writes text that represents
+a Version resource in readable form to standard output.
+You can copy it from the console window or redirect it to a file.
+Then you can edit the version information to adapt it to your program.
+Using <code class="docutils literal notranslate"><span class="pre">pyi-grab_version</span></code> you can find an executable that displays the kind of
+information you want, copy its resource data, and modify it to suit your package.</p>
+<p>The version text file is encoded UTF-8 and may contain non-ASCII characters.
+(Unicode characters are allowed in Version resource string fields.)
+Be sure to edit and save the text file in UTF-8 unless you are
+certain it contains only ASCII string values.</p>
+<p>Your edited version text file can be given with the <a class="reference internal" href="#cmdoption-version-file"><code class="xref std std-option docutils literal notranslate"><span class="pre">--version-file</span></code></a>
+option to <code class="docutils literal notranslate"><span class="pre">pyinstaller</span></code> or <code class="docutils literal notranslate"><span class="pre">pyi-makespec</span></code>.
+The text data is converted to a Version resource and
+installed in the bundled app.</p>
+<p>In a Version resource there are two 64-bit binary values,
+<code class="docutils literal notranslate"><span class="pre">FileVersion</span></code> and <code class="docutils literal notranslate"><span class="pre">ProductVersion</span></code>.
+In the version text file these are given as four-element tuples,
+for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">filevers</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+<span class="n">prodvers</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+</pre></div>
+</div>
+<p>The elements of each tuple represent 16-bit values
+from most-significant to least-significant.
+For example the value <code class="docutils literal notranslate"><span class="pre">(2,</span> <span class="pre">0,</span> <span class="pre">4,</span> <span class="pre">0)</span></code> resolves to
+<code class="docutils literal notranslate"><span class="pre">0002000000040000</span></code> in hex.</p>
+<p>You can also install a Version resource from a text file after
+the bundled app has been created, using the <code class="docutils literal notranslate"><span class="pre">pyi-set_version</span></code> command:</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">pyi-set_version</span></code> <em>version_text_file</em> <em>executable_file</em></p>
+</div></blockquote>
+<p>The <code class="docutils literal notranslate"><span class="pre">pyi-set_version</span></code> utility reads a version text file as written
+by <code class="docutils literal notranslate"><span class="pre">pyi-grab_version</span></code>, converts it to a Version resource,
+and installs that resource in the <em>executable_file</em> specified.</p>
+<p>For advanced uses, examine a version text file as written by  <code class="docutils literal notranslate"><span class="pre">pyi-grab_version</span></code>.
+You find it is Python code that creates a <code class="docutils literal notranslate"><span class="pre">VSVersionInfo</span></code> object.
+The class definition for <code class="docutils literal notranslate"><span class="pre">VSVersionInfo</span></code> is found in
+<code class="docutils literal notranslate"><span class="pre">utils/win32/versioninfo.py</span></code> in the PyInstaller distribution folder.
+You can write a program that imports <code class="docutils literal notranslate"><span class="pre">versioninfo</span></code>.
+In that program you can <code class="docutils literal notranslate"><span class="pre">eval</span></code>
+the contents of a version info text file to produce a
+<code class="docutils literal notranslate"><span class="pre">VSVersionInfo</span></code> object.
+You can use the <code class="docutils literal notranslate"><span class="pre">.toRaw()</span></code> method of that object to
+produce a Version resource in binary form.
+Or you can apply the <code class="docutils literal notranslate"><span class="pre">unicode()</span></code> function to the object
+to reproduce the version text file.</p>
+</section>
+<section id="building-macos-app-bundles">
+<span id="macos-app-bundles"></span><h2>Building macOS App Bundles<a class="headerlink" href="#building-macos-app-bundles" title="Link to this heading"></a></h2>
+<p>Under macOS, PyInstaller always builds a UNIX executable in
+<code class="file docutils literal notranslate"><span class="pre">dist</span></code>.
+If you specify <a class="reference internal" href="#cmdoption-D"><code class="xref std std-option docutils literal notranslate"><span class="pre">--onedir</span></code></a>, the output is a folder named <code class="file docutils literal notranslate"><span class="pre">myscript</span></code>
+containing supporting files and an executable named <code class="file docutils literal notranslate"><span class="pre">myscript</span></code>.
+If you specify <a class="reference internal" href="#cmdoption-F"><code class="xref std std-option docutils literal notranslate"><span class="pre">--onefile</span></code></a>, the output is a single UNIX executable
+named <code class="file docutils literal notranslate"><span class="pre">myscript</span></code>.
+Either executable can be started from a Terminal command line.
+Standard input and output work as normal through that Terminal window.</p>
+<p>If you specify <a class="reference internal" href="#cmdoption-w"><code class="xref std std-option docutils literal notranslate"><span class="pre">--windowed</span></code></a> with either option, the <code class="docutils literal notranslate"><span class="pre">dist</span></code> folder
+also contains a macOS app bundle named <code class="file docutils literal notranslate"><span class="pre">myscript.app</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Generating app bundles with onefile executables (i.e., using the
+combination of <a class="reference internal" href="#cmdoption-F"><code class="xref std std-option docutils literal notranslate"><span class="pre">--onefile</span></code></a> and <a class="reference internal" href="#cmdoption-w"><code class="xref std std-option docutils literal notranslate"><span class="pre">--windowed</span></code></a> options),
+while possible, is not recommended. Such app bundles are inefficient,
+because they require unpacking on each run (and the unpacked content
+might be scanned by the OS each time). Furthermore, onefile executables
+will not work when signed/notarized with sandbox enabled (which
+is a requirement for distribution of apps through Mac App Store).</p>
+</div>
+<p>As you are likely aware, an app bundle is a special type of folder.
+The one built by PyInstaller always contains a folder named
+<code class="file docutils literal notranslate"><span class="pre">Contents</span></code>, which contains:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>A file named <code class="file docutils literal notranslate"><span class="pre">Info.plist</span></code> that describes the app.</p></li>
+<li><p>A folder named <code class="file docutils literal notranslate"><span class="pre">MacOS</span></code> that contains the program executable.</p></li>
+<li><p>A folder named <code class="file docutils literal notranslate"><span class="pre">Frameworks</span></code> that contains the collected binaries
+(shared libraries, python extensions) and nested .framework bundles.
+It also contains symbolic links to data files and directories from
+the <code class="file docutils literal notranslate"><span class="pre">Resources</span></code> directory.</p></li>
+<li><p>A folder named <code class="file docutils literal notranslate"><span class="pre">Resources</span></code> that contains the icon file and all
+collected data files. It also contains symbolic links to binaries
+and directories from the <code class="file docutils literal notranslate"><span class="pre">Resources</span></code> directory.</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The contents of the <code class="file docutils literal notranslate"><span class="pre">Frameworks</span></code> and <code class="file docutils literal notranslate"><span class="pre">Resources</span></code> directories
+are cross-linked between the two directories in an effort to
+maintain an illusion of a single content directory (which is required
+by some packages), while also trying to satisfy the Apple’s file
+placement requirements for codesigning.</p>
+</div>
+<p>Use the <a class="reference internal" href="#cmdoption-i"><code class="xref std std-option docutils literal notranslate"><span class="pre">--icon</span></code></a> argument to specify a custom icon for the application.
+It will be copied into the <code class="file docutils literal notranslate"><span class="pre">Resources</span></code> folder.
+(If you do not specify an icon file, PyInstaller supplies a
+file <code class="file docutils literal notranslate"><span class="pre">icon-windowed.icns</span></code> with the PyInstaller logo.)</p>
+<p>Use the <a class="reference internal" href="#cmdoption-osx-bundle-identifier"><code class="xref std std-option docutils literal notranslate"><span class="pre">--osx-bundle-identifier</span></code></a> argument to add a bundle identifier.
+This becomes the <code class="docutils literal notranslate"><span class="pre">CFBundleIdentifier</span></code> used in code-signing
+(see the <a class="reference external" href="https://github.com/pyinstaller/pyinstaller/wiki/Recipe-OSX-Code-Signing">PyInstaller code signing recipe</a>
+and for more detail, the <a class="reference external" href="https://developer.apple.com/library/mac/technotes/tn2206/_index.html">Apple code signing overview</a> technical note).</p>
+<p>You can add other items to the <code class="file docutils literal notranslate"><span class="pre">Info.plist</span></code> by editing the spec file;
+see <a class="reference internal" href="spec-files.html#spec-file-options-for-a-macos-bundle"><span class="std std-ref">Spec File Options for a macOS Bundle</span></a> below.</p>
+</section>
+<section id="platform-specific-notes">
+<h2>Platform-specific Notes<a class="headerlink" href="#platform-specific-notes" title="Link to this heading"></a></h2>
+<section id="gnu-linux">
+<h3>GNU/Linux<a class="headerlink" href="#gnu-linux" title="Link to this heading"></a></h3>
+<section id="making-gnu-linux-apps-forward-compatible">
+<h4>Making GNU/Linux Apps Forward-Compatible<a class="headerlink" href="#making-gnu-linux-apps-forward-compatible" title="Link to this heading"></a></h4>
+<p>Under GNU/Linux, PyInstaller does not bundle <code class="docutils literal notranslate"><span class="pre">libc</span></code>
+(the C standard library, usually <code class="docutils literal notranslate"><span class="pre">glibc</span></code>, the Gnu version) with the app.
+Instead, the app expects to link dynamically to the <code class="docutils literal notranslate"><span class="pre">libc</span></code> from the
+local OS where it runs.
+The interface between any app and <code class="docutils literal notranslate"><span class="pre">libc</span></code> is forward compatible to
+newer releases, but it is not backward compatible to older releases.</p>
+<p>For this reason, if you bundle your app on the current version of GNU/Linux,
+it may fail to execute (typically with a runtime dynamic link error) if
+it is executed on an older version of GNU/Linux.</p>
+<p>The solution is to always build your app on the <em>oldest</em> version of
+GNU/Linux you mean to support.
+It should continue to work with the <code class="docutils literal notranslate"><span class="pre">libc</span></code> found on newer versions.</p>
+<p>The GNU/Linux standard libraries such as <code class="docutils literal notranslate"><span class="pre">glibc</span></code> are distributed in 64-bit
+and 32-bit versions, and these are not compatible.
+As a result you cannot bundle your app on a 32-bit system and run it
+on a 64-bit installation, nor vice-versa.
+You must make a unique version of the app for each word-length supported.</p>
+<p>Note that PyInstaller does bundle other shared libraries that are discovered
+via dependency analysis, such as libstdc++.so.6, libfontconfig.so.1,
+libfreetype.so.6. These libraries may be required on systems where older
+(and thus incompatible) versions of these libraries are available. On the
+other hand, the bundled libraries may cause issues when trying to load a
+system-provided shared library that is linked against a newer version of the
+system-provided library.</p>
+<p>For example, system-installed mesa DRI drivers (e.g., radeonsi_dri.so)
+depend on the system-provided version of libstdc++.so.6. If the frozen
+application bundles an older version of libstdc++.so.6 (as collected from
+the build system), this will likely cause missing symbol errors and prevent
+the DRI drivers from loading. In this case, the bundled libstdc++.so.6
+should be removed. However, this may not work on a different distribution
+that provides libstdc++.so.6 older than the one from the build system; in
+that case, the bundled version should be kept, because the system-provided
+version may lack the symbols required by other collected binaries that depend
+on libstdc++.so.6.</p>
+</section>
+</section>
+<section id="windows">
+<span id="platform-specific-notes-windows"></span><h3>Windows<a class="headerlink" href="#windows" title="Link to this heading"></a></h3>
+<p>The developer needs to take
+special care to include the Visual C++ run-time .dlls:
+Python 3.5+ uses Visual Studio 2015 run-time, which has been renamed into
+<a class="reference external" href="https://blogs.msdn.microsoft.com/vcblog/2015/03/03/introducing-the-universal-crt/">“Universal CRT“</a>
+and has become part of Windows 10.
+For Windows Vista through Windows 8.1 there are Windows Update packages,
+which may or may not be installed in the target-system.
+So you have the following options:</p>
+<ol class="arabic">
+<li><p>Build on <em>Windows 7</em> which has been reported to work.</p></li>
+<li><p>Include one of the VCRedist packages (the redistributable package files)
+into your application’s installer. This is Microsoft’s recommended way, see
+“Distributing Software that uses the Universal CRT“ in the above-mentioned
+link, numbers 2 and 3.</p></li>
+<li><p>Install the <a class="reference external" href="https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk">Windows Software Development Kit (SDK) for Windows 10</a> and expand the
+<cite>.spec</cite>-file to include the required DLLs, see “Distributing Software that
+uses the Universal CRT“ in the above-mentioned link, number 6.</p>
+<p>If you think, PyInstaller should do this by itself, please <a class="reference internal" href="contributing.html#how-to-contribute"><span class="std std-ref">help
+improving</span></a> PyInstaller.</p>
+</li>
+</ol>
+</section>
+<section id="macos">
+<h3>macOS<a class="headerlink" href="#macos" title="Link to this heading"></a></h3>
+<section id="making-macos-apps-forward-compatible">
+<h4>Making macOS apps Forward-Compatible<a class="headerlink" href="#making-macos-apps-forward-compatible" title="Link to this heading"></a></h4>
+<p>On macOS, system components from one version of the OS are usually compatible
+with later versions, but they may not work with earlier versions. While
+PyInstaller does not collect system components of the OS, the collected
+3rd party binaries (e.g., python extension modules) are built against
+specific version of the OS libraries, and may or may not support older
+OS versions.</p>
+<p>As such, the only way to ensure that your frozen application supports
+an older version of the OS is to freeze it on the oldest version of the
+OS that you wish to support. This applies especially when building with
+<a class="reference external" href="http://brew.sh/">Homebrew</a> python, as its binaries usually explicitly target the
+running OS.</p>
+<p>For example, to ensure compatibility with “Mojave” (10.14) and later versions,
+you should set up a full environment (i.e., install python, PyInstaller,
+your application’s code, and all its dependencies) in a copy of macOS 10.14,
+using a virtual machine if necessary. Then use PyInstaller to freeze
+your application in that environment; the generated frozen application
+should be compatible with that and later versions of macOS.</p>
+</section>
+<section id="building-32-bit-apps-in-macos">
+<h4>Building 32-bit Apps in macOS<a class="headerlink" href="#building-32-bit-apps-in-macos" title="Link to this heading"></a></h4>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This section is largely obsolete, as support for 32-bit application
+was removed in macOS 10.15 Catalina (for 64-bit multi-arch support
+on modern versions of macOS, see <a class="reference internal" href="feature-notes.html#macos-multi-arch-support"><span class="std std-ref">here</span></a>).
+However, PyInstaller still supports building 32-bit bootloader,
+and 32-bit/64-bit Python installers are still available from
+python.org for (some) versions of Python 3.7 which PyInstaller dropped
+support for in v6.0.</p>
+</div>
+<p>Older versions of macOS supported both 32-bit and 64-bit executables.
+PyInstaller builds an app using the the word-length of the Python used to execute it.
+That will typically be a 64-bit version of Python,
+resulting in a 64-bit executable.
+To create a 32-bit executable, run PyInstaller under a 32-bit Python.</p>
+<p>To verify that the installed python version supports execution in either
+64- or 32-bit mode, use the <code class="docutils literal notranslate"><span class="pre">file</span></code> command on the Python executable:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ file /usr/local/bin/python3
+/usr/local/bin/python3: Mach-O universal binary with 2 architectures
+/usr/local/bin/python3 (for architecture i386):     Mach-O executable i386
+/usr/local/bin/python3 (for architecture x86_64):   Mach-O 64-bit executable x86_64
+</pre></div>
+</div>
+<p>The OS chooses which architecture to run, and typically defaults to 64-bit.
+You can force the use of either architecture by name using the <code class="docutils literal notranslate"><span class="pre">arch</span></code> command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ /usr/local/bin/python3
+Python 3.7.6 (v3.7.6:43364a7ae0, Dec 18 2019, 14:12:53)
+[GCC 4.2.1 (Apple Inc. build 5666) (dot 3)] on darwin
+Type &quot;help&quot;, &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.
+&gt;&gt;&gt; import sys; sys.maxsize
+9223372036854775807
+
+$ arch -i386 /usr/local/bin/python3
+Python 3.7.6 (v3.7.6:43364a7ae0, Dec 18 2019, 14:12:53)
+[GCC 4.2.1 (Apple Inc. build 5666) (dot 3)] on darwin
+Type &quot;help&quot;, &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.
+&gt;&gt;&gt; import sys; sys.maxsize
+2147483647
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>PyInstaller does not provide pre-built 32-bit bootloaders for
+macOS anymore. In order to use PyInstaller with 32-bit python,
+you need to <a class="reference internal" href="bootloader-building.html#building-the-bootloader"><span class="std std-ref">build the bootloader</span></a>
+yourself, using an XCode
+version that still supports compiling 32-bit. Depending on the
+compiler/toolchain, you may also need to explicitly pass
+<code class="docutils literal notranslate"><span class="pre">--target-arch=32bit</span></code> to the <code class="docutils literal notranslate"><span class="pre">waf</span></code> command.</p>
+</div>
+</section>
+<section id="getting-the-opened-document-names">
+<h4>Getting the Opened Document Names<a class="headerlink" href="#getting-the-opened-document-names" title="Link to this heading"></a></h4>
+<p>When user double-clicks a document of a type that is registered with
+your application, or when a user drags a document and drops it
+on your application’s icon, macOS launches your application
+and provides the name(s) of the opened document(s) in the
+form of an OpenDocument AppleEvent.</p>
+<p>These events are typically handled via installed event handlers in your
+application (e.g., using <code class="docutils literal notranslate"><span class="pre">Carbon</span></code> API via <code class="docutils literal notranslate"><span class="pre">ctypes</span></code>, or using
+facilities provided by UI toolkits, such as <code class="docutils literal notranslate"><span class="pre">tkinter</span></code> or <code class="docutils literal notranslate"><span class="pre">PyQt5</span></code>).</p>
+<p>Alternatively, PyInstaller also supports conversion of open
+document/URL events into arguments that are appended to <a class="reference external" href="https://docs.python.org/3/library/sys.html#sys.argv" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">sys.argv</span></code></a>.
+This applies only to events received during application launch, i.e.,
+before your frozen code is started. To handle events that are dispatched
+while your application is already running, you need to set up corresponding
+event handlers.</p>
+<p>For details, see <a class="reference internal" href="feature-notes.html#macos-event-forwarding-and-argv-emulation"><span class="std std-ref">this section</span></a>.</p>
+</section>
+</section>
+<section id="aix">
+<h3>AIX<a class="headerlink" href="#aix" title="Link to this heading"></a></h3>
+<p>Depending on whether Python was build as a 32-bit or a 64-bit executable
+you may need to set or unset
+the environment variable <span class="target" id="index-2"></span><code class="xref std std-envvar docutils literal notranslate"><span class="pre">OBJECT_MODE</span></code>.
+To determine the size the following command can be used:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python -c &quot;import sys; print(sys.maxsize &lt;= 2**32)&quot;
+True
+</pre></div>
+</div>
+<p>When the answer is <code class="docutils literal notranslate"><span class="pre">True</span></code> (as above) Python was build as a 32-bit
+executable.</p>
+<p>When working with a 32-bit Python executable proceed as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ unset OBJECT_MODE
+$ pyinstaller &lt;your arguments&gt;
+</pre></div>
+</div>
+<p>When working with a 64-bit Python executable proceed as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ export OBJECT_MODE=64
+$ pyinstaller &lt;your arguments&gt;
+</pre></div>
+</div>
+</section>
+<section id="cygwin">
+<span id="platform-specific-notes-cygwin"></span><h3>Cygwin<a class="headerlink" href="#cygwin" title="Link to this heading"></a></h3>
+<section id="cygwin-based-frozen-applications-and-cygwin1-dll">
+<h4>Cygwin-based Frozen Applications and <code class="docutils literal notranslate"><span class="pre">cygwin1.dll</span></code><a class="headerlink" href="#cygwin-based-frozen-applications-and-cygwin1-dll" title="Link to this heading"></a></h4>
+<p>Under Cygwin, the PyInstaller’s bootloader executable (and therefore the
+frozen application’s executable) ends up being dynamically linked against
+the <code class="docutils literal notranslate"><span class="pre">cygwin1.dll</span></code>. As noted under <a class="reference external" href="https://www.cygwin.com/faq.html#faq.programming.static-linking">Q 6.14 of the Cygwin’s FAQ</a>,
+the Cygwin library cannot be statically linked into an executable in
+order to obtain an independent, self-contained executable.</p>
+<p>This means that at run-time, the <code class="docutils literal notranslate"><span class="pre">cygwin1.dll</span></code> needs to be available
+to the frozen application’s executable for it to be able to launch.
+Depending on the deployment scenario, this means that it needs to be
+either available in the environment (i.e., the environment’s search path)
+or a copy of the DLL needs to be available <em>next to the executable</em>.</p>
+<p>On the other hand, Cygwin does not permit more than one copy of
+<code class="docutils literal notranslate"><span class="pre">cygwin1.dll</span></code>; or rather, it requires multiple copies of the DLL
+to be strictly separated, as each instance constitutes its own Cygwin
+installation/environment (see <a class="reference external" href="https://www.cygwin.com/faq.html#faq.using.multiple-copies">Q 4.20 of the Cygwin FAQ</a>).
+Trying to run an executable with an adjacent copy of the DLL from an
+existing Cygwin environment will likely result in the application crashing.</p>
+<p>In practice, this means that if you want to create a frozen application
+that will run in an existing Cygwin environment, the application
+should not bundle a copy of <code class="docutils literal notranslate"><span class="pre">cygwin1.dll</span></code>. On the other hand, if you
+want to create a frozen application that will run outside of a Cygwin
+environment (i.e., a “stand-alone” application that runs directly under
+Windows), the application will require a copy of <code class="docutils literal notranslate"><span class="pre">cygwin1.dll</span></code> – and
+that copy needs to be placed <em>next to the program’s executable</em>, regardless
+of whether <code class="docutils literal notranslate"><span class="pre">onedir</span></code> or <code class="docutils literal notranslate"><span class="pre">onefile</span></code> build mode is used.</p>
+<p>As PyInstaller cannot guess the deployment mode that you are pursuing,
+it makes no attempt to collect <code class="docutils literal notranslate"><span class="pre">cygwin1.dll</span></code>. So if you want your
+application to run outside of an externally-provided Cygwin environment,
+you need to place a copy of <code class="docutils literal notranslate"><span class="pre">cygwin1.dll</span></code> next to the program’s
+executable and distribute them together.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you plan to create a “stand-alone” Cygwin-based frozen application
+(i.e., distribute <code class="docutils literal notranslate"><span class="pre">cygwin1.dll</span></code> along with the executable), you will
+likely want to build the bootloader with statically linked <code class="docutils literal notranslate"><span class="pre">zlib</span></code>
+library, in order to avoid a run-time dependency on <code class="docutils literal notranslate"><span class="pre">cygz.dll</span></code>.</p>
+<p>You can do so by passing <code class="docutils literal notranslate"><span class="pre">--static-zlib</span></code> option to <code class="docutils literal notranslate"><span class="pre">waf</span></code> when
+manually building the bootloader before installing PyInstaller
+from source, or by adding the option to <code class="docutils literal notranslate"><span class="pre">PYINSTALLER_BOOTLOADER_WAF_ARGS</span></code>
+environment variable if installing directly via <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code>.
+For details, see <a class="reference internal" href="bootloader-building.html#building-the-bootloader"><span class="std std-ref">Building the Bootloader</span></a>.</p>
+</div>
+</section>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="operating-mode.html" class="btn btn-neutral float-left" title="What PyInstaller Does and How It Does It" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="common-issues-and-pitfalls.html" class="btn btn-neutral float-right" title="Common Issues and Pitfalls" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright This document has been placed in the public domain..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+
+  
+<script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

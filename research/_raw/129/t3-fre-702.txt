@@ -1,0 +1,287 @@
+Please help us improve our site!
+
+×
+
+No thank you
+
+Skip to main content
+
+Cornell Law
+School
+Search
+Cornell
+
+Toggle navigation
+
+Please help
+us improve our site!
+
+Support Us!
+
+Search
+
+-
+About
+LII
+
+-
+Who We Are
+
+-
+What We Do
+
+-
+Who Pays For This
+
+-
+Contact Us
+
+-
+Get the
+law
+
+-
+Constitution
+
+-
+Supreme Court
+
+-
+U.S. Code
+
+-
+CFR
+
+-
+Federal Rules
+
+-
+Federal Rules of Appellate Procedure
+
+-
+Federal Rules of Civil Procedure
+
+-
+Federal Rules of Criminal Procedure
+
+-
+Federal Rules of Evidence
+
+-
+Federal Rules of Bankruptcy Procedure
+
+-
+U.C.C.
+
+-
+Law by jurisdiction
+
+-
+State law
+
+-
+Uniform laws
+
+-
+Federal law
+
+-
+World law
+
+-
+Lawyer directory
+
+-
+Legal encyclopedia
+
+-
+Business law
+
+-
+Constitutional law
+
+-
+Criminal law
+
+-
+Family law
+
+-
+Employment law
+
+-
+Money and Finances
+
+-
+More...
+
+-
+Help out
+
+-
+Give
+
+-
+Sponsor
+
+-
+Advertise
+
+-
+Create
+
+-
+Promote
+
+-
+Join Lawyer Directory
+
+-
+
+- LII
+
+- Federal Rules of Evidence
+
+-
+Rule 702. Testimony by Expert Witnesses
+
+Rule 702. Testimony by Expert Witnesses
+
+A witness who is qualified as an expert by knowledge, skill, experience, training, or education may testify in the form of an opinion or otherwise if the proponent demonstrates to the court that it is more likely than not that:
+
+(a) the expert’s scientific, technical, or other specialized knowledge will help the trier of fact to understand the evidence or to determine a fact in issue;
+
+(b) the testimony is based on sufficient facts or data;
+
+(c) the testimony is the product of reliable principles and methods; and
+
+(d) the expert's opinion reflects a reliable application of the principles and methods to the facts of the case.
+
+Notes
+
+(Pub. L. 93–595, §1, Jan. 2, 1975, 88 Stat. 1937; Apr. 17, 2000, eff. Dec. 1, 2000; Apr. 26, 2011, eff. Dec. 1, 2011.)
+
+Notes of Advisory Committee on Proposed Rules
+
+An intelligent evaluation of facts is often difficult or impossible without the application of some scientific, technical, or other specialized knowledge. The most common source of this knowledge is the expert witness, although there are other techniques for supplying it.
+
+Most of the literature assumes that experts testify only in the form of opinions. The assumption is logically unfounded. The rule accordingly recognizes that an expert on the stand may give a dissertation or exposition of scientific or other principles relevant to the case, leaving the trier of fact to apply them to the facts. Since much of the criticism of expert testimony has centered upon the hypothetical question, it seems wise to recognize that opinions are not indispensable and to encourage the use of expert testimony in non-opinion form when counsel believes the trier can itself draw the requisite inference. The use of opinions is not abolished by the rule, however. It will continue to be permissible for the experts to take the further step of suggesting the inference which should be drawn from applying the specialized knowledge to the facts. See Rules 703 to 705.
+
+Whether the situation is a proper one for the use of expert testimony is to be determined on the basis of assisting the trier. “There is no more certain test for determining when experts may be used than the common sense inquiry whether the untrained layman would be qualified to determine intelligently and to the best possible degree the particular issue without enlightenment from those having a specialized understanding of the subject involved in the dispute.” Ladd, Expert Testimony, 5 Vand.L.Rev. 414, 418 (1952). When opinions are excluded, it is because they are unhelpful and therefore superfluous and a waste of time. 7 Wigmore §1918.
+
+The rule is broadly phrased. The fields of knowledge which may be drawn upon are not limited merely to the “scientific” and “technical” but extend to all “specialized” knowledge. Similarly, the expert is viewed, not in a narrow sense, but as a person qualified by “knowledge, skill, experience, training or education.” Thus within the scope of the rule are not only experts in the strictest sense of the word, e.g., physicians, physicists, and architects, but also the large group sometimes called “skilled” witnesses, such as bankers or landowners testifying to land values.
+
+Committee Notes on Rules—2000 Amendment
+
+Rule 702 has been amended in response to Daubert v. Merrell Dow Pharmaceuticals, Inc ., 509 U.S. 579 (1993), and to the many cases applying Daubert , including Kumho Tire Co. v. Carmichael , 119 S.Ct. 1167 (1999). In Daubert the Court charged trial judges with the responsibility of acting as gatekeepers to exclude unreliable expert testimony, and the Court in Kumho clarified that this gatekeeper function applies to all expert testimony, not just testimony based in science. See also Kumho , 119 S.Ct. at 1178 (citing the Committee Note to the proposed amendment to Rule 702, which had been released for public comment before the date of the Kumho decision). The amendment affirms the trial court's role as gatekeeper and provides some general standards that the trial court must use to assess the reliability and helpfulness of proffered expert testimony. Consistently with Kumho , the Rule as amended provides that all types of expert testimony present questions of admissibility for the trial court in deciding whether the evidence is reliable and helpful. Consequently, the admissibility of all expert testimony is governed by the principles of Rule 104(a). Under that Rule, the proponent has the burden of establishing that the pertinent admissibility requirements are met by a preponderance of the evidence. See Bourjaily v. United States , 483 U.S. 171 (1987) .
+
+Daubert set forth a non-exclusive checklist for trial courts to use in assessing the reliability of scientific expert testimony. The specific factors explicated by the Daubert Court are (1) whether the expert's technique or theory can be or has been tested—that is, whether the expert's theory can be challenged in some objective sense, or whether it is instead simply a subjective, conclusory approach that cannot reasonably be assessed for reliability; (2) whether the technique or theory has been subject to peer review and publication; (3) the known or potential rate of error of the technique or theory when applied; (4) the existence and maintenance of standards and controls; and (5) whether the technique or theory has been generally accepted in the scientific community. The Court in Kumho held that these factors might also be applicable in assessing the reliability of nonscientific expert testimony, depending upon “the particular circumstances of the particular case at issue.” 119 S.Ct. at 1175.
+
+No attempt has been made to “codify” these specific factors. Daubert itself emphasized that the factors were neither exclusive nor dispositive. Other cases have recognized that not all of the specific Daubert factors can apply to every type of expert testimony. In addition to Kumho , 119 S.Ct. at 1175, see Tyus v. Urban Search Management , 102 F.3d 256 (7th Cir. 1996) (noting that the factors mentioned by the Court in Daubert do not neatly apply to expert testimony from a sociologist). See also Kannankeril v. Terminix Int'l, Inc ., 128 F.3d 802 , 809 (3d Cir. 1997) (holding that lack of peer review or publication was not dispositive where the expert's opinion was supported by “widely accepted scientific knowledge”). The standards set forth in the amendment are broad enough to require consideration of any or all of the specific Daubert factors where appropriate.
+
+Courts both before and after Daubert have found other factors relevant in determining whether expert testimony is sufficiently reliable to be considered by the trier of fact. These factors include:
+
+(1) Whether experts are “proposing to testify about matters growing naturally and directly out of research they have conducted independent of the litigation, or whether they have developed their opinions expressly for purposes of testifying.” Daubert v. Merrell Dow Pharmaceuticals, Inc ., 43 F.3d 1311 , 1317 (9th Cir. 1995).
+
+(2) Whether the expert has unjustifiably extrapolated from an accepted premise to an unfounded conclusion. See General Elec. Co. v. Joiner , 522 U.S. 136, 146 (1997) (noting that in some cases a trial court “may conclude that there is simply too great an analytical gap between the data and the opinion proffered”).
+
+(3) Whether the expert has adequately accounted for obvious alternative explanations. See Claar v. Burlington N.R.R ., 29 F.3d 499 (9th Cir. 1994) (testimony excluded where the expert failed to consider other obvious causes for the plaintiff's condition). Compare Ambrosini v. Labarraque , 101 F.3d 129 (D.C.Cir. 1996) (the possibility of some uneliminated causes presents a question of weight, so long as the most obvious causes have been considered and reasonably ruled out by the expert).
+
+(4) Whether the expert “is being as careful as he would be in his regular professional work outside his paid litigation consulting.” Sheehan v. Daily Racing Form, Inc ., 104 F.3d 940 , 942 (7th Cir. 1997). See Kumho Tire Co. v. Carmichael , 119 S.Ct. 1167, 1176 (1999) ( Daubert requires the trial court to assure itself that the expert “employs in the courtroom the same level of intellectual rigor that characterizes the practice of an expert in the relevant field”).
+
+(5) Whether the field of expertise claimed by the expert is known to reach reliable results for the type of opinion the expert would give. See Kumho Tire Co. v. Carmichael , 119 S.Ct. 1167, 1175 (1999) ( Daubert's general acceptance factor does not “help show that an expert's testimony is reliable where the discipline itself lacks reliability, as, for example, do theories grounded in any so-called generally accepted principles of astrology or necromancy.”); Moore v. Ashland Chemical, Inc ., 151 F.3d 269 (5th Cir. 1998) (en banc) (clinical doctor was properly precluded from testifying to the toxicological cause of the plaintiff's respiratory problem, where the opinion was not sufficiently grounded in scientific methodology); Sterling v. Velsicol Chem. Corp ., 855 F.2d 1188 (6th Cir. 1988) (rejecting testimony based on “clinical ecology” as unfounded and unreliable).
+
+All of these factors remain relevant to the determination of the reliability of expert testimony under the Rule as amended. Other factors may also be relevant. See Kumho , 119 S.Ct. 1167, 1176 (“[W]e conclude that the trial judge must have considerable leeway in deciding in a particular case how to go about determining whether particular expert testimony is reliable.”). Yet no single factor is necessarily dispositive of the reliability of a particular expert's testimony. See, e.g., Heller v. Shaw Industries, Inc ., 167 F.3d 146 , 155 (3d Cir. 1999) (“not only must each stage of the expert's testimony be reliable, but each stage must be evaluated practically and flexibly without bright-line exclusionary (or inclusionary) rules.”); Daubert v. Merrell Dow Pharmaceuticals, Inc ., 43 F.3d 1311 , 1317, n.5 (9th Cir. 1995) (noting that some expert disciplines “have the courtroom as a principal theatre of operations” and as to these disciplines “the fact that the expert has developed an expertise principally for purposes of litigation will obviously not be a substantial consideration.”).
+
+A review of the caselaw after Daubert shows that the rejection of expert testimony is the exception rather than the rule. Daubert did not work a “seachange over federal evidence law,” and “the trial court's role as gatekeeper is not intended to serve as a replacement for the adversary system.” United States v. 14.38 Acres of Land Situated in Leflore County, Mississippi , 80 F.3d 1074 , 1078 (5th Cir. 1996). As the Court in Daubert stated: “Vigorous cross-examination, presentation of contrary evidence, and careful instruction on the burden of proof are the traditional and appropriate means of attacking shaky but admissible evidence.” 509 U.S. at 595. Likewise, this amendment is not intended to provide an excuse for an automatic challenge to the testimony of every expert. See Kumho Tire Co. v. Carmichael , 119 S.Ct. 1167, 1176 (1999) (noting that the trial judge has the discretion “both to avoid unnecessary ‘reliability’ proceedings in ordinary cases where the reliability of an expert's methods is properly taken for granted, and to require appropriate proceedings in the less usual or more complex cases where cause for questioning the expert's reliability arises.”).
+
+When a trial court, applying this amendment, rules that an expert's testimony is reliable, this does not necessarily mean that contradictory expert testimony is unreliable. The amendment is broad enough to permit testimony that is the product of competing principles or methods in the same field of expertise. See, e.g., Heller v. Shaw Industries, Inc ., 167 F.3d 146 , 160 (3d Cir. 1999) (expert testimony cannot be excluded simply because the expert uses one test rather than another, when both tests are accepted in the field and both reach reliable results). As the court stated in In re Paoli R.R. Yard PCB Litigation , 35 F.3d 717 , 744 (3d Cir. 1994), proponents “do not have to demonstrate to the judge by a preponderance of the evidence that the assessments of their experts are correct, they only have to demonstrate by a preponderance of evidence that their opinions are reliable. . . . The evidentiary requirement of reliability is lower than the merits standard of correctness.” See also Daubert v. Merrell Dow Pharmaceuticals, Inc ., 43 F.3d 1311 , 1318 (9th Cir. 1995) (scientific experts might be permitted to testify if they could show that the methods they used were also employed by “a recognized minority of scientists in their field.”); Ruiz-Troche v. Pepsi Cola , 161 F.3d 77 , 85 (1st Cir. 1998) (“ Daubert neither requires nor empowers trial courts to determine which of several competing scientific theories has the best provenance.”).
+
+The Court in Daubert declared that the “focus, of course, must be solely on principles and methodology, not on the conclusions they generate.” 509 U.S. at 595. Yet as the Court later recognized, “conclusions and methodology are not entirely distinct from one another.” General Elec. Co. v. Joiner , 522 U.S. 136, 146 (1997) . Under the amendment, as under Daubert , when an expert purports to apply principles and methods in accordance with professional standards, and yet reaches a conclusion that other experts in the field would not reach, the trial court may fairly suspect that the principles and methods have not been faithfully applied. See Lust v. Merrell Dow Pharmaceuticals, Inc ., 89 F.3d 594 , 598 (9th Cir. 1996). The amendment specifically provides that the trial court must scrutinize not only the principles and methods used by the expert, but also whether those principles and methods have been properly applied to the facts of the case. As the court noted in In re Paoli R.R. Yard PCB Litig ., 35 F.3d 717 , 745 (3d Cir. 1994), “ any step that renders the analysis unreliable . . . renders the expert's testimony inadmissible. This is true whether the step completely changes a reliable methodology or merely misapplies that methodology .”
+
+If the expert purports to apply principles and methods to the facts of the case, it is important that this application be conducted reliably. Yet it might also be important in some cases for an expert to educate the factfinder about general principles, without ever attempting to apply these principles to the specific facts of the case. For example, experts might instruct the factfinder on the principles of thermodynamics, or bloodclotting, or on how financial markets respond to corporate reports, without ever knowing about or trying to tie their testimony into the facts of the case. The amendment does not alter the venerable practice of using expert testimony to educate the factfinder on general principles. For this kind of generalized testimony, Rule 702 simply requires that: (1) the expert be qualified; (2) the testimony address a subject matter on which the factfinder can be assisted by an expert; (3) the testimony be reliable; and (4) the testimony “fit” the facts of the case.
+
+As stated earlier, the amendment does not distinguish between scientific and other forms of expert testimony. The trial court's gatekeeping function applies to testimony by any expert. See Kumho Tire Co. v. Carmichael , 119 S.Ct. 1167, 1171 (1999) (“We conclude that Daubert's general holding—setting forth the trial judge's general ‘gatekeeping’ obligation—applies not only to testimony based on ‘scientific’ knowledge, but also to testimony based on ‘technical’ and ‘other specialized’ knowledge.”). While the relevant factors for determining reliability will vary from expertise to expertise, the amendment rejects the premise that an expert's testimony should be treated more permissively simply because it is outside the realm of science. An opinion from an expert who is not a scientist should receive the same degree of scrutiny for reliability as an opinion from an expert who purports to be a scientist. See Watkins v. Telsmith, Inc ., 121 F.3d 984 , 991 (5th Cir. 1997) (“[I]t seems exactly backwards that experts who purport to rely on general engineering principles and practical experience might escape screening by the district court simply by stating that their conclusions were not reached by any particular method or technique.”). Some types of expert testimony will be more objectively verifiable, and subject to the expectations of falsifiability, peer review, and publication, than others. Some types of expert testimony will not rely on anything like a scientific method, and so will have to be evaluated by reference to other standard principles attendant to the particular area of expertise. The trial judge in all cases of proffered expert testimony must find that it is properly grounded, well-reasoned, and not speculative before it can be admitted. The expert's testimony must be grounded in an accepted body of learning or experience in the expert's field, and the expert must explain how the conclusion is so grounded. See, e.g ., American College of Trial Lawyers, Standards and Procedures for Determining the Admissibility of Expert Testimony after Daubert , 157 F.R.D. 571, 579 (1994) (“[W]hether the testimony concerns economic principles, accounting standards, property valuation or other non-scientific subjects, it should be evaluated by reference to the ‘knowledge and experience’ of that particular field.”).
+
+The amendment requires that the testimony must be the product of reliable principles and methods that are reliably applied to the facts of the case. While the terms “principles” and “methods” may convey a certain impression when applied to scientific knowledge, they remain relevant when applied to testimony based on technical or other specialized knowledge. For example, when a law enforcement agent testifies regarding the use of code words in a drug transaction, the principle used by the agent is that participants in such transactions regularly use code words to conceal the nature of their activities. The method used by the agent is the application of extensive experience to analyze the meaning of the conversations. So long as the principles and methods are reliable and applied reliably to the facts of the case, this type of testimony should be admitted.
+
+Nothing in this amendment is intended to suggest that experience alone—or experience in conjunction with other knowledge, skill, training or education—may not provide a sufficient foundation for expert testimony. To the contrary, the text of Rule 702 expressly contemplates that an expert may be qualified on the basis of experience. In certain fields, experience is the predominant, if not sole, basis for a great deal of reliable expert testimony. See, e.g., United States v. Jones , 107 F.3d 1147 (6th Cir. 1997) (no abuse of discretion in admitting the testimony of a handwriting examiner who had years of practical experience and extensive training, and who explained his methodology in detail); Tassin v. Sears Roebuck , 946 F.Supp. 1241, 1248 (M.D.La. 1996) (design engineer's testimony can be admissible when the expert's opinions “are based on facts, a reasonable investigation, and traditional technical/mechanical expertise, and he provides a reasonable link between the information and procedures he uses and the conclusions he reaches”). See also Kumho Tire Co. v. Carmichael , 119 S.Ct. 1167, 1178 (1999) (stating that “no one denies that an expert might draw a conclusion from a set of observations based on extensive and specialized experience.”).
+
+If the witness is relying solely or primarily on experience, then the witness must explain how that experience leads to the conclusion reached, why that experience is a sufficient basis for the opinion, and how that experience is reliably applied to the facts. The trial court's gatekeeping function requires more than simply “taking the expert's word for it.” See Daubert v. Merrell Dow Pharmaceuticals, Inc ., 43 F.3d 1311 , 1319 (9th Cir. 1995) (“We've been presented with only the experts’ qualifications, their conclusions and their assurances of reliability. Under Daubert , that's not enough.”). The more subjective and controversial the expert's inquiry, the more likely the testimony should be excluded as unreliable. See O'Conner v. Commonwealth Edison Co ., 13 F.3d 1090 (7th Cir. 1994) (expert testimony based on a completely subjective methodology held properly excluded). See also Kumho Tire Co. v. Carmichael , 119 S.Ct. 1167, 1176 (1999) (“[I]t will at times be useful to ask even of a witness whose expertise is based purely on experience, say, a perfume tester able to distinguish among 140 odors at a sniff, whether his preparation is of a kind that others in the field would recognize as acceptable.”).
+
+Subpart (1) of Rule 702 calls for a quantitative rather than qualitative analysis. The amendment requires that expert testimony be based on sufficient underlying “facts or data.” The term “data” is intended to encompass the reliable opinions of other experts. See the original Advisory Committee Note to Rule 703. The language “facts or data” is broad enough to allow an expert to rely on hypothetical facts that are supported by the evidence. Id.
+
+When facts are in dispute, experts sometimes reach different conclusions based on competing versions of the facts. The emphasis in the amendment on “sufficient facts or data” is not intended to authorize a trial court to exclude an expert's testimony on the ground that the court believes one version of the facts and not the other.
+
+There has been some confusion over the relationship between Rules 702 and 703 . The amendment makes clear that the sufficiency of the basis of an expert's testimony is to be decided under Rule 702. Rule 702 sets forth the overarching requirement of reliability, and an analysis of the sufficiency of the expert's basis cannot be divorced from the ultimate reliability of the expert's opinion. In contrast, the “reasonable reliance” requirement of Rule 703 is a relatively narrow inquiry. When an expert relies on inadmissible information, Rule 703 requires the trial court to determine whether that information is of a type reasonably relied on by other experts in the field. If so, the expert can rely on the information in reaching an opinion. However, the question whether the expert is relying on a sufficient basis of information—whether admissible information or not—is governed by the requirements of Rule 702.
+
+The amendment makes no attempt to set forth procedural requirements for exercising the trial court's gatekeeping function over expert testimony. See Daniel J. Capra, The Daubert Puzzle , 38 Ga.L.Rev. 699, 766 (1998) (“Trial courts should be allowed substantial discretion in dealing with Daubert questions; any attempt to codify procedures will likely give rise to unnecessary changes in practice and create difficult questions for appellate review.”). Courts have shown considerable ingenuity and flexibility in considering challenges to expert testimony under Daubert , and it is contemplated that this will continue under the amended Rule. See, e.g., Cortes-Irizarry v. Corporacion Insular , 111 F.3d 184 (1st Cir. 1997) (discussing the application of Daubert in ruling on a motion for summary judgment); In re Paoli R.R. Yard PCB Litig ., 35 F.3d 717 , 736, 739 (3d Cir. 1994) (discussing the use of in limine hearings); Claar v. Burlington N.R.R ., 29 F.3d 499 , 502–05 (9th Cir. 1994) (discussing the trial court's technique of ordering experts to submit serial affidavits explaining the reasoning and methods underlying their conclusions).
+
+The amendment continues the practice of the original Rule in referring to a qualified witness as an “expert.” This was done to provide continuity and to minimize change. The use of the term “expert” in the Rule does not, however, mean that a jury should actually be informed that a qualified witness is testifying as an “expert.” Indeed, there is much to be said for a practice that prohibits the use of the term “expert” by both the parties and the court at trial. Such a practice “ensures that trial courts do not inadvertently put their stamp of authority” on a witness's opinion, and protects against the jury's being “overwhelmed by the so-called ‘experts’.” Hon. Charles Richey, Proposals to Eliminate the Prejudicial Effect of the Use of the Word “Expert” Under the Federal Rules of Evidence in Criminal and Civil Jury Trials , 154 F.R.D. 537, 559 (1994) (setting forth limiting instructions and a standing order employed to prohibit the use of the term “expert” in jury trials).
+
+GAP Report—Proposed Amendment to Rule 702 . The Committee made the following changes to the published draft of the proposed amendment to Evidence Rule 702:
+
+1. The word “reliable” was deleted from Subpart (1) of the proposed amendment, in order to avoid an overlap with Evidence Rule 703, and to clarify that an expert opinion need not be excluded simply because it is based on hypothetical facts. The Committee Note was amended to accord with this textual change.
+
+2. The Committee Note was amended throughout to include pertinent references to the Supreme Court's decision in Kumho Tire Co. v. Carmichael , which was rendered after the proposed amendment was released for public comment. Other citations were updated as well.
+
+3. The Committee Note was revised to emphasize that the amendment is not intended to limit the right to jury trial, nor to permit a challenge to the testimony of every expert, nor to preclude the testimony of experience-based experts, nor to prohibit testimony based on competing methodologies within a field of expertise.
+
+4. Language was added to the Committee Note to clarify that no single factor is necessarily dispositive of the reliability inquiry mandated by Evidence Rule 702.
+
+Committee Notes on Rules—2011 Amendment
+
+The language of Rule 702 has been amended as part of the restyling of the Evidence Rules to make them more easily understood and to make style and terminology consistent throughout the rules. These changes are intended to be stylistic only. There is no intent to change any result in any ruling on evidence admissibility.
+
+Committee Notes on Rules—2023 Amendment
+
+Rule 702 has been amended in two respects:
+
+(1) First, the rule has been amended to clarify and emphasize that expert testimony may not be admitted unless the proponent demonstrates to the court that it is more likely than not that the proffered testimony meets the admissibility requirements set forth in the rule. See Rule 104(a). This is the preponderance of the evidence standard that applies to most of the admissibility requirements set forth in the evidence rules. See Bourjaily v. United States, 483 U.S. 171, 175 (1987) (“The preponderance standard ensures that before admitting evidence, the court will have found it more likely than not that the technical issues and policy concerns addressed by the Federal Rules of Evidence have been afforded due consideration.”); Huddleston v. United States, 485 U.S. 681, 687 n.5 (1988) (“preliminary factual findings under Rule 104(a) are subject to the preponderance-of-theevidence standard”). But many courts have held that the critical questions of the sufficiency of an expert’s basis, and the application of the expert’s methodology, are questions of weight and not admissibility. These rulings are an incorrect application of Rules 702 and 104(a).
+
+There is no intent to raise any negative inference regarding the applicability of the Rule 104(a) standard of proof for other rules. The Committee concluded that emphasizing the preponderance standard in Rule 702 specifically was made necessary by the courts that have failed to apply correctly the reliability requirements of that rule. Nor does the amendment require that the court make a finding of reliability in the absence of objection.
+
+The amendment clarifies that the preponderance standard applies to the three reliability-based requirements added in 2000—requirements that many courts have incorrectly determined to be governed by the more permissive Rule 104(b) standard. But it remains the case that other admissibility requirements in the rule (such as that the expert must be qualified and the expert’s testimony must help the trier of fact) are governed by the Rule 104(a) standard as well.
+
+Some challenges to expert testimony will raise matters of weight rather than admissibility even under the Rule 104(a) standard. For example, if the court finds it more likely than not that an expert has a sufficient basis to support an opinion, the fact that the expert has not read every single study that exists will raise a question of weight and not admissibility. But this does not mean, as certain courts have held, that arguments about the sufficiency of an expert’s basis always go to weight and not admissibility. Rather it means that once the court has found it more likely than not that the admissibility requirement has been met, any attack by the opponent will go only to the weight of the evidence.
+
+It will often occur that experts come to different conclusions based on contested sets of facts. Where that is so, the Rule 104(a) standard does not necessarily require exclusion of either side’s experts. Rather, by deciding the disputed facts, the jury can decide which side’s experts to credit. “[P]roponents ‘do not have to demonstrate to the judge by a preponderance of the evidence that the assessments of their experts are correct, they only have to demonstrate by a preponderance of evidence that their opinions are reliable. . . . The evidentiary requirement of reliability is lower than the merits standard of correctness.’” Advisory Committee Note to the 2000 amendment to Rule 702, quoting In re Paoli R.R. Yard PCB Litigation, 35 F.3d 717, 744 (3d Cir. 1994).
+
+Rule 702 requires that the expert’s knowledge “help” the trier of fact to understand the evidence or to determine a fact in issue. Unfortunately, some courts have required the expert’s testimony to “appreciably help” the trier of fact. Applying a higher standard than helpfulness to otherwise reliable expert testimony is unnecessarily strict.
+
+(2) Rule 702(d) has also been amended to emphasize that each expert opinion must stay within the bounds of what can be concluded from a reliable application of the expert’s basis and methodology. Judicial gatekeeping is essential because just as jurors may be unable, due to lack of specialized knowledge, to evaluate meaningfully the reliability of scientific and other methods underlying expert opinion, jurors may also lack the specialized knowledge to determine whether the conclusions of an expert go beyond what the expert’s basis and methodology may reliably support.
+
+The amendment is especially pertinent to the testimony of forensic experts in both criminal and civil cases. Forensic experts should avoid assertions of absolute or one hundred percent certainty—or to a reasonable degree of scientific certainty—if the methodology is subjective and thus potentially subject to error. In deciding whether to admit forensic expert testimony, the judge should (where possible) receive an estimate of the known or potential rate of error of the methodology employed, based (where appropriate) on studies that reflect how often the method produces accurate results. Expert opinion testimony regarding the weight of feature comparison evidence (i.e., evidence that a set of features corresponds between two examined items) must be limited to those inferences that can reasonably be drawn from a reliable application of the principles and methods. This amendment does not, however, bar testimony that comports with substantive law requiring opinions to a particular degree of certainty.
+
+Nothing in the amendment imposes any new, specific procedures. Rather, the amendment is simply intended to clarify that Rule 104(a)’s requirement applies to expert opinions under Rule 702. Similarly, nothing in the amendment requires the court to nitpick an expert’s opinion in order to reach a perfect expression of what the basis and methodology can support. The Rule 104(a) standard does not require perfection. On the other hand, it does not permit the expert to make claims that are unsupported by the expert’s basis and methodology.
+
+‹ Rule 701. Opinion Testimony by Lay Witnesses
+Up
+Rule 703. Bases of an Expert ›
+
+Federal Rules of Evidence Toolbox
+
+- Wex: Evidence: Overview
+
+-
+Accessibility
+
+-
+About LII
+
+-
+Contact us
+
+-
+Advertise here
+
+-
+Help
+
+-
+Terms of use
+
+-
+Privacy
+
+-

@@ -1,0 +1,254 @@
+<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width"><link rel=icon href=https://nodejs.org/favicon.ico><meta name=nodejs.org:node-version content=v26.7.0><title>About this documentation | Node.js v26.7.0 Documentation</title><link rel=stylesheet href="https://fonts.googleapis.com/css?family=Lato:400,700,400italic&display=fallback"><link rel=stylesheet href=assets/style.css><link rel=canonical href=https://nodejs.org/api/documentation.html><script async defer src=assets/api.js></script><script>("dark"===localStorage.getItem("theme")||null===localStorage.getItem("theme")&&window.matchMedia?.("(prefers-color-scheme: dark)").matches)&&document.documentElement.classList.add("dark-mode")</script><body class="alt apidoc" id=api-section-documentation><a href=#apicontent class=skip-to-content>Skip to content</a>
+    <div id=content class=clearfix>
+      <div role=navigation id=column2 class=interior>
+        <div id=intro class=interior>
+          <a href=/ title="Go back to the home page"> Node.js </a>
+        </div>
+        <hr class=line>
+        <ul>
+<li><a class="active nav-documentation" href=documentation.html>About this documentation</a></li>
+<li><a class=nav-synopsis href=synopsis.html>Usage and example</a></li>
+<li><a class=nav-assert href=assert.html>Assertion testing</a></li>
+<li><a class=nav-async_context href=async_context.html>Asynchronous context tracking</a></li>
+<li><a class=nav-async_hooks href=async_hooks.html>Async hooks</a></li>
+<li><a class=nav-buffer href=buffer.html>Buffer</a></li>
+<li><a class=nav-addons href=addons.html>C++ addons</a></li>
+<li><a class=nav-n-api href=n-api.html>C/C++ addons with Node-API</a></li>
+<li><a class=nav-embedding href=embedding.html>C++ embedder API</a></li>
+<li><a class=nav-child_process href=child_process.html>Child processes</a></li>
+<li><a class=nav-cluster href=cluster.html>Cluster</a></li>
+<li><a class=nav-cli href=cli.html>Command-line options</a></li>
+<li><a class=nav-console href=console.html>Console</a></li>
+<li><a class=nav-crypto href=crypto.html>Crypto</a></li>
+<li><a class=nav-debugger href=debugger.html>Debugger</a></li>
+<li><a class=nav-deprecations href=deprecations.html>Deprecated APIs</a></li>
+<li><a class=nav-diagnostics_channel href=diagnostics_channel.html>Diagnostics Channel</a></li>
+<li><a class=nav-dns href=dns.html>DNS</a></li>
+<li><a class=nav-domain href=domain.html>Domain</a></li>
+<li><a class=nav-environment_variables href=environment_variables.html>Environment Variables</a></li>
+<li><a class=nav-errors href=errors.html>Errors</a></li>
+<li><a class=nav-events href=events.html>Events</a></li>
+<li><a class=nav-fs href=fs.html>File system</a></li>
+<li><a class=nav-ffi href=ffi.html>FFI</a></li>
+<li><a class=nav-globals href=globals.html>Globals</a></li>
+<li><a class=nav-http href=http.html>HTTP</a></li>
+<li><a class=nav-http2 href=http2.html>HTTP/2</a></li>
+<li><a class=nav-https href=https.html>HTTPS</a></li>
+<li><a class=nav-inspector href=inspector.html>Inspector</a></li>
+<li><a class=nav-intl href=intl.html>Internationalization</a></li>
+<li><a class=nav-stream_iter href=stream_iter.html>Iterable Streams API</a></li>
+<li><a class=nav-modules href=modules.html>Modules: CommonJS modules</a></li>
+<li><a class=nav-esm href=esm.html>Modules: ECMAScript modules</a></li>
+<li><a class=nav-module href=module.html>Modules: <code>node:module</code> API</a></li>
+<li><a class=nav-packages href=packages.html>Modules: Packages</a></li>
+<li><a class=nav-typescript href=typescript.html>Modules: TypeScript</a></li>
+<li><a class=nav-net href=net.html>Net</a></li>
+<li><a class=nav-os href=os.html>OS</a></li>
+<li><a class=nav-path href=path.html>Path</a></li>
+<li><a class=nav-perf_hooks href=perf_hooks.html>Performance hooks</a></li>
+<li><a class=nav-permissions href=permissions.html>Permissions</a></li>
+<li><a class=nav-process href=process.html>Process</a></li>
+<li><a class=nav-punycode href=punycode.html>Punycode</a></li>
+<li><a class=nav-querystring href=querystring.html>Query strings</a></li>
+<li><a class=nav-readline href=readline.html>Readline</a></li>
+<li><a class=nav-repl href=repl.html>REPL</a></li>
+<li><a class=nav-report href=report.html>Report</a></li>
+<li><a class=nav-single-executable-applications href=single-executable-applications.html>Single executable applications</a></li>
+<li><a class=nav-sqlite href=sqlite.html>SQLite</a></li>
+<li><a class=nav-stream href=stream.html>Stream</a></li>
+<li><a class=nav-string_decoder href=string_decoder.html>String decoder</a></li>
+<li><a class=nav-test href=test.html>Test runner</a></li>
+<li><a class=nav-timers href=timers.html>Timers</a></li>
+<li><a class=nav-tls href=tls.html>TLS/SSL</a></li>
+<li><a class=nav-tracing href=tracing.html>Trace events</a></li>
+<li><a class=nav-tty href=tty.html>TTY</a></li>
+<li><a class=nav-dgram href=dgram.html>UDP/datagram</a></li>
+<li><a class=nav-url href=url.html>URL</a></li>
+<li><a class=nav-util href=util.html>Utilities</a></li>
+<li><a class=nav-v8 href=v8.html>V8</a></li>
+<li><a class=nav-vfs href=vfs.html>Virtual File System</a></li>
+<li><a class=nav-vm href=vm.html>VM</a></li>
+<li><a class=nav-wasi href=wasi.html>WASI</a></li>
+<li><a class=nav-webcrypto href=webcrypto.html>Web Crypto API</a></li>
+<li><a class=nav-webstreams href=webstreams.html>Web Streams API</a></li>
+<li><a class=nav-worker_threads href=worker_threads.html>Worker threads</a></li>
+<li><a class=nav-zlib href=zlib.html>Zlib</a></li>
+</ul>
+        <hr class=line>
+        <ul>
+          <li>
+            <a href=https://github.com/nodejs/node class=nav-https-github-com-nodejs-node>Code repository and issue tracker</a>
+          </li>
+        </ul>
+      </div>
+      <div id=column1 data-id=documentation class=interior>
+        <header class=header>
+          <div class=header-container>
+            <h1>Node.js v26.7.0 documentation</h1>
+            <button class=theme-toggle-btn id=theme-toggle-btn title="Toggle dark mode/light mode" aria-label="Toggle dark mode/light mode" hidden>
+              <svg class="dark-icon icon" height=24 width=24>
+                <path fill=none d="M0 0h24v24H0z"/>
+                <path d="M11.1 12.08c-2.33-4.51-.5-8.48.53-10.07C6.27 2.2 1.98 6.59 1.98 12c0 .14.02.28.02.42.62-.27 1.29-.42 2-.42 1.66 0 3.18.83 4.1 2.15A4.01 4.01 0 0111 18c0 1.52-.87 2.83-2.12 3.51.98.32 2.03.5 3.11.5 3.5 0 6.58-1.8 8.37-4.52-2.36.23-6.98-.97-9.26-5.41z"/>
+                <path d="M7 16h-.18C6.4 14.84 5.3 14 4 14c-1.66 0-3 1.34-3 3s1.34 3 3 3h3c1.1 0 2-.9 2-2s-.9-2-2-2z"/>
+              </svg>
+              <svg class="icon light-icon" height=24 width=24>
+                <path d="M0 0h24v24H0z" fill=none />
+                <path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/>
+              </svg>
+            </button>
+          </div>
+          <div id=gtoc>
+            <ul>
+              <li class=pinned-header>Node.js v26.7.0</li>
+              <li class=picker-header><a href=#toc-picker aria-controls=toc-picker><span class=picker-arrow></span>Table of contents</a><div class=picker><div class=toc tabindex=-1><ul id=toc-picker>
+<li><a href=documentation.html#about-this-documentation>About this documentation</a>
+<ul>
+<li><a href=documentation.html#contributing>Contributing</a></li>
+<li><a href=documentation.html#stability-index>Stability index</a></li>
+<li><a href=documentation.html#stability-overview>Stability overview</a></li>
+<li><a href=documentation.html#json-output>JSON output</a></li>
+<li><a href=documentation.html#system-calls-and-man-pages>System calls and man pages</a></li>
+</ul>
+</li>
+</ul></div></div></li> <li class=picker-header><a href=#gtoc-picker aria-controls=gtoc-picker><span class=picker-arrow></span>Index</a><div class=picker tabindex=-1 id=gtoc-picker><ul><li><a href=index.html>Index</a></ul><hr class=line><ul>
+<li><a class="active nav-documentation" href=documentation.html>About this documentation</a></li>
+<li><a class=nav-synopsis href=synopsis.html>Usage and example</a></li>
+<li><a class=nav-assert href=assert.html>Assertion testing</a></li>
+<li><a class=nav-async_context href=async_context.html>Asynchronous context tracking</a></li>
+<li><a class=nav-async_hooks href=async_hooks.html>Async hooks</a></li>
+<li><a class=nav-buffer href=buffer.html>Buffer</a></li>
+<li><a class=nav-addons href=addons.html>C++ addons</a></li>
+<li><a class=nav-n-api href=n-api.html>C/C++ addons with Node-API</a></li>
+<li><a class=nav-embedding href=embedding.html>C++ embedder API</a></li>
+<li><a class=nav-child_process href=child_process.html>Child processes</a></li>
+<li><a class=nav-cluster href=cluster.html>Cluster</a></li>
+<li><a class=nav-cli href=cli.html>Command-line options</a></li>
+<li><a class=nav-console href=console.html>Console</a></li>
+<li><a class=nav-crypto href=crypto.html>Crypto</a></li>
+<li><a class=nav-debugger href=debugger.html>Debugger</a></li>
+<li><a class=nav-deprecations href=deprecations.html>Deprecated APIs</a></li>
+<li><a class=nav-diagnostics_channel href=diagnostics_channel.html>Diagnostics Channel</a></li>
+<li><a class=nav-dns href=dns.html>DNS</a></li>
+<li><a class=nav-domain href=domain.html>Domain</a></li>
+<li><a class=nav-environment_variables href=environment_variables.html>Environment Variables</a></li>
+<li><a class=nav-errors href=errors.html>Errors</a></li>
+<li><a class=nav-events href=events.html>Events</a></li>
+<li><a class=nav-fs href=fs.html>File system</a></li>
+<li><a class=nav-ffi href=ffi.html>FFI</a></li>
+<li><a class=nav-globals href=globals.html>Globals</a></li>
+<li><a class=nav-http href=http.html>HTTP</a></li>
+<li><a class=nav-http2 href=http2.html>HTTP/2</a></li>
+<li><a class=nav-https href=https.html>HTTPS</a></li>
+<li><a class=nav-inspector href=inspector.html>Inspector</a></li>
+<li><a class=nav-intl href=intl.html>Internationalization</a></li>
+<li><a class=nav-stream_iter href=stream_iter.html>Iterable Streams API</a></li>
+<li><a class=nav-modules href=modules.html>Modules: CommonJS modules</a></li>
+<li><a class=nav-esm href=esm.html>Modules: ECMAScript modules</a></li>
+<li><a class=nav-module href=module.html>Modules: <code>node:module</code> API</a></li>
+<li><a class=nav-packages href=packages.html>Modules: Packages</a></li>
+<li><a class=nav-typescript href=typescript.html>Modules: TypeScript</a></li>
+<li><a class=nav-net href=net.html>Net</a></li>
+<li><a class=nav-os href=os.html>OS</a></li>
+<li><a class=nav-path href=path.html>Path</a></li>
+<li><a class=nav-perf_hooks href=perf_hooks.html>Performance hooks</a></li>
+<li><a class=nav-permissions href=permissions.html>Permissions</a></li>
+<li><a class=nav-process href=process.html>Process</a></li>
+<li><a class=nav-punycode href=punycode.html>Punycode</a></li>
+<li><a class=nav-querystring href=querystring.html>Query strings</a></li>
+<li><a class=nav-readline href=readline.html>Readline</a></li>
+<li><a class=nav-repl href=repl.html>REPL</a></li>
+<li><a class=nav-report href=report.html>Report</a></li>
+<li><a class=nav-single-executable-applications href=single-executable-applications.html>Single executable applications</a></li>
+<li><a class=nav-sqlite href=sqlite.html>SQLite</a></li>
+<li><a class=nav-stream href=stream.html>Stream</a></li>
+<li><a class=nav-string_decoder href=string_decoder.html>String decoder</a></li>
+<li><a class=nav-test href=test.html>Test runner</a></li>
+<li><a class=nav-timers href=timers.html>Timers</a></li>
+<li><a class=nav-tls href=tls.html>TLS/SSL</a></li>
+<li><a class=nav-tracing href=tracing.html>Trace events</a></li>
+<li><a class=nav-tty href=tty.html>TTY</a></li>
+<li><a class=nav-dgram href=dgram.html>UDP/datagram</a></li>
+<li><a class=nav-url href=url.html>URL</a></li>
+<li><a class=nav-util href=util.html>Utilities</a></li>
+<li><a class=nav-v8 href=v8.html>V8</a></li>
+<li><a class=nav-vfs href=vfs.html>Virtual File System</a></li>
+<li><a class=nav-vm href=vm.html>VM</a></li>
+<li><a class=nav-wasi href=wasi.html>WASI</a></li>
+<li><a class=nav-webcrypto href=webcrypto.html>Web Crypto API</a></li>
+<li><a class=nav-webstreams href=webstreams.html>Web Streams API</a></li>
+<li><a class=nav-worker_threads href=worker_threads.html>Worker threads</a></li>
+<li><a class=nav-zlib href=zlib.html>Zlib</a></li>
+</ul></div></li> <li class=picker-header><a href=#alt-docs aria-controls=alt-docs><span class=picker-arrow></span>Other versions</a><div class=picker tabindex=-1><ol id=alt-docs><li><a href=https://nodejs.org/docs/latest-v26.x/api/documentation.html>26.x </a><li><a href=https://nodejs.org/docs/latest-v25.x/api/documentation.html>25.x </a><li><a href=https://nodejs.org/docs/latest-v24.x/api/documentation.html>24.x <b>LTS</b></a><li><a href=https://nodejs.org/docs/latest-v23.x/api/documentation.html>23.x </a><li><a href=https://nodejs.org/docs/latest-v22.x/api/documentation.html>22.x <b>LTS</b></a><li><a href=https://nodejs.org/docs/latest-v21.x/api/documentation.html>21.x </a><li><a href=https://nodejs.org/docs/latest-v20.x/api/documentation.html>20.x </a><li><a href=https://nodejs.org/docs/latest-v19.x/api/documentation.html>19.x </a><li><a href=https://nodejs.org/docs/latest-v18.x/api/documentation.html>18.x </a><li><a href=https://nodejs.org/docs/latest-v17.x/api/documentation.html>17.x </a><li><a href=https://nodejs.org/docs/latest-v16.x/api/documentation.html>16.x </a><li><a href=https://nodejs.org/docs/latest-v15.x/api/documentation.html>15.x </a><li><a href=https://nodejs.org/docs/latest-v14.x/api/documentation.html>14.x </a><li><a href=https://nodejs.org/docs/latest-v13.x/api/documentation.html>13.x </a><li><a href=https://nodejs.org/docs/latest-v12.x/api/documentation.html>12.x </a><li><a href=https://nodejs.org/docs/latest-v11.x/api/documentation.html>11.x </a><li><a href=https://nodejs.org/docs/latest-v10.x/api/documentation.html>10.x </a><li><a href=https://nodejs.org/docs/latest-v9.x/api/documentation.html>9.x </a><li><a href=https://nodejs.org/docs/latest-v8.x/api/documentation.html>8.x </a><li><a href=https://nodejs.org/docs/latest-v7.x/api/documentation.html>7.x </a><li><a href=https://nodejs.org/docs/latest-v6.x/api/documentation.html>6.x </a><li><a href=https://nodejs.org/docs/latest-v5.x/api/documentation.html>5.x </a><li><a href=https://nodejs.org/docs/latest-v4.x/api/documentation.html>4.x </a><li><a href=https://nodejs.org/docs/latest-v0.12.x/api/documentation.html>0.12.x </a><li><a href=https://nodejs.org/docs/latest-v0.10.x/api/documentation.html>0.10.x </a></ol></div></li>
+              <li class=picker-header>
+                <a href=#options-picker aria-controls=options-picker>
+                  <span class=picker-arrow></span>
+                  Options
+                </a>
+                <div class=picker tabindex=-1>
+                  <ul id=options-picker>
+                    <li>
+                      <a href=all.html>View on single page</a>
+                    </li>
+                    <li>
+                      <a href=documentation.json>View as JSON</a>
+                    </li>
+                    <li class=edit_on_github><a href=https://github.com/nodejs/node/edit/main/doc/api/documentation.md>Edit on GitHub</a></li>
+                  </ul>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <hr>
+        </header>
+        <details role=navigation id=toc open><summary>Table of contents</summary><ul>
+<li><a href=documentation.html#about-this-documentation>About this documentation</a>
+<ul>
+<li><a href=documentation.html#contributing>Contributing</a></li>
+<li><a href=documentation.html#stability-index>Stability index</a></li>
+<li><a href=documentation.html#stability-overview>Stability overview</a></li>
+<li><a href=documentation.html#json-output>JSON output</a></li>
+<li><a href=documentation.html#system-calls-and-man-pages>System calls and man pages</a></li>
+</ul>
+</li>
+</ul></details>
+        <div role=main id=apicontent>
+          <section><h2>About this documentation<span><a id=documentation_about_this_documentation></a></span><span><a class=mark id=about-this-documentation href=#about-this-documentation>#</a></span></h2><div class=api_metadata></div><p>Welcome to the official API reference documentation for Node.js!<p>Node.js is a JavaScript runtime built on the <a href=https://v8.dev/>V8 JavaScript engine</a>.</section>
+<section><h3>Contributing<span><a id=documentation_contributing></a></span><span><a class=mark id=contributing href=#contributing>#</a></span></h3><div class=api_metadata></div><p>Report errors in this documentation in <a href=https://github.com/nodejs/node/issues/new>the issue tracker</a>. See
+<a href=https://github.com/nodejs/node/blob/HEAD/CONTRIBUTING.md>the contributing guide</a> for directions on how to submit pull requests.</section>
+<section><h3>Stability index<span><a id=documentation_stability_index></a></span><span><a class=mark id=stability-index href=#stability-index>#</a></span></h3><div class=api_metadata></div><p>Throughout the documentation are indications of a section's stability. Some APIs
+are so proven and so relied upon that they are unlikely to ever change at all.
+Others are brand new and experimental, or known to be hazardous.<p>The stability indexes are as follows:<div class="api_stability api_stability_0"><p><a href=documentation.html#stability-index>Stability: 0</a> - Deprecated. The feature may emit warnings. Backward
+compatibility is not guaranteed.</div><div class="api_stability api_stability_1"><p>Stability: 1 - Experimental. The feature is not subject to
+<a href=https://semver.org/>semantic versioning</a> rules. Non-backward compatible changes or removal may
+occur in any future release. Use of the feature is not recommended in
+production environments.<p>Experimental features are subdivided into stages:<ul>
+<li>1.0 - Early development. Experimental features at this stage are unfinished
+and subject to substantial change.</li>
+<li>1.1 - Active development. Experimental features at this stage are nearing
+minimum viability.</li>
+<li>1.2 - Release candidate. Experimental features at this stage are hopefully
+ready to become stable. No further breaking changes are anticipated but may
+still occur in response to user feedback or the features' underlying
+specification development. We encourage user testing and feedback so that
+we can know that this feature is ready to be marked as stable.</li>
+</ul><p>Experimental features leave the experimental status typically either by
+graduating to stable, or are removed without a deprecation cycle.</div><div class="api_stability api_stability_2"><p>Stability: 2 - Stable. Compatibility with the npm ecosystem is a high
+priority.</div><div class="api_stability api_stability_3"><p>Stability: 3 - Legacy. Although this feature is unlikely to be removed and is
+still covered by semantic versioning guarantees, it is no longer actively
+maintained, and other alternatives are available.</div><p>Features are marked as legacy rather than being deprecated if their use does no
+harm, and they are widely relied upon within the npm ecosystem. Bugs found in
+legacy features are unlikely to be fixed.<p>Use caution when making use of Experimental features, particularly when
+authoring libraries. Users may not be aware that experimental features are being
+used. Bugs or behavior changes may surprise users when Experimental API
+modifications occur. To avoid surprises, use of an Experimental feature may need
+a command-line flag. Experimental features may also emit a <a href=process.html#event-warning>warning</a>.</section>
+<section><h3>Stability overview<span><a id=documentation_stability_overview></a></span><span><a class=mark id=stability-overview href=#stability-overview>#</a></span></h3><div class=api_metadata></div><table><thead><tr><th>API<th>Stability<tbody><tr><td class=module_stability><a href=assert.html>Assert</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=async_hooks.html>Async hooks</a><td class="api_stability api_stability_1">(1) Experimental<tr><td class=module_stability><a href=async_context.html>Asynchronous context tracking</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=buffer.html>Buffer</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=child_process.html>Child process</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=cluster.html>Cluster</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=console.html>Console</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=crypto.html>Crypto</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=debugger.html>Debugger</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=report.html>Diagnostic report</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=diagnostics_channel.html>Diagnostics Channel</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=dns.html>DNS</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=domain.html>Domain</a><td class="api_stability api_stability_0">(0) Deprecated<tr><td class=module_stability><a href=events.html>Events</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=ffi.html>FFI</a><td class="api_stability api_stability_1">(1) Experimental<tr><td class=module_stability><a href=fs.html>File system</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=globals.html>Global objects</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=http.html>HTTP</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=http2.html>HTTP/2</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=https.html>HTTPS</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=inspector.html>Inspector</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=stream_iter.html>Iterable Streams</a><td class="api_stability api_stability_1">(1) Experimental – Enable this API with the `--experimental-stream-iter` CLI flag.<tr><td class=module_stability><a href=modules.html>Modules: CommonJS modules</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=esm.html>Modules: ECMAScript modules</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=typescript.html>Modules: TypeScript</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=net.html>Net</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=n-api.html>Node-API</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=os.html>OS</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=path.html>Path</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=perf_hooks.html>Performance measurement APIs</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=punycode.html>Punycode</a><td class="api_stability api_stability_0">(0) Deprecated<tr><td class=module_stability><a href=querystring.html>Query string</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=readline.html>Readline</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=repl.html>REPL</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=single-executable-applications.html>Single executable applications</a><td class="api_stability api_stability_1">(1.1) Active development<tr><td class=module_stability><a href=sqlite.html>SQLite</a><td class="api_stability api_stability_1">(1.2) Release candidate.<tr><td class=module_stability><a href=stream.html>Stream</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=string_decoder.html>String decoder</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=test.html>Test runner</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=timers.html>Timers</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=tls.html>TLS (SSL)</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=tracing.html>Trace events</a><td class="api_stability api_stability_1">(1) Experimental<tr><td class=module_stability><a href=tty.html>TTY</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=dgram.html>UDP/datagram sockets</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=url.html>URL</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=util.html>Util</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=vfs.html>Virtual File System</a><td class="api_stability api_stability_1">(1) Experimental<tr><td class=module_stability><a href=vm.html>VM (executing JavaScript)</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=webcrypto.html>Web Crypto API</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=webstreams.html>Web Streams API</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=wasi.html>WebAssembly System Interface (WASI)</a><td class="api_stability api_stability_1">(1) Experimental<tr><td class=module_stability><a href=worker_threads.html>Worker threads</a><td class="api_stability api_stability_2">(2) Stable<tr><td class=module_stability><a href=zlib.html>Zlib</a><td class="api_stability api_stability_2">(2) Stable</table></section>
+<section><h3>JSON output<span><a id=documentation_json_output></a></span><span><a class=mark id=json-output href=#json-output>#</a></span></h3><div class=api_metadata><span>Added in: v0.6.12</span></div><p>Every <code>.html</code> document has a corresponding <code>.json</code> document. This is for IDEs
+and other utilities that consume the documentation.</section>
+<section><h3>System calls and man pages<span><a id=documentation_system_calls_and_man_pages></a></span><span><a class=mark id=system-calls-and-man-pages href=#system-calls-and-man-pages>#</a></span></h3><div class=api_metadata></div><p>Node.js functions which wrap a system call will document that. The docs link
+to the corresponding man pages which describe how the system call works.<p>Most Unix system calls have Windows analogues. Still, behavior differences may
+be unavoidable.</section>
+          
+        </div>
+      </div>
+    </div>
