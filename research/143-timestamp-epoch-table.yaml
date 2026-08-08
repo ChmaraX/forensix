@@ -1,0 +1,2257 @@
+# ForensiX — machine-readable Chrome timestamp epoch table
+# Lane B deliverable for issue #145 ("does the per-column epoch table live in code or in data?").
+#
+# Derived ONLY by transcription from:
+#   research/143-timestamp-epoch-version-matrix.md
+#   research/_raw/143-part-1-history.md
+#   research/_raw/143-part-2-credentials.md
+#   research/_raw/143-part-3-webdata.md
+#   research/_raw/143-part-4-json-and-misc.md
+# No new research was performed. Where the sources disagree or are silent the row is
+# marked claim_state: unresolved and carries no epoch guess.
+#
+# Vocabulary is CONTEXT.md's: Source, Working Copy, Manifest, Provenance, Field State
+# (value/absent/unavailable), Candidate, Finding, Epoch Family, Declared Timezone,
+# Commit State, Sidecar.
+#
+# Design notes and coverage: research/_raw/143-epoch-table-NOTES.md
+
+meta:
+  schema_version: 1
+  issue: 145
+  derives_from_issue: 143
+  status: derived-transcription
+  generated_by: lane-B transcription pass (no source fetches)
+  chrome_stable_at_source_run: "151.0.7922.77 (M151)"
+  source_refs:
+    cb211f6:
+      repo: chromium/src
+      sha: cb211f647e4138888643a909973b2d07d49ae79c
+      note: parent of ba3c200, one autoroll commit apart; line numbers comparable
+      used_by: [143-part-1-history.md, 143-part-2-credentials.md]
+    ba3c200:
+      repo: chromium/src
+      sha: ba3c200c1564977873107f5656c015253ba129b1
+      note: refs/heads/main at time of the #143 run
+      used_by: [143-part-3-webdata.md, 143-part-4-json-and-misc.md]
+    tag_120:
+      repo: chromium/src
+      ref: refs/tags/120.0.6099.71
+      note: last release that shipped Media History
+  known_gaps:
+    - "Gitiles +log / +blame return HTTP 401 unauthenticated, so no row carries a CL number or commit date."
+    - "Milestone pins are 'first stable milestone whose branch point already contained the bump' — accurate to within one milestone."
+
+# ---------------------------------------------------------------------------
+# Controlled vocabularies. A parser MUST reject any value not listed here.
+# ---------------------------------------------------------------------------
+
+epoch_families:
+  win1601_us:
+    name: 1601-microseconds
+    definition: microseconds since 1601-01-01T00:00:00Z
+    producing_api: "sql::Statement::BindTime / base::Time::ToDeltaSinceWindowsEpoch().InMicroseconds() / base::TimeToValue"
+    digits_in_2026: 18
+    magnitude_in_2026: 1.34e17
+  win1601_ms:
+    name: 1601-milliseconds
+    definition: milliseconds since 1601-01-01T00:00:00Z
+    producing_api: "base::Time::ToDeltaSinceWindowsEpoch().InMilliseconds()"
+    digits_in_2026: 13
+    magnitude_in_2026: 1.34e13
+    hazard: "Same digit count as Unix milliseconds. The magnitude heuristic does NOT disambiguate it; a naive Unix-ms decode yields a plausible date in 2394."
+  win1601_s:
+    name: 1601-seconds
+    definition: seconds since 1601-01-01T00:00:00Z
+    producing_api: "base::Time::ToDeltaSinceWindowsEpoch().InSeconds()"
+    digits_in_2026: 11
+    magnitude_in_2026: 1.34e10
+    hazard: "Decoding as 1601-us yields 1601-01-01T03:43 — plausible-looking garbage."
+  unix_s:
+    name: Unix-seconds
+    definition: seconds since 1970-01-01T00:00:00Z
+    producing_api: "base::Time::ToTimeT() / PrefService::SetInt64 with ToTimeT()"
+    digits_in_2026: 10
+    magnitude_in_2026: 1.7e9
+  unix_us:
+    name: Unix-microseconds
+    definition: microseconds since 1970-01-01T00:00:00Z
+    producing_api: "pre-migration state only; no live write site in Chromium"
+    digits_in_2026: 16
+    magnitude_in_2026: 1.7e15
+  json_double_win1601_us:
+    name: 1601-microseconds-as-IEEE754-double
+    definition: "win1601_us written as an unquoted JSON number via static_cast<double>"
+    producing_api: "base::Value(double) from Time::ToInternalValue()"
+    hazard: "Exceeds 2^53; quantised to a 16 us grid. Precision loss is by design and confirmed."
+  unresolved:
+    name: unresolved
+    definition: "The #143 evidence does not determine the family. Never guess; emit Field State unavailable."
+
+kinds:
+  timestamp: "An absolute instant. Decode with the row's epoch rules."
+  duration: "An elapsed interval. Same on-disk shape as a timestamp in several places. NEVER date-render."
+  not_a_timestamp: "Looks like a time by name or type and is not (HTTP header string, card expiry month, media playhead, enum, generic int)."
+  no_timestamp_columns: "Verified negative: the whole table/artifact was read and has no time column. Distinct from 'we did not look'."
+
+claim_states:
+  verified: "Read from Chromium source during the #143 run; cited file:line in provenance."
+  inferred: "Reasoned from a verified fact but not itself read. Never a Finding on its own."
+  unresolved: "Not determined by the #143 evidence. Emit Field State unavailable with the stated reason."
+
+# Maps a resolution outcome onto CONTEXT.md's Field State.
+field_state_mapping:
+  epoch_resolved_and_value_present: value
+  sentinel_matched: absent
+  key_or_column_absent: absent
+  verified_negative_claim: absent
+  epoch_unresolved: unavailable
+  requires_operator_input_not_supplied: unavailable
+
+# First-class ambiguity states. #143's central finding is that meta.version is not a
+# sufficient discriminator; these name the ways it fails.
+ambiguity_states:
+  requires_os_input:
+    description: "Epoch depends on the ORIGINATING OS of the profile. No Chrome artifact records it."
+    resolution_inputs: [originating_os]
+    emit_when_unsupplied: unavailable
+  version_field_untrusted:
+    description: "meta.version on disk can be wrong; Chrome repairs it by column sniffing (FixVersionIfNeeded)."
+    resolution_inputs: [column_presence_sniff, magnitude_check]
+  unresolved_source_deleted:
+    description: "The migration body no longer exists at the read ref; the pre-migration encoding was not recovered."
+    emit_when_unsupplied: unavailable
+  not_examined:
+    description: "In scope but not read during the #143 run. 'We did not look' — never 'there is nothing'."
+    emit_when_unsupplied: unavailable
+
+platforms: [any, windows, non_windows]
+
+# ---------------------------------------------------------------------------
+# Artifacts. Version-field character, and the destructive-open hazards that make
+# the Working Copy contract (#121) non-negotiable.
+# ---------------------------------------------------------------------------
+
+artifacts:
+  History:
+    container: sqlite
+    version_field: meta.version
+    current_version: 70
+    compatible_version: 16
+    minimal_version: 15
+    razes_below: 15
+    raze_note: "RazeDbIfTooOld() destroys a DB below v15 when kRazeOldHistoryDatabase is enabled."
+    source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "42-45, 98-124"}
+  Top Sites:
+    container: sqlite
+    version_field: meta.version
+    version_constant: kVersionNumber
+    current_version: 5
+    razes_below: 4
+    source: {ref: cb211f6, path: components/history/core/browser/top_sites_database.cc, lines: "58-59, 203-262"}
+  Favicons:
+    container: sqlite
+    version_field: meta.version
+    current_version: 9
+    compatible_version: 9
+    razes_below: 8
+    source: {ref: cb211f6, path: components/favicon/core/favicon_database.cc, lines: "94-116"}
+  Shortcuts:
+    container: sqlite
+    version_field: meta.version
+    current_version: 2
+    compatible_version: 1
+    note: "v0 has no meta table at all; a missing meta table is not corruption here."
+    source: {ref: cb211f6, path: components/omnibox/browser/shortcuts_database.cc, lines: "30-31, 320-330"}
+  Network Action Predictor:
+    container: sqlite
+    version_field: none
+    note: "No version constant and no migration ladder. Table name is network_action_predictor."
+    source: {ref: cb211f6, path: chrome/browser/predictors/autocomplete_action_predictor_table.cc, lines: "22, 217-226"}
+  Login Data:
+    container: sqlite
+    version_field: meta.version
+    current_version: 43
+    compatible_version: 40
+    version_field_trustworthy: false
+    version_field_note: "FixVersionIfNeeded repairs a wrong meta.version by column sniffing (crbug.com/295851). See ambiguity_states.version_field_untrusted."
+    also_applies_to: [Login Data For Account]
+    source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "80, 83, 914-950"}
+  Cookies:
+    container: sqlite
+    path_in_profile: Network/Cookies
+    version_field: meta.version
+    current_version: 24
+    compatible_version: 24
+    razes_below: 23
+    also_applies_to: [Extension Cookies]
+    also_applies_to_state: unresolved
+    also_applies_to_note: "Extension Cookies is the same writer if it still exists; existence not confirmed (part 4 U4, part 2 V-9)."
+    source: {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "316-317, 1121-1203"}
+  DIPS:
+    container: sqlite
+    aka: BTM
+    version_field: meta.version
+    current_version: 11
+    compatible_version: 11
+    razes_unless_exactly: 11
+    source: {ref: cb211f6, path: content/browser/btm/btm_database.h, lines: "39-45"}
+  Web Data:
+    container: sqlite
+    version_field: meta.version
+    current_version: 153
+    compatible_version: 151
+    deprecated_version: 82
+    razes_below: 83
+    note: "Ladder is split across table classes; no single file holds the whole history. 'Web Data For Account' registers only AutofillSyncMetadataTable + PaymentsAutofillTable."
+    source: {ref: ba3c200, path: components/webdata/common/web_database.h, lines: "35, 57"}
+  Bookmarks:
+    container: json
+    version_field: version
+    version_value: 1
+    version_useful: false
+    version_note: "Frozen at 1 for all of Chrome's history; exact-equality gate, no migration ladder. Discriminates nothing."
+    also_applies_to: [Bookmarks.bak]
+    integrity_note: "checksum (MD5) and checksum_sha256 (flagged) cover node id/title/url ONLY — timestamps are not covered. Editing date_added does not invalidate the checksum."
+    source: {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "41, 58-59, 105, 223-225, 131-135, 190-197"}
+  Preferences:
+    container: json
+    version_field: none
+    version_proxy: profile.created_by_version
+    version_proxy_note: "A product version string, not a schema version."
+    note: "A stratigraphic deposit, not a snapshot: keys are rewritten only when their owning component touches them."
+    source: {ref: ba3c200, path: components/prefs/pref_service.cc, lines: "418-455"}
+  Secure Preferences:
+    container: json
+    version_field: none
+    generation_proxy: "install_time key present => pre-migration; first_install_time present => post-migration build has opened it"
+    source: {ref: ba3c200, path: extensions/browser/extension_prefs.cc, lines: "197-200, 2556-2578"}
+  Local State:
+    container: json
+    version_field: none
+    source: {ref: ba3c200, path: components/prefs/pref_service.cc, lines: "418-455"}
+  Media History:
+    container: sqlite
+    version_field: meta.version
+    current_version: 6
+    compatible_version: 1
+    status: removed_from_chromium
+    removed_between: [M120, M121]
+    fossil: true
+    fossil_note: "Chrome >= M121 neither creates nor updates it. A Media History file carries an implicit terminus ante quem for the profile and must never be reported as current activity."
+    source: {ref: tag_120, path: chrome/browser/media/history/media_history_store.cc, lines: "32-33, 71-128"}
+  Site Characteristics:
+    container: leveldb
+    payload: proto2-lite SiteDataProto
+    version_field: none
+    source: {ref: ba3c200, path: components/performance_manager/persistence/site_data/site_data.proto, lines: whole-file}
+  Reporting and NEL:
+    container: sqlite
+    version_field: meta.version
+    current_version: 2
+    compatible_version: 2
+    destructive_migration: "v1->v2 renames report_to -> group_name and back-fills nik with an empty NetworkAnonymizationKey, effectively clearing all policies. Absence of a policy after this point is NOT evidence the origin was not visited."
+    source: {ref: ba3c200, path: net/extras/sqlite/sqlite_persistent_reporting_and_nel_store.cc, lines: "47-48, 702-730"}
+  Trust Tokens:
+    container: sqliteproto
+    version_field: none
+    generation_proxy: proto field-id presence
+    note: "The only artifact in the corpus whose epoch is named in the persisted schema itself."
+    source: {ref: ba3c200, path: services/network/trust_tokens/proto/public.proto, lines: "message Timestamp"}
+  Affiliation Database:
+    container: sqlite
+    version_field: meta.version
+    current_version: 7
+    compatible_version: 1
+    note: "Declarative SQLTableBuilder ladder; grepping for MigrateToVersion finds nothing here."
+    source: {ref: ba3c200, path: components/affiliations/core/browser/affiliation_database.cc, lines: "36-41, 78-126"}
+  Sessions:
+    container: snss
+    aka: [Session_*, Tabs_*, Last Session, Last Tabs]
+    version_field: "file header int32 after signature 0x53534E53 ('SSNS')"
+    supported_versions: [3, 5]
+    rejected_versions: [1, 2, 4]
+    version_useful_for_epoch: false
+    version_note: "Container/encryption version, not a schema version. 1601-us at v3 and v5 alike. v5 is OSCrypt-encrypted."
+    source: {ref: ba3c200, path: components/sessions/core/command_storage_backend.cc, lines: "46-64, 303-336"}
+  Extension State:
+    container: leveldb
+    version_field: none
+    note: "Extension-authored values; Chrome imposes no schema and writes no timestamp of its own. Do not apply Chrome epoch conventions here."
+    source: {ref: ba3c200, path: extensions/browser/api/storage/, lines: not-read}
+
+# Every one of these fires on FIRST OPEN by a modern Chrome. Strongest argument for
+# the read-only Working Copy contract (#121).
+destructive_on_open:
+  - {artifact: History, effect: "razed below meta.version 15"}
+  - {artifact: Top Sites, effect: "razed below meta.version 4"}
+  - {artifact: Favicons, effect: "razed below meta.version 8"}
+  - {artifact: Cookies, effect: "razed below meta.version 23"}
+  - {artifact: Cookies, effect: "v19 rewrites expires_utc, capping to +400d — original expiry unrecoverable"}
+  - {artifact: Web Data, effect: "razed at meta.version <= 82"}
+  - {artifact: Web Data, effect: "on iOS, CleanupForCrbug445879524() deletes ALL credit_cards rows", source: {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "1420-1425"}}
+  - {artifact: DIPS, effect: "razed unless meta.version == 11"}
+  - {artifact: Reporting and NEL, effect: "v1->v2 destroys policy validity"}
+  - {artifact: Login Data, effect: "v<=8 date_created rewritten in place by the epoch migration"}
+  - {artifact: History, effect: "v16->17 rewrites urls/visits/segment_usage times in place on non-Windows"}
+
+# ---------------------------------------------------------------------------
+# columns — the table proper. Keyed on (artifact, table, column).
+# One row = one column at one artifact. version_range is on meta.version unless
+# the row names another version_field. Each row carries its own Provenance.
+# ---------------------------------------------------------------------------
+
+columns:
+
+# ===== History =========================================================
+
+- id: history/urls/last_visit_time
+  artifact: History
+  table: urls
+  column: last_visit_time
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 17, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "706-719"}}
+    - {version_range: {min: null, max: 16}, platform: windows, family: win1601_us, basis: verified,
+       note: "MigrateTimeEpoch is compiled out on Windows; the bump is a documented NOP there.",
+       source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "706-719"}}
+    - {version_range: {min: null, max: 16}, platform: non_windows, family: unix_us, basis: verified,
+       note: "Migration adds 11644473600000000 us, so the pre-state was Unix microseconds, not Unix seconds.",
+       source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "1192-1208"}}
+  ambiguity:
+    state: requires_os_input
+    applies_when: {version_range: {min: null, max: 16}}
+    reason: "The version bumps on all platforms but the data is only rewritten off Windows. Nothing in meta, no column, and no SQLite header field records the originating OS."
+    no_in_artifact_signal: true
+    discriminators:
+      - {kind: magnitude, basis: inferred, rule: "MAX(last_visit_time) < 1e16 => non-Windows Unix-us; > 1e17 => Windows 1601-us. Cannot overlap for any plausible 2008-2013 date.", emit_as: candidate}
+      - {kind: sibling_column, basis: verified, rule: "downloads.full_path syntax: drive letter/backslashes => Windows; /Users/ or /home/ => non-Windows. Corroborates, never overrides.", emit_as: candidate,
+         source: {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "161"}}
+    emit_when_unsupplied: unavailable
+  boundary: {from_version: 16, to_version: 17, first_stable_milestone: M4, milestone_basis: "release-tag bisection 3.0.195.38 (v16, no migration) -> 4.0.249.78 (v17, migration present)", calendar_date: unresolved}
+  sentinels:
+    - {raw: 0, means: "never visited / unset", emit_as: absent, basis: verified,
+       note: "The v16 migration's WHERE > 0 predicate preserves 0 as 0 in both epochs.",
+       source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "1192-1208"}}
+    - {raw: "<0", means: "not rebased by the migration; treat as corrupt", emit_as: unavailable, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/url_database.cc, lines: "735", claim: "schema: last_visit_time INTEGER NOT NULL"}
+    - {ref: cb211f6, path: components/history/core/browser/url_database.cc, lines: "162, 192, 247", claim: "write sites, all BindTime"}
+    - {ref: cb211f6, path: components/history/core/browser/url_database.cc, lines: "68", claim: "read site ColumnTime(5)"}
+    - {ref: cb211f6, path: sql/statement.cc, lines: "41-45, 312, 529", claim: "BindTime/ColumnTime == 1601-us signed int64"}
+
+- id: history/visits/visit_time
+  artifact: History
+  table: visits
+  column: visit_time
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 17, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "706-719"}}
+    - {version_range: {min: null, max: 16}, platform: windows, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "706-719"}}
+    - {version_range: {min: null, max: 16}, platform: non_windows, family: unix_us, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "1192-1208"}}
+  ambiguity:
+    state: requires_os_input
+    applies_when: {version_range: {min: null, max: 16}}
+    reason: "Same platform-conditional migration as urls.last_visit_time."
+    no_in_artifact_signal: true
+    same_as: history/urls/last_visit_time
+    emit_when_unsupplied: unavailable
+  boundary: {from_version: 16, to_version: 17, first_stable_milestone: M4}
+  sentinels:
+    - {raw: 0, means: "unset", emit_as: absent, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "1192-1208"}}
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/visit_database.cc, lines: "155", claim: "schema: visit_time INTEGER NOT NULL"}
+    - {ref: cb211f6, path: components/history/core/browser/visit_database.cc, lines: "393, 548", claim: "write sites BindTime"}
+    - {ref: cb211f6, path: components/history/core/browser/visit_database.cc, lines: "273", claim: "read site ColumnTime(2)"}
+
+- id: history/segment_usage/time_slot
+  artifact: History
+  table: segment_usage
+  column: time_slot
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 17, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/visitsegment_database.cc, lines: "231, 236, 254"}}
+    - {version_range: {min: null, max: 16}, platform: windows, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "706-719"}}
+    - {version_range: {min: null, max: 16}, platform: non_windows, family: unix_us, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "1192-1208"}}
+  ambiguity:
+    state: requires_os_input
+    applies_when: {version_range: {min: null, max: 16}}
+    reason: "Rewritten by the same MigrateTimeEpoch body."
+    no_in_artifact_signal: true
+    same_as: history/urls/last_visit_time
+    emit_when_unsupplied: unavailable
+  semantics:
+    quantisation: one_day
+    declared_timezone_interaction: local_midnight
+    note: >-
+      The CONTAINER is 1601-us UTC; the VALUE is midnight in the HOST's local timezone at write
+      time (ts.LocalMidnight()). Rendering it as a UTC date shows the wrong calendar day for hosts
+      east of UTC. Never present as a visit time. This falsifies #125's "no Chrome artifact stores
+      local time" claim.
+    derived_offset_rule: {expression: "time_slot % 86400000000", yields: "host UTC offset that day, incl. DST transitions", basis: inferred, emit_as: candidate, verification_queue: "part 1 VQ-9"}
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/visitsegment_database.cc, lines: "132-136", claim: "schema"}
+    - {ref: cb211f6, path: components/history/core/browser/visitsegment_database.cc, lines: "231", claim: "base::Time t = ts.LocalMidnight()"}
+    - {ref: cb211f6, path: components/history/core/browser/visitsegment_database.cc, lines: "236, 254, 374", claim: "BindTime write sites"}
+
+- id: history/visits/visit_duration
+  artifact: History
+  table: visits
+  column: visit_duration
+  declared_type: INTEGER DEFAULT 0 NOT NULL
+  kind: duration
+  claim_state: verified
+  unit: microseconds
+  never_date_render: true
+  column_presence: {present_from: 21, present_to: null, added_by: "MigrateVisitsWithoutDuration() at meta.version 20->21"}
+  sentinels:
+    - {raw: 0, means: "not measured; also back-filled into all pre-v21 rows", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/visit_database.cc, lines: "163", claim: "schema"}
+    - {ref: cb211f6, path: components/history/core/browser/visit_database.cc, lines: "398, 553", claim: "BindTimeDelta, not BindTime"}
+    - {ref: cb211f6, path: components/history/core/browser/visit_database.cc, lines: "281", claim: "ColumnTimeDelta read site"}
+    - {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "744-751", claim: "column added at v20->21"}
+
+- id: history/downloads/start_time
+  artifact: History
+  table: downloads
+  column: start_time
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 24, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "610, 692, 701"}}
+    - {version_range: {min: null, max: 23}, platform: any, family: unix_s, basis: verified,
+       note: "Chromium's own comment names the pre-state: time_t, seconds since 1970-01-01 UTC. The migration adds 11644473600 SECONDS then scales by 1e6 — a different legacy epoch from urls/visits.",
+       source: {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "150-168"}}
+  platform_conditional: false
+  boundary: {from_version: 23, to_version: 24, migration_fn: MigrateDownloadsReasonPathsAndDangerType, first_stable_milestone: M26, stable_date: "2013-03-26", milestone_basis: "release-tag bisection: absent at 25.0.1364.172, present at 26.0.1410.43"}
+  schema_shape_cross_check:
+    - {signal: "downloads_url_chains table exists", implies: "version >= 24 => win1601_us"}
+    - {signal: "downloads.full_path column exists", implies: "version <= 23 => unix_s"}
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified, note: "explicitly preserved by CASE start_time WHEN 0 THEN 0 in the migration"}
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "114-193", claim: "MigrateDownloadsReasonPathsAndDangerType body"}
+    - {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "772-778", claim: "guard at cur_version == 23, not platform-conditional"}
+
+- id: history/downloads/end_time
+  artifact: History
+  table: downloads
+  column: end_time
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 24, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "610, 701"}}
+    - {version_range: {min: null, max: 23}, platform: any, family: unix_s, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "150-168"}}
+  boundary: {from_version: 23, to_version: 24, first_stable_milestone: M26, stable_date: "2013-03-26"}
+  sentinels:
+    - {raw: 0, means: "unset — common, download never completed", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "150-168", claim: "CASE end_time WHEN 0 THEN 0 ELSE (end_time + 11644473600) * 1000000 END"}
+
+- id: history/downloads/last_access_time
+  artifact: History
+  table: downloads
+  column: last_access_time
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 34, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "613, 703"}}
+  column_presence: {present_from: 34, present_to: null, added_by: "MigrateDownloadLastAccessTime() at meta.version 33->34", first_stable_milestone: M59, stable_date: "2017-05-30"}
+  epoch_stable_since_introduction: true
+  sentinels:
+    - {raw: 0, means: "never accessed; also the DEFAULT 0 back-filled into every pre-v34 row", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "304", claim: "EnsureColumnExists(last_access_time, INTEGER NOT NULL DEFAULT 0)"}
+    - {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "851-857", claim: "migration guard at cur_version == 33"}
+
+- id: history/downloads/last_modified
+  artifact: History
+  table: downloads
+  column: last_modified
+  declared_type: VARCHAR NOT NULL DEFAULT ""
+  kind: not_a_timestamp
+  claim_state: verified
+  actual_type: "HTTP Last-Modified response header, verbatim (RFC 9110 IMF-fixdate string)"
+  never_date_render: true
+  never_epoch_convert: true
+  trust_note: "Server-controlled. Always GMT by spec, but not host evidence."
+  column_presence: {present_from: 28, present_to: null, added_by: "MigrateDownloadValidators() at meta.version 27->28"}
+  sentinels:
+    - {raw: "\"\"", means: "header not provided", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "207-208", claim: "EnsureColumnExists(last_modified, VARCHAR NOT NULL DEFAULT \"\")"}
+    - {ref: cb211f6, path: components/history/core/browser/history_database.cc, lines: "804-810", claim: "added at v27->28"}
+
+- id: history/context_annotations/duration_since_last_visit
+  artifact: History
+  table: context_annotations
+  column: duration_since_last_visit
+  kind: duration
+  claim_state: verified
+  unit: microseconds
+  never_date_render: true
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/visit_annotations_database.cc, lines: "331, 413", claim: "BindInt64(.InMicroseconds()), not BindTime"}
+
+- id: history/context_annotations/total_foreground_duration
+  artifact: History
+  table: context_annotations
+  column: total_foreground_duration
+  declared_type: NUMERIC DEFAULT -1000000
+  kind: duration
+  claim_state: verified
+  unit: microseconds
+  never_date_render: true
+  column_presence: {present_from: 51, present_to: null, added_by: "MigrateContextAnnotationsAddTotalForegroundDuration() at meta.version 50->51"}
+  sentinels:
+    - {raw: -1000000, means: "unknown / not measured — the column default, NOT a negative duration", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/visit_annotations_database.cc, lines: "1206-1209, 334, 416", claim: "default sentinel and bind sites"}
+
+- id: history/keyword_search_terms/-
+  artifact: History
+  table: keyword_search_terms
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  columns_present: [keyword_id, url_id, term, normalized_term]
+  version_dependent_column_set: {lower_term: {max: 41}, normalized_term: {min: 42}}
+  time_available_only_via: "join to urls.last_visit_time (or visits.visit_time) on url_id"
+  caveat: "urls.last_visit_time is the LAST visit to that search-results URL, not the time the term was typed. Repeated identical searches collapse."
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/url_database.cc, lines: "458-464", claim: "full CREATE TABLE read; four columns, no time"}
+    - {ref: cb211f6, path: components/history/core/browser/url_database.cc, lines: "534-535, 623-625", claim: "Chromium itself joins to urls.last_visit_time"}
+
+- id: history/visit_source/-
+  artifact: History
+  table: visit_source
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  columns_present: [id, source]
+  caveat: "A missing row means SOURCE_BROWSED, not unknown — ordinary user visits are deliberately not recorded to save space."
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/visit_database.cc, lines: "220-221", claim: "CREATE TABLE visit_source: two columns"}
+    - {ref: cb211f6, path: components/history/core/browser/visit_database.cc, lines: "611", claim: "IFNULL(visit_source.source, 1)"}
+
+- id: history/downloads_url_chains/-
+  artifact: History
+  table: downloads_url_chains
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  columns_present: [id, chain_index, url]
+  version_signal: "Its existence implies meta.version >= 24."
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/download_database.cc, lines: "137-144", claim: "CREATE TABLE, three columns"}
+
+- id: history/content_annotations/-
+  artifact: History
+  table: content_annotations
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  time_available_only_via: "join to visits.visit_time on visit_id"
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/visit_annotations_database.cc, lines: "196-210", claim: "full CREATE TABLE read; no time column"}
+
+- id: history/clusters/-
+  artifact: History
+  table: clusters
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  covers_also: [clusters_and_visits, cluster_keywords, cluster_visit_duplicates]
+  note: "A Journeys/cluster timeline must be built by joining clusters_and_visits.visit_id to visits.visit_time. There is no cluster-level timestamp."
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/visit_annotations_database.cc, lines: "1443-1470, 243, 261", claim: "full CREATE TABLE text read for each"}
+
+# ===== Top Sites / Favicons / Shortcuts / Network Action Predictor ======
+
+- id: top-sites/top_sites/-
+  artifact: Top Sites
+  table: top_sites
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  columns_present: [url, url_rank, title]
+  note: "A Top Sites timeline is impossible. Any feature that dates a Top Sites entry is fabricating. Only url_rank carries implicit ordering. This contradicts #125's legacy thumbnails.last_updated row for any modern file."
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/top_sites_database.cc, lines: "65-70", claim: "CREATE TABLE, three columns"}
+    - {ref: cb211f6, path: components/history/core/browser/top_sites_database.cc, lines: "171-202", claim: "UpgradeToVersion5 copies exactly url, url_rank, title — legacy thumbnail/last_updated machinery discarded, not migrated"}
+
+- id: top-sites/thumbnails/last_updated
+  artifact: Top Sites
+  table: thumbnails
+  column: last_updated
+  kind: timestamp
+  claim_state: unresolved
+  epoch:
+    - {version_range: {min: null, max: 3}, platform: any, family: unresolved, basis: unresolved}
+  ambiguity:
+    state: unresolved_source_deleted
+    reason: "The v<=3 migration code that would have documented it has been deleted from main. v<=3 is razed by modern Chrome, so it survives only in a pre-2018 image."
+    emit_when_unsupplied: unavailable
+  verification_queue: "part 1 VQ-4 — fetch top_sites_database.cc at a ~M31 (2013) tag"
+  provenance:
+    - {ref: cb211f6, path: components/history/core/browser/top_sites_database.cc, lines: "50-54, 227-231", claim: "version history comment block; RazeIfIncompatible destroys v<=3"}
+
+- id: favicons/favicon_bitmaps/last_updated
+  artifact: Favicons
+  table: favicon_bitmaps
+  column: last_updated
+  declared_type: INTEGER DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 8, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/favicon/core/favicon_database.cc, lines: "446, 472, 493, 553"}}
+  epoch_before_v8: {state: unresolved, note: "v<=7 is razed; whether v8 encoded differently is part 1 VQ-5."}
+  semantics: "Insert/download time of the ICON, not a page-visit time. Populated only for ON_VISIT bitmaps."
+  sentinels:
+    - {raw: 0, means: "ON_DEMAND bitmap (this column is never written for those) OR an ON_VISIT bitmap whose time was ZEROED IN PLACE by a range delete", emit_as: absent, basis: verified,
+       forensic_note: "The second reading is DELETION EVIDENCE: UPDATE favicon_bitmaps SET last_updated=0 WHERE last_updated>=? AND last_updated<? is clear-browsing-data residue, and the original time is gone.",
+       source: {ref: cb211f6, path: components/favicon/core/favicon_database.cc, lines: "76-90, 443-451, 507-510"}}
+  provenance:
+    - {ref: cb211f6, path: components/favicon/core/favicon_database.cc, lines: "119-158", claim: "schema"}
+    - {ref: cb211f6, path: components/favicon/core/favicon_database.cc, lines: "443-451", claim: "type == ON_VISIT ? BindTime(2, time) : BindInt64(2, 0)"}
+  path_rot_note: "components/history/core/browser/thumbnail_database.cc is GONE (404); class moved to components/favicon/core/favicon_database.cc."
+
+- id: favicons/favicon_bitmaps/last_requested
+  artifact: Favicons
+  table: favicon_bitmaps
+  column: last_requested
+  declared_type: INTEGER DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 8, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/favicon/core/favicon_database.cc, lines: "451"}}
+  semantics: "Last READ time, ON_DEMAND bitmaps only (cache eviction). COARSENED — refreshed at most once per interval. Treat as 'last requested no earlier than T'."
+  sentinels:
+    - {raw: 0, means: "ON_VISIT bitmap — exactly one of last_updated / last_requested is ever non-zero per row", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/favicon/core/favicon_database.cc, lines: "76-90, 443-451, 526-536", claim: "semantics, bind site, coarsening"}
+
+- id: favicons/favicons/-
+  artifact: Favicons
+  table: favicons
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  covers_also: [icon_mapping]
+  provenance:
+    - {ref: cb211f6, path: components/favicon/core/favicon_database.cc, lines: "119-158", claim: "full CREATE TABLE read for favicons and icon_mapping"}
+
+- id: shortcuts/omni_box_shortcuts/last_access_time
+  artifact: Shortcuts
+  table: omni_box_shortcuts
+  column: last_access_time
+  declared_type: INTEGER
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       note: "No migration in the ladder (cases -1, 0, 1, 2) touches this column; 1601-us for the whole surviving ladder.",
+       source: {ref: cb211f6, path: components/omnibox/browser/shortcuts_database.cc, lines: "48"}}
+  sentinels:
+    - {raw: 0, means: "corruption — construction defaults to base::Time::Now(), so there is no 0 sentinel in normal operation", emit_as: unavailable, basis: verified,
+       source: {ref: cb211f6, path: components/omnibox/browser/shortcuts_database.cc, lines: "128, 240"}}
+  note: "Table name is omni_box_shortcuts, NOT shortcuts. Declared INTEGER — this settles #125's 'weak memory of an older string encoding' for the current schema."
+  provenance:
+    - {ref: cb211f6, path: components/omnibox/browser/shortcuts_database.cc, lines: "356-363", claim: "schema"}
+    - {ref: cb211f6, path: components/omnibox/browser/shortcuts_database.cc, lines: "48, 299", claim: "BindTime(12) / ColumnTime(12)"}
+    - {ref: cb211f6, path: components/omnibox/browser/shortcuts_database.cc, lines: "341-407", claim: "full migration ladder read; no case touches last_access_time"}
+
+- id: network-action-predictor/network_action_predictor/-
+  artifact: Network Action Predictor
+  table: network_action_predictor
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  columns_present: [id, user_text, url, number_of_hits, number_of_misses]
+  corrects: "#125's network_action_predictor.last_hit_time row (MEDIUM confidence, inferred-from-name) — the column DOES NOT EXIST."
+  note: "Five columns, zero timestamps, not a single BindTime in the file. Forensic value is non-temporal: what was typed, never when."
+  provenance:
+    - {ref: cb211f6, path: chrome/browser/predictors/autocomplete_action_predictor_table.cc, lines: "221-226", claim: "CREATE TABLE"}
+    - {ref: cb211f6, path: chrome/browser/predictors/autocomplete_action_predictor_table.cc, lines: "27-36", claim: "BindRowToStatement binds five non-time values"}
+
+- id: network-action-predictor/resource_prefetch_predictor/-
+  artifact: Network Action Predictor
+  table: "resource_prefetch_predictor_* (loading predictor tables)"
+  column: null
+  kind: timestamp
+  claim_state: unresolved
+  ambiguity:
+    state: not_examined
+    reason: "PredictorDatabase also hosts the loading-predictor tables, which store serialised protos that may carry last_visit_time. resource_prefetch_predictor_tables.cc and predictor_database.cc were NOT fetched."
+    emit_when_unsupplied: unavailable
+  verification_queue: "part 1 VQ-7"
+  provenance:
+    - {ref: cb211f6, path: chrome/browser/predictors/predictor_database.cc, lines: not-read, claim: "explicitly not fetched during the #143 run"}
+
+# ===== Login Data / Login Data For Account =============================
+
+- id: login-data/logins/date_created
+  artifact: Login Data
+  table: logins
+  column: date_created
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 9, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "240, 1486, 1725"}}
+    - {version_range: {min: null, max: 8}, platform: any, family: unix_s, basis: verified,
+       note: "Migration: new = old_unix_seconds * kMicrosecondsPerSecond (1e6) + kMicrosecondsFromWindowsToUnixEpoch (11644473600000000). Both epochs UTC.",
+       source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "822-832"}}
+  platform_conditional: false
+  platform_conditional_note: "Deliberately stated: there is NO #if BUILDFLAG around this block, in contrast to History v16. Do not over-generalise the History finding."
+  boundary: {from_version: 8, to_version: 9, note: "v8 and v9 are schema-IDENTICAL. Version 9 exists solely to carry the epoch change — there is no column-presence tell; a parser MUST read meta.version.", first_stable_milestone: unresolved, verification_queue: "part 2 V-2"}
+  ambiguity:
+    state: version_field_untrusted
+    applies_when: {version_range: {min: null, max: 8}}
+    reason: >-
+      Per crbug.com/295851 some Login Data files carry a WRONG meta.version. FixVersionIfNeeded
+      repairs it by column sniffing. A file recording meta.version <= 8 but possessing a
+      date_last_used column is really v25 and its date_created is 1601-us, not Unix seconds —
+      wrong by 369 years on exactly the files where the epoch question is live.
+    resolution_inputs: [column_presence_sniff, magnitude_check]
+    required_procedure:
+      - "Replicate FixVersionIfNeeded's ladder: logins.times_used => v3; logins.form_data => v4; logins.date_last_used => v25."
+      - "Then magnitude-check date_created: 10 digits => unix_s; 18 digits => win1601_us."
+      - "Never trust meta.version alone. Chrome itself does not magnitude-check, and would re-multiply an already-migrated value if the version were tampered down."
+    emit_when_unsupplied: unavailable
+    source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "914-950"}
+  collision_warning: "Third of three columns named date_created in one profile: autofill.date_created (unix_s), password_notes.date_created (win1601_us), logins.date_created (version-dependent). Name-based dispatch is unsafe."
+  provenance:
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "387", claim: "column created at v0/v1"}
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "423-427", claim: "SealVersion 8 and 9 with no column changes"}
+    - {ref: cb211f6, path: base/time/time.h, lines: "411-412, 545-546", claim: "kMicrosecondsPerSecond, kMicrosecondsFromWindowsToUnixEpoch"}
+  path_rot_note: "Issue #143's cited path components/password_manager/core/browser/login_database.cc is STALE (404); the file moved under password_store/."
+
+- id: login-data/logins/date_synced
+  artifact: Login Data
+  table: logins
+  column: date_synced
+  kind: timestamp
+  claim_state: unresolved
+  epoch:
+    - {version_range: {min: 6, max: 30}, platform: any, family: unresolved, basis: unresolved}
+  column_presence: {present_from: 6, present_to: 30, dropped_at: 31}
+  ambiguity:
+    state: unresolved_source_deleted
+    reason: "Column is dropped at v31, so no live bind site remains at cb211f6. A v6..v30 file on disk still has it."
+    prediction_not_a_claim: "win1601_us, since it postdates the v9 epoch fix — INFERRED, must not be published as fact."
+    emit_when_unsupplied: unavailable
+  verification_queue: "part 2 V-3"
+  provenance:
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "412, 521-522", claim: "added v6, dropped v31"}
+
+- id: login-data/logins/date_last_used
+  artifact: Login Data
+  table: logins
+  column: date_last_used
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 25, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "261, 1506, 1753"}}
+  column_presence: {present_from: 25, present_to: null, note: "Its presence is also FixVersionIfNeeded's v25 sniff signal."}
+  sentinels:
+    - {raw: 0, means: "never used", emit_as: absent, basis: verified,
+       source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "486-488"}}
+  provenance:
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "486-488", claim: "added at v25, replacing preferred"}
+
+- id: login-data/logins/date_password_modified
+  artifact: Login Data
+  table: logins
+  column: date_password_modified
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 30, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "265, 1510, 1761"}}
+  column_presence: {present_from: 30, present_to: null}
+  synthetic:
+    - applies_when: {version_range: {min: null, max: 29}, condition: "row existed before the v30 upgrade"}
+      written_by: "UPDATE logins SET date_password_modified = date_created"
+      actually_records: "the row's date_created, copied. By construction, not by observation."
+      not_evidence_of: "a password change"
+      evidences: "only that the credential predates schema v30"
+      detection: {rule: "date_password_modified == date_created to the microsecond", basis: inferred, emit_as: candidate,
+                  caveat: "A credential CREATED with a password legitimately gets equal values at insert time (both bound in the same INSERT at :240 and :265). Equality alone is not conclusive."}
+      epoch_note: "The backfill runs AFTER the v<=8 epoch fix in the same MigrateDatabase() body, so it inherits already-corrected win1601_us. There is no path leaving this column in unix_s."
+      source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "853-861"}
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "516-519", claim: "column introduced at v30"}
+
+- id: login-data/logins/date_received
+  artifact: Login Data
+  table: logins
+  column: date_received
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 37, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "272, 1513, 1766"}}
+  column_presence: {present_from: 37, present_to: null}
+  semantics: "shared-password metadata; NULLable"
+  provenance:
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "562", claim: "added at v37"}
+
+- id: login-data/logins/date_last_filled
+  artifact: Login Data
+  table: logins
+  column: date_last_filled
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 42, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "275, 1519, 1754"}}
+  column_presence: {present_from: 42, present_to: null}
+  sentinels:
+    - {raw: 0, means: "never filled", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "587-588", claim: "added at v42"}
+
+- id: login-data/insecure_credentials/create_time
+  artifact: Login Data
+  table: insecure_credentials
+  column: create_time
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 29, max: null}, platform: any, family: win1601_us, basis: verified,
+       note: "Write site bypasses BindTime and spells the conversion out — independent confirmation, not a BindTime inference.",
+       source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/insecure_credentials_table.cc, lines: "110-112"}}
+  column_presence: {present_from: 29, present_to: null}
+  synthetic:
+    - applies_when: {version_range: {min: 29, max: 31}, condition: "create_time == 0 at the time of upgrade"}
+      written_by: "UPDATE insecure_credentials SET create_time = ? WHERE create_time = 0, bound with base::Time::Now()"
+      actually_records: "the wall-clock instant of the migration, i.e. first launch of the Chrome build shipping schema v32"
+      not_evidence_of: "when the credential was found compromised/leaked/weak"
+      evidences: "a Chrome upgrade"
+      severity: "worse than the date_password_modified backfill — the value is a real clock read of an unrelated event"
+      source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "863-872"}
+  sentinels:
+    - {raw: 0, means: "uninitialised (pre-v32 state)", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "511", claim: "table created at v29"}
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/insecure_credentials_table.cc, lines: "28-29", claim: "read side FromDeltaSinceWindowsEpoch(Microseconds(...))"}
+
+- id: login-data/password_notes/date_created
+  artifact: Login Data
+  table: password_notes
+  column: date_created
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 33, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/password_notes_table.cc, lines: "149"}}
+  column_presence: {present_from: 33, present_to: null}
+  collision_warning: "Same column NAME as logins.date_created and autofill.date_created; three columns, up to three different epochs."
+  provenance:
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "535", claim: "table added at v33"}
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/password_notes_table.cc, lines: "46-47", claim: "read side FromDeltaSinceWindowsEpoch(Microseconds(ColumnInt64(3)))"}
+
+- id: login-data/stats/update_time
+  artifact: Login Data
+  table: stats
+  column: update_time
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: components/password_manager/core/browser/password_store/statistics_table.cc, lines: "94"}}
+  version_field_note: "Created on demand, NOT part of the logins version ladder."
+  semantics: "last password-bubble dismissal per (origin_domain, username_value)"
+  corrects: "#143 round-1's competing memory of Unix seconds here — REFUTED by BindTime at :94 and ColumnTime at :36."
+  provenance:
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/statistics_table.cc, lines: "53-61", claim: "CREATE TABLE stats"}
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/statistics_table.cc, lines: "36", claim: "ColumnTime(COLUMN_DATE)"}
+
+- id: login-data/passwords_sync_entities_metadata/-
+  artifact: Login Data
+  table: passwords_sync_entities_metadata
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  covers_also: [passwords_sync_model_metadata]
+  columns_present: [storage_key, metadata]
+  nested_payload:
+    format: "OSCrypt-encrypted serialised sync_pb::EntityMetadata"
+    epoch_of_nested_times: unresolved
+    ambiguity_state: not_examined
+    warning: "Chromium sync protos are commonly Unix MILLISECONDS, not 1601-us. This is a genuine trap and is UNVERIFIED (part 2 V-12)."
+  caveat: "login_database.cc:844-850 wipes sync metadata (ClearAllSyncMetadata) for DBs upgrading through v21..v25. Missing sync metadata in such a DB is NOT deliberate user deletion."
+  provenance:
+    - {ref: cb211f6, path: components/password_manager/core/browser/password_store/login_database.cc, lines: "490-500", claim: "tables introduced at v21; two columns each, no timestamp"}
+
+# ===== Cookies (Network/Cookies) =======================================
+
+- id: cookies/cookies/creation_utc
+  artifact: Cookies
+  table: cookies
+  column: creation_utc
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 4, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "1344, 1067"}}
+    - {version_range: {min: null, max: 3}, platform: windows, family: win1601_us, basis: verified,
+       note: "Source comment: 'On Windows version 3 and 4 are the same.'",
+       source: {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "303-305"}}
+    - {version_range: {min: null, max: 3}, platform: non_windows, family: unresolved, basis: unresolved,
+       note: "DO NOT infer Unix-us from the History v16 analogy. The v4 migration body no longer exists at cb211f6.",
+       source: {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "303-305"}}
+  ambiguity:
+    state: requires_os_input
+    applies_when: {version_range: {min: null, max: 3}}
+    reason: "v3->v4 (2009-09-01) migrated the time epoch on Mac/Linux only; on Windows v3 and v4 are identical. Nothing in the file records the originating OS."
+    secondary_state: unresolved_source_deleted
+    secondary_reason: "Even given a non-Windows origin, the pre-v4 encoding itself is UNRESOLVED."
+    emit_when_unsupplied: unavailable
+    verification_queue: "part 2 V-7 / matrix V-7"
+  boundary: {from_version: 3, to_version: 4, cl_date: "2009-09-01", cl: "https://codereview.chromium.org/183021"}
+  practical_exposure: "near-zero — modern Chrome razes anything below v23. Retained because it is the template for the failure mode."
+  provenance:
+    - {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "662-686", claim: "CreateV24Schema"}
+    - {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "1344", claim: "BindTime(0, CreationDate())"}
+  semantics: "Carried FORWARD when a cookie is updated — first-ever-set time for the (host, name, path) tuple, not the last Set-Cookie."
+
+- id: cookies/cookies/expires_utc
+  artifact: Cookies
+  table: cookies
+  column: expires_utc
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 4, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "1366, 1067"}}
+    - {version_range: {min: null, max: 3}, platform: windows, family: win1601_us, basis: verified}
+    - {version_range: {min: null, max: 3}, platform: non_windows, family: unresolved, basis: unresolved}
+  ambiguity: {state: requires_os_input, applies_when: {version_range: {min: null, max: 3}}, same_as: cookies/cookies/creation_utc, emit_when_unsupplied: unavailable}
+  semantics: "An EXPIRY (future-dated), not an event time."
+  sentinels:
+    - {raw: 0, means: "session cookie / no expiry — NOT 1601-01-01", emit_as: absent, basis: verified,
+       cross_check: "has_expires and is_persistent are both written from the same IsPersistent() call and are always equal; render expires_utc only when has_expires != 0",
+       source: {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "1370-1371"}}
+  synthetic:
+    - applies_when: {version_range: {min: 19, max: null}, condition: "value sits ~+400 days after the v19 migration instant"}
+      written_by: "the v19 cap (all stored cookies with has_expires capped to no more than 400 days in the future)"
+      actually_records: "the cap, not the server-sent expiry"
+      not_evidence_of: "the expiry the server actually sent"
+      destructive: true
+      irreversible_note: "The original server-sent expiry is UNRECOVERABLE."
+      detection: {rule: "cluster of expires_utc at a +400d boundary", basis: inferred, emit_as: candidate}
+      source: {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "230-232"}
+  boundary: {version: 19, cl_date: "2023-09-22", cl: "https://crrev.com/c/4704672", effect: "values REWRITTEN — destructive migration on a timestamp column"}
+  provenance:
+    - {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "1366", claim: "BindTime(7, ExpiryDate())"}
+
+- id: cookies/cookies/last_access_utc
+  artifact: Cookies
+  table: cookies
+  column: last_access_utc
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 4, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "1369, 1393, 1067"}}
+    - {version_range: {min: null, max: 3}, platform: windows, family: win1601_us, basis: verified}
+    - {version_range: {min: null, max: 3}, platform: non_windows, family: unresolved, basis: unresolved}
+  ambiguity: {state: requires_os_input, applies_when: {version_range: {min: null, max: 3}}, same_as: cookies/cookies/creation_utc, emit_when_unsupplied: unavailable}
+  provenance:
+    - {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "1311, 1393", claim: "also rewritten alone by the kUpdateLastAccessTime op"}
+
+- id: cookies/cookies/last_update_utc
+  artifact: Cookies
+  table: cookies
+  column: last_update_utc
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 18, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "1379, 1070"}}
+  column_presence: {present_from: 18, present_to: null, cl_date: "2022-04-19", cl: "https://crrev.com/c/3594203", first_stable_milestone: unresolved, verification_queue: "part 2 V-8"}
+  semantics: "most recent Set-Cookie, as distinct from creation_utc which is carried forward. Below v18 the update time is unrecoverable — the column does not exist."
+  sentinels:
+    - {raw: 0, means: "never updated, or the row predates v18", emit_as: absent, basis: verified,
+       source: {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "234-236"}}
+  provenance:
+    - {ref: cb211f6, path: net/extras/sqlite/sqlite_persistent_cookie_store.cc, lines: "195", claim: "// Version 18 - 2022/04/19 - https://crrev.com/c/3594203"}
+
+# ===== DIPS (BTM) ======================================================
+
+- id: dips/bounces/first_user_activation_time
+  artifact: DIPS
+  table: bounces
+  column: first_user_activation_time
+  declared_type: INTEGER
+  nullable: true
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 11, max: 11}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: content/browser/btm/btm_database.cc, lines: "82-89, 373"}}
+  covers_also: [last_user_activation_time, first_bounce_time, last_bounce_time, first_web_authn_assertion_time, last_web_authn_assertion_time]
+  covers_also_note: "All six bounces time columns share this row's epoch and sentinel; params 1..6 map onto them in declaration order (btm_database.cc:373-375)."
+  corrects: "#143 round-1's 50/50 '1601 seconds' hypothesis — REFUTED. There is no InSeconds() anywhere in btm_database.cc."
+  sentinels:
+    - {raw: "SQL NULL", means: "absent — the writer is BindTimesOrNull and the OrNull branch binds NULL, not 0", emit_as: absent, basis: verified,
+       source: {ref: cb211f6, path: content/browser/btm/btm_database.cc, lines: "82-89"}}
+    - {raw: 0, means: "anomalous — nothing in the schema forbids it, but it is not the absent marker here", emit_as: unavailable, basis: inferred}
+  version_note: "kLatestSchemaVersion == kMinCompatibleSchemaVersion == 11; anything else is razed. A DIPS file at any other version is a frozen artefact of an older Chrome with a possibly different column set (part 2 V-10)."
+  corrects_schema: "The columns are NOT first_site_storage_time / last_site_storage_time / first_stateful_bounce_time / last_stateful_bounce_time, and there is no unique_cookies table."
+  provenance:
+    - {ref: cb211f6, path: content/browser/btm/btm_database.cc, lines: "181-222", claim: "InitTables CREATE TABLE bounces"}
+    - {ref: cb211f6, path: content/browser/btm/btm_database.cc, lines: "51", claim: "read side ColumnTime(column_index)"}
+    - {ref: cb211f6, path: content/browser/btm/btm_database.h, lines: "39-45", claim: "version constants"}
+
+- id: dips/popups/last_popup_time
+  artifact: DIPS
+  table: popups
+  column: last_popup_time
+  declared_type: INTEGER
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 11, max: 11}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: cb211f6, path: content/browser/btm/btm_database.cc, lines: "415"}}
+  retention: {ttl_days: 60, note: "kPopupTtl = base::Days(60); rows are pruned. Absence of a popup record older than 60 days is EXPECTED, not exculpatory.",
+              source: {ref: cb211f6, path: content/browser/btm/btm_database.h, lines: "54"}}
+  provenance:
+    - {ref: cb211f6, path: content/browser/btm/btm_database.cc, lines: "718", claim: "prune binds clock_->Now() - kPopupTtl"}
+
+- id: dips/config/int_value
+  artifact: DIPS
+  table: config
+  column: int_value
+  kind: not_a_timestamp
+  claim_state: verified
+  actual_type: "generic integer keyed by config.key"
+  never_date_render: true
+  provenance:
+    - {ref: cb211f6, path: content/browser/btm/btm_database.cc, lines: "210-214", claim: "CREATE TABLE config(key TEXT, int_value INTEGER)"}
+
+# ===== Web Data ========================================================
+# Three epoch families coexist at one meta.version, and two of them in one row of
+# autofill_ai_entities_metadata. NO platform-conditional migration exists in Web Data.
+
+- id: web-data/autofill/date_created
+  artifact: Web Data
+  table: autofill
+  column: date_created
+  declared_type: INTEGER DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 83, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/autocomplete/autocomplete_table.cc, lines: "441"}}
+  no_timestamp_boundary_in_supported_range: true
+  no_boundary_note: "AutocompleteTable::MigrateToVersion() has an EMPTY body at ba3c200 — zero migrations. Unix seconds for every supported meta.version 83..153."
+  epoch_below_83: {state: unresolved, note: "Chrome ~M11-era used a separate autofill_dates table. Below kDeprecatedVersionNumber = 82 and razed; part 3 §6 item 8."}
+  table_name_note: "For historical reasons the SQLite table is literally named 'autofill' (autocomplete_table.cc:40)."
+  collision_warning: "Half of the 'two date_created 369 years apart' pair; the counterpart is logins.date_created at v>=9 (win1601_us)."
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/autocomplete/autocomplete_table.cc, lines: "459-460"}}
+    - {raw: 9223372036854775807, means: "'no bound' sentinel — GetEndTime() maps an open/Max() upper bound to std::numeric_limits<time_t>::max()", emit_as: absent, basis: verified,
+       alt_raw_on_32bit_time_t: 2147483647,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/autocomplete/autocomplete_table.cc, lines: "65-71"}}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/autocomplete/autocomplete_table.cc, lines: "452-465", claim: "InitMainTable schema"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/autocomplete/autocomplete_table.cc, lines: "145-146, 344-345, 366-367", claim: "read side FromTimeT"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/autocomplete/autocomplete_table.cc, lines: "92-101", claim: "MigrateToVersion body is empty"}
+
+- id: web-data/autofill/date_last_used
+  artifact: Web Data
+  table: autofill
+  column: date_last_used
+  declared_type: INTEGER DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 83, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/autocomplete/autocomplete_table.cc, lines: "442, 411-413"}}
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified}
+    - {raw: 9223372036854775807, means: "'no bound' sentinel (GetEndTime)", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/autocomplete/autocomplete_table.cc, lines: "411-413, 442", claim: "ToTimeT() on insert and update paths"}
+
+- id: web-data/addresses/use_date
+  artifact: Web Data
+  table: addresses
+  column: use_date
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 134, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/addresses/address_autofill_table.cc, lines: "390-391, 561-564"}}
+  table_generation_dispatch:
+    - {version_range: {min: 83, max: 106}, table: autofill_profiles, scope: local}
+    - {version_range: {min: 107, max: 112}, table: autofill_profiles, scope: local, plus: {table: contact_info, scope: account}}
+    - {version_range: {min: 113, max: 113}, table: local_addresses, scope: local, plus: {table: contact_info, scope: account},
+       trap: "At exactly v113 BOTH autofill_profiles and local_addresses exist, but autofill_profiles has been emptied. Dispatch on meta.version, NEVER on which tables exist."}
+    - {version_range: {min: 114, max: 133}, table: local_addresses, scope: local, plus: {table: contact_info, scope: account}}
+    - {version_range: {min: 134, max: null}, table: addresses, scope: both, disambiguated_by: record_type}
+  epoch_preserved_across_reorg: true
+  epoch_preserved_note: >-
+    All THREE generations are Unix seconds. The v134 merge is a pure RenameTable + INSERT..SELECT
+    with no value transformation; the v113 copy round-trips FromTimeT/ToTimeT, lossless for whole
+    seconds. The reorganisation is a table/name hazard, not an epoch hazard.
+  milestones:
+    - {version: 107, migration: MigrateToVersion107AddContactInfoTables, first_stable_milestone: M109}
+    - {version: 113, migration: MigrateToVersion113MigrateLocalAddressProfilesToNewTable, first_stable_milestone: M115}
+    - {version: 114, migration: MigrateToVersion114DropLegacyAddressTables, first_stable_milestone: M116, destructive: true}
+    - {version: 134, migration: MigrateToVersion134UnifyLocalAndAccountAddressStorage, first_stable_milestone: M130}
+  sentinels:
+    - {raw: 0, means: "unset / never used", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/addresses/address_autofill_table.cc, lines: "175-179", claim: "gen 1 read: FromTimeT"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/addresses/address_autofill_table.cc, lines: "459-460", claim: "gen 2 write: ToTimeT"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/addresses/address_autofill_table.cc, lines: "390-391", claim: "gen 3 write: ToTimeT"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/addresses/address_autofill_table.cc, lines: "1128-1143", claim: "v134 merge is rename + INSERT..SELECT, no transformation"}
+  path_rot_note: "The path .../addresses/address_table.cc 404s; the file is address_autofill_table.cc."
+
+- id: web-data/addresses/date_modified
+  artifact: Web Data
+  table: addresses
+  column: date_modified
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 134, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/addresses/address_autofill_table.cc, lines: "390-391"}}
+  table_generation_dispatch_same_as: web-data/addresses/use_date
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/addresses/address_autofill_table.cc, lines: "982-983, 1015-1016, 1197-1198", claim: "INTEGER NOT NULL DEFAULT 0 in all three generations"}
+
+- id: web-data/addresses/use_date2
+  artifact: Web Data
+  table: addresses
+  column: use_date2
+  declared_type: INTEGER
+  nullable: true
+  kind: timestamp
+  claim_state: unresolved
+  covers_also: [use_date3]
+  epoch:
+    - {version_range: {min: 132, max: 144}, platform: any, family: unresolved, basis: unresolved}
+  column_presence: {present_from: 132, present_to: 144, added_by: MigrateToVersion132AddAdditionalLastUseDateColumns, dropped_by: MigrateToVersion145DropMultipleUseDates,
+                    added_first_stable_milestone: M129, dropped_first_stable_milestone: M142,
+                    note: "Present on both local_addresses and contact_info at 132..133, on addresses at 134..144."}
+  ambiguity:
+    state: unresolved_source_deleted
+    reason: "The columns were dropped at v145; no live write site survives at ba3c200."
+    prediction_not_a_claim: "unix_s, matching use_date — INFERRED ONLY, must not be published as fact."
+    emit_when_unsupplied: unavailable
+  verification_queue: "part 3 §6 item 2 — read address_autofill_table.cc at an M129..M141 branch-point SHA"
+  sentinels:
+    - {raw: "SQL NULL", means: "no 2nd/3rd most recent use recorded — the ONLY nullable timestamp columns in Web Data", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/addresses/address_autofill_table.cc, lines: "1080-1088, 1146-1152", claim: "add and drop migrations"}
+
+- id: web-data/credit_cards/use_date
+  artifact: Web Data
+  table: credit_cards
+  column: use_date
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 83, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "290"}}
+  collision_warning: >-
+    'use_date' means TWO DIFFERENT EPOCHS in this one file. credit_cards.use_date and
+    local_ibans.use_date are unix_s; server_card_metadata.use_date and masked_ibans_metadata.use_date
+    are win1601_us. Same name, same file, same semantic, both INTEGER NOT NULL DEFAULT 0. A tool
+    keying on the column NAME will silently mis-date half the payments data.
+  ios_data_loss_note: "On iOS, CleanupForCrbug445879524() deletes ALL credit_cards rows (payments_autofill_table.cc:1420-1425). Absence of local cards on an iOS artifact may be a cleanup, not a user action."
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "2337", claim: "declared type"}
+
+- id: web-data/credit_cards/date_modified
+  artifact: Web Data
+  table: credit_cards
+  column: date_modified
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 83, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "291"}}
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "2334", claim: "declared type"}
+
+- id: web-data/local_ibans/use_date
+  artifact: Web Data
+  table: local_ibans
+  column: use_date
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 105, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "339"}}
+  table_generation_dispatch:
+    - {version_range: {min: 105, max: 118}, table: ibans}
+    - {version_range: {min: 119, max: null}, table: local_ibans, renamed_by: MigrateToVersion119AddMaskedIbanTablesAndRenameLocalIbanTable, first_stable_milestone: M119}
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified}
+  note: "The #143 assignment named a 'local_ious' table; no such identifier exists anywhere in payments_autofill_table.cc (2493 lines grepped). Almost certainly a mis-transcription of local_ibans (part 3 §3.5)."
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "2346, 2032, 2041, 2136", claim: "declared type; created v105, recreated v106, renamed v119"}
+
+- id: web-data/local_stored_cvc/last_updated_timestamp
+  artifact: Web Data
+  table: local_stored_cvc
+  column: last_updated_timestamp
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 116, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "307"}}
+  column_presence: {present_from: 116, present_to: null, added_by: MigrateToVersion116AddStoredCvcTable, first_stable_milestone: M116}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "2420, 2121", claim: "declared type and creating migration"}
+
+- id: web-data/server_stored_cvc/last_updated_timestamp
+  artifact: Web Data
+  table: server_stored_cvc
+  column: last_updated_timestamp
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 116, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "316"}}
+  column_presence: {present_from: 116, present_to: null, first_stable_milestone: M116}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "2425, 2125", claim: "declared type and creating migration"}
+
+- id: web-data/server_card_metadata/use_date
+  artifact: Web Data
+  table: server_card_metadata
+  column: use_date
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 83, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "1122"}}
+  collision_warning: "Same name as credit_cards.use_date (unix_s), same file. Decoding this with the unix_s decoder yields a date ~4.2 billion years out."
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "1148-1149", claim: "read side FromDeltaSinceWindowsEpoch(Microseconds(...)) — independent corroboration of BindTime semantics"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "2396", claim: "declared type"}
+
+- id: web-data/masked_ibans_metadata/use_date
+  artifact: Web Data
+  table: masked_ibans_metadata
+  column: use_date
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 119, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "1168"}}
+  column_presence: {present_from: 119, present_to: null, added_by: MigrateToVersion119AddMaskedIbanTablesAndRenameLocalIbanTable, first_stable_milestone: M119}
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "2389, 2148", claim: "declared type and creating migration"}
+
+- id: web-data/masked_bank_accounts_metadata/use_date
+  artifact: Web Data
+  table: masked_bank_accounts_metadata
+  column: use_date
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: unresolved
+  epoch:
+    - {version_range: {min: 124, max: null}, platform: any, family: unresolved, basis: unresolved}
+  column_presence: {present_from: 124, present_to: null, added_by: MigrateToVersion124DeletePaymentInstrumentRelatedTablesAndAddMaskedBankAccountTable, first_stable_milestone: M123}
+  ambiguity:
+    state: not_examined
+    reason: "Column is declared but NO write site was found in the 2493 lines of payments_autofill_table.cc read at ba3c200. It may be written by a shared PaymentsMetadata path that also serves server_card_metadata (=> win1601_us), but this was NOT confirmed."
+    explicit_warning: "DO NOT assume it matches server_card_metadata."
+    emit_when_unsupplied: unavailable
+  verification_queue: "matrix §10 / part 3 §6 item 3 — grep kMaskedBankAccountsMetadataTable bind sites and autofill_wallet_metadata_sync_bridge.cc"
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "192", claim: "column declared in kMaskedBankAccountsMetadataColumnNamesAndTypes"}
+
+- id: web-data/offer_data/expiry
+  artifact: Web Data
+  table: offer_data
+  column: expiry
+  declared_type: UNSIGNED LONG
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 83, max: null}, platform: any, family: win1601_ms, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "1437-1438"}}
+  severity: "THE one genuinely silent failure in the corpus."
+  silent_failure_note: >-
+    Magnitude for 2026-01-01 is ~1.34e13 — 13 digits, EXACTLY the digit count of Unix
+    milliseconds. The magnitude fallback does NOT disambiguate it; a naive Unix-ms decode
+    returns a plausible date in 2394. This is the case that defeats the heuristic, so the
+    magnitude test can never be the sole resolver.
+  forensic_impact: low
+  forensic_impact_note: "Google-Pay merchant promo offers. Low impact, maximal methodological importance."
+  semantics: "an expiry, not an event time"
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "2434", claim: "declared type"}
+
+- id: web-data/masked_credit_card_benefits/start_time
+  artifact: Web Data
+  table: masked_credit_card_benefits
+  column: start_time
+  declared_type: INTEGER
+  kind: timestamp
+  claim_state: verified
+  covers_also: [end_time]
+  epoch:
+    - {version_range: {min: 123, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "1710-1711"}}
+  column_presence: {present_from: 123, present_to: null, added_by: MigrateToVersion123AddProductTermsUrlColumnAndAddCardBenefitsTables, first_stable_milestone: M122}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "228-229, 1771-1772", claim: "declared types; read side ColumnTime x2"}
+
+- id: web-data/keywords/date_created
+  artifact: Web Data
+  table: keywords
+  column: date_created
+  declared_type: INTEGER DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  covers_also: [last_modified]
+  epoch:
+    - {version_range: {min: 83, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/search_engines/keyword_table.cc, lines: "748, 755, 633-634"}}
+    - {version_range: {min: null, max: 76}, platform: any, family: unresolved, basis: unresolved}
+  ambiguity:
+    state: unresolved_source_deleted
+    applies_when: {version_range: {min: null, max: 76}}
+    reason: >-
+      MigrateToVersion77IncreaseTimePrecision reads with ColumnTime (1601-us) and writes with
+      BindTime (1601-us), which on its face changes nothing — contradicting the function name.
+      Either the pre-77 value was 1601-us truncated to whole seconds, or the pre-77 write site
+      used a different serialisation. Not resolved.
+    bounded_by: "kDeprecatedVersionNumber = 82 > 77, so any Web Data a modern Chrome will open is already past this migration. Reachable only in a frozen image."
+    emit_when_unsupplied: unavailable
+  verification_queue: "part 3 §6 item 1"
+  falsifies: "#143 round-1's inference that 'keywords lives in Web Data, the unix-s DB, so it is plausibly unix-s'. It is win1601_us in the same file where autofill.date_created is unix_s."
+  provenance:
+    - {ref: ba3c200, path: components/search_engines/keyword_table.cc, lines: "264, 270", claim: "declared types"}
+    - {ref: ba3c200, path: components/search_engines/keyword_table.cc, lines: "522-553", claim: "MigrateToVersion77IncreaseTimePrecision body"}
+
+- id: web-data/keywords/last_visited
+  artifact: Web Data
+  table: keywords
+  column: last_visited
+  declared_type: INTEGER DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 83, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/search_engines/keyword_table.cc, lines: "763, 659"}}
+  column_presence: {present_from: 69, present_to: null, added_by: MigrateToVersion69AddLastVisitedColumn, note: "Below the deprecation floor of 83, so always present in practice."}
+  provenance:
+    - {ref: ba3c200, path: components/search_engines/keyword_table.cc, lines: "278, 477-482, 133-136", claim: "declared type; added at v69"}
+
+- id: web-data/autofill_ai_entities_metadata/use_date
+  artifact: Web Data
+  table: autofill_ai_entities_metadata
+  column: use_date
+  declared_type: INTEGER
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 140, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/autofill_ai/entity_table.cc, lines: "288, 430, 483"}}
+  table_generation_dispatch:
+    - {version_range: {min: 140, max: 146}, table: autofill_ai_entities}
+    - {version_range: {min: 147, max: null}, table: autofill_ai_entities_metadata, moved_by: "v147 INSERT..SELECT then DropColumn x3 — verbatim SQL copy, no value transformation", first_stable_milestone: M143}
+  severity: "The single most dangerous row in Web Data — see the sibling column."
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/autofill_ai/entity_table.cc, lines: "132-134", claim: "CREATE TABLE, both columns INTEGER"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/autofill_ai/entity_table.cc, lines: "186-190, 224-247", claim: "use_date added at v140; moved at v147"}
+
+- id: web-data/autofill_ai_entities_metadata/date_modified
+  artifact: Web Data
+  table: autofill_ai_entities_metadata
+  column: date_modified
+  declared_type: INTEGER
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 138, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/autofill_ai/entity_table.cc, lines: "289, 387-388"}}
+  table_generation_dispatch:
+    - {version_range: {min: 138, max: 146}, table: autofill_ai_entities}
+    - {version_range: {min: 147, max: null}, table: autofill_ai_entities_metadata}
+  collision_warning: >-
+    TWO ADJACENT COLUMNS, TWO DIFFERENT EPOCHS, same CREATE TABLE, same INSERT statement,
+    adjacent bind slots: s.BindTime(2, use_date) then s.BindInt64(3, date_modified.ToTimeT()).
+    Any design storing 'the epoch of this artifact' — or even 'of this table' — is wrong by
+    construction. The mixture already existed inside autofill_ai_entities at v140..146.
+  sentinels:
+    - {raw: "base::Time::Min()/Max() via ToTimeT()", means: "deletion-path bounds, not dates", emit_as: absent, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/autofill_ai/entity_table.cc, lines: "376-381"}}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/autofill_ai/entity_table.cc, lines: "279-291", claim: "AddEntityMetadata: the two-epoch INSERT"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/autofill_ai/entity_table.cc, lines: "180", claim: "date_modified introduced at v138"}
+
+- id: web-data/valuables_metadata/use_date
+  artifact: Web Data
+  table: valuables_metadata
+  column: use_date
+  declared_type: INTEGER NOT NULL DEFAULT 0
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 148, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/autofill/core/browser/webdata/valuables/valuables_table.cc, lines: "415, 89, 396"}}
+  column_presence: {present_from: 148, present_to: null, added_by: MigrateToVersion148AddMetadataTable, first_stable_milestone: M146}
+  sentinels:
+    - {raw: 0, means: unset, emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/valuables/valuables_table.cc, lines: "169, 190-195", claim: "declared type and creating migration"}
+
+- id: web-data/token_service/-
+  artifact: Web Data
+  table: token_service
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  columns_present: [service, encrypted_token, binding_key, mtls_token_binding]
+  note: "mtls_token_binding is an INTEGER but is a token-binding enum/flag, NOT an epoch. Migrations at v130 and v150 are pure ADD COLUMN and touch no timestamp. This table carries no time evidence."
+  provenance:
+    - {ref: cb211f6, path: components/signin/public/webdata/token_service_table.cc, lines: "100-105, 295-310", claim: "CREATE TABLE and both migrations"}
+
+- id: web-data/masked_credit_cards/exp_month
+  artifact: Web Data
+  table: masked_credit_cards
+  column: exp_month
+  kind: not_a_timestamp
+  claim_state: verified
+  covers_also: [exp_year]
+  actual_type: "card expiry month/year integers"
+  never_date_render: true
+  note: "The table itself has NO timestamp column. Same applies to server_card_cloud_token_data.exp_month/exp_year."
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "2359-2360, 2406", claim: "schema"}
+
+- id: web-data/masked_bank_accounts/-
+  artifact: Web Data
+  table: masked_bank_accounts
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  covers_also: [masked_ibans, payments_customer_data, server_card_cloud_token_data, generic_payment_instruments, benefit_merchant_domains, offer_eligible_instrument, offer_merchant_domain, virtual_card_usage_data, loyalty_cards, loyalty_card_merchant_domain, address_type_tokens, contact_info_type_tokens, local_addresses_type_tokens, autofill_ai_attributes]
+  note: "virtual_card_usage_data has NO timestamp despite the name 'usage data'. The *_type_tokens tables carry only guid/type/value/verification_status/observations."
+  provenance:
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/payments/payments_autofill_table.cc, lines: "194-209, 242-253, 2375-2381, 2401, 2406, 241-250, 344", claim: "Init* functions and bind sites read"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/addresses/address_autofill_table.cc, lines: "1206-1214", claim: "InitAddressTypeTokensTable"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/valuables/valuables_table.cc, lines: "172-188", claim: "loyalty tables"}
+    - {ref: ba3c200, path: components/autofill/core/browser/webdata/autofill_ai/entity_table.cc, lines: "102-112", claim: "autofill_ai_attributes"}
+
+- id: web-data/autofill_sync_metadata/-
+  artifact: Web Data
+  table: autofill_sync_metadata
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  covers_also: [autofill_data_type_state]
+  nested_payload:
+    format: "serialised sync_pb::EntityMetadata / sync_pb::DataTypeState"
+    epoch_of_nested_times: unresolved
+    ambiguity_state: not_examined
+    warning: "Chromium sync protos are commonly Unix MILLISECONDS. UNVERIFIED (part 2 V-12)."
+  provenance:
+    - {ref: cb211f6, path: components/autofill/core/browser/webdata/autofill_sync_metadata_table.cc, lines: "1-70 (whole 247-line file grepped)", claim: "no BindTime/ColumnTime/ToTimeT anywhere"}
+
+- id: web-data/plus_addresses/-
+  artifact: Web Data
+  table: plus_addresses
+  column: null
+  kind: no_timestamp_columns
+  claim_state: unresolved
+  emit_as: unavailable
+  covers_also: [web_app_manifest_section, web_payments]
+  ambiguity:
+    state: not_examined
+    reason: "Registered into Web Data at web_data_service_wrapper.cc:166-175 but NOT fetched. The plus_addresses path 404'd (path rot). Expect no timestamps; UNVERIFIED."
+    emit_when_unsupplied: unavailable
+  verification_queue: "part 3 §6 items 5 and 6"
+  provenance:
+    - {ref: ba3c200, path: components/webdata_services/web_data_service_wrapper.cc, lines: "154-175", claim: "registration list; tables confirmed in scope but not read"}
+
+# ===== Bookmarks (JSON) ================================================
+
+- id: bookmarks/node/date_added
+  artifact: Bookmarks
+  table: "roots.*.children[]"
+  column: date_added
+  kind: timestamp
+  claim_state: verified
+  on_disk_shape: "JSON STRING, decimal"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "183-184"}}
+  version_field_useless: true
+  version_field_note: "'version' is frozen at 1 forever. A file from 2012 and one from 2026 both say 1. Use key presence (date_last_used, guid, sync_metadata, checksum_sha256) as the generation proxy."
+  parser_hazards:
+    - "The read path uses FindString: an UNQUOTED JSON number is treated as ABSENT, not as a number."
+    - "1.34e17 > 2^53. A consumer that coerces through IEEE-754 double quantises to ~16-32 us. Chrome writes a string, so a correct parser is lossless."
+  synthetic:
+    - applies_when: {condition: "date_added key missing at parse time (e.g. HTML import or third-party writer)"}
+      written_by: ".value_or(base::Time::Now()) on decode, then written back on the next save"
+      actually_records: "the time Chrome first parsed the file"
+      not_evidence_of: "bookmark creation"
+      indistinguishable_on_disk: true
+      source: {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "367-369, 383-386"}
+  tamper_gap: "The checksum covers node id/title/url ONLY. Editing date_added does not invalidate it and Chrome will not detect the edit."
+  provenance:
+    - {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "69-72", claim: "ToMicrosecondsSinceWindowsEpoch helper"}
+    - {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "75-88", claim: "FindMicrosecondsSinceWindowsEpoch decode path"}
+
+- id: bookmarks/node/date_last_used
+  artifact: Bookmarks
+  table: "roots.*.children[]"
+  column: date_last_used
+  kind: timestamp
+  claim_state: verified
+  on_disk_shape: "JSON STRING, decimal"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "185-186"}}
+  key_presence_is_generation_signal: true
+  introduced_milestone: {state: unresolved, verification_queue: "part 4 U6"}
+  sentinels:
+    - {raw: 0, means: "never used — the missing-key default is base::Time() = 0 for THIS key only", emit_as: absent, basis: verified,
+       source: {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "386"}}
+  provenance:
+    - {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "50, 185-186", claim: "key name and write site"}
+
+- id: bookmarks/folder/date_modified
+  artifact: Bookmarks
+  table: "roots.*.children[] (folders only)"
+  column: date_modified
+  kind: timestamp
+  claim_state: verified
+  on_disk_shape: "JSON STRING, decimal"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "194-196"}}
+  applies_to: folders_only
+  semantics: "date_folder_modified — last add/remove/reorder of CHILDREN, not an edit of the folder's own title."
+  negative_claim: "A URL bookmark has NO modification timestamp. Renaming or re-pointing a bookmark leaves no trace in this file."
+  negative_claim_state: verified
+  synthetic:
+    - applies_when: {condition: "date_modified key missing at parse time"}
+      written_by: ".value_or(base::Time::Now())"
+      actually_records: "the time Chrome first parsed the file"
+      source: {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "367-369"}
+  provenance:
+    - {ref: ba3c200, path: components/bookmarks/browser/bookmark_codec.cc, lines: "175-197", claim: "EncodeNode; date_modified inside the else branch of is_url()"}
+
+# ===== Preferences / Local State / Secure Preferences (JSON) ===========
+
+- id: preferences/profile/creation_time
+  artifact: Preferences
+  table: profile
+  column: creation_time
+  kind: timestamp
+  claim_state: verified
+  on_disk_shape: "JSON STRING, decimal (18 digits)"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       note: "RegisterTimePref + SetTime. The CHECK at pref_service.cc:451 makes the registration dispositive — a kTime pref cannot have been written by SetInt64.",
+       source: {ref: ba3c200, path: chrome/browser/profiles/profile_impl.cc, lines: "451, 743-744"}}
+  provenance_warning: >-
+    NOT an internally generated Chrome timestamp. The value is GetCreationTimeForPath(path) — the
+    FILESYSTEM creation time of the profile directory, copied into prefs on first run. On
+    filesystems without birth time, or after a copy/restore, it is the time of the COPY. It is the
+    same observation recorded twice; do NOT treat it as corroboration of the filesystem timestamp.
+  write_once: true
+  write_once_note: "Written only if !HasPrefPath(...); never updated afterwards."
+  provenance:
+    - {ref: ba3c200, path: chrome/browser/profiles/profile_impl.cc, lines: "295-298", claim: "GetCreationTimeForPath returns info.creation_time"}
+    - {ref: ba3c200, path: chrome/common/pref_names.h, lines: "139", claim: "kProfileCreationTime key string"}
+    - {ref: ba3c200, path: components/prefs/pref_service.cc, lines: "450-455", claim: "SetTime -> base::TimeToValue"}
+
+- id: preferences/content_settings/last_modified
+  artifact: Preferences
+  table: "profile.content_settings.exceptions.<type>.<pattern>"
+  column: last_modified
+  kind: timestamp
+  claim_state: verified
+  on_disk_shape: "JSON STRING, decimal"
+  covers_also: [expiration, last_used]
+  covers_also_note: "expiration is future-dated (an expiry, not an event). All three share this epoch and the omit-when-zero rule."
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/content_settings/core/browser/content_settings_pref.cc, lines: "534-557"}}
+  sentinels:
+    - {raw: "key OMITTED", means: "zero — every setter is guarded by != base::Time(). ABSENCE means never/not-tracked. A literal \"0\" is anomalous.", emit_as: absent, basis: verified,
+       source: {ref: ba3c200, path: components/content_settings/core/browser/content_settings_pref.cc, lines: "534-557"}}
+  provenance:
+    - {ref: ba3c200, path: components/content_settings/core/browser/content_settings_pref.cc, lines: "45-51", claim: "key constants"}
+    - {ref: ba3c200, path: components/content_settings/core/browser/content_settings_pref.cc, lines: "74-77", claim: "read: ValueToTime(...).value_or(base::Time())"}
+
+- id: preferences/content_settings/last_visit
+  artifact: Preferences
+  table: "profile.content_settings.exceptions.<type>.<pattern>"
+  column: last_visit
+  kind: timestamp
+  claim_state: verified
+  on_disk_shape: "JSON STRING, decimal"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/content_settings/core/browser/content_settings_pref.cc, lines: "534-557"}}
+  precision_caveat:
+    state: unresolved
+    question: "Is last_visit coarsened to a WEEK boundary upstream (permission auto-revocation)?"
+    if_true: "The value is a BUCKET START, not an event time, and forensix would overstate precision by up to 7 days."
+    verified_here: "The writer in content_settings_pref.cc does not round. Any rounding is upstream and was NOT examined."
+    emit_when_unsupplied: "value with an explicit precision caveat; never a Finding at instant precision"
+    verification_queue: "matrix §10 U1 / part 4 U1"
+  sentinels:
+    - {raw: "key OMITTED", means: "never / not tracked", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/content_settings/core/browser/content_settings_pref.cc, lines: "48, 551-554", claim: "key constant and guarded write"}
+
+- id: preferences/content_settings/lifetime
+  artifact: Preferences
+  table: "profile.content_settings.exceptions.<type>.<pattern>"
+  column: lifetime
+  kind: duration
+  claim_state: verified
+  unit: microseconds
+  on_disk_shape: "JSON STRING, decimal — IDENTICAL shape to the four timestamps in the same dict"
+  never_date_render: true
+  hazard: "A parser that date-renders every decimal string in this dict renders a DURATION as a 1601-relative date. Concrete mis-rendering hazard."
+  provenance:
+    - {ref: ba3c200, path: components/content_settings/core/browser/content_settings_pref.cc, lines: "555-557", claim: "TimeDeltaToValue(metadata.lifetime())"}
+
+- id: preferences/site_engagement/lastEngagementTime
+  artifact: Preferences
+  table: "profile.content_settings.exceptions.site_engagement.<origin>.setting"
+  column: lastEngagementTime
+  kind: timestamp
+  claim_state: verified
+  covers_also: [lastShortcutLaunchTime]
+  on_disk_shape: "UNQUOTED JSON NUMBER (IEEE-754 double) — the one double-typed timestamp in the corpus"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: json_double_win1601_us, basis: verified,
+       source: {ref: ba3c200, path: components/site_engagement/content/site_engagement_score.cc, lines: "354-361, 385-394"}}
+  precision_loss:
+    confirmed: true
+    grid_us: 16
+    reason: "~1.34e17 exceeds 2^53 by ~15x; the double's ULP at this magnitude is 16 us."
+    consequence: "Sub-16-us differences between two lastEngagementTime values are noise, not ordering evidence. A parser must not assume the on-disk text is integral."
+  nesting_hazard: "Sits INSIDE the content-settings tree, adjacent to the 1601-us STRINGS of the sibling rows — two encodings of the same epoch nested in the same subtree."
+  declared_timezone_interaction:
+    stored_value: utc
+    adjacent_local_behaviour: "pointsAddedToday is bucketed by the HOST'S LOCAL DAY (LocalMidnight() comparison at :238-239, :307-308, :325-326)."
+    derived_offset_rule: {expression: "instant at which pointsAddedToday resets across snapshots", yields: "host local midnight, hence UTC offset", basis: inferred, emit_as: candidate}
+  provenance:
+    - {ref: ba3c200, path: components/site_engagement/content/site_engagement_score.cc, lines: "64-69", claim: "key constants"}
+    - {ref: ba3c200, path: components/site_engagement/content/site_engagement_score.cc, lines: "354-361", claim: "static_cast<double>(ToInternalValue())"}
+
+- id: local-state/uninstall_metrics/installation_date2
+  artifact: Local State
+  table: uninstall_metrics
+  column: installation_date2
+  kind: timestamp
+  claim_state: verified
+  on_disk_shape: "JSON STRING, decimal (10 digits)"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: unix_s, basis: verified,
+       note: "RegisterInt64Pref + SetInt64(ToTimeT()). Same on-disk shape as profile.creation_time (win1601_us) — this pair is the confirmed collision.",
+       source: {ref: ba3c200, path: components/metrics/metrics_state_manager.cc, lines: "227-231, 522"}}
+  semantics: "Chrome's install / first-run date ON THIS MACHINE. Set once."
+  survives_profile_wipe: true
+  survives_note: "Restorable from a client_info_backup (Windows registry / CrOS), so it dates the MACHINE's Chrome install, not the profile."
+  sentinels:
+    - {raw: 0, means: "not yet set / cleared — ClearPref at :610, so absence != never-installed", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/metrics/metrics_pref_names.h, lines: "18", claim: "key string and 'legacy name' comment"}
+    - {ref: ba3c200, path: components/metrics/metrics_state_manager.cc, lines: "407-410, 610", claim: "restore from backup; ClearPref"}
+
+- id: local-state/user_experience_metrics/client_id_timestamp
+  artifact: Local State
+  table: user_experience_metrics
+  column: client_id_timestamp
+  kind: timestamp
+  claim_state: verified
+  on_disk_shape: "JSON STRING, decimal"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/metrics/metrics_state_manager.cc, lines: "451-452"}}
+  declared_timezone_interaction:
+    header_comment_says: "local machine time, stored as a 64-bit time_t value"
+    resolved_as: utc
+    resolution_basis: "the write site is base::Time::Now().ToTimeT(), which is a UTC time_t. The comment appears to mean 'from the local machine's clock' (untrusted/skew-prone), not 'local timezone'."
+    residual_question: {state: unresolved, question: "Is there a LEGACY write path that used localtime?", verification_queue: "part 4 U3"}
+  provenance:
+    - {ref: ba3c200, path: components/metrics/metrics_pref_names.h, lines: "136-139", claim: "key string and the misleading comment"}
+
+- id: local-state/user_experience_metrics/stability.stats_buildtime
+  artifact: Local State
+  table: user_experience_metrics.stability
+  column: stats_buildtime
+  kind: timestamp
+  claim_state: unresolved
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: unresolved, basis: unresolved}
+  ambiguity:
+    state: not_examined
+    reason: "The source comment literally says 'Build time, in seconds since an epoch' and DECLINES TO NAME WHICH. The registration/write site was not read."
+    emit_when_unsupplied: unavailable
+  verification_queue: "matrix §10 U2 / part 4 U2"
+  provenance:
+    - {ref: ba3c200, path: components/metrics/metrics_pref_names.h, lines: "238-241", claim: "the comment that declines to name the epoch"}
+
+- id: local-state/variations/variations_last_fetch_time
+  artifact: Local State
+  table: "(top level)"
+  column: variations_last_fetch_time
+  kind: timestamp
+  claim_state: verified
+  covers_also: [variations_seed_date, variations_safe_seed_date, variations_safe_seed_fetch_time]
+  on_disk_shape: "JSON STRING, decimal"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       note: "RegisterTimePref is dispositive — the SetTime CHECK makes any other setter a CHECK failure.",
+       source: {ref: ba3c200, path: components/variations/variations_seed_store.cc, lines: "578, 580"}}
+  forensic_value: "A NETWORK-CONTACT timestamp — close to 'last time this browser talked to Google'. Refreshed frequently, so it bounds last-use even when History has been cleared."
+  provenance:
+    - {ref: ba3c200, path: components/variations/pref_names.h, lines: "58, 107, 116, 151", claim: "key strings"}
+
+- id: secure-preferences/extensions/first_install_time
+  artifact: Secure Preferences
+  table: "extensions.settings.<extension_id>"
+  column: first_install_time
+  kind: timestamp
+  claim_state: verified
+  covers_also: [last_update_time]
+  on_disk_shape: "JSON STRING, decimal"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       note: "Open-codes NumberToString(...InMicroseconds()) rather than calling TimeToValue — same bytes.",
+       source: {ref: ba3c200, path: extensions/browser/extension_prefs.cc, lines: "2367-2374"}}
+  key_rename_boundary:
+    from_key: install_time
+    to_keys: [first_install_time, last_update_time]
+    bounded_by: "<= M113 (the deprecation TODO says 'Remove after M113', so the split predates it)"
+    exact_milestone: unresolved
+    verification_queue: "part 4 U8"
+    epoch_preserved: true
+    epoch_preserved_note: "The migration is a verbatim STRING COPY, not a re-serialisation. No epoch hazard here, unlike Login Data v8."
+  generation_signal: "install_time present => pre-migration profile. first_install_time without install_time => a post-migration build has opened it. This substitutes for the absent version field."
+  synthetic:
+    - applies_when: {condition: "extension installed before the install_time -> first_install_time/last_update_time migration"}
+      written_by: "BackfillAndMigrateInstallTimePrefs — the SAME string copied into BOTH new keys"
+      actually_records: "the single legacy install_time"
+      not_evidence_of: "an update (last_update_time is forged for such extensions)"
+      detection: {rule: "first_install_time == last_update_time to the microsecond", basis: inferred, emit_as: candidate,
+                  caveat: "Indistinguishable from a genuinely never-updated extension. Do NOT assert 'never updated'."}
+      structurally_same_as: login-data/logins/date_password_modified
+      source: {ref: ba3c200, path: extensions/browser/extension_prefs.cc, lines: "2556-2578"}
+  provenance:
+    - {ref: ba3c200, path: extensions/browser/extension_prefs.cc, lines: "197-200", claim: "kPrefDeprecatedInstallTime and the 'Remove after M113' TODO"}
+    - {ref: ba3c200, path: extensions/browser/extension_prefs.cc, lines: "2224", claim: "migration call site"}
+
+- id: secure-preferences/extensions/last_launch_time
+  artifact: Secure Preferences
+  table: "extensions.settings.<extension_id>"
+  column: last_launch_time
+  kind: timestamp
+  claim_state: verified
+  covers_also: [last_ping_day, last_active_ping_day]
+  on_disk_shape: "JSON STRING, decimal"
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: extensions/browser/extension_prefs.cc, lines: "269-277, 1877, 1231, 1240, 1256"}}
+  sentinels:
+    - {raw: "key absent", means: "unknown — ReadTime returns base::Time() = 0 when absent; never render as 1601-01-01", emit_as: absent, basis: verified,
+       source: {ref: ba3c200, path: extensions/browser/extension_prefs.cc, lines: "281-291"}}
+  provenance:
+    - {ref: ba3c200, path: extensions/browser/extension_prefs.cc, lines: "209", claim: "kPrefLastLaunchTime key"}
+
+# ===== Media History (fossil artifact) =================================
+
+- id: media-history/origin/last_updated_time_s
+  artifact: Media History
+  table: origin
+  column: last_updated_time_s
+  kind: timestamp
+  claim_state: verified
+  covers_also_rows: ["playback.last_updated_time_s", "playbackSession.last_updated_time_s"]
+  epoch:
+    - {version_range: {min: 1, max: 6}, platform: any, family: win1601_s, basis: verified,
+       note: "No epoch migration exists anywhere in the ladder MigrateFrom1To2..MigrateFrom5To6. meta.version gates COLUMN PRESENCE only, never the epoch.",
+       source: {ref: tag_120, path: chrome/browser/media/history/media_history_origin_table.cc, lines: "79-80, 107-108"}}
+  fossil: true
+  fossil_note: "Artifact removed from Chromium between M120 and M121. A Media History file is frozen at the last time an <=M120 build ran and carries an implicit terminus ante quem. NEVER report as current activity."
+  decode_hazard: "Interpreting as unix_s yields ~2395 (obviously wrong); interpreting as win1601_us yields 1601-01-01T03:43 — PLAUSIBLE-LOOKING GARBAGE."
+  corrects: "#125's three-family model, which does not contain this family at all."
+  provenance:
+    - {ref: tag_120, path: chrome/browser/media/history/media_history_origin_table.cc, lines: "37-46", claim: "schema"}
+    - {ref: tag_120, path: chrome/browser/media/history/media_history_playback_table.cc, lines: "35, 83-84", claim: "playback.last_updated_time_s"}
+    - {ref: tag_120, path: chrome/browser/media/history/media_history_session_table.cc, lines: "39, 103-104", claim: "playbackSession.last_updated_time_s"}
+
+- id: media-history/origin/aggregate_watchtime_audio_video_s
+  artifact: Media History
+  table: origin
+  column: aggregate_watchtime_audio_video_s
+  kind: duration
+  claim_state: verified
+  unit: seconds
+  covers_also_rows: ["playback.watch_time_s"]
+  never_date_render: true
+  hazard: "The _s suffix is OVERLOADED: last_updated_time_s is absolute 1601-seconds while watchtime/watch_time _s columns are durations. A parser keyed on the suffix will date-render three durations."
+  provenance:
+    - {ref: tag_120, path: chrome/browser/media/history/media_history_origin_table.cc, lines: "106", claim: "BindInt64(0, time.InSeconds()) on a TimeDelta"}
+    - {ref: tag_120, path: chrome/browser/media/history/media_history_playback_table.cc, lines: "80", claim: "cumulative_watch_time.InSeconds()"}
+
+- id: media-history/playbackSession/duration_ms
+  artifact: Media History
+  table: playbackSession
+  column: duration_ms
+  kind: not_a_timestamp
+  claim_state: verified
+  covers_also: [position_ms]
+  actual_type: "media PLAYHEAD values — position within the media, not wall-clock at all"
+  never_date_render: true
+  provenance:
+    - {ref: tag_120, path: chrome/browser/media/history/media_history_session_table.cc, lines: "96-97", claim: "bind sites"}
+
+# ===== Site Characteristics (LevelDB / proto2 lite) ====================
+
+- id: site-characteristics/SiteDataProto/last_loaded
+  artifact: Site Characteristics
+  table: SiteDataProto
+  column: last_loaded
+  declared_type: "optional uint32 (field id 1)"
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: unix_s, basis: verified,
+       note: "GetTimeDeltaSinceEpoch() = Now() - base::Time::UnixEpoch(), then .InSeconds(). The OPPOSITE of Media History, which uses the same '.InSeconds() of a delta' shape against the WINDOWS epoch — a one-word difference producing an 8.5-billion-second error.",
+       source: {ref: ba3c200, path: components/performance_manager/persistence/site_data/site_data_impl.cc, lines: "26-28, 271-272"}}
+  overflow_note: "uint32, so it overflows in 2106 and cannot represent pre-1970. A negative or absurd value indicates corruption, not a pre-epoch date."
+  provenance:
+    - {ref: ba3c200, path: components/performance_manager/persistence/site_data/site_data_impl.h, lines: "187-192", claim: "TimeDeltaToInternalRepresentation = .InSeconds()"}
+    - {ref: ba3c200, path: components/performance_manager/persistence/site_data/site_data.proto, lines: "field 1 comment", claim: "'in seconds since epoch'"}
+
+- id: site-characteristics/SiteDataFeatureProto/use_timestamp
+  artifact: Site Characteristics
+  table: SiteDataFeatureProto
+  column: use_timestamp
+  declared_type: "optional int64 (field id 2)"
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: unix_s, basis: verified,
+       source: {ref: ba3c200, path: components/performance_manager/persistence/site_data/site_data_impl.cc, lines: "301-302"}}
+  cardinality_note: "Each feature (updates_favicon_in_background, updates_title_in_background, uses_audio_in_background) carries its OWN use_timestamp — up to four Unix-second timestamps per site record, not one."
+  sentinels:
+    - {raw: 0, means: "feature NEVER used", emit_as: absent, basis: verified,
+       polarity_warning: "INVERTED relative to the adjacent observation_duration, whose 0 means 'HAS been observed'. Two adjacent fields, same type, opposite sentinel polarity."}
+  generation_marker: "deprecated_uses_notifications_in_background (id 5) is retained but deprecated; its presence marks an old record."
+  provenance:
+    - {ref: ba3c200, path: components/performance_manager/persistence/site_data/site_data.proto, lines: "field 2 comment", claim: "'set to 0 if it hasn't been used'"}
+
+- id: site-characteristics/SiteDataFeatureProto/observation_duration
+  artifact: Site Characteristics
+  table: SiteDataFeatureProto
+  column: observation_duration
+  declared_type: "optional int64 (field id 1)"
+  kind: duration
+  claim_state: verified
+  unit: seconds
+  never_date_render: true
+  hazard: "Same type, same units, ADJACENT field id, same message as use_timestamp — one absolute, one relative. Mis-classifying it renders a small number as a date in 1970: plausible-looking garbage, not an error."
+  sentinels:
+    - {raw: 0, means: "feature HAS been observed", emit_as: absent, basis: verified}
+  provenance:
+    - {ref: ba3c200, path: components/performance_manager/persistence/site_data/site_data.proto, lines: "field 1 comment", claim: "'set to 0 once this feature has been observed'"}
+
+- id: site-characteristics/SiteDataPerformanceMeasurement/avg_cpu_usage_us
+  artifact: Site Characteristics
+  table: SiteDataPerformanceMeasurement
+  column: avg_cpu_usage_us
+  kind: duration
+  claim_state: verified
+  covers_also: [avg_load_duration_us]
+  unit: microseconds
+  never_date_render: true
+  note: "optional float decaying averages. avg_footprint_kb is kilobytes, not a time."
+  provenance:
+    - {ref: ba3c200, path: components/performance_manager/persistence/site_data/site_data.proto, lines: "SiteDataPerformanceMeasurement", claim: "field types read"}
+
+# ===== Reporting and NEL ===============================================
+
+- id: reporting-nel/nel_policies/expires_us_since_epoch
+  artifact: Reporting and NEL
+  table: nel_policies
+  column: expires_us_since_epoch
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  covers_also_rows: ["reporting_endpoint_groups.expires_us_since_epoch"]
+  epoch:
+    - {version_range: {min: 1, max: null}, platform: any, family: win1601_us, basis: verified,
+       note: "Bound with BindInt64, NOT BindTime — a grep for BindTime MISSES this artifact entirely. Methodological note for re-verification.",
+       source: {ref: ba3c200, path: net/extras/sqlite/sqlite_persistent_reporting_and_nel_store.cc, lines: "383-388, 903, 907"}}
+  column_name_lies: true
+  column_name_note: "'_us_since_epoch' names the WRONG epoch — unqualified 'epoch' almost universally means Unix, but the code is unambiguously Windows-epoch. A Unix-us misreading yields ~year 6224 (at least obviously wrong)."
+  semantics: "future-dated policy expiry, not an event"
+  migration_epoch_preserved: {from: 1, to: 2, preserved: true, note: "v1->v2 copies the timestamp columns VERBATIM in the SELECT list; no arithmetic."}
+  provenance:
+    - {ref: ba3c200, path: net/extras/sqlite/sqlite_persistent_reporting_and_nel_store.cc, lines: "289-310, 331-349", claim: "v2 schemas"}
+    - {ref: ba3c200, path: net/extras/sqlite/sqlite_persistent_reporting_and_nel_store.cc, lines: "1325, 1444-1448", claim: "read side FromDeltaSinceWindowsEpoch"}
+
+- id: reporting-nel/nel_policies/last_access_us_since_epoch
+  artifact: Reporting and NEL
+  table: nel_policies
+  column: last_access_us_since_epoch
+  declared_type: INTEGER NOT NULL
+  kind: timestamp
+  claim_state: verified
+  covers_also_rows: ["reporting_endpoint_groups.last_access_us_since_epoch"]
+  epoch:
+    - {version_range: {min: 1, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: net/extras/sqlite/sqlite_persistent_reporting_and_nel_store.cc, lines: "383-388, 916, 1098-1136"}}
+  semantics: "last time this origin was CONTACTED — genuine activity evidence"
+  column_rename_boundary: {version: 2, from: report_to, to: group_name, note: "Dispatch on meta.version: at v1 the column is report_to, at v2 group_name. Same data, different name."}
+  anti_inference_warning: >-
+    The v1->v2 migration back-fills nik with an empty NetworkAnonymizationKey, which the source
+    comment says "will result in effectively clearing all policies once NAKs are enabled". Absence
+    of NEL policies for an origin after this boundary is NOT evidence the origin was not visited.
+  recovery_note: "The migration DROPs nel_policies_old BEFORE renaming, i.e. it cleans up a PRIOR leftover. A *_old table may be recoverable in a partially-migrated DB — worth probing."
+  provenance:
+    - {ref: ba3c200, path: net/extras/sqlite/sqlite_persistent_reporting_and_nel_store.cc, lines: "702-730", claim: "DoMigrateDatabaseSchema v1->v2 body"}
+
+- id: reporting-nel/reporting_endpoints/-
+  artifact: Reporting and NEL
+  table: reporting_endpoints
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  columns_present: [nik, origin_scheme, origin_host, origin_port, group_name, url, priority, weight]
+  provenance:
+    - {ref: ba3c200, path: net/extras/sqlite/sqlite_persistent_reporting_and_nel_store.cc, lines: "316-329", claim: "full CREATE TABLE read"}
+
+# ===== Trust Tokens ====================================================
+
+- id: trust-tokens/TrustTokenIssuerConfig/last_issuance
+  artifact: Trust Tokens
+  table: TrustTokenIssuerConfig
+  column: last_issuance
+  declared_type: "Timestamp (field id 4)"
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       note: "The ONLY artifact in the corpus whose epoch is named in the PERSISTED SCHEMA: 'message Timestamp { // Represents microseconds since the Windows epoch. required int64 micros = 1; }'",
+       source: {ref: ba3c200, path: services/network/trust_tokens/proto/public.proto, lines: "message Timestamp"}}
+  semantics: "time of the most recent issuance for this pair"
+  provenance:
+    - {ref: ba3c200, path: services/network/trust_tokens/proto/storage.proto, lines: "TrustTokenIssuerConfig", claim: "field id 4"}
+
+- id: trust-tokens/TrustTokenIssuerToplevelPairConfig/last_redemption
+  artifact: Trust Tokens
+  table: TrustTokenIssuerToplevelPairConfig
+  column: last_redemption
+  declared_type: "Timestamp (field id 1)"
+  kind: timestamp
+  claim_state: verified
+  covers_also: [penultimate_redemption]
+  covers_also_note: "penultimate_redemption is field id 3. The store retains EXACTLY the last TWO redemption times, no more."
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: services/network/trust_tokens/proto/public.proto, lines: "message Timestamp"}}
+  forensic_value: "Keyed by (issuer origin, top-level page origin) — a pairwise site-visit record that survives independently of History and Cookies, and is cross-site linkage evidence by construction."
+  provenance:
+    - {ref: ba3c200, path: services/network/trust_tokens/proto/storage.proto, lines: "TrustTokenIssuerToplevelPairConfig", claim: "field ids 1 and 3"}
+
+- id: trust-tokens/TrustToken/creation_time
+  artifact: Trust Tokens
+  table: TrustToken
+  column: creation_time
+  declared_type: "Timestamp (field id 3)"
+  kind: timestamp
+  claim_state: verified
+  covers_also_rows: ["TrustTokenRedemptionRecord.creation_time (field id 6)"]
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: win1601_us, basis: verified,
+       source: {ref: ba3c200, path: services/network/trust_tokens/proto/public.proto, lines: "message Timestamp"}}
+  provenance:
+    - {ref: ba3c200, path: services/network/trust_tokens/proto/public.proto, lines: "TrustToken, TrustTokenRedemptionRecord", claim: "field ids"}
+
+- id: trust-tokens/TrustTokenRedemptionRecord/lifetime
+  artifact: Trust Tokens
+  table: TrustTokenRedemptionRecord
+  column: lifetime
+  declared_type: "optional uint64 (field id 5)"
+  kind: duration
+  claim_state: verified
+  unit: seconds
+  never_date_render: true
+  hazard: "Different type (uint64, not Timestamp) and different unit (seconds, not microseconds) from every other time in the same file."
+  provenance:
+    - {ref: ba3c200, path: services/network/trust_tokens/proto/storage.proto, lines: "TrustTokenRedemptionRecord", claim: "'Lifetime of the redemption record in seconds.'"}
+
+- id: trust-tokens/TrustTokenToplevelConfig/-
+  artifact: Trust Tokens
+  table: TrustTokenToplevelConfig
+  column: null
+  kind: no_timestamp_columns
+  claim_state: verified
+  verified_absent: true
+  emit_as: absent
+  columns_present: [associated_issuers]
+  provenance:
+    - {ref: ba3c200, path: services/network/trust_tokens/proto/storage.proto, lines: "TrustTokenToplevelConfig", claim: "full message read"}
+
+# ===== Affiliation Database ============================================
+
+- id: affiliation/eq_classes/last_update_time
+  artifact: Affiliation Database
+  table: eq_classes
+  column: last_update_time
+  declared_type: INTEGER
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 1, max: 7}, platform: any, family: win1601_us, basis: verified,
+       note: "Declared at v0/1 and never touched again. Every schema change v2-v7 is a column or index addition. There is NO epoch migration; meta.version tells you about column presence only.",
+       source: {ref: ba3c200, path: components/affiliations/core/browser/affiliation_database.cc, lines: "390, 411"}}
+  semantics: "A NETWORK-CONTACT timestamp with Google's affiliation service, NOT a user action. It bounds when the profile last had network-backed password features active."
+  provenance:
+    - {ref: ba3c200, path: components/affiliations/core/browser/affiliation_database.cc, lines: "78-80", claim: "column declared in the version 0/1 block"}
+    - {ref: ba3c200, path: components/affiliations/core/browser/affiliation_database.cc, lines: "229, 263", claim: "read sites ColumnTime"}
+    - {ref: ba3c200, path: components/affiliations/core/browser/affiliation_database.cc, lines: "91-126", claim: "SealVersion ladder; no epoch migration"}
+
+# ===== Sessions / Tabs (SNSS) ==========================================
+
+- id: sessions/filename/timestamp_suffix
+  artifact: Sessions
+  table: "(filename)"
+  column: "numeric suffix of Session_<N> / Tabs_<N>"
+  kind: timestamp
+  claim_state: verified
+  epoch:
+    - {version_range: {min: 3, max: 5}, platform: any, family: win1601_us, basis: verified,
+       version_field: "SNSS header version (NOT meta.version)",
+       note: "1601-us at header v3 and v5 alike. The header version bounds DECRYPTABILITY, not epoch.",
+       source: {ref: ba3c200, path: components/sessions/core/command_storage_backend.cc, lines: "70-77, 570-587, 704"}}
+  semantics: "the moment the file was created, i.e. session start"
+  integrity_warning:
+    forcibly_monotonic: true
+    detail: >-
+      If the system clock goes backwards (NTP correction, user change, VM snapshot restore) Chrome
+      does NOT write the real time — it writes previous + 1 microsecond. The filename timestamp is
+      an upper-bounded lie in exactly the scenario an examiner cares most about.
+    detector: {rule: "a run of session files whose timestamps differ by exactly 1 us", yields: "positive signal that the host clock was set backwards", basis: verified, emit_as: candidate,
+               note: "Nothing else in the profile records this. HIGH VALUE — escalate to the integrity model."}
+    source: {ref: ba3c200, path: components/sessions/core/command_storage_backend.cc, lines: "728-742"}
+  provenance:
+    - {ref: ba3c200, path: components/sessions/core/command_storage_backend.cc, lines: "89-94", claim: "filename = base name + kTimestampSeparator + timestamp string"}
+
+- id: sessions/SerializedNavigationEntry/timestamp
+  artifact: Sessions
+  table: SerializedNavigationEntry
+  column: timestamp
+  kind: timestamp
+  claim_state: verified
+  on_disk_shape: "raw little-endian int64 in the pickle body (ToInternalValue())"
+  epoch:
+    - {version_range: {min: 3, max: 5}, platform: any, family: win1601_us, basis: verified,
+       version_field: "SNSS header version",
+       source: {ref: ba3c200, path: components/sessions/core/serialized_navigation_entry.cc, lines: "148, 221-225"}}
+  forensic_value: "The per-navigation time — the closest thing SNSS has to a history entry, and it survives in Last Session / Last Tabs AFTER History has been cleared."
+  parser_hazards:
+    - "The pickle has NO field tags: it is POSITIONAL. The timestamp is the 12th field, after is_overriding_user_agent_."
+    - "Field 9 is written as a hardcoded obsolete value (kObsoleteReferrerPolicyNever) and field 13 (search_terms_) was removed but is still written as an empty string to hold its slot. A parser that 'cleans up' these dead fields desynchronises and reads the WRONG int64 as the timestamp."
+  sentinels:
+    - {raw: 0, means: "read failure on a short/truncated pickle — render as unknown, never 1601", emit_as: unavailable, basis: verified,
+       source: {ref: ba3c200, path: components/sessions/core/serialized_navigation_entry.cc, lines: "221-225"}}
+  provenance:
+    - {ref: ba3c200, path: components/sessions/core/serialized_navigation_entry.cc, lines: "95-114", claim: "documented positional field order"}
+
+- id: sessions/session_commands/last_active_time
+  artifact: Sessions
+  table: "SessionCommand payloads"
+  column: "SessionTab::last_active_time and similar"
+  kind: timestamp
+  claim_state: unresolved
+  epoch:
+    - {version_range: {min: null, max: null}, platform: any, family: unresolved, basis: unresolved}
+  ambiguity:
+    state: not_examined
+    reason: "session_service_commands.cc was FETCHED but NOT analysed during the #143 run. The commands are separate SessionCommand structs with their own payload layouts. Do not assume."
+    emit_when_unsupplied: unavailable
+  impact: "These are real per-tab activity times — a genuine gap, not a cosmetic one."
+  verification_queue: "matrix §10 U5 / part 4 U5"
+  provenance:
+    - {ref: ba3c200, path: components/sessions/core/session_service_commands.cc, lines: not-analysed, claim: "explicitly fetched but not read"}
+
+# ===== Extension State =================================================
+
+- id: extension-state/-/-
+  artifact: Extension State
+  table: null
+  column: null
+  kind: no_timestamp_columns
+  claim_state: inferred
+  verified_absent: false
+  emit_as: unavailable
+  reason: >-
+    Chrome imposes NO schema on this LevelDB and writes no timestamp of its own; values are
+    base::Value JSON blobs supplied by the extension under extension-chosen keys. Any timestamp
+    found here is EXTENSION-AUTHORED and can be in any format — most commonly Date.now() =>
+    Unix MILLISECONDS, because the writer is JavaScript. DO NOT apply Chrome's epoch conventions.
+    An 18-digit integer here is far more likely a JS microsecond value or an ID than 1601-us.
+  claim_state_note: "The reasoning is stated as INFERRED because the store implementation (extensions/browser/api/storage/) was NOT read during the #143 run."
+  verification_queue: "part 4 U14"
+  only_chrome_controlled_times: "LevelDB-level SST file mtimes and MANIFEST sequence — filesystem/format metadata, not content."
+  provenance:
+    - {ref: ba3c200, path: extensions/browser/api/storage/, lines: not-read, claim: "explicitly not read during the #143 run"}
+
+# ---------------------------------------------------------------------------
+# Cross-cutting registers, derived from the rows above. Redundant with the rows
+# by design: a consumer can load one register without walking every row.
+# ---------------------------------------------------------------------------
+
+registers:
+
+  name_collisions:
+    entries:
+    - {name: date_created, members: ["logins.date_created (version-dependent unix_s/win1601_us)", "autofill.date_created (unix_s)", "password_notes.date_created (win1601_us)"],
+       rule: "NEVER key a decoder on the column NAME. Key on (artifact, table, column, meta.version)."}
+    - {name: use_date, members: ["credit_cards.use_date (unix_s)", "local_ibans.use_date (unix_s)", "server_card_metadata.use_date (win1601_us)", "masked_ibans_metadata.use_date (win1601_us)", "valuables_metadata.use_date (win1601_us)", "addresses.use_date (unix_s)", "autofill_ai_entities_metadata.use_date (win1601_us)"],
+       rule: "Same name, same file, same semantic, both INTEGER NOT NULL DEFAULT 0. Both wrong decodings fail loudly — but only if the tool tries."}
+
+  magnitude_fallback:
+    status: defeated
+    defeated_by: web-data/offer_data/expiry
+    rule: "The magnitude heuristic may only ever produce a Candidate, never a Finding, and can never be the sole resolver."
+    digit_table:
+      - {digits: 10, family: unix_s, value_2026: 1.7e9}
+      - {digits: 11, family: win1601_s, value_2026: 1.34e10}
+      - {digits: 13, family: win1601_ms, value_2026: 1.34e13, collides_with: "Unix milliseconds — SAME digit count"}
+      - {digits: 16, family: unix_us, value_2026: 1.7e15}
+      - {digits: 18, family: win1601_us, value_2026: 1.34e17}
+
+  requires_os_input:
+    entries:
+      - {rows: [history/urls/last_visit_time, history/visits/visit_time, history/segment_usage/time_slot], applies_when: "History meta.version <= 16"}
+      - {rows: [cookies/cookies/creation_utc, cookies/cookies/expires_utc, cookies/cookies/last_access_utc], applies_when: "Cookies meta.version <= 3"}
+    note: "The originating OS is NOT recorded in any Chrome artifact. It is an operator input. Without it the Field State is 'unavailable', never a guessed value."
+
+  synthetic_timestamps:
+    entries:
+      - {row: login-data/logins/date_password_modified, records: "backfilled = date_created for pre-v30 rows"}
+      - {row: login-data/insecure_credentials/create_time, records: "base::Time::Now() at migration time for v29-v31 zeros — evidences a Chrome UPGRADE"}
+      - {row: cookies/cookies/expires_utc, records: "possibly the v19 +400d cap, not the server-sent expiry"}
+      - {row: secure-preferences/extensions/first_install_time, records: "both first_install_time and last_update_time backfilled from the one legacy install_time"}
+      - {row: bookmarks/node/date_added, records: "Time::Now() at first parse when the key was missing"}
+      - {row: bookmarks/folder/date_modified, records: "Time::Now() at first parse when the key was missing"}
+    rule: "A synthetic value decodes CORRECTLY and is still false as evidence. The resolver must carry a synthetic flag alongside the epoch family."
+
+  json_shape_is_not_epoch:
+    rule: >-
+      A quoted decimal string in a Chrome JSON artifact carries NO epoch information whatsoever.
+      base::Int64ToValue is the only stringifier and it is epoch-agnostic; SetTime (1601-us),
+      SetInt64 (often ToTimeT = Unix seconds) and SetUint64 all emit an indistinguishable shape,
+      and TimeDeltaToValue emits the same shape for a DURATION.
+    confirmed_unsafe: "#125's 'quoted string => 1601-us' heuristic, unsafe BY CONSTRUCTION."
+    only_in_band_discriminator: magnitude
+    dispositive_out_of_band_signal: "the pref REGISTRATION in source (RegisterTimePref vs RegisterInt64Pref) — compile-time only, not on disk"
+    read_path_trap: "ValueToInt64 requires value.is_string(). A tool that normalises a time to a JSON NUMBER does not lose precision — Chrome silently treats the key as ABSENT."
+    source: {ref: ba3c200, path: base/json/values_util.cc, lines: "37, 46-56, 58, 74, 82-88"}
+
+  declared_timezone_leaks:
+    entries:
+      - {row: history/segment_usage/time_slot, mechanism: "LocalMidnight() on the write path; a UTC container holding a locally derived value", strength: strongest, basis_of_offset_recovery: inferred}
+      - {row: preferences/site_engagement/lastEngagementTime, mechanism: "adjacent pointsAddedToday is bucketed by the host's local day", basis_of_offset_recovery: inferred}
+    note: "#125's HIGH-confidence claim 'all Chrome timestamps are UTC; no artifact stores wall-clock local time' is FALSIFIED by segment_usage.time_slot. Declared Timezone remains an operator input; these leaks produce Candidates only."

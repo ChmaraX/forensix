@@ -20,6 +20,26 @@ rest of `research/` — it is primary-sourced, and the unverified material is qu
 `research/_raw/143-part-1-history.md` · `143-part-2-credentials.md` ·
 `143-part-3-webdata.md` · `143-part-4-json-and-misc.md`
 
+> ### CORRECTIONS — read before citing this file
+>
+> This document was validated against a real Chrome 151 macOS capture
+> (`research/artifacts/117-chrome151-macos/`). The validation is at
+> `research/_raw/143-fixture-validation.md`. It **confirmed every epoch claim it could
+> reach** (9 version constants, 49 column-presence claims, 10 negative claims) and
+> **falsified two claims**, both corrected in place below:
+>
+> 1. **"Five epoch families" was wrong — there are seven.** See §1.
+> 2. **"The one JSON-double timestamp" was wrong — there are five.** See §7.2.
+>
+> It also found **~45 timestamp columns and keys this document does not cover**. Three of
+> them were *resolved in the evidence files and lost when this summary was written* — a
+> transcription regression, not a research failure. They are restored below and marked
+> **[restored]**. The remainder are catalogued in the validation file §3 and are a genuine
+> coverage gap, not an error.
+>
+> **Coverage is partial. Epoch claims are sound.** Treat an artifact absent from this
+> document as `unavailable` (not examined), never as `absent`.
+
 ---
 
 ## 1. Summary — the short answer
@@ -36,8 +56,20 @@ model that the source does not support.** The corrected model has four parts:
 | **Unix µs** | microseconds since 1970-01-01 UTC | pre-migration state only | History `urls`/`visits` at v≤16 on Mac/Linux |
 | **1601-ms** | **milli**seconds since 1601-01-01 UTC | `ToDeltaSinceWindowsEpoch().InMilliseconds()` | `offer_data.expiry` — **the one genuinely silent failure** |
 | **1601-seconds** | **seconds** since 1601-01-01 UTC | `.since_origin().InSeconds()` | `Media History` (all columns) |
+| **Unix-ms as JSON double** | milliseconds since 1970-01-01 UTC, float | — | `Local State` → `network_time.network_time_mapping.local` / `.network` |
+| **Omaha days** | **days** since 2007-01-01, bare JSON integer | `update_client` | `Local State` → `updateclientdata.apps.*.installdate` / `.dlrc` / `.dla` |
 
-Plus one JSON-double outlier (Site Engagement, §7.2) which loses precision by design.
+The last two were found by fixture validation, not by source reading. The Omaha derivation is
+self-verifying: the fixture value `7153` gives 2007-01-01 + 7153 d = 2026-08-02, exactly the
+capture date.
+
+Plus JSON-double outliers which lose precision by design (§7.2 — there are five, not one).
+
+> **Not an epoch at all — `base::TimeTicks`.** `Local State` →
+> `network_time.network_time_mapping.ticks` (fixture: `2059318713987.0`) is a **monotonic
+> counter since boot**, not a wall clock. It sits in the same JSON object as two real Unix-ms
+> timestamps and has a plausible magnitude. Decoding it as an instant yields a confident,
+> meaningless date. Treat as `not_a_timestamp`.
 
 **2. `meta.version` is not a sufficient epoch discriminator — in five distinct ways.**
 This is the central finding and it is enumerated in §2.
@@ -220,6 +252,11 @@ not over-generalise.
 | `date_received` | 1601-µs | added **v37** |
 | `date_last_filled` | 1601-µs, `DEFAULT 0` | added **v42** |
 | `insecure_credentials.create_time` | 1601-µs | table added **v29**; backfilled (§8.2) |
+| **`stats.update_time`** **[restored]** | **1601-µs** | `statistics_table.cc:94` `BindTime`. A real password-manager interaction time, per (origin, username). Present in `Login Data` **and** `Login Data For Account` |
+
+> **`Login Data For Account`** is a separate Source at the same schema version (fixture: 43/40)
+> and is not otherwise covered here. Same for **`Account Web Data`** (152/151) alongside
+> `Web Data`. Both were missed by the scope, not by the analysis.
 
 ---
 
@@ -347,7 +384,7 @@ it survives a profile wipe — it dates the *machine's* Chrome install, not the 
 |---|---|---|
 | `Bookmarks` | **1601-µs decimal strings** — `date_added`, `date_modified`, `date_last_used` | `"version"` frozen at 1 forever. Checksum MD5 today, SHA-256 behind a flag (dual-write in progress) |
 | `Preferences` content settings | 1601-µs strings | **keys OMITTED when zero** — absence ≠ never |
-| `Preferences` Site Engagement | **JSON double** | the one double-typed timestamp; **precision loss CONFIRMED** |
+| `Preferences` Site Engagement | **JSON double** | precision loss CONFIRMED. **NOT the only double-typed timestamp** — see below |
 | `Secure Preferences` | 1601-µs strings | `install_time` → `first_install_time` + `last_update_time` split, bounded **≤ M113** |
 | **`Media History`** | **1601-SECONDS** — a fourth family | **REMOVED from Chromium between M120 and M121.** See below |
 | `Site Characteristics` | **Unix seconds** | LevelDB of proto2 lite; unversioned |
@@ -356,6 +393,25 @@ it survives a profile wipe — it dates the *machine's* Chrome install, not the 
 | `Affiliation Database` | 1601-µs | stable across all 7 versions |
 | `Sessions`/`Tabs` (SNSS) | 1601-µs | timestamps present via **three distinct carriers**, incl. the filename suffix |
 | `Extension State` | — | LevelDB, extension-authored; **no Chrome-written timestamp schema** |
+
+**Correction — there are five JSON-double timestamps, not one.** The fixture's `Local State`
+carries four more that this document missed: `profile.info_cache.<Profile>.active_time` (Unix
+**seconds** as a float, one per profile) and `network_time.network_time_mapping.local` / `.network`
+(Unix **milliseconds** as floats). The original claim that Site Engagement is "the one
+double-typed timestamp" is **retracted**.
+
+**Also missed in this artifact set** (fixture validation §3, epochs unresolved unless stated):
+`DIPS` → `popups.last_popup_time` **[restored]** (1601-µs, `btm_database.cc:415` `BindTime`);
+`Web Data` → `web_app_manifest_section.expire_date` **[restored]** (quarantined as unresolved in
+the evidence, dropped here), `secure_payment_confirmation_instrument.date_created` — **a third
+`date_created` in Web Data**, making §6.4's two-way collision a **three-way** one, epoch
+unresolved — `secure_payment_confirmation_browser_bound_key.last_used`, the **only column in the
+entire fixture declared `TIMESTAMP`** (SQLite has no such type; it takes NUMERIC affinity), and
+`payment_method_manifest.expire_date`. `History` → `meta.early_expiration_threshold` is itself a
+**1601-µs timestamp stored inside the `meta` table**, differing per profile — `meta` is not only
+a version carrier. Eight further artifacts with 18 more timestamp columns (`BrowsingTopicsSiteData`,
+`QuotaManager`, `Shared Dictionary`, `heavy_ad_intervention_opt_out`, `segmentation_platform/ukm_db`
+and others) are listed in the validation file.
 
 **`Media History` is a fossil artifact.** Directory `chrome/browser/media/history/` does not exist
 at `ba3c200`; HTTP bisection of release tags shows **200 at `120.0.6099.71`, 404 at
