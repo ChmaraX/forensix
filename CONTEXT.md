@@ -28,11 +28,13 @@ Seeded from [Forensic integrity model](https://github.com/ChmaraX/forensix/issue
 
 **Provenance** — the path from an emitted row back to the bytes it came from: manifest file id, database, table, rowid.
 
-**Field State** — every emitted field is exactly one of `value`, `absent` (looked, not there), or `unavailable` (could not look, with a reason). A `value` is never synthesised from the other two.
+**Field State** — every emitted field is exactly one of `value`, `absent` (looked, not there), or `unavailable` (could not look, with a reason). A `value` is never synthesised from the other two. A `value` may carry a `synthetic` flag: it was written by a migration, not by the event it appears to record, and is not evidence of that event.
 
 **Candidate** — a ranked possibility produced by a heuristic, carrying a count and provenance. Never presented as a finding.
 
-**Finding** — an assertion ForensiX makes as fact. Only a `value` with provenance can be one.
+**Finding** — an assertion ForensiX makes as fact. Only a `value` with provenance, resolved without reliance on a heuristic, can be one. A `value` resolved by magnitude test or any other heuristic discriminator is a `Candidate`, never a `Finding`, regardless of how decisive the heuristic appears.
+
+**Declared Origin OS** — the operating system that wrote a Working Copy's Chrome data, stated by the investigator. Required only for columns whose `Epoch Family` is platform-conditional at the recorded version (History `meta.version <= 16`, Cookies `meta.version <= 3`). A `SingletonLock` symlink, when present, may corroborate a non-Windows declaration or flag a conflict with one, but its absence proves nothing and it is never sufficient alone. Always labelled as declared, never derived.
 
 ## Data semantics
 
@@ -40,9 +42,9 @@ Seeded from [Forensic integrity model](https://github.com/ChmaraX/forensix/issue
 
 **Sidecar** — a SQLite `-wal`, `-shm` or `-journal` file. Travels with its database or its rows are lost.
 
-**Epoch Family** — which time base a stored timestamp uses: microseconds since 1601-01-01 UTC, or seconds since 1970-01-01 UTC. A property of a column at a given database version, not of the tool.
+**Epoch Family** — which time base a stored timestamp uses. One of: 1601-µs, 1601-ms, 1601-seconds, Unix seconds, Unix µs, Unix-ms (JSON double), Omaha days. A property of a **column**, at a given database version, from a given originating OS (see **Declared Origin OS**), and only after the recorded version has been verified against the schema. Never a property of a file, and never of the tool.
 
-**Declared Timezone** — the suspect's timezone, stated by the investigator. Nothing in a Chrome profile records it. Defaults to UTC and is always labelled as declared, never derived. The host's timezone is never used.
+**Declared Timezone** — the suspect's timezone, stated by the investigator. No Chrome artifact records the timezone as a setting. One History column persists a locally-derived value from which an offset can be recovered (see #143). ForensiX does not use it to derive a timezone. Defaults to UTC and is always labelled as declared, never derived. The host's timezone is never used.
 
 ## Export
 

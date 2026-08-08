@@ -20,6 +20,7 @@ produced with live primary-source access and cite the ref/sha they read against:
 - `129-product-shape-survey.md` (fetch manifest at `_raw/129-fetch-manifest.md`)
 - **`143-timestamp-epoch-version-matrix.md`** — see below
 - **`144-offline-oscrypt-key-recovery.md`** — live primary-source research with unresolved recovery paths explicitly marked untested
+- **`145-epoch-family-resolver-design.md`** (partial — see below)
 
 The blanket warning in this section does **not** apply to those files.
 
@@ -51,6 +52,15 @@ records corrections to the text of [#143](https://github.com/ChmaraX/forensix/is
 itself (a stale Chromium path). Working evidence, one file per artifact family, is in
 `_raw/143-part-1..4-*.md`.
 
+### `145-epoch-family-resolver-design.md` — the exception (partial)
+
+That brief fetched live Chromium source (a newer `refs/heads/main` ref than `#143`'s) to confirm
+the process-singleton lock mechanism differs by platform, and fetched `hindsight`'s actual source
+over `raw.githubusercontent.com` and the GitHub API to check tool precedent. Both fetches are
+cited with the ref/sha or URL read. Everything else in the file is design reasoning over
+already-landed research (`#143`, `CONTEXT.md`) and is marked inline as such — it is not a second
+independent verification pass over `#143`'s facts.
+
 ### `122-legal-constraints-decryption.md` — read this warning
 
 That brief discusses computer-misuse statutes. It is **not legal advice**, it is
@@ -70,3 +80,4 @@ consequence. It exists to frame a design discussion on
 | `129-product-shape-survey.md` | [#129](https://github.com/ChmaraX/forensix/issues/129) | What shape v2 should take (CLI / desktop / local server / hosted), and which v1 capabilities survive it — **live primary sources**, fetch manifest at `_raw/129-fetch-manifest.md` |
 | `143-timestamp-epoch-version-matrix.md` | [#143](https://github.com/ChmaraX/forensix/issues/143) | Which epoch family every Chrome timestamp column uses, and at which `meta.version` it changed — **live primary sources**, evidence in `_raw/143-part-1..4-*.md` |
 | `144-offline-oscrypt-key-recovery.md` | [#144](https://github.com/ChmaraX/forensix/issues/144) | Whether Chrome OSCrypt keys can be recovered offline from real macOS Keychain, Linux keyring/wallet, and legacy Windows DPAPI evidence — **live primary sources**, copied-store paths explicitly untested |
+| `145-epoch-family-resolver-design.md` | [#145](https://github.com/ChmaraX/forensix/issues/145) | How ForensiX resolves a timestamp's Epoch Family, given that `meta.version` alone cannot decide it — **partial live primary sources** (Chromium process-singleton source, `hindsight` tool source), builds on `#143`/`143-timestamp-epoch-table.yaml` |
