@@ -131,19 +131,7 @@ jobs:
           grep -o '"os_crypt".\{0,300\}' "udd/Local State" > evidence/local_state_oscrypt_context.txt 2>/dev/null || true
           # Cookies ciphertext prefix (v10/v11/v20) is the direct evidence of which key
           # provider handled encryption on this run.
-          python3 - <<'PY' > evidence/cookies_prefix.txt 2>&1
-import sqlite3, glob, binascii
-for path in glob.glob('udd/Default/Cookies') + glob.glob('udd/*/Cookies'):
-    try:
-        con = sqlite3.connect(path)
-        cur = con.cursor()
-        cur.execute("select host_key, name, encrypted_value from cookies")
-        for host, name, blob in cur.fetchall():
-            prefix = bytes(blob[:3]) if blob else b''
-            print(path, host, name, prefix, binascii.hexlify(bytes(blob[:16])) if blob else None)
-    except Exception as e:
-        print('ERR', path, e)
-PY
+          python3 research/_raw/135-cookie-prefix.py > evidence/cookies_prefix.txt 2>&1
       - uses: actions/upload-artifact@v4
         with:
           name: linux-cache-keys-evidence-${{ matrix.mode }}
