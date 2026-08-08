@@ -44,6 +44,20 @@ Seeded from [Forensic integrity model](https://github.com/ChmaraX/forensix/issue
 
 **Declared Timezone** — the suspect's timezone, stated by the investigator. Nothing in a Chrome profile records it. Defaults to UTC and is always labelled as declared, never derived. The host's timezone is never used.
 
+## Export
+
+**Export** — a bundle of artifacts leaving ForensiX for use outside it. Derived from a Case, never a system of record.
+
+**Extract** — the machine-readable half of an Export: canonical rows plus a header. The citable record.
+
+**Report** — the human-readable half, generated *from* the Extract and never from the Case. A rendering, never a second source of truth.
+
+**Export Manifest** — the per-file record of an Export bundle, with a derived digest. The outbound mirror of the Manifest and Evidence Set Digest.
+
+**Completeness Statement** — what an Export attempted, produced, and could not produce, per source and per artifact. Keeps absence distinct from failure at artifact scale, as Field State does at field scale.
+
+**Redaction State** — whether an Export carries plaintext secrets. Declared in the header and inherited by the Report.
+
 ## Scope
 
 **Capability** — one forensic question ForensiX can answer, stated as a question. The unit the v1 intent inventory counts.
