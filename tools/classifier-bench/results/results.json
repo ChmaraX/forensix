@@ -1,0 +1,549 @@
+{
+  "generated_at": "2026-08-08T13:12:36.960Z",
+  "host": {
+    "platform": "linux",
+    "arch": "arm64",
+    "node_version": "v22.23.2"
+  },
+  "fixture": {
+    "row_count": 208,
+    "path": "tools/classifier-bench/fixture/fixture_labelled.json"
+  },
+  "taxonomy": {
+    "core_label_count": 20,
+    "source": "research/137-taxonomy-proposal.md"
+  },
+  "candidates": [
+    {
+      "id": "domain-list-v1",
+      "family": "5-deterministic-domain-list",
+      "determinism": {
+        "deterministic": true,
+        "hash": "69b7a37664895c0bd26a3bf4505962d650ec992c362d1a8c50bef051e03b6f3b"
+      },
+      "throughput": {
+        "rows_per_sec": 232998.9201396204,
+        "projected_100k_row_wall_clock_sec": 0.4291865384615379
+      },
+      "disk_footprint": {
+        "human": "N/A \u2014 no model artifacts, source is inline code"
+      },
+      "coverage": 0.4423076923076923,
+      "macro_f1": 0.3376165501165501,
+      "scored_label_count": 16,
+      "total_label_count": 20,
+      "per_class": {
+        "search_query": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 52,
+          "tn": 156,
+          "goldPositives": 52,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "webmail_messaging_voice": {
+          "tp": 19,
+          "fp": 0,
+          "fn": 2,
+          "tn": 187,
+          "goldPositives": 21,
+          "precision": 1,
+          "recall": 0.9047619047619048,
+          "f1": 0.9500000000000001
+        },
+        "social_media": {
+          "tp": 6,
+          "fp": 0,
+          "fn": 0,
+          "tn": 202,
+          "goldPositives": 6,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1
+        },
+        "news_current_affairs": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 3,
+          "tn": 205,
+          "goldPositives": 3,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "reference_education_howto": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 15,
+          "tn": 193,
+          "goldPositives": 15,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "entertainment_streaming_gaming": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 36,
+          "tn": 168,
+          "goldPositives": 40,
+          "precision": 1,
+          "recall": 0.1,
+          "f1": 0.18181818181818182
+        },
+        "technology_software_dev": {
+          "tp": 23,
+          "fp": 1,
+          "fn": 19,
+          "tn": 165,
+          "goldPositives": 42,
+          "precision": 0.9583333333333334,
+          "recall": 0.5476190476190477,
+          "f1": 0.696969696969697
+        },
+        "shopping_marketplace": {
+          "tp": 6,
+          "fp": 0,
+          "fn": 18,
+          "tn": 184,
+          "goldPositives": 24,
+          "precision": 1,
+          "recall": 0.25,
+          "f1": 0.4
+        },
+        "finance_banking": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "tn": 206,
+          "goldPositives": 2,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "cryptocurrency_exchanges": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 208,
+          "goldPositives": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        "employment_job_seeking": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 208,
+          "goldPositives": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        "travel_transport_accommodation": {
+          "tp": 3,
+          "fp": 0,
+          "fn": 18,
+          "tn": 187,
+          "goldPositives": 21,
+          "precision": 1,
+          "recall": 0.14285714285714285,
+          "f1": 0.25
+        },
+        "health_medical": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 7,
+          "tn": 201,
+          "goldPositives": 7,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "adult_sexual_content": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 208,
+          "goldPositives": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        "gambling": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 208,
+          "goldPositives": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        "file_sharing_cloud_storage": {
+          "tp": 24,
+          "fp": 0,
+          "fn": 0,
+          "tn": 184,
+          "goldPositives": 24,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1
+        },
+        "anonymity_privacy_tooling": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 9,
+          "tn": 199,
+          "goldPositives": 9,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "hacking_security_tooling": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "tn": 206,
+          "goldPositives": 2,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "ads_trackers_infrastructure": {
+          "tp": 6,
+          "fp": 0,
+          "fn": 1,
+          "tn": 201,
+          "goldPositives": 7,
+          "precision": 1,
+          "recall": 0.8571428571428571,
+          "f1": 0.923076923076923
+        },
+        "unclassified": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 1,
+          "tn": 207,
+          "goldPositives": 1,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        }
+      },
+      "adult_confusion": {
+        "note": "no Adult-labelled rows in this fixture \u2014 FP/FN cannot be measured, only asserted absent-in-sample",
+        "fp": 0,
+        "fn": 0,
+        "tp": 0,
+        "tn": 208,
+        "goldPositives": 0
+      },
+      "coverage_accuracy_sweep": [
+        {
+          "threshold": 0,
+          "coverage": 0.4423076923076923,
+          "accuracyOnCovered": 0.9891304347826086,
+          "coveredRows": 92
+        },
+        {
+          "threshold": 1,
+          "coverage": 0.4423076923076923,
+          "accuracyOnCovered": 0.9891304347826086,
+          "coveredRows": 92
+        }
+      ]
+    },
+    {
+      "id": "potion-base-2M-labelsim-v1",
+      "family": "3b-embedding-labelname-similarity",
+      "abstain_margin": 0.15,
+      "determinism": {
+        "deterministic": true,
+        "hash": "219db8d3eb2b74a0b7f883e706d7c43ea81063f2c951b3a1e00890423e1188c5",
+        "same_arch_only": true,
+        "cross_arch_hash_match": false
+      },
+      "throughput": {
+        "rows_per_sec": 4349.015429951299,
+        "projected_100k_row_wall_clock_sec": 22.993710096153837
+      },
+      "disk_footprint": {
+        "bytes": 8256972,
+        "human": "7.87 MB"
+      },
+      "coverage": 0.11538461538461539,
+      "macro_f1": 0.07348050973050974,
+      "scored_label_count": 16,
+      "total_label_count": 20,
+      "per_class": {
+        "search_query": {
+          "tp": 8,
+          "fp": 3,
+          "fn": 44,
+          "tn": 153,
+          "goldPositives": 52,
+          "precision": 0.7272727272727273,
+          "recall": 0.15384615384615385,
+          "f1": 0.253968253968254
+        },
+        "webmail_messaging_voice": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 17,
+          "tn": 187,
+          "goldPositives": 21,
+          "precision": 1,
+          "recall": 0.19047619047619047,
+          "f1": 0.32
+        },
+        "social_media": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 6,
+          "tn": 202,
+          "goldPositives": 6,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "news_current_affairs": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 3,
+          "tn": 205,
+          "goldPositives": 3,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "reference_education_howto": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 15,
+          "tn": 193,
+          "goldPositives": 15,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "entertainment_streaming_gaming": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 40,
+          "tn": 168,
+          "goldPositives": 40,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "technology_software_dev": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 42,
+          "tn": 166,
+          "goldPositives": 42,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "shopping_marketplace": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 24,
+          "tn": 184,
+          "goldPositives": 24,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "finance_banking": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "tn": 206,
+          "goldPositives": 2,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "cryptocurrency_exchanges": {
+          "tp": 0,
+          "fp": 6,
+          "fn": 0,
+          "tn": 202,
+          "goldPositives": 0,
+          "precision": 0,
+          "recall": null,
+          "f1": null
+        },
+        "employment_job_seeking": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 208,
+          "goldPositives": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        "travel_transport_accommodation": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 20,
+          "tn": 187,
+          "goldPositives": 21,
+          "precision": 1,
+          "recall": 0.047619047619047616,
+          "f1": 0.0909090909090909
+        },
+        "health_medical": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 7,
+          "tn": 201,
+          "goldPositives": 7,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "adult_sexual_content": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 208,
+          "goldPositives": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        "gambling": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 208,
+          "goldPositives": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        "file_sharing_cloud_storage": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 24,
+          "tn": 184,
+          "goldPositives": 24,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "anonymity_privacy_tooling": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 9,
+          "tn": 199,
+          "goldPositives": 9,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "hacking_security_tooling": {
+          "tp": 1,
+          "fp": 1,
+          "fn": 1,
+          "tn": 205,
+          "goldPositives": 2,
+          "precision": 0.5,
+          "recall": 0.5,
+          "f1": 0.5
+        },
+        "ads_trackers_infrastructure": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 7,
+          "tn": 201,
+          "goldPositives": 7,
+          "precision": null,
+          "recall": 0,
+          "f1": null
+        },
+        "unclassified": {
+          "tp": 1,
+          "fp": 183,
+          "fn": 0,
+          "tn": 24,
+          "goldPositives": 1,
+          "precision": 0.005434782608695652,
+          "recall": 1,
+          "f1": 0.010810810810810811
+        }
+      },
+      "adult_confusion": {
+        "note": "no Adult-labelled rows in this fixture \u2014 FP/FN cannot be measured, only asserted absent-in-sample",
+        "fp": 0,
+        "fn": 0,
+        "tp": 0,
+        "tn": 208,
+        "goldPositives": 0
+      },
+      "coverage_accuracy_sweep": [
+        {
+          "threshold": 0.1,
+          "coverage": 0.24519230769230768,
+          "accuracyOnCovered": 0.27450980392156865,
+          "coveredRows": 51
+        },
+        {
+          "threshold": 0.15,
+          "coverage": 0.11538461538461539,
+          "accuracyOnCovered": 0.5833333333333334,
+          "coveredRows": 24
+        },
+        {
+          "threshold": 0.2,
+          "coverage": 0.057692307692307696,
+          "accuracyOnCovered": 0.75,
+          "coveredRows": 12
+        },
+        {
+          "threshold": 0.25,
+          "coverage": 0.019230769230769232,
+          "accuracyOnCovered": 1,
+          "coveredRows": 4
+        },
+        {
+          "threshold": 0.3,
+          "coverage": 0,
+          "accuracyOnCovered": null,
+          "coveredRows": 0
+        },
+        {
+          "threshold": 0.4,
+          "coverage": 0,
+          "accuracyOnCovered": null,
+          "coveredRows": 0
+        },
+        {
+          "threshold": 0.5,
+          "coverage": 0,
+          "accuracyOnCovered": null,
+          "coveredRows": 0
+        }
+      ],
+      "ort_version": "unknown",
+      "cross_arch_determinism": {
+        "method": "raw embedding SHA-256 diffed, linux/arm64 (native) vs linux/amd64 (QEMU emulated), same model artifacts, same 208-row fixture",
+        "row_embeddings_identical": 180,
+        "row_embeddings_differ": 28,
+        "row_embeddings_total": 208,
+        "pct_differ": 0.1346153846153846,
+        "note": "CORRECTS tools/classifier-bench/spike/SPIKE-REPORT.md section 6, which found bitwise cross-arch identity CONFIRMED for one fixed test string and generalised it architecturally to family 3b (no attention kernels, no int8 dequant). Measured here on the full realistic title+URL input distribution: 13.5% of raw embedding vectors are NOT bitwise-identical across arm64 vs amd64. Does not correlate simply with input length (131-char and 658-char strings both appear on both sides of the split). Root cause not isolated in this pass -- likely a data-dependent EmbeddingBag/graph-optimisation code path, not the pure-lookup-plus-mean model assumed by the spike\u2019s architectural argument.",
+        "decision_level_impact": "NONE MEASURED on this fixture -- aggregate macro_f1 and coverage are identical arm64 vs amd64 despite the bit-level divergence; the differing bits never crossed a top-1 or abstain-margin decision boundary for these 208 rows. This could differ on a larger/different fixture and is not proven to be zero risk in general."
+      }
+    }
+  ],
+  "banner": "No winner is declared in this artifact \u2014 the decision belongs to ChmaraX/forensix#126."
+}

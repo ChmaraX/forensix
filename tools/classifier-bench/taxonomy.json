@@ -1,0 +1,34 @@
+{
+  "_source": "research/137-taxonomy-proposal.md section 3, decision log section 4",
+  "_note": "20 core labels (fixed, multi-label, Unclassified mandatory) + 5 opt-in overlay labels never scored in core macro-F1.",
+  "core": [
+    { "id": "search_query", "name": "Search & Query", "special_category": false },
+    { "id": "webmail_messaging_voice", "name": "Webmail, Messaging & Voice", "special_category": false },
+    { "id": "social_media", "name": "Social media & Online communities", "special_category": false },
+    { "id": "news_current_affairs", "name": "News & Current affairs", "special_category": false },
+    { "id": "reference_education_howto", "name": "Reference, Education & How-to", "special_category": false },
+    { "id": "entertainment_streaming_gaming", "name": "Entertainment, Streaming & Gaming", "special_category": false },
+    { "id": "technology_software_dev", "name": "Technology, Software & Developer resources", "special_category": false },
+    { "id": "shopping_marketplace", "name": "Shopping & Marketplace", "special_category": false },
+    { "id": "finance_banking", "name": "Finance & Banking", "special_category": false },
+    { "id": "cryptocurrency_exchanges", "name": "Cryptocurrency & Exchanges", "special_category": false },
+    { "id": "employment_job_seeking", "name": "Employment & Job seeking", "special_category": false },
+    { "id": "travel_transport_accommodation", "name": "Travel, Transport & Accommodation", "special_category": false },
+    { "id": "health_medical", "name": "Health & Medical", "special_category": true },
+    { "id": "adult_sexual_content", "name": "Adult & Sexual content", "special_category": true },
+    { "id": "gambling", "name": "Gambling", "special_category": false },
+    { "id": "file_sharing_cloud_storage", "name": "File sharing, Cloud storage & Transfer", "special_category": false },
+    { "id": "anonymity_privacy_tooling", "name": "Anonymity & Privacy tooling", "special_category": false },
+    { "id": "hacking_security_tooling", "name": "Hacking & Security tooling", "special_category": false },
+    { "id": "ads_trackers_infrastructure", "name": "Ads, Trackers & Web infrastructure", "special_category": false },
+    { "id": "unclassified", "name": "Unclassified / insufficient signal", "special_category": false }
+  ],
+  "overlay": [
+    { "id": "drugs_controlled_substances", "name": "Drugs & Controlled substances" },
+    { "id": "alcohol_tobacco", "name": "Alcohol & Tobacco" },
+    { "id": "weapons", "name": "Weapons" },
+    { "id": "extremism_hate", "name": "Extremism & Hate" },
+    { "id": "piracy_copyright", "name": "Piracy & Copyright infringement" }
+  ],
+  "mutually_exclusive": [["unclassified", "ads_trackers_infrastructure"]]
+}
