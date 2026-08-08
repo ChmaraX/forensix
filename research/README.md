@@ -9,7 +9,8 @@ issues themselves.
 
 ## Status: UNVERIFIED
 
-Every brief here was produced **without web access**. The agents that wrote them
+Every brief here was produced **without web access**, with **one exception**
+(`127-oscrypt-portability.md`, see below). The agents that wrote them
 had no search or fetch tooling, so all content derives from model knowledge
 rather than live primary sources.
 
@@ -20,6 +21,14 @@ Each brief therefore carries:
 
 **Do not cite these as fact.** Treat them as structured hypotheses awaiting a
 verification pass.
+
+### `127-oscrypt-portability.md` — the exception
+
+That brief **was** produced with live source access and cites Chromium file paths and
+constants directly. Its Verified sections are stronger than the rest of this directory.
+Its Unverified sections are not. It also carries one recorded conflict with
+[#118](https://github.com/ChmaraX/forensix/issues/118) over ABE milestone numbers, in which
+#118 wins — the conflict is documented at the top of the file.
 
 ### `122-legal-constraints-decryption.md` — read this warning
 
@@ -36,3 +45,4 @@ consequence. It exists to frame a design discussion on
 | `119-url-classifier-options.md` | [#119](https://github.com/ChmaraX/forensix/issues/119) | Replacing the 700MB scikit-learn pickle |
 | `121-acquisition-practice.md` | [#121](https://github.com/ChmaraX/forensix/issues/121) | Forensically sound acquisition, and v2's input contract |
 | `122-legal-constraints-decryption.md` | [#122](https://github.com/ChmaraX/forensix/issues/122) | Constraints on shipping credential decryption |
+| `127-oscrypt-portability.md` | [#127](https://github.com/ChmaraX/forensix/issues/127) | Whether a committed fixture's encrypted rows decrypt off-box, per platform |
