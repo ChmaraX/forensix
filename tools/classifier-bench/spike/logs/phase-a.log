@@ -1,0 +1,10 @@
+MODEL_ID=minishlab/potion-base-2M
+ARTIFACTS_DIR=/artifacts
+  Downloading onnx/model.onnx ... 7563349 bytes  sha256=92d4a7576de7d39055924b4d9d3979c8c3b2de272010f76f99e2ac14c7b2e5a8
+  Downloading tokenizer.json ... 683666 bytes  sha256=e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50
+  Downloading tokenizer_config.json ... 1431 bytes  sha256=6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567
+  Downloading config.json ... 200 bytes  sha256=b2a89173391ca774c2d7323090a993a9a1553faa5b40eb37bb7cec6685fbea47
+  Downloading special_tokens_map.json ... 134 bytes  sha256=a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59
+
+Manifest → /artifacts/manifest.json
+DOWNLOAD_COMPLETE=true

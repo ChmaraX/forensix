@@ -1,0 +1,15 @@
+NODE_VERSION=v22.23.2
+PLATFORM=linux/arm64
+ARTIFACTS_DIR=/artifacts
+ORT_VERSION=unknown
+TOKEN_COUNT=35
+INPUT_IDS_FIRST10=[2,1196,4956,4035,1011,15804,1581,30,60,19]
+[0;93m2026-08-08 10:56:22.644582714 [W:onnxruntime:, graph_utils.cc:142 CanUpdateImplicitInputNameInSubgraphs]  Implicit input name /embedding_bag/Slice_output_0 cannot be safely updated to /embedding_bag/Concat_output_0 in one of the subgraphs.[m
+[0;93m2026-08-08 10:56:22.645074423 [W:onnxruntime:, graph_utils.cc:142 CanUpdateImplicitInputNameInSubgraphs]  Implicit input name /embedding_bag/Slice_output_0 cannot be safely updated to /embedding_bag/Concat_output_0 in one of the subgraphs.[m
+ONNX_INPUTS=input_ids,offsets
+ONNX_OUTPUTS=embeddings
+---RESULTS---
+EMBEDDING_SHA256=167d670b4369880bcffd7cb7f166a85fd86744a7dc483a617a3b07a01351a387
+WALL_TIME_MS=77.98
+EMBEDDING_DIM=64
+FIRST_5=0.17825069,0.29108611,-0.13339232,-0.19052638,0.31538561
