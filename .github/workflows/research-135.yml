@@ -1,0 +1,150 @@
+name: research-135-characterize-win-linux
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  windows-cache:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install driver deps
+        run: npm install puppeteer-core@23 @puppeteer/browsers@2
+        shell: bash
+      - name: Install Chrome for Testing
+        run: npx @puppeteer/browsers install chrome@stable --path chrome
+        shell: bash
+      - name: Locate chrome.exe
+        id: chrome
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path chrome -Recurse -Filter chrome.exe | Select-Object -First 1
+          "path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+      - name: Drive browsing session
+        shell: bash
+        run: node research/_raw/135-driver.js "${{ steps.chrome.outputs.path }}" "$PWD/udd"
+      - name: Inspect Cache_Data and Local State
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path evidence | Out-Null
+          $cacheDir = "udd\Default\Cache"
+          $cacheData = "$cacheDir\Cache_Data"
+          if (Test-Path $cacheDir) {
+            Get-ChildItem $cacheDir -Recurse | Select FullName,Length,Mode | Out-File evidence\cache_tree_listing.txt
+          } else {
+            "Cache dir not found at $cacheDir" | Out-File evidence\cache_tree_listing.txt
+          }
+          if (Test-Path $cacheData) {
+            Get-ChildItem $cacheData | Select Name,Length | Sort-Object Name | Out-File evidence\cache_data_listing.txt
+            if (Test-Path "$cacheData\index") {
+              Format-Hex "$cacheData\index" -Count 256 | Out-File evidence\index_hex.txt
+            }
+            Get-ChildItem $cacheData -Filter "data_*" | ForEach-Object {
+              Format-Hex $_.FullName -Count 512 | Out-File "evidence\$($_.Name)_hex.txt"
+            }
+            Get-ChildItem $cacheData -Filter "f_*" | Select-Object -First 5 | ForEach-Object {
+              Format-Hex $_.FullName -Count 256 | Out-File "evidence\$($_.Name)_hex.txt"
+            }
+            if (Test-Path "$cacheData\index-dir") {
+              Get-ChildItem "$cacheData\index-dir" | Select Name,Length | Out-File evidence\index_dir_listing.txt
+              Get-ChildItem "$cacheData\index-dir" -File | ForEach-Object {
+                Format-Hex $_.FullName -Count 256 | Out-File "evidence\indexdir_$($_.Name)_hex.txt"
+              }
+            }
+          } else {
+            "Cache_Data not found at $cacheData" | Out-File evidence\cache_data_listing.txt
+          }
+          Copy-Item "udd\Local State" evidence\local_state.json -ErrorAction SilentlyContinue
+          Get-Content "udd\Local State" -ErrorAction SilentlyContinue |
+            Select-String '"os_crypt"' -Context 0,3 | Out-File evidence\local_state_oscrypt_context.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-cache-evidence
+          path: evidence/**
+
+  linux-cache-and-keys:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [no-secret-service, gnome-keyring]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install driver deps
+        run: npm install puppeteer-core@23 @puppeteer/browsers@2
+      - name: Install Chrome for Testing
+        run: npx @puppeteer/browsers install chrome@stable --path chrome
+      - name: Install gnome-keyring + dbus (secret-service variant only)
+        if: matrix.mode == 'gnome-keyring'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gnome-keyring dbus-x11 libsecret-1-0 libsecret-tools
+      - name: Start dbus + unlocked gnome-keyring (secret-service variant only)
+        if: matrix.mode == 'gnome-keyring'
+        run: |
+          eval "$(dbus-launch --sh-syntax)"
+          echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_PID=$DBUS_SESSION_BUS_PID" >> "$GITHUB_ENV"
+          mkdir -p ~/.local/share/keyrings
+          printf '\n' | gnome-keyring-daemon --components=secrets,pkcs11 --unlock --daemonize
+          sleep 1
+      - name: Locate chrome binary
+        id: chrome
+        run: |
+          exe=$(find chrome -type f -name chrome | head -1)
+          echo "path=$exe" >> "$GITHUB_OUTPUT"
+      - name: Drive browsing session
+        run: node research/_raw/135-driver.js "${{ steps.chrome.outputs.path }}" "$PWD/udd"
+      - name: Inspect Cache_Data and Local State
+        run: |
+          set -x
+          mkdir -p evidence
+          cacheDir="udd/Default/Cache"
+          cacheData="$cacheDir/Cache_Data"
+          if [ -d "$cacheDir" ]; then
+            find "$cacheDir" -maxdepth 3 -exec ls -la {} \; > evidence/cache_tree_listing.txt 2>&1
+          fi
+          if [ -d "$cacheData" ]; then
+            ls -la "$cacheData" | sort > evidence/cache_data_listing.txt
+            if [ -f "$cacheData/index" ]; then
+              xxd -l 256 "$cacheData/index" > evidence/index_hex.txt
+            fi
+            for f in "$cacheData"/data_*; do
+              [ -f "$f" ] && xxd -l 512 "$f" > "evidence/$(basename "$f")_hex.txt"
+            done
+            n=0
+            for f in "$cacheData"/f_*; do
+              [ -f "$f" ] || continue
+              n=$((n+1)); [ $n -gt 5 ] && break
+              xxd -l 256 "$f" > "evidence/$(basename "$f")_hex.txt"
+            done
+          else
+            echo "Cache_Data not found at $cacheData" > evidence/cache_data_listing.txt
+          fi
+          cp "udd/Local State" evidence/local_state.json 2>/dev/null || true
+          grep -o '"os_crypt".\{0,300\}' "udd/Local State" > evidence/local_state_oscrypt_context.txt 2>/dev/null || true
+          # Cookies ciphertext prefix (v10/v11/v20) is the direct evidence of which key
+          # provider handled encryption on this run.
+          python3 - <<'PY' > evidence/cookies_prefix.txt 2>&1
+import sqlite3, glob, binascii
+for path in glob.glob('udd/Default/Cookies') + glob.glob('udd/*/Cookies'):
+    try:
+        con = sqlite3.connect(path)
+        cur = con.cursor()
+        cur.execute("select host_key, name, encrypted_value from cookies")
+        for host, name, blob in cur.fetchall():
+            prefix = bytes(blob[:3]) if blob else b''
+            print(path, host, name, prefix, binascii.hexlify(bytes(blob[:16])) if blob else None)
+    except Exception as e:
+        print('ERR', path, e)
+PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-cache-keys-evidence-${{ matrix.mode }}
+          path: evidence/**
