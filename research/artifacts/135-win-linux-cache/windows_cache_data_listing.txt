@@ -1,0 +1,11 @@
+
+Name            Length
+----            ------
+index               12
+sqldb0          745472
+sqldb0-journal       0
+sqldb1         1011712
+sqldb1-journal       0
+sqldb2         2002944
+sqldb2-journal       0
+

@@ -1,0 +1,15 @@
+
+FullName                                                             Length  Mode
+--------                                                             ------  ----
+D:\a\forensix\forensix\udd\Default\Cache\Cache_Data                          d----
+D:\a\forensix\forensix\udd\Default\Cache\No_Vary_Search                      d----
+D:\a\forensix\forensix\udd\Default\Cache\Cache_Data\index            12      -a---
+D:\a\forensix\forensix\udd\Default\Cache\Cache_Data\sqldb0           745472  -a---
+D:\a\forensix\forensix\udd\Default\Cache\Cache_Data\sqldb0-journal   0       -a---
+D:\a\forensix\forensix\udd\Default\Cache\Cache_Data\sqldb1           1011712 -a---
+D:\a\forensix\forensix\udd\Default\Cache\Cache_Data\sqldb1-journal   0       -a---
+D:\a\forensix\forensix\udd\Default\Cache\Cache_Data\sqldb2           2002944 -a---
+D:\a\forensix\forensix\udd\Default\Cache\Cache_Data\sqldb2-journal   0       -a---
+D:\a\forensix\forensix\udd\Default\Cache\No_Vary_Search\journal.baj  4       -a---
+D:\a\forensix\forensix\udd\Default\Cache\No_Vary_Search\snapshot.baf 20      -a---
+

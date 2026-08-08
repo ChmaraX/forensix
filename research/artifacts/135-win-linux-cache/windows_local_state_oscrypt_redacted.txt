@@ -1,0 +1,6 @@
+os_crypt.encrypted_key present: true
+base64-decoded prefix (5 bytes): DPAPI
+base64-decoded total length: 149 bytes
+(key material itself redacted per #127 "no key material is ever committed" policy;
+ it is DPAPI-wrapped to the generating CI runner's machine/user account and is not
+ portable or reusable off that runner)
