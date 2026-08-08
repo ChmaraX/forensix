@@ -1,0 +1,4658 @@
+{
+  "candidate_id": "ut1-domain-list-v2-strict",
+  "arch": "arm64",
+  "run_tag": "main",
+  "decision_hash": "0ef3f072d978f1432a183fa184313555f2b829aa08e206a6e93d0a03d499f653",
+  "raw_score_hash": "7d417bc1cd6f36e1906a34d2b9bedbce7dd2f772f0691537d09166680f6bd7cd",
+  "rows": [
+    {
+      "row_id": "row-0000-1cc3804dccd8",
+      "title": "Inbox - e.flatt610@gmail.com - Gmail",
+      "url": "https://mail.google.com/mail/",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0001-64710ab5914b",
+      "title": "Inbox - e.flatt610@gmail.com - Gmail",
+      "url": "https://accounts.google.com/ServiceLogin?service=mail&passive=true&rm=false&continue=https://mail.google.com/mail/&ss=1&scc=1&ltmpl=default&ltmplcache=2&emr=1&osid=1#",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0002-325d78b584d1",
+      "title": "Inbox - e.flatt610@gmail.com - Gmail",
+      "url": "https://www.google.com/gmail/",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0003-9278d2c5796a",
+      "title": "Inbox - e.flatt610@gmail.com - Gmail",
+      "url": "https://mail.google.com/mail/?pli=1#",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0004-0016ab83bd71",
+      "title": "Inbox - e.flatt610@gmail.com - Gmail",
+      "url": "http://gmail.com/",
+      "etld1": "gmail.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0005-15ad4436f160",
+      "title": "Inbox - e.flatt610@gmail.com - Gmail",
+      "url": "https://mail.google.com/mail/u/0/#",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0006-cca6fd7fdcf0",
+      "title": "Inbox - e.flatt610@gmail.com - Gmail",
+      "url": "https://mail.google.com/mail/u/0/?pli=1#",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0007-fd32baabd787",
+      "title": "Inbox - e.flatt610@gmail.com - Gmail",
+      "url": "https://mail.google.com/accounts/SetOSID?authuser=0&continue=https%3A%2F%2Fmail.google.com%2Fmail%2F%3Fpli%3D1&osidt=ALWU2cuAG3gyqVIytezojBjPTZIIh3RiJHzR0RaXgN3FCHed7mdyzJJZHceH9opOMPNMd6Seprq-oZcduyE5DSBHTuUnJpvk54JLumdy3wdWoL4bgJ69sKHENFe8bsjF4Vtgjr1cKpMwsZxUlIeObERQHr3fSGe6EG89u0_O4PPYz0DmkHKLXbjKDVWmOJjA6BPE9tuQFkxyqeDIsHbW7YA16Do38XHSSA#",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0008-707070b1db76",
+      "title": "Chromebooks Come with Perks - Google Chromebooks",
+      "url": "https://www.google.com/chromebook/perks/",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0009-1aa3de8f5efc",
+      "title": "Chromebooks Come with Perks - Google Chromebooks",
+      "url": "https://www.google.com/chrome/devices/goodies.html",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0010-ee45caea0b9f",
+      "title": "Chromebooks Come with Perks - Google Chromebooks",
+      "url": "https://www.google.com/chromebook/offers/",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0011-9be80fbac368",
+      "title": "",
+      "url": "chrome-extension://aohghmighlieiainnegkcijnfilokake/main.html",
+      "etld1": "aohghmighlieiainnegkcijnfilokake",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "ads_trackers_infrastructure"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0012-a7fecdf0b657",
+      "title": "Google Docs",
+      "url": "https://docs.google.com/document?usp=chrome_app&authuser=0",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0013-bd5f11c978a3",
+      "title": "Google Docs",
+      "url": "https://docs.google.com/document/?usp=chrome_app&authuser=0",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0014-48af1ac9ccce",
+      "title": "Google Docs",
+      "url": "https://docs.google.com/document/u/0/?usp=chrome_app&authuser=0",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0015-0bb16cdf719a",
+      "title": "Google Docs",
+      "url": "https://docs.google.com/document/u/0/?usp=chrome_app",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0016-33cd06964d34",
+      "title": "Google Docs",
+      "url": "https://docs.google.com/document/u/0/",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0017-8f25800548ee",
+      "title": "Untitled document - Google Docs",
+      "url": "https://docs.google.com/document/d/1-NgLoP0NLVqyR8GE5KMQeOIQyDrlufaWRPaTVUbPshA/edit?ouid=114419430591931904353&usp=docs_home&ths=true",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0018-75a892a11081",
+      "title": "Untitled document - Google Docs",
+      "url": "https://docs.google.com/document/d/1-NgLoP0NLVqyR8GE5KMQeOIQyDrlufaWRPaTVUbPshA/edit",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0019-3c4e3444e2dd",
+      "title": "Untitled document - Google Docs",
+      "url": "https://docs.google.com/document/d/1-NgLoP0NLVqyR8GE5KMQeOIQyDrlufaWRPaTVUbPshA/edit#heading=h.n98z7r1t3ik4",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0020-9aa699ce51db",
+      "title": "Untitled document - Google Docs",
+      "url": "https://docs.google.com/document/d/1-NgLoP0NLVqyR8GE5KMQeOIQyDrlufaWRPaTVUbPshA/edit#",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0021-97ea528d4de7",
+      "title": "chick fil a receipes - Google Search",
+      "url": "https://www.google.com/search?q=chick+fil+a+receipes&rlz=1CADMEA_enUS942&oq=chick+fil+a+receipes&aqs=chrome..69i57j0l5.4569j1j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "reference_education_howto"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0022-830be4ecb6ff",
+      "title": "Copycat Chick-fil-A Sandwich - Damn Delicious",
+      "url": "https://damndelicious.net/2015/05/16/copycat-chick-fil-a-sandwich/",
+      "etld1": "damndelicious.net",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "reference_education_howto"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0023-eeb50fb98d19",
+      "title": "Untitled document - Google Docs",
+      "url": "https://docs.google.com/document/d/1-NgLoP0NLVqyR8GE5KMQeOIQyDrlufaWRPaTVUbPshA/edit#heading=h.4bepug260ast",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0024-13f500e94294",
+      "title": "Untitled document - Google Docs",
+      "url": "https://docs.google.com/document/d/1-NgLoP0NLVqyR8GE5KMQeOIQyDrlufaWRPaTVUbPshA/edit#heading=h.zeye4lgtfqwp",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0025-e30b33546b18",
+      "title": "Untitled document - Google Docs",
+      "url": "https://docs.google.com/document/d/1-NgLoP0NLVqyR8GE5KMQeOIQyDrlufaWRPaTVUbPshA/edit#heading=h.v0dblez55dbr",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0026-0ec4ab5e6808",
+      "title": "Untitled document - Google Docs",
+      "url": "https://docs.google.com/document/d/1-NgLoP0NLVqyR8GE5KMQeOIQyDrlufaWRPaTVUbPshA/edit#heading=h.725ff461aqou",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0027-e1a2aae25021",
+      "title": "Untitled document - Google Docs",
+      "url": "https://docs.google.com/document/d/1-NgLoP0NLVqyR8GE5KMQeOIQyDrlufaWRPaTVUbPshA/edit#heading=h.owhe1cvedjw1",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0028-1d529364ec45",
+      "title": "Chick-fil-A Crispy Chicken Sandwich Copycat",
+      "url": "https://tastesbetterfromscratch.com/chick-fil-a-crispy-chicken-sandwhich-copycat/",
+      "etld1": "tastesbetterfromscratch.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "reference_education_howto"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0029-b74d3016a81b",
+      "title": "Untitled document - Google Docs",
+      "url": "https://docs.google.com/document/d/1-NgLoP0NLVqyR8GE5KMQeOIQyDrlufaWRPaTVUbPshA/edit#heading=h.bol649azk2xu",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0030-97b5c50f17e4",
+      "title": "chick fil a recipes nuggets - Google Search",
+      "url": "https://www.google.com/search?rlz=1CADMEA_enUS942&sxsrf=ALeKk028ca0FlAafh1GV9bu6EPnuCzbipA%3A1614209777274&ei=8eI2YOGgEMu3gge46qCQCg&q=chick+fil+a+receipes+nuggets&oq=chick+fil+a+receipes+nuggets&gs_lcp=Cgdnd3Mtd2l6EAMyBAgAEA0yBggAEBYQHjIGCAAQFhAeMgYIABAWEB4yBggAEBYQHjIGCAAQFhAeMgYIABAWEB4yBggAEBYQHjIGCAAQFhAeMgYIABAWEB46BwgAEEcQsANQjntY94QBYPSGAWgBcAF4AIABlgKIAcgPkgEFMC4zLjaYAQCgAQGqAQdnd3Mtd2l6yAEIwAEB&sclient=gws-wiz&ved=0ahUKEwih3feC2IPvAhXLm-AKHTg1CKIQ4dUDCA0&uact=5",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "reference_education_howto"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0031-152e04a78152",
+      "title": "Copycat Chick-fil-A Nuggets - Damn Delicious",
+      "url": "https://damndelicious.net/2014/07/18/copycat-chick-fil-nuggets/",
+      "etld1": "damndelicious.net",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "reference_education_howto"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0032-be66f7e1db64",
+      "title": "Chick-Fil-A Chicken Nuggets with Honey Mustard Dipping Sauce Copycat Recipe | Gimme Delicious",
+      "url": "https://gimmedelicious.com/chick-fil-a-nuggets-copy-cat-recipe-with-honey-mustard-dipping-sauce/",
+      "etld1": "gimmedelicious.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "reference_education_howto"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0033-02d251c9c062",
+      "title": "vineyard vines stock - Google Search",
+      "url": "https://www.google.com/search?q=vineyard+vines+stock&rlz=1CADMEA_enUS942&oq=vineyard+vines+stock&aqs=chrome.0.0l6.36028j1j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "finance_banking"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0034-bd6d208e6efe",
+      "title": "vineyard vines stock price - Google Search",
+      "url": "https://www.google.com/search?rlz=1CADMEA_enUS942&sxsrf=ALeKk02Bwq54C8lAwIQ9l8FBxzMSe0raLw%3A1614210520914&ei=2OU2YLunN_HH_QaVmrjICw&q=vineyard+vines+stock+price&oq=vineyard+vines+stock+price&gs_lcp=Cgdnd3Mtd2l6EAMyAggAMgUIABCGAzIFCAAQhgM6BwgAELADEEM6DQguEMcBEKMCELADEEM6BQgAELADOgkIABCwAxAKEB46BggAEBYQHlD2L1iAOWD3O2gBcAB4AIAB_QKIAeMNkgEHMC4yLjQuMZgBAKABAaoBB2d3cy13aXrIAQrAAQE&sclient=gws-wiz&ved=0ahUKEwi788Pl2oPvAhXxY98KHRUNDrkQ4dUDCA0&uact=5",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "finance_banking"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0035-6d1778579758",
+      "title": "chick fil a stock price - Google Search",
+      "url": "https://www.google.com/search?rlz=1CADMEA_enUS942&sxsrf=ALeKk02JVgYGeqhZUutRMQdaAmlrPJQFvQ%3A1614210530132&ei=4uU2YNSwB6ma_Qb_oKu4Bw&q=chick+fil+a+stick+price&oq=chick+fil+a+stick+price&gs_lcp=Cgdnd3Mtd2l6EAMyBAgAEA0yBAgAEA0yBggAEBYQHjIGCAAQFhAeMgUIABCGAzIFCAAQhgMyBQgAEIYDOgQIIxAnOgUIABCRAjoICC4QxwEQowI6CAgAELEDEIMBOgsILhCxAxDHARCjAjoECAAQQzoECC4QQzoHCAAQyQMQQzoHCCMQsQIQJzoKCC4QxwEQrwEQQzoKCAAQhwIQsQMQFDoFCAAQsQM6BQgAEMkDOgUIABCSAzoCCAA6BQguELEDOggIABCxAxCRAjoECAAQCjoHCAAQhwIQFDoHCAAQsQMQCjoHCAAQyQMQCjoKCC4QxwEQrwEQCjoGCAAQDRAeOggIABAIEA0QHlDBeljvuQFgla8CaAJwAHgBgAGwAogBzzCSAQgwLjEuMjMuMZgBAKABAaoBB2d3cy13aXrAAQE&sclient=gws-wiz&ved=0ahUKEwjUqfbp2oPvAhUpTd8KHX_QCncQ4dUDCA0&uact=5",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "reference_education_howto"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0036-c075bcbb607e",
+      "title": "lacrosse news - Google Search",
+      "url": "https://www.google.com/search?rlz=1CADMEA_enUS942&sxsrf=ALeKk028HqFIGOjYL1Nd6XVnsvB47C2nLw%3A1614210570067&ei=CuY2YN7SA4_u_Qae6q-YCA&q=lacrosse+news&oq=lacrosse+news&gs_lcp=Cgdnd3Mtd2l6EAMyBAgjECcyBAgAEAoyAggAMgIIADIICC4QxwEQrwEyCAguEMcBEK8BMgIIADICCAAyAggAOgUIABCRAjoLCC4QsQMQxwEQowI6CAguEMcBEKMCOggILhCxAxCDAToKCC4QsQMQgwEQQzoECAAQQzoHCAAQsQMQQzoNCAAQQxCLAxClAxCoAzoNCAAQQxCLAxCoAxClAzoNCAAQhwIQsQMQgwEQFDoICAAQsQMQgwE6BwgAEMkDEEM6BQgAELEDOgcILhCxAxBDOgUIABDJAzoKCC4QxwEQrwEQCjoCCC5Qmq8BWNfEAWDO2QFoAnABeACAAZ0CiAGyHZIBBjEuMi4xM5gBAKABAaoBB2d3cy13aXq4AQLAAQE&sclient=gws-wiz&ved=0ahUKEwje__v82oPvAhUPd98KHR71C4MQ4dUDCA0&uact=5",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0037-22e3c7334eab",
+      "title": "lacrosse news - Google Search",
+      "url": "https://www.google.com/search?q=lacrosse+news&rlz=1CADMEA_enUS942&sxsrf=ALeKk01glXNmyhZnL8EernJbcpHYqBtGrA:1614210599150&source=lnms&tbm=nws&sa=X&ved=2ahUKEwjFjOuK24PvAhVkc98KHTc_C1QQ_AUoAXoECAkQAw&biw=1366&bih=641",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0038-701e43bbb888",
+      "title": "Times Union Center gets National Lacrosse League franchise",
+      "url": "https://www.timesunion.com/sports/article/Times-Union-Center-gets-National-Lacrosse-League-15968368.php",
+      "etld1": "timesunion.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "news_current_affairs"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0039-54329e19e3c8",
+      "title": "Chrome Web Store - Extensions",
+      "url": "https://chrome.google.com/webstore?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0040-373769d9bb44",
+      "title": "Chrome Web Store - Extensions",
+      "url": "https://chrome.google.com/webstore/category/extensions?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0041-3a4302ed72ab",
+      "title": "Dark Mode - Chrome Web Store",
+      "url": "https://chrome.google.com/webstore/detail/dark-mode/dmghijelimhndkbmpgbldicpogfkceaj?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0042-c535fdcbd8ac",
+      "title": "Chrome Web Store - Extensions",
+      "url": "https://chrome.google.com/webstore/detail/dark-mode/dmghijelimhndkbmpgbldicpogfkceaj/related?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0043-2736a57c6eb6",
+      "title": "Dark Mode :: MyBrowserAddon",
+      "url": "https://mybrowseraddon.com/dark-mode.html?v=0.4.1&type=install",
+      "etld1": "mybrowseraddon.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0044-04c7d85cafa1",
+      "title": "Dark Reader - Chrome Web Store",
+      "url": "https://chrome.google.com/webstore/detail/dark-reader/eimadpbcbfnmbkopoojfekhnkhdbieeh?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0045-31051dcfa0d3",
+      "title": "Dark Reader - Chrome Web Store",
+      "url": "https://chrome.google.com/webstore/detail/dark-reader/eimadpbcbfnmbkopoojfekhnkhdbieeh/related?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0046-97dfa777fee2",
+      "title": "Help – Dark Reader",
+      "url": "https://darkreader.org/help/en/",
+      "etld1": "darkreader.org",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0047-75f36eb13633",
+      "title": "Chrome Web Store - Themes",
+      "url": "https://chrome.google.com/webstore/category/themes?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0048-e4b745c0b9db",
+      "title": "Chrome Web Store - Extensions",
+      "url": "https://chrome.google.com/webstore/detail/lamborghini-cherry/dkkklbgbfaeockpgbkleblklmcjdbnbj?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0049-6d97b7848d3e",
+      "title": "Tabby Cat - Chrome Web Store",
+      "url": "https://chrome.google.com/webstore/detail/tabby-cat/mefhakmgclhhfbdadeojlkbllmecialg?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0050-3b18540a2057",
+      "title": "Chrome Web Store - Extensions",
+      "url": "https://chrome.google.com/webstore/detail/tabby-cat/mefhakmgclhhfbdadeojlkbllmecialg/related?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0051-85ea1ad4460d",
+      "title": "Facebook",
+      "url": "https://www.facebook.com/",
+      "etld1": "facebook.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "social_media"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0052-cc469029640c",
+      "title": "Facebook",
+      "url": "https://www.facebook.com/login/?privacy_mutation_token=eyJ0eXBlIjowLCJjcmVhdGlvbl90aW1lIjoxNjE0NDkzOTA1LCJjYWxsc2l0ZV9pZCI6MzgxMjI5MDc5NTc1OTQ2fQ%3D%3D",
+      "etld1": "facebook.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "social_media"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0053-610d60eb5f57",
+      "title": "Facebook",
+      "url": "https://www.facebook.com/?sk=welcome",
+      "etld1": "facebook.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "social_media"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0054-8161b5432e6d",
+      "title": "Facebook",
+      "url": "https://www.facebook.com/thedodosite/videos/141127137866763",
+      "etld1": "facebook.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "social_media"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0055-808ada2e15ed",
+      "title": "Chrome Web Store - hide it",
+      "url": "https://chrome.google.com/webstore/search/hide%20it%20pro?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev",
+        "anonymity_privacy_tooling"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0056-7d1f8882bff8",
+      "title": "chrome.google.com",
+      "url": "https://chrome.google.com/webstore/search/hide%20it%20?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev",
+        "anonymity_privacy_tooling"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0057-4a6dae77e8bb",
+      "title": "chrome webstore - Google Search",
+      "url": "https://www.google.com/search?q=chrome+webstore&rlz=1CADMEA_enUS942&oq=chrome+webstore&aqs=chrome..69i57j0l2j69i60l3.3499j1j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0058-42bece66edc9",
+      "title": "Chrome Web Store - Extensions",
+      "url": "https://chrome.google.com/webstore",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0059-dd0880cf4eec",
+      "title": "Chrome Web Store - Extensions",
+      "url": "https://chrome.google.com/webstore/category/extensions",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0060-f63212101145",
+      "title": "Chrome Web Store - proton mail",
+      "url": "https://chrome.google.com/webstore/search/signal",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev",
+        "anonymity_privacy_tooling"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0061-bcb2d40cbfca",
+      "title": "Chrome Web Store - proton mail",
+      "url": "https://chrome.google.com/webstore/search/proton%20mail",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev",
+        "anonymity_privacy_tooling"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0062-4029522d314d",
+      "title": "Secure email: ProtonMail is free encrypted email.",
+      "url": "http://protonmail.com/",
+      "etld1": "protonmail.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0063-8c4db67ce235",
+      "title": "Secure email: ProtonMail is free encrypted email.",
+      "url": "https://protonmail.com/",
+      "etld1": "protonmail.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0064-1041122afb52",
+      "title": "Login | ProtonMail",
+      "url": "https://mail.protonmail.com/login",
+      "etld1": "protonmail.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0065-ae6f298a7158",
+      "title": "Inbox | e.flatt610@protonmail.com | ProtonMail",
+      "url": "https://mail.protonmail.com/inbox",
+      "etld1": "protonmail.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0066-7a8763bf1881",
+      "title": "(1) Inbox | e.flatt610@protonmail.com | ProtonMail",
+      "url": "https://mail.protonmail.com/inbox/X5jRvLc0plaYOss3mkp_uyoAMnNZWpyx3I6stpJdDkN9aZGZHzKIXNMh3UwRS1HT2-H-o9o1_CytIP0k9PpoYA==",
+      "etld1": "protonmail.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0067-95a3dc1117d6",
+      "title": "(1) Inbox | e.flatt610@protonmail.com | ProtonMail",
+      "url": "https://mail.protonmail.com/inbox/Z3mk-SFT6hJGi0BZoa3o7eFh5IEcOais1HBCMq3embz_-9g2nTcEtzX2Cs-kUzewJBATSoovXiTzW2X2lwjIgQ==",
+      "etld1": "protonmail.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0068-4eea5eebe5c5",
+      "title": "(1) Inbox | e.flatt610@protonmail.com | ProtonMail",
+      "url": "https://mail.protonmail.com/inbox/KIVDGQbCfgzuvYsUa_i0mGOfWZtVeaeOgnVyEuRGGVxTUtYOPXQ4ZS-Zndh05CSQTFFW3ruL4-NKTT3yB_qcnA==",
+      "etld1": "protonmail.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0069-aa72bdda4457",
+      "title": "Login - ProtonMail",
+      "url": "https://mail.protonmail.com/inbox/sQ_CieLJMZnVNLl504R3XHIPZipl41Ub81w1L1TwfVXFLc73uLY-A_aoWjNdJvePfx6_gF00xtrD7ib71KALwA==",
+      "etld1": "protonmail.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0070-5b3d441df199",
+      "title": "google sheets - Google Search",
+      "url": "https://www.google.com/search?q=google+sheets&rlz=1CADMEA_enUS942&oq=google+sheets&aqs=chrome..69i57j0l5.2479j0j4&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0071-32989296d388",
+      "title": "Google Sheets: Free Online Spreadsheets for Personal Use",
+      "url": "https://www.google.com/sheets/about/",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0072-d8f8f0c18427",
+      "title": "Google Sheets",
+      "url": "https://docs.google.com/spreadsheets/?usp=mkt_sheets",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0073-fd9dc3627b32",
+      "title": "Google Sheets",
+      "url": "https://docs.google.com/spreadsheets/u/0/?usp=mkt_sheets",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0074-ebc8f870b7c4",
+      "title": "Google Sheets",
+      "url": "https://docs.google.com/spreadsheets/u/0/",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0075-08ed90debe66",
+      "title": "To-Purchase - Google Sheets",
+      "url": "https://docs.google.com/spreadsheets/d/1uAv_iMnp0xt8Cn_NJqbk8zA1SPFjL3ddWWhRy8K0Gsc/edit?ouid=114419430591931904353&usp=sheets_home&ths=true",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0076-4a89809331bf",
+      "title": "To-Purchase - Google Sheets",
+      "url": "https://docs.google.com/spreadsheets/d/1uAv_iMnp0xt8Cn_NJqbk8zA1SPFjL3ddWWhRy8K0Gsc/edit",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0077-00da5a830e17",
+      "title": "To-Purchase - Google Drive",
+      "url": "https://docs.google.com/spreadsheets/d/1uAv_iMnp0xt8Cn_NJqbk8zA1SPFjL3ddWWhRy8K0Gsc/edit#gid=0",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0078-6a7309288c45",
+      "title": "Amazon.com: Online Shopping for Electronics, Apparel, Computers, Books, DVDs & more",
+      "url": "https://www.amazon.com/",
+      "etld1": "amazon.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0079-ccc947dbdcf4",
+      "title": "Amazon.com : lacrosse",
+      "url": "https://www.amazon.com/s/ref=nb_sb_noss_1?url=search-alias%3Daps&field-keywords=lacrosse",
+      "etld1": "amazon.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0080-355b45c96353",
+      "title": "Amazon.com : lacrosse",
+      "url": "https://www.amazon.com/s?k=lacrosse&ref=nb_sb_noss_1",
+      "etld1": "amazon.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0081-5fcdcbb20027",
+      "title": "Amazon.com : SWAX LAX Lacrosse Training Ball - Same Size & Weight as Regulation Lacrosse Ball but Soft - Indoor Outdoor Practice Ball with Less Bounce & Reduced Rebounds (One Orange) : Sports & Outdoors",
+      "url": "https://www.amazon.com/SWAX-LAX-Lacrosse-Training-Regulation/dp/B01ENTF6KW/ref=sxin_11_ac_d_rm?ac_md=0-0-bGFjcm9zc2U%3D-ac_d_rm&cv_ct_cx=lacrosse&dchild=1&keywords=lacrosse&pd_rd_i=B01ENTF6KW&pd_rd_r=d7ff9e58-8aac-4b47-a50b-b5cc06692460&pd_rd_w=ybG9Y&pd_rd_wg=lZVmT&pf_rd_p=5ceb2a76-ceaa-45a9-982b-6fa61a20d67b&pf_rd_r=6FSN4G7M4J0RTVC9C74B&psc=1&qid=1614578682&sr=1-1-12d4272d-8adb-4121-8624-135149aa9081",
+      "etld1": "amazon.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0082-e1ee51b3fe60",
+      "title": "- Google Drive",
+      "url": "https://docs.google.com/spreadsheets/offline/edit?ouid=ubfb8b479888e85b6&forcehl=1&hl=en&jobset=prod&ftrack=1#id%3D1uAv_iMnp0xt8Cn_NJqbk8zA1SPFjL3ddWWhRy8K0Gsc%26cm%3Dd%26new%3Dfalse%26ouri%3Dhttps%253A%252F%252Fdocs.google.com%252Fspreadsheets%252Fd%252F1uAv_iMnp0xt8Cn_NJqbk8zA1SPFjL3ddWWhRy8K0Gsc%252Fedit%2523gid%253D0%26dl%3Den_US%26csr%3D1",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0083-e82c49a14db0",
+      "title": "how secure is wickr - Google Search",
+      "url": "https://www.google.com/search?q=how+secure+is+wickr&rlz=1CADMEA_enUS942&oq=how+secure+is+wickr&aqs=chrome..69i57.2797j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "anonymity_privacy_tooling"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0084-2e92bd6ea008",
+      "title": "Wickr Security",
+      "url": "https://wickr.com/security/",
+      "etld1": "wickr.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "anonymity_privacy_tooling"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0085-bc9c49cac350",
+      "title": "Microsoft Word - Wickr Customer Security Promises March 2018.docx",
+      "url": "https://wickr.com/wp-content/uploads/2020/11/Wickr-Customer-Security-Promises-November-2020.pdf",
+      "etld1": "wickr.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "anonymity_privacy_tooling"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0086-75fa02f53d81",
+      "title": "vermont covid restrictions - Google Search",
+      "url": "https://www.google.com/search?q=vermont+covid+restrictions&rlz=1CADMEA_enUS942&oq=vermont+covid+rest&aqs=chrome.0.0l6.18974j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0087-c1fda9959345",
+      "title": "Travel & Quarantine | Vermont Department of Health",
+      "url": "https://www.healthvermont.gov/covid-19/travel-quarantine",
+      "etld1": "healthvermont.gov",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation",
+        "health_medical"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0088-1c1f9084f999",
+      "title": "Vermonters Traveling Out of State | Vermont Department of Health",
+      "url": "https://www.healthvermont.gov/covid-19/travel-quarantine/vermonters-traveling-out-state",
+      "etld1": "healthvermont.gov",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation",
+        "health_medical"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0089-bf0978c2be2b",
+      "title": "what is considered non essential travel - Google Search",
+      "url": "https://www.google.com/search?q=what+is+considered+non+essential+travel&rlz=1CADMEA_enUS942&oq=what+is+considered+non+essential+travel&aqs=chrome..69i57j0l5.24284j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "travel_transport_accommodation",
+        "health_medical"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0090-4a4effd02bc1",
+      "title": "What is considered essential travel? | Million Mile Secrets",
+      "url": "https://millionmilesecrets.com/guides/what-is-essential-travel/",
+      "etld1": "millionmilesecrets.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation",
+        "health_medical"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0091-24f55b361ec4",
+      "title": "is travelling to get chicken esstential travel - Google Search",
+      "url": "https://www.google.com/search?q=is+travelling+to+get+chicken+esstential+travel&rlz=1CADMEA_enUS942&oq=is+travelling+to+get+chicken+esstential+travel&aqs=chrome..69i57.31087j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "travel_transport_accommodation",
+        "health_medical"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0092-86b13cf4de19",
+      "title": "is travelling to get food esstential travel - Google Search",
+      "url": "https://www.google.com/search?rlz=1CADMEA_enUS942&sxsrf=ALeKk03G4gfYnQYeckxdVUjkyYwVaTvnPQ%3A1614845375992&ei=v5VAYIuKPIy2tAanvqygCg&q=is+travelling+to+get+food+esstential+travel&oq=is+travelling+to+get+food+esstential+travel&gs_lcp=Cgdnd3Mtd2l6EAMyCgghEBYQChAdEB46BwgAEEcQsAM6BAghEApQuSFYiyVgjnFoAXABeAGAAckDiAHaDJIBCTAuMS40LjAuMZgBAKABAaoBB2d3cy13aXrIAQjAAQE&sclient=gws-wiz&ved=0ahUKEwjL5YLol5bvAhUMG80KHScfC6QQ4dUDCA0&uact=5",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "travel_transport_accommodation",
+        "health_medical"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0093-042653474e7e",
+      "title": "What counts as essential travel during the Covid-19 lockdown? - Full Fact",
+      "url": "https://fullfact.org/health/coronavirus-essential-travel/",
+      "etld1": "fullfact.org",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation",
+        "health_medical"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0094-aadc1029e99e",
+      "title": "maps - Google Search",
+      "url": "https://www.google.com/search?q=maps&rlz=1CADMEA_enUS942&oq=maps&aqs=chrome..69i57j0l5.1079j1j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0095-f50b1efeca6f",
+      "title": "Google Maps",
+      "url": "https://www.google.com/maps",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0096-168d4b1a382e",
+      "title": "chick fil a near me - Google Maps",
+      "url": "https://www.google.com/maps/@44.4727296,-73.2004352,14z",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0097-c23a7d297c1a",
+      "title": "Chick-fil-A - Google Maps",
+      "url": "https://www.google.com/maps/search/chick+fil+a+near+me/@44.4727296,-73.2004352,14z",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0098-0c23c042a0d2",
+      "title": "Chick-fil-A - Google Maps",
+      "url": "https://www.google.com/maps/place/Chick-fil-A/@44.6970997,-73.48948,17z/data=!3m1!4b1!4m5!3m4!1s0x4cca4738fe36755b:0x41c2a04f9e4e5e38!8m2!3d44.6970959!4d-73.4872913",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0099-a5d376b8f8a5",
+      "title": "Chick-fil-A - Google Maps",
+      "url": "https://www.google.com/maps/place/Chick-fil-A/@44.6970997,-73.5573291,12z/data=!4m5!3m4!1s0x4cca4738fe36755b:0x41c2a04f9e4e5e38!8m2!3d44.6970959!4d-73.4872913",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0100-a3ce72dad919",
+      "title": "Google Maps",
+      "url": "https://www.google.com/maps/place/Chick-fil-A/@44.6924626,-73.5384464,12z/data=!4m5!3m4!1s0x4cca4738fe36755b:0x41c2a04f9e4e5e38!8m2!3d44.6970959!4d-73.4872913",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0101-ebf85ab88bf3",
+      "title": "Google Maps",
+      "url": "https://www.google.com/maps/dir//Chick-fil-A,+400+NY-3,+Plattsburgh,+NY+12901/@44.6924626,-73.5384464,12z/data=!4m15!1m6!3m5!1s0x4cca4738fe36755b:0x41c2a04f9e4e5e38!2sChick-fil-A!8m2!3d44.6970959!4d-73.4872913!4m7!1m0!1m5!1m1!1s0x4cca4738fe36755b:0x41c2a04f9e4e5e38!2m2!1d-73.4872913!2d44.6970959",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0102-94939dd71844",
+      "title": "Google Maps",
+      "url": "https://www.google.com/maps/dir//Chick-fil-A,+400+NY-3,+Plattsburgh,+NY+12901/@44.6924626,-73.5384464,12z/data=!4m8!4m7!1m0!1m5!1m1!1s0x4cca4738fe36755b:0x41c2a04f9e4e5e38!2m2!1d-73.4872913!2d44.6970959",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0103-0a41a212bd5f",
+      "title": "Burlington, VT to Chick-fil-A - Google Maps",
+      "url": "https://www.google.com/maps/dir/Burlington,+VT/Chick-fil-A,+400+NY-3,+Plattsburgh,+NY+12901/@44.6924626,-73.5384464,12z/data=!4m10!4m9!1m2!1m1!1s0x4cca7a55b69b55e5:0xc35fe519720e498e!1m5!1m1!1s0x4cca4738fe36755b:0x41c2a04f9e4e5e38!2m2!1d-73.4872913!2d44.6970959",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0104-0e5b0822bbf9",
+      "title": "Burlington, VT to Chick-fil-A - Google Maps",
+      "url": "https://www.google.com/maps/dir/Burlington,+VT/Chick-fil-A,+400+NY-3,+Plattsburgh,+NY+12901/@44.6924626,-73.5384464,12z/data=!4m13!4m12!1m5!1m1!1s0x4cca7a55b69b55e5:0xc35fe519720e498e!2m2!1d-73.212072!2d44.4758825!1m5!1m1!1s0x4cca4738fe36755b:0x41c2a04f9e4e5e38!2m2!1d-73.4872913!2d44.6970959",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0105-9172603d3cc3",
+      "title": "Burlington, VT to Chick-fil-A - Google Maps",
+      "url": "https://www.google.com/maps/dir/Burlington,+VT/Chick-fil-A,+400+NY-3,+Plattsburgh,+NY+12901/@44.6494445,-73.8429251,9z/data=!3m1!4b1!4m13!4m12!1m5!1m1!1s0x4cca7a55b69b55e5:0xc35fe519720e498e!2m2!1d-73.212072!2d44.4758825!1m5!1m1!1s0x4cca4738fe36755b:0x41c2a04f9e4e5e38!2m2!1d-73.4872913!2d44.6970959",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0106-a85293f85255",
+      "title": "how to screenshot in chromebook - Google Search",
+      "url": "https://www.google.com/search?q=how+to+screenshot+in+chromebook&rlz=1CADMEA_enUS942&oq=how+to+screenshot+in+chromebook&aqs=chrome..69i57j0l5.5710j1j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0107-2eab320f4fe4",
+      "title": "lacrosse news - Google Search",
+      "url": "https://www.google.com/search?q=lacrosse+news&rlz=1CADMEA_enUS942&oq=lacr&aqs=chrome.1.69i57j69i59j0l3j69i60.2552j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0108-271d7137956b",
+      "title": "lacrosse news - Google Search",
+      "url": "https://www.google.com/search?q=lacrosse+news&rlz=1CADMEA_enUS942&sxsrf=ALeKk01cbpAWDS7Z1sw09xGF85YkfBZvEg:1614846402566&source=lnms&tbm=nws&sa=X&ved=2ahUKEwjG5cPRm5bvAhXaZc0KHSvmA-MQ_AUoAXoECAYQAw&biw=1366&bih=641",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0109-5a6356fc2df5",
+      "title": "Dialed In: Your Lacrosse Fix for Wednesday, March 3 | US Lacrosse Magazine",
+      "url": "https://www.uslaxmagazine.com/fuel/daily-digest/dialed-in-your-lacrosse-fix-for-wednesday-march-3",
+      "etld1": "uslaxmagazine.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "news_current_affairs"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0110-875c5b055a0e",
+      "title": "vineyard vines - Google Search",
+      "url": "https://www.google.com/search?q=vineyard+vines&rlz=1CADMEA_enUS942&oq=vineyard+vines&aqs=chrome..69i57j69i59l2j0l3.2112j1j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0111-d990445df23a",
+      "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
+      "url": "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwiR7Mvym5bvAhWROLMAHcnLD9sYABAaGgJ5bQ&ohost=www.google.com&cid=CAESQOD2fKFCanTuEpGt6-AOb4ogqqXfnhOSEDEx5txtYVTNM2V_9ucYk7zmsC7oC6Y0Xv58ux_Jo0L92DPl53bQcSg&sig=AOD64_2ZJF_Nn9Oz0cGJ2AdKkvfnw299HA&q&adurl&ved=2ahUKEwj1xL7ym5bvAhVCCM0KHeOCDJMQ0Qx6BAgKEAE",
+      "etld1": "googleadservices.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "ads_trackers_infrastructure",
+        "shopping_marketplace"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0112-e121d868ac22",
+      "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
+      "url": "https://clickserve.dartsearch.net/link/click?lid=43700046372098459&ds_s_kwgid=58700005244096061&&ds_e_adid=384512856845&ds_e_matchtype=search&ds_e_device=c&ds_e_network=g&&ds_url_v=2&ds_dest_url=https://www.vineyardvines.com/?utm_source=google&utm_medium=cpc&utm_term=vineyard%20vines&utm_content=GGL-B-Vineyard+Vines-RLSA&utm_campaign=GGL-B-Always+On-General-Trademark-SEM-Audience-Exact&CID=ps|google|sem|brand|retargeting|na|always_on|rlsa|null|exact|GGL-B-Always+On-General-Trademark-SEM-Audience-Exact|GGL-B-Vineyard+Vines-RLSA|vineyard%20vines|384512856845&gclsrc=aw.ds&ds_rl=1272457&gclid=CjwKCAiAp4KCBhB6EiwAxRxbpNu6ynT28TuI4fXGwT2DbFaTV_zyhiF_wMTfk8wPuuBN_C9EGw88qxoCWUQQAvD_BwE",
+      "etld1": "dartsearch.net",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "ads_trackers_infrastructure",
+        "shopping_marketplace"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0113-b7d6362cecf5",
+      "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
+      "url": "https://ad.doubleclick.net/ddm/clk/446767275;250671328;r;u=ds&sv1=46372098459&sv2=3229692954553745&sv3=5440366124675494442&gclid=CjwKCAiAp4KCBhB6EiwAxRxbpNu6ynT28TuI4fXGwT2DbFaTV_zyhiF_wMTfk8wPuuBN_C9EGw88qxoCWUQQAvD_BwE;%3fhttps://www.vineyardvines.com/?utm_source=google&utm_medium=cpc&utm_term=vineyard%20vines&utm_content=GGL-B-Vineyard+Vines-RLSA&utm_campaign=GGL-B-Always+On-General-Trademark-SEM-Audience-Exact&CID=ps%7cgoogle%7csem%7cbrand%7cretargeting%7cna%7calways_on%7crlsa%7cnull%7cexact%7cGGL-B-Always+On-General-Trademark-SEM-Audience-Exact%7cGGL-B-Vineyard+Vines-RLSA%7cvineyard%20vines%7c384512856845&ds_rl=1272457&gclid=CjwKCAiAp4KCBhB6EiwAxRxbpNu6ynT28TuI4fXGwT2DbFaTV_zyhiF_wMTfk8wPuuBN_C9EGw88qxoCWUQQAvD_BwE&gclsrc=aw.ds",
+      "etld1": "doubleclick.net",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "ads_trackers_infrastructure",
+        "shopping_marketplace"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0114-3f3158712262",
+      "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
+      "url": "https://www.vineyardvines.com/?utm_source=google&utm_medium=cpc&utm_term=vineyard%20vines&utm_content=GGL-B-Vineyard+Vines-RLSA&utm_campaign=GGL-B-Always+On-General-Trademark-SEM-Audience-Exact&CID=ps%7cgoogle%7csem%7cbrand%7cretargeting%7cna%7calways_on%7crlsa%7cnull%7cexact%7cGGL-B-Always+On-General-Trademark-SEM-Audience-Exact%7cGGL-B-Vineyard+Vines-RLSA%7cvineyard%20vines%7c384512856845&ds_rl=1272457&gclid=CjwKCAiAp4KCBhB6EiwAxRxbpNu6ynT28TuI4fXGwT2DbFaTV_zyhiF_wMTfk8wPuuBN_C9EGw88qxoCWUQQAvD_BwE&gclsrc=aw.ds",
+      "etld1": "vineyardvines.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0115-edfae852129a",
+      "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
+      "url": "https://www.vineyardvines.com/Home?CID=ps%7cgoogle%7csem%7cbrand%7cretargeting%7cna%7calways_on%7crlsa%7cnull%7cexact%7cGGL-B-Always+On-General-Trademark-SEM-Audience-Exact%7cGGL-B-Vineyard+Vines-RLSA%7cvineyard%20vines%7c384512856845&ds_rl=1272457&gclid=CjwKCAiAp4KCBhB6EiwAxRxbpNu6ynT28TuI4fXGwT2DbFaTV_zyhiF_wMTfk8wPuuBN_C9EGw88qxoCWUQQAvD_BwE&gclsrc=aw.ds&utm_campaign=GGL-B-Always+On-General-Trademark-SEM-Audience-Exact&utm_content=GGL-B-Vineyard+Vines-RLSA&utm_medium=cpc&utm_source=google&utm_term=vineyard%20vines",
+      "etld1": "vineyardvines.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0116-65aef6d75722",
+      "title": "perks of linux - Google Search",
+      "url": "https://www.google.com/search?q=perks+of+linux&rlz=1CADMEA_enUS942&oq=perks+of+linux&aqs=chrome.0.0l6.6745j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0117-f59157cd4953",
+      "title": "Advantage of Linux | Top 18 Important Advantages Of Linux",
+      "url": "https://www.educba.com/advantage-of-linux/",
+      "etld1": "educba.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "reference_education_howto",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0118-db73061e33d6",
+      "title": "linux penguin - Google Search",
+      "url": "https://www.google.com/search?q=linux+penguin&rlz=1CADMEA_enUS942&oq=linux+penguin&aqs=chrome..69i57j0l5.15049j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0119-39a4a09ec319",
+      "title": "linux penguin - Google Search",
+      "url": "https://www.google.com/search?q=linux+penguin&rlz=1CADMEA_enUS942&sxsrf=ALeKk02jspylpmEkZZ_DBI3CtjdQCiUOOQ:1615247632279&source=lnms&tbm=isch&sa=X&ved=2ahUKEwjYhuKq8qHvAhUrUt8KHVVnDVcQ_AUoAXoECAYQAw&biw=1366&bih=641",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0120-0f0c05fd5da8",
+      "title": "linux penguin - Google Search",
+      "url": "https://www.google.com/search?q=linux+penguin&rlz=1CADMEA_enUS942&sxsrf=ALeKk02jspylpmEkZZ_DBI3CtjdQCiUOOQ:1615247632279&source=lnms&tbm=isch&sa=X&ved=2ahUKEwjYhuKq8qHvAhUrUt8KHVVnDVcQ_AUoAXoECAYQAw&biw=1366&bih=641#imgrc=8BkJofN6bP1nPM",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0121-b1280b2a7bb8",
+      "title": "can linux be run on chromebook - Google Search",
+      "url": "https://www.google.com/search?q=can+linux+be+run+on+chromebook&rlz=1CADMEA_enUS942&oq=can+linux+be+run+on+chromebook&aqs=chrome..69i57j0l2.4782j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0122-a8544e246410",
+      "title": "All Chromebooks will also be Linux laptops going forward | ZDNet",
+      "url": "https://www.zdnet.com/article/all-chromebooks-will-also-be-linux-laptops-going-forward/",
+      "etld1": "zdnet.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "reference_education_howto",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0123-6e6164d2e3e7",
+      "title": "command line chromebook - Google Search",
+      "url": "https://www.google.com/search?q=command+line+chromebook&rlz=1CADMEA_enUS942&oq=command+line+chromebook&aqs=chrome..69i57j0l5.15965j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0124-41662d7f523a",
+      "title": "How to Access the Command Prompt on a Chromebook",
+      "url": "https://www.techjunkie.com/how-to-access-the-command-prompt-on-a-chromebook/",
+      "etld1": "techjunkie.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "reference_education_howto",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0125-d5bc4f6362c8",
+      "title": "crosh",
+      "url": "chrome-extension://nkoccljplnhpfnfiajclkommnmllphnl/html/crosh.html",
+      "etld1": "nkoccljplnhpfnfiajclkommnmllphnl",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "ads_trackers_infrastructure"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0126-c600e89d4d85",
+      "title": "command command line commands - Google Search",
+      "url": "https://www.google.com/search?q=command+command+line+commands&rlz=1CADMEA_enUS942&oq=command+command+line+commands&aqs=chrome..69i57j0l3.6173j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0127-fa256f3a3a70",
+      "title": "command command line commands crosh - Google Search",
+      "url": "https://www.google.com/search?rlz=1CADMEA_enUS942&sxsrf=ALeKk01VzJZXFmTaRteFDmRkCTc0_t_27w%3A1615248088988&ei=2LpGYJvUO9Oq5NoP8dS_-A8&q=command+command+line+commands+crosh&oq=command+command+line+commands+crosh&gs_lcp=Cgdnd3Mtd2l6EAMyBQghEKABOgcIABBHELADOgYIABAWEB46BQgAEIYDOggIIRAWEB0QHlCGyQFY4dEBYN_VAWgBcAJ4AIABsQKIAakNkgEFMi02LjGYAQCgAQGqAQdnd3Mtd2l6yAEIwAEB&sclient=gws-wiz&ved=0ahUKEwiboMWE9KHvAhVTFVkFHXHqD_8Q4dUDCA4&uact=5",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0128-ee346c32c15a",
+      "title": "18 Crosh Terminal Commands All Chromebook Users Should Know",
+      "url": "https://www.makeuseof.com/tag/terminal-commands-chromebook/",
+      "etld1": "makeuseof.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "reference_education_howto",
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0129-cc2e2fe5385e",
+      "title": "Microsoft Word - Wickr Customer Security Promises March 2018.docx",
+      "url": "file:///home/chronos/u-7c37097f86694f0645e38af5cf316592cce86789/MyFiles/Downloads/Wickr-Customer-Security-Promises-November-2020.pdf",
+      "etld1": "",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "anonymity_privacy_tooling"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0130-8a80a0271411",
+      "title": "New Tab",
+      "url": "chrome://newtab/",
+      "etld1": "newtab",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "ads_trackers_infrastructure"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0131-dac61052dcc8",
+      "title": "Inbox | e.flatt610@protonmail.com | ProtonMail",
+      "url": "https://mail.protonmail.com/inbox/sQ_CieLJMZnVNLl504R3XHIPZipl41Ub81w1L1TwfVXFLc73uLY-A_aoWjNdJvePfx6_gF00xtrD7ib71KALwA==",
+      "etld1": "protonmail.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0132-6223e58f680f",
+      "title": "To-Purchase - Google Sheets",
+      "url": "https://docs.google.com/spreadsheets/d/1uAv_iMnp0xt8Cn_NJqbk8zA1SPFjL3ddWWhRy8K0Gsc/edit#gid=0",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0133-de5c2ae3d187",
+      "title": "Chrome Web Store - signal",
+      "url": "https://chrome.google.com/webstore/category/extensions",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0134-f0a10d9845e1",
+      "title": "Chrome Web Store - hide it",
+      "url": "https://chrome.google.com/webstore/search/hide%20it%20?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "technology_software_dev",
+        "anonymity_privacy_tooling"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0135-e9ebf98685c7",
+      "title": "Chrome Web Store - hide it pro",
+      "url": "https://chrome.google.com/webstore/category/extensions?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0136-ce3b5e46a5ab",
+      "title": "Facebook - Log In or Sign Up",
+      "url": "https://www.facebook.com/",
+      "etld1": "facebook.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "social_media"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0137-57ec842265c2",
+      "title": "Chrome Web Store - Themes",
+      "url": "https://chrome.google.com/webstore/category/extensions?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0138-bef729a04d6e",
+      "title": "chrome.google.com",
+      "url": "https://chrome.google.com/webstore?hl=en",
+      "etld1": "chrome.google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0139-a8803de76920",
+      "title": "chick fil a recipes - Google Search",
+      "url": "https://www.google.com/search?q=chick+fil+a+receipes&rlz=1CADMEA_enUS942&oq=chick+fil+a+receipes&aqs=chrome..69i57j0l5.4569j1j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "reference_education_howto"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0140-74ed9f94168e",
+      "title": "Shop Saltwater 1/4-Zip at vineyard vines",
+      "url": "https://www.vineyardvines.com/mens-fashion-knits/saltwater-quarter-zip/1K001863.html?dwvar_1K001863_color=6306&cgid=new-arrivals-men#start=1&cgid=new-arrivals-men",
+      "etld1": "vineyardvines.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0141-be561dce979f",
+      "title": "Shop Mens New Arrivals at vineyard vines",
+      "url": "https://www.vineyardvines.com/new-arrivals-men/?nav=home--body--H3----",
+      "etld1": "vineyardvines.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0142-6fa2c46185b0",
+      "title": "Shop Cashmere Jogger at vineyard vines",
+      "url": "https://www.vineyardvines.com/mens-loungewear/cashmere-jogger/1L001052.html?dwvar_1L001052_color=30&dwvar_1L001052_size=XS&cgid=new-arrivals-men#start=21&cgid=new-arrivals-men",
+      "etld1": "vineyardvines.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0143-b553dbdb3112",
+      "title": "Untitled spreadsheet - Google Sheets",
+      "url": "https://docs.google.com/spreadsheets/u/0/create?usp=sheets_home&ths=true",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "file_sharing_cloud_storage"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0144-5b6bfbeee2e1",
+      "title": "Shop Pebbled Leather Belt at vineyard vines",
+      "url": "https://www.vineyardvines.com/mens-belts/pebbled-leather-belt/1B001191.html?dwvar_1B001191_color=202&cgid=new-arrivals-men#start=47&cgid=new-arrivals-men",
+      "etld1": "vineyardvines.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0145-6355206c4e4c",
+      "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
+      "url": "https://www.vineyardvines.com/Home?CID=ps%7cgoogle%7csem%7cbrand%7cretargeting%7cna%7calways_on%7ccrm%7cnull%7cexact%7cGGL-B-Always+On-General-Trademark-SEM-Audience-Exact%7cGGL-B-Vineyard+Vines-CRM%7cvineyard%20vines%7c497819709998&ds_rl=1272457&gclid=Cj0KCQiA962BBhCzARIsAIpWEL3FdhmtYwDY_g8YPMnAanP7eLYxrwX29KDlkHxGHB45UYzHRjUVOSIaAvr2EALw_wcB&gclsrc=aw.ds&utm_campaign=GGL-B-Always+On-General-Trademark-SEM-Audience-Exact&utm_content=GGL-B-Vineyard+Vines-CRM&utm_medium=cpc&utm_source=google&utm_term=vineyard%20vines",
+      "etld1": "vineyardvines.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0146-6c00cf2ca7a1",
+      "title": "vineyard vines - Google Search",
+      "url": "https://www.google.com/search?gs_ssp=eJzj4tTP1TdIN8jJLVNgNGB0YPDiK8vMS61MLEpRADGKAYo6CYY&q=vineyard+vines&rlz=1CADMEA_enUS941&oq=vineyard+vines&aqs=chrome.0.46l2j0l3.3035j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0147-4302173104eb",
+      "title": "Chick-fil-A - SIGN IN",
+      "url": "https://login.my.chick-fil-a.com/as/authorization.oauth2?client_id=CfaDotCom&redirect_uri=https%3a%2f%2fwww.chick-fil-a.com%2faccount%2fsignincrn&response_mode=form_post&response_type=code+id_token+token&scope=%2fusers%2fme+%2fsessionid%2fme+%2fgiftcard%2fme+%2fconfirmtxns+%2foffers%2fmog%2fme+openid&state=OpenIdConnect.AuthenticationProperties%3dmskvfsh_yIgOn7xdf_Y_mK31CPGyblb6k0lEeulvjmOmyuc0idJvHs0fZNiANmPjbaZlNo57aNeSvlGkwOeog2wlibUftL0C6J0M69PfL3TsXyn60IGKnxxPzWhSEFHundICt8rl1m0a8krVJmKn4TTFwAR-bpRDQsc3KUnkrM9yTjwZUSLQOB-Vma-7cs7OlligQbd-0T18tociYjzSHfdunETAyy61VgvtYjRXU1kwjSefgFazdQM5FZxIPEEkpkF19cBBsz8r32L9ZAhVn-X3M-1v0e2YvVxymeDoZYCSEjiSkPGdszzmt4xcsBuQ2-3rPuMMAsphagzoc2Jvd1TjkN6yEzjqCV4-if_hS4G8zHSm1Lx0zGy6dLAuwTdn-W_ES7AGBgVQDZJmf9P9If-2VFs&nonce=637491208841770496.MGM3ZDJiNTQtYzQ4Mi00NWEzLWFhNDAtYTNjNDhmMzdhN2JjY2I1ZWY4MGEtMDg3NS00NDFlLWI5OGEtOWQ4YWExNGM3MDBm&signup_redirect_uri=http%3a%2f%2fwww.chick-fil-a.com%2fone&x-client-SKU=ID_NET&x-client-ver=1.0.40306.1554",
+      "etld1": "chick-fil-a.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0148-e8dfcece87d2",
+      "title": "​Chick-fil-A One | Chick-fil-A",
+      "url": "https://www.chick-fil-a.com/one",
+      "etld1": "chick-fil-a.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0149-affd8eecc5d5",
+      "title": "Home of the Original Chicken Sandwich | Chick-fil-A",
+      "url": "https://www.chick-fil-a.com/",
+      "etld1": "chick-fil-a.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0150-11e991ffe14b",
+      "title": "chick fil a - Google Search",
+      "url": "https://www.google.com/search?q=chick+fil+a&rlz=1CADMEA_enUS941&oq=chick+fil+a&aqs=chrome..69i57.16931j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "reference_education_howto"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0151-969e064fb090",
+      "title": "Apple iPhone 8 64gb Factory Unlocked All Carriers - Gold for sale online | eBay",
+      "url": "https://www.ebay.com/p/28039120397?iid=253462854618&var=552639345811",
+      "etld1": "ebay.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0152-651eea6a95ca",
+      "title": "iPhones for Sale - New & Used iPhones at Great Prices - eBay",
+      "url": "https://www.ebay.com/b/Apple-Cell-Phones-Smartphones/9355/bn_319682",
+      "etld1": "ebay.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0153-7e07b1a42bed",
+      "title": "used iphones for sale - Google Search",
+      "url": "https://www.google.com/search?q=used+iphones+for+sale&oq=used+iphones+for+sale&aqs=chrome..69i57.498289j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0154-961170b745a7",
+      "title": "Buy iPhone SE - Apple",
+      "url": "https://www.apple.com/shop/buy-iphone/iphone-se",
+      "etld1": "apple.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0155-c75c2eca1ad6",
+      "title": "iPhone SE - Apple",
+      "url": "https://www.apple.com/iphone-se/",
+      "etld1": "apple.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0156-cb6347e75fab",
+      "title": "iPhone - Apple",
+      "url": "https://www.apple.com/iphone/",
+      "etld1": "apple.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "technology_software_dev"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0157-cd0c5c787f71",
+      "title": "iphones for sale - Google Search",
+      "url": "https://www.google.com/search?q=iphones+for+sale&oq=iphones+for+sale&aqs=chrome..69i57j0l5.23799j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "shopping_marketplace"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0158-4573f59a6b1a",
+      "title": "50 reasons why androids SUCK!",
+      "url": "http://nothingbeatsapple.blogspot.com/2013/02/28-reason-why-androids-suck.html",
+      "etld1": "blogspot.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0159-252ef0d4b4ce",
+      "title": "why do androids suck - Google Search",
+      "url": "https://www.google.com/search?q=why+do+androids+suck&oq=why+do+androids+suck&aqs=chrome..69i57.30541j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0160-e5486ddf0caa",
+      "title": "Inbox - e.flatt610@gmail.com - Gmail",
+      "url": "https://mail.google.com/mail/u/0/#inbox",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0161-09aee9b202ba",
+      "title": "Gmail",
+      "url": "https://mail.google.com/mail/u/0/#inbox",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0162-bf3228846be6",
+      "title": "Eli, finish setting up your new Google Account - e.flatt610@gmail.com - Gmail",
+      "url": "https://mail.google.com/mail/u/0/#inbox/FMfcgxwLsJxdrkQMLMpzzgchlnLncqzq",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0163-92039fe3c8ea",
+      "title": "Gmail",
+      "url": "https://mail.google.com/mail/u/0/#",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "webmail_messaging_voice"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0164-9333946c7669",
+      "title": "Vacation Rentals",
+      "url": "https://www.vrbo.com/search/keywords:burlington-vermont-united-states-of-america/arrival:2021-02-19/departure:2021-02-20/@44.41274300936579,-73.23029416992186,44.508553743624354,-73.06343931152342,12z/minNightlyPrice/0?filterByTotalPrice=true&petIncluded=false&ssr=true&adultsCount=1",
+      "etld1": "vrbo.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0165-1b6eef712f9f",
+      "title": "Burlington Vacation Rentals | Vrbo.com",
+      "url": "https://www.vrbo.com/search/keywords:burlington-vermont-united-states-of-america/arrival:2021-02-19/departure:2021-02-20?adultsCount=1&petIncluded=false&filterByTotalPrice=true",
+      "etld1": "vrbo.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0166-758ac35f992d",
+      "title": "Vacation homes waiting for your family",
+      "url": "https://www.vrbo.com/travel/campaign/your-together-awaits?utm_campaign=vrbo%3Adisplay%3Ausan%3At%3Ab%3Atraveler_prospecting&utm_medium=display&utm_source=youtube&utm_content=a%3Avid%3Ayoutube%3Agen%3Apro%3Axxx%5Bxxx%5D%3Avrbo_us_baucampaign_ron_ron_winvrfish_15s_combined_DSPLY-33%3Atp1x1&utm_term=22215625|285680510|90518257|479611647&gclid=CjwKCAiAsOmABhAwEiwAEBR0ZvOBNMtm4MJckSyspWStBEdNxb4Z2OQP5Cz2zDmYkNYDymhIRZMyLhoCEooQAvD_BwE",
+      "etld1": "vrbo.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "travel_transport_accommodation"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0167-b7dd05909b9f",
+      "title": "The BEST Clips of 2020 | Lacrosse Highlights - YouTube",
+      "url": "https://www.youtube.com/watch?v=R0UhA3fwz_g",
+      "etld1": "youtube.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0168-127bb844fecf",
+      "title": "lacrosse - YouTube",
+      "url": "https://www.youtube.com/results?search_query=lacrosse",
+      "etld1": "youtube.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0169-89459ded38b2",
+      "title": "YouTube",
+      "url": "https://www.youtube.com/",
+      "etld1": "youtube.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0170-09f3393b32b5",
+      "title": "Women's Lacrosse - Boston University Athletics",
+      "url": "https://goterriers.com/sports/womens-lacrosse",
+      "etld1": "goterriers.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0171-23a4096ef9de",
+      "title": "Google",
+      "url": "https://www.google.com/",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "unclassified"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0172-b64cf0ab1a09",
+      "title": "lacrosse - Google Search",
+      "url": "https://www.google.com/search?q=lacrosse&sxsrf=ALeKk00zpNymiA2Uy23nCQlLCNL1PgjQ5g:1612397268307&source=lnms&tbm=isch&sa=X&ved=2ahUKEwic06fz987uAhUNGVkFHQmGCHwQ_AUoAXoECBgQAw&biw=1366&bih=641#imgrc=hOOblSFqjSmyNM",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0173-9d226026a52d",
+      "title": "lacrosse - Google Search",
+      "url": "https://www.google.com/search?q=lacrosse&sxsrf=ALeKk00zpNymiA2Uy23nCQlLCNL1PgjQ5g:1612397268307&source=lnms&tbm=isch&sa=X&ved=2ahUKEwic06fz987uAhUNGVkFHQmGCHwQ_AUoAXoECBgQAw&biw=1366&bih=641",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0174-e4a7cded1741",
+      "title": "lacrosse - Google Search",
+      "url": "https://www.google.com/search?q=lacrosse&oq=lacrosse&aqs=chrome..69i57j35i39j0l3j69i60.2446j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0175-2ac61c31de76",
+      "title": "MEN’S LACROSSE: Bulldogs will not play 2021 season, Ierlan to transfer",
+      "url": "https://yaledailynews.com/blog/2021/02/01/mens-lacrosse-bulldogs-will-not-play-2021-season-ierlan-to-transfer/",
+      "etld1": "yaledailynews.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "news_current_affairs"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0176-57a5c296e812",
+      "title": "lacrosse news - Google Search",
+      "url": "https://www.google.com/search?q=lacrosse+news&sxsrf=ALeKk01c8lAN--Di920WYCn6XBgHde0AbQ:1612397195595&source=lnms&tbm=nws&sa=X&ved=2ahUKEwjA4dHQ987uAhU-FVkFHSz2BW8Q_AUoAXoECBEQAw&biw=1366&bih=641",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0177-5c588bda9b36",
+      "title": "lacrosse news - Google Search",
+      "url": "https://www.google.com/search?q=lacrosse+news&oq=lacrosse+news&aqs=chrome..69i57j0l4j46.3266j0j7&sourceid=chrome&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "eli-flatt",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0178-43aa0831c06a",
+      "title": "DIY Small LARP Shield in Under an Hour!",
+      "url": "https://www.google.com/amp/s/www.instructables.com/DIY-Small-LARP-Shield-in-Under-an-Hour/%3famp_page=true",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0179-1bed7c6dbb92",
+      "title": "larp shield diy - Google Search",
+      "url": "https://www.google.com/search?q=larp+shield+diy&source=lmns&bih=658&biw=393&client=ms-android-google&prmd=ivsxn&hl=en&sa=X&ved=2ahUKEwjOtpepqfz1AhWJsHIEHbiaDA4Q_AUoAHoECAAQAw",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0180-512cd2405bf7",
+      "title": "larp shield diy - Google Search",
+      "url": "https://www.google.com/search?q=larp+shield+diy&tbm=isch&ved=2ahUKEwjWjLL8qPz1AhUImnIEHcOiAG8Q2-cCegQIABAC&oq=larp+shield+diy&gs_lcp=ChJtb2JpbGUtZ3dzLXdpei1pbWcQAzIFCAAQgAQ6BwgjEO8DECc6CAgAEIAEELEDOgQIABBDOgYIABAFEB46BggAEAgQHjoECAAQGDoECAAQHjoECAAQDVDzBVieL2CMkAJoBHAAeACAAUqIAckGkgECMTSYAQCgAQHAAQE&sclient=mobile-gws-wiz-img&ei=KskIYtbPHYi0ytMPw8WC-AY&bih=658&biw=393&client=ms-android-google&prmd=ivsxn",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0181-f12d9d5a21a7",
+      "title": "larp - Google Search",
+      "url": "https://www.google.com/search?q=larp&client=ms-android-google&prmd=ivsxn&sxsrf=APq-WBu1rQZ2mScdZ6os3Dnu5a9Nn5T4pQ:1644742923072&source=lnms&tbm=isch&sa=X&ved=2ahUKEwjNmrTtqPz1AhWvl4kEHVntCYwQ_AUoAXoECAIQAQ&biw=393&bih=658&dpr=2.75",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0182-4b448aca5d95",
+      "title": "larp - Google Search",
+      "url": "https://www.google.com/search?q=larp&client=ms-android-google&prmd=ivsxn&sxsrf=APq-WBu1rQZ2mScdZ6os3Dnu5a9Nn5T4pQ:1644742923072&source=lnms&tbm=isch&sa=X&ved=2ahUKEwjNmrTtqPz1AhWvl4kEHVntCYwQ_AUoAXoECAIQAQ&biw=393&bih=658&dpr=2.75#imgrc=p0PSvG9u-tDhQM",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0183-f3a7c228bebd",
+      "title": "larp - Google Search",
+      "url": "https://www.google.com/search?q=larp&client=ms-android-google&prmd=ivsxn&sxsrf=APq-WBu1rQZ2mScdZ6os3Dnu5a9Nn5T4pQ:1644742923072&source=lnms&tbm=isch&sa=X&ved=2ahUKEwjNmrTtqPz1AhWvl4kEHVntCYwQ_AUoAXoECAIQAQ&biw=393&bih=658&dpr=2.75#imgrc=5MDMpSG3jveGJM",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0184-ccfec88725ad",
+      "title": "larp - Google Search",
+      "url": "https://www.google.com/search?q=larp&oq=larp&aqs=chrome..69i57j0i433i512l4j0i457i512j0i512l2.1442j0j4&client=ms-android-google&sourceid=chrome-mobile&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0185-a8d20f1f4e62",
+      "title": "5 Intermediate and Advanced Card Tricks Every Magician Should Learn",
+      "url": "https://www.vanishingincmagic.com/learn-card-tricks/5-advanced-card-tricks-every-magician-should-learn/",
+      "etld1": "vanishingincmagic.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "reference_education_howto",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0186-f914eb8118e0",
+      "title": "best magic tricks intermediate - Google Search",
+      "url": "https://www.google.com/search?q=best+magic+tricks+intermediate&oq=best+magic+tricks+interme&aqs=chrome.1.69i57j33i22i29i30.10039j0j4&client=ms-android-google&sourceid=chrome-mobile&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "reference_education_howto"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0187-6a9369cbdac6",
+      "title": "Adventure Play | AI Dungeon",
+      "url": "https://play.aidungeon.io/main/adventurePlay?publicId=0cf22723-2d5f-465c-a5b4-fd4ad03a9b8c",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0188-ac3736fac6bc",
+      "title": "",
+      "url": "https://api.aidungeon.io/verify/34566459/?code=b2eeac9e-9d64-40d6-8307-3ac07cb73177",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": true,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0189-98f1b97aefda",
+      "title": "Adventure Play | AI Dungeon",
+      "url": "https://play.aidungeon.io/main/energy",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0190-e67bf2e6a5d4",
+      "title": "Scenario Play | AI Dungeon",
+      "url": "https://play.aidungeon.io/main/scenarioPlay?publicId=7579c602-6349-11ec-b65a-a9045c21f45d",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0191-9e02bc4a9a45",
+      "title": "Scenario Play | AI Dungeon",
+      "url": "https://play.aidungeon.io/main/scenarioPlay?publicId=7573ab80-6349-11ec-b65a-a9045c21f45d",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0192-870e820d0e0d",
+      "title": "Scenario Play | AI Dungeon",
+      "url": "https://play.aidungeon.io/main/scenarioPlay?publicId=756f8cd0-6349-11ec-b65a-a9045c21f45d",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0193-a00b95244110",
+      "title": "Scenario Play | AI Dungeon",
+      "url": "https://play.aidungeon.io/main/newGame",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0194-bb9eb8a9c434",
+      "title": "New Game",
+      "url": "https://play.aidungeon.io/main/home?0=%3F&1=c&10=7&11=1&12=9&13=5&14=-&15=5&16=1&17=b&18=7&19=-&2=o&20=4&21=4&22=5&23=8&24=-&25=b&26=c&27=a&28=4&29=-&3=d&30=8&31=3&32=9&33=3&34=b&35=f&36=f&37=4&38=3&39=5&4=e&40=b&41=1&42=%26&43=s&44=t&45=a&46=t&47=e&48=%3D&49=b&5=%3D&50=2&51=d&52=3&53=f&54=8&55=8&56=a&57=-&58=2&59=9&6=4&60=9&61=d&62=-&63=4&64=8&65=7&66=3&67=-&68=b&69=f&7=1&70=1&71=d&72=-&73=0&74=6&75=d&76=2&77=a&78=3&79=6&8=2&80=4&81=b&82=0&83=d&84=2&9=e",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0195-ac51becc389c",
+      "title": "Home",
+      "url": "https://play.aidungeon.io/main/home?0=%3F&1=c&10=7&11=1&12=9&13=5&14=-&15=5&16=1&17=b&18=7&19=-&2=o&20=4&21=4&22=5&23=8&24=-&25=b&26=c&27=a&28=4&29=-&3=d&30=8&31=3&32=9&33=3&34=b&35=f&36=f&37=4&38=3&39=5&4=e&40=b&41=1&42=%26&43=s&44=t&45=a&46=t&47=e&48=%3D&49=b&5=%3D&50=2&51=d&52=3&53=f&54=8&55=8&56=a&57=-&58=2&59=9&6=4&60=9&61=d&62=-&63=4&64=8&65=7&66=3&67=-&68=b&69=f&7=1&70=1&71=d&72=-&73=0&74=6&75=d&76=2&77=a&78=3&79=6&8=2&80=4&81=b&82=0&83=d&84=2&9=e",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0196-2a7b4ccfbd71",
+      "title": "Currency Store",
+      "url": "https://play.aidungeon.io/main/home?0=%3F&1=c&10=7&11=1&12=9&13=5&14=-&15=5&16=1&17=b&18=7&19=-&2=o&20=4&21=4&22=5&23=8&24=-&25=b&26=c&27=a&28=4&29=-&3=d&30=8&31=3&32=9&33=3&34=b&35=f&36=f&37=4&38=3&39=5&4=e&40=b&41=1&42=%26&43=s&44=t&45=a&46=t&47=e&48=%3D&49=b&5=%3D&50=2&51=d&52=3&53=f&54=8&55=8&56=a&57=-&58=2&59=9&6=4&60=9&61=d&62=-&63=4&64=8&65=7&66=3&67=-&68=b&69=f&7=1&70=1&71=d&72=-&73=0&74=6&75=d&76=2&77=a&78=3&79=6&8=2&80=4&81=b&82=0&83=d&84=2&9=e",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0197-073128ec1d60",
+      "title": "Latitude",
+      "url": "https://latitude.io/account/join?returnTo=https%3A%2F%2Fapi.aidungeon.io%2Fauth%2FauthorizeResponse&grantId=fa75989e-548e-46b4-a1cb-c7df3f8ad56d",
+      "etld1": "latitude.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0198-94fa1340f73b",
+      "title": "Latitude",
+      "url": "https://latitude.io/account/login?grantId=fa75989e-548e-46b4-a1cb-c7df3f8ad56d&auth=apple&returnTo=https://api.aidungeon.io/auth/authorizeResponse",
+      "etld1": "latitude.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0199-7e2bff011cd1",
+      "title": "Home",
+      "url": "https://play.aidungeon.io/main/home",
+      "etld1": "aidungeon.io",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0200-0585477fa945",
+      "title": "ai dungeon - Google Search",
+      "url": "https://www.google.com/search?gs_ssp=eJzj4tVP1zc0zLDMyS6zKDE3YPTiSsxUSCnNS0_NzwMAbuwIbw&q=ai+dungeon&oq=ai+dungeon&aqs=chrome.1.69i57j46i131i433i512j5j0i512l5.44140j0j9&client=ms-android-google&sourceid=chrome-mobile&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0201-992f22d35db1",
+      "title": "minecraft icon - Google Search",
+      "url": "https://www.google.com/search?q=minecraft+icon&oq=minecraft+icon&aqs=chrome..69i57j0i512l8.4193j0j7&client=ms-android-google&sourceid=chrome-mobile&ie=UTF-8#imgrc=tB6j55DcL5qpvM",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0202-5e58d5e060d6",
+      "title": "You're all set. - Spotify",
+      "url": "https://www.spotify.com/us/email-verification/success/",
+      "etld1": "spotify.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0203-13b0fd22a7e7",
+      "title": "Password Reset",
+      "url": "https://twitter.com/account/begin_password_reset?account_identifier=RafaelShell2",
+      "etld1": "twitter.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "social_media"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0204-1897023af038",
+      "title": "Log4Shell VMware vCenter Server (CVE-2021-44228) - Hacking Tutorials",
+      "url": "https://www.hackingtutorials.org/exploit-tutorials/log4shell-vmware-vcenter-server-cve-2021-44228/",
+      "etld1": "hackingtutorials.org",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "hacking_security_tooling"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0205-38a5c6bb4733",
+      "title": "Hacking Tutorials - The best Step-by-Step Hacking Tutorials",
+      "url": "https://www.hackingtutorials.org/",
+      "etld1": "hackingtutorials.org",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "hacking_security_tooling"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0206-9df3efa44656",
+      "title": "minecraft icon - Google Search",
+      "url": "https://www.google.com/search?q=minecraft+icon&oq=minecraft+icon&aqs=chrome..69i57j0i512l8.4193j0j7&client=ms-android-google&sourceid=chrome-mobile&ie=UTF-8",
+      "etld1": "google.com",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "search_query",
+        "entertainment_streaming_gaming"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    },
+    {
+      "row_id": "row-0207-24421fe4e145",
+      "title": "New tab",
+      "url": "chrome-native://newtab/",
+      "etld1": "newtab",
+      "persona_id": "rafael-shell",
+      "gold": [
+        "ads_trackers_infrastructure"
+      ],
+      "ambiguous": false,
+      "predicted": [
+        "unclassified"
+      ],
+      "top1": "unclassified",
+      "raw_top1": null,
+      "raw_top1_score": null,
+      "margin": null,
+      "abstained": true,
+      "abstain_reason": "no-list-entry",
+      "score_axis": "rule-match",
+      "ranked": []
+    }
+  ]
+}

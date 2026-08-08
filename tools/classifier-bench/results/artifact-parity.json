@@ -1,0 +1,404 @@
+{
+  "mode": "phase-a-artifact-parity",
+  "_generator": {
+    "script": "tools/classifier-bench/harness/compare_runs.js",
+    "generated_at": "2026-08-08T16:36:59.720Z",
+    "hand_edited": false,
+    "inputs": [
+      "phase-a-manifest.arm64.json",
+      "phase-a-manifest.x64.json"
+    ]
+  },
+  "arch_a": "arm64",
+  "arch_b": "x64",
+  "downloaded_at": {
+    "arm64": "2026-08-08T14:07:41.459Z",
+    "x64": "2026-08-08T14:36:42.864Z"
+  },
+  "platform": {
+    "arm64": "linux/arm64",
+    "x64": "linux/x64"
+  },
+  "summary": {
+    "files_compared": 40,
+    "files_identical": 40,
+    "files_not_compared": 0,
+    "all_model_files_identical": true,
+    "ut1_compiled_identical": true
+  },
+  "files": [
+    {
+      "artifact": "potion-base-2M/onnx/model.onnx",
+      "compared": true,
+      "identical": true,
+      "sha256": "92d4a7576de7d39055924b4d9d3979c8c3b2de272010f76f99e2ac14c7b2e5a8",
+      "sha256_a": "92d4a7576de7d39055924b4d9d3979c8c3b2de272010f76f99e2ac14c7b2e5a8",
+      "sha256_b": "92d4a7576de7d39055924b4d9d3979c8c3b2de272010f76f99e2ac14c7b2e5a8",
+      "bytes": 7563349
+    },
+    {
+      "artifact": "potion-base-2M/tokenizer.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+      "sha256_a": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+      "sha256_b": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+      "bytes": 683666
+    },
+    {
+      "artifact": "potion-base-2M/tokenizer_config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567",
+      "sha256_a": "6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567",
+      "sha256_b": "6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567",
+      "bytes": 1431
+    },
+    {
+      "artifact": "potion-base-2M/config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "b2a89173391ca774c2d7323090a993a9a1553faa5b40eb37bb7cec6685fbea47",
+      "sha256_a": "b2a89173391ca774c2d7323090a993a9a1553faa5b40eb37bb7cec6685fbea47",
+      "sha256_b": "b2a89173391ca774c2d7323090a993a9a1553faa5b40eb37bb7cec6685fbea47",
+      "bytes": 200
+    },
+    {
+      "artifact": "potion-base-2M/special_tokens_map.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59",
+      "sha256_a": "a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59",
+      "sha256_b": "a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59",
+      "bytes": 134
+    },
+    {
+      "artifact": "potion-base-2M/vocab.txt",
+      "compared": true,
+      "identical": true,
+      "sha256": "1394523a67ddd404a825428018c0582a6998bcfa044ecbcbf1f4d71adb94c61c",
+      "sha256_a": "1394523a67ddd404a825428018c0582a6998bcfa044ecbcbf1f4d71adb94c61c",
+      "sha256_b": "1394523a67ddd404a825428018c0582a6998bcfa044ecbcbf1f4d71adb94c61c",
+      "bytes": 219690
+    },
+    {
+      "artifact": "potion-base-2M/modules.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "a68dcbed0429dcdd5bfdca92b0b03cc30d09122c0a3fcf4758787d4b244e45b2",
+      "sha256_a": "a68dcbed0429dcdd5bfdca92b0b03cc30d09122c0a3fcf4758787d4b244e45b2",
+      "sha256_b": "a68dcbed0429dcdd5bfdca92b0b03cc30d09122c0a3fcf4758787d4b244e45b2",
+      "bytes": 278
+    },
+    {
+      "artifact": "potion-base-8M/onnx/model.onnx",
+      "compared": true,
+      "identical": true,
+      "sha256": "da4c828fe012ec97f053278f363645b52c3815ec9a1d13d695ac901398c10f2e",
+      "sha256_a": "da4c828fe012ec97f053278f363645b52c3815ec9a1d13d695ac901398c10f2e",
+      "sha256_b": "da4c828fe012ec97f053278f363645b52c3815ec9a1d13d695ac901398c10f2e",
+      "bytes": 30240854
+    },
+    {
+      "artifact": "potion-base-8M/tokenizer.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+      "sha256_a": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+      "sha256_b": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+      "bytes": 683666
+    },
+    {
+      "artifact": "potion-base-8M/tokenizer_config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567",
+      "sha256_a": "6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567",
+      "sha256_b": "6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567",
+      "bytes": 1431
+    },
+    {
+      "artifact": "potion-base-8M/config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "2a6ac0e9aaa356a68a5688070db78fc3a464fefe85d2f06a1905ce3718687553",
+      "sha256_a": "2a6ac0e9aaa356a68a5688070db78fc3a464fefe85d2f06a1905ce3718687553",
+      "sha256_b": "2a6ac0e9aaa356a68a5688070db78fc3a464fefe85d2f06a1905ce3718687553",
+      "bytes": 202
+    },
+    {
+      "artifact": "potion-base-8M/special_tokens_map.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59",
+      "sha256_a": "a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59",
+      "sha256_b": "a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59",
+      "bytes": 134
+    },
+    {
+      "artifact": "potion-base-8M/vocab.txt",
+      "compared": true,
+      "identical": true,
+      "sha256": "1394523a67ddd404a825428018c0582a6998bcfa044ecbcbf1f4d71adb94c61c",
+      "sha256_a": "1394523a67ddd404a825428018c0582a6998bcfa044ecbcbf1f4d71adb94c61c",
+      "sha256_b": "1394523a67ddd404a825428018c0582a6998bcfa044ecbcbf1f4d71adb94c61c",
+      "bytes": 219690
+    },
+    {
+      "artifact": "potion-base-8M/modules.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "a68dcbed0429dcdd5bfdca92b0b03cc30d09122c0a3fcf4758787d4b244e45b2",
+      "sha256_a": "a68dcbed0429dcdd5bfdca92b0b03cc30d09122c0a3fcf4758787d4b244e45b2",
+      "sha256_b": "a68dcbed0429dcdd5bfdca92b0b03cc30d09122c0a3fcf4758787d4b244e45b2",
+      "bytes": 278
+    },
+    {
+      "artifact": "bge-micro-v2/onnx/model_quantized.onnx",
+      "compared": true,
+      "identical": true,
+      "sha256": "ed65e36025aa94cb74207dab863c85452919ec0ab7df3512092932aa22c9a33a",
+      "sha256_a": "ed65e36025aa94cb74207dab863c85452919ec0ab7df3512092932aa22c9a33a",
+      "sha256_b": "ed65e36025aa94cb74207dab863c85452919ec0ab7df3512092932aa22c9a33a",
+      "bytes": 17409774
+    },
+    {
+      "artifact": "bge-micro-v2/tokenizer.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "cb374d6bc042c22455946f4e09a89d29882a199fdaf8fb25be00dc8b8857a448",
+      "sha256_a": "cb374d6bc042c22455946f4e09a89d29882a199fdaf8fb25be00dc8b8857a448",
+      "sha256_b": "cb374d6bc042c22455946f4e09a89d29882a199fdaf8fb25be00dc8b8857a448",
+      "bytes": 711661
+    },
+    {
+      "artifact": "bge-micro-v2/tokenizer_config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "dd949ead2951e7ea7d28aa67da9c351d09563b424bc9747115f4660a826390ea",
+      "sha256_a": "dd949ead2951e7ea7d28aa67da9c351d09563b424bc9747115f4660a826390ea",
+      "sha256_b": "dd949ead2951e7ea7d28aa67da9c351d09563b424bc9747115f4660a826390ea",
+      "bytes": 1564
+    },
+    {
+      "artifact": "bge-micro-v2/config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "86d7047bf568a9263c7020fb4950741b19b1df3de3539385d83d9e3df1e56c5b",
+      "sha256_a": "86d7047bf568a9263c7020fb4950741b19b1df3de3539385d83d9e3df1e56c5b",
+      "sha256_b": "86d7047bf568a9263c7020fb4950741b19b1df3de3539385d83d9e3df1e56c5b",
+      "bytes": 745
+    },
+    {
+      "artifact": "bge-micro-v2/special_tokens_map.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "cb63d0cbbf45160dc9cd786a257759593b798ae0c72957011016dbc3972df4e4",
+      "sha256_a": "cb63d0cbbf45160dc9cd786a257759593b798ae0c72957011016dbc3972df4e4",
+      "sha256_b": "cb63d0cbbf45160dc9cd786a257759593b798ae0c72957011016dbc3972df4e4",
+      "bytes": 228
+    },
+    {
+      "artifact": "bge-micro-v2/vocab.txt",
+      "compared": true,
+      "identical": true,
+      "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "sha256_a": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "sha256_b": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "bytes": 231508
+    },
+    {
+      "artifact": "bge-micro-v2/added_tokens.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "909e96cb32d92ce728a01bc99850cbba26196d74115c17ebeb019275412588f2",
+      "sha256_a": "909e96cb32d92ce728a01bc99850cbba26196d74115c17ebeb019275412588f2",
+      "sha256_b": "909e96cb32d92ce728a01bc99850cbba26196d74115c17ebeb019275412588f2",
+      "bytes": 82
+    },
+    {
+      "artifact": "bge-micro-v2/modules.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "8f4b264b80206c830bebbdcae377e137925650a433b689343a63bdc9b3145460",
+      "sha256_a": "8f4b264b80206c830bebbdcae377e137925650a433b689343a63bdc9b3145460",
+      "sha256_b": "8f4b264b80206c830bebbdcae377e137925650a433b689343a63bdc9b3145460",
+      "bytes": 229
+    },
+    {
+      "artifact": "bge-micro-v2/1_Pooling/config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "4fff808dd5634889dc20e89268de2b842b8ff4345519ecc5d71985cdaf124c5b",
+      "sha256_a": "4fff808dd5634889dc20e89268de2b842b8ff4345519ecc5d71985cdaf124c5b",
+      "sha256_b": "4fff808dd5634889dc20e89268de2b842b8ff4345519ecc5d71985cdaf124c5b",
+      "bytes": 270
+    },
+    {
+      "artifact": "all-MiniLM-L6-v2/onnx/model_qint8_arm64.onnx",
+      "compared": true,
+      "identical": true,
+      "sha256": "4278337fd0ff3c68bfb6291042cad8ab363e1d9fbc43dcb499fe91c871902474",
+      "sha256_a": "4278337fd0ff3c68bfb6291042cad8ab363e1d9fbc43dcb499fe91c871902474",
+      "sha256_b": "4278337fd0ff3c68bfb6291042cad8ab363e1d9fbc43dcb499fe91c871902474",
+      "bytes": 23026053
+    },
+    {
+      "artifact": "all-MiniLM-L6-v2/tokenizer.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037",
+      "sha256_a": "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037",
+      "sha256_b": "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037",
+      "bytes": 466247
+    },
+    {
+      "artifact": "all-MiniLM-L6-v2/tokenizer_config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "acb92769e8195aabd29b7b2137a9e6d6e25c476a4f15aa4355c233426c61576b",
+      "sha256_a": "acb92769e8195aabd29b7b2137a9e6d6e25c476a4f15aa4355c233426c61576b",
+      "sha256_b": "acb92769e8195aabd29b7b2137a9e6d6e25c476a4f15aa4355c233426c61576b",
+      "bytes": 350
+    },
+    {
+      "artifact": "all-MiniLM-L6-v2/config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "953f9c0d463486b10a6871cc2fd59f223b2c70184f49815e7efbcab5d8908b41",
+      "sha256_a": "953f9c0d463486b10a6871cc2fd59f223b2c70184f49815e7efbcab5d8908b41",
+      "sha256_b": "953f9c0d463486b10a6871cc2fd59f223b2c70184f49815e7efbcab5d8908b41",
+      "bytes": 612
+    },
+    {
+      "artifact": "all-MiniLM-L6-v2/special_tokens_map.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "303df45a03609e4ead04bc3dc1536d0ab19b5358db685b6f3da123d05ec200e3",
+      "sha256_a": "303df45a03609e4ead04bc3dc1536d0ab19b5358db685b6f3da123d05ec200e3",
+      "sha256_b": "303df45a03609e4ead04bc3dc1536d0ab19b5358db685b6f3da123d05ec200e3",
+      "bytes": 112
+    },
+    {
+      "artifact": "all-MiniLM-L6-v2/vocab.txt",
+      "compared": true,
+      "identical": true,
+      "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "sha256_a": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "sha256_b": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "bytes": 231508
+    },
+    {
+      "artifact": "all-MiniLM-L6-v2/modules.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf",
+      "sha256_a": "84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf",
+      "sha256_b": "84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf",
+      "bytes": 349
+    },
+    {
+      "artifact": "all-MiniLM-L6-v2/1_Pooling/config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "4be450dde3b0273bb9787637cfbd28fe04a7ba6ab9d36ac48e92b11e350ffc23",
+      "sha256_a": "4be450dde3b0273bb9787637cfbd28fe04a7ba6ab9d36ac48e92b11e350ffc23",
+      "sha256_b": "4be450dde3b0273bb9787637cfbd28fe04a7ba6ab9d36ac48e92b11e350ffc23",
+      "bytes": 190
+    },
+    {
+      "artifact": "all-MiniLM-L6-v2/sentence_bert_config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "fc1993fde0a95c24ec6c022539d41cf6e2f7c9721e5415d6fb6897472a9cd4b7",
+      "sha256_a": "fc1993fde0a95c24ec6c022539d41cf6e2f7c9721e5415d6fb6897472a9cd4b7",
+      "sha256_b": "fc1993fde0a95c24ec6c022539d41cf6e2f7c9721e5415d6fb6897472a9cd4b7",
+      "bytes": 53
+    },
+    {
+      "artifact": "all-MiniLM-L6-v2/config_sentence_transformers.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "061ca9d39661d6c6d6de5ba27f79a1cd5770ea247f8d46412a68a498dc5ac9f3",
+      "sha256_a": "061ca9d39661d6c6d6de5ba27f79a1cd5770ea247f8d46412a68a498dc5ac9f3",
+      "sha256_b": "061ca9d39661d6c6d6de5ba27f79a1cd5770ea247f8d46412a68a498dc5ac9f3",
+      "bytes": 116
+    },
+    {
+      "artifact": "nli-deberta-v3-xsmall/onnx/model_qint8_arm64.onnx",
+      "compared": true,
+      "identical": true,
+      "sha256": "ef41fe8474f6070373f97fbe8362461d55108f387723280fcdb64f8015133db2",
+      "sha256_a": "ef41fe8474f6070373f97fbe8362461d55108f387723280fcdb64f8015133db2",
+      "sha256_b": "ef41fe8474f6070373f97fbe8362461d55108f387723280fcdb64f8015133db2",
+      "bytes": 87377068
+    },
+    {
+      "artifact": "nli-deberta-v3-xsmall/tokenizer.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964",
+      "sha256_a": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964",
+      "sha256_b": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964",
+      "bytes": 8656624
+    },
+    {
+      "artifact": "nli-deberta-v3-xsmall/tokenizer_config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "f3eecd07c370ef0bf7dd3780d3cd68cf9c8b00c267e21a208ddcd8f82bfec1a6",
+      "sha256_a": "f3eecd07c370ef0bf7dd3780d3cd68cf9c8b00c267e21a208ddcd8f82bfec1a6",
+      "sha256_b": "f3eecd07c370ef0bf7dd3780d3cd68cf9c8b00c267e21a208ddcd8f82bfec1a6",
+      "bytes": 1346
+    },
+    {
+      "artifact": "nli-deberta-v3-xsmall/config.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "8d9f07bf7ba54a6fc3b1962483056f94c39dcf188db4cf61843e1c88f94b2342",
+      "sha256_a": "8d9f07bf7ba54a6fc3b1962483056f94c39dcf188db4cf61843e1c88f94b2342",
+      "sha256_b": "8d9f07bf7ba54a6fc3b1962483056f94c39dcf188db4cf61843e1c88f94b2342",
+      "bytes": 1053
+    },
+    {
+      "artifact": "nli-deberta-v3-xsmall/special_tokens_map.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "ed7c099c988dbb414b18a6980d20cb57b91b7cd119f6f6941eb364b0e892e712",
+      "sha256_a": "ed7c099c988dbb414b18a6980d20cb57b91b7cd119f6f6941eb364b0e892e712",
+      "sha256_b": "ed7c099c988dbb414b18a6980d20cb57b91b7cd119f6f6941eb364b0e892e712",
+      "bytes": 301
+    },
+    {
+      "artifact": "nli-deberta-v3-xsmall/added_tokens.json",
+      "compared": true,
+      "identical": true,
+      "sha256": "a4b6bfe668f2b3cf6f0cd535e98a0663d2d0d4a4a15f13075ad3597d33985a23",
+      "sha256_a": "a4b6bfe668f2b3cf6f0cd535e98a0663d2d0d4a4a15f13075ad3597d33985a23",
+      "sha256_b": "a4b6bfe668f2b3cf6f0cd535e98a0663d2d0d4a4a15f13075ad3597d33985a23",
+      "bytes": 26
+    },
+    {
+      "artifact": "nli-deberta-v3-xsmall/spm.model",
+      "compared": true,
+      "identical": true,
+      "sha256": "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd",
+      "sha256_a": "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd",
+      "sha256_b": "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd",
+      "bytes": 2464616
+    }
+  ],
+  "ut1": {
+    "compared": true,
+    "compiled_sha256_match": true,
+    "compiled_sha256": "25058703f9fff7f05cb161c1fa7d7f16db2f5f3a3f755448c5a1aa908279bce3",
+    "compiled_sha256_a": "25058703f9fff7f05cb161c1fa7d7f16db2f5f3a3f755448c5a1aa908279bce3",
+    "compiled_sha256_b": "25058703f9fff7f05cb161c1fa7d7f16db2f5f3a3f755448c5a1aa908279bce3",
+    "total_hosts_match": true,
+    "total_hosts": 4781521,
+    "snapshot_date_match": true,
+    "category_count_match": true,
+    "category_digest_mismatches": []
+  },
+  "note": "Parity of INPUTS only. Identical Phase A digests mean both architectures ran the same bytes; they say nothing about whether inference produced identical outputs — that is measured separately in cross-arch-comparison.json."
+}

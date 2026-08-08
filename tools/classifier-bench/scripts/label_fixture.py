@@ -1,8 +1,29 @@
 #!/usr/bin/env python3
 """Label tools/classifier-bench/fixture/fixture_raw.json against taxonomy.json.
 Labeller of record: Fable (per issue owner decision, ChmaraX/forensix#137 discussion).
-Every rule below is a judgment call; rationale is recorded per row for audit."""
-import json, re
+Every rule below is a judgment call; rationale is recorded per row for audit.
+
+This script is the single source of truth for fixture_labelled.json. It must
+reproduce that file byte-for-byte; harness/test/fixture.test.js and the
+validator (validateFixture in harness/lib/fixture.js) both assume that.
+
+Corrections applied after the ChmaraX/forensix#137 audit round:
+  * IN-SITE SEARCH CONSISTENCY. Taxonomy label 1 (`Search & Query`) says
+    "Applies to search-engine result pages AND to in-site search endpoints".
+    Chrome Web Store `/webstore/search/<q>` rows are in-site search endpoints
+    and previously did not carry `search_query`, while YouTube and Amazon
+    in-site search did. That inconsistency injected systematic false negatives
+    into every candidate that correctly detects in-site search. Fixed below.
+  * PERSONA / STRATUM / eTLD+1 census fields are now emitted per row so the
+    harness can report power honestly (2 personas, not 3) and cluster the
+    bootstrap by registrable domain.
+  * URL-LEVEL GROUPING. Dedup key remains (title, url) so the row set is
+    unchanged at 208, but rows sharing a URL now carry a `url_group_id` so
+    they can be excluded from independent-item counts rather than silently
+    inflating per-label support.
+No row was added, removed, or relabelled to improve any candidate's score.
+"""
+import json, re, hashlib
 from urllib.parse import urlparse
 
 import os
@@ -14,6 +35,77 @@ def domain(url):
         return urlparse(url).netloc.lower()
     except Exception:
         return ""
+
+# Registrable-domain (eTLD+1) approximation. Multi-part public suffixes actually
+# present in this fixture are enumerated explicitly rather than guessed.
+#
+# This field is NOT census-only. It is the cluster unit for the domain bootstrap
+# (harness/lib/metrics.js bootstrapMacroF1), the support unit for the declared
+# power floor (goldDomainSupport, >=3 distinct eTLD+1), and the group key for
+# leave-one-domain-out sensitivity. A wrong value therefore moves published
+# confidence intervals, so it is tested (harness/test/fixture.test.js).
+#
+# AUDIT FIX: the browser-internal guard was `host.startswith("chrome")`, which
+# also matched the REAL host `chrome.google.com` (21 rows) and returned it as its
+# own registrable domain. That understated concentration (google.com read as 100
+# rows / 48.1% instead of 121 rows / 58.2%) and resampled 21 google.com rows as an
+# independent bootstrap cluster. Browser-internal URLs (`chrome://`,
+# `chrome-extension://`) have an EMPTY netloc, so the scheme is the correct
+# discriminator, not a host prefix.
+MULTI_PART_SUFFIXES = ("co.uk", "org.uk", "ac.uk", "com.au", "co.nz", "co.jp")
+INTERNAL_SCHEMES = ("chrome", "chrome-extension", "chrome-native", "about", "edge", "devtools")
+
+def etld1(url):
+    try:
+        scheme = urlparse(url).scheme.lower()
+    except Exception:
+        scheme = ""
+    host = domain(url)
+    # Browser-internal surfaces are not web origins and have no registrable
+    # domain. Key them by scheme so they still cluster together.
+    if scheme in INTERNAL_SCHEMES:
+        return f"{scheme}://" if not host else f"{scheme}://{host}"
+    if not host:
+        return host
+    host = host.split(":")[0]
+    parts = host.split(".")
+    if len(parts) < 3:
+        return host
+    if ".".join(parts[-2:]) in MULTI_PART_SUFFIXES:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:])
+
+# Persona census. CONFIRMED from research/_raw/137-chromebook-recon.md:400
+# ("Same staged persona as the 2021 Takeout: Eli Flatt") and
+# research/_raw/137-takeout-recon.md:158,358. The 2021 Chromebook and 2021
+# Takeout packages are ONE persona, so this fixture has TWO personas, not three.
+PERSONA_BY_SOURCE = {
+    "digitalcorpora:magnet-2021-chromebook": "eli-flatt",
+    "digitalcorpora:magnet-2021-takeout": "eli-flatt",
+    "digitalcorpora:magnet-2022-takeout": "rafael-shell",
+}
+
+# research/_raw/137-takeout-recon.md:485-491 verdicts the 2022 package a
+# "niche/skewed stratum ... Do not use as primary source". Marked so scoring
+# can report it, rather than leaving those 30 rows indistinguishable.
+STRATUM_BY_SOURCE = {
+    "digitalcorpora:magnet-2021-chromebook": "primary",
+    "digitalcorpora:magnet-2021-takeout": "primary",
+    "digitalcorpora:magnet-2022-takeout": "niche-skewed",
+}
+
+# In-site search endpoints, declared as patterns so the rule is auditable and
+# the validator can assert consistency against exactly this list.
+IN_SITE_SEARCH_PATTERNS = (
+    "chrome.google.com/webstore/search/",
+    "youtube.com/results?search_query",
+    "amazon.com/s?",
+    "amazon.com/s/ref",
+)
+
+def is_in_site_search(url):
+    u = url.lower()
+    return any(p in u for p in IN_SITE_SEARCH_PATTERNS)
 
 def label(row):
     t = row["title"]
@@ -46,7 +138,10 @@ def label(row):
     # --- Chrome Web Store / extensions / dev tooling ---
     if "chrome.google.com/webstore" in u or "mybrowseraddon.com" in d or "darkreader.org" in d:
         if "search/hide" in u or "search/signal" in u or "search/proton" in u:
-            return ["technology_software_dev", "anonymity_privacy_tooling"], "browsing extension store specifically for privacy/anonymity tools (Signal, ProtonMail, hide-it)", True
+            # In-site search endpoint: taxonomy label 1 applies to in-site search
+            # as well as search-engine result pages. `search_query` is therefore
+            # required here, exactly as it is for YouTube and Amazon in-site search.
+            return ["search_query", "technology_software_dev", "anonymity_privacy_tooling"], "in-site search on the extension store, for privacy/anonymity tools (Signal, ProtonMail, hide-it)", True
         return ["technology_software_dev"], "Chrome Web Store browsing / extension install", False
     if d in ("chrome.google.com",) and not t.strip():
         return ["unclassified"], "bare chrome.google.com host, no readable token", False
@@ -175,24 +270,38 @@ def label(row):
     # fallback
     return ["unclassified"], "no rule matched; row and rationale need human review", True
 
+from collections import Counter
+
+# URL groups: rows sharing a URL are title mutations of one visit, not
+# independent test items. Group id is content-addressed off the URL so it is
+# stable under reordering.
+url_counts = Counter(r["url"] for r in rows)
+
 labelled = []
 ambiguous_count = 0
 for r in rows:
     labels, rationale, ambiguous = label(r)
     if ambiguous:
         ambiguous_count += 1
+    source = r["provenance"]["source"]
+    shared = url_counts[r["url"]] > 1
     labelled.append({
         **r,
         "labels": labels,
         "rationale": rationale,
         "ambiguous": ambiguous,
         "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+        "persona_id": PERSONA_BY_SOURCE[source],
+        "stratum": STRATUM_BY_SOURCE[source],
+        "etld1": etld1(r["url"]),
+        "url_group_id": "urlg-" + hashlib.sha256(r["url"].encode()).hexdigest()[:12],
+        "url_group_shared": shared,
+        "in_site_search": is_in_site_search(r["url"]),
     })
 
 out_path = f"{ROOT}/tools/classifier-bench/fixture/fixture_labelled.json"
 json.dump(labelled, open(out_path, "w"), indent=2, ensure_ascii=False)
 
-from collections import Counter
 label_counts = Counter(l for r in labelled for l in r["labels"])
 print(f"Total rows: {len(labelled)}")
 print(f"Ambiguous (multi-plausible-label) rows flagged: {ambiguous_count}")
@@ -203,3 +312,12 @@ unmatched = [r for r in labelled if r["rationale"].startswith("no rule matched")
 print(f"\nFallback/unmatched rows: {len(unmatched)}")
 for r in unmatched:
     print("  ", r["row_id"], "|", r["title"][:50], "|", r["url"][:60])
+
+print("\nCensus:")
+print(f"  personas: {dict(Counter(r['persona_id'] for r in labelled))}")
+print(f"  strata:   {dict(Counter(r['stratum'] for r in labelled))}")
+print(f"  distinct eTLD+1: {len(set(r['etld1'] for r in labelled))}")
+print(f"  rows in shared-URL groups: {sum(1 for r in labelled if r['url_group_shared'])}")
+print(f"  in-site-search rows: {sum(1 for r in labelled if r['in_site_search'])}")
+missing = [r['row_id'] for r in labelled if r['in_site_search'] and 'search_query' not in r['labels']]
+print(f"  in-site-search rows missing search_query: {len(missing)} {missing}")

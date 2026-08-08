@@ -16,7 +16,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-b86d86a3144f",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Inbox - e.flatt610@gmail.com - Gmail",
@@ -35,7 +41,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-b9d3433cdbc3",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Inbox - e.flatt610@gmail.com - Gmail",
@@ -54,7 +66,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-11a931566b5a",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Inbox - e.flatt610@gmail.com - Gmail",
@@ -73,7 +91,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-c4e1e6751d09",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Inbox - e.flatt610@gmail.com - Gmail",
@@ -92,7 +116,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "gmail.com",
+    "url_group_id": "urlg-282b361bc40f",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Inbox - e.flatt610@gmail.com - Gmail",
@@ -111,7 +141,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-ffdface3d43b",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Inbox - e.flatt610@gmail.com - Gmail",
@@ -130,7 +166,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-ac3e6ce4d9b1",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Inbox - e.flatt610@gmail.com - Gmail",
@@ -149,7 +191,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-02e3129318c7",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chromebooks Come with Perks - Google Chromebooks",
@@ -168,7 +216,13 @@
     ],
     "rationale": "Chromebook device marketing/perks page",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-27c4d757b597",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chromebooks Come with Perks - Google Chromebooks",
@@ -187,7 +241,13 @@
     ],
     "rationale": "Chromebook device marketing/perks page",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-dde729c64655",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chromebooks Come with Perks - Google Chromebooks",
@@ -206,7 +266,13 @@
     ],
     "rationale": "Chromebook device marketing/perks page",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-ffd89095786c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "",
@@ -225,7 +291,13 @@
     ],
     "rationale": "browser-internal surface (chrome://, chrome-extension://) per label-19 boundary rule",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "chrome-extension://aohghmighlieiainnegkcijnfilokake",
+    "url_group_id": "urlg-edecee65f1a2",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Docs",
@@ -244,7 +316,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-b770da94fea0",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Docs",
@@ -263,7 +341,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-348c33369d1a",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Docs",
@@ -282,7 +366,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-740bce662bfa",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Docs",
@@ -301,7 +391,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-1e418cbdaac2",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Docs",
@@ -320,7 +416,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-1ba6578310e1",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled document - Google Docs",
@@ -339,7 +441,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-5fecd71c654c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled document - Google Docs",
@@ -358,7 +466,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-36437cff9273",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled document - Google Docs",
@@ -377,7 +491,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-46ec1eb8dd1c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled document - Google Docs",
@@ -396,7 +516,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-cc172f20161d",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "chick fil a receipes - Google Search",
@@ -416,7 +542,13 @@
     ],
     "rationale": "recipe/brand search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-c751d9ea74ba",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Copycat Chick-fil-A Sandwich - Damn Delicious",
@@ -435,7 +567,13 @@
     ],
     "rationale": "recipe / cooking how-to content",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "damndelicious.net",
+    "url_group_id": "urlg-ed03968383b4",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled document - Google Docs",
@@ -454,7 +592,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-d491728dd3fd",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled document - Google Docs",
@@ -473,7 +617,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-3c3a56b45987",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled document - Google Docs",
@@ -492,7 +642,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-903bbb9dd503",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled document - Google Docs",
@@ -511,7 +667,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-fb3d71b98576",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled document - Google Docs",
@@ -530,7 +692,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-e52c7d2a0fb0",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chick-fil-A Crispy Chicken Sandwich Copycat",
@@ -549,7 +717,13 @@
     ],
     "rationale": "recipe / cooking how-to content",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "tastesbetterfromscratch.com",
+    "url_group_id": "urlg-52f474d4a50d",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled document - Google Docs",
@@ -568,7 +742,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-ef5786fa4998",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "chick fil a recipes nuggets - Google Search",
@@ -588,7 +768,13 @@
     ],
     "rationale": "recipe/brand search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-5a0f22b169ba",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Copycat Chick-fil-A Nuggets - Damn Delicious",
@@ -607,7 +793,13 @@
     ],
     "rationale": "recipe / cooking how-to content",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "damndelicious.net",
+    "url_group_id": "urlg-8a5841bf79ff",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chick-Fil-A Chicken Nuggets with Honey Mustard Dipping Sauce Copycat Recipe | Gimme Delicious",
@@ -626,7 +818,13 @@
     ],
     "rationale": "recipe / cooking how-to content",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "gimmedelicious.com",
+    "url_group_id": "urlg-8c91fa6cbfd3",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vineyard vines stock - Google Search",
@@ -646,7 +844,13 @@
     ],
     "rationale": "stock-price query on a retail brand",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-5ed668eacb13",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vineyard vines stock price - Google Search",
@@ -666,7 +870,13 @@
     ],
     "rationale": "stock-price query on a retail brand",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-950da9964ad1",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "chick fil a stock price - Google Search",
@@ -686,7 +896,13 @@
     ],
     "rationale": "recipe/brand search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-5d99ea765742",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "lacrosse news - Google Search",
@@ -706,7 +922,13 @@
     ],
     "rationale": "sport-as-spectacle search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-ea494912b96d",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "lacrosse news - Google Search",
@@ -726,7 +948,13 @@
     ],
     "rationale": "sport-as-spectacle search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-4861f7a99a8c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Times Union Center gets National Lacrosse League franchise",
@@ -745,7 +973,13 @@
     ],
     "rationale": "sports journalism / news article",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "timesunion.com",
+    "url_group_id": "urlg-743610b8fde5",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - Extensions",
@@ -764,7 +998,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-e69146ec922b",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - Extensions",
@@ -783,7 +1023,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-f0405eba9518",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Dark Mode - Chrome Web Store",
@@ -802,7 +1048,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-f30b19cca437",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - Extensions",
@@ -821,7 +1073,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-b66f1d3075d3",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Dark Mode :: MyBrowserAddon",
@@ -840,7 +1098,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "mybrowseraddon.com",
+    "url_group_id": "urlg-ceeb8c6a2675",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Dark Reader - Chrome Web Store",
@@ -859,7 +1123,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-d5f589c84f0f",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Dark Reader - Chrome Web Store",
@@ -878,7 +1148,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-2ee11ea9be90",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Help – Dark Reader",
@@ -897,7 +1173,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "darkreader.org",
+    "url_group_id": "urlg-aa8a8b61ad10",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - Themes",
@@ -916,7 +1198,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-27e85a0a0ca5",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - Extensions",
@@ -935,7 +1223,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-cc532baf4a22",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Tabby Cat - Chrome Web Store",
@@ -954,7 +1248,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-13a014853c60",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - Extensions",
@@ -973,7 +1273,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-5f7fb64456f9",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Facebook",
@@ -992,7 +1298,13 @@
     ],
     "rationale": "Facebook",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "facebook.com",
+    "url_group_id": "urlg-0b2df0f63558",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Facebook",
@@ -1011,7 +1323,13 @@
     ],
     "rationale": "Facebook",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "facebook.com",
+    "url_group_id": "urlg-239eed86391b",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Facebook",
@@ -1030,7 +1348,13 @@
     ],
     "rationale": "Facebook",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "facebook.com",
+    "url_group_id": "urlg-601fa564fd42",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Facebook",
@@ -1049,7 +1373,13 @@
     ],
     "rationale": "Facebook",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "facebook.com",
+    "url_group_id": "urlg-2870898287e3",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - hide it",
@@ -1064,12 +1394,19 @@
     },
     "row_id": "row-0055-808ada2e15ed",
     "labels": [
+      "search_query",
       "technology_software_dev",
       "anonymity_privacy_tooling"
     ],
-    "rationale": "browsing extension store specifically for privacy/anonymity tools (Signal, ProtonMail, hide-it)",
+    "rationale": "in-site search on the extension store, for privacy/anonymity tools (Signal, ProtonMail, hide-it)",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-f86f363b01af",
+    "url_group_shared": false,
+    "in_site_search": true
   },
   {
     "title": "chrome.google.com",
@@ -1084,12 +1421,19 @@
     },
     "row_id": "row-0056-7d1f8882bff8",
     "labels": [
+      "search_query",
       "technology_software_dev",
       "anonymity_privacy_tooling"
     ],
-    "rationale": "browsing extension store specifically for privacy/anonymity tools (Signal, ProtonMail, hide-it)",
+    "rationale": "in-site search on the extension store, for privacy/anonymity tools (Signal, ProtonMail, hide-it)",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-a2f584ab7eeb",
+    "url_group_shared": true,
+    "in_site_search": true
   },
   {
     "title": "chrome webstore - Google Search",
@@ -1108,7 +1452,13 @@
     ],
     "rationale": "generic search query, no clearer secondary topic",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-ee51b61d695e",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - Extensions",
@@ -1127,7 +1477,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-0233ab0ef3e8",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - Extensions",
@@ -1146,7 +1502,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-5f8165518e50",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - proton mail",
@@ -1161,12 +1523,19 @@
     },
     "row_id": "row-0060-f63212101145",
     "labels": [
+      "search_query",
       "technology_software_dev",
       "anonymity_privacy_tooling"
     ],
-    "rationale": "browsing extension store specifically for privacy/anonymity tools (Signal, ProtonMail, hide-it)",
+    "rationale": "in-site search on the extension store, for privacy/anonymity tools (Signal, ProtonMail, hide-it)",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-24b3e080a938",
+    "url_group_shared": false,
+    "in_site_search": true
   },
   {
     "title": "Chrome Web Store - proton mail",
@@ -1181,12 +1550,19 @@
     },
     "row_id": "row-0061-bcb2d40cbfca",
     "labels": [
+      "search_query",
       "technology_software_dev",
       "anonymity_privacy_tooling"
     ],
-    "rationale": "browsing extension store specifically for privacy/anonymity tools (Signal, ProtonMail, hide-it)",
+    "rationale": "in-site search on the extension store, for privacy/anonymity tools (Signal, ProtonMail, hide-it)",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-d7d146b63122",
+    "url_group_shared": false,
+    "in_site_search": true
   },
   {
     "title": "Secure email: ProtonMail is free encrypted email.",
@@ -1205,7 +1581,13 @@
     ],
     "rationale": "ProtonMail inbox/login",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "protonmail.com",
+    "url_group_id": "urlg-7b784b7c1986",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Secure email: ProtonMail is free encrypted email.",
@@ -1224,7 +1606,13 @@
     ],
     "rationale": "ProtonMail inbox/login",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "protonmail.com",
+    "url_group_id": "urlg-70e9d1eeb992",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Login | ProtonMail",
@@ -1243,7 +1631,13 @@
     ],
     "rationale": "ProtonMail inbox/login",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "protonmail.com",
+    "url_group_id": "urlg-42e6829ecd35",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Inbox | e.flatt610@protonmail.com | ProtonMail",
@@ -1262,7 +1656,13 @@
     ],
     "rationale": "ProtonMail inbox/login",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "protonmail.com",
+    "url_group_id": "urlg-ff89b68fc91c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "(1) Inbox | e.flatt610@protonmail.com | ProtonMail",
@@ -1281,7 +1681,13 @@
     ],
     "rationale": "ProtonMail inbox/login",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "protonmail.com",
+    "url_group_id": "urlg-34c4c4f178b0",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "(1) Inbox | e.flatt610@protonmail.com | ProtonMail",
@@ -1300,7 +1706,13 @@
     ],
     "rationale": "ProtonMail inbox/login",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "protonmail.com",
+    "url_group_id": "urlg-dbb35faec4aa",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "(1) Inbox | e.flatt610@protonmail.com | ProtonMail",
@@ -1319,7 +1731,13 @@
     ],
     "rationale": "ProtonMail inbox/login",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "protonmail.com",
+    "url_group_id": "urlg-bdb42054eb9b",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Login - ProtonMail",
@@ -1338,7 +1756,13 @@
     ],
     "rationale": "ProtonMail inbox/login",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "protonmail.com",
+    "url_group_id": "urlg-407c8d381a29",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "google sheets - Google Search",
@@ -1357,7 +1781,13 @@
     ],
     "rationale": "generic search query, no clearer secondary topic",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-681be262e815",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Sheets: Free Online Spreadsheets for Personal Use",
@@ -1376,7 +1806,13 @@
     ],
     "rationale": "Google Sheets marketing/product page, not a document itself",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-dcf472682c60",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Sheets",
@@ -1395,7 +1831,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-c3d1da71568c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Sheets",
@@ -1414,7 +1856,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-cd896ec4a8cd",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Sheets",
@@ -1433,7 +1881,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-4936f31f2942",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "To-Purchase - Google Sheets",
@@ -1452,7 +1906,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-8273cbcd63c9",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "To-Purchase - Google Sheets",
@@ -1471,7 +1931,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-d241087459db",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "To-Purchase - Google Drive",
@@ -1490,7 +1956,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-a51d6d8e2d7c",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Amazon.com: Online Shopping for Electronics, Apparel, Computers, Books, DVDs & more",
@@ -1509,7 +1981,13 @@
     ],
     "rationale": "marketplace homepage",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "amazon.com",
+    "url_group_id": "urlg-77b186a30235",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Amazon.com : lacrosse",
@@ -1529,7 +2007,13 @@
     ],
     "rationale": "in-site product search",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "amazon.com",
+    "url_group_id": "urlg-770badb24f45",
+    "url_group_shared": false,
+    "in_site_search": true
   },
   {
     "title": "Amazon.com : lacrosse",
@@ -1549,7 +2033,13 @@
     ],
     "rationale": "in-site product search",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "amazon.com",
+    "url_group_id": "urlg-f0a48680cd96",
+    "url_group_shared": false,
+    "in_site_search": true
   },
   {
     "title": "Amazon.com : SWAX LAX Lacrosse Training Ball - Same Size & Weight as Regulation Lacrosse Ball but Soft - Indoor Outdoor Practice Ball with Less Bounce & Reduced Rebounds (One Orange) : Sports & Outdoors",
@@ -1568,7 +2058,13 @@
     ],
     "rationale": "marketplace product page",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "amazon.com",
+    "url_group_id": "urlg-9114d6bf379a",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "- Google Drive",
@@ -1587,7 +2083,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-412c38f94270",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "how secure is wickr - Google Search",
@@ -1607,7 +2109,13 @@
     ],
     "rationale": "search query about a privacy-tool's security properties",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-4460b2aa6c16",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Wickr Security",
@@ -1626,7 +2134,13 @@
     ],
     "rationale": "Wickr = encrypted/ephemeral messaging; security-research framing",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "wickr.com",
+    "url_group_id": "urlg-ec1945056670",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Microsoft Word - Wickr Customer Security Promises March 2018.docx",
@@ -1645,7 +2159,13 @@
     ],
     "rationale": "Wickr = encrypted/ephemeral messaging; security-research framing",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "wickr.com",
+    "url_group_id": "urlg-c854f6f42b1b",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vermont covid restrictions - Google Search",
@@ -1664,7 +2184,13 @@
     ],
     "rationale": "generic search query, no clearer secondary topic",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-fd3f7e71508b",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Travel & Quarantine | Vermont Department of Health",
@@ -1684,7 +2210,13 @@
     ],
     "rationale": "COVID-era travel-restriction research: genuinely both a movement-timeline question and a public-health question",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "healthvermont.gov",
+    "url_group_id": "urlg-6e399b0adbea",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Vermonters Traveling Out of State | Vermont Department of Health",
@@ -1704,7 +2236,13 @@
     ],
     "rationale": "COVID-era travel-restriction research: genuinely both a movement-timeline question and a public-health question",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "healthvermont.gov",
+    "url_group_id": "urlg-2bfcdad4b343",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "what is considered non essential travel - Google Search",
@@ -1725,7 +2263,13 @@
     ],
     "rationale": "COVID-era travel-restriction research: genuinely both a movement-timeline question and a public-health question",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-2b994828355a",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "What is considered essential travel? | Million Mile Secrets",
@@ -1745,7 +2289,13 @@
     ],
     "rationale": "COVID-era travel-restriction research: genuinely both a movement-timeline question and a public-health question",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "millionmilesecrets.com",
+    "url_group_id": "urlg-2d5ec327a3c6",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "is travelling to get chicken esstential travel - Google Search",
@@ -1766,7 +2316,13 @@
     ],
     "rationale": "COVID-era travel-restriction research: genuinely both a movement-timeline question and a public-health question",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-ba0dd0460560",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "is travelling to get food esstential travel - Google Search",
@@ -1787,7 +2343,13 @@
     ],
     "rationale": "COVID-era travel-restriction research: genuinely both a movement-timeline question and a public-health question",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-6c14d2a0f109",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "What counts as essential travel during the Covid-19 lockdown? - Full Fact",
@@ -1807,7 +2369,13 @@
     ],
     "rationale": "COVID-era travel-restriction research: genuinely both a movement-timeline question and a public-health question",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "fullfact.org",
+    "url_group_id": "urlg-60e6ea604a97",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "maps - Google Search",
@@ -1826,7 +2394,13 @@
     ],
     "rationale": "generic search query, no clearer secondary topic",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-f5e7aef74af0",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Maps",
@@ -1845,7 +2419,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-1b206bc8da8e",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "chick fil a near me - Google Maps",
@@ -1864,7 +2444,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-8a0ec4b865b2",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chick-fil-A - Google Maps",
@@ -1883,7 +2469,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-3829b3eaf02f",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chick-fil-A - Google Maps",
@@ -1902,7 +2494,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-968ee66e8bd2",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chick-fil-A - Google Maps",
@@ -1921,7 +2519,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-8f5ec9c3d0ce",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Maps",
@@ -1940,7 +2544,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-da4fb090403c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Maps",
@@ -1959,7 +2569,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-aee5c3e52c37",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google Maps",
@@ -1978,7 +2594,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-dddabb7ac3ba",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Burlington, VT to Chick-fil-A - Google Maps",
@@ -1997,7 +2619,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-1057d9aee9f0",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Burlington, VT to Chick-fil-A - Google Maps",
@@ -2016,7 +2644,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-f2f293a5448a",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Burlington, VT to Chick-fil-A - Google Maps",
@@ -2035,7 +2669,13 @@
     ],
     "rationale": "maps/directions to a physical location",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-709f2ac73fee",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "how to screenshot in chromebook - Google Search",
@@ -2055,7 +2695,13 @@
     ],
     "rationale": "technical/OS how-to search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-e809a7696957",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "lacrosse news - Google Search",
@@ -2075,7 +2721,13 @@
     ],
     "rationale": "sport-as-spectacle search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-6786bb9f4e62",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "lacrosse news - Google Search",
@@ -2095,7 +2747,13 @@
     ],
     "rationale": "sport-as-spectacle search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-5435881879d9",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Dialed In: Your Lacrosse Fix for Wednesday, March 3 | US Lacrosse Magazine",
@@ -2114,7 +2772,13 @@
     ],
     "rationale": "sports journalism / news article",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "uslaxmagazine.com",
+    "url_group_id": "urlg-072d407af1c2",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vineyard vines - Google Search",
@@ -2134,7 +2798,13 @@
     ],
     "rationale": "brand-name search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-90028a8d293f",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
@@ -2154,7 +2824,13 @@
     ],
     "rationale": "ad-click redirect chain landing on a shopping destination",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "googleadservices.com",
+    "url_group_id": "urlg-1ee5d274793c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
@@ -2174,7 +2850,13 @@
     ],
     "rationale": "ad-click redirect chain landing on a shopping destination",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "dartsearch.net",
+    "url_group_id": "urlg-45fd543173cf",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
@@ -2194,7 +2876,13 @@
     ],
     "rationale": "ad-click redirect chain landing on a shopping destination",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "doubleclick.net",
+    "url_group_id": "urlg-949ad33e1566",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
@@ -2213,7 +2901,13 @@
     ],
     "rationale": "apparel retailer product/shop pages",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "vineyardvines.com",
+    "url_group_id": "urlg-a87346a13a88",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
@@ -2232,7 +2926,13 @@
     ],
     "rationale": "apparel retailer product/shop pages",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "vineyardvines.com",
+    "url_group_id": "urlg-89e356aef473",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "perks of linux - Google Search",
@@ -2252,7 +2952,13 @@
     ],
     "rationale": "technical/OS how-to search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-9e84abb475ab",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Advantage of Linux | Top 18 Important Advantages Of Linux",
@@ -2272,7 +2978,13 @@
     ],
     "rationale": "technical how-to / explainer article",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "educba.com",
+    "url_group_id": "urlg-63d41f0ea394",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "linux penguin - Google Search",
@@ -2292,7 +3004,13 @@
     ],
     "rationale": "technical/OS how-to search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-10a8c6366bb7",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "linux penguin - Google Search",
@@ -2312,7 +3030,13 @@
     ],
     "rationale": "technical/OS how-to search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-3e3b6e1f9d6e",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "linux penguin - Google Search",
@@ -2332,7 +3056,13 @@
     ],
     "rationale": "technical/OS how-to search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-e56995bef231",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "can linux be run on chromebook - Google Search",
@@ -2352,7 +3082,13 @@
     ],
     "rationale": "technical/OS how-to search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-c2a4c8091fb3",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "All Chromebooks will also be Linux laptops going forward | ZDNet",
@@ -2372,7 +3108,13 @@
     ],
     "rationale": "technical how-to / explainer article",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "zdnet.com",
+    "url_group_id": "urlg-7bc952fabf71",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "command line chromebook - Google Search",
@@ -2392,7 +3134,13 @@
     ],
     "rationale": "technical/OS how-to search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-0050716b6669",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "How to Access the Command Prompt on a Chromebook",
@@ -2412,7 +3160,13 @@
     ],
     "rationale": "technical how-to / explainer article",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "techjunkie.com",
+    "url_group_id": "urlg-30ffff78289c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "crosh",
@@ -2431,7 +3185,13 @@
     ],
     "rationale": "browser-internal surface (chrome://, chrome-extension://) per label-19 boundary rule",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "chrome-extension://nkoccljplnhpfnfiajclkommnmllphnl",
+    "url_group_id": "urlg-8060fdfda218",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "command command line commands - Google Search",
@@ -2451,7 +3211,13 @@
     ],
     "rationale": "technical/OS how-to search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-dd30dea93a87",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "command command line commands crosh - Google Search",
@@ -2471,7 +3237,13 @@
     ],
     "rationale": "technical/OS how-to search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-4d47a10222dc",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "18 Crosh Terminal Commands All Chromebook Users Should Know",
@@ -2491,7 +3263,13 @@
     ],
     "rationale": "technical how-to / explainer article",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "makeuseof.com",
+    "url_group_id": "urlg-5a46721a6c64",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Microsoft Word - Wickr Customer Security Promises March 2018.docx",
@@ -2510,7 +3288,13 @@
     ],
     "rationale": "Wickr = encrypted/ephemeral messaging; security-research framing",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "",
+    "url_group_id": "urlg-1b220c42e78d",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "New Tab",
@@ -2527,7 +3311,13 @@
     ],
     "rationale": "browser-internal surface (chrome://, chrome-extension://) per label-19 boundary rule",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "chrome://newtab",
+    "url_group_id": "urlg-4b15aabcdec3",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Inbox | e.flatt610@protonmail.com | ProtonMail",
@@ -2544,7 +3334,13 @@
     ],
     "rationale": "ProtonMail inbox/login",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "protonmail.com",
+    "url_group_id": "urlg-407c8d381a29",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "To-Purchase - Google Sheets",
@@ -2561,7 +3357,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-a51d6d8e2d7c",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - signal",
@@ -2578,7 +3380,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-5f8165518e50",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - hide it",
@@ -2591,12 +3399,19 @@
     },
     "row_id": "row-0134-f0a10d9845e1",
     "labels": [
+      "search_query",
       "technology_software_dev",
       "anonymity_privacy_tooling"
     ],
-    "rationale": "browsing extension store specifically for privacy/anonymity tools (Signal, ProtonMail, hide-it)",
+    "rationale": "in-site search on the extension store, for privacy/anonymity tools (Signal, ProtonMail, hide-it)",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-a2f584ab7eeb",
+    "url_group_shared": true,
+    "in_site_search": true
   },
   {
     "title": "Chrome Web Store - hide it pro",
@@ -2613,7 +3428,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-f0405eba9518",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Facebook - Log In or Sign Up",
@@ -2630,7 +3451,13 @@
     ],
     "rationale": "Facebook",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "facebook.com",
+    "url_group_id": "urlg-0b2df0f63558",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Chrome Web Store - Themes",
@@ -2647,7 +3474,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-f0405eba9518",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "chrome.google.com",
@@ -2664,7 +3497,13 @@
     ],
     "rationale": "Chrome Web Store browsing / extension install",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-e69146ec922b",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "chick fil a recipes - Google Search",
@@ -2682,7 +3521,13 @@
     ],
     "rationale": "recipe/brand search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-c751d9ea74ba",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Shop Saltwater 1/4-Zip at vineyard vines",
@@ -2699,7 +3544,13 @@
     ],
     "rationale": "apparel retailer product/shop pages",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "vineyardvines.com",
+    "url_group_id": "urlg-1dc4a0c6cc1e",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Shop Mens New Arrivals at vineyard vines",
@@ -2716,7 +3567,13 @@
     ],
     "rationale": "apparel retailer product/shop pages",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "vineyardvines.com",
+    "url_group_id": "urlg-2e7a5917857d",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Shop Cashmere Jogger at vineyard vines",
@@ -2733,7 +3590,13 @@
     ],
     "rationale": "apparel retailer product/shop pages",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "vineyardvines.com",
+    "url_group_id": "urlg-fa4f384fbed6",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Untitled spreadsheet - Google Sheets",
@@ -2750,7 +3613,13 @@
     ],
     "rationale": "Google Docs/Sheets = cloud document collaboration (label-16 boundary rule)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-7df5b5018759",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Shop Pebbled Leather Belt at vineyard vines",
@@ -2767,7 +3636,13 @@
     ],
     "rationale": "apparel retailer product/shop pages",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "vineyardvines.com",
+    "url_group_id": "urlg-6342627a2888",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vineyard vines | Casual & Classic Men's & Women's Clothing",
@@ -2784,7 +3659,13 @@
     ],
     "rationale": "apparel retailer product/shop pages",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "vineyardvines.com",
+    "url_group_id": "urlg-c91a8fe44001",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "vineyard vines - Google Search",
@@ -2802,7 +3683,13 @@
     ],
     "rationale": "brand-name search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-00628bf9cbda",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Chick-fil-A - SIGN IN",
@@ -2819,7 +3706,13 @@
     ],
     "rationale": "restaurant brand site / ordering account access",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "chick-fil-a.com",
+    "url_group_id": "urlg-08fe900dac94",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "​Chick-fil-A One | Chick-fil-A",
@@ -2836,7 +3729,13 @@
     ],
     "rationale": "restaurant brand site / ordering account access",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "chick-fil-a.com",
+    "url_group_id": "urlg-78e6e4df8dae",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Home of the Original Chicken Sandwich | Chick-fil-A",
@@ -2853,7 +3752,13 @@
     ],
     "rationale": "restaurant brand site / ordering account access",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "chick-fil-a.com",
+    "url_group_id": "urlg-211e2e6b02ad",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "chick fil a - Google Search",
@@ -2871,7 +3776,13 @@
     ],
     "rationale": "recipe/brand search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-5c3827ef5ab4",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Apple iPhone 8 64gb Factory Unlocked All Carriers - Gold for sale online | eBay",
@@ -2888,7 +3799,13 @@
     ],
     "rationale": "marketplace listing/search",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "ebay.com",
+    "url_group_id": "urlg-4c8774d556a6",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "iPhones for Sale - New & Used iPhones at Great Prices - eBay",
@@ -2905,7 +3822,13 @@
     ],
     "rationale": "marketplace listing/search",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "ebay.com",
+    "url_group_id": "urlg-d2320b547153",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "used iphones for sale - Google Search",
@@ -2923,7 +3846,13 @@
     ],
     "rationale": "product-purchase search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-63dac96765a5",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Buy iPhone SE - Apple",
@@ -2940,7 +3869,13 @@
     ],
     "rationale": "purchase flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "apple.com",
+    "url_group_id": "urlg-91210b9e830b",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "iPhone SE - Apple",
@@ -2957,7 +3892,13 @@
     ],
     "rationale": "product info/marketing page, not a purchase flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "apple.com",
+    "url_group_id": "urlg-7d7ac8867e60",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "iPhone - Apple",
@@ -2974,7 +3915,13 @@
     ],
     "rationale": "product info/marketing page, not a purchase flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "apple.com",
+    "url_group_id": "urlg-978369c14a17",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "iphones for sale - Google Search",
@@ -2992,7 +3939,13 @@
     ],
     "rationale": "product-purchase search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-3585c934a2ee",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "50 reasons why androids SUCK!",
@@ -3009,7 +3962,13 @@
     ],
     "rationale": "humor/opinion blog post (label-6 boundary: humour)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "blogspot.com",
+    "url_group_id": "urlg-a26fa781f575",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "why do androids suck - Google Search",
@@ -3027,7 +3986,13 @@
     ],
     "rationale": "opinion/humor search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-2798f15265d2",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Inbox - e.flatt610@gmail.com - Gmail",
@@ -3044,7 +4009,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-db902c3abfb8",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Gmail",
@@ -3061,7 +4032,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-db902c3abfb8",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Eli, finish setting up your new Google Account - e.flatt610@gmail.com - Gmail",
@@ -3078,7 +4055,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-889da00a51d5",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Gmail",
@@ -3095,7 +4078,13 @@
     ],
     "rationale": "Gmail inbox/login flow",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-ffdface3d43b",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Vacation Rentals",
@@ -3112,7 +4101,13 @@
     ],
     "rationale": "vacation rental booking site",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "vrbo.com",
+    "url_group_id": "urlg-975a08f60dc7",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Burlington Vacation Rentals | Vrbo.com",
@@ -3129,7 +4124,13 @@
     ],
     "rationale": "vacation rental booking site",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "vrbo.com",
+    "url_group_id": "urlg-6c5e1db3794c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Vacation homes waiting for your family",
@@ -3146,7 +4147,13 @@
     ],
     "rationale": "vacation rental booking site",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "vrbo.com",
+    "url_group_id": "urlg-4a4a6f07b2af",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "The BEST Clips of 2020 | Lacrosse Highlights - YouTube",
@@ -3163,7 +4170,13 @@
     ],
     "rationale": "video content (streaming)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "youtube.com",
+    "url_group_id": "urlg-2cd95f627e45",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "lacrosse - YouTube",
@@ -3181,7 +4194,13 @@
     ],
     "rationale": "in-site search on a streaming platform",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "youtube.com",
+    "url_group_id": "urlg-3d914e5a6f01",
+    "url_group_shared": false,
+    "in_site_search": true
   },
   {
     "title": "YouTube",
@@ -3198,7 +4217,13 @@
     ],
     "rationale": "video content (streaming)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "youtube.com",
+    "url_group_id": "urlg-dbae2d0204aa",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Women's Lacrosse - Boston University Athletics",
@@ -3215,7 +4240,13 @@
     ],
     "rationale": "university sports team page (sport as spectacle)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "goterriers.com",
+    "url_group_id": "urlg-5a2bc776374c",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Google",
@@ -3232,7 +4263,13 @@
     ],
     "rationale": "bare search-engine homepage, no query token present",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-d0e196a0c25d",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "lacrosse - Google Search",
@@ -3250,7 +4287,13 @@
     ],
     "rationale": "sport-as-spectacle search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-dde167e9e174",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "lacrosse - Google Search",
@@ -3268,7 +4311,13 @@
     ],
     "rationale": "sport-as-spectacle search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-b78abf36565a",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "lacrosse - Google Search",
@@ -3286,7 +4335,13 @@
     ],
     "rationale": "sport-as-spectacle search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-62d631ba3f13",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "MEN’S LACROSSE: Bulldogs will not play 2021 season, Ierlan to transfer",
@@ -3303,7 +4358,13 @@
     ],
     "rationale": "sports journalism / news article",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "yaledailynews.com",
+    "url_group_id": "urlg-17cbdb8d7936",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "lacrosse news - Google Search",
@@ -3321,7 +4382,13 @@
     ],
     "rationale": "sport-as-spectacle search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-426cd27068ce",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "lacrosse news - Google Search",
@@ -3339,7 +4406,13 @@
     ],
     "rationale": "sport-as-spectacle search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "eli-flatt",
+    "stratum": "primary",
+    "etld1": "google.com",
+    "url_group_id": "urlg-5c88e8612721",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "DIY Small LARP Shield in Under an Hour!",
@@ -3357,7 +4430,13 @@
     ],
     "rationale": "hobby (LARP) search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-3a3d2e547c96",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "larp shield diy - Google Search",
@@ -3375,7 +4454,13 @@
     ],
     "rationale": "hobby (LARP) search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-7682a79b10d7",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "larp shield diy - Google Search",
@@ -3393,7 +4478,13 @@
     ],
     "rationale": "hobby (LARP) search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-3d1ff14af692",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "larp - Google Search",
@@ -3411,7 +4502,13 @@
     ],
     "rationale": "hobby (LARP) search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-ea50c0ffba71",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "larp - Google Search",
@@ -3429,7 +4526,13 @@
     ],
     "rationale": "hobby (LARP) search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-db25ffb69dcd",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "larp - Google Search",
@@ -3447,7 +4550,13 @@
     ],
     "rationale": "hobby (LARP) search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-da0cf128abcd",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "larp - Google Search",
@@ -3465,7 +4574,13 @@
     ],
     "rationale": "hobby (LARP) search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-771e1ee4cd5d",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "5 Intermediate and Advanced Card Tricks Every Magician Should Learn",
@@ -3483,7 +4598,13 @@
     ],
     "rationale": "how-to magic-trick article",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "vanishingincmagic.com",
+    "url_group_id": "urlg-885f63522f8a",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "best magic tricks intermediate - Google Search",
@@ -3501,7 +4622,13 @@
     ],
     "rationale": "how-to hobby search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-9cc4083eff23",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Adventure Play | AI Dungeon",
@@ -3518,7 +4645,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-af45c47127e9",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "",
@@ -3535,7 +4668,13 @@
     ],
     "rationale": "empty title, but URL (aidungeon.io/verify) carries discriminating signal alone",
     "ambiguous": true,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-5840806a94c7",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Adventure Play | AI Dungeon",
@@ -3552,7 +4691,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-c4efcd8098f1",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Scenario Play | AI Dungeon",
@@ -3569,7 +4714,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-2445660e5ddb",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Scenario Play | AI Dungeon",
@@ -3586,7 +4737,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-4d368cf20217",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Scenario Play | AI Dungeon",
@@ -3603,7 +4760,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-fdce3e459881",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Scenario Play | AI Dungeon",
@@ -3620,7 +4783,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-3b610ec72615",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "New Game",
@@ -3637,7 +4806,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-91b192ce2c19",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Home",
@@ -3654,7 +4829,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-91b192ce2c19",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Currency Store",
@@ -3671,7 +4852,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-91b192ce2c19",
+    "url_group_shared": true,
+    "in_site_search": false
   },
   {
     "title": "Latitude",
@@ -3688,7 +4875,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "latitude.io",
+    "url_group_id": "urlg-a94cc2850bdb",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Latitude",
@@ -3705,7 +4898,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "latitude.io",
+    "url_group_id": "urlg-3c0800853db1",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Home",
@@ -3722,7 +4921,13 @@
     ],
     "rationale": "AI Dungeon text-adventure game platform and its account provider (Latitude)",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "aidungeon.io",
+    "url_group_id": "urlg-1ab972be03a6",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "ai dungeon - Google Search",
@@ -3740,7 +4945,13 @@
     ],
     "rationale": "game-platform search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-6617b3d56987",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "minecraft icon - Google Search",
@@ -3758,7 +4969,13 @@
     ],
     "rationale": "game-asset search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-b0d1f5219506",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "You're all set. - Spotify",
@@ -3775,7 +4992,13 @@
     ],
     "rationale": "music streaming account page",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "spotify.com",
+    "url_group_id": "urlg-d12a6dd5fceb",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Password Reset",
@@ -3792,7 +5015,13 @@
     ],
     "rationale": "Twitter account action",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "twitter.com",
+    "url_group_id": "urlg-b61b6e61b2ba",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Log4Shell VMware vCenter Server (CVE-2021-44228) - Hacking Tutorials",
@@ -3809,7 +5038,13 @@
     ],
     "rationale": "exploit/CVE tutorial site",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "hackingtutorials.org",
+    "url_group_id": "urlg-f9aa1268aa44",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "Hacking Tutorials - The best Step-by-Step Hacking Tutorials",
@@ -3826,7 +5061,13 @@
     ],
     "rationale": "exploit/CVE tutorial site",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "hackingtutorials.org",
+    "url_group_id": "urlg-6f0c39b8b3d7",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "minecraft icon - Google Search",
@@ -3844,7 +5085,13 @@
     ],
     "rationale": "game-asset search query",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "google.com",
+    "url_group_id": "urlg-7fc19c6d9510",
+    "url_group_shared": false,
+    "in_site_search": false
   },
   {
     "title": "New tab",
@@ -3861,6 +5108,12 @@
     ],
     "rationale": "browser-internal surface (chrome://, chrome-extension://) per label-19 boundary rule",
     "ambiguous": false,
-    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)"
+    "labeller": "fable-5 (rule-documented, owner-approved per issue #137 discussion)",
+    "persona_id": "rafael-shell",
+    "stratum": "niche-skewed",
+    "etld1": "chrome-native://newtab",
+    "url_group_id": "urlg-2f29b01b1111",
+    "url_group_shared": false,
+    "in_site_search": false
   }
 ]

@@ -1,0 +1,235 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/M9BPr6WWaMmlKtuJP5eMwx/EwHM</id>
+  <title>arXiv Query: search_query=all:"web page classification"&amp;id_list=&amp;start=0&amp;max_results=15</title>
+  <updated>2026-08-08T11:36:44Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=all:%22web+page+classification%22&amp;start=0&amp;max_results=15&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>15</opensearch:itemsPerPage>
+  <opensearch:totalResults>10</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2006.00226v2</id>
+    <title>Web page classification with Google Image Search results</title>
+    <updated>2020-12-27T06:23:37Z</updated>
+    <link href="https://arxiv.org/abs/2006.00226v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2006.00226v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>In this paper, we introduce a novel method that combines multiple neural network results to decide the class of the input. This is the first study which used the method for web pages classification. In our model, each element is represented by multiple descriptive images. After the training process of the neural network model, each element is classified by calculating its descriptive image results. We apply our idea to the web page classification problem using Google Image Search results as descriptive images. We obtained a classification rate of 94.90% on the WebScreenshots dataset that contains 20000 web sites in 4 classes. The method is easily applicable to similar problems.</summary>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2020-05-30T09:16:20Z</published>
+    <arxiv:primary_category term="cs.CV"/>
+    <author>
+      <name>Fahri Aydos</name>
+    </author>
+    <author>
+      <name>A. Murat Özbayoğlu</name>
+    </author>
+    <author>
+      <name>Yahya Şirin</name>
+    </author>
+    <author>
+      <name>M. Fatih Demirci</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1003.1510v1</id>
+    <title>Hierarchical Web Page Classification Based on a Topic Model and Neighboring Pages Integration</title>
+    <updated>2010-03-07T18:32:47Z</updated>
+    <link href="https://arxiv.org/abs/1003.1510v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1003.1510v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Most Web page classification models typically apply the bag of words (BOW) model to represent the feature space. The original BOW representation, however, is unable to recognize semantic relationships between terms. One possible solution is to apply the topic model approach based on the Latent Dirichlet Allocation algorithm to cluster the term features into a set of latent topics. Terms assigned into the same topic are semantically related. In this paper, we propose a novel hierarchical classification method based on a topic model and by integrating additional term features from neighboring pages. Our hierarchical classification method consists of two phases: (1) feature representation by using a topic model and integrating neighboring pages, and (2) hierarchical Support Vector Machines (SVM) classification model constructed from a confusion matrix. From the experimental results, the approach of using the proposed hierarchical SVM model by integrating current page with neighboring pages via the topic model yielded the best performance with the accuracy equal to 90.33% and the F1 measure of 90.14%; an improvement of 5.12% and 5.13% over the original SVM model, respectively.</summary>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2010-03-07T18:32:47Z</published>
+    <arxiv:comment>Pages IEEE format, International Journal of Computer Science and Information Security, IJCSIS, Vol. 7 No. 2, February 2010, USA. ISSN 1947 5500, http://sites.google.com/site/ijcsis/</arxiv:comment>
+    <arxiv:primary_category term="cs.LG"/>
+    <author>
+      <name>Wongkot Sriurai</name>
+    </author>
+    <author>
+      <name>Phayung Meesad</name>
+    </author>
+    <author>
+      <name>Choochart Haruechaiyasak</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2505.06972v1</id>
+    <title>Web Page Classification using LLMs for Crawling Support</title>
+    <updated>2025-05-11T13:07:15Z</updated>
+    <link href="https://arxiv.org/abs/2505.06972v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2505.06972v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>A web crawler is a system designed to collect web pages, and efficient crawling of new pages requires appropriate algorithms. While website features such as XML sitemaps and the frequency of past page updates provide important clues for accessing new pages, their universal application across diverse conditions is challenging. In this study, we propose a method to efficiently collect new pages by classifying web pages into two types, "Index Pages" and "Content Pages," using a large language model (LLM), and leveraging the classification results to select index pages as starting points for accessing new pages. We construct a dataset with automatically annotated web page types and evaluate our approach from two perspectives: the page type classification performance and coverage of new pages. Experimental results demonstrate that the LLM-based method outperformed baseline methods in both evaluation metrics.</summary>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-05-11T13:07:15Z</published>
+    <arxiv:comment>8 pages, 2 figures</arxiv:comment>
+    <arxiv:primary_category term="cs.IR"/>
+    <author>
+      <name>Yuichi Sasazawa</name>
+    </author>
+    <author>
+      <name>Yasuhiro Sogawa</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1405.0580v1</id>
+    <title>Web Content Classification: A Survey</title>
+    <updated>2014-05-03T12:57:50Z</updated>
+    <link href="https://arxiv.org/abs/1405.0580v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1405.0580v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>As the information contained within the web is increasing day by day, organizing this information could be a necessary requirement.The data mining process is to extract information from a data set and transform it into an understandable structure for further use. Classification of web page content is essential to many tasks in web information retrieval such as maintaining web directories and focused crawling.The uncontrolled type of nature of web content presents additional challenges to web page classification as compared to the traditional text classification, but the interconnected nature of hypertext also provides features that can assist the process. In this paper the web classification is discussed in detail and its importance in field of data mining is explored.</summary>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2014-05-03T12:57:50Z</published>
+    <arxiv:comment>5 pages, 1 figure. arXiv admin note: text overlap with arXiv:1307.1024, arXiv:1310.4647 by other authors</arxiv:comment>
+    <arxiv:primary_category term="cs.IR"/>
+    <arxiv:journal_ref>International Journal of Computer Trends and Technology (IJCTT) V10(2):97-101, Apr 2014</arxiv:journal_ref>
+    <author>
+      <name>Prabhjot Kaur</name>
+    </author>
+    <arxiv:doi>10.14445/22312803/IJCTT-V10P117</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.14445/22312803/IJCTT-V10P117" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1808.08755v1</id>
+    <title>Learning from Positive and Unlabeled Data under the Selected At Random Assumption</title>
+    <updated>2018-08-27T09:39:52Z</updated>
+    <link href="https://arxiv.org/abs/1808.08755v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1808.08755v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>For many interesting tasks, such as medical diagnosis and web page classification, a learner only has access to some positively labeled examples and many unlabeled examples. Learning from this type of data requires making assumptions about the true distribution of the classes and/or the mechanism that was used to select the positive examples to be labeled. The commonly made assumptions, separability of the classes and positive examples being selected completely at random, are very strong. This paper proposes a weaker assumption that assumes the positive examples to be selected at random, conditioned on some of the attributes. To learn under this assumption, an EM method is proposed. Experiments show that our method is not only very capable of learning under this assumption, but it also outperforms the state of the art for learning under the selected completely at random assumption.</summary>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="stat.ML" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2018-08-27T09:39:52Z</published>
+    <arxiv:primary_category term="cs.LG"/>
+    <author>
+      <name>Jessa Bekker</name>
+    </author>
+    <author>
+      <name>Jesse Davis</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1206.5261v1</id>
+    <title>Mixture-of-Parents Maximum Entropy Markov Models</title>
+    <updated>2012-06-20T15:00:46Z</updated>
+    <link href="https://arxiv.org/abs/1206.5261v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1206.5261v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>We present the mixture-of-parents maximum entropy Markov model (MoP-MEMM), a class of directed graphical models extending MEMMs. The MoP-MEMM allows tractable incorporation of long-range dependencies between nodes by restricting the conditional distribution of each node to be a mixture of distributions given the parents. We show how to efficiently compute the exact marginal posterior node distributions, regardless of the range of the dependencies. This enables us to model non-sequential correlations present within text documents, as well as between interconnected documents, such as hyperlinked web pages. We apply the MoP-MEMM to a named entity recognition task and a web page classification task. In each, our model shows significant improvement over the basic MEMM, and is competitive with other long-range sequence models that use approximate inference.</summary>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="stat.ML" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2012-06-20T15:00:46Z</published>
+    <arxiv:comment>Appears in Proceedings of the Twenty-Third Conference on Uncertainty in Artificial Intelligence (UAI2007)</arxiv:comment>
+    <arxiv:primary_category term="cs.LG"/>
+    <author>
+      <name>David S. Rosenberg</name>
+    </author>
+    <author>
+      <name>Dan Klein</name>
+    </author>
+    <author>
+      <name>Ben Taskar</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1110.1073v1</id>
+    <title>Active Learning with Multiple Views</title>
+    <updated>2011-10-05T18:59:49Z</updated>
+    <link href="https://arxiv.org/abs/1110.1073v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1110.1073v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Active learners alleviate the burden of labeling large amounts of data by detecting and asking the user to label only the most informative examples in the domain.  We focus here on active learning for multi-view domains, in which there are several disjoint subsets of features (views), each of which is sufficient to learn the target concept.  In this paper we make several contributions. First, we introduce Co-Testing, which is the first approach to multi-view active learning.  Second, we extend the multi-view learning framework by also exploiting weak views, which are adequate only for learning a concept that is more general/specific than the target concept.  Finally, we empirically show that Co-Testing outperforms existing active learners on a variety of real world domains such as wrapper induction, Web page classification, advertisement removal, and discourse tree parsing.</summary>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2011-10-05T18:59:49Z</published>
+    <arxiv:primary_category term="cs.LG"/>
+    <arxiv:journal_ref>Journal Of Artificial Intelligence Research, Volume 27, pages 203-233, 2006</arxiv:journal_ref>
+    <author>
+      <name>C. A. Knoblock</name>
+    </author>
+    <author>
+      <name>S. Minton</name>
+    </author>
+    <author>
+      <name>I. Muslea</name>
+    </author>
+    <arxiv:doi>10.1613/jair.2005</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1613/jair.2005" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2204.06885v2</id>
+    <title>Shedding New Light on the Language of the Dark Web</title>
+    <updated>2022-05-04T08:47:32Z</updated>
+    <link href="https://arxiv.org/abs/2204.06885v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2204.06885v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The hidden nature and the limited accessibility of the Dark Web, combined with the lack of public datasets in this domain, make it difficult to study its inherent characteristics such as linguistic properties. Previous works on text classification of Dark Web domain have suggested that the use of deep neural models may be ineffective, potentially due to the linguistic differences between the Dark and Surface Webs. However, not much work has been done to uncover the linguistic characteristics of the Dark Web. This paper introduces CoDA, a publicly available Dark Web dataset consisting of 10000 web documents tailored towards text-based Dark Web analysis. By leveraging CoDA, we conduct a thorough linguistic analysis of the Dark Web and examine the textual differences between the Dark Web and the Surface Web. We also assess the performance of various methods of Dark Web page classification. Finally, we compare CoDA with an existing public Dark Web dataset and evaluate their suitability for various use cases.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2022-04-14T11:17:22Z</published>
+    <arxiv:comment>To appear at NAACL 2022 (main conference)</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Youngjin Jin</name>
+    </author>
+    <author>
+      <name>Eugene Jang</name>
+    </author>
+    <author>
+      <name>Yongjae Lee</name>
+    </author>
+    <author>
+      <name>Seungwon Shin</name>
+    </author>
+    <author>
+      <name>Jin-Woo Chung</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1803.00446v1</id>
+    <title>Inferring Missing Categorical Information in Noisy and Sparse Web Markup</title>
+    <updated>2018-03-01T15:33:06Z</updated>
+    <link href="https://arxiv.org/abs/1803.00446v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1803.00446v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Embedded markup of Web pages has seen widespread adoption throughout the past years driven by standards such as RDFa and Microdata and initiatives such as schema.org, where recent studies show an adoption by 39% of all Web pages already in 2016. While this constitutes an important information source for tasks such as Web search, Web page classification or knowledge graph augmentation, individual markup nodes are usually sparsely described and often lack essential information. For instance, from 26 million nodes describing events within the Common Crawl in 2016, 59% of nodes provide less than six statements and only 257,000 nodes (0.96%) are typed with more specific event subtypes. Nevertheless, given the scale and diversity of Web markup data, nodes that provide missing information can be obtained from the Web in large quantities, in particular for categorical properties. Such data constitutes potential training data for inferring missing information to significantly augment sparsely described nodes. In this work, we introduce a supervised approach for inferring missing categorical properties in Web markup. Our experiments, conducted on properties of events and movies, show a performance of 79% and 83% F1 score correspondingly, significantly outperforming existing baselines.</summary>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="stat.ML" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2018-03-01T15:33:06Z</published>
+    <arxiv:primary_category term="cs.LG"/>
+    <arxiv:journal_ref>Proceedings of The Web Conference 2018, 27th edition of the former WWW conference</arxiv:journal_ref>
+    <author>
+      <name>Nicolas Tempelmeier</name>
+    </author>
+    <author>
+      <name>Elena Demidova</name>
+    </author>
+    <author>
+      <name>Stefan Dietze</name>
+    </author>
+    <arxiv:doi>10.1145/3178876.3186028</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1145/3178876.3186028" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1909.01135v3</id>
+    <title>HTMLPhish: Enabling Phishing Web Page Detection by Applying Deep Learning Techniques on HTML Analysis</title>
+    <updated>2020-05-15T10:30:32Z</updated>
+    <link href="https://arxiv.org/abs/1909.01135v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1909.01135v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Recently, the development and implementation of phishing attacks require little technical skills and costs. This uprising has led to an ever-growing number of phishing attacks on the World Wide Web. Consequently, proactive techniques to fight phishing attacks have become extremely necessary. In this paper, we propose HTMLPhish, a deep learning based data-driven end-to-end automatic phishing web page classification approach. Specifically, HTMLPhish receives the content of the HTML document of a web page and employs Convolutional Neural Networks (CNNs) to learn the semantic dependencies in the textual contents of the HTML. The CNNs learn appropriate feature representations from the HTML document embeddings without extensive manual feature engineering. Furthermore, our proposed approach of the concatenation of the word and character embeddings allows our model to manage new features and ensure easy extrapolation to test data. We conduct comprehensive experiments on a dataset of more than 50,000 HTML documents that provides a distribution of phishing to benign web pages obtainable in the real-world that yields over 93 percent Accuracy and True Positive Rate. Also, HTMLPhish is a completely language-independent and client-side strategy which can, therefore, conduct web page phishing detection regardless of the textual language.</summary>
+    <category term="cs.CR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="stat.ML" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2019-08-28T23:58:50Z</published>
+    <arxiv:primary_category term="cs.CR"/>
+    <arxiv:journal_ref>International Joint Conference on Neural Networks (IJCNN) 2020</arxiv:journal_ref>
+    <author>
+      <name>Chidimma Opara</name>
+    </author>
+    <author>
+      <name>Bo Wei</name>
+    </author>
+    <author>
+      <name>Yingke Chen</name>
+    </author>
+    <arxiv:doi>10.1109/IJCNN48605.2020.9207707</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1109/IJCNN48605.2020.9207707" title="doi"/>
+  </entry>
+</feed>

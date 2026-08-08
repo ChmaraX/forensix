@@ -1,0 +1,120 @@
+{
+  "_purpose": "Maps UT1 blacklist category names to ChmaraX/forensix#137 core taxonomy labels.",
+  "_authoring_rule": "Every mapping below was authored from UT1's OWN published category description (research/_raw/137/ut1-index_en.html, the 66-category table) matched against the frozen boundary rule of the target label in research/137-taxonomy-proposal.md section 3. No fixture row, domain, or title was consulted. This is what keeps the family-5 candidate's supervision independent of the held-out set.",
+  "_licence": "UT1 blacklists: CC BY-SA 4.0, Universite Toulouse 1 Capitole, https://dsi.ut-capitole.fr/blacklists/. A compiled table derived from them is a derivative work with share-alike obligations.",
+  "_alias_policy": "UT1 publishes several categories twice under English and French names, and publishes three variants of its redirector list. Exactly one of each alias group is consumed; the others are listed in `excluded_aliases` with the reason. Consuming both would double-count identical hosts.",
+  "_threat_axis_policy": "malware, phishing, cryptojacking, ddos, stalkerware, dialer and fakenews are REPUTATION verdicts about a domain today, not content categories about what a page is. research/137-taxonomy-proposal.md decision D-18 keeps threat structurally separate from the content taxonomy, and a history row is a claim about the past while a reputation feed is a claim about the present. They are excluded, not mapped.",
+  "_sexual_education_trap": "UT1's own description of `sexual_education` reads 'Website which talk about sexual education, and can be misdetected as porn'. Taxonomy label 14 explicitly excludes sex education and routes it to Health & Medical. Mapping it to adult_sexual_content would manufacture the single most damaging false positive this tool can make, on the one label the fixture cannot score. Mapped to health_medical.",
+
+  "mapping": {
+    "webmail":            ["webmail_messaging_voice"],
+    "chat":               ["webmail_messaging_voice"],
+
+    "social_networks":    ["social_media"],
+    "forums":             ["social_media"],
+    "blog":               ["social_media"],
+    "dating":             ["social_media"],
+
+    "press":              ["news_current_affairs"],
+
+    "liste_bu":           ["reference_education_howto"],
+    "cooking":            ["reference_education_howto"],
+    "translation":        ["reference_education_howto"],
+    "sexual_education":   ["health_medical"],
+
+    "games":              ["entertainment_streaming_gaming"],
+    "educational_games":  ["entertainment_streaming_gaming", "reference_education_howto"],
+    "audio-video":        ["entertainment_streaming_gaming"],
+    "radio":              ["entertainment_streaming_gaming"],
+    "manga":              ["entertainment_streaming_gaming"],
+    "celebrity":          ["entertainment_streaming_gaming"],
+    "sports":             ["entertainment_streaming_gaming"],
+
+    "ai":                 ["technology_software_dev"],
+    "download":           ["technology_software_dev"],
+    "update":             ["technology_software_dev"],
+    "cleaning":           ["technology_software_dev"],
+    "webhosting":         ["technology_software_dev"],
+    "mobile-phone":       ["technology_software_dev"],
+
+    "shopping":           ["shopping_marketplace"],
+    "lingerie":           ["shopping_marketplace"],
+    "marketingware":      ["shopping_marketplace"],
+
+    "bank":               ["finance_banking"],
+    "financial":          ["finance_banking"],
+
+    "bitcoin":            ["cryptocurrency_exchanges"],
+
+    "jobsearch":          ["employment_job_seeking"],
+
+    "adult":              ["adult_sexual_content"],
+    "mixed_adult":        ["adult_sexual_content"],
+
+    "gambling":           ["gambling"],
+    "arjel":              ["gambling"],
+
+    "filehosting":        ["file_sharing_cloud_storage"],
+
+    "vpn":                ["anonymity_privacy_tooling"],
+    "doh":                ["anonymity_privacy_tooling"],
+    "dynamic-dns":        ["anonymity_privacy_tooling"],
+    "residential-proxies":["anonymity_privacy_tooling"],
+    "remote-control":     ["anonymity_privacy_tooling"],
+
+    "hacking":            ["hacking_security_tooling"],
+    "dangerous_material": ["hacking_security_tooling"],
+
+    "publicite":          ["ads_trackers_infrastructure"],
+    "shortener":          ["ads_trackers_infrastructure"],
+    "redirector":         ["ads_trackers_infrastructure"]
+  },
+
+  "excluded_aliases": {
+    "porn": "alias of `adult` (both 17M, identical content published under two names); `adult` is consumed",
+    "ads": "alias of `publicite`; `publicite` is consumed",
+    "drugs": "alias of `drogue`; both excluded as overlay-pack labels, see excluded_overlay",
+    "aggressive": "alias of `agressif`; both excluded (no core label; aggression is not a content category in this taxonomy)",
+    "strict_redirector": "variant of `redirector` with the same hosts; `redirector` is consumed",
+    "strong_redirector": "variant of `redirector` with the same hosts; `redirector` is consumed"
+  },
+
+  "excluded_threat_axis": {
+    "malware": "reputation verdict, not content; decision D-18",
+    "phishing": "reputation verdict, not content; decision D-18",
+    "cryptojacking": "reputation verdict about compromise, not the subject's cryptocurrency activity; mapping it to cryptocurrency_exchanges would assert an act by the user that a hijack does not evidence",
+    "ddos": "reputation/threat axis; decision D-18",
+    "stalkerware": "reputation/threat axis; decision D-18",
+    "dialer": "reputation/threat axis; decision D-18",
+    "fakenews": "an editorial-quality verdict about a publisher, not a content category; asserting it in a forensic report is a conclusion the tool cannot support"
+  },
+
+  "excluded_overlay": {
+    "drogue": "maps to the opt-in overlay label Drugs & Controlled substances, which is out of scope for this bench run (taxonomy.json overlay_in_scope=false)",
+    "warez": "maps to the opt-in overlay label Piracy & Copyright infringement, out of scope for this bench run",
+    "sect": "proximate to religious belief, a GDPR Article 9 special category; decisions D-15/D-16 declined to create such a label",
+    "associations_religieuses": "religious association; same Article 9 reasoning as `sect`",
+    "astrology": "no core label; would route to entertainment or reference by page role, which a domain list cannot determine",
+    "child": "an audience-suitability verdict, not a content category",
+    "arjel_note": "arjel IS consumed (French gambling certification authority) and is listed in `mapping`"
+  },
+
+  "excluded_administrative": {
+    "examen_pix": "UT1's own description says DO NOT USE outside French PIX exams",
+    "tricheur_pix": "UT1's own description says DO NOT USE",
+    "tricheur": "exam-cheating explainers; no core label",
+    "reaffected": "UT1 housekeeping category, not a content category",
+    "indisponible": "UT1 housekeeping category (unavailable sites)",
+    "agressif": "no core label in this taxonomy",
+    "drugs": "alias of drogue, also overlay-scoped",
+    "liste_blanche": "UT1 whitelist, not a category",
+    "listes_blanches": "UT1 whitelist, not a category",
+    "special": "UT1 housekeeping",
+    "local": "UT1 site-local list",
+    "verisign": "UT1 housekeeping",
+    "jstor": "single-publisher allowlist, too narrow to be a category",
+    "catalogue-biu-toulouse": "institution-local allowlist",
+    "manga_note": "manga IS consumed and is listed in `mapping`",
+    "violence": "no core label; violence is not a content category in this taxonomy and is adjacent to the overlay pack"
+  }
+}

@@ -1,0 +1,330 @@
+{
+  "mode": "cross-architecture",
+  "arch_a": "arm64",
+  "arch_b": "x64",
+  "tag": "main",
+  "emulation_note": "linux/amd64 ran under Docker binary emulation on an arm64 host, not on native amd64 hardware",
+  "per_candidate": {
+    "ut1-domain-list-v2-strict": {
+      "measured": true,
+      "decision_hash_match": true,
+      "raw_score_hash_match": true,
+      "rows_compared": 208,
+      "differing_label_sets": 0,
+      "differing_label_order_only": 0,
+      "differing_emitted_sequence": 0,
+      "differing_raw_top1": 0,
+      "set_differences_without_raw_top1_change": 0,
+      "band_flip_note": "no set differences",
+      "differing_examples": [],
+      "order_only_examples": []
+    },
+    "ut1-domain-list-v2-full": {
+      "measured": true,
+      "decision_hash_match": true,
+      "raw_score_hash_match": true,
+      "rows_compared": 208,
+      "differing_label_sets": 0,
+      "differing_label_order_only": 0,
+      "differing_emitted_sequence": 0,
+      "differing_raw_top1": 0,
+      "set_differences_without_raw_top1_change": 0,
+      "band_flip_note": "no set differences",
+      "differing_examples": [],
+      "order_only_examples": []
+    },
+    "potion-base-2M-labelsim-v2": {
+      "measured": true,
+      "decision_hash_match": true,
+      "raw_score_hash_match": false,
+      "rows_compared": 208,
+      "differing_label_sets": 0,
+      "differing_label_order_only": 0,
+      "differing_emitted_sequence": 0,
+      "differing_raw_top1": 0,
+      "set_differences_without_raw_top1_change": 0,
+      "band_flip_note": "no set differences",
+      "differing_examples": [],
+      "order_only_examples": []
+    },
+    "potion-base-8M-labelsim-v2": {
+      "measured": true,
+      "decision_hash_match": true,
+      "raw_score_hash_match": false,
+      "rows_compared": 208,
+      "differing_label_sets": 0,
+      "differing_label_order_only": 0,
+      "differing_emitted_sequence": 0,
+      "differing_raw_top1": 0,
+      "set_differences_without_raw_top1_change": 0,
+      "band_flip_note": "no set differences",
+      "differing_examples": [],
+      "order_only_examples": []
+    },
+    "bge-micro-v2-labelsim-v2": {
+      "measured": true,
+      "decision_hash_match": false,
+      "raw_score_hash_match": false,
+      "rows_compared": 208,
+      "differing_label_sets": 1,
+      "differing_label_order_only": 0,
+      "differing_emitted_sequence": 1,
+      "differing_raw_top1": 2,
+      "set_differences_without_raw_top1_change": 0,
+      "band_flip_note": "0 of 1 set differences occur with an UNCHANGED raw top-1: the multi-label emission band admitted or dropped a label, it did not change the model's first choice. 2 rows changed raw top-1.",
+      "differing_examples": [
+        {
+          "row_id": "row-0190-e67bf2e6a5d4",
+          "a": [
+            "reference_education_howto"
+          ],
+          "b": [
+            "reference_education_howto",
+            "technology_software_dev"
+          ],
+          "raw_top1_a": "reference_education_howto",
+          "raw_top1_b": "unclassified",
+          "raw_top1_changed": true,
+          "url": "https://play.aidungeon.io/main/scenarioPlay?publicId=7579c602-6349-11ec-b65a-a9045c21f45d"
+        }
+      ],
+      "order_only_examples": []
+    },
+    "all-MiniLM-L6-v2-labelsim-v2": {
+      "measured": true,
+      "decision_hash_match": false,
+      "raw_score_hash_match": false,
+      "rows_compared": 208,
+      "differing_label_sets": 53,
+      "differing_label_order_only": 12,
+      "differing_emitted_sequence": 65,
+      "differing_raw_top1": 24,
+      "set_differences_without_raw_top1_change": 41,
+      "band_flip_note": "41 of 53 set differences occur with an UNCHANGED raw top-1: the multi-label emission band admitted or dropped a label, it did not change the model's first choice. 24 rows changed raw top-1.",
+      "differing_examples": [
+        {
+          "row_id": "row-0007-fd32baabd787",
+          "a": [
+            "unclassified"
+          ],
+          "b": [
+            "ads_trackers_infrastructure"
+          ],
+          "raw_top1_a": "unclassified",
+          "raw_top1_b": "unclassified",
+          "raw_top1_changed": false,
+          "url": "https://mail.google.com/accounts/SetOSID?authuser=0&continue=https%3A%2F%2Fmail.google.com"
+        },
+        {
+          "row_id": "row-0008-707070b1db76",
+          "a": [
+            "anonymity_privacy_tooling"
+          ],
+          "b": [
+            "anonymity_privacy_tooling",
+            "shopping_marketplace"
+          ],
+          "raw_top1_a": "anonymity_privacy_tooling",
+          "raw_top1_b": "anonymity_privacy_tooling",
+          "raw_top1_changed": false,
+          "url": "https://www.google.com/chromebook/perks/"
+        },
+        {
+          "row_id": "row-0009-1aa3de8f5efc",
+          "a": [
+            "anonymity_privacy_tooling",
+            "technology_software_dev"
+          ],
+          "b": [
+            "anonymity_privacy_tooling",
+            "technology_software_dev",
+            "file_sharing_cloud_storage"
+          ],
+          "raw_top1_a": "anonymity_privacy_tooling",
+          "raw_top1_b": "anonymity_privacy_tooling",
+          "raw_top1_changed": false,
+          "url": "https://www.google.com/chrome/devices/goodies.html"
+        },
+        {
+          "row_id": "row-0010-ee45caea0b9f",
+          "a": [
+            "anonymity_privacy_tooling"
+          ],
+          "b": [
+            "anonymity_privacy_tooling",
+            "shopping_marketplace",
+            "technology_software_dev"
+          ],
+          "raw_top1_a": "anonymity_privacy_tooling",
+          "raw_top1_b": "anonymity_privacy_tooling",
+          "raw_top1_changed": false,
+          "url": "https://www.google.com/chromebook/offers/"
+        },
+        {
+          "row_id": "row-0015-0bb16cdf719a",
+          "a": [
+            "file_sharing_cloud_storage",
+            "news_current_affairs",
+            "reference_education_howto"
+          ],
+          "b": [
+            "file_sharing_cloud_storage"
+          ],
+          "raw_top1_a": "file_sharing_cloud_storage",
+          "raw_top1_b": "file_sharing_cloud_storage",
+          "raw_top1_changed": false,
+          "url": "https://docs.google.com/document/u/0/?usp=chrome_app"
+        },
+        {
+          "row_id": "row-0031-152e04a78152",
+          "a": [
+            "adult_sexual_content"
+          ],
+          "b": [
+            "adult_sexual_content",
+            "file_sharing_cloud_storage"
+          ],
+          "raw_top1_a": "adult_sexual_content",
+          "raw_top1_b": "adult_sexual_content",
+          "raw_top1_changed": false,
+          "url": "https://damndelicious.net/2014/07/18/copycat-chick-fil-nuggets/"
+        },
+        {
+          "row_id": "row-0038-701e43bbb888",
+          "a": [
+            "shopping_marketplace"
+          ],
+          "b": [
+            "shopping_marketplace",
+            "news_current_affairs"
+          ],
+          "raw_top1_a": "shopping_marketplace",
+          "raw_top1_b": "shopping_marketplace",
+          "raw_top1_changed": false,
+          "url": "https://www.timesunion.com/sports/article/Times-Union-Center-gets-National-Lacrosse-League"
+        },
+        {
+          "row_id": "row-0039-54329e19e3c8",
+          "a": [
+            "ads_trackers_infrastructure",
+            "shopping_marketplace"
+          ],
+          "b": [
+            "shopping_marketplace"
+          ],
+          "raw_top1_a": "ads_trackers_infrastructure",
+          "raw_top1_b": "shopping_marketplace",
+          "raw_top1_changed": true,
+          "url": "https://chrome.google.com/webstore?hl=en"
+        },
+        {
+          "row_id": "row-0040-373769d9bb44",
+          "a": [
+            "shopping_marketplace",
+            "ads_trackers_infrastructure"
+          ],
+          "b": [
+            "shopping_marketplace"
+          ],
+          "raw_top1_a": "shopping_marketplace",
+          "raw_top1_b": "shopping_marketplace",
+          "raw_top1_changed": false,
+          "url": "https://chrome.google.com/webstore/category/extensions?hl=en"
+        },
+        {
+          "row_id": "row-0043-2736a57c6eb6",
+          "a": [
+            "adult_sexual_content"
+          ],
+          "b": [
+            "adult_sexual_content",
+            "webmail_messaging_voice"
+          ],
+          "raw_top1_a": "adult_sexual_content",
+          "raw_top1_b": "adult_sexual_content",
+          "raw_top1_changed": false,
+          "url": "https://mybrowseraddon.com/dark-mode.html?v=0.4.1&type=install"
+        }
+      ],
+      "order_only_examples": [
+        {
+          "row_id": "row-0042-c535fdcbd8ac",
+          "a": [
+            "ads_trackers_infrastructure",
+            "anonymity_privacy_tooling",
+            "webmail_messaging_voice"
+          ],
+          "b": [
+            "webmail_messaging_voice",
+            "anonymity_privacy_tooling",
+            "ads_trackers_infrastructure"
+          ],
+          "url": "https://chrome.google.com/webstore/detail/dark-mode/dmghijelimhndkbmpgbldicpogfkceaj/relat"
+        },
+        {
+          "row_id": "row-0044-04c7d85cafa1",
+          "a": [
+            "adult_sexual_content",
+            "webmail_messaging_voice",
+            "shopping_marketplace",
+            "file_sharing_cloud_storage"
+          ],
+          "b": [
+            "webmail_messaging_voice",
+            "file_sharing_cloud_storage",
+            "adult_sexual_content",
+            "shopping_marketplace"
+          ],
+          "url": "https://chrome.google.com/webstore/detail/dark-reader/eimadpbcbfnmbkopoojfekhnkhdbieeh?hl="
+        },
+        {
+          "row_id": "row-0046-97dfa777fee2",
+          "a": [
+            "adult_sexual_content",
+            "reference_education_howto"
+          ],
+          "b": [
+            "reference_education_howto",
+            "adult_sexual_content"
+          ],
+          "url": "https://darkreader.org/help/en/"
+        },
+        {
+          "row_id": "row-0080-355b45c96353",
+          "a": [
+            "shopping_marketplace",
+            "adult_sexual_content"
+          ],
+          "b": [
+            "adult_sexual_content",
+            "shopping_marketplace"
+          ],
+          "url": "https://www.amazon.com/s?k=lacrosse&ref=nb_sb_noss_1"
+        },
+        {
+          "row_id": "row-0114-3f3158712262",
+          "a": [
+            "shopping_marketplace",
+            "adult_sexual_content"
+          ],
+          "b": [
+            "adult_sexual_content",
+            "shopping_marketplace"
+          ],
+          "url": "https://www.vineyardvines.com/?utm_source=google&utm_medium=cpc&utm_term=vineyard%20vines&"
+        }
+      ]
+    },
+    "nli-deberta-v3-xsmall-entailment-v2": {
+      "measured": false,
+      "reason": "missing predictions for x64"
+    }
+  },
+  "complete": false,
+  "unmeasured_candidates": [
+    "nli-deberta-v3-xsmall-entailment-v2"
+  ],
+  "completeness_note": "no complete x64 prediction artifact exists for 1 of 7 configurations; they are reported as not measured, never inferred from the arm64 result",
+  "note": "raw_score_hash compares full-precision per-label scores; decision_hash compares the emitted prediction sequence. Bitwise score divergence with identical decisions means the difference never crossed a decision boundary ON THIS FIXTURE, which is an observation, not a guarantee at other scales.",
+  "counting_note": "differing_label_sets is the decision-level number and the one to quote: it compares label SETS, order-independently. differing_label_order_only counts rows where the same labels were emitted in a different rank order, which is not a decision difference. set_differences_without_raw_top1_change isolates rows where only the multi-label emission band moved, not the model's first choice — that band is a fixed, unswept hyperparameter, so those rows measure threshold sensitivity as much as architecture."
+}

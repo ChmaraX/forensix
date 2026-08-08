@@ -1,0 +1,2219 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+<script type="text/javascript">window.NREUM||(NREUM={});NREUM.info={"beacon":"bam.nr-data.net","errorBeacon":"bam.nr-data.net","licenseKey":"NRJS-b0201ad1e72ae958c47","applicationID":"1096596451","transactionName":"ewsKF0EJVA1WQk5HU1o7BwJHA18OQVkEQxlRCgAGSw==","queueTime":1,"applicationTime":121,"agent":""}</script>
+<script type="text/javascript">(window.NREUM||(NREUM={})).init={ajax:{deny_list:["bam.nr-data.net"]},feature_flags:["soft_nav"]};(window.NREUM||(NREUM={})).loader_config={licenseKey:"NRJS-b0201ad1e72ae958c47",applicationID:"1096596451",browserID:"1133890566"};;/*! For license information please see nr-loader-rum-1.319.0.min.js.LICENSE.txt */
+(()=>{var e={8122(e,t,r){"use strict";r.d(t,{a:()=>i});var n=r(944);function i(e,t){try{if(!e||"object"!=typeof e)return(0,n.R)(3);if(!t||"object"!=typeof t)return(0,n.R)(4);const r=Object.create(Object.getPrototypeOf(t),Object.getOwnPropertyDescriptors(t)),s=0===Object.keys(r).length?e:r;for(let o in s)if(void 0!==e[o])try{if(null===e[o]){r[o]=null;continue}Array.isArray(e[o])&&Array.isArray(t[o])?r[o]=Array.from(new Set([...e[o],...t[o]])):e[o]instanceof Map||e[o]instanceof Set||e[o]instanceof Date||e[o]instanceof RegExp?r[o]=e[o]:"object"==typeof e[o]&&null!==t[o]&&"object"==typeof t[o]?r[o]=i(e[o],t[o]):r[o]=e[o]}catch(e){r[o]||(0,n.R)(1,e)}return r}catch(e){(0,n.R)(2,e)}}},2555(e,t,r){"use strict";r.d(t,{f:()=>o});var n=r(384),i=r(8122);const s={beacon:n.NT.beacon,errorBeacon:n.NT.errorBeacon,licenseKey:void 0,applicationID:void 0,sa:void 0,queueTime:void 0,applicationTime:void 0,ttGuid:void 0,user:void 0,account:void 0,product:void 0,extra:void 0,jsAttributes:{},userAttributes:void 0,atts:void 0,transactionName:void 0,tNamePlain:void 0};function o(e){try{return!!e.licenseKey&&!!e.errorBeacon&&!!e.applicationID}catch(e){return!1}}r.d(t,["D",0,e=>(0,i.a)(e,s)])},7699(e,t,r){"use strict";var n=r(860);const i={[n.K7.logging]:!0,[n.K7.genericEvents]:!0,[n.K7.jserrors]:!0,[n.K7.ajax]:!0};r.d(t,["It",0,1e6,"KC",0,i,"qh",0,"SESSION_ERROR"])},9324(e,t,r){"use strict";r.d(t,["xv",0,"1.319.0"])},981(e,t,r){"use strict";r.d(t,["R",0,{AJAX:"AjaxRequest",PA:"PageAction",UA:"UserAction",BP:"BrowserPerformance",WS:"WebSocket",SPV:"SecurityPolicyViolation",JSE:"JavaScriptError",LOG:"Log",PVE:"PageView",PVT:"PageViewTiming",SR:"SessionReplay",ST:"SessionTrace",BI:"BrowserInteraction"}])},6154(e,t,r){"use strict";var n=r(1863);const i="undefined"!=typeof window&&!!window.document,s="undefined"!=typeof WorkerGlobalScope&&("undefined"!=typeof self&&self instanceof WorkerGlobalScope&&self.navigator instanceof WorkerNavigator||"undefined"!=typeof globalThis&&globalThis instanceof WorkerGlobalScope&&globalThis.navigator instanceof WorkerNavigator),o=i?window:"undefined"!=typeof WorkerGlobalScope&&("undefined"!=typeof self&&self instanceof WorkerGlobalScope&&self||"undefined"!=typeof globalThis&&globalThis instanceof WorkerGlobalScope&&globalThis),a=Boolean("hidden"===o?.document?.visibilityState),c=""+o?.location,u=/iPad|iPhone|iPod/.test(o.navigator?.userAgent),d=u&&"undefined"==typeof SharedWorker,l=((()=>{const e=o.navigator?.userAgent?.match(/Firefox[/\s](\d+\.\d+)/);Array.isArray(e)&&e.length>=2&&e[1]})(),Date.now()-(0,n.t)());r.d(t,["OF",0,u,"RI",0,i,"WN",0,l,"bv",0,s,"gm",0,o,"m",0,c,"mw",0,a,"sb",0,d,"zk",0,()=>{const e=o?.performance?.getEntriesByType?.("navigation")?.[0];if(e&&e.responseStart>0&&e.responseStart<o.performance.now())return e}])},3241(e,t,r){"use strict";r.d(t,{W:()=>i});var n=r(6154);function i(e={}){try{n.gm.dispatchEvent(new CustomEvent("newrelic",{detail:e}))}catch(e){}}},1687(e,t,r){"use strict";r.d(t,{Ak:()=>a,Ze:()=>u,x3:()=>c});var n=r(3241),i=r(3606),s=r(860),o=r(2646);function a(e,t){if(!e)return;const r={staged:!1,priority:s.P3[t]||0};e.runtime.drainRegistry.get(t)||e.runtime.drainRegistry.set(t,r)}function c(e,t){if(!e)return;const r=e.runtime.drainRegistry;r&&(r.get(t)&&r.delete(t),l(e,t,!1),r.size&&d(e))}function u(e,t="feature",r=!1){if(e){if(!e.runtime.drainRegistry.get(t)||r)return l(e,t);e.runtime.drainRegistry.get(t).staged=!0,d(e)}}function d(e){if(!e)return;const t=Array.from(e.runtime.drainRegistry);t.every(([e,t])=>t.staged)&&(t.sort((e,t)=>e[1].priority-t[1].priority),t.forEach(([t])=>{e.runtime.drainRegistry.delete(t),l(e,t)}))}function l(e,t,r=!0){if(!e)return;const s=e.ee,a=i.i.handlers;if(s&&!s.aborted&&s.backlog&&a){if((0,n.W)({type:"lifecycle",name:"drain",feature:t}),r){const e=s.backlog[t],r=a[t];if(r){for(let t=0;e&&t<e.length;++t)f(e[t],r);Object.entries(r).forEach(([e,t])=>{Object.values(t||{}).forEach(t=>{t[0]?.on&&t[0].context()instanceof o.y&&!t[0].listeners(e).includes(t[1])&&t[0].on(e,t[1])})})}}s.isolatedBacklog||delete a[t],s.backlog[t]=null,s.emit("drain-"+t,[])}}function f(e,t){var r=e[1];Object.values(t[r]||{}).forEach(t=>{var r=e[0];if(t[0]===r){var n=t[1],i=e[3],s=e[2];n.apply(i,s)}})}},7836(e,t,r){"use strict";var n=r(384),i=r(8990),s=r(2646),o=r(5607);const a="nr@context:".concat(o.W),c=function e(t,r){var n={},o={},d={},l=!1;try{l=16===r.length&&u.initializedAgents?.[r]?.runtime.isolatedBacklog}catch(e){}var f={on:p,addEventListener:p,removeEventListener:function(e,t){var r=n[e];if(!r)return;for(var i=0;i<r.length;i++)r[i]===t&&r.splice(i,1)},emit:function(e,r,n,i,s){!1!==s&&(s=!0);if(c.aborted&&!i)return;t&&s&&t.emit(e,r,n);var a=g(n);m(e).forEach(e=>{e.apply(a,r)});var u=v()[o[e]];u&&u.push([f,e,r,a]);return a},get:h,listeners:m,context:g,buffer:function(e,t){const r=v();if(t=t||"feature",f.aborted)return;Object.entries(e||{}).forEach(([e,n])=>{o[n]=t,t in r||(r[t]=[])})},abort:function(){f._aborted=!0,Object.keys(f.backlog).forEach(e=>{delete f.backlog[e]})},isBuffering:function(e){return!!v()[o[e]]},debugId:r,backlog:l?{}:t&&"object"==typeof t.backlog?t.backlog:{},isolatedBacklog:l};return Object.defineProperty(f,"aborted",{get:()=>{let e=f._aborted||!1;return e||(t&&(e=t.aborted),e)}}),f;function g(e){return e&&e instanceof s.y?e:e?(0,i.I)(e,a,()=>new s.y(a)):new s.y(a)}function p(e,t){n[e]=m(e).concat(t)}function m(e){return n[e]||[]}function h(t){return d[t]=d[t]||e(f,t)}function v(){return f.backlog}}(void 0,"globalEE"),u=(0,n.Zm)();u.ee||(u.ee=c),r.d(t,["P",0,a,"ee",0,c])},2646(e,t,r){"use strict";r.d(t,{y:()=>n});class n{constructor(e){this.contextId=e}}},9908(e,t,r){"use strict";r.d(t,{d:()=>n,p:()=>i});var n=r(7836).ee.get("handle");function i(e,t,r,i,s){s?(s.buffer([e],i),s.emit(e,t,r)):(n.buffer([e],i),n.emit(e,t,r))}},3606(e,t,r){"use strict";r.d(t,{i:()=>s});var n=r(9908);s.on=o;var i=s.handlers={};function s(e,t,r,s){o(s||n.d,i,e,t,r)}function o(e,t,r,i,s){s||(s="feature"),e||(e=n.d);var o=t[s]=t[s]||{};(o[r]=o[r]||[]).push([e,i])}},3878(e,t,r){"use strict";function n(e,t){return{capture:e,passive:!1,signal:t}}function i(e,t,r=!1,i){window.addEventListener(e,t,n(r,i))}function s(e,t,r=!1,i){document.addEventListener(e,t,n(r,i))}r.d(t,{DD:()=>s,jT:()=>n,sp:()=>i})},5607(e,t,r){"use strict";const n=(0,r(9566).bz)();r.d(t,["W",0,n])},9566(e,t,r){"use strict";r.d(t,{LA:()=>o,bz:()=>s});var n=r(6154);function i(e,t){return e?15&e[t]:16*Math.random()|0}function s(){const e=n.gm?.crypto||n.gm?.msCrypto;let t,r=0;return e&&e.getRandomValues&&(t=e.getRandomValues(new Uint8Array(30))),"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".split("").map(e=>"x"===e?i(t,r++).toString(16):"y"===e?(3&i()|8).toString(16):e).join("")}function o(e){const t=n.gm?.crypto||n.gm?.msCrypto;let r,s=0;t&&t.getRandomValues&&(r=t.getRandomValues(new Uint8Array(e)));const o=[];for(var a=0;a<e;a++)o.push(i(r,s++).toString(16));return o.join("")}},2614(e,t,r){"use strict";r.d(t,["BB",0,18e5,"Wt",0,"NRBA_SESSION::","iL",0,{SAME_TAB:"same-tab",CROSS_TAB:"cross-tab"},"tS",0,{STARTED:"session-started",PAUSE:"session-pause",RESET:"session-reset",RESUME:"session-resume",UPDATE:"session-update"},"wk",0,144e5])},1863(e,t,r){"use strict";function n(){return Math.floor(performance.now())}r.d(t,{t:()=>n})},944(e,t,r){"use strict";r.d(t,{R:()=>i});var n=r(3241);function i(e,t){"function"==typeof console.debug&&(console.debug("New Relic Warning: https://github.com/newrelic/newrelic-browser-agent/blob/main/docs/warning-codes.md#".concat(e),t),(0,n.W)({drained:null,type:"data",name:"warn",feature:"warn",data:{code:e,secondary:t}}))}},8990(e,t,r){"use strict";r.d(t,{I:()=>i});var n=Object.prototype.hasOwnProperty;function i(e,t,r){if(n.call(e,t))return e[t];var i=r();if(Object.defineProperty&&Object.keys)try{return Object.defineProperty(e,t,{value:i,writable:!0,enumerable:!1}),i}catch(e){}return e[t]=i,i}},6389(e,t,r){"use strict";function n(e,t=500,r={}){const n=r?.leading||!1;let i;return(...r)=>{n&&void 0===i&&(e.apply(this,r),i=setTimeout(()=>{i=clearTimeout(i)},t)),n||(clearTimeout(i),i=setTimeout(()=>{e.apply(this,r)},t))}}function i(e){let t=!1;return(...r)=>{t||(t=!0,e.apply(this,r))}}r.d(t,{J:()=>i,s:()=>n})},1910(e,t,r){"use strict";r.d(t,{i:()=>s});var n=r(944);const i=new Map;function s(...e){return e.every(e=>{if(i.has(e))return i.get(e);const t="function"==typeof e?e.toString():"",r=t.includes("[native code]"),s=t.includes("nrWrapper");return r||s||(0,n.R)(64,e?.name||t),i.set(e,r),r})}},5289(e,t,r){"use strict";r.d(t,{GG:()=>o,Qr:()=>c,sB:()=>a});var n=r(3878),i=r(6389);function s(){return"undefined"==typeof document||"complete"===document.readyState}function o(e,t){if(s())return e();const r=(0,i.J)(e),o=setInterval(()=>{s()&&(clearInterval(o),r())},500);(0,n.sp)("load",r,t)}function a(e){if(s())return e();(0,n.DD)("DOMContentLoaded",e)}function c(e){if(s())return e();(0,n.sp)("popstate",e)}},384(e,t,r){"use strict";r.d(t,{Zm:()=>c,bQ:()=>d,dV:()=>u,pV:()=>l});var n=r(6154),i=r(1863),s=r(944),o=r(1910);const a={beacon:"bam.nr-data.net",errorBeacon:"bam.nr-data.net"};function c(){return n.gm.NREUM||(n.gm.NREUM={}),void 0===n.gm.newrelic&&(n.gm.newrelic=n.gm.NREUM),n.gm.NREUM}function u(){let e=c();return e.o||(e.o={ST:n.gm.setTimeout,SI:n.gm.setImmediate||n.gm.setInterval,CT:n.gm.clearTimeout,XHR:n.gm.XMLHttpRequest,REQ:n.gm.Request,EV:n.gm.Event,PR:n.gm.Promise,MO:n.gm.MutationObserver,FETCH:n.gm.fetch,WS:n.gm.WebSocket},(0,o.i)(...Object.values(e.o))),e}function d(e,t){let r=c();r.initializedAgents??={},t.initializedAt={ms:(0,i.t)(),date:new Date},r.initializedAgents[e]=t,2===Object.keys(r.initializedAgents).length&&(0,s.R)(69)}function l(){return function(){let e=c();const t=e.info||{};e.info={beacon:a.beacon,errorBeacon:a.errorBeacon,...t}}(),function(){let e=c();const t=e.init||{};e.init={...t}}(),u(),function(){let e=c();const t=e.loader_config||{};e.loader_config={...t}}(),c()}r.d(t,["NT",0,a])},2843(e,t,r){"use strict";r.d(t,{G:()=>s,u:()=>i});var n=r(3878);function i(e,t=!1,r,i){(0,n.DD)("visibilitychange",function(){if(t)return void("hidden"===document.visibilityState&&e());e(document.visibilityState)},r,i)}function s(e,t,r){(0,n.sp)("pagehide",e,t,r)}},3969(e,t,r){"use strict";const n=r(860).K7.metrics;r.d(t,["TZ",0,n,"XG",0,"storeEventMetrics","xV",0,"storeSupportabilityMetrics"])},6630(e,t,r){"use strict";const n=r(860).K7.pageViewEvent;r.d(t,["T",0,n])},782(e,t,r){"use strict";const n=r(860).K7.pageViewTiming;r.d(t,["T",0,n])},4234(e,t,r){"use strict";r.d(t,{W:()=>i});var n=r(1687);class i{constructor(e,t){this.agentRef=e,this.ee=e?.ee,this.featureName=t,this.blocked=!1}deregisterDrain(){(0,n.x3)(this.agentRef,this.featureName)}}},7767(e,t,r){"use strict";var n=r(6154);r.d(t,["V",0,e=>n.RI&&!0===e?.privacy.cookies_enabled])},8362(e,t,r){"use strict";r.d(t,{d:()=>s});var n=r(9566),i=r(1741);class s extends i.W{agentIdentifier=(0,n.LA)(16)}},1741(e,t,r){"use strict";r.d(t,{W:()=>s});var n=r(944),i=r(4261);class s{#e(e,...t){if(this[e]!==s.prototype[e])return this[e](...t);(0,n.R)(35,e)}addPageAction(e,t){return this.#e(i.hG,e,t)}register(e){return this.#e(i.eY,e)}recordCustomEvent(e,t){return this.#e(i.fF,e,t)}setPageViewName(e,t){return this.#e(i.Fw,e,t)}setCustomAttribute(e,t,r){return this.#e(i.cD,e,t,r)}noticeError(e,t){return this.#e(i.o5,e,t)}setUserId(e,t=!1){return this.#e(i.Dl,e,t)}setApplicationVersion(e){return this.#e(i.nb,e)}setErrorHandler(e){return this.#e(i.bt,e)}addRelease(e,t){return this.#e(i.k6,e,t)}log(e,t){return this.#e("log",e,t)}start(){return this.#e("start")}finished(e){return this.#e(i.BL,e)}recordReplay(){return this.#e(i.CH)}pauseReplay(){return this.#e(i.Tb)}addToTrace(e){return this.#e(i.U2,e)}setCurrentRouteName(e){return this.#e(i.PA,e)}interaction(e){return this.#e(i.dT,e)}wrapLogger(e,t,r){return this.#e(i.Wb,e,t,r)}measure(e,t){return this.#e(i.V1,e,t)}consent(e){return this.#e(i.Pv,e)}}},4261(e,t,r){"use strict";r.d(t,["BL",0,"finished","CH",0,"recordReplay","Dl",0,"setUserId","Fw",0,"setPageViewName","PA",0,"setCurrentRouteName","Pv",0,"consent","Tb",0,"pauseReplay","U2",0,"addToTrace","V1",0,"measure","Wb",0,"wrapLogger","bt",0,"setErrorHandler","cD",0,"setCustomAttribute","dT",0,"interaction","eY",0,"register","fF",0,"recordCustomEvent","hG",0,"addPageAction","k6",0,"addRelease","nb",0,"setApplicationVersion","o5",0,"noticeError"])},1738(e,t,r){"use strict";r.d(t,{U:()=>l,Y:()=>d});var n=r(3241),i=r(9908),s=r(1863),o=r(944),a=r(3969),c=r(8362),u=r(860);function d(e,t,r,s){const d=s||r;!d||d[e]&&d[e]!==c.d.prototype[e]||(d[e]=function(){(0,i.p)(a.xV,["API/"+e+"/called"],void 0,u.K7.metrics,r.ee),(0,n.W)({drained:!!r.runtime?.activatedFeatures,type:"data",name:"api",feature:"api-"+e,data:{}});try{return t.apply(this,arguments)}catch(e){(0,o.R)(23,e)}})}function l(e,t,r,n,o){const a=e.info;null===r?delete a.jsAttributes[t]:a.jsAttributes[t]=r,(o||null===r)&&(0,i.p)("api-"+n,[(0,s.t)(),t,r],void 0,"session",e.ee)}},8374(e,t,r){r.nc=(()=>{try{return document?.currentScript?.nonce}catch(e){}return""})()},860(e,t,r){"use strict";const n="events",i="jserrors",s="browser/blobs",o="browser/logs",a={ajax:"ajax",genericEvents:"generic_events",jserrors:i,logging:"logging",metrics:"metrics",pageAction:"page_action",pageViewEvent:"page_view_event",pageViewTiming:"page_view_timing",sessionReplay:"session_replay",sessionTrace:"session_trace",softNav:"soft_navigations"},c={[a.pageViewEvent]:1,[a.pageViewTiming]:2,[a.metrics]:3,[a.jserrors]:4,[a.softNav]:5,[a.ajax]:6,[a.sessionTrace]:7,[a.sessionReplay]:8,[a.logging]:9,[a.genericEvents]:10},u={[a.pageViewEvent]:"rum",[a.pageViewTiming]:n,[a.ajax]:n,[a.softNav]:n,[a.metrics]:i,[a.jserrors]:i,[a.sessionTrace]:s,[a.sessionReplay]:s,[a.logging]:o,[a.genericEvents]:"ins"};r.d(t,["$J",0,u,"K7",0,a,"P3",0,c,"XX",0,i,"Yy",0,o,"df",0,s])}};const t={};function r(n){const i=t[n];if(void 0!==i)return i.exports;const s=t[n]={exports:{}};return e[n](s,s.exports,r),s.exports}r.m=e,r.d=(e,t)=>{if(Array.isArray(t))for(var n=0;n<t.length;){var i=t[n++],s=t[n++];r.o(e,i)?0===s&&n++:0===s?Object.defineProperty(e,i,{enumerable:!0,value:t[n++]}):Object.defineProperty(e,i,{enumerable:!0,get:s})}else for(var i in t)r.o(t,i)&&!r.o(e,i)&&Object.defineProperty(e,i,{enumerable:!0,get:t[i]})},r.f={},r.e=e=>Promise.all(Object.keys(r.f).reduce((t,n)=>(r.f[n](e,t),t),[])),r.u=e=>"nr-rum-1.319.0.min.js",r.o=(e,t)=>Object.prototype.hasOwnProperty.call(e,t),(()=>{const e={},t="NRBA-1.319.0.PROD:";r.l=(n,i,s,o)=>{if(e[n])return void e[n].push(i);let a,c;if(void 0!==s){const e=document.getElementsByTagName("script");for(var u=0;u<e.length;u++){const r=e[u];if(r.getAttribute("src")==n||r.getAttribute("data-webpack")==t+s){a=r;break}}}if(!a){c=!0;var d={296:"sha512-AjMYlPlHGtonfj4LWnnP4dVoLRowrBrm4lRfeuRr88daClWRPCh62aASF1JsR277iWOhlLcoggRr9BulWGKOyQ=="};a=document.createElement("script"),a.charset="utf-8",r.nc&&a.setAttribute("nonce",r.nc),a.setAttribute("data-webpack",t+s),a.src=n,0!==a.src.indexOf(window.location.origin+"/")&&(a.crossOrigin="anonymous"),d[o]&&(a.integrity=d[o])}e[n]=[i];const l=(t,r)=>{a.onerror=a.onload=null,clearTimeout(f);const i=e[n];if(delete e[n],a.parentNode?.removeChild(a),i?.forEach(e=>e(r)),t)return t(r)},f=setTimeout(l.bind(null,void 0,{type:"timeout",target:a}),12e4);a.onerror=l.bind(null,a.onerror),a.onload=l.bind(null,a.onload),c&&document.head.appendChild(a)}})(),r.r=e=>{Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},r.p="https://js-agent.newrelic.com/",(()=>{const e={374:0,840:0};r.f.j=(t,n)=>{let i=r.o(e,t)?e[t]:void 0;if(0!==i)if(i)n.push(i[2]);else{const s=new Promise((r,n)=>i=e[t]=[r,n]);n.push(i[2]=s);const o=r.p+r.u(t),a=new Error,c=n=>{if(r.o(e,t)&&(i=e[t],0!==i&&(e[t]=void 0),i)){const e=n&&("load"===n.type?"missing":n.type),r=n&&n.target&&n.target.src;a.message="Loading chunk "+t+" failed: ("+e+": "+r+")",a.name="ChunkLoadError",a.type=e,a.request=r,i[1](a)}};r.l(o,c,"chunk-"+t,t)}};const t=(t,n)=>{let[i,s,o]=n;var a,c,u=0;if(i.some(t=>0!==e[t])){for(a in s)r.o(s,a)&&(r.m[a]=s[a]);if(o)o(r)}for(t&&t(n);u<i.length;u++)c=i[u],r.o(e,c)&&e[c]&&e[c][0](),e[c]=0},n=self["webpackChunk:NRBA-1.319.0.PROD"]=self["webpackChunk:NRBA-1.319.0.PROD"]||[];n.forEach(t.bind(null,0)),n.push=t.bind(null,n.push.bind(n))})(),(()=>{"use strict";r(8374);var e=r(8362),t=r(860);const n=Object.values(t.K7);var i=r(384),s=r(1741);var o=r(2555),a=r(981);t.K7.genericEvents,a.R.PA,a.R.UA,a.R.BP;const c="experimental.resources",u="register",d=(t.K7.ajax,"none"),l=e=>{if(!e||"string"!=typeof e)return!1;try{document.createDocumentFragment().querySelector(e)}catch{return!1}return!0};var f=r(2614),g=r(944),p=r(8122);const m="[data-nr-mask]",h=e=>(0,p.a)(e,(()=>{const e={feature_flags:[],experimental:{register:!1,resources:!1},mask_selector:"*",block_selector:"[data-nr-block]",mask_input_options:{color:!1,date:!1,"datetime-local":!1,email:!1,month:!1,number:!1,range:!1,search:!1,tel:!1,text:!1,time:!1,url:!1,week:!1,textarea:!1,select:!1,password:!0}};return{ajax:{deny_list:void 0,block_internal:!0,enabled:!0,autoStart:!0,capture_payloads:d},api:{register:{get enabled(){return e.feature_flags.includes(u)||e.experimental.register},set enabled(t){e.experimental.register=t},duplicate_data_to_container:!1}},browser_consent_mode:{enabled:!1},distributed_tracing:{enabled:void 0,exclude_newrelic_header:void 0,cors_use_newrelic_header:void 0,cors_use_tracecontext_headers:void 0,allowed_origins:void 0},get feature_flags(){return e.feature_flags},set feature_flags(t){e.feature_flags=t},generic_events:{enabled:!0,autoStart:!0},harvest:{interval:30},jserrors:{enabled:!0,autoStart:!0},logging:{enabled:!0,autoStart:!0},metrics:{enabled:!0,autoStart:!0},obfuscate:void 0,page_action:{enabled:!0},page_view_event:{enabled:!0,autoStart:!0},page_view_timing:{enabled:!0,autoStart:!0},performance:{capture_marks:!1,capture_measures:!1,capture_detail:!0,resources:{get enabled(){return e.feature_flags.includes(c)||e.experimental.resources},set enabled(t){e.experimental.resources=t},asset_types:[],first_party_domains:[],ignore_newrelic:!0}},privacy:{cookies_enabled:!0},proxy:{assets:void 0,beacon:void 0},session:{expiresMs:f.wk,inactiveMs:f.BB},session_replay:{autoStart:!0,enabled:!1,preload:!1,sampling_rate:10,error_sampling_rate:100,collect_fonts:!1,inline_images:!1,fix_stylesheets:!0,mask_all_inputs:!0,get mask_text_selector(){return e.mask_selector},set mask_text_selector(t){l(t)?e.mask_selector="".concat(t,",").concat(m):""===t||null===t?e.mask_selector=m:(0,g.R)(5,t)},get block_class(){return"nr-block"},get ignore_class(){return"nr-ignore"},get mask_text_class(){return"nr-mask"},get block_selector(){return e.block_selector},set block_selector(t){l(t)?e.block_selector+=",".concat(t):""!==t&&(0,g.R)(6,t)},get mask_input_options(){return e.mask_input_options},set mask_input_options(t){t&&"object"==typeof t?e.mask_input_options={...t,password:!0}:(0,g.R)(7,t)}},session_trace:{enabled:!0,autoStart:!0},soft_navigations:{enabled:!0,autoStart:!0},ssl:void 0,user_actions:{enabled:!0,elementAttributes:["id","className","tagName","type"]},web_sockets:{enabled:!1}}})());var v=r(6154),b=r(9324);let y=0;const _={buildEnv:"PROD",distMethod:"CDN",version:b.xv,originTime:v.WN},w={consented:!1},R={activatedFeatures:void 0,appMetadata:{},configured:!1,get consented(){return this.session?.state?.consent||w.consented},set consented(e){w.consented=e},customTransaction:void 0,denyList:[],disabled:!1,drainRegistry:new Map,harvester:void 0,isolatedBacklog:!1,isRecording:!1,loaderType:void 0,maxBytes:3e4,obfuscator:void 0,onerror:void 0,ptid:void 0,releaseIds:{},session:void 0,timeKeeper:void 0,registeredEntities:[],jsAttributesMetadata:{bytes:0},get harvestCount(){return++y}};var x=r(7836),A=r(3241);const k={accountID:void 0,trustKey:void 0,agentID:void 0,licenseKey:void 0,applicationID:void 0,xpid:void 0};function S(e,t={},n,a){let{init:c,info:u,loader_config:d,runtime:l={},exposed:f=!0}=t;if(!u){const e=(0,i.pV)();c=e.init,u=e.info,d=e.loader_config}var g;e.init=h(c||{}),e.loader_config=(g=d||{},(0,p.a)(g,k)),u.jsAttributes??={},v.bv&&(u.jsAttributes.isWorker=!0),e.info=(0,o.D)(u);const m=e.init;e.runtime??=(e=>{const t=(0,p.a)(e,R),r=Object.keys(_).reduce((e,t)=>(e[t]={value:_[t],writable:!1,configurable:!0,enumerable:!0},e),{});return Object.defineProperties(t,r)})(l),m.proxy.assets&&(e=>{const t=e.startsWith("http");e+="/",r.p=t?e:"https://"+e})(m.proxy.assets),e.runtime.configured||(Object.defineProperty(e,"beacons",{get:()=>[e.info.beacon,e.info.errorBeacon,e.init.proxy.assets,e.init.proxy.beacon].filter(Boolean)}),Object.defineProperty(e.runtime,"denyList",{get:()=>[...e.init.ajax.deny_list||[],...e.init.ajax.block_internal?e.beacons:[]]}),e.runtime.ptid=e.agentIdentifier,function(e){const t=(0,i.pV)();Object.getOwnPropertyNames(s.W.prototype).forEach(r=>{const n=s.W.prototype[r];if("function"!=typeof n||"constructor"===n)return;let i=t[r];e[r]&&!1!==e.exposed&&"micro-agent"!==e.runtime?.loaderType&&(t[r]=(...t)=>{const n=e[r](...t);return i?i(...t):n})})}(e),e.runtime.loaderType=n,e.ee=x.ee.get(e.agentIdentifier),e.exposed=f,(0,A.W)({drained:!!e.runtime.activatedFeatures,type:"lifecycle",name:"initialize",feature:void 0,data:e.config}),e.runtime.configured=!0)}var T=r(9908),E=r(1863),j=r(4261),P=r(1738);var N=r(1687),O=r(4234),M=r(5289),I=r(7767);function V(e){return!!(0,i.dV)().o.MO&&(0,I.V)(e)&&!0===e?.session_trace.enabled}var D=r(6389),W=r(7699);const B=new WeakSet;class K extends O.W{constructor(e,t){super(e,t),this.abortHandler=void 0,this.featAggregate=void 0,this.loadedSuccessfully=void 0,this.onAggregateImported=new Promise(e=>{this.loadedSuccessfully=e}),this.deferred=Promise.resolve(),!1===e.init[this.featureName].autoStart?this.deferred=new Promise((t,r)=>{this.ee.on("manual-start-all",(0,D.J)(()=>{(0,N.Ak)(e,this.featureName),t()}))}):(0,N.Ak)(e,t)}importAggregator(e,t,n={}){if(this.featAggregate)return;const i=async()=>{if(await this.deferred,this.#t(e),!(0,o.f)(e.info))return(0,g.R)(43),e.ee.abort(),void this.loadedSuccessfully(!1);let i;try{if((0,I.V)(e.init)){const{setupAgentSession:t}=await r.e(296).then(r.bind(r,8391));i=t(e)}}catch(e){(0,g.R)(20,e),this.ee.emit("internal-error",[e]),(0,T.p)(W.qh,[e],void 0,this.featureName,this.ee)}try{if(!this.#r(this.featureName,i,e.init))return(0,N.Ze)(this.agentRef,this.featureName),void this.loadedSuccessfully(!1);const{Aggregate:r}=await t();this.featAggregate=new r(e,n),e.runtime.harvester.initializedAggregates.push(this.featAggregate),this.loadedSuccessfully(!0)}catch(e){(0,g.R)(34,e),this.abortHandler?.(),(0,N.Ze)(this.agentRef,this.featureName,!0),this.loadedSuccessfully(!1),this.ee&&this.ee.abort()}};v.RI?(0,M.GG)(()=>i(),!0):i()}#r(e,r,n){if(this.blocked)return!1;switch(e){case t.K7.sessionReplay:return V(n)&&!!r;case t.K7.sessionTrace:return!!r;default:return!0}}#t(e){if(!B.has(e)&&(B.add(e),!(0,o.f)(e.info))){const t=(0,i.pV)();let r={...t.info?.jsAttributes};try{r={...r,...e.info?.jsAttributes}}catch(e){}S(e,{...t,info:{...t.info,jsAttributes:r},runtime:e.runtime},e.runtime.loaderType)}}}var C=r(6630);class U extends K{static featureName=C.T;constructor(e){var t;super(e,C.T),this.setupInspectionEvents(),t=e,(0,P.Y)(j.Fw,function(e,r){"string"==typeof e&&("/"!==e.charAt(0)&&(e="/"+e),t.runtime.customTransaction=(r||"http://custom.transaction")+e,(0,T.p)("api-"+j.Fw,[(0,E.t)()],void 0,void 0,t.ee))},t),this.importAggregator(e,()=>r.e(296).then(r.bind(r,1324)))}setupInspectionEvents(){const e=(e,t)=>{e&&(0,A.W)({timeStamp:e.timeStamp,loaded:"complete"===e.target.readyState,type:"window",name:t,data:e.target.location+""})};(0,M.sB)(t=>{e(t,"DOMContentLoaded")}),(0,M.GG)(t=>{e(t,"load")}),(0,M.Qr)(t=>{e(t,"navigate")}),this.ee.on(f.tS.UPDATE,(e,t)=>{(0,A.W)({type:"lifecycle",name:"session",data:t})})}}class L extends e.d{constructor(e){var t;(super(),v.gm)?(this.features={},(0,i.bQ)(this.agentIdentifier,this),this.desiredFeatures=new Set(e.features||[]),this.desiredFeatures.add(U),S(this,e,e.loaderType||"agent"),t=this,(0,P.Y)(j.cD,function(e,r,n=!1){if("string"==typeof e){if(["string","number","boolean"].includes(typeof r)||null===r)return(0,P.U)(t,e,r,j.cD,n);(0,g.R)(40,typeof r)}else(0,g.R)(39,typeof e)},t),function(e){(0,P.Y)(j.Dl,function(t,r=!1){if("string"!=typeof t&&null!==t)return void(0,g.R)(41,typeof t);const n=e.info.jsAttributes["enduser.id"];r&&null!=n&&n!==t?(0,T.p)("api-setUserIdAndResetSession",[t],void 0,"session",e.ee):(0,P.U)(e,"enduser.id",t,j.Dl,!0)},e)}(this),function(e){(0,P.Y)(j.nb,function(t){if("string"==typeof t||null===t)return(0,P.U)(e,"application.version",t,j.nb,!1);(0,g.R)(42,typeof t)},e)}(this),function(e){(0,P.Y)("start",function(){e.ee.emit("manual-start-all")},e)}(this),function(e){(0,P.Y)(j.Pv,function(t=!0){if("boolean"==typeof t){if((0,T.p)("api-"+j.Pv,[t],void 0,"session",e.ee),e.runtime.consented=t,t){const t=e.features.page_view_event;t.onAggregateImported.then(e=>{const r=t.featAggregate;e&&!r.sentRum&&r.sendRum()})}}else(0,g.R)(65,typeof t)},e)}(this),this.run()):(0,g.R)(21)}get config(){return{info:this.info,init:this.init,loader_config:this.loader_config,runtime:this.runtime}}get api(){return this}run(){try{const e=function(e){const t={};return n.forEach(r=>{t[r]=!!e[r]?.enabled}),t}(this.init),r=[...this.desiredFeatures];r.sort((e,r)=>t.P3[e.featureName]-t.P3[r.featureName]),r.forEach(r=>{if(!e[r.featureName]&&r.featureName!==t.K7.pageViewEvent)return;const n=function(e){switch(e){case t.K7.ajax:return[t.K7.jserrors];case t.K7.sessionTrace:return[t.K7.ajax,t.K7.pageViewEvent];case t.K7.sessionReplay:return[t.K7.sessionTrace];case t.K7.pageViewTiming:return[t.K7.pageViewEvent];default:return[]}}(r.featureName).filter(e=>!(e in this.features));n.length>0&&(0,g.R)(36,{targetFeature:r.featureName,missingDependencies:n}),this.features[r.featureName]=new r(this)})}catch(e){(0,g.R)(22,e);for(const e in this.features)this.features[e].abortHandler?.();const t=(0,i.Zm)();delete t.initializedAgents[this.agentIdentifier]?.features,delete this.sharedAggregator;return t.ee.get(this.agentIdentifier).abort(),!1}}}var G=r(2843),F=r(782);class H extends K{static featureName=F.T;constructor(e){super(e,F.T),v.RI&&((0,G.u)(()=>(0,T.p)("docHidden",[(0,E.t)()],void 0,F.T,this.ee),!0),(0,G.G)(()=>(0,T.p)("winPagehide",[(0,E.t)()],void 0,F.T,this.ee)),this.importAggregator(e,()=>r.e(296).then(r.bind(r,2117))))}}var z=r(3969);class Y extends K{static featureName=z.TZ;constructor(e){super(e,z.TZ),this.importAggregator(e,()=>r.e(296).then(r.bind(r,9623)))}}new L({features:[U,H,Y],loaderType:"lite"})})()})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="canonical" href="https://www.talosintelligence.com/categories"/>
+  <title>
+    Intelligence Categories ||  Cisco Talos Intelligence Group - Comprehensive Threat Intelligence
+  </title>
+  <meta name="description" content="Talos, Cisco’s Security Intelligence and Research Group, constantly tracks a broad set of attributes to evaluate conclusions about a given host."/>
+  <meta name="keywords" content=""/>
+  <link rel="stylesheet" href="/assets/application-bdc29f84e263f0c00fa07d73e80359bab00c0f922139837e26c13c1b87e4a099.css" media="all" />
+  <script src="/assets/application-1e5a9dc0377a0fb09f205cb6b8be1c57673c469c9a4b569be194366fbd19cdfe.js"></script>
+  <link rel="icon" type="image/x-icon" href="/assets/favicons/favicon-01f90f6b94ec4cceb73079603f6ae4329ac68a00d055125fd7e998b2ce4d5556.ico" />
+  
+  <meta name="csrf-param" content="authenticity_token" />
+<meta name="csrf-token" content="fw5l7YNF_B0Vg4dEw8gdiNMVgPt8JmIuGAzfphuy0McmZ-q9Fo1MVaUMAxUcagmc-yyZk4rFx0mkCLuDLD4t_g" />
+  <script>
+//<![CDATA[
+
+      window.gmk = "AIzaSyBw2Flbv4O6-cA6f_zAGMP7Lw5KXDGmSjI";
+
+//]]>
+</script>  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-63204287-3', 'auto');
+    ga('send', 'pageview');
+  </script>
+</head>
+<body>
+
+  <nav id='nav'>
+<div id='top-nav-bar'>
+<ul class='top-nav-links-wrapper'>
+<li><a class="login-button" href="/users/auth/saml">Cisco Login</a></li>
+
+</ul>
+</div>
+<div id='navigation'>
+<div class='navigation-logos-wrapper'>
+<div id='talos-logo-wrapper'>
+<a class="page-link" href="/"><svg xmlns="http://www.w3.org/2000/svg" id="cisco_talos_logo" viewBox="0 0 617.37 213.1">
+  <defs>
+    <style>
+      .cisco-fill{fill:#8e8c8c;}
+      .talos-fill{fill:#056eb6;}
+    </style>
+  </defs>
+  <g id="Layer_1-2">
+    <path class="cisco-fill" d="m92.7,1.73c-.3-.08-4.85-1.29-9.7-1.32-9.18-.06-14.75,4.86-14.8,12.24-.04,6.54,4.56,9.83,10.1,11.62.62.21,1.52.5,2.12.7,2.47.79,4.43,1.96,4.42,3.96-.02,2.24-2.31,3.67-7.26,3.64-4.36-.03-8.52-1.3-9.4-1.53l-.06,9.09c.49.11,5.44,1.12,10.75,1.15,7.63.05,16.37-3.22,16.44-13.14.03-4.81-2.88-9.26-9.34-11.36l-2.74-.89c-1.64-.53-4.56-1.39-4.54-3.79.01-1.9,2.19-3.22,6.19-3.19,3.45.02,7.63,1.21,7.78,1.26l.06-8.43h0Zm84.08,19.77c-.04,5.75-4.47,10.36-10.38,10.32-5.91-.04-10.27-4.72-10.23-10.46.04-5.73,4.46-10.35,10.37-10.31,5.91.04,10.28,4.72,10.24,10.45h0ZM166.6.99c-12.14-.08-20.92,9.02-20.99,20.3-.08,11.3,8.57,20.51,20.71,20.59,12.14.08,20.93-9.01,21.01-20.31.08-11.28-8.58-20.5-20.73-20.58h0ZM31.25,1.48C30.31,1.19,26.86.03,22.17,0,10.04-.08,1.08,8.5,1,20.29c-.09,12.72,9.69,20.52,20.89,20.59,4.45.03,7.85-1,9.1-1.34l.07-10.6c-.43.23-3.7,2.07-8.39,2.04-6.64-.05-10.89-4.75-10.85-10.62.04-6.05,4.54-10.5,10.99-10.46,4.77.03,7.96,1.95,8.36,2.17l.07-10.6h0Zm104,.71c-.94-.28-4.4-1.44-9.07-1.48-12.14-.08-21.1,8.5-21.18,20.29-.09,12.72,9.7,20.52,20.9,20.59,4.43.03,7.84-1,9.09-1.34l.07-10.6c-.44.23-3.71,2.07-8.4,2.04-6.63-.05-10.88-4.75-10.84-10.62.04-6.05,4.54-10.5,10.98-10.46,4.77.03,7.96,1.95,8.37,2.17l.07-10.6h0ZM54.64,40.41l-9.96-.07.27-39.49,9.96.07-.27,39.49h0Z"></path>
+    <path class="talos-fill" d="m478.12,96.94l-9.97,9.97c2.89,1,5.17,3.28,6.17,6.17l9.97-9.97c-1.92-2.19-3.98-4.25-6.17-6.17Z"></path>
+    <path class="talos-fill" d="m395.44,179.63l-9.97,9.97c1.92,2.19,3.98,4.25,6.17,6.17l9.97-9.97c-2.89-1-5.17-3.28-6.17-6.17Z"></path>
+    <path class="talos-fill" d="m394.88,173.11v-56.76c0-5.52,4.48-10,10-10h56.76l12.59-12.59c-10.97-8.22-24.59-13.09-39.35-13.09-36.27,0-65.68,29.41-65.68,65.68,0,14.76,4.87,28.38,13.09,39.35l12.59-12.59Z"></path>
+    <path class="talos-fill" d="m487.47,107l-12.59,12.59v56.76c0,5.52-4.48,10-10,10h-56.76l-12.59,12.59c10.97,8.22,24.59,13.09,39.35,13.09,36.27,0,65.68-29.41,65.68-65.68,0-14.76-4.87-28.38-13.09-39.35Z"></path>
+    <path class="talos-fill" d="m104.85,102.56c9.61-.91,19.25-8.76,19.25-22.53H0c0,14.66,10.94,22.61,21.13,22.62h0s23.56,0,23.95,0c3.3.03,5.95,2.7,5.94,6,0,2.93,0,84.04,0,84.04,0,5.62,1.67,10.06,5.1,13.57,2.83,2.9,6.48,4.83,11.15,5.9,1.03.24,5.78.95,5.78.95v-104.44c0-3.29,2.65-5.97,5.94-6,0,0,23.94,0,23.96,0h0c.62,0,1.25-.03,1.88-.09,0,0,0,0,0,0Z"></path>
+    <path class="talos-fill" d="m245.87,105.39c0-15.3-10.17-25.4-24.27-25.4h-78.77c0,14.7,10.98,22.67,21.2,22.67.32.02,35.71,0,49.93-.01,5.53,0,10.01,4.47,10.01,10l-.1,63.58c0,7.73-6.26,14-13.99,14h-48.41c-6.64-.04-10.84-2.78-12.46-8.81-1.3-4.85-.84-7.98,1.4-13.35,2.81-6.7,7.17-11.07,13.33-13.34,2.97-1.1,6.18-1.17,9.49-1.16,11.26.05,44.71,0,44.71,0v-22.3s-34.44.01-48.57,0c-6.93,0-13.3,1.84-18.95,5.48-9.71,6.26-16.94,15.06-21.48,27.03-2.92,7.69-3.49,14.4-1.76,24.29,1.01,5.74,3.07,10.31,6.32,13.97,5.57,6.29,12.98,9.7,22.03,10.14,1.9.09,53.47.08,55.72.08,1.74,0,3.45-.11,5.09-.33,5.23-.69,9.71-2.74,13.35-5.59,3.64,2.85,8.12,4.9,13.35,5.59,1.63.22,2.91.34,2.91.34,0,0-.07-105.76-.07-106.91Z"></path>
+    <path class="talos-fill" d="m375.22,212.3h0c0-7.39-2.78-13.08-6.83-16.92,0,0,0,0,0,0-.12-.12-.26-.24-.4-.36-3.73-3.35-8.47-5.18-13.12-5.38-.03,0-.05-.01-.05-.01l-58.33-.03c-3.31,0-6-2.69-6-6v-81.95c0-5.16-2.01-9.89-4.98-13.35-3.82-4.56-9.8-7.77-17.75-7.77h0v111.78c0,11.05,8.95,20,20,20h87.46Z"></path>
+    <path class="talos-fill" d="m617.3,161.26c-.02-4.33-.79-7.97-2.37-11.12-4.77-9.53-13.41-14.96-24.32-15.31-1.74-.06-42.2-.23-43.68-.23-4.96-.18-8.65-3.99-8.75-8.86l1.13-13c.51-5.53,5.4-10.01,10.92-10,10.26.01,45.34.04,45.68.01,10.15,0,21.04-7.87,21.19-22.38.02-.11-67.89-.3-67.89-.3-1.74,0-3.46.11-5.12.33-14.58,1.91-24.4,14.06-26.57,25.07-.39,1.97-2.27,24.41-2.35,25.36-.38,4.33.06,7.97,1.35,11.12,3.9,9.53,12.04,14.96,22.92,15.31.06,0,.13,0,.21,0,1.04.11,2.1.17,3.18.18.87.01,27.15.02,42.01.03,5.52,0,9.99,4.48,9.99,10v11.88c0,5.53-4.48,10.01-10.01,10-12.25-.01-59.26-.05-59.8-.01-10.22,0-21.2,7.98-21.2,22.69,0,0,81.13-.01,84.09-.01,1.74,0,3.45-.11,5.09-.33,14.41-1.91,23.11-14.06,24.27-25.07.21-1.97.03-24.41.03-25.36Z"></path>
+  </g>
+</svg>
+
+</a></div>
+</div>
+<div class='navigation-links-wrapper'>
+<ul class='main-nav-list'>
+<li class='nav-item'>
+<div class='primary-link-wrapper'>
+<a class="primary_nav_link" href="/reputation"><div class='mobile-nav-icon'><!-- Generator: Adobe Illustrator 24.2.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  --><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 20 20" height="20px" width="20px" style="enable-background:new 0 0 20 20;" xml:space="preserve">
+<style type="text/css">
+	.white{fill:#FFFFFF;}
+</style>
+<g>
+	<path class="white" d="M19.5,9.5h-1.1c-0.3-4.2-3.6-7.6-7.8-7.8V0.5C10.5,0.2,10.3,0,10,0l0,0C9.7,0,9.5,0.2,9.5,0.5l0,0v1.1   C5.3,1.9,1.9,5.3,1.6,9.5H0.5C0.2,9.5,0,9.7,0,10s0.2,0.5,0.5,0.5l0,0h1.1c0.3,4.2,3.6,7.6,7.8,7.8v1.1c0,0.3,0.2,0.5,0.5,0.5l0,0   c0.3,0,0.5-0.2,0.5-0.5l0,0v-1.1c4.2-0.3,7.6-3.6,7.8-7.8h1.1c0.3,0,0.5-0.2,0.5-0.5C20,9.7,19.8,9.5,19.5,9.5 M16.6,10.5h0.7   c-0.3,3.6-3.2,6.5-6.8,6.8v-0.8c0-0.3-0.2-0.5-0.5-0.5l0,0c-0.3,0-0.5,0.2-0.5,0.5v0.8C5.8,17,3,14.2,2.7,10.5h0.8   C3.8,10.5,4,10.3,4,10S3.8,9.5,3.5,9.5l0,0H2.7C3,5.8,5.8,3,9.5,2.7v0.8C9.5,3.7,9.7,4,10,4l0,0c0.3,0,0.5-0.2,0.5-0.5V2.7   C14.2,3,17,5.8,17.3,9.5h-0.7c-0.3,0-0.5,0.2-0.5,0.5C16.1,10.3,16.3,10.5,16.6,10.5L16.6,10.5"></path>
+	<circle class="white" cx="10" cy="10" r="3.2"></circle>
+</g>
+</svg>
+</div>
+<span class='top-nav-link-text'>
+Intelligence Center
+</span>
+</a></div>
+<input class='sub-nav-trigger' id='intelligence-sub-trigger' type='checkbox'>
+<label class='sub-nav-trigger-label' for='intelligence-sub-trigger'>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48.167px" height="47.75px" viewBox="0 0 48.167 47.75">
+<circle opacity="0.4" fill="none" stroke="#FFFFFF" stroke-miterlimit="10" cx="24.083" cy="23.875" r="22"></circle>
+<g>
+	<circle fill="#FFFFFF" cx="24.083" cy="16.068" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="23.875" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="31.682" r="2.496"></circle>
+</g>
+</svg>
+
+</label>
+<ul class='sub-nav sub-nav-single-list'>
+<li class='desktop-hide'>
+<a class="mobile_nav_link" href="/reputation"><h1>Intelligence Center</h1>
+</a></li>
+<li class='desktop-hide'>
+<label class='subnav-back-button' for='intelligence-sub-trigger'>BACK</label>
+</li>
+<li><a class="secondary_nav_link" href="/reputation_center">Intelligence Search</a></li>
+<li><a class="secondary_nav_link" href="/reputation_center/email_rep">Email &amp; Spam Trends</a></li>
+</ul>
+<div class='desktop-hide subnav-overlay'><!-- Generator: Adobe Illustrator 24.2.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  --><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 20 20" height="20px" width="20px" style="enable-background:new 0 0 20 20;" xml:space="preserve">
+<style type="text/css">
+	.white{fill:#FFFFFF;}
+</style>
+<g>
+	<path class="white" d="M19.5,9.5h-1.1c-0.3-4.2-3.6-7.6-7.8-7.8V0.5C10.5,0.2,10.3,0,10,0l0,0C9.7,0,9.5,0.2,9.5,0.5l0,0v1.1   C5.3,1.9,1.9,5.3,1.6,9.5H0.5C0.2,9.5,0,9.7,0,10s0.2,0.5,0.5,0.5l0,0h1.1c0.3,4.2,3.6,7.6,7.8,7.8v1.1c0,0.3,0.2,0.5,0.5,0.5l0,0   c0.3,0,0.5-0.2,0.5-0.5l0,0v-1.1c4.2-0.3,7.6-3.6,7.8-7.8h1.1c0.3,0,0.5-0.2,0.5-0.5C20,9.7,19.8,9.5,19.5,9.5 M16.6,10.5h0.7   c-0.3,3.6-3.2,6.5-6.8,6.8v-0.8c0-0.3-0.2-0.5-0.5-0.5l0,0c-0.3,0-0.5,0.2-0.5,0.5v0.8C5.8,17,3,14.2,2.7,10.5h0.8   C3.8,10.5,4,10.3,4,10S3.8,9.5,3.5,9.5l0,0H2.7C3,5.8,5.8,3,9.5,2.7v0.8C9.5,3.7,9.7,4,10,4l0,0c0.3,0,0.5-0.2,0.5-0.5V2.7   C14.2,3,17,5.8,17.3,9.5h-0.7c-0.3,0-0.5,0.2-0.5,0.5C16.1,10.3,16.3,10.5,16.6,10.5L16.6,10.5"></path>
+	<circle class="white" cx="10" cy="10" r="3.2"></circle>
+</g>
+</svg>
+</div>
+</li>
+<li class='nav-item'>
+<div class='primary-link-wrapper'>
+<a class="primary_nav_link" href="/vulnerability_info"><div class='mobile-nav-icon'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="26px" height="20px" viewBox="0 0 26 20">
+	<g id="vuln-icon" class="nav-icon">
+<path fill="#FFFFFF" d="M24.256,18.49L13.872,0.503C13.692,0.192,13.36,0,13,0c-0.359,0-0.692,0.192-0.872,0.503L1.744,18.49  c-0.18,0.312-0.18,0.695,0,1.006C1.924,19.809,2.257,20,2.616,20h20.769c0.359,0,0.691-0.191,0.871-0.504  C24.436,19.186,24.436,18.803,24.256,18.49 M14.268,18.215h-2.533v-1.85h2.533V18.215z M14.268,15.441h-2.533L10.89,6.515h4.222  L14.268,15.441z"></path>
+</g>
+</svg>
+</div>
+<span class='top-nav-link-text'>
+Vulnerability Research
+</span>
+</a></div>
+<input class='sub-nav-trigger' id='vuln-sub-trigger' type='checkbox'>
+<label class='sub-nav-trigger-label' for='vuln-sub-trigger'>
+<div class='mobile-nav-icon'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48.167px" height="47.75px" viewBox="0 0 48.167 47.75">
+<circle opacity="0.4" fill="none" stroke="#FFFFFF" stroke-miterlimit="10" cx="24.083" cy="23.875" r="22"></circle>
+<g>
+	<circle fill="#FFFFFF" cx="24.083" cy="16.068" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="23.875" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="31.682" r="2.496"></circle>
+</g>
+</svg>
+</div>
+</label>
+<ul class='sub-nav sub-nav-single-list'>
+<li class='desktop-hide'>
+<a href="/vulnerability_info"><h2>Vulnerability Research</h2>
+</a></li>
+<li class='desktop-hide'>
+<label class='subnav-back-button' for='vuln-sub-trigger'>BACK</label>
+</li>
+<li><a class="vulnerabilty-info-nav-link" href="/vulnerability_reports">Vulnerability Reports</a></li>
+<li><a class="vulnerabilty-info-nav-link" href="/ms_advisories">Microsoft Advisories</a></li>
+</ul>
+<div class='desktop-hide subnav-overlay'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="26px" height="20px" viewBox="0 0 26 20">
+	<g id="vuln-icon" class="nav-icon">
+<path fill="#FFFFFF" d="M24.256,18.49L13.872,0.503C13.692,0.192,13.36,0,13,0c-0.359,0-0.692,0.192-0.872,0.503L1.744,18.49  c-0.18,0.312-0.18,0.695,0,1.006C1.924,19.809,2.257,20,2.616,20h20.769c0.359,0,0.691-0.191,0.871-0.504  C24.436,19.186,24.436,18.803,24.256,18.49 M14.268,18.215h-2.533v-1.85h2.533V18.215z M14.268,15.441h-2.533L10.89,6.515h4.222  L14.268,15.441z"></path>
+</g>
+</svg>
+</div>
+</li>
+<li class='nav-item'>
+<div class='primary-link-wrapper'>
+<a class="primary_nav_link" href="/incident_response"><div class='mobile-nav-icon'><svg xmlns="http://www.w3.org/2000/svg" width="111.588" height="148.311" viewBox="0 0 111.588 148.311">
+  <path d="M1.181,128.446v15.7a4.167,4.167,0,0,0,4.167,4.167h100.9a4.167,4.167,0,0,0,4.167-4.167v-15.7a4.167,4.167,0,0,0-4.167-4.167H5.348a4.167,4.167,0,0,0-4.167,4.166M55.8,63.109a3.277,3.277,0,1,1,0,6.553c-10.344,0-20.755,8.578-20.755,18.57a3.277,3.277,0,1,1-6.554,0C28.489,73.947,41.93,63.109,55.8,63.109Zm0-12.016c-21.787,0-39.325,17.81-39.325,39.937v26.7H95.122V91.03c0-22.128-17.537-39.937-39.324-39.937m52.365-38.3a3.291,3.291,0,0,0-2.254,1.024L88.432,31.294a3.283,3.283,0,0,0,4.642,4.644l17.478-17.479a3.278,3.278,0,0,0-2.389-5.666m-105.138,0a3.276,3.276,0,0,0-1.98,5.666L18.522,35.938a3.283,3.283,0,0,0,4.643-4.644L5.687,13.817A3.255,3.255,0,0,0,3.025,12.793ZM55.389.026a3.276,3.276,0,0,0-2.867,3.345V19.642a3.277,3.277,0,1,0,6.554,0V3.371A3.283,3.283,0,0,0,55.389.026Z" fill="#fff"></path>
+</svg>
+</div>
+<span class='top-nav-link-text'>
+Incident Response
+</span>
+</a></div>
+<input class='sub-nav-trigger' id='ir-sub-trigger' type='checkbox'>
+<label class='sub-nav-trigger-label' for='ir-sub-trigger'>
+<div class='mobile-nav-icon'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48.167px" height="47.75px" viewBox="0 0 48.167 47.75">
+<circle opacity="0.4" fill="none" stroke="#FFFFFF" stroke-miterlimit="10" cx="24.083" cy="23.875" r="22"></circle>
+<g>
+	<circle fill="#FFFFFF" cx="24.083" cy="16.068" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="23.875" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="31.682" r="2.496"></circle>
+</g>
+</svg>
+</div>
+</label>
+<ul class='sub-nav sub-nav-single-list'>
+<li class='desktop-hide'>
+<a href="/incident_response"><h1>Incident Response</h1>
+</a></li>
+<li class='desktop-hide'>
+<label class='subnav-back-button' for='ir-sub-trigger'>BACK</label>
+</li>
+<li><a class="secondary_nav_link" href="/incident_response/services#reactive-services">Reactive Services</a></li>
+<li><a class="secondary_nav_link" href="/incident_response/services#proactive-services">Proactive Services</a></li>
+<li>
+<a href='' id='emergency_report_modal'>Emergency Support</a>
+</li>
+</ul>
+<div class='desktop-hide subnav-overlay'><svg xmlns="http://www.w3.org/2000/svg" width="111.588" height="148.311" viewBox="0 0 111.588 148.311">
+  <path d="M1.181,128.446v15.7a4.167,4.167,0,0,0,4.167,4.167h100.9a4.167,4.167,0,0,0,4.167-4.167v-15.7a4.167,4.167,0,0,0-4.167-4.167H5.348a4.167,4.167,0,0,0-4.167,4.166M55.8,63.109a3.277,3.277,0,1,1,0,6.553c-10.344,0-20.755,8.578-20.755,18.57a3.277,3.277,0,1,1-6.554,0C28.489,73.947,41.93,63.109,55.8,63.109Zm0-12.016c-21.787,0-39.325,17.81-39.325,39.937v26.7H95.122V91.03c0-22.128-17.537-39.937-39.324-39.937m52.365-38.3a3.291,3.291,0,0,0-2.254,1.024L88.432,31.294a3.283,3.283,0,0,0,4.642,4.644l17.478-17.479a3.278,3.278,0,0,0-2.389-5.666m-105.138,0a3.276,3.276,0,0,0-1.98,5.666L18.522,35.938a3.283,3.283,0,0,0,4.643-4.644L5.687,13.817A3.255,3.255,0,0,0,3.025,12.793ZM55.389.026a3.276,3.276,0,0,0-2.867,3.345V19.642a3.277,3.277,0,1,0,6.554,0V3.371A3.283,3.283,0,0,0,55.389.026Z" fill="#fff"></path>
+</svg>
+</div>
+</li>
+<li class='nav-item'>
+<a class="primary_nav_link" href="https://blog.talosintelligence.com"><div class='mobile-nav-icon'><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generator: Adobe Illustrator 16.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  --><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Layer_1" x="0px" y="0px" width="260px" height="296.5px" viewBox="0 0 260 296.5" enable-background="new 0 0 260 296.5" xml:space="preserve">
+<path fill="#FFFFFF" d="M243.586,42.404h-14.448c-0.943-4.513-3.143-8.813-6.616-12.33L201.793,9.098  c-4.7-4.757-10.972-7.377-17.66-7.377c-6.578,0-12.777,2.547-17.457,7.173l-33.875,33.511H17.586c-6.6,0-12,5.399-12,12V226.28  c0,6.6,5.4,12,12,12H153.83l84.21,56.278l-27.448-56.278h32.994c6.6,0,12-5.4,12-12V54.404  C255.586,47.804,250.186,42.404,243.586,42.404z M214.662,48.045c-0.01,0.2-0.021,0.399-0.044,0.599  c-0.008,0.069-0.021,0.139-0.031,0.207c-0.046,0.345-0.113,0.688-0.196,1.026c-0.034,0.137-0.063,0.273-0.103,0.408  c-0.039,0.135-0.087,0.267-0.133,0.399c-0.051,0.151-0.102,0.302-0.16,0.45c-0.049,0.126-0.105,0.249-0.16,0.373  c-0.068,0.153-0.139,0.307-0.216,0.457c-0.059,0.116-0.12,0.23-0.184,0.345c-0.088,0.157-0.181,0.312-0.278,0.465  c-0.065,0.104-0.13,0.206-0.2,0.308c-0.115,0.168-0.239,0.33-0.366,0.492c-0.064,0.081-0.124,0.165-0.19,0.244  c-0.199,0.238-0.409,0.472-0.635,0.694L82.458,182.308l-47.932,12.871l13.427-47.74L177.223,19.561  c1.917-1.895,4.414-2.84,6.911-2.84c2.534,0,5.068,0.975,6.99,2.92l20.726,20.974c0.545,0.552,1.002,1.156,1.39,1.79  c0.574,0.938,0.975,1.951,1.206,2.993c0.004,0.021,0.01,0.04,0.014,0.06c0.049,0.226,0.086,0.453,0.119,0.682  c0.008,0.06,0.017,0.118,0.024,0.178c0.026,0.211,0.045,0.424,0.058,0.636c0.004,0.077,0.007,0.153,0.009,0.23  c0.007,0.203,0.011,0.407,0.005,0.61C214.673,47.877,214.666,47.961,214.662,48.045z"></path>
+</svg>
+</div>
+<span class='top-nav-link-text'>Blog</span>
+</a></li>
+<li class='nav-item'>
+<a class="primary_nav_link" href="https://support.talosintelligence.com"><div class='mobile-nav-icon'><svg xmlns="http://www.w3.org/2000/svg" width="26px" height="20px" viewBox="0 0 123.17 159.292">
+  <path d="M61.59,0,0,17.069v85.32c0,23.472,61.59,56.9,61.59,56.9s61.58-36.288,61.58-56.9V17.069Zm-.433,149.746C38.314,136.662,8.128,114.3,8.128,102.389V23.239l53.029-14.7Z" fill="#fff"></path>
+</svg>
+</div>
+<span class='top-nav-link-text'>Support</span>
+</a></li>
+</ul>
+<ul class='secondary-nav-list'>
+<div class='more-desktop-link'>
+<div class='more-link-wrapper'>
+<span class='more-nav-link'>
+<div class='desktop-nav-icon more-menu-icon'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="22px" height="16px" viewBox="0 0 22 16">
+<g id="menu-icon">
+	<path fill="#FFFFFF" d="M20.5,3h-19C0.672,3,0,2.329,0,1.5S0.672,0,1.5,0h19C21.328,0,22,0.671,22,1.5S21.328,3,20.5,3z"></path>
+	<path fill="#FFFFFF" d="M20.5,9.5h-19C0.672,9.5,0,8.828,0,8c0-0.829,0.672-1.5,1.5-1.5h19C21.328,6.5,22,7.171,22,8   C22,8.828,21.328,9.5,20.5,9.5z"></path>
+	<path fill="#FFFFFF" d="M20.5,16h-19C0.672,16,0,15.328,0,14.5S0.672,13,1.5,13h19c0.828,0,1.5,0.672,1.5,1.5S21.328,16,20.5,16z"></path>
+</g>
+</svg>
+</div>
+<span class='top-nav-link-text top-nav-more-text'>
+More
+</span>
+</span>
+</div>
+</div>
+<li class='nav-item more-text-link'>
+<div class='more-link-wrapper more-link-wrapper-mobile'>
+<span class='more-nav-link'>
+<div class='mobile-nav-icon'><!-- Generator: Adobe Illustrator 24.2.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  --><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 20 20" style="enable-background:new 0 0 20 20;" width="25px" height="25px" xml:space="preserve">
+<style type="text/css">
+	.white{fill:#FFFFFF;}
+</style>
+<path class="white" d="M19.4,17.1c0,0.1-0.1,0-0.2,0c0,0-1.3-0.9-2-1.4c-0.2-0.1-0.5-0.1-0.6,0.1c-0.3,0.3-0.6,0.8-0.9,1.3  c-0.1,0.2-0.1,0.5,0.1,0.6l2,1.5c0.1,0,0,0.1,0.1,0.2c0,0.1,0,0.1-0.1,0.2c-1.2,0.5-2.6,0.2-3.5-0.7c-0.8-0.9-1-2-0.7-3.1L4.5,6.5  c-1,0.3-2.3,0-3-0.9c-0.8-0.9-1.1-1.7-1-2.7c0-0.1,0-0.1,0.1-0.2c0.1,0,0.2,0.1,0.2,0.1l2,1.5C3,4.4,3.3,4.5,3.4,4.2  c0,0,0.5-0.8,0.9-1.3c0.1-0.2,0.1-0.5-0.1-0.6L2.3,0.9c-0.1,0,0-0.1-0.1-0.3c0-0.1,0-0.1,0.1-0.2C3.5-0.1,5,0.2,5.8,1.1  c0.8,0.9,1,2,0.7,3.1l9.1,9.3c1-0.3,2.3,0,3,0.9c0.7,0.7,0.9,1.5,0.9,2.5C19.5,16.9,19.5,17,19.4,17.1z"></path>
+</svg>
+</div>
+<span class='top-nav-link-text top-nav-more-text'>
+Security Resources
+</span>
+</span>
+</div>
+<input class='sub-nav-trigger' id='security-resources-sub-trigger' type='checkbox'>
+<label class='sub-nav-trigger-label' for='security-resources-sub-trigger'>
+<div class='mobile-nav-icon'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48.167px" height="47.75px" viewBox="0 0 48.167 47.75">
+<circle opacity="0.4" fill="none" stroke="#FFFFFF" stroke-miterlimit="10" cx="24.083" cy="23.875" r="22"></circle>
+<g>
+	<circle fill="#FFFFFF" cx="24.083" cy="16.068" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="23.875" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="31.682" r="2.496"></circle>
+</g>
+</svg>
+</div>
+</label>
+<div class='sub-nav sub-nav-multiple-list sub-nav-multiple-list-left'>
+<div class='sub-nav-multiple-wrapper'>
+<div class='sub-nav-list-top-of-mobile-wrapper'>
+<h1 class='sub-nav-list-header sub-nav-list-top-of-mobile'>Security Resources</h1>
+<ul class='sub-nav-list'>
+<li class='desktop-hide'>
+<label class='subnav-back-button' for='security-resources-sub-trigger'>BACK</label>
+</li>
+</ul>
+</div>
+<div class='sub-nav-list-item-wrapper'>
+<span class='bold sub-nav-desktop-header uppercase'>Security Resources</span>
+<ul class='sub-nav-list'>
+<li>
+<a href="/software"><span>Open-source Security Tools</span>
+</a></li>
+<li>
+<a href="/categories"><span>Intelligence Categories Reference</span>
+</a></li>
+<li>
+<a href="/secure-endpoint-naming"><span>Secure Endpoint Naming Reference</span>
+</a></li>
+</ul>
+</div>
+</div>
+</div>
+<div class='desktop-hide subnav-overlay'><!-- Generator: Adobe Illustrator 24.2.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  --><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 20 20" style="enable-background:new 0 0 20 20;" width="25px" height="25px" xml:space="preserve">
+<style type="text/css">
+	.white{fill:#FFFFFF;}
+</style>
+<path class="white" d="M19.4,17.1c0,0.1-0.1,0-0.2,0c0,0-1.3-0.9-2-1.4c-0.2-0.1-0.5-0.1-0.6,0.1c-0.3,0.3-0.6,0.8-0.9,1.3  c-0.1,0.2-0.1,0.5,0.1,0.6l2,1.5c0.1,0,0,0.1,0.1,0.2c0,0.1,0,0.1-0.1,0.2c-1.2,0.5-2.6,0.2-3.5-0.7c-0.8-0.9-1-2-0.7-3.1L4.5,6.5  c-1,0.3-2.3,0-3-0.9c-0.8-0.9-1.1-1.7-1-2.7c0-0.1,0-0.1,0.1-0.2c0.1,0,0.2,0.1,0.2,0.1l2,1.5C3,4.4,3.3,4.5,3.4,4.2  c0,0,0.5-0.8,0.9-1.3c0.1-0.2,0.1-0.5-0.1-0.6L2.3,0.9c-0.1,0,0-0.1-0.1-0.3c0-0.1,0-0.1,0.1-0.2C3.5-0.1,5,0.2,5.8,1.1  c0.8,0.9,1,2,0.7,3.1l9.1,9.3c1-0.3,2.3,0,3,0.9c0.7,0.7,0.9,1.5,0.9,2.5C19.5,16.9,19.5,17,19.4,17.1z"></path>
+</svg>
+</div>
+</li>
+<li class='nav-item'>
+<div class='more-link-wrapper more-link-wrapper-mobile'>
+<span class='more-nav-link'>
+<div class='mobile-nav-icon'><!-- Generator: Adobe Illustrator 24.2.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  --><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 20 20" width="25px" height="25px" style="enable-background:new 0 0 20 20;" xml:space="preserve">
+<style type="text/css">
+	.sticoncomment{fill-rule:evenodd;clip-rule:evenodd;fill:#FFFFFF;}
+</style>
+<path class="sticoncomment" d="M13.6,7.1H6.4c-0.3,0-0.6-0.3-0.6-0.6c0-0.3,0.3-0.6,0.6-0.6l7.2,0c0.3,0,0.6,0.3,0.6,0.6  C14.2,6.8,13.9,7.1,13.6,7.1L13.6,7.1z M13.6,9.4H6.4c-0.3,0-0.6-0.3-0.6-0.6s0.3-0.6,0.6-0.6l7.2,0c0.3,0,0.6,0.3,0.6,0.6  C14.2,9.2,13.9,9.4,13.6,9.4L13.6,9.4z M11.5,11.7H6.4c-0.3,0-0.6-0.3-0.6-0.6c0-0.3,0.3-0.6,0.6-0.6h5.1c0.3,0,0.6,0.3,0.6,0.6  C12.1,11.5,11.8,11.7,11.5,11.7z M15.8,3H4.2C3.5,3,3,3.5,3,4.2V17l2.8-2.3h10c0.6,0,1.2-0.5,1.2-1.2V4.2C17,3.5,16.5,3,15.8,3  L15.8,3z"></path>
+</svg>
+</div>
+<span class='top-nav-link-text top-nav-more-text'>
+Media
+</span>
+</span>
+</div>
+<input class='sub-nav-trigger' id='media-sub-trigger' type='checkbox'>
+<label class='sub-nav-trigger-label' for='media-sub-trigger'>
+<div class='mobile-nav-icon'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48.167px" height="47.75px" viewBox="0 0 48.167 47.75">
+<circle opacity="0.4" fill="none" stroke="#FFFFFF" stroke-miterlimit="10" cx="24.083" cy="23.875" r="22"></circle>
+<g>
+	<circle fill="#FFFFFF" cx="24.083" cy="16.068" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="23.875" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="31.682" r="2.496"></circle>
+</g>
+</svg>
+</div>
+</label>
+<div class='sub-nav sub-nav-multiple-list sub-nav-multiple-list-middle'>
+<div class='sub-nav-multiple-wrapper'>
+<div class='sub-nav-list-top-of-mobile-wrapper'>
+<h1 class='sub-nav-list-header sub-nav-list-top-of-mobile'>Media</h1>
+<ul class='sub-nav-list'>
+<li class='desktop-hide'>
+<label class='subnav-back-button' for='media-sub-trigger'>BACK</label>
+</li>
+</ul>
+</div>
+<div class='sub-nav-list-item-wrapper'>
+<span class='bold sub-nav-desktop-header uppercase'>Media</span>
+<ul class='sub-nav-list'>
+<li>
+<a href="https://blog.talosintelligence.com"><span>Talos Intelligence Blog</span>
+</a></li>
+<li>
+<a href="https://blog.talosintelligence.com/category/threat-source-newsletter/"><span>Threat Source Newsletter</span>
+</a></li>
+<li>
+<a href="/podcasts/shows/beers_with_talos"><span>Beers with Talos Podcast</span>
+</a></li>
+<li>
+<a href="/podcasts/shows/talos_takes"><span>Talos Takes Podcast</span>
+</a></li>
+<li>
+<a target="_blank" href="https://www.youtube.com/channel/UCPZ1DtzQkStYBSG3GTNoyfg/featured"><span>Talos Videos</span>
+</a></li>
+</ul>
+</div>
+</div>
+</div>
+<div class='desktop-hide subnav-overlay'><!-- Generator: Adobe Illustrator 24.2.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  --><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 20 20" width="25px" height="25px" style="enable-background:new 0 0 20 20;" xml:space="preserve">
+<style type="text/css">
+	.sticoncomment{fill-rule:evenodd;clip-rule:evenodd;fill:#FFFFFF;}
+</style>
+<path class="sticoncomment" d="M13.6,7.1H6.4c-0.3,0-0.6-0.3-0.6-0.6c0-0.3,0.3-0.6,0.6-0.6l7.2,0c0.3,0,0.6,0.3,0.6,0.6  C14.2,6.8,13.9,7.1,13.6,7.1L13.6,7.1z M13.6,9.4H6.4c-0.3,0-0.6-0.3-0.6-0.6s0.3-0.6,0.6-0.6l7.2,0c0.3,0,0.6,0.3,0.6,0.6  C14.2,9.2,13.9,9.4,13.6,9.4L13.6,9.4z M11.5,11.7H6.4c-0.3,0-0.6-0.3-0.6-0.6c0-0.3,0.3-0.6,0.6-0.6h5.1c0.3,0,0.6,0.3,0.6,0.6  C12.1,11.5,11.8,11.7,11.5,11.7z M15.8,3H4.2C3.5,3,3,3.5,3,4.2V17l2.8-2.3h10c0.6,0,1.2-0.5,1.2-1.2V4.2C17,3.5,16.5,3,15.8,3  L15.8,3z"></path>
+</svg>
+</div>
+</li>
+<li class='nav-item'>
+<div class='more-link-wrapper more-link-wrapper-mobile'>
+<span class='more-nav-link'>
+<div class='mobile-nav-icon'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="25px" height="25px" viewBox="0 0 55 55">
+<g>
+	<g class="mobile-nav-home">
+		<path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M45.201,12.343c0.378,0.48,0.758,0.925,1.096,1.401    c2.975,4.207,4.543,8.876,4.494,14.044c-0.05,5.452-1.643,10.386-5.186,14.593c-3.484,4.133-7.929,6.73-13.182,7.895    c-6.313,1.398-12.216,0.275-17.695-3.131c-0.441-0.273-0.847-0.6-1.266-0.904c-0.11-0.078-0.208-0.174-0.337-0.287    c0.127-0.141,0.246-0.27,0.366-0.398c0.887-0.949,1.765-1.904,2.663-2.844c0.114-0.119,0.321-0.217,0.485-0.217    c3.658-0.006,7.318,0,10.975,0.008c3.458,0.006,6.913,0.02,10.369,0.02c0.957,0,1.871-0.193,2.62-0.844    c0.797-0.693,1.157-1.596,1.157-2.643c0.001-7.533,0.003-15.067-0.005-22.601c-0.002-0.309,0.088-0.524,0.3-0.743    C43.098,14.598,44.127,13.49,45.201,12.343"></path>
+		<path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M41.402,8.822c-0.99,1.027-1.994,2.021-2.935,3.072    c-0.312,0.35-0.616,0.416-1.036,0.415c-6.98-0.009-13.957-0.007-20.938-0.007c-2.039,0-3.561,1.514-3.561,3.557    c0,6.504,0.002,13.008,0.006,19.512c0.002,0.973,0.011,1.943,0.004,2.914c0,0.133-0.04,0.301-0.127,0.393    c-1.069,1.162-2.15,2.314-3.229,3.469c-0.021,0.023-0.052,0.039-0.109,0.08c-0.159-0.188-0.323-0.369-0.471-0.562    c-2.535-3.348-4.119-7.102-4.605-11.268c-0.61-5.229,0.194-10.229,2.835-14.839c2.669-4.664,6.655-7.805,11.618-9.75    c3.205-1.257,6.533-1.852,9.977-1.621c4.478,0.298,8.553,1.754,12.227,4.325c0.101,0.072,0.197,0.151,0.291,0.229    C41.364,8.755,41.374,8.778,41.402,8.822"></path>
+		<path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M39.799,12.47c0.873-0.911,1.749-1.829,2.676-2.797    c0.605,0.564,1.195,1.112,1.816,1.691c-0.941,0.985-1.817,1.903-2.703,2.83c-0.276-0.339-0.511-0.688-0.807-0.975    C40.492,12.941,40.145,12.728,39.799,12.47"></path>
+		<path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M10.35,43.279c0.969-1.016,1.885-1.977,2.76-2.893    c0.213,0.369,0.376,0.762,0.639,1.072c0.265,0.312,0.627,0.539,0.98,0.832c-0.853,0.891-1.713,1.791-2.624,2.746    C11.513,44.445,10.939,43.869,10.35,43.279"></path>
+	</g>
+</g>
+</svg>
+</div>
+<span class='top-nav-link-text top-nav-more-text'>
+Company
+</span>
+</span>
+</div>
+<input class='sub-nav-trigger' id='company-sub-trigger' type='checkbox'>
+<label class='sub-nav-trigger-label' for='company-sub-trigger'>
+<div class='mobile-nav-icon'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48.167px" height="47.75px" viewBox="0 0 48.167 47.75">
+<circle opacity="0.4" fill="none" stroke="#FFFFFF" stroke-miterlimit="10" cx="24.083" cy="23.875" r="22"></circle>
+<g>
+	<circle fill="#FFFFFF" cx="24.083" cy="16.068" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="23.875" r="2.496"></circle>
+	<circle fill="#FFFFFF" cx="24.083" cy="31.682" r="2.496"></circle>
+</g>
+</svg>
+</div>
+</label>
+<div class='sub-nav sub-nav-multiple-list sub-nav-multiple-list-right'>
+<div class='sub-nav-multiple-wrapper'>
+<div class='sub-nav-list-top-of-mobile-wrapper'>
+<h1 class='sub-nav-list-header sub-nav-list-top-of-mobile'>Company</h1>
+<ul class='sub-nav-list'>
+<li class='desktop-hide'>
+<label class='subnav-back-button' for='company-sub-trigger'>BACK</label>
+</li>
+</ul>
+</div>
+<div class='sub-nav-list-item-wrapper'>
+<span class='bold sub-nav-desktop-header uppercase'>Company</span>
+<ul class='sub-nav-list'>
+<li>
+<a href="/about"><span>About Talos</span>
+</a></li>
+<li>
+<a href="/careers"><span>Careers</span>
+</a></li>
+</ul>
+</div>
+</div>
+</div>
+<div class='desktop-hide subnav-overlay'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="25px" height="25px" viewBox="0 0 55 55">
+<g>
+	<g class="mobile-nav-home">
+		<path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M45.201,12.343c0.378,0.48,0.758,0.925,1.096,1.401    c2.975,4.207,4.543,8.876,4.494,14.044c-0.05,5.452-1.643,10.386-5.186,14.593c-3.484,4.133-7.929,6.73-13.182,7.895    c-6.313,1.398-12.216,0.275-17.695-3.131c-0.441-0.273-0.847-0.6-1.266-0.904c-0.11-0.078-0.208-0.174-0.337-0.287    c0.127-0.141,0.246-0.27,0.366-0.398c0.887-0.949,1.765-1.904,2.663-2.844c0.114-0.119,0.321-0.217,0.485-0.217    c3.658-0.006,7.318,0,10.975,0.008c3.458,0.006,6.913,0.02,10.369,0.02c0.957,0,1.871-0.193,2.62-0.844    c0.797-0.693,1.157-1.596,1.157-2.643c0.001-7.533,0.003-15.067-0.005-22.601c-0.002-0.309,0.088-0.524,0.3-0.743    C43.098,14.598,44.127,13.49,45.201,12.343"></path>
+		<path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M41.402,8.822c-0.99,1.027-1.994,2.021-2.935,3.072    c-0.312,0.35-0.616,0.416-1.036,0.415c-6.98-0.009-13.957-0.007-20.938-0.007c-2.039,0-3.561,1.514-3.561,3.557    c0,6.504,0.002,13.008,0.006,19.512c0.002,0.973,0.011,1.943,0.004,2.914c0,0.133-0.04,0.301-0.127,0.393    c-1.069,1.162-2.15,2.314-3.229,3.469c-0.021,0.023-0.052,0.039-0.109,0.08c-0.159-0.188-0.323-0.369-0.471-0.562    c-2.535-3.348-4.119-7.102-4.605-11.268c-0.61-5.229,0.194-10.229,2.835-14.839c2.669-4.664,6.655-7.805,11.618-9.75    c3.205-1.257,6.533-1.852,9.977-1.621c4.478,0.298,8.553,1.754,12.227,4.325c0.101,0.072,0.197,0.151,0.291,0.229    C41.364,8.755,41.374,8.778,41.402,8.822"></path>
+		<path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M39.799,12.47c0.873-0.911,1.749-1.829,2.676-2.797    c0.605,0.564,1.195,1.112,1.816,1.691c-0.941,0.985-1.817,1.903-2.703,2.83c-0.276-0.339-0.511-0.688-0.807-0.975    C40.492,12.941,40.145,12.728,39.799,12.47"></path>
+		<path fill-rule="evenodd" clip-rule="evenodd" fill="#FFFFFF" d="M10.35,43.279c0.969-1.016,1.885-1.977,2.76-2.893    c0.213,0.369,0.376,0.762,0.639,1.072c0.265,0.312,0.627,0.539,0.98,0.832c-0.853,0.891-1.713,1.791-2.624,2.746    C11.513,44.445,10.939,43.869,10.35,43.279"></path>
+	</g>
+</g>
+</svg>
+</div>
+</li>
+</ul>
+<ul class='top-nav-list-buttons'>
+<li class='nav-item'>
+<div id='top-nav-under-attack-button-wrapper'>
+<div id='top-nav-under-attack-button'>
+<span id='top-nav-under-attack-icon'></span>
+<p class='uppercase' id='top-nav-under-attack-icon-text'>Under Attack?</p>
+</div>
+</div>
+</li>
+<li class='acct_links desktop-hide'>
+<a class="login-button" href="/users/auth/saml">Cisco Login
+</a></li>
+</ul>
+</div>
+</div>
+</nav>
+<input class='nav-trigger' id='nav-trigger' type='checkbox'>
+<label for='nav-trigger'><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="22px" height="16px" viewBox="0 0 22 16">
+<g id="menu-icon">
+	<path fill="#FFFFFF" d="M20.5,3h-19C0.672,3,0,2.329,0,1.5S0.672,0,1.5,0h19C21.328,0,22,0.671,22,1.5S21.328,3,20.5,3z"></path>
+	<path fill="#FFFFFF" d="M20.5,9.5h-19C0.672,9.5,0,8.828,0,8c0-0.829,0.672-1.5,1.5-1.5h19C21.328,6.5,22,7.171,22,8   C22,8.828,21.328,9.5,20.5,9.5z"></path>
+	<path fill="#FFFFFF" d="M20.5,16h-19C0.672,16,0,15.328,0,14.5S0.672,13,1.5,13h19c0.828,0,1.5,0.672,1.5,1.5S21.328,16,20.5,16z"></path>
+</g>
+</svg>
+</label>
+<div class='modal-wrapper'>
+<div class='modal' id='ir-contact-modal' role='dialog' tabindex='-1'>
+<div class='modal-dialog' role='document'>
+<div class='modal-content'>
+<div class='modal-header'>
+<h2 class='modal-email-header'>Contact Cisco Talos Incident Response</h2>
+<button aria-label='Close' class='close' data-bs-dismiss='modal' id='closeFormIcon' type='button'>
+<span aria-hidden='true'>&times;</span>
+</button>
+</div>
+<div class='modal-body'>
+<div class='modal-response-section hidden' id='ir-contact-modal-response-section'>
+<div class='modal-response-text-wrapper' id='ir-contact-modal-response-text-wrapper'>
+<div class='modal-response-icon' id='ir-contact-modal-response-icon'></div>
+<div class='modal-response-text' id='ir-contact-modal-response-text'></div>
+</div>
+<div class='completed-close-button-wrapper'>
+<button class='secondary-button completed-close-button hidden' data-bs-dismiss='modal'>Close</button>
+</div>
+</div>
+<div class='modal-body-form-wrapper' id='ir-contact-modal-form-wrapper'>
+<div class='emergency-only-incident-response' id='emergency-only-warning-modal'>
+<div class='emergency-only-incident-response-wrapper'>
+<div class='incident-response-warning-icon'></div>
+<span class='emergency-note'>This form is for Incident Response service inquiries only, <span class="bold">including emergency network security needs</span>.</span>
+</div>
+</div>
+<p id='ir-contact-form-subhead'>
+<span>For reputation or categorization inquiries, visit the <a class="underline" href="/support">Talos Support site</a>.</span>
+<span class='ir-contact-form-subhead-note'>For emergency DDoS mitigation assistance, please contact the <a class="underline" href="https://www.cisco.com/c/en/us/products/collateral/security/ddos-emergency-attack-mitigation-aag.pdf" target="_blank">Cisco Secure DDoS Protection Team</a>.</span>
+</p>
+<form id="ir-contact-form" action="/" accept-charset="UTF-8" data-remote="true" method="post"><input type="hidden" name="authenticity_token" value="NDqSPW3Amr9GtPO-ykp7IYgjMnsgwhVcJG0ZyF_hocOf-v16YOEpOVQ_zSbUWxmVmc47041m91TsPPtXkilWlQ" autocomplete="off" />
+<div class='row'>
+<div class='col-6'>
+<label class="control-label" for="ctir_user_name">Name</label>
+<input required="required" type="text" name="ctir_user[name]" id="ctir_user_name" />
+</div>
+<div class='col-6'>
+<label class="control-label" for="company">Company (optional)</label>
+<input type="text" name="ctir_user[company]" id="ctir_user_company" />
+</div>
+</div>
+<div class='row'>
+<div class='col-6'>
+<label class="control-label" type="email" for="email_input_ir-contact-form">Email address</label>
+<input id="email_input_ir-contact-form" required="required" type="email" name="ctir_user[email]" />
+</div>
+<div class='col-6'>
+<label class="control-label" for="phone_input_ir-contact-form">Phone number</label>
+<input id="phone_input_ir-contact-form" maxlength="100" size="100" type="tel" name="ctir_user[phone_number]" />
+</div>
+</div>
+<div class='row'>
+<div class='col-4'>
+<label class='radio-selection-label'>Preferred communication:</label>
+</div>
+<div class='col-3'>
+<input type="radio" name="contact_method" id="contact_method_email_ir-contact-form" value="email" checked="checked" />
+<label class="form-radio-label" for="contact_method_email_ir-contact-form">Email</label>
+</div>
+<div class='col-3'>
+<input type="radio" name="contact_method" id="contact_method_phone_ir-contact-form" value="phone" />
+<label class="form-radio-label" for="contact_method_phone_ir-contact-form">Phone</label>
+</div>
+</div>
+<div class='row extra-padding'>
+<div class='col-12'>
+<label class="control-label" for="service">What Incident Response Service are you interested in?</label>
+<select name="service" id="service" class="col-sm-12 form-control ir-contact-modal__selection"><option value="general">General Talos IR services and retainer information</option>
+<option value="emergency">Emergency Response</option>
+<option value="plans">IR Plan</option>
+<option value="playbooks">IR Playbooks</option>
+<option value="readiness">IR Readiness Assessment</option>
+<option value="tabletop">Tabletop Exercises</option>
+<option value="compromise">Compromise Assessment</option>
+<option value="hunting">Threat Hunting</option>
+<option value="cyberrange">Cyber Range Training</option>
+<option value="intel">Intel on Demand</option></select>
+</div>
+</div>
+<div class='row extra-padding'>
+<div class='col-12'>
+<label class="control-label" for="details">Please provide as much detail as possible so we can best address your needs</label>
+<textarea name="details" id="details" required="required">
+</textarea>
+</div>
+</div>
+<div class='row form-footer-row'>
+<div class='col-12 emergency-checkbox-wrapper'>
+<input class='emergency-checkbox' id='emergency-checkbox' required='required' type='checkbox'>
+<label class='col-emergency-label' for='emergency-checkbox'>
+I acknowledge that this is an inquiry for Incident Response services and that any other use of this form will not receive a response.
+</label>
+</div>
+<div class='col-12 emergency-checkbox-wrapper'>
+<input class='emergency-checkbox' id='emergency-checkbox-2' required='required' type='checkbox'>
+<label class='col-emergency-label' for='emergency-checkbox-2'>
+I acknowledge that this is NOT a request to unblock or recategorize IP addresses/domains. Those requests must submitted via the <a class="underline" href="https://support.talosintelligence.com">Talos Support site</a>; the Talos Incident Response team does not handle, respond to, or escalate reputation requests.
+</label>
+</div>
+<div class='col-12'>
+<button class='primary-button submit disabled' disabled='true' id='submit-tir-email' type='submit'>Send Email</button>
+<button class='secondary-button cancel' data-bs-dismiss='modal' id='closeFormButton'>Cancel</button>
+</div>
+</div>
+</form>
+
+
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+
+
+  <div id="page_wrapper">
+    <div class="mobile-page-header" title="Cisco Talos Intelligence">
+    </div>
+      
+    <div class="container-fluid full-height categories-page">
+  <div class="row cat-info-row">
+    <div class="col-12 cat-info-col">
+      <h1 class="text-center">Intelligence Categories</h1>
+      <p>
+        Talos, Cisco’s Security Intelligence and Research Group, constantly tracks a broad set of attributes
+        to evaluate conclusions about a given host. The below tables contain alphabetical listings and
+        descriptions of the standard categories used to classify website content and the standard threat
+        categories used to classify attack types.
+      </p>
+      <div class="blog-links-wrapper">
+        <h5 class="text-center highlight-orange">Updates and Blog Posts</h5>
+          <table id="blog-links-table">
+              <tr>
+                <td>
+                  <a class="underline" href="https://blog.talosintelligence.com/2024-changes-to-content-and-threat-categories/">New Generative AI category added to Talos reputation services</a>
+                </td>
+                <td>
+                  May 29, 2024
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <a class="underline" href="https://blog.talosintelligence.com/2021/01/2021-changes-to-content-and-threat-categories.html">Changes to Cisco Talos’ Content and Threat Category lists</a>
+                </td>
+                <td>
+                  January 11, 2021
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <a class="underline" href="https://blog.talosintelligence.com/2019/03/cisco-talos-adds-new-content-category.html">New Content Categories Released (April 2019) </a>
+                </td>
+                <td>
+                  March 25, 2019
+                </td>
+              </tr>
+          </table>
+      </div>
+    </div>
+  </div>
+  <div class="row alt-layout-row">
+    <div class="col-12 col_single">
+      <div class="row">
+        <div class="col-12 wide">
+          <ul id="web-cat-tabs" class="nav nav-tabs data-tabs" role="tablist">
+            <li role="presentation" class="nav-item">
+              <a href="#contentcats" class="active" aria-controls="contentcats" role="tab" data-bs-toggle="tab">Content Categories</a>
+            </li>
+            <li role="presentation" class="nav-item">
+              <a href="#threatcats" aria-controls="threatcats" role="tab" data-bs-toggle="tab">Threat Categories</a>
+            </li>
+          </ul>
+          <div class="tab-content">
+            <div role="tabpanel" class="tab-pane active" id="contentcats">
+              <table id="content-categories" class="table-striped linked">
+                <thead>
+                <tr>
+                  <th data-field="category" data-sortable="true">Category</th>
+                  <th data-field="description" data-sortable="false">Description</th>
+                  <th data-field="url" data-sortable="false">Example URLs</th>
+                </tr>
+                </thead>
+                <tbody class="category_table_results">
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Adult
+                    </td>
+                    <td>
+                      Directed at adults, but not necessarily pornographic. May include adult clubs (strip clubs, swingers clubs, escort services, strippers); general information about sex, non-pornographic in nature; genital piercing; adult products or greeting cards; information about sex not in the context of health or disease.
+                    </td>
+                    <td>
+                      www.adultentertainmentexpo.com www.sincerelynot.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Advertisements
+                    </td>
+                    <td>
+                      Banner and pop-up advertisements that often accompany a web page; other advertising websites that provide advertisement content. Advertising services and sales are classified as Business and Industry.
+                    </td>
+                    <td>
+                      http://www.adforce.com http://www.doubleclick.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Alcohol
+                    </td>
+                    <td>
+                      Alcohol as a pleasurable activity; beer and wine making, cocktail recipes; liquor sellers, wineries, vineyards, breweries, alcohol distributors. Alcohol addiction is classified as Health and Nutrition. Bars and restaurants are classified as Dining and Drinking.
+                    </td>
+                    <td>
+                      http://www.samueladams.com http://www.whisky.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Animals and Pets
+                    </td>
+                    <td>
+                      Information about domestic animals, livestock, service animals, pets and their care. Veterinary services, medicines, and animal health. Pet and animal training, aquariums, zoos, and animal shows. Includes animal shelters, humane societies, animal centric charities, and sanctuaries, bee keeping, training, and animal husbandry; dinosaurs and extinct animals.
+                    </td>
+                    <td>
+                      petmd.co wheaten.org.uk
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Arts
+                    </td>
+                    <td>
+                      Galleries and exhibitions; artists and art; photography; literature and books; performing arts and theater; musicals; ballet; museums; design; architecture.  Cinema and television are classified as Entertainment.
+                    </td>
+                    <td>
+                      http://www.rosenthalfineart.com http://www.nga.gov
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Astrology
+                    </td>
+                    <td>
+                      Astrology; horoscope; fortune telling; numerology; psychic advice; tarot.
+                    </td>
+                    <td>
+                      http://www.astro.com http://www.astrology.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Auctions
+                    </td>
+                    <td>
+                      Online and offline auctions, auction houses, and classified advertisements.
+                    </td>
+                    <td>
+                      http://www.craigslist.com http://www.ebay.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Business and Industry
+                    </td>
+                    <td>
+                      Marketing, commerce, corporations, business practices, workforce, human resources, transportation, payroll, security and venture capital; office supplies; industrial equipment (process equipment), machines and mechanical systems; heating equipment, cooling equipment; materials handling equipment; packaging equipment; manufacturing: solids handling, metal fabrication, construction and building; passenger transportation; commerce; industrial design; construction, building materials; shipping and freight (freight services, trucking, freight forwarders, truckload carriers, freight and transportation brokers, expedited services, load and freight matching, track and trace, rail shipping, ocean shipping, road feeder services, moving and storage).
+                    </td>
+                    <td>
+                      www.freightcenter.com www.ge.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Cannabis
+                    </td>
+                    <td>
+                      Websites that focus on the recreational and medicinal consumption of cannabis. Sites may include marketing, discussions about legal and regulatory issues, growth and production, paraphernalia, research, and investment in the cannabis industry. Dispensaries, cannabinoid (CBD oil, THC, etc.) based products are also included.
+                    </td>
+                    <td>
+                      localproduct.co oregonbc.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Chat and Instant Messaging
+                    </td>
+                    <td>
+                      Web-based instant messaging and chat rooms.
+                    </td>
+                    <td>
+                      www.icq.com www.e-chat.co
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Cheating and Plagiarism
+                    </td>
+                    <td>
+                      Promoting cheating and selling written work, such as term papers, for plagiarism.
+                    </td>
+                    <td>
+                      http://www.bestessays.com http://www.superiorpapers.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Child Abuse Content
+                    </td>
+                    <td>
+                      Worldwide illegal child sexual abuse content.
+                    </td>
+                    <td>
+                      
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Cloud and Data Centers
+                    </td>
+                    <td>
+                      Platforms used to serve cloud infrastructure or data center hosting to support an organization&#39;s applications, services, or data processing. Due to the de-centralized nature of these domains and IP addresses, a more specific category cannot be applied based on content or ownership.
+                    </td>
+                    <td>
+                      azurewebsites.net s3.amazonaws.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Computer Security
+                    </td>
+                    <td>
+                      Offering security products and services for corporate and home users.
+                    </td>
+                    <td>
+                      http://www.computersecurity.com http://www.symantec.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Computers and Internet
+                    </td>
+                    <td>
+                      Information about computers and software, such as hardware, software, software support; information for software engineers, programming and networking; website design; the web and Internet in general; computer science; computer graphics and clipart. Freeware and Shareware is a separate category.
+                    </td>
+                    <td>
+                      http://www.xml.com http://www.w3.org
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Conventions, Conferences and Trade Shows
+                    </td>
+                    <td>
+                      Seminars, trade shows, conventions and conferences themed around a particular industry, market, or common interest. May include information about acquiring tickets, registration, abstract or presentation proposal guidelines, workshops, sponsorship details, vendor or exhibitor information, and other marketing or promotional material. This category includes academic, professional, as well as pop-culture events, all of which tend to be a short-lived or annual event.
+                    </td>
+                    <td>
+                      thesmallbusinessexpo.com makerfaire.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Cryptocurrency
+                    </td>
+                    <td>
+                      Online brokerages and websites that enable users to trade cryptocurrencies; information regarding cryptocurrencies including analysis, commentary, advice, performance indexes, and price charts. General information about cryptomining and mining businesses are included in this category but domains and IP addresses directly involved in mining activities are categorized as Cryptomining.
+                    </td>
+                    <td>
+                      coinbase.com coinsutra.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Cryptomining
+                    </td>
+                    <td>
+                      Hosts that are actively participating in a cryptocurrency mining pool.
+                    </td>
+                    <td>
+                      give-me-coins.com slushpool.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      DIY Projects
+                    </td>
+                    <td>
+                      Guidance and information to create, improve, modify, decorate and repair something without the aid of experts or professionals.
+                    </td>
+                    <td>
+                      www.diy-tips.co.uk www.thisoldhouse.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      DNS-Tunneling
+                    </td>
+                    <td>
+                      Sites that provide DNS Tunneling as a service. These services can be for PC or mobile and create a VPN connection specifically over DNS to send traffic that may bypass corporate policies and inspection.
+                    </td>
+                    <td>
+                      
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Dating
+                    </td>
+                    <td>
+                      Dating, online personals, matrimonial agencies.
+                    </td>
+                    <td>
+                      http://www.eharmony.com http://www.match.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Digital Postcards
+                    </td>
+                    <td>
+                      Enabling sending of digital postcards and e-cards.
+                    </td>
+                    <td>
+                      www.hallmarkecards.com www.bluemountain.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Dining and Drinking
+                    </td>
+                    <td>
+                      Eating and drinking establishments; restaurants, bars, taverns, and pubs; restaurant guides and reviews.
+                    </td>
+                    <td>
+                      www.zagat.com  www.experiencethepub.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Dynamic DNS Provider
+                    </td>
+                    <td>
+                      Users may use dynamic DNS services to make certain applications or content accessible via the web from endpoints hosted on dynamically assigned IP addresses. Access is granted through a hostname on the domain owned by the dynamic DNS service.
+                    </td>
+                    <td>
+                      noip.com afraid.org
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Dynamic and Residential
+                    </td>
+                    <td>
+                      IP addresses of broadband links that usually indicates users attempting to access their home network, for example for a remote session to a home computer.
+                    </td>
+                    <td>
+                      109.60.192.55
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Education
+                    </td>
+                    <td>
+                      Education-related, such as schools, colleges, universities, teaching materials, and teachers&#39; resources; technical and vocational training; online training; education issues and policies; financial aid; school funding; standards and testing.
+                    </td>
+                    <td>
+                      http://www.education.com http://www.greatschools.org
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Encrypted DNS
+                    </td>
+                    <td>
+                      Encrypted DNS requests using HTTPS (DoH), TLS (DoT), QUIC (DoQ), or similar technologies. These protocols are typically used as a layer of security and privacy by end-users, but the encryption hides the content and destination of the request, and the request is passed through a third-party.
+                    </td>
+                    <td>
+                      cloudflare-dns.com dns.google.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Entertainment
+                    </td>
+                    <td>
+                      Details or discussion of films; music and bands; television; celebrities and fan websites; entertainment news; celebrity gossip; entertainment venues. Compare the Arts category.
+                    </td>
+                    <td>
+                      http://www.eonline.com http://www.ew.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Extreme
+                    </td>
+                    <td>
+                      Material of a sexually violent or criminal nature; violence and violent behavior; tasteless, often gory photographs, such as autopsy photos; photos of crime scenes, crime and  accident victims; excessive obscene material; shock websites.
+                    </td>
+                    <td>
+                      http://www.car-accidents.com http://www.crime-scene-photos.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Fashion
+                    </td>
+                    <td>
+                      Clothing and fashion; hair salons; cosmetics; accessories; jewelry; perfume; pictures and text relating to body modification; tattoos and piercing; modeling agencies. Dermatological products are classified as Health and Nutrition.
+                    </td>
+                    <td>
+                      www.fashion.net www.styleseat.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      File Transfer Services
+                    </td>
+                    <td>
+                      File transfer services with the primary purpose of providing download services and hosted file sharing.
+                    </td>
+                    <td>
+                      www.sharefile.com  www.wetransfer.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Filter Avoidance
+                    </td>
+                    <td>
+                      Promoting and aiding undetectable and anonymous web usage, including cgi, php and glype anonymous proxy services.
+                    </td>
+                    <td>
+                      http://www.bypassschoolfilter.com http://www.filterbypass.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Finance
+                    </td>
+                    <td>
+                      Primarily financial in nature, such as accounting practices and accountants, taxation, taxes, banking, insurance, investing, the national economy, personal finance involving insurance of all types, credit cards, retirement and estate planning, loans, mortgages. Stock and shares are classified as Online Trading.
+                    </td>
+                    <td>
+                      http://www.finance.yahoo.com http://www.bankofamerica.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Freeware and Shareware
+                    </td>
+                    <td>
+                      Providing downloads of free and shareware software.
+                    </td>
+                    <td>
+                      www.freewarehome.com www.filehippo.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Gambling
+                    </td>
+                    <td>
+                      Casinos and online gambling; bookmakers and odds; gambling advice; competitive racing in a gambling context; sports booking; sports gambling; services for spread betting on stocks and shares. Websites dealing with gambling addiction are classified as Health and Nutrition. Government-run lotteries are classified as Lotteries.
+                    </td>
+                    <td>
+                      http://www.888.com http://www.gambling.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Games
+                    </td>
+                    <td>
+                      Various card games, board games, word games, and video games; combat games; sports games; downloadable games; game reviews; cheat sheets; computer games and Internet games, such as role-playing games.
+                    </td>
+                    <td>
+                      http://www.games.com http://www.shockwave.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Generative AI
+                    </td>
+                    <td>
+                      Web sites whose primary purpose is to use artificial intelligence models to generate output in the form of text, audio, video, or images based on user-supplied prompts. Technologies which tangentially use generative AI as a part of their service are not included.
+                    </td>
+                    <td>
+                      
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Government and Law
+                    </td>
+                    <td>
+                      Government websites; foreign relations; news and information relating to government and elections; information relating to the field of law, such as attorneys, law firms, law publications, legal reference material, courts, dockets, and legal associations; legislation and court decisions; civil rights issues; immigration; patents and copyrights; information relating to law enforcement and correctional systems; crime reporting, law enforcement, and crime statistics; military, such as the armed forces, military bases, military organizations; anti-terrorism.
+                    </td>
+                    <td>
+                      http://www.usa.gov http://www.law.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Hacking
+                    </td>
+                    <td>
+                      Discussing ways to bypass the security of websites, software, and computers.
+                    </td>
+                    <td>
+                      http://www.hackthissite.org http://www.gohacking.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Hate Speech
+                    </td>
+                    <td>
+                      Websites promoting hatred, intolerance, or discrimination on the basis of social group, color, religion, sexual orientation, disability, class, ethnicity, nationality, age, gender, gender identity; sites promoting racism; sexism; racist theology; hate music; neo-Nazi organizations; supremacism; Holocaust denial.
+                    </td>
+                    <td>
+                      www.kkk.com www.aryanunity.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Health and Medicine
+                    </td>
+                    <td>
+                      Health care; diseases and disabilities; medical care; hospitals; doctors; medicinal drugs; mental health; psychiatry; pharmacology; exercise and fitness; physical disabilities; vitamins and supplements; sex in the context of health (disease and health care); tobacco use, alcohol use, drug use, and gambling in the context of health (disease and health care).
+                    </td>
+                    <td>
+                      webmd.com health.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Humor
+                    </td>
+                    <td>
+                      Jokes, sketches, comics and other humorous content. Adult humor likely to offend is classified as Adult.
+                    </td>
+                    <td>
+                      www.pun.me www.jokes.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Hunting
+                    </td>
+                    <td>
+                      Hunting and Fishing Professional or sport hunting, gun clubs, and other hunting related sites.
+                    </td>
+                    <td>
+                      www.bulletsafaris.com mfha.org
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Illegal Activities
+                    </td>
+                    <td>
+                      Promoting crime, such as stealing, fraud, illegally accessing telephone networks; computer viruses; terrorism, bombs, and anarchy; websites depicting murder and suicide as well as explaining ways to commit them.
+                    </td>
+                    <td>
+                      www.ekran.no pyrobin.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Illegal Downloads
+                    </td>
+                    <td>
+                      Providing the ability to download software or other materials, serial numbers, key generators, and tools for bypassing software protection in violation of copyright agreements. Torrents are classified as Peer File Transfer.
+                    </td>
+                    <td>
+                      www.keygenninja.com www.rootscrack.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Illegal Drugs
+                    </td>
+                    <td>
+                      Information about recreational drugs, drug paraphernalia, drug purchase and manufacture.
+                    </td>
+                    <td>
+                      www.shroomery.org www.planetsteroids.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Infrastructure and Content Delivery Networks
+                    </td>
+                    <td>
+                      Content delivery infrastructure and dynamically generated content; websites that cannot be classified more specifically because they are secured or otherwise difficult to classify.
+                    </td>
+                    <td>
+                      http://www.akamai.net http://www.webstat.net
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Internet Telephony
+                    </td>
+                    <td>
+                      Telephonic services using the Internet.
+                    </td>
+                    <td>
+                      www.skype.com  www.getvoca.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Internet of Things
+                    </td>
+                    <td>
+                      Domains used to monitor the general health, activity, or aid in the configuration of Internet of Things (IoT) and other network-aware electronics. Additionally these sites may provide software or firmware updates or allow remote access to administer the device. IoT exists in both consumer and professional segments, in products such as printers, televisions, thermostats, system monitoring, automation, and smart appliances.
+                    </td>
+                    <td>
+                      samsungotn.net transport.nest.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Job Search
+                    </td>
+                    <td>
+                      Career advice; resume writing and interviewing skills; job placement services; job databanks; permanent and temporary employment agencies; employer websites.
+                    </td>
+                    <td>
+                      http://www.careerbuilder.com http://www.monster.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Lingerie and Swimsuits
+                    </td>
+                    <td>
+                      Intimate apparel and swimwear, especially when modeled.
+                    </td>
+                    <td>
+                      http://www.swimsuits.com http://www.victoriassecret.com 
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Lotteries
+                    </td>
+                    <td>
+                      Sweepstakes, contests and state-sponsored lotteries.
+                    </td>
+                    <td>
+                      http://www.calottery.com http://www.flalottery.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Military
+                    </td>
+                    <td>
+                      Military, such as the armed forces, military bases, military organizations, and anti-terrorism.
+                    </td>
+                    <td>
+                      www.goarmy.com www.todaysmilitary.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Mobile Phones
+                    </td>
+                    <td>
+                      Short Message Services (SMS); ringtones and mobile phone downloads. Cellular carrier websites are included in the Business and Industry category.
+                    </td>
+                    <td>
+                      http://www.textanywhere.com/ http://www.zedge.net
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Museums
+                    </td>
+                    <td>
+                      Museums and exhibits, both online and physical, dedicated to preserving information regarding subjects that could be of general interest or highly specialized. Subjects could range from art, history, science, or be of cultural importance.
+                    </td>
+                    <td>
+                      ushmm.org museodelasmomiasdeguanajuato.negocio.site
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Nature and Conservation
+                    </td>
+                    <td>
+                      Sites related to natural resources; ecology and conservation; forests; wilderness; plants; flowers; forest conservation; forest, wilderness, and forestry practices; forest management (reforestation, forest protection, conservation, harvesting, forest health, thinning, and prescribed burning); agricultural practices (agriculture, gardening, horticulture, landscaping, planting, weed control, irrigation, pruning, and harvesting); pollution issues (air quality, hazardous waste, pollution prevention, recycling, waste management, water quality, and the environmental cleanup industry).
+                    </td>
+                    <td>
+                      nature.org thepottedgarden.co.uk
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      News
+                    </td>
+                    <td>
+                      News; headlines; newspapers; television stations; magazines; weather; ski conditions.
+                    </td>
+                    <td>
+                      http://www.cnn.com news.bbc.co.uk
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Non-governmental Organizations
+                    </td>
+                    <td>
+                      Non-governmental organizations such as clubs, lobbies, communities, non-profit organizations and labor unions.
+                    </td>
+                    <td>
+                      http://www.panda.org http://www.unions.org
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Non-sexual Nudity
+                    </td>
+                    <td>
+                      Nudism and nudity; naturism; nudist camps; artistic nudes.
+                    </td>
+                    <td>
+                      www.1001fessesproject.com www.naturistsociety.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Not Actionable
+                    </td>
+                    <td>
+                      Sites that have been analyzed but are unreachable, have no data, or are too dynamic to be assigned a more specific category.
+                    </td>
+                    <td>
+                      
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Online Communities
+                    </td>
+                    <td>
+                      Affinity groups; special interest groups; web newsgroups; message boards. Excludes websites classified as Professional Networking or Social Networking.
+                    </td>
+                    <td>
+                      www.reddit.com www.stackexchange.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Online Document Sharing and Collaboration
+                    </td>
+                    <td>
+                      Cloud-based software used to create, convert, or edit documents. Collaboration and sharing features may be available with access permissions typically configured by the author. Documents may be stored online or available to download.
+                    </td>
+                    <td>
+                      pastebin.com docs.google.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Online Meetings
+                    </td>
+                    <td>
+                      Online meetings, desktop sharing, remote access, and other tools that facilitate multi-location collaboration.
+                    </td>
+                    <td>
+                      www.join.me www.teamviewer.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Online Storage and Backup
+                    </td>
+                    <td>
+                      Offsite and peer-to-peer storage for backup, sharing, and hosting.
+                    </td>
+                    <td>
+                      http://www.adrive.com http://www.dropbox.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Online Trading
+                    </td>
+                    <td>
+                      Online brokerages; websites that enable the user to trade stocks online; information relating to the stock market, stocks, bonds, mutual funds, brokers, stock analysis and commentary, stock screens, stock charts, IPOs, stock splits. Services for spread betting on stocks and shares are classified as Gambling. Other financial services are classified as Finance.
+                    </td>
+                    <td>
+                      www.tdameritrade.com www.etrade.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Organizational Email
+                    </td>
+                    <td>
+                      Websites used to access business email (often via Outlook Web Access).
+                    </td>
+                    <td>
+                      mail.zoho.com webmail.edmc.edu
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Paranormal
+                    </td>
+                    <td>
+                      UFOs, ghosts, cryptid, telekenesis, urban legends, and myths.
+                    </td>
+                    <td>
+                      www.ghoststudy.com www.ufocasebook.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Parked Domains
+                    </td>
+                    <td>
+                      Websites that monetize traffic from the domain using paid listings from an ad network, or are owned by &#39;squatters&#39; hoping to sell the domain name for a profit.  These also include fake search websites which return paid ad links.
+                    </td>
+                    <td>
+                      www.domainzaar.com www.cricketbuzz.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Peer File Transfer
+                    </td>
+                    <td>
+                      Peer-to-peer file request websites. This does not track the file transfers themselves.
+                    </td>
+                    <td>
+                      www.bittorrent.com www.torrentdownloads.me
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Personal Sites
+                    </td>
+                    <td>
+                      Websites about and from private individuals; personal homepage servers; websites with personal contents; personal blogs with no particular theme.
+                    </td>
+                    <td>
+                      www.blogmaverick.com www.stallman.org
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Personal VPN
+                    </td>
+                    <td>
+                      Virtual private network (VPN) sites or tools that are typically for personal use, and, may or may not be approved for corporate usage.
+                    </td>
+                    <td>
+                      www.openvpn.net www.torvpn.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Photo Search and Images
+                    </td>
+                    <td>
+                      Facilitating the storing and searching for, images, photographs, and clip-art.
+                    </td>
+                    <td>
+                      http://www.flickr.com http://www.photobucket.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Politics
+                    </td>
+                    <td>
+                      Websites of politicians; political parties; news and information on politics, elections, democracy, and voting.
+                    </td>
+                    <td>
+                      www.politics.com www.gp.org
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Pornography
+                    </td>
+                    <td>
+                      Sexually explicit text or depictions. Includes explicit anime and cartoons; general explicit depictions; other fetish material; explicit chat rooms; sex simulators; strip poker; adult movies; lewd art; web-based explicit email.
+                    </td>
+                    <td>
+                      http://www.redtube.com http://www.youporn.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Private IP Addresses as Host
+                    </td>
+                    <td>
+                      Private IP addresses which are used as the host part of a URL. Private IP addresses are meant for internal use behind border routers only, so they are not publicly routable.
+                    </td>
+                    <td>
+                      
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Professional Networking
+                    </td>
+                    <td>
+                      Social networking for the purpose of career or professional development. See also Social Networking.
+                    </td>
+                    <td>
+                      http://www.linkedin.com http://www.europeanpwn.net
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Real Estate
+                    </td>
+                    <td>
+                      Information that would support the search for real estate; office and commercial space; real estate listings, such as rentals, apartments, and homes; house building.
+                    </td>
+                    <td>
+                      http://www.realtor.com http://www.zillow.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Recipes and Food
+                    </td>
+                    <td>
+                      Sites dedicated to sharing or discussing information about cooking, recipes, and food or non-alcoholic beverages; cultural aspects of cuisine and food; diet descriptions and adherence tips, general nutrition information about foods. Use and instruction on cooking appliances and utensils. Food celebrity, lifestyle, and enthusiast blogs.
+                    </td>
+                    <td>
+                      allrecipes.com seriouseats.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Reference
+                    </td>
+                    <td>
+                      City and state guides; maps, time; reference sources; dictionaries; libraries.
+                    </td>
+                    <td>
+                      http://www.wikipedia.org http://www.yellowpages.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Regional Restricted Sites (Germany)
+                    </td>
+                    <td>
+                      URLs that are restricted in Germany due to content which may be unlawful as determined by the regional government.
+                    </td>
+                    <td>
+                      
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Regional Restricted Sites (Great Britain)
+                    </td>
+                    <td>
+                      URLs that are restricted in Great Britain due to content which may be unlawful as determined by the regional government.
+                    </td>
+                    <td>
+                      
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Regional Restricted Sites (Italy)
+                    </td>
+                    <td>
+                      URLs that are restricted in Italy due to content which may be unlawful as determined by the regional government.
+                    </td>
+                    <td>
+                      
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Regional Restricted Sites (Poland)
+                    </td>
+                    <td>
+                      URLs that are restricted in Poland due to content which may be unlawful as determined by the regional government.
+                    </td>
+                    <td>
+                      betsafe62.com tornadobet69.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Religion
+                    </td>
+                    <td>
+                      Religious content, information about religions; religious communities.
+                    </td>
+                    <td>
+                      http://www.religionfacts.com http://www.religioustolerance.org
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      SaaS and B2B
+                    </td>
+                    <td>
+                      Web portals for online business services; online meetings.
+                    </td>
+                    <td>
+                      http://www.netsuite.com http://www.salesforce.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Safe for Kids
+                    </td>
+                    <td>
+                      Directed at, and specifically approved for, young children.
+                    </td>
+                    <td>
+                      www.discoverykids.com www.nickjr.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Science and Technology
+                    </td>
+                    <td>
+                      Science and technology, such as aerospace, electronics, engineering, mathematics, and other similar subjects; space exploration; meteorology; geography; environment; energy (fossil, nuclear, renewable); communications (telephones, telecommunications).
+                    </td>
+                    <td>
+                      http://www.physorg.com http://www.science.gov
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Search Engines and Portals
+                    </td>
+                    <td>
+                      Search engines and other initial points of access to information on the Internet.
+                    </td>
+                    <td>
+                      http://www.bing.com http://www.google.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Sex Education
+                    </td>
+                    <td>
+                      Factual websites dealing with sex; sexual health; contraception; pregnancy.
+                    </td>
+                    <td>
+                      http://www.avert.org http://www.scarleteen.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Shopping
+                    </td>
+                    <td>
+                      Bartering; online purchasing; coupons and free offers; general office supplies; online catalogs; online malls.
+                    </td>
+                    <td>
+                      http://www.amazon.com http://www.shopping.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Social Networking
+                    </td>
+                    <td>
+                      Social networking. See also Professional Networking.
+                    </td>
+                    <td>
+                      http://www.facebook.com http://www.twitter.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Social Science
+                    </td>
+                    <td>
+                      Sciences and history related to society; archaeology; anthropology; cultural studies; history; linguistics; geography; philosophy; psychology; women&#39;s studies.
+                    </td>
+                    <td>
+                      http://www.archaeology.org http://www.anthropology.net
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Society and Culture
+                    </td>
+                    <td>
+                      Family and relationships; ethnicity; social organizations; genealogy; seniors; child-care.
+                    </td>
+                    <td>
+                      www.childcareaware.org www.familysearch.org
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Software Updates
+                    </td>
+                    <td>
+                      Websites that host updates for software packages.
+                    </td>
+                    <td>
+                      www.softwarepatch.com www.windowsupdate.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Sports and Recreation
+                    </td>
+                    <td>
+                      All sports, professional and amateur; recreational activities; fishing; fantasy sports; public parks; amusement parks; water parks; theme parks; zoos and aquariums; spas.
+                    </td>
+                    <td>
+                      http://www.espn.com http://www.recreation.gov
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Streaming Audio
+                    </td>
+                    <td>
+                      Real-time streaming audio content including Internet radio and audio feeds.
+                    </td>
+                    <td>
+                      http://www.live-radio.net http://www.shoutcast.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Streaming Video
+                    </td>
+                    <td>
+                      Real-time streaming video including Internet television, web casts, and video sharing.
+                    </td>
+                    <td>
+                      http://www.hulu.com http://www.youtube.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Terrorism and Violent Extremism
+                    </td>
+                    <td>
+                      Terrorist or extremist websites that promote death or violence as part of their ideology. Sites may contain graphic or disturbing images, videos, and text. Some sites may not advocate terrorism but share first-hand material of a violent nature.
+                    </td>
+                    <td>
+                      
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Tobacco
+                    </td>
+                    <td>
+                      Pro-tobacco websites; tobacco manufacturers; pipes and smoking products (not marketed for illegal drug use). Tobacco addiction is classified as Health and Nutrition.
+                    </td>
+                    <td>
+                      http://www.bat.com http://www.tobacco.org
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Transportation
+                    </td>
+                    <td>
+                      Personal transportation; information about cars and motorcycles; shopping for new and used cars and motorcycles; car clubs; boats, airplanes, recreational vehicles (RVs), and other similar items. Note, car and motorcycle racing is classified as Sports and Recreation.
+                    </td>
+                    <td>
+                      http://www.cars.com http://www.motorcycles.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Travel
+                    </td>
+                    <td>
+                      Business and personal travel; travel information; travel resources; travel agents; vacation packages; cruises; lodging and accommodation; travel transportation; flight booking; airfares; car rental; vacation homes.
+                    </td>
+                    <td>
+                      http://www.expedia.com http://www.lonelyplanet.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      URL Shorteners
+                    </td>
+                    <td>
+                      Domains used to shorten long URLs, brand URLs, or may obscure the final destination of a hyperlink.
+                    </td>
+                    <td>
+                      bit.ly tinyurl.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Weapons
+                    </td>
+                    <td>
+                      Information relating to the purchase or use of conventional weapons such as gun sellers, gun auctions, gun classified ads, gun accessories, gun shows, and gun training; general information about guns; other weapons and graphic hunting sites may be included. Government military websites are classified as Government and Law.
+                    </td>
+                    <td>
+                      http://www.coldsteel.com http://www.gunbroker.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Web Cache and Archives
+                    </td>
+                    <td>
+                      Cached or archived web content often stored for preservation or to decrease load times.
+                    </td>
+                    <td>
+                      archive.org webcache.googleusercontent.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Web Hosting
+                    </td>
+                    <td>
+                      Website hosting; bandwidth services.
+                    </td>
+                    <td>
+                      http://www.bluehost.com http://www.godaddy.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Web Page Translation
+                    </td>
+                    <td>
+                      Translation of web pages between languages.
+                    </td>
+                    <td>
+                      babelfish.com translate.google.com
+                    </td>
+                  </tr>
+                  <tr class="cat_table_row">
+                    <td class="td-bold">
+                      Web-based Email
+                    </td>
+                    <td>
+                      Public web-based email services. Websites enabling individuals to access their company or organizations email service are classified as Organizational Email.
+                    </td>
+                    <td>
+                      mail.yahoo.com outlook.com
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="threatcats">
+              <table id="threat-categories" class="table-striped ">
+                <thead>
+                <tr>
+                  <th id="category" data-field="category" data-sortable="true" data-sorter="htmlSorter">
+                    <span class="vul-rep-sort-report-id">
+                    Category
+                    </span>
+                  </th>
+                  <th id="description" data-field="description" data-sortable="false" data-sorter="htmlSorter">
+                    <span class="vul-rep-sort-cve">
+                    Description
+                    </span>
+                  </th>
+                </tr>
+                </thead>
+                <tbody class="category_table_results">
+                  <tr>
+                    <td class="td-bold">
+                      Bogon
+                    </td>
+                    <td>
+                      Bogons are IP Addresses that are known to belong to reserved IP address spaces that is supposedly unallocated or undelagated.  Sites in this category are bogons that are known to be sending traffic.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Botnets
+                    </td>
+                    <td>
+                      Known to participate in a Bot network. These include Command and Control (CNC, C2) Servers and sites that deliver or receive data as part of the malicious transaction (bots, zombies).
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Cryptojacking
+                    </td>
+                    <td>
+                      Websites with embedded scripts to mine cryptocurrency which use the visitor&#39;s web browser. The script may belong to the owner of the web site, or injected by a malicious third-party, and is used as a method of generating revenue.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      DNS Tunneling
+                    </td>
+                    <td>
+                      Sites that provide DNS Tunneling as a service. These services can be for PC or mobile and create a VPN connection specifically over DNS to send traffic that may bypass corporate policies and inspection.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Domain Generated Algorithm
+                    </td>
+                    <td>
+                      Domains that are extracted from malware that employ algorithms that generate domains for potential use in future malicious activities such as hosting malware or as an exfiltration destination.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Dynamic DNS
+                    </td>
+                    <td>
+                      Sites that are hosting dynamic DNS services. Attackers can use this technology as an evasion technique against IP blacklisting.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Ebanking Fraud
+                    </td>
+                    <td>
+                      Known to engage in fraudulent activities that relate to electronic banking.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Exploits
+                    </td>
+                    <td>
+                      Sites that are known to host or aide in exploits, drive-by-downloads and other activities that identifies and compromises vulnerable systems.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Graymail
+                    </td>
+                    <td>
+                      Bulk mail with subjective desirability.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      High Risk Sites and Locations
+                    </td>
+                    <td>
+                      Domains and hostnames that match against the OpenDNS predictive security algorithms from security graph.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Indicators of Compromise (IOC)
+                    </td>
+                    <td>
+                      Hosts that have been observed to engage in Indicators of Compromise.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Linkshare
+                    </td>
+                    <td>
+                      Websites that share copyrighted files without permission. The web site may be compromised, or otherwise involved in illegal file sharing.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Malicious Sites
+                    </td>
+                    <td>
+                      Sites exhibiting malicious behavior that do not necessarily fit into another, more granular, threat category.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Malware
+                    </td>
+                    <td>
+                      Malicious file (attached or linked).
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Mobile Threats
+                    </td>
+                    <td>
+                      Threats that are designed to infect or adversely affect mobile devices such as phones and tablets.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Newly Seen Domains
+                    </td>
+                    <td>
+                      Domains that have recently been registered, or not yet seen via telemetry. The behavior of these URLs has not been observed enough to establish the appropriate reputation. Spammers and malicious actors may rely on newly registered, or previously unused domains to disguise their activities, and avoid interdiction due to low reputation. Some legitimate URLs may briefly appear in this threat category as they become visible.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Open HTTP Proxy
+                    </td>
+                    <td>
+                      Hosts that are known to run Open Web Proxies and offer anonymous web browsing services.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Open Mail Relay
+                    </td>
+                    <td>
+                      Commonly used by Spam and Phishing attackers, sites in this category are hosts that are known to offer anonymous email relaying services.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      P2P Malware Node
+                    </td>
+                    <td>
+                      Sites that use Peer-to-Peer sharing as a method to carry out malware related activities.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Phishing
+                    </td>
+                    <td>
+                      Collection of credentials (link).
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Poor Sender Reputation
+                    </td>
+                    <td>
+                      Email sender has poor reputation.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Potential DNS Rebinding
+                    </td>
+                    <td>
+                      Public DNS entries that resolve to your network space. These are sometimes associated with DNS rebinding attacks, which allow malicious scripts to access your internal network resources.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Scam
+                    </td>
+                    <td>
+                      Social engineering (conversational).
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Spam
+                    </td>
+                    <td>
+                      Junk and other threats.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Spoofing
+                    </td>
+                    <td>
+                      Falsified identity information used to masquerade as a trusted person or organization.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      Spyware and Adware
+                    </td>
+                    <td>
+                      Sites that are known to contain, serve, or support Spyware and Adware activities.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="td-bold">
+                      TOR Exit Nodes
+                    </td>
+                    <td>
+                      Hosts known to offer exit node services for the Tor Anonymizer network.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 mt-4">
+          <footer class="text-center small text-muted">
+            <span>
+              This is a default list of categories provided by Talos. Cisco products may have different entries in their reporting interfaces, depending on individual product capabilities.
+            </span>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    $('#content-categories').DataTable({
+        dom: '<"top"f>rt<"bottom"i>',
+        paging: false,
+        language: {
+            search: "_INPUT_"
+        }
+    });
+    $('#threat-categories').DataTable({
+        dom: '<"top"f>rt<"bottom"i>',
+        paging: false,
+        language: {
+            search: "_INPUT_"
+        },
+        autoWidth: false,
+        columnDefs: [{ width: '20%', targets: 0 }]
+    });
+</script>
+  </div>
+
+<footer id='footer'>
+<div class='row footer_nav_wrapper'>
+<div class='col-xl-10 col-12'>
+<div class='multi-col-list-wrapper'>
+<ul class='footer-parent-list'>
+<li class='footer-links-group'>
+<ul>
+<li>
+<h6><a href="/reputation">Intelligence Center</a></h6>
+</li>
+<li><a href="/reputation_center">Intelligence Search</a></li>
+<li><a href="/reputation_center/email_rep">Email &amp; Spam Trends</a></li>
+</ul>
+</li>
+<li class='footer-links-group'>
+<ul>
+<li>
+<h6><a href="/vulnerability_info">Vulnerability Research</a></h6>
+</li>
+<li><a href="/vulnerability_reports">Vulnerability Reports</a></li>
+<li><a href="/ms_advisories">Microsoft Advisories</a></li>
+</ul>
+</li>
+<li class='footer-links-group'>
+<ul>
+<li>
+<h6><a href="/incident_response">Incident Response</a></h6>
+</li>
+<li><a href="/incident_response/services#reactive-services">Reactive Services</a></li>
+<li><a href="/incident_response/services#proactive-services">Proactive Services</a></li>
+<li>
+<a href='' id='emergency_report_modal'>Emergency Support</a>
+</li>
+</ul>
+</li>
+<li class='footer-links-group'>
+<ul>
+<li>
+<h6>Security Resources</h6>
+</li>
+<li><a href="/software">Open-source Security Tools</a></li>
+<li><a href="/categories">Intelligence Categories Reference</a></li>
+<li><a href="/secure-endpoint-naming">Secure Endpoint Naming Reference</a></li>
+</ul>
+</li>
+<li class='footer-links-group'>
+<ul>
+<li>
+<h6>Media</h6>
+</li>
+<li><a href="https://blog.talosintelligence.com">Talos Intelligence Blog</a></li>
+<li><a href="https://blog.talosintelligence.com/category/threat-source-newsletter/">Threat Source Newsletter</a></li>
+<li><a href="/podcasts/shows/beers_with_talos">Beers with Talos Podcast</a></li>
+<li><a href="/podcasts/shows/talos_takes">Talos Takes Podcast</a></li>
+<li><a target="_blank" href="https://www.youtube.com/channel/UCPZ1DtzQkStYBSG3GTNoyfg/featured">Talos Videos</a></li>
+</ul>
+</li>
+<li class='footer-links-group'>
+<ul>
+<li>
+<h6>Support</h6>
+</li>
+<li><a href="https://support.talosintelligence.com">Support Documentation</a></li>
+</ul>
+</li>
+<li class='footer-links-group'>
+<ul>
+<li>
+<h6>Company</h6>
+</li>
+<li><a href="/about">About Talos</a></li>
+<li><a href="/careers">Careers</a></li>
+<li><a target="_blank" href="https://www.cisco.com/c/en/us/products/security/product-listing.html">Cisco Security</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class='col-xl-2 col-12 connect_social'>
+<div class='connect-footer-section-wrapper'>
+<h6>Follow us</h6>
+<ul>
+<li>
+<a target="_blank" href="https://x.com/talossecurity"><div class='footer-media-icon' id='footer-media-icon-x'></div>
+</a></li>
+<li>
+<a target="_blank" href="https://www.youtube.com/channel/UCPZ1DtzQkStYBSG3GTNoyfg/featured"><div class='footer-media-icon' id='footer-media-icon-youtube'></div>
+</a></li>
+<li>
+<a target="_blank" href="https://www.linkedin.com/company/cisco-talos-intelligence-group/"><div class='footer-media-icon' id='footer-media-icon-linkedin'></div>
+</a></li>
+</ul>
+</div>
+</div>
+</div>
+<div class='row'>
+<div class='col-12 footer_corporate'>
+<a target="_blank" href="http://tools.cisco.com/security/center/home.x"><img alt="Cisco" src="/assets/logo_cisco_white-d87b7f7d3152ad412e48aad924a972cc5b802b7a53cb56b0792a4456c9b7b3a5.svg" />
+</a><p class='copyright'>
+&copy;
+2026
+Cisco Systems, Inc. and/or its affiliates. All rights
+reserved. View our
+<a target="_blank" class="underline" href="http://www.cisco.com/web/siteassets/legal/privacy_full.html">privacy policy</a>.
+</p>
+</div>
+</div>
+</footer>
+
+<div id="nav_page_layer"></div>
+<!-- Twitter universal website tag code -->
+<script>
+  !function(e,t,n,s,u,a){e.twq||(s=e.twq=function(){s.exe?s.exe.apply(s,arguments):s.queue.push(arguments);
+  },s.version='1.1',s.queue=[],u=t.createElement(n),u.async=!0,u.src='//static.ads-twitter.com/uwt.js',
+      a=t.getElementsByTagName(n)[0],a.parentNode.insertBefore(u,a))}(window,document,'script');
+  // Insert Twitter Pixel ID and Standard Event data below
+  twq('init','nzhct');
+  twq('track','PageView');
+</script>
+<!-- End Twitter universal website tag code -->
+
+<div id="toast-container" aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0">
+</div>
+
+</body>
+</html>

@@ -1,2 +1,18 @@
 harness/node_modules/
-results/hashes*.json
+
+# Repeat-run row-level artifacts (separate-process determinism).
+#
+# `scripts/reproduce.sh` runs Phase B three times in three separate processes
+# (main, det1, det2). The det1/det2 row-level files come out byte-identical to
+# the main run apart from their `run_tag`, so committing them adds ~4 MB of
+# duplication to a repository whose entire packed history is smaller than that.
+#
+# The evidence they carry is their decision and raw-score DIGESTS, and those are
+# retained in results/determinism-summary.json, which is committed. compare_runs.js
+# refuses to regenerate that summary into a weaker verdict when the row-level runs
+# are absent, so dropping these files cannot silently erase the claim.
+#
+# Row-level predictions for the `main` run on every architecture ARE committed:
+# they are the substrate for re-scoring and for the cross-architecture audit.
+results/predictions/*.det[0-9].json
+results/results.det[0-9].json

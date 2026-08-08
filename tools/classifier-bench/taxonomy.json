@@ -1,27 +1,150 @@
 {
-  "_source": "research/137-taxonomy-proposal.md section 3, decision log section 4",
+  "_source": "research/137-taxonomy-proposal.md section 3 (label set + forensic question + boundary rules), decision log section 4",
   "_note": "20 core labels (fixed, multi-label, Unclassified mandatory) + 5 opt-in overlay labels never scored in core macro-F1.",
+  "_supervision_note": "The `name`, `question` and `boundary` fields are copied verbatim from research/137-taxonomy-proposal.md section 3, which was written and frozen BEFORE the fixture was labelled and contains no instance drawn from the fixture. These three fields are the ONLY supervision the five model-backed candidates receive. Any change to them must be justified against the proposal, not against fixture performance.",
+  "_overlay_scoring": "Overlay labels are OUT OF SCOPE for this bench run: no candidate emits them and the fixture carries no overlay gold rows. Declared explicitly here rather than left as a silent third state.",
+  "overlay_in_scope": false,
   "core": [
-    { "id": "search_query", "name": "Search & Query", "special_category": false },
-    { "id": "webmail_messaging_voice", "name": "Webmail, Messaging & Voice", "special_category": false },
-    { "id": "social_media", "name": "Social media & Online communities", "special_category": false },
-    { "id": "news_current_affairs", "name": "News & Current affairs", "special_category": false },
-    { "id": "reference_education_howto", "name": "Reference, Education & How-to", "special_category": false },
-    { "id": "entertainment_streaming_gaming", "name": "Entertainment, Streaming & Gaming", "special_category": false },
-    { "id": "technology_software_dev", "name": "Technology, Software & Developer resources", "special_category": false },
-    { "id": "shopping_marketplace", "name": "Shopping & Marketplace", "special_category": false },
-    { "id": "finance_banking", "name": "Finance & Banking", "special_category": false },
-    { "id": "cryptocurrency_exchanges", "name": "Cryptocurrency & Exchanges", "special_category": false },
-    { "id": "employment_job_seeking", "name": "Employment & Job seeking", "special_category": false },
-    { "id": "travel_transport_accommodation", "name": "Travel, Transport & Accommodation", "special_category": false },
-    { "id": "health_medical", "name": "Health & Medical", "special_category": true },
-    { "id": "adult_sexual_content", "name": "Adult & Sexual content", "special_category": true },
-    { "id": "gambling", "name": "Gambling", "special_category": false },
-    { "id": "file_sharing_cloud_storage", "name": "File sharing, Cloud storage & Transfer", "special_category": false },
-    { "id": "anonymity_privacy_tooling", "name": "Anonymity & Privacy tooling", "special_category": false },
-    { "id": "hacking_security_tooling", "name": "Hacking & Security tooling", "special_category": false },
-    { "id": "ads_trackers_infrastructure", "name": "Ads, Trackers & Web infrastructure", "special_category": false },
-    { "id": "unclassified", "name": "Unclassified / insufficient signal", "special_category": false }
+    {
+      "id": "search_query",
+      "name": "Search & Query",
+      "special_category": false,
+      "question": "What did the subject look for, in their own words?",
+      "boundary": "Applies to search-engine result pages and to in-site search endpoints. The subject of the query does not change this label; a query about a second topic is a second label under multi-label."
+    },
+    {
+      "id": "webmail_messaging_voice",
+      "name": "Webmail, Messaging & Voice",
+      "special_category": false,
+      "question": "How were they communicating off-channel?",
+      "boundary": "Web-hosted mail, chat, messaging and voice/meeting services. Message content is not visible in a history row; this label asserts the channel, never the conversation."
+    },
+    {
+      "id": "social_media",
+      "name": "Social media & Online communities",
+      "special_category": false,
+      "question": "What accounts and what contacts?",
+      "boundary": "Social networks, forums, community platforms, professional networks, personal blogs, and dating/matchmaking services."
+    },
+    {
+      "id": "news_current_affairs",
+      "name": "News & Current affairs",
+      "special_category": false,
+      "question": "What was the subject reading about, and when relative to the incident?",
+      "boundary": "Press, broadcast news, aggregators."
+    },
+    {
+      "id": "reference_education_howto",
+      "name": "Reference, Education & How-to",
+      "special_category": false,
+      "question": "Was the subject learning or researching a method?",
+      "boundary": "Encyclopaedic and reference material, courses, academic and institutional sites, instructional material. The insider-threat question did they look up how to do this lands here when the method is not itself tooling."
+    },
+    {
+      "id": "entertainment_streaming_gaming",
+      "name": "Entertainment, Streaming & Gaming",
+      "special_category": false,
+      "question": "How much of this history is leisure consumption, and when did it happen?",
+      "boundary": "Video and audio streaming, music, film and TV, humour, celebrity, comics and animation, sport as spectacle, and games and gaming platforms."
+    },
+    {
+      "id": "technology_software_dev",
+      "name": "Technology, Software & Developer resources",
+      "special_category": false,
+      "question": "Was the subject working, or acquiring capability?",
+      "boundary": "Vendor and product documentation, developer platforms, package and code hosting, IT, SaaS and admin consoles, consumer-tech media, AI services. Its primary forensic job is defensive: it keeps ordinary technical work out of the ads and infrastructure label."
+    },
+    {
+      "id": "shopping_marketplace",
+      "name": "Shopping & Marketplace",
+      "special_category": false,
+      "question": "What was purchased, and does it match the alleged fraud?",
+      "boundary": "Retail, auctions, classifieds, marketplaces, coupons, and property listings."
+    },
+    {
+      "id": "finance_banking",
+      "name": "Finance & Banking",
+      "special_category": false,
+      "question": "Which financial institutions and accounts were accessed, and when?",
+      "boundary": "Retail and commercial banking, payments, brokerage, insurance, tax and government financial portals, accounting."
+    },
+    {
+      "id": "cryptocurrency_exchanges",
+      "name": "Cryptocurrency & Exchanges",
+      "special_category": false,
+      "question": "Was there an exfil-monetisation or ransom-payment channel?",
+      "boundary": "Exchanges, wallets, chain explorers, mining and token services. Kept separate from Finance & Banking deliberately."
+    },
+    {
+      "id": "employment_job_seeking",
+      "name": "Employment & Job seeking",
+      "special_category": false,
+      "question": "Was there job-seeking before the exfil?",
+      "boundary": "Job boards, applicant portals, recruiter services, CV tooling."
+    },
+    {
+      "id": "travel_transport_accommodation",
+      "name": "Travel, Transport & Accommodation",
+      "special_category": false,
+      "question": "Does the browsing corroborate the movement timeline?",
+      "boundary": "Booking, carriers, accommodation, maps and routing, local transport. Placement and alibi."
+    },
+    {
+      "id": "health_medical",
+      "name": "Health & Medical",
+      "special_category": true,
+      "question": "Is there a medical explanation, a capacity question, or a welfare concern?",
+      "boundary": "Conditions, symptoms, providers, appointments, pharmacy in its ordinary sense, mental-health services. Recreational-drug material is not here."
+    },
+    {
+      "id": "adult_sexual_content",
+      "name": "Adult & Sexual content",
+      "special_category": true,
+      "question": "Was there adult material on this machine?",
+      "boundary": "Explicitly not a CSAM detector. Does not extend to dating, sex education, or non-sexual nudity in a medical or artistic context."
+    },
+    {
+      "id": "gambling",
+      "name": "Gambling",
+      "special_category": false,
+      "question": "Was there gambling activity?",
+      "boundary": "Betting, casino, lottery, and in-game wagering. Motive evidence in embezzlement and fraud."
+    },
+    {
+      "id": "file_sharing_cloud_storage",
+      "name": "File sharing, Cloud storage & Transfer",
+      "special_category": false,
+      "question": "How did the data leave?",
+      "boundary": "Consumer and enterprise cloud storage, document collaboration, large-file transfer, peer-to-peer, paste and snippet services."
+    },
+    {
+      "id": "anonymity_privacy_tooling",
+      "name": "Anonymity & Privacy tooling",
+      "special_category": false,
+      "question": "Was there counter-forensic preparation?",
+      "boundary": "VPN, Tor and proxy services, encrypted-DNS and DNS-tunnelling services, anonymous mail and disposable identity, secure-delete and anti-forensic tooling, remote-desktop services used for access concealment."
+    },
+    {
+      "id": "hacking_security_tooling",
+      "name": "Hacking & Security tooling",
+      "special_category": false,
+      "question": "Was there tool acquisition or capability building?",
+      "boundary": "Offensive tooling, exploit and vulnerability material, credential and password-attack resources, malware analysis and reverse-engineering resources, hacking community material. Distinguished from Technology by offensive or intrusion-oriented purpose, not by technical difficulty."
+    },
+    {
+      "id": "ads_trackers_infrastructure",
+      "name": "Ads, Trackers & Web infrastructure",
+      "special_category": false,
+      "question": "Which of these rows record an act by the user at all?",
+      "boundary": "Advertising and tracking beacons, CDN and asset hosts, URL shorteners and redirect hops, parked and for-sale domains, login and consent walls, private-IP and appliance hosts, browser-internal pages. A positive identification that the row is machine-originated or content-free."
+    },
+    {
+      "id": "unclassified",
+      "name": "Unclassified / insufficient signal",
+      "special_category": false,
+      "question": "Can this row support any claim?",
+      "boundary": "The row's title and URL together carry no discriminating signal: empty or generic app-shell titles, opaque identifiers, bare hosts with no readable token. A forensic classifier must be permitted to say nothing."
+    }
   ],
   "overlay": [
     { "id": "drugs_controlled_substances", "name": "Drugs & Controlled substances" },

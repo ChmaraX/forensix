@@ -1,0 +1,808 @@
+{
+  "downloaded_at": "2026-08-08T14:07:41.459Z",
+  "phase": "A",
+  "node_version": "v22.23.2",
+  "platform": "linux/arm64",
+  "models": [
+    {
+      "model_id": "minishlab/potion-base-2M",
+      "dir": "potion-base-2M",
+      "revision": "389b9f64be5aa4ae7a6bc6fe95ef20ce485ae5da",
+      "files": [
+        {
+          "file": "onnx/model.onnx",
+          "bytes": 7563349,
+          "sha256": "92d4a7576de7d39055924b4d9d3979c8c3b2de272010f76f99e2ac14c7b2e5a8",
+          "verified_against_pin": true
+        },
+        {
+          "file": "tokenizer.json",
+          "bytes": 683666,
+          "sha256": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+          "verified_against_pin": false
+        },
+        {
+          "file": "tokenizer_config.json",
+          "bytes": 1431,
+          "sha256": "6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567",
+          "verified_against_pin": false
+        },
+        {
+          "file": "config.json",
+          "bytes": 200,
+          "sha256": "b2a89173391ca774c2d7323090a993a9a1553faa5b40eb37bb7cec6685fbea47",
+          "verified_against_pin": false
+        },
+        {
+          "file": "special_tokens_map.json",
+          "bytes": 134,
+          "sha256": "a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59",
+          "verified_against_pin": false
+        },
+        {
+          "file": "vocab.txt",
+          "bytes": 219690,
+          "sha256": "1394523a67ddd404a825428018c0582a6998bcfa044ecbcbf1f4d71adb94c61c",
+          "verified_against_pin": false
+        },
+        {
+          "file": "modules.json",
+          "bytes": 278,
+          "sha256": "a68dcbed0429dcdd5bfdca92b0b03cc30d09122c0a3fcf4758787d4b244e45b2",
+          "verified_against_pin": false
+        }
+      ]
+    },
+    {
+      "model_id": "minishlab/potion-base-8M",
+      "dir": "potion-base-8M",
+      "revision": "bf8b056651a2c21b8d2565580b8569da283cab23",
+      "files": [
+        {
+          "file": "onnx/model.onnx",
+          "bytes": 30240854,
+          "sha256": "da4c828fe012ec97f053278f363645b52c3815ec9a1d13d695ac901398c10f2e",
+          "verified_against_pin": true
+        },
+        {
+          "file": "tokenizer.json",
+          "bytes": 683666,
+          "sha256": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+          "verified_against_pin": false
+        },
+        {
+          "file": "tokenizer_config.json",
+          "bytes": 1431,
+          "sha256": "6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567",
+          "verified_against_pin": false
+        },
+        {
+          "file": "config.json",
+          "bytes": 202,
+          "sha256": "2a6ac0e9aaa356a68a5688070db78fc3a464fefe85d2f06a1905ce3718687553",
+          "verified_against_pin": false
+        },
+        {
+          "file": "special_tokens_map.json",
+          "bytes": 134,
+          "sha256": "a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59",
+          "verified_against_pin": false
+        },
+        {
+          "file": "vocab.txt",
+          "bytes": 219690,
+          "sha256": "1394523a67ddd404a825428018c0582a6998bcfa044ecbcbf1f4d71adb94c61c",
+          "verified_against_pin": false
+        },
+        {
+          "file": "modules.json",
+          "bytes": 278,
+          "sha256": "a68dcbed0429dcdd5bfdca92b0b03cc30d09122c0a3fcf4758787d4b244e45b2",
+          "verified_against_pin": false
+        }
+      ]
+    },
+    {
+      "model_id": "TaylorAI/bge-micro-v2",
+      "dir": "bge-micro-v2",
+      "revision": "3edf6d7de0faa426b09780416fe61009f26ae589",
+      "files": [
+        {
+          "file": "onnx/model_quantized.onnx",
+          "bytes": 17409774,
+          "sha256": "ed65e36025aa94cb74207dab863c85452919ec0ab7df3512092932aa22c9a33a",
+          "verified_against_pin": true
+        },
+        {
+          "file": "tokenizer.json",
+          "bytes": 711661,
+          "sha256": "cb374d6bc042c22455946f4e09a89d29882a199fdaf8fb25be00dc8b8857a448",
+          "verified_against_pin": false
+        },
+        {
+          "file": "tokenizer_config.json",
+          "bytes": 1564,
+          "sha256": "dd949ead2951e7ea7d28aa67da9c351d09563b424bc9747115f4660a826390ea",
+          "verified_against_pin": false
+        },
+        {
+          "file": "config.json",
+          "bytes": 745,
+          "sha256": "86d7047bf568a9263c7020fb4950741b19b1df3de3539385d83d9e3df1e56c5b",
+          "verified_against_pin": false
+        },
+        {
+          "file": "special_tokens_map.json",
+          "bytes": 228,
+          "sha256": "cb63d0cbbf45160dc9cd786a257759593b798ae0c72957011016dbc3972df4e4",
+          "verified_against_pin": false
+        },
+        {
+          "file": "vocab.txt",
+          "bytes": 231508,
+          "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+          "verified_against_pin": false
+        },
+        {
+          "file": "added_tokens.json",
+          "bytes": 82,
+          "sha256": "909e96cb32d92ce728a01bc99850cbba26196d74115c17ebeb019275412588f2",
+          "verified_against_pin": false
+        },
+        {
+          "file": "modules.json",
+          "bytes": 229,
+          "sha256": "8f4b264b80206c830bebbdcae377e137925650a433b689343a63bdc9b3145460",
+          "verified_against_pin": false
+        },
+        {
+          "file": "1_Pooling/config.json",
+          "bytes": 270,
+          "sha256": "4fff808dd5634889dc20e89268de2b842b8ff4345519ecc5d71985cdaf124c5b",
+          "verified_against_pin": false
+        }
+      ]
+    },
+    {
+      "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+      "dir": "all-MiniLM-L6-v2",
+      "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "files": [
+        {
+          "file": "onnx/model_qint8_arm64.onnx",
+          "bytes": 23026053,
+          "sha256": "4278337fd0ff3c68bfb6291042cad8ab363e1d9fbc43dcb499fe91c871902474",
+          "verified_against_pin": true
+        },
+        {
+          "file": "tokenizer.json",
+          "bytes": 466247,
+          "sha256": "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037",
+          "verified_against_pin": false
+        },
+        {
+          "file": "tokenizer_config.json",
+          "bytes": 350,
+          "sha256": "acb92769e8195aabd29b7b2137a9e6d6e25c476a4f15aa4355c233426c61576b",
+          "verified_against_pin": false
+        },
+        {
+          "file": "config.json",
+          "bytes": 612,
+          "sha256": "953f9c0d463486b10a6871cc2fd59f223b2c70184f49815e7efbcab5d8908b41",
+          "verified_against_pin": false
+        },
+        {
+          "file": "special_tokens_map.json",
+          "bytes": 112,
+          "sha256": "303df45a03609e4ead04bc3dc1536d0ab19b5358db685b6f3da123d05ec200e3",
+          "verified_against_pin": false
+        },
+        {
+          "file": "vocab.txt",
+          "bytes": 231508,
+          "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+          "verified_against_pin": false
+        },
+        {
+          "file": "modules.json",
+          "bytes": 349,
+          "sha256": "84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf",
+          "verified_against_pin": false
+        },
+        {
+          "file": "1_Pooling/config.json",
+          "bytes": 190,
+          "sha256": "4be450dde3b0273bb9787637cfbd28fe04a7ba6ab9d36ac48e92b11e350ffc23",
+          "verified_against_pin": false
+        },
+        {
+          "file": "sentence_bert_config.json",
+          "bytes": 53,
+          "sha256": "fc1993fde0a95c24ec6c022539d41cf6e2f7c9721e5415d6fb6897472a9cd4b7",
+          "verified_against_pin": false
+        },
+        {
+          "file": "config_sentence_transformers.json",
+          "bytes": 116,
+          "sha256": "061ca9d39661d6c6d6de5ba27f79a1cd5770ea247f8d46412a68a498dc5ac9f3",
+          "verified_against_pin": false
+        }
+      ]
+    },
+    {
+      "model_id": "cross-encoder/nli-deberta-v3-xsmall",
+      "dir": "nli-deberta-v3-xsmall",
+      "revision": "a150876415327c80daeff35ca6f68f5ed8cf5c24",
+      "files": [
+        {
+          "file": "onnx/model_qint8_arm64.onnx",
+          "bytes": 87377068,
+          "sha256": "ef41fe8474f6070373f97fbe8362461d55108f387723280fcdb64f8015133db2",
+          "verified_against_pin": true
+        },
+        {
+          "file": "tokenizer.json",
+          "bytes": 8656624,
+          "sha256": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964",
+          "verified_against_pin": false
+        },
+        {
+          "file": "tokenizer_config.json",
+          "bytes": 1346,
+          "sha256": "f3eecd07c370ef0bf7dd3780d3cd68cf9c8b00c267e21a208ddcd8f82bfec1a6",
+          "verified_against_pin": false
+        },
+        {
+          "file": "config.json",
+          "bytes": 1053,
+          "sha256": "8d9f07bf7ba54a6fc3b1962483056f94c39dcf188db4cf61843e1c88f94b2342",
+          "verified_against_pin": false
+        },
+        {
+          "file": "special_tokens_map.json",
+          "bytes": 301,
+          "sha256": "ed7c099c988dbb414b18a6980d20cb57b91b7cd119f6f6941eb364b0e892e712",
+          "verified_against_pin": false
+        },
+        {
+          "file": "added_tokens.json",
+          "bytes": 26,
+          "sha256": "a4b6bfe668f2b3cf6f0cd535e98a0663d2d0d4a4a15f13075ad3597d33985a23",
+          "verified_against_pin": false
+        },
+        {
+          "file": "spm.model",
+          "bytes": 2464616,
+          "sha256": "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd",
+          "verified_against_pin": true
+        }
+      ]
+    }
+  ],
+  "ut1": {
+    "snapshot_date": "2026-08-08",
+    "total_hosts": 4781521,
+    "compiled_sha256": "25058703f9fff7f05cb161c1fa7d7f16db2f5f3a3f755448c5a1aa908279bce3",
+    "categories": [
+      {
+        "category": "webmail",
+        "file": "webmail.tar.gz",
+        "labels": [
+          "webmail_messaging_voice"
+        ],
+        "domains": 404,
+        "bytes": 2548,
+        "md5": "1e524c7679069eb95370e1363f6b9c5c",
+        "md5_verified": true,
+        "sha256": "e31ed077cfe95694824dddf8703013f47d467af601d1ac4dcbad3173f60efcd6"
+      },
+      {
+        "category": "chat",
+        "file": "chat.tar.gz",
+        "labels": [
+          "webmail_messaging_voice"
+        ],
+        "domains": 268,
+        "bytes": 2010,
+        "md5": "7ec8678d8cc007f492ae0c6362a5e97a",
+        "md5_verified": true,
+        "sha256": "31922b36af0fbfda3c062dbdd0d06e15a899e3faab3c756f10daf9e24340e14a"
+      },
+      {
+        "category": "social_networks",
+        "file": "social_networks.tar.gz",
+        "labels": [
+          "social_media"
+        ],
+        "domains": 715,
+        "bytes": 4105,
+        "md5": "5b3026e5301175ea79abc7d0da3eff26",
+        "md5_verified": true,
+        "sha256": "ce35526beabd5c1ea858140a14cb03d35b798cad7a4263048eab5d35112c5dbf"
+      },
+      {
+        "category": "forums",
+        "file": "forums.tar.gz",
+        "labels": [
+          "social_media"
+        ],
+        "domains": 205,
+        "bytes": 1749,
+        "md5": "1c03009f0b7293753b374665b34d9b62",
+        "md5_verified": true,
+        "sha256": "3ab2989645ae5c9d070b3ec893aa2d949b73aab3a738427c6d5496e7738af63a"
+      },
+      {
+        "category": "blog",
+        "file": "blog.tar.gz",
+        "labels": [
+          "social_media"
+        ],
+        "domains": 1497,
+        "bytes": 10803,
+        "md5": "006f2ed939adaa8cba9292246b3c75b4",
+        "md5_verified": true,
+        "sha256": "4b6d6e7d0db49beb7cc0397bc091cae7c8350d0033dc3447b283ea5a47d0ae30"
+      },
+      {
+        "category": "dating",
+        "file": "dating.tar.gz",
+        "labels": [
+          "social_media"
+        ],
+        "domains": 6504,
+        "bytes": 36956,
+        "md5": "71b3979bd501ed78cce5fc32db067714",
+        "md5_verified": true,
+        "sha256": "70999f9fc24441a91dee2d8cf9da330c20150d0371efcddf3871646715010239"
+      },
+      {
+        "category": "press",
+        "file": "press.tar.gz",
+        "labels": [
+          "news_current_affairs"
+        ],
+        "domains": 4644,
+        "bytes": 25810,
+        "md5": "5771b523325df60d4c1c2b835cab7ebc",
+        "md5_verified": true,
+        "sha256": "b7986b929b19076da0537cedb2eed9051f69fc67210fdda08a1a47aae534f72a"
+      },
+      {
+        "category": "cooking",
+        "file": "cooking.tar.gz",
+        "labels": [
+          "reference_education_howto"
+        ],
+        "domains": 37,
+        "bytes": 527,
+        "md5": "db72cae8e4a3675b14373d1c85bdbb68",
+        "md5_verified": true,
+        "sha256": "cdfb702b9adc219f92b6699de1c8864e8912ce0703bec0968fff086f443e9e7d"
+      },
+      {
+        "category": "translation",
+        "file": "translation.tar.gz",
+        "labels": [
+          "reference_education_howto"
+        ],
+        "domains": 175,
+        "bytes": 845,
+        "md5": "a6cfa7200175e0adad1eff5088c1161e",
+        "md5_verified": true,
+        "sha256": "07eaf7a3afeec08dc368b76d62b6bf770af06ed36cba464dae4097540477cdcc"
+      },
+      {
+        "category": "sexual_education",
+        "file": "sexual_education.tar.gz",
+        "labels": [
+          "health_medical"
+        ],
+        "domains": 15,
+        "bytes": 570,
+        "md5": "df937189cd7a6ff8526ce612fb20745a",
+        "md5_verified": true,
+        "sha256": "93a96ec5989951bf2bb96a93f18310d1d8aa90d32864212112f4db4afd099acc"
+      },
+      {
+        "category": "audio-video",
+        "file": "audio-video.tar.gz",
+        "labels": [
+          "entertainment_streaming_gaming"
+        ],
+        "domains": 3710,
+        "bytes": 24881,
+        "md5": "84de428daa84aefbee7e5e511b1a2a5e",
+        "md5_verified": true,
+        "sha256": "7d32fba6ab3374807e332ee352be334aa5b8e2a8e0f9ceb1ef942e9119923593"
+      },
+      {
+        "category": "radio",
+        "file": "radio.tar.gz",
+        "labels": [
+          "entertainment_streaming_gaming"
+        ],
+        "domains": 567,
+        "bytes": 3865,
+        "md5": "729287fcd3e4161794ede094ecd21a59",
+        "md5_verified": true,
+        "sha256": "ce9ad1930f95c03c8d84ebe99f40b46eb473c08857a3f1687cb10dafe81d00e4"
+      },
+      {
+        "category": "manga",
+        "file": "manga.tar.gz",
+        "labels": [
+          "entertainment_streaming_gaming"
+        ],
+        "domains": 652,
+        "bytes": 6419,
+        "md5": "fea081cf0cadff01527877fa301bb286",
+        "md5_verified": true,
+        "sha256": "a8b34bcb2dd72ad29413f03e92e0a087db03a5557854484d2c09dc7d7d1157f5"
+      },
+      {
+        "category": "celebrity",
+        "file": "celebrity.tar.gz",
+        "labels": [
+          "entertainment_streaming_gaming"
+        ],
+        "domains": 635,
+        "bytes": 4850,
+        "md5": "e7b3259a9946b6173b7be0ea6cf4eea9",
+        "md5_verified": true,
+        "sha256": "c928b45519a0f5945e164ed4e554c7b4d90d4335f6de4d135f8e6d74a5c91053"
+      },
+      {
+        "category": "sports",
+        "file": "sports.tar.gz",
+        "labels": [
+          "entertainment_streaming_gaming"
+        ],
+        "domains": 2362,
+        "bytes": 14641,
+        "md5": "48a59b42b83b59a67b32f86b61970457",
+        "md5_verified": true,
+        "sha256": "d1966222b684f095e4d2149cb853351012d31280fd56e9173fd67684a29e0ec1"
+      },
+      {
+        "category": "educational_games",
+        "file": "educational_games.tar.gz",
+        "labels": [
+          "entertainment_streaming_gaming",
+          "reference_education_howto"
+        ],
+        "domains": 8,
+        "bytes": 343,
+        "md5": "e019c0441f9b0417f3a8819b85bf18da",
+        "md5_verified": true,
+        "sha256": "5dd12aba1a7c22dd3bffc6949123542313d56ad9190ac8fd9d7195a38e1cc66a"
+      },
+      {
+        "category": "ai",
+        "file": "ai.tar.gz",
+        "labels": [
+          "technology_software_dev"
+        ],
+        "domains": 77,
+        "bytes": 691,
+        "md5": "12d76a1b4938a329abdeca1618605bf8",
+        "md5_verified": true,
+        "sha256": "8547ebc83e26b12aeebfe060af635488ceb0a4f28b7b38c5da4540e0f9f15169"
+      },
+      {
+        "category": "download",
+        "file": "download.tar.gz",
+        "labels": [
+          "technology_software_dev"
+        ],
+        "domains": 4020,
+        "bytes": 19402,
+        "md5": "5832edf91a7b8f3821b645ec107e0d93",
+        "md5_verified": true,
+        "sha256": "0a10d215bbeebdad9072e948be3c94a4f4524061d698e7b09f70867637708e78"
+      },
+      {
+        "category": "update",
+        "file": "update.tar.gz",
+        "labels": [
+          "technology_software_dev"
+        ],
+        "domains": 30,
+        "bytes": 530,
+        "md5": "14b59d2fd3186ea1ab1bbc9ce24f444e",
+        "md5_verified": true,
+        "sha256": "71817c6b0992dc86fa4cc1c1ce57fb6fab1db1923b0cbed8b8cabbd069bac0ee"
+      },
+      {
+        "category": "cleaning",
+        "file": "cleaning.tar.gz",
+        "labels": [
+          "technology_software_dev"
+        ],
+        "domains": 174,
+        "bytes": 1140,
+        "md5": "ebf9e11d9e3cc0d3a4846a2ab4f09219",
+        "md5_verified": true,
+        "sha256": "1e11761b276998b56d9f93ef8a6719a5db8c2464c9317bdd76e609e82e170a24"
+      },
+      {
+        "category": "webhosting",
+        "file": "webhosting.tar.gz",
+        "labels": [
+          "technology_software_dev"
+        ],
+        "domains": 37,
+        "bytes": 477,
+        "md5": "39a2fad15151851a2853817701e1500e",
+        "md5_verified": true,
+        "sha256": "83ca75e2f97ce52c3644c47f8b192b1366ec5c5518998d4af6f87832698fc819"
+      },
+      {
+        "category": "mobile-phone",
+        "file": "mobile-phone.tar.gz",
+        "labels": [
+          "technology_software_dev"
+        ],
+        "domains": 50,
+        "bytes": 610,
+        "md5": "0c0223ce56d54e0e36bd7b49d5a5ea94",
+        "md5_verified": true,
+        "sha256": "1c4ece96858fc5b3679e5d8b3ab9a084ed4666af7bdcdf1dd295cdb63a34af51"
+      },
+      {
+        "category": "shopping",
+        "file": "shopping.tar.gz",
+        "labels": [
+          "shopping_marketplace"
+        ],
+        "domains": 36968,
+        "bytes": 214762,
+        "md5": "d930c31b832480d21590aee776fa48b4",
+        "md5_verified": true,
+        "sha256": "c88de4317f6e6b14958b6b22c801699dd2119692c09f9ba1f296df23ac91f9df"
+      },
+      {
+        "category": "lingerie",
+        "file": "lingerie.tar.gz",
+        "labels": [
+          "shopping_marketplace"
+        ],
+        "domains": 193,
+        "bytes": 1844,
+        "md5": "0f96fe584f29b2134cb962f84eb4bfb3",
+        "md5_verified": true,
+        "sha256": "8fa7764451e122e419b297ae249dd1735320d518f21ebf3ce4150be4ff95b522"
+      },
+      {
+        "category": "marketingware",
+        "file": "marketingware.tar.gz",
+        "labels": [
+          "shopping_marketplace"
+        ],
+        "domains": 77,
+        "bytes": 900,
+        "md5": "afe339ad0e1e8ad4b184c7c25955c887",
+        "md5_verified": true,
+        "sha256": "51b75d2c5bc4c6ea1d73cb62f1272fe191842867c26e1f9f1850a3f5e8783613"
+      },
+      {
+        "category": "bank",
+        "file": "bank.tar.gz",
+        "labels": [
+          "finance_banking"
+        ],
+        "domains": 6646,
+        "bytes": 32126,
+        "md5": "b796c69869e327ff5e7a956e97d0d2b3",
+        "md5_verified": true,
+        "sha256": "cee1cee63379ba26f8e318954f3e6507ab4a5a08ae135e58edd9114c81344415"
+      },
+      {
+        "category": "financial",
+        "file": "financial.tar.gz",
+        "labels": [
+          "finance_banking"
+        ],
+        "domains": 472,
+        "bytes": 3310,
+        "md5": "b12b3728fa8e092a0cb7bdc48df89da7",
+        "md5_verified": true,
+        "sha256": "39a2fe0752927568535661dec587e795d697f0f1bf45b42f6f4cb143204d1d59"
+      },
+      {
+        "category": "bitcoin",
+        "file": "bitcoin.tar.gz",
+        "labels": [
+          "cryptocurrency_exchanges"
+        ],
+        "domains": 1419,
+        "bytes": 8242,
+        "md5": "3e04a11706029747c2ae2800b2469047",
+        "md5_verified": true,
+        "sha256": "e062b641f5e99e73b59b621cd7b6245b7ebb8dc0964c2f885ebfcfd680c9918b"
+      },
+      {
+        "category": "jobsearch",
+        "file": "jobsearch.tar.gz",
+        "labels": [
+          "employment_job_seeking"
+        ],
+        "domains": 60740,
+        "bytes": 420697,
+        "md5": "050ef248d066dba36fa9f527073a3b5a",
+        "md5_verified": true,
+        "sha256": "d52530c181beec15bdd6b40701f132a30cc4dc8d94e09e5faa6a5e9c37c96022"
+      },
+      {
+        "category": "adult",
+        "file": "adult.tar.gz",
+        "labels": [
+          "adult_sexual_content"
+        ],
+        "domains": 4599280,
+        "bytes": 18080078,
+        "md5": "6c5cf7bafecad10c70f7c54bfa25fe1d",
+        "md5_verified": true,
+        "sha256": "1f4f8437d43c0a690b4b4be519393680f6e38b10c893f5f5657b4a57162f690b"
+      },
+      {
+        "category": "mixed_adult",
+        "file": "mixed_adult.tar.gz",
+        "labels": [
+          "adult_sexual_content"
+        ],
+        "domains": 149,
+        "bytes": 1363,
+        "md5": "a1a4fd6135f6a5019aac9e460a1028ed",
+        "md5_verified": true,
+        "sha256": "b1ff46797b8a85dd1756804600ecd40db5ad2882b32a89239ef6081adda01323"
+      },
+      {
+        "category": "gambling",
+        "file": "gambling.tar.gz",
+        "labels": [
+          "gambling"
+        ],
+        "domains": 32247,
+        "bytes": 146333,
+        "md5": "386451ee86beb0e1a2e0d0271a83a63d",
+        "md5_verified": true,
+        "sha256": "4038fa20a59abb05b8bf7f39f92743dd4694c52f5cd965785a705190da09e9e9"
+      },
+      {
+        "category": "arjel",
+        "file": "arjel.tar.gz",
+        "labels": [
+          "gambling"
+        ],
+        "domains": 69,
+        "bytes": 525,
+        "md5": "ce7116b75989aac229b3c794ca7f58ac",
+        "md5_verified": true,
+        "sha256": "ac00ae6051400991e4ddf3945d0cd4d4e45d5a6a509fde151d30134964d4cfb4"
+      },
+      {
+        "category": "filehosting",
+        "file": "filehosting.tar.gz",
+        "labels": [
+          "file_sharing_cloud_storage"
+        ],
+        "domains": 941,
+        "bytes": 5230,
+        "md5": "8aae43c7b31d8453573f75fb8e4802a9",
+        "md5_verified": true,
+        "sha256": "9aec78402627a04a86daa066c7d5d61bc4f777da5ed29a9071911ea965ddb7fe"
+      },
+      {
+        "category": "vpn",
+        "file": "vpn.tar.gz",
+        "labels": [
+          "anonymity_privacy_tooling"
+        ],
+        "domains": 6039,
+        "bytes": 25834,
+        "md5": "408817c0c98883fc1778302b33a09f3f",
+        "md5_verified": true,
+        "sha256": "8b28a04fcf9409fca4fb1932622f38476ae3b9ffec6a8055af45694c3d96c8ab"
+      },
+      {
+        "category": "doh",
+        "file": "doh.tar.gz",
+        "labels": [
+          "anonymity_privacy_tooling"
+        ],
+        "domains": 3015,
+        "bytes": 22117,
+        "md5": "b8e314619402cc7668c552f033317cf9",
+        "md5_verified": true,
+        "sha256": "7d69f5b911fa2ffb5104a900b104ece6b8ba0011ad28e1acc0aa71871f6b7b4d"
+      },
+      {
+        "category": "dynamic-dns",
+        "file": "dynamic-dns.tar.gz",
+        "labels": [
+          "anonymity_privacy_tooling"
+        ],
+        "domains": 2077,
+        "bytes": 12442,
+        "md5": "f21530361f975ba883b299c37dfbecfb",
+        "md5_verified": true,
+        "sha256": "e4db1b762df6421c6f7667a6fe7b72fe46ab13402ac105f710236e1586ae8f88"
+      },
+      {
+        "category": "residential-proxies",
+        "file": "residential-proxies.tar.gz",
+        "labels": [
+          "anonymity_privacy_tooling"
+        ],
+        "domains": 138,
+        "bytes": 1125,
+        "md5": "30802ca907058ef5dca7e6409d550e52",
+        "md5_verified": true,
+        "sha256": "e4e6980ad0c9be21e3b1e64884a869a8b82b003f8bf5a0635cfdbb3032e4f018"
+      },
+      {
+        "category": "remote-control",
+        "file": "remote-control.tar.gz",
+        "labels": [
+          "anonymity_privacy_tooling"
+        ],
+        "domains": 170,
+        "bytes": 1288,
+        "md5": "f5e4dbb559c50541c3a2a3a26e2617b2",
+        "md5_verified": true,
+        "sha256": "6e8cfa96e01e3d0af706140425b57b7f6a0da19759df1b05850dfbe784cb460c"
+      },
+      {
+        "category": "hacking",
+        "file": "hacking.tar.gz",
+        "labels": [
+          "hacking_security_tooling"
+        ],
+        "domains": 274,
+        "bytes": 2242,
+        "md5": "6347f89903b1acedddca2365ba5b1b0d",
+        "md5_verified": true,
+        "sha256": "c8dee93a666ab26b8ddc579a9dfecbb7fdcccd8ae2c71632b14c7cae0e3c0d13"
+      },
+      {
+        "category": "dangerous_material",
+        "file": "dangerous_material.tar.gz",
+        "labels": [
+          "hacking_security_tooling"
+        ],
+        "domains": 35,
+        "bytes": 959,
+        "md5": "43bd93dc35c4325b3faef2c141b0a156",
+        "md5_verified": true,
+        "sha256": "cfb9d80c56d11c933c078638b64550c173e2b9c48edd9f489dac85b493bf8caf"
+      },
+      {
+        "category": "publicite",
+        "file": "publicite.tar.gz",
+        "labels": [
+          "ads_trackers_infrastructure"
+        ],
+        "domains": 4344,
+        "bytes": 29773,
+        "md5": "6a5f93f41b48fbca12fee94b93c2b898",
+        "md5_verified": true,
+        "sha256": "56c5f3a1af848754b321b74e47b4f46376004673092dc7eff80f0c7059f710f4"
+      },
+      {
+        "category": "shortener",
+        "file": "shortener.tar.gz",
+        "labels": [
+          "ads_trackers_infrastructure"
+        ],
+        "domains": 4558,
+        "bytes": 24773,
+        "md5": "c5589a4d5f6da44caa66e9620db03c07",
+        "md5_verified": true,
+        "sha256": "3f2d586bdabd54040a39dde918dbe2ccd96e1788c3acbcb513410aabdcfe9387"
+      }
+    ],
+    "licence": "CC BY-SA 4.0 (Universite Toulouse 1 Capitole)"
+  }
+}

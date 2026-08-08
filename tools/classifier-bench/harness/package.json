@@ -1,15 +1,18 @@
 {
   "name": "classifier-bench-harness",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "ChmaraX/forensix#137 — candidate-agnostic classifier bench harness",
   "private": true,
   "scripts": {
     "download": "node download.js",
-    "bench": "node run_bench.js"
+    "bench": "node run_bench.js",
+    "leaderboard": "node make_leaderboard.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.3.3",
-    "onnxruntime-node": "1.21.0"
+    "@huggingface/transformers": "3.8.1",
+    "onnxruntime-node": "1.21.0",
+    "tldts": "6.1.86"
   },
   "engines": {
     "node": ">=22"

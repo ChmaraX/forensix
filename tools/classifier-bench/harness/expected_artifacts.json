@@ -1,0 +1,44 @@
+{
+  "_note": "Expected SHA-256 for every large model artifact. Phase A FAILS on mismatch; Phase B re-hashes before InferenceSession.create. These values were read offline from the committed Hugging Face tree captures under research/_raw/trees/*.json, where an LFS `oid` IS the file's SHA-256 (proved by matching potion-base-2M's 92d4a757... against the value the spike measured after download, tools/classifier-bench/spike/SPIKE-REPORT.md section 1). Small non-LFS config/tokenizer files are stored as git blobs whose oid is NOT a SHA-256; they are hashed at Phase A and recorded in the run manifest instead of pinned here.",
+  "artifacts": {
+    "potion-base-2M/onnx/model.onnx": {
+      "sha256": "92d4a7576de7d39055924b4d9d3979c8c3b2de272010f76f99e2ac14c7b2e5a8",
+      "bytes": 7563349,
+      "source": "research/_raw/trees/minishlab__potion-base-2M.json"
+    },
+    "potion-base-8M/onnx/model.onnx": {
+      "sha256": "da4c828fe012ec97f053278f363645b52c3815ec9a1d13d695ac901398c10f2e",
+      "bytes": 30240854,
+      "source": "research/_raw/trees/minishlab__potion-base-8M.json"
+    },
+    "bge-micro-v2/onnx/model_quantized.onnx": {
+      "sha256": "ed65e36025aa94cb74207dab863c85452919ec0ab7df3512092932aa22c9a33a",
+      "bytes": 17409774,
+      "source": "research/_raw/trees/TaylorAI__bge-micro-v2.json"
+    },
+    "all-MiniLM-L6-v2/onnx/model_qint8_arm64.onnx": {
+      "sha256": "4278337fd0ff3c68bfb6291042cad8ab363e1d9fbc43dcb499fe91c871902474",
+      "bytes": 23026053,
+      "source": "research/_raw/trees/sentence-transformers__all-MiniLM-L6-v2.json",
+      "note": "The qint8_arm64 / qint8_avx512 / qint8_avx512_vnni files in this repo share one LFS oid: the arch suffix is a naming convention, not a per-architecture graph. Using one file on both architectures means the weights are provably identical and only the ORT kernel differs, which is what the cross-architecture comparison needs."
+    },
+    "nli-deberta-v3-xsmall/onnx/model_qint8_arm64.onnx": {
+      "sha256": "ef41fe8474f6070373f97fbe8362461d55108f387723280fcdb64f8015133db2",
+      "bytes": 87377068,
+      "source": "research/_raw/trees/cross-encoder__nli-deberta-v3-xsmall.json"
+    },
+    "nli-deberta-v3-xsmall/spm.model": {
+      "sha256": "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd",
+      "bytes": 2464616,
+      "source": "research/_raw/trees/cross-encoder__nli-deberta-v3-xsmall.json"
+    }
+  },
+  "ut1": {
+    "_note": "UT1 publishes a ROLLING snapshot at a stable URL: there is no upstream version identifier to pin, and MD5SUM.LST is regenerated with the archives, so it always agrees with whatever was published that day. Verifying against it proves transport integrity, NOT that the table is the one this run measured. The compiled host->label table is therefore pinned here by its own digest, which is the only durable identity it has. download.js FAILS on drift; re-pin deliberately with UT1_REPIN=1 after reviewing what changed.",
+    "compiled_sha256": "25058703f9fff7f05cb161c1fa7d7f16db2f5f3a3f755448c5a1aa908279bce3",
+    "total_hosts": 4781521,
+    "downloaded_on": "2026-08-08",
+    "source_url": "https://dsi.ut-capitole.fr/blacklists/download/",
+    "licence": "CC BY-SA 4.0 (Universite Toulouse 1 Capitole)"
+  }
+}

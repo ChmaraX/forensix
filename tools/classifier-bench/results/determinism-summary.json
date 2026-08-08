@@ -1,0 +1,96 @@
+{
+  "mode": "separate-process-determinism",
+  "arch": "arm64",
+  "tags": [
+    "main",
+    "det1",
+    "det2"
+  ],
+  "per_candidate": {
+    "ut1-domain-list-v2-strict": {
+      "measured": true,
+      "runs": 3,
+      "match": true,
+      "raw_score_match": true,
+      "decision_hashes": [
+        "0ef3f072d978f1432a183fa184313555f2b829aa08e206a6e93d0a03d499f653"
+      ],
+      "raw_score_hashes": [
+        "7d417bc1cd6f36e1906a34d2b9bedbce7dd2f772f0691537d09166680f6bd7cd"
+      ]
+    },
+    "ut1-domain-list-v2-full": {
+      "measured": true,
+      "runs": 3,
+      "match": true,
+      "raw_score_match": true,
+      "decision_hashes": [
+        "d1a0cbfa83455394169ee4b8bceffd50828b5741254ee4db898e87e3410a9c59"
+      ],
+      "raw_score_hashes": [
+        "f75accc5466dba6c4817c326c95bbae05a822e3953717600bd938ab211864006"
+      ]
+    },
+    "potion-base-2M-labelsim-v2": {
+      "measured": true,
+      "runs": 3,
+      "match": true,
+      "raw_score_match": true,
+      "decision_hashes": [
+        "35394717e0238ac8cedd54793b5f85ea1126e2355041d50c200a9ad8a831ce1f"
+      ],
+      "raw_score_hashes": [
+        "60bd79884ef31697449dab75708e65049a734bd71f8f0e996c4999585cc13546"
+      ]
+    },
+    "potion-base-8M-labelsim-v2": {
+      "measured": true,
+      "runs": 3,
+      "match": true,
+      "raw_score_match": true,
+      "decision_hashes": [
+        "8e7877bfa4692503970d8cdb329d7d68fc40f5dd90abc74f31e52d15a700b00b"
+      ],
+      "raw_score_hashes": [
+        "08ad5e76f45a750524de6b1678be1934455b6bdb50bfc72036725c3b301e5de7"
+      ]
+    },
+    "bge-micro-v2-labelsim-v2": {
+      "measured": true,
+      "runs": 3,
+      "match": true,
+      "raw_score_match": true,
+      "decision_hashes": [
+        "c4853521875bb726fa3b31b49120423515f9a701152689191733abb76b848eb2"
+      ],
+      "raw_score_hashes": [
+        "108f7209978a766d7741a0e638a546acb37767670ef8ae25f5f0657c90af6c51"
+      ]
+    },
+    "all-MiniLM-L6-v2-labelsim-v2": {
+      "measured": true,
+      "runs": 3,
+      "match": true,
+      "raw_score_match": true,
+      "decision_hashes": [
+        "a7681fb86e4097112d2025c3f43636b8e225eea7125b2f0273233b2cc66b7ca7"
+      ],
+      "raw_score_hashes": [
+        "c0c69012d3b374df60569120a054d3b8399b7ad96287c49a1efb681209487bf8"
+      ]
+    },
+    "nli-deberta-v3-xsmall-entailment-v2": {
+      "measured": true,
+      "runs": 3,
+      "match": true,
+      "raw_score_match": true,
+      "decision_hashes": [
+        "67f1d4672407511b9cd0b37d662c4e0dd6ec6d2f04b3863a8a995a6d3403a6db"
+      ],
+      "raw_score_hashes": [
+        "3f19bbeb0ce65e5e2ea070aef162ba006e4763f87739ae67e938e859e8a0ae3f"
+      ]
+    }
+  },
+  "evidence_note": "Row-level artifacts for the repeat runs are not committed; their decision and raw-score digests are retained here, and that is what the determinism claim rests on. Regenerating this file without those runs present would LOSE evidence, so a previously measured candidate that can no longer be measured is a hard failure, never a silent downgrade to \"not measured\"."
+}
