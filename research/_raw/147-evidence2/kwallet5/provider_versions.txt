@@ -1,0 +1,7 @@
+distro: Ubuntu 24.04.4 LTS aarch64
+libkf5wallet-bin: 5.115.0-0ubuntu3
+kwalletd binary: kwalletd5
+kwalletd path: /usr/bin/kwalletd5
+chrome: Google Chrome 151.0.7922.108 
+password-store token: kwallet5
+wallet name: kdewallet

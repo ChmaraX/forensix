@@ -4,181 +4,215 @@
 
 **Question:** can ForensiX recover a real OSCrypt `v11` key and decrypt known Chrome data using only copied KWallet evidence and an authorized wallet credential?
 
-**Answer: NOT ESTABLISHED — the experiment is blocked upstream of the recovery step, and the ticket stays open.** Branded Chrome M151 could not be made to write a single KWallet-backed `v11` row on either tested KWallet major version, so no KWallet-encrypted Source exists to recover from. The blocker is precisely located, reproducible on two distros, and stated below as a boundary rather than a capability claim.
+**Answer: YES, for three tested variants.** 5 of 5 known-plaintext rows recovered on each of **KWallet6 (blowfish `.kwl`)**, **KWallet5 (blowfish `.kwl`)** and a **GPG-backed wallet** — each from a copied store, in a clean analysis container with no KWallet, no D-Bus and no network, with the copied store byte-identical afterwards. Untested variants are enumerated in §8 and remain unproven.
 
-This is a **negative result about the acquisition rig, not about ForensiX's recovery capability.** It does not show that copied-KWallet recovery is impossible. It shows that the constructed-ground-truth Source #147 requires could not be produced by the route attempted, and names what would be needed to produce it.
+This supersedes the first attempt's `NOT ESTABLISHED` verdict, which was **blocked upstream**: no wallet could be created headlessly, so nothing could be copied. That blocker is now broken, and §2 records how.
 
-**Evidence legend** (as in `research/144-offline-oscrypt-key-recovery.md`): **LOCALLY-DEMONSTRATED** = run end-to-end here; **SOURCE-CONFIRMED** = cited first-party source; **INFERRED** = consequence, not result; **UNTESTED** = not exercised.
+**Evidence legend** (as in `research/144-offline-oscrypt-key-recovery.md`): **LOCALLY-DEMONSTRATED** = run end-to-end here against a disposable known-plaintext Source; **SOURCE-CONFIRMED** = cited first-party source; **INFERRED** = consequence, not result; **UNTESTED** = not exercised.
 
 ---
 
-## 1. Headline: Chrome reaches KWallet, then falls back to `v10` because no wallet exists to open
+## 1. Headline
+
+### LOCALLY-DEMONSTRATED ✅
+
+| Variant | Provider | Source secret (ground truth) | Rows recovered | Secret matched |
+|---|---|---|---|---|
+| Blowfish `.kwl` | kwallet6 6.13.0, Debian trixie arm64 | `44LWBxnVnQ76ZRCYpQ/HfA==` | **5/5** | yes |
+| Blowfish `.kwl` | kwalletd5 5.115.0, Ubuntu 24.04 arm64 | `LjdelK4IBGonJkCcDSyvxA==` | **5/5** | yes |
+| GPG-backed | kwallet6 6.13.0 + GnuPG (RSA-2048) | `bnMNN9YHMSBAYJ96TtjLcA==` | **5/5** | yes |
+
+Every row is `v11`, written by branded Google Chrome 151.0.7922.108 arm64 with the KWallet provider actually selected:
+
+```
+OSCrypt.FreedesktopSecretKeyProvider.InitStatus  → 0     (success)
+OSCrypt.EncryptorKeyCount 3 / .Available 2 / .PermanentlyUnavailable 0
+cookie prefixes                                  → ['v11']   (5/5 rows)
+wallet folders                                   → "Chrome Keys", "Form Data", "Passwords"
+wallet entry                                     → "Chrome Keys" / "Chrome Safe Storage"
+```
+
+Attempt 1 recorded `InitStatus → 12` (`KWalletNoService`) and `v10` on both distros. The *only* thing that changed is that a wallet now exists to open. **The provider was never unreachable; it had nothing to open.**
+
+---
+
+## 2. What unblocked it: answer the dialog, don't bypass it
+
+### LOCALLY-DEMONSTRATED ✅
+
+Attempt 1 tried the headless `pam_kwallet` route and got as far as `key_sent=True env_sent=True` without ever producing a `.kwl`. It listed three ways forward and ranked a real desktop session **last**, as "VM spend".
+
+That ranking was wrong, and the reason is worth recording: **a virtual X display is not a VM.** `Xvfb` + `fluxbox` + `xdotool` — already installed in the attempt-1 image — give kwalletd a display it will draw on and a way to answer it. Wallet creation took three clicks and one typed password:
+
+1. `kwalletrc` with `First Use=false` (suppresses the multi-page setup wizard).
+2. `org.kde.KWallet.open` over D-Bus raises the creation dialog. **`dbus-send --reply-timeout` must be raised** — the 25s default expires mid-dialog and the abandoned call aborts the transaction, which is what "the dialog appears and nothing happens" looked like.
+3. Choose the wallet type, click Finish, then type the password **into the second field via `Tab`**. A second mouse click does *not* move focus; both strings land in "Password" and the dialog answers `Passwords do not match`.
+
+Same three clicks work unchanged on kwalletd5 and kwalletd6, and the same dialog offers the **GPG** variant on page 1 (page 2 then lists trusted keys). Screenshots: `research/_raw/147-evidence2/screenshots/`.
+
+**Consequence for #127:** a KWallet fixture *is* recordable by an automated harness. It needs a virtual display and a dialog driver, not a desktop VM and not `pam_kwallet`.
+
+### The secret is not on disk until the wallet is closed
+
+After Chrome wrote its key, the `.kwl` on disk was still the 148-byte empty wallet. It only grew to 320 bytes when the wallet was **closed** (`org.kde.KWallet.close`), which is when kwalletd syncs.
+
+This is #117's in-memory-cookie finding again, in a new place: **a live-machine copy of a KWallet store can be missing the very key the analyst is copying it for.** A collector that copies wallet files while the desktop session is running gets whatever was last synced, not what Chrome is using. Recorded here as a Finding about acquisition, and it strengthens [#158](https://github.com/ChmaraX/forensix/issues/158)'s preference for capturing derived key material live.
+
+---
+
+## 3. The `.kwl` format, source-confirmed
+
+Parsed by `research/_raw/147/kwl_parse.py`, written against the **exact shipped sources of the Source's own provider** — `apt-get source kwallet6` → `kwallet-6.13.0`, not upstream `master`:
+
+```
+ 0   12   KWMAGIC = "KWALLET\n\r\0\r\n"
+12    4   version[4] = {major, minor, cipher, hash}
+16    …   PLAINTEXT hash index: quint32 folderCount,
+          per folder { MD5(folder)[16], quint32 entryCount, MD5(entry)[16] × n }
+ …    …   Blowfish-CBC ciphertext, zero IV, to EOF
+
+plaintext = random[8] ‖ payload_size[4 BE] ‖ payload ‖ random_pad ‖ SHA1(payload)[20]
+payload   = QDataStream: QString folder, quint32 n, { QString key, qint32 type, QByteArray value } × n
+key       = PBKDF2-HMAC-SHA512(password_utf8, salt, 50000, 56), salt = <wallet>.salt (56 raw bytes)
+```
+
+Observed header on every wallet built here: `00 01 03 02` = v0.1, cipher `3` (`KWALLET_CIPHER_BLOWFISH_CBC`), hash `2` (`KWALLET_HASH_PBKDF2_SHA512`).
+
+A `Password` entry's value is **not** the bare UTF-8 text: `Entry::setValue(const QString&)` does `ds << value`, so it is a QDataStream-serialised QString (quint32 byte length + UTF-16BE).
+
+### Two endianness traps, in opposite directions
+
+Both `blowfish.cc` and `sha1.cc` open with the same hardcoded line — above the comment *"DO NOT INCLUDE THIS. IT BREAKS KWALLET."*:
+
+```c
+#define Q_BIG_ENDIAN 1
+#define Q_BYTE_ORDER Q_BIG_ENDIAN
+```
+
+The two files then use that constant for **opposite** purposes, so on a little-endian Source:
+
+- **`blowfish.cc`** takes the branch that *does* byte-swap, which cancels the little-endian `uint32_t*` load → **ordinary, standard Blowfish**.
+- **`sha1.cc`** takes the branch that does *nothing* (`memcpy(x, _data, 64)` in, `*(uint32_t *)p = _h##a` out) → **not standard SHA-1**: message words load little-endian and the digest is emitted little-endian.
+
+I got this backwards first, "fixed" Blowfish, and produced a clean SHA1 mismatch that is **indistinguishable from a wrong password**. Recorded because it is a live trap for the implementation: a parser that reaches for `hashlib.sha1` rejects a perfectly good wallet and blames the analyst's credential.
+
+**Forensically load-bearing:** the integrity trailer depends on the endianness of the machine that *wrote* the wallet, so an acquisition must record the Source's architecture, and a big-endian Source needs the mirror-image treatment (standard SHA-1, byte-swapped Blowfish). Verified on aarch64 (LE) only; big-endian is **UNTESTED**.
+
+### The blowfish variant leaks folder and entry names; the GPG variant does not
+
+The MD5 hash index at offset 16 is **outside the encryption**. Folder and entry names are recoverable by dictionary — `MD5("Chrome Keys")`, `MD5("Chrome Safe Storage")` — from a wallet whose password is unknown and may never be recovered.
+
+That yields a **Candidate**, never a Finding: it evidences *"a Chrome safe-storage entry existed in this wallet"* without decrypting anything. The GPG wallet writes no such index — its OpenPGP packet starts at byte 16 — so the same inference is unavailable there.
+
+### GPG-backed wallets
+
+Header `00 01 02 00` (cipher `2` = `KWALLET_CIPHER_GPG`, hash `0`), then a raw OpenPGP message. Decrypted plaintext is `QString keyID ‖ QByteArray hashes ‖ QByteArray values`, where `values` is the same entry stream as above.
+
+---
+
+## 4. Recovery, and the derivation under test
 
 ### LOCALLY-DEMONSTRATED ✅
 
 ```
-OSCrypt.FreedesktopSecretKeyProvider.InitStatus              → 12
-OSCrypt.FreedesktopSecretKeyProvider.KWalletNoService.ErrorDetail → 0
-OSCrypt.EncryptorKeyCount 3 / .Available 1 / .PermanentlyUnavailable 1
-cookie prefixes                                              → ['v10']  (5/5 rows)
+secret = wallet["Chrome Keys"]["Chrome Safe Storage"]      (24-char base64, all three variants)
+key    = PBKDF2-HMAC-SHA1(secret, b"saltysalt", iterations=1, dklen=16)
+plain  = AES-128-CBC(key, IV = b" " * 16).decrypt(row.encrypted_value[3:])
 ```
 
-And, from the KWallet daemon's own log at the same moment:
+Confirms #144's Linux `v11` derivation on real KWallet-sourced key material, and confirms two #149 findings now hold for **KWallet** as well as GNOME Keyring — they were GNOME-only before:
 
-```
-kf.wallet.kwalletd: Application "Google Chrome" using kwallet without parent window!
-```
+- a **32-byte domain-hash prefix** precedes the plaintext (`interp: domain-prefixed` on all 5 rows);
+- cookie values are stored **percent-encoded**, so the non-ASCII row matches only after `unquote` (`match_form: percent-decoded`).
 
-Those two facts together are the finding. Chrome **does** reach the KWallet integration — kwalletd logs the incoming client by name. But the wallet does not yet exist, so kwalletd raises its *wallet-creation wizard*, a GUI dialog. Chrome does not wait on a dialog: it records `KWalletNoService`, falls through to `PosixKeyProvider`, and writes `v10` rows with the hardcoded `peanuts` key.
-
-The `v10` outcome is therefore **not** evidence that the KWallet provider is unreachable. It is evidence that *provider initialisation cannot complete without a pre-existing, unlocked wallet*, and that creating that wallet is the actual blocker.
-
-### Reproduced on both KWallet major versions
-
-| Distro | KWallet | Chrome | Result |
-|---|---|---|---|
-| Ubuntu 24.04.4 LTS arm64 | `kwalletd5` 5.115.0-0ubuntu3 | 151.0.7922.108-1 arm64 | `KWalletNoService`, `v10` |
-| Debian 13 trixie arm64 | `kwallet6` 6.13.0-1 | 151.0.7922.108-1 arm64 | `KWalletNoService`, `v10` |
-
-Neither is a one-off. The same histogram set and the same `['v10']` prefix appear on both.
+**CBC has no AEAD.** A successful decrypt is padding-plausibility plus a UTF-8 decode, never proof. The only reason these are Findings rather than Candidates is the pre-recorded known plaintext, and the ground-truth secret read from the Source before shutdown. In casework neither exists, so a decrypted `v11` row is a **Finding about bytes** and its correctness rests on the key's provenance, not on the row.
 
 ---
 
-## 2. Accepted `--password-store` tokens, established by running the binary
+## 5. Isolation and integrity
 
-### LOCALLY-DEMONSTRATED ✅
-
-Method per the #149 lesson: pass a deliberately bogus value and read the rejection.
-
-```
---password-store=NONSENSE-TOKEN-XYZ
-  → components/os_crypt/async/browser/freedesktop_secret_key_provider.cc:292]
-    Unknown password store: NONSENSE-TOKEN-XYZ
-```
-
-Testing each candidate against that error:
-
-| Token | Accepted by M151? |
+| Property | Value |
 |---|---|
-| `kwallet` | yes |
-| `kwallet5` | yes |
-| `kwallet6` | yes |
-| `gnome-libsecret` | yes |
-| `basic` | yes |
-| **`detect`** | **REJECTED — "Unknown password store"** |
+| Analysis container | `debian:trixie-slim` + python3/cryptography/sqlite3 only, `--network none` |
+| KWallet packages | **0** — no `kwalletd`, no `kwalletd5/6`, no `libkwalletbackend` |
+| Chrome packages | **0** |
+| gnome-keyring / libsecret | **0** |
+| D-Bus daemons running | **0**; `DBUS_SESSION_BUS_ADDRESS` unset |
+| Source container | **stopped** for the whole controls run |
+| Route used | direct file parse — no daemon, no D-Bus, no replay |
+| Working Copy hashes, before vs after | **identical** (`sha256` on `.kwl`, `.salt`, `Cookies`) |
 
-The `detect` result is worth recording but is **not** a correction to #144. #144 says M151 recognises "`gnome-libsecret`, `kwallet`, `kwallet5`, `kwallet6` **and desktop auto-selection**" — it never claims `detect` is an accepted flag value. This run confirms the distinction empirically: auto-selection is the behaviour when the flag is *absent*, and `detect` is not a value the flag accepts.
+Manifest / Evidence Set Digest / Working Copy per #125, one set per variant:
 
-Note also that KWallet handling now lives inside **`FreedesktopSecretKeyProvider`**, not a separate `KWalletKeyProvider` class — the rejection, the `KWalletNoService` sub-histogram and the token validation all come from that one file. #144's provider-stack description should be re-checked against M151 on that point.
+| Variant | Manifest entries | Evidence Set Digest | Working Copy |
+|---|---|---|---|
+| KWallet6 | 158 | `c79a7ee8d388919d…` | hashes match |
+| KWallet5 | 158 | `ad25af7cfb3a876c…` | hashes match |
+| GPG | 163 | `1f8f9dc7404df678…` | hashes match |
 
-Binary-string evidence again proved misleading, exactly as #149 warned: `grep` of `/opt/google/chrome/chrome` finds the token `kwallet` (×6) but **not** `kwallet5` or `kwallet6`, yet all three are accepted. It does contain all three D-Bus names — `org.kde.kwalletd`, `org.kde.kwalletd5`, `org.kde.kwalletd6`.
-
----
-
-## 3. Why no wallet could be created headlessly
-
-### LOCALLY-DEMONSTRATED ✅
-
-The first #147 attempt stalled here (exit 124 on `org.kde.KWallet.open`). The cause is now precisely identified, and it is deeper than "a dialog appears".
-
-`pam_kwallet5` exists exactly for headless session unlock, so it was the obvious route. Reconstructing its protocol from the shipped binaries and then from KDE's `kwallet-pam/pam_kwallet.c`:
-
-1. **`--pam-login` is gated behind an environment variable.** Without `PAM_KWALLET5_LOGIN` set, kwalletd never registers the option and Qt rejects it: `kwalletd5: Unknown option 'pam-login'`. This is true of **both** `kwalletd5` 5.115.0 and `kwalletd6` 6.13.0 — the string is present in both binaries, but the option is unavailable unless the variable is set. A pure string check would have concluded the opposite.
-2. **It takes two file descriptors:** `kwalletd --pam-login <pipe_fd> <envsocket_fd>`. Omitting them yields `Invalid arguments (less than needed)`. From `pam_kwallet.c`: `args[] = { kwalletd, "--pam-login", pipeInt, sockIn, NULL }` — `pipeInt` is the **read end of a pipe** carrying the key, `sockIn` is a **listening UNIX socket** kwalletd `accept()`s for the session environment.
-3. **What travels the pipe is not the password.** It is a 56-byte derived key. Sending the raw password yields `Hash or environment not received`. The derivation, SOURCE-CONFIRMED from `pam_kwallet.c`:
-
-   ```
-   KWALLET_PAM_KEYSIZE    56
-   KWALLET_PAM_SALTSIZE   56
-   KWALLET_PAM_ITERATIONS 50000
-   gcry_kdf_derive(passphrase, GCRY_KDF_PBKDF2, GCRY_MD_SHA512,
-                   salt, 56, 50000, 56, key)
-   ```
-   The salt is the raw contents of `$XDG_DATA_HOME/kwalletd/<wallet>.salt`, 56 random bytes created on first use. The key is written with **no length prefix**.
-
-Implementing all three (`research/_raw/147/kwallet-pam-start.sh`) got as far as `key_sent=True env_sent=True`, kwalletd alive, and **the salt file correctly created** — but kwalletd still reported `Couldn't accept incoming connection` / `Hash or environment not received`, and **no `.kwl` was ever produced**. The remaining gap is the exact framing/ordering of the environment block on the accept socket, which pam_kwallet writes from inside a real PAM session.
-
-Being unable to complete this by hand is a limitation of this run, **not** proof that it cannot be done.
-
-### GPG-backed wallet (route c)
-
-Prepared and **not** completed: a dedicated GPG key was generated unattended with loopback pinentry (`research/_raw/147/make-gpg-wallet.sh`), and `kwalletd` is confirmed linked against `libgpgmepp`/`libgpgme`/`libassuan`, so the variant is genuinely supported by the build. But a GPG wallet must still be *created* first, and creation runs through the same wizard that blocks. Recorded as `unavailable(reason): kwallet-wallet-creation-requires-gui-dialog`.
+**No live Source key store was queried, and the analyst's machine has none.** Deliberately, only a **direct-parse** route is offered: shipping a `kwalletd` inside ForensiX would mean executing the suspect's provider. The parser is instead validated against the ground-truth secret recorded at Source time — a stronger check than agreeing with a daemon.
 
 ---
 
-## 4. What this means for the ticket's question
+## 6. Controls
 
-The ticket asks whether a **copied wallet** can be opened offline and its Chrome secret recovered. That question is **untouched by this run**, because no wallet was ever created and therefore none could be copied.
+Full transcript: `research/_raw/147-evidence2/controls.txt`. Every control produces a **distinct** typed `unavailable(reason)`; a set that collapsed to one string would prove nothing.
 
-What is now known, and was not before:
-
-- Chrome M151 accepts all three KWallet tokens and does contact kwalletd (**LOCALLY-DEMONSTRATED**).
-- With no pre-existing wallet, provider init fails to `v10` rather than blocking (**LOCALLY-DEMONSTRATED**).
-- The headless creation path is `pam_kwallet`'s, and its protocol is now documented to the byte, including the exact KDF (**SOURCE-CONFIRMED**), with a working partial implementation.
-- The `.kwl` container format, its cipher/hash variants, and the `Chrome Keys` / `Chrome Safe Storage` selector inside a wallet remain **UNTESTED**.
-
----
-
-## 5. Controls
-
-The ticket's control list is written for a run that reaches recovery. Since recovery was never reached, **no control in that list was exercised**, and none may be reported as passing. Recording them honestly:
-
-| Control | State | Typed reason |
+| # | Control | Result |
 |---|---|---|
-| correct / incorrect wallet password | **not run** | `unavailable(reason): no-wallet-created` |
-| correct / incorrect wallet selection | **not run** | `unavailable(reason): no-wallet-created` |
-| missing / multiple wallet files | **not run** | `unavailable(reason): no-wallet-created` |
-| folder + key selector mismatch | **not run** | `unavailable(reason): no-wallet-created` |
-| GPG key absent / wrong / locked agent / wrong passphrase | **not run** | `unavailable(reason): no-wallet-created` |
-| unsupported cipher/hash, migration states | **not run** | `unavailable(reason): no-wallet-created` |
-| mutated wallet / ciphertext | **not run** | `unavailable(reason): no-wallet-created` |
-| no live/analyst wallet queried | **n/a** | no wallet was opened at all, by any party |
+| C0 | correct password, correct selectors | `ok`, 5/5, secret matches ground truth |
+| C1 | **incorrect** wallet password | `kwl-wrong-password-or-corrupt (size field out of range)` |
+| C2 | wrong folder selector (`Chromium Keys`) | `kwallet-folder-absent:…\|present:[…]` |
+| C3 | wrong entry-key selector | `kwallet-entry-absent:…\|present:[…]` |
+| C4 | wrong wallet name (config mismatch) | `kwallet-named-wallet-absent:notmywallet` |
+| C5 | store directory missing | `kwallet-store-absent` |
+| C6 | store directory empty | `kwallet-store-empty` |
+| C7 | **multiple** wallet files, none named | `kwallet-multiple-wallets-ambiguous:2:…` — never guesses |
+| C7b | multiple wallets, named explicitly | `ok`, 5/5 |
+| C8 | `.salt` missing (PBKDF2 wallet) | `kwallet-salt-file-absent` |
+| C9 | **mutated wallet** (1 bit in ciphertext) | `kwl-payload-sha1-mismatch` |
+| C10 | cipher/hash header variants | `kwl-gpg-wallet-needs-private-key`, `kwl-legacy-ecb-wallet-untested`, `kwl-legacy-sha1-hash-untested`, `kwl-unsupported-cipher:1`, `kwl-bad-magic` |
+| C11 | wrong key material (bogus secret) | `failed`, 0/5 — every row rejected |
+| C12 | **mutated row ciphertext** (1 bit) | `partial`, 4/5, mutated row → `cbc-padding-invalid` |
+| G1 | GPG private key absent | `kwallet-gpg-private-key-absent` |
+| G2 | GPG keyring directory missing | `kwallet-gpg-keyring-absent` |
+| G3b | GPG **wrong passphrase** | `kwallet-gpg-wrong-passphrase` |
+| G3c | correct passphrase, same fresh copy | `ok`, 5/5 — proves G3b is the passphrase, not the copy |
+| G4 | GPG **wrong key** (valid, unrelated) | `kwallet-gpg-private-key-absent` |
+| G5 | GPG agent unavailable, no passphrase | `kwallet-gpg-decrypt-failed:…batchmode - can't get input` |
+| G6 | blowfish route against a GPG wallet | `kwl-gpg-wallet-needs-private-key` |
 
-There is no Manifest, no Working Copy and no Evidence Set Digest for this ticket, because there is no Source. Producing those against an empty wallet directory would be theatre.
+### One control failed the first time, and that is a finding
+
+**G3 (wrong passphrase) initially returned `ok`, 5/5.** The acquired `~/.gnupg` carried `allow-preset-passphrase`, and a `gpg-agent` started inside the analysis container from the copied home had the passphrase **cached from the earlier successful run** — `gpg-connect-agent "keyinfo --list"` shows the key as `P` (passphrase cached). GPG never checked the wrong passphrase because it never needed it.
+
+So: **a copied GPG environment can decrypt without the credential the analyst thinks is authorising it.** Any GPG-wallet procedure must kill the agent and work from a fresh copy of the keyring per attempt, or an unauthorised decryption will look authorised, and a wrong-credential control will silently pass. C3b/C3c re-run under those conditions and behave correctly.
 
 ---
 
-## 6. Findings vs Candidates
+## 7. Consequences for other tickets
 
-No Chrome value was decrypted, so this ticket yields **no Finding and no Candidate** about wallet contents.
+- **[#144](https://github.com/ChmaraX/forensix/issues/144)** — its KWallet rows can move from `experimental` / INFERRED-UNTESTED to **demonstrated** for the three variants in §1. Its Linux `v11` derivation is confirmed against real KWallet key material. Attempt 1's correction stands: KWallet is handled inside `FreedesktopSecretKeyProvider` on M151, not a distinct `KWalletKeyProvider`.
+- **[#149](https://github.com/ChmaraX/forensix/issues/149)** — its two parser findings (32-byte domain prefix, percent-encoded values) are **no longer GNOME-only**; they reproduce on KWallet, so they are OSCrypt-level, not provider-level.
+- **[#127](https://github.com/ChmaraX/forensix/issues/127)** — a KWallet fixture is recordable by the harness: virtual display + dialog driver, no VM, no `pam_kwallet`. `.kwl` fixtures must be pinned with the **Source architecture**, because the integrity trailer is endianness-dependent.
+- **[#158](https://github.com/ChmaraX/forensix/issues/158)** — reinforced from a new direction: an unsynced wallet means a file-copy of a live KWallet store can lack the key entirely.
+- **[#125](https://github.com/ChmaraX/forensix/issues/125)** — the plaintext MD5 index gives a new **Candidate** class: "a Chrome safe-storage entry existed in this wallet", available with no credential at all.
 
-The `v10`/`KWalletNoService` observations are Findings *about Chrome's behaviour under these conditions*, with provenance in the histogram output and the kwalletd log — not about any suspect artifact.
-
----
-
-## 7. What was NOT tested
+## 8. What was NOT tested
 
 | Variant | Status | Reason |
 |---|---|---|
-| KWallet4 direct integration | **UNTESTED** | `unavailable(reason): variant-unobtainable-on-current-arm64-distro` — owner-approved scope cut; absent from both Ubuntu 24.04 and Debian trixie |
-| Password-protected `.kwl` recovery | **UNTESTED** | `unavailable(reason): no-wallet-created` |
-| GPG-backed wallet recovery | **UNTESTED** | `unavailable(reason): kwallet-wallet-creation-requires-gui-dialog` |
-| KWallet5 `.kwl` on a real KDE desktop | **UNTESTED** | no Plasma session available in a container |
-| Secret-Service migration / proxy behaviour | **UNTESTED** | requires a working wallet first |
-| `Chrome Keys` / `Chrome Safe Storage` selector | **UNTESTED** | never written, because no wallet existed |
-| 32-byte plaintext prefix (#149 finding) | **UNTESTED for KWallet** | no `v11` row obtained |
-| percent-encoding of non-ASCII (#149 finding) | **UNTESTED for KWallet** | no `v11` row obtained |
+| KWallet4 direct integration | **UNTESTED** | `unavailable(reason): variant-unobtainable-on-current-arm64-distro` — absent from Ubuntu 24.04 and Debian trixie |
+| Legacy ECB wallet (`cipher=0`) | **UNTESTED** | typed reason implemented and exercised on a synthetic header only; no genuine ECB wallet produced |
+| Legacy SHA1 hash (`hash=0`, pre-4.13) | **UNTESTED** | same — synthetic header only |
+| Big-endian Source | **UNTESTED** | the endianness analysis in §3 predicts the mirror image; not run |
+| Secret-Service migration / proxy behaviour | **UNTESTED** | kwalletd's `org.freedesktop.secrets` proxy was never exercised |
+| Password-less wallet | **UNTESTED** | not produced |
+| Smartcard-backed GPG key | **UNTESTED** | only a software RSA-2048 key was used |
+| `Passwords` / `Form Data` folders | **UNTESTED** | Chrome created them but left them empty, as in #117 |
 
-Per the ticket's own instruction, **nothing here is generalised from one wallet variant to another.**
+Per the ticket's own instruction, **nothing here is generalised from one wallet variant to another.** Three variants pass; the rest are open.
 
----
+## 9. Reproduction
 
-## 8. What would unblock this
-
-In increasing cost:
-
-1. **Finish the `pam_kwallet` environment-block framing.** Everything else is solved; the salt file is created, the KDF is confirmed, the key is accepted. This is the cheapest route by far.
-2. **Pre-create the wallet with KDE's own backend library** (`libkwalletbackend5`/`6`) instead of the daemon, then let kwalletd adopt the existing `.kwl`. Avoids the wizard entirely.
-3. **A real Plasma desktop session** — a VM or a native KDE install, where the creation wizard can simply be answered. This is what #116 reserves Cua VMs for.
-
-Route 1 or 2 should be tried before any VM spend.
-
-## 9. Consequences for other tickets
-
-- **[#144](https://github.com/ChmaraX/forensix/issues/144)** — one correction and one confirmation. **Correction:** KWallet is handled inside `FreedesktopSecretKeyProvider` on M151, not a distinct `KWalletKeyProvider` — token validation, the `KWalletNoService` sub-histogram and the rejection message all come from `freedesktop_secret_key_provider.cc`. **Confirmation:** its accepted-token list (`gnome-libsecret`, `kwallet`, `kwallet5`, `kwallet6`, plus auto-selection when the flag is absent) is exactly right, now empirically rather than from source. The KWallet rows in its matrix stay `experimental` / INFERRED-UNTESTED; nothing here promotes them.
-- **[#149](https://github.com/ChmaraX/forensix/issues/149)** — its two parser findings could not be checked against KWallet and remain GNOME-only.
-- **[#127](https://github.com/ChmaraX/forensix/issues/127)** — a KWallet fixture cannot currently be recorded by this harness. The `pam_kwallet` KDF above is the missing piece.
-
-## 10. Reproduction
-
-`research/_raw/147/`: `Dockerfile.gate` (Ubuntu/KWallet5), `Dockerfile.kw6` (Debian/KWallet6), `gate-kwallet-reachability.sh`, `gate-nobus-control.sh`, `gate-kw6-confirm.sh`, `kwallet-pam-start.sh`, `kw6-session.sh`, `make-gpg-wallet.sh`. Evidence: `research/_raw/147-evidence/`.
+`research/_raw/147/`: `Dockerfile.kw6` (Debian/KWallet6), `Dockerfile.gate` (Ubuntu/KWallet5), `Dockerfile.analysis` (clean analysis image), `x-session.sh`, `create-wallet-x.sh`, `run-source.sh`, `147-cookie-writer.py`, `acquire-kwallet2.sh`, `kwl_parse.py`, `147-recover.py`, `147-controls.sh`. Evidence: `research/_raw/147-evidence2/`.

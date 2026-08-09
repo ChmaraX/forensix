@@ -1,0 +1,14 @@
+# 147 — clean ANALYSIS image. Deliberately minimal:
+#   * no kwallet, no kwalletd, no libkwalletbackend
+#   * no Chrome, no browser of any kind
+#   * no gnome-keyring, no libsecret, no D-Bus
+# It has never run the evidentiary browser and has no key store of its own, so
+# a successful recovery here cannot have come from a local secret.
+# Containers from this image are run with --network none.
+FROM debian:trixie-slim
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      python3 python3-cryptography sqlite3 coreutils procps xxd \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /evidence
+CMD ["sleep", "infinity"]

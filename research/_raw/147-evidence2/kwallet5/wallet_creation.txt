@@ -1,0 +1,8 @@
+wizard window=0x800006
+password window=0x800010
+--- open reply:
+method return time=1786283908.418753 sender=:1.3 -> destination=:1.2 serial=15 reply_serial=2
+   int32 1623678864
+--- wallet files:
+-rw------- 1 suspect suspect 56 Aug  9 13:58 /home/suspect/.local/share/kwalletd/kdewallet.salt
+-rw------- 1 suspect suspect 148 Aug  9 13:58 /home/suspect/.local/share/kwalletd/kdewallet.kwl

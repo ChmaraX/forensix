@@ -1,0 +1,4 @@
+kwalletd5 live (non-zombie): 0
+chrome running:    0
+on session bus:    0
+SOURCE COLD

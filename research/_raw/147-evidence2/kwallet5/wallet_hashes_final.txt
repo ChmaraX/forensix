@@ -1,0 +1,2 @@
+3abfc6aafc954414cd700119cb164be35c4a0b36a594058619a80eaeee03bc61  /home/suspect/.local/share/kwalletd/kdewallet.kwl
+7aa7fc9ca359fe60d79085b821781868862b6d92e49e759d7b836ca103177fc9  /home/suspect/.local/share/kwalletd/kdewallet.salt

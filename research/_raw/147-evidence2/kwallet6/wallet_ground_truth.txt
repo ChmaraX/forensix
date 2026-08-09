@@ -1,0 +1,13 @@
+handle=176949569
+-- folderList:
+   array [
+      string "Chrome Keys"
+      string "Form Data"
+      string "Passwords"
+   ]
+-- entryList(Chrome Keys):
+   array [
+      string "Chrome Safe Storage"
+   ]
+-- readPassword(Chrome Keys/Chrome Safe Storage):
+   string "44LWBxnVnQ76ZRCYpQ/HfA=="

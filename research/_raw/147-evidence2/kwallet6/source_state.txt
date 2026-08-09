@@ -1,0 +1,4 @@
+kwalletd6 running: 3
+chrome running:    0
+on session bus:    0
+SOURCE COLD

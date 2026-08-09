@@ -1,0 +1,117 @@
+########## WRITE TRACE: hashes before ##########
+7af186ad779015d2f46e89469d585c843ba9a5285c6b30cb1345493612b69ccb  /evidence/working_copy/xdg_data/kwalletd/kdewallet.kwl
+413b32617f8ca6568e882f059e601446fa19ae605d225f3940f64bf95e2f1653  /evidence/working_copy/xdg_data/kwalletd/kdewallet.salt
+9fa1b296f606d4004a3fb014c76b8b6a064aa96068d0bfc38325e36d855e94bf  /evidence/working_copy/user_data/Default/Cookies
+
+########## C0  positive control — correct password, correct selectors ##########
+  "label": "C0-positive",
+  "secret_matches_source_ground_truth": true,
+  "status": "ok",
+  "matched": 5,
+  "mismatched": 0,
+
+########## C1  INCORRECT wallet password ##########
+  "label": "C1-wrong-password",
+  "status": "unavailable",
+  "reason": "kwl-wrong-password-or-corrupt (size field out of range)"
+
+########## C2  correct password, WRONG folder selector (Chromium, not Chrome) ##########
+  "label": "C2-wrong-folder",
+  "status": "unavailable",
+  "reason": "kwallet-folder-absent:Chromium Keys|present:['Chrome Keys', 'Form Data', 'Passwords']"
+
+########## C3  correct password, WRONG entry-key selector ##########
+  "label": "C3-wrong-key-selector",
+  "status": "unavailable",
+  "reason": "kwallet-entry-absent:Chromium Safe Storage|present:['Chrome Safe Storage']"
+
+########## C4  WRONG wallet name (configuration mismatch) ##########
+  "label": "C4-wrong-wallet-name",
+  "status": "unavailable",
+  "reason": "kwallet-named-wallet-absent:notmywallet"
+
+########## C5  MISSING store directory ##########
+  "label": "C5-store-absent",
+  "status": "unavailable",
+  "reason": "kwallet-store-absent"
+
+########## C6  EMPTY store directory (no .kwl at all) ##########
+  "label": "C6-store-empty",
+  "status": "unavailable",
+  "reason": "kwallet-store-empty"
+
+########## C7  MULTIPLE wallet files, no wallet named ##########
+  "label": "C7-multiple-wallets",
+  "status": "unavailable",
+  "reason": "kwallet-multiple-wallets-ambiguous:2:kdewallet.kwl,second.kwl"
+
+########## C7b MULTIPLE wallet files, wallet named explicitly (must still work) ##########
+  "label": "C7b-multiple-disambiguated",
+  "status": "ok",
+  "matched": 5,
+  "mismatched": 0,
+
+########## C8  SALT FILE MISSING (PBKDF2 wallet cannot be keyed) ##########
+  "label": "C8-salt-absent",
+  "status": "unavailable",
+  "reason": "kwallet-salt-file-absent"
+
+########## C9  MUTATED wallet (one bit flipped in the ciphertext) ##########
+  "label": "C9-mutated-wallet",
+  "status": "unavailable",
+  "reason": "kwl-payload-sha1-mismatch (wrong password or mutated file)"
+
+########## C10-kdewallet  unsupported cipher/hash header variant ##########
+  "label": "C10-kdewallet",
+  "status": "unavailable",
+  "reason": "kwl-gpg-wallet-needs-private-key"
+
+########## C10-ecbwallet  unsupported cipher/hash header variant ##########
+  "label": "C10-ecbwallet",
+  "status": "unavailable",
+  "reason": "kwl-legacy-ecb-wallet-untested"
+
+########## C10-oldhash  unsupported cipher/hash header variant ##########
+  "label": "C10-oldhash",
+  "status": "unavailable",
+  "reason": "kwl-legacy-sha1-hash-untested"
+
+########## C10-des  unsupported cipher/hash header variant ##########
+  "label": "C10-des",
+  "status": "unavailable",
+  "reason": "kwl-unsupported-cipher:1"
+
+########## C10-badmagic  unsupported cipher/hash header variant ##########
+  "label": "C10-badmagic",
+  "status": "unavailable",
+  "reason": "kwl-bad-magic"
+
+########## C11 WRONG key material (correct wallet bypassed, bogus secret forced) ##########
+  "label": "C11-wrong-key",
+  "status": "failed",
+  "matched": 0,
+  "mismatched": 5,
+mutated row: fx_ascii
+
+########## C12 MUTATED row ciphertext (one bit) ##########
+  "label": "C12-mutated-ciphertext",
+  "status": "partial",
+  "matched": 4,
+  "mismatched": 1,
+      "unavailable": "cbc-padding-invalid"
+
+########## WRITE TRACE: hashes after ##########
+7af186ad779015d2f46e89469d585c843ba9a5285c6b30cb1345493612b69ccb  /evidence/working_copy/xdg_data/kwalletd/kdewallet.kwl
+413b32617f8ca6568e882f059e601446fa19ae605d225f3940f64bf95e2f1653  /evidence/working_copy/xdg_data/kwalletd/kdewallet.salt
+9fa1b296f606d4004a3fb014c76b8b6a064aa96068d0bfc38325e36d855e94bf  /evidence/working_copy/user_data/Default/Cookies
+
+########## ISOLATION TRACE ##########
+kwallet packages installed : 0
+chrome packages installed  : 0
+gnome-keyring/libsecret    : 0
+dbus daemon processes      : 0
+0
+DBUS_SESSION_BUS_ADDRESS   : '<unset>'
+any kwalletd binary        : none
+network interfaces         : bonding_masters erspan0 gre0 gretap0 ip6_vti0 ip6gre0 ip6tnl0 ip_vti0 sit0 tunl0 
+sockets open               : 1

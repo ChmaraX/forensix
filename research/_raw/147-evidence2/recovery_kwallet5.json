@@ -1,0 +1,42 @@
+{
+  "label": "KWallet5 (Ubuntu 24.04, kwalletd5)",
+  "route": "direct-parse",
+  "selector": {
+    "folder": "Chrome Keys",
+    "key": "Chrome Safe Storage"
+  },
+  "secret_source": "direct:/evidence/working_copy/xdg_data/kwalletd",
+  "secret_len": 24,
+  "derived_key_sha256": "5567d5d2e14e1d72",
+  "secret_matches_source_ground_truth": true,
+  "status": "ok",
+  "matched": 5,
+  "mismatched": 0,
+  "rows": {
+    "fx_ascii": {
+      "interp": "domain-prefixed",
+      "matches_known": true,
+      "match_form": "stored-verbatim"
+    },
+    "fx_block16": {
+      "interp": "domain-prefixed",
+      "matches_known": true,
+      "match_form": "stored-verbatim"
+    },
+    "fx_empty_ish": {
+      "interp": "domain-prefixed",
+      "matches_known": true,
+      "match_form": "stored-verbatim"
+    },
+    "fx_long": {
+      "interp": "domain-prefixed",
+      "matches_known": true,
+      "match_form": "stored-verbatim"
+    },
+    "fx_nonascii": {
+      "interp": "domain-prefixed",
+      "matches_known": true,
+      "match_form": "percent-decoded"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+distro: Debian GNU/Linux 13 (trixie) aarch64
+kwallet6: 6.13.0-1
+libkf6wallet: 6.13.0-1
+kwalletd6 binary: /usr/bin/kwalletd6
+chrome: Google Chrome 151.0.7922.108 
+password-store token: kwallet6
+wallet name: kdewallet
