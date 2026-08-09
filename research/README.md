@@ -21,6 +21,7 @@ produced with live primary-source access and cite the ref/sha they read against:
 - **`143-timestamp-epoch-version-matrix.md`** — see below
 - **`144-offline-oscrypt-key-recovery.md`** — live primary-source research with unresolved recovery paths explicitly marked untested
 - **`145-epoch-family-resolver-design.md`** (partial — see below)
+- **`155-blockfile-format.md`** — see below
 
 The blanket warning in this section does **not** apply to those files.
 
@@ -61,6 +62,20 @@ cited with the ref/sha or URL read. Everything else in the file is design reason
 already-landed research (`#143`, `CONTEXT.md`) and is marked inline as such — it is not a second
 independent verification pass over `#143`'s facts.
 
+### `155-blockfile-format.md` — the exception (and partially bytes-verified, not just source-fetched)
+
+That brief was produced with live access to Chromium source over gitiles, pinned to the same M151
+revision (`28a7a6c4`) as `#141`/`#143`. It goes one step further than the other exceptions in this
+section: it also checks its claims against **real captured bytes**, not just live source. The `index`
+file header (magic, version, and every field through `num_bytes`/`corruption_detected`) is checked
+field-by-field against the branded-Windows capture in
+`research/artifacts/152-branded-cache/windows-desktop-evidence/` (branch
+`research/152-cache-backend-branded`), including a cross-check where the header's `last_file` count
+matches the independently-observed count of `f_######` files exactly. Everything past the index
+header — block-file headers, the allocation bitmap, `EntryStore`, `RankingsNode`, and the `f_######`
+files themselves — is explicitly flagged **source-only**: no real bytes for those structures exist in
+the `#152` evidence, and the brief says so rather than presenting source-derived claims as verified.
+
 ### `122-legal-constraints-decryption.md` — read this warning
 
 That brief discusses computer-misuse statutes. It is **not legal advice**, it is
@@ -81,3 +96,4 @@ consequence. It exists to frame a design discussion on
 | `143-timestamp-epoch-version-matrix.md` | [#143](https://github.com/ChmaraX/forensix/issues/143) | Which epoch family every Chrome timestamp column uses, and at which `meta.version` it changed — **live primary sources**, evidence in `_raw/143-part-1..4-*.md` |
 | `144-offline-oscrypt-key-recovery.md` | [#144](https://github.com/ChmaraX/forensix/issues/144) | Whether Chrome OSCrypt keys can be recovered offline from real macOS Keychain, Linux keyring/wallet, and legacy Windows DPAPI evidence — **live primary sources**, copied-store paths explicitly untested |
 | `145-epoch-family-resolver-design.md` | [#145](https://github.com/ChmaraX/forensix/issues/145) | How ForensiX resolves a timestamp's Epoch Family, given that `meta.version` alone cannot decide it — **partial live primary sources** (Chromium process-singleton source, `hindsight` tool source), builds on `#143`/`143-timestamp-epoch-table.yaml` |
+| `155-blockfile-format.md` | [#155](https://github.com/ChmaraX/forensix/issues/155) | The on-disk structure of Chromium's blockfile disk cache, precisely enough to write a reader — **live primary sources**, index-header claims **bytes-verified** against `research/artifacts/152-branded-cache/`; block-file/entry/rankings claims are source-only pending a fuller capture |
