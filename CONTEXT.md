@@ -58,6 +58,14 @@ Seeded from [Forensic integrity model](https://github.com/ChmaraX/forensix/issue
 
 **Declared Timezone** — the suspect's timezone, stated by the investigator. No Chrome artifact records the timezone as a setting. One History column persists a locally-derived value from which an offset can be recovered (see #143). ForensiX does not use it to derive a timezone. Defaults to UTC and is always labelled as declared, never derived. The host's timezone is never used.
 
+## Case
+
+**Case** — one examination. Holds every Manifest, row, Candidate, Finding and audit entry produced from one or more Sources. The record of truth: the only place ForensiX writes analysis, and the only thing an Export is derived from.
+
+**Case Directory** — what a Case occupies on disk: the Case file, and the Working Copy beside it. The Case file is independently valid and hashable. The Working Copy is referenced by path and by **Working Copy Digest**, and is never embedded in the Case file.
+
+**Analysis Run** — one execution of analysis against a Case. Every emitted row is attributed to the run that produced it.
+
 ## Export
 
 **Export** — a bundle of artifacts leaving ForensiX for use outside it. Derived from a Case, never a system of record.
