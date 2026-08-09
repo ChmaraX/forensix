@@ -1,0 +1,15 @@
+=== kwalletd6 on bus: 1 ===
+=== chrome: Google Chrome 151.0.7922.108  ===
+=== kwallet6: 6.13.0-1 ===
+
+### RUNNING token=kwallet rc=0 oscrypt_lines=8
+Histogram: OSCrypt.EncryptorKeyCount.Available recorded 1 samples, mean = 1.0 (flags = 0x1)
+Histogram: OSCrypt.FreedesktopSecretKeyProvider.InitStatus recorded 1 samples, mean = 12.0 (flags = 0x1)
+Histogram: OSCrypt.FreedesktopSecretKeyProvider.KWalletNoService.ErrorDetail recorded 1 samples, mean = 0.0 (flags = 0x1)
+Histogram: OSCrypt.SecretPortalKeyProvider.InitStatus recorded 1 samples, mean = 1.0 (flags = 0x1)
+### RUNNING token=kwallet5 rc=0 oscrypt_lines=0
+### RUNNING token=kwallet6 rc=0 oscrypt_lines=0
+
+=== kwalletd6 killed; on bus now: 0 ===
+
+### STOPPED token=kwallet6 rc=0 oscrypt_lines=0

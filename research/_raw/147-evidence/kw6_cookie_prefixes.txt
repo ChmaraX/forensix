@@ -1,0 +1,13 @@
+kwalletd6 on bus: 1
+########## PWSTORE=kwallet
+recorded 5 known plaintext cookies
+chrome exited rc= 0
+  fx_nonascii      prefix=b'v10' len=163
+DISTINCT PREFIXES: ['v10']
+Histogram: OSCrypt.FreedesktopSecretKeyProvider.InitStatus recorded 1 samples, mean = 12.0 (flags = 0x1)
+Histogram: OSCrypt.FreedesktopSecretKeyProvider.KWalletNoService.ErrorDetail recorded 1 samples, mean = 0.0 (flags = 0x1)
+Histogram: OSCrypt.SecretPortalKeyProvider.InitStatus recorded 1 samples, mean = 1.0 (flags = 0x1)
+########## PWSTORE=kwallet6
+recorded 5 known plaintext cookies
+chrome exited rc= -9
+NO COOKIE ROWS FOUND

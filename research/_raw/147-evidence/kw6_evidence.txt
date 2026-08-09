@@ -1,0 +1,19 @@
+=== Source under test ===
+Google Chrome 151.0.7922.108 
+google-chrome-stable: 151.0.7922.108-1 arm64
+kwallet6: 6.13.0-1
+libpam-kwallet5: 6.3.4-1
+distro: Debian GNU/Linux 13 (trixie)
+kernel: aarch64
+
+=== Chrome D-Bus names sought ===
+org.kde.kwalletd
+org.kde.kwalletd5
+org.kde.kwalletd6
+
+=== kwalletd6 saw Chrome connect ===
+Application "Google Chrome" using kwallet without parent window!
+
+=== wallet artefacts produced ===
+/home/suspect/.local/share/kwalletd/kdewallet.salt
+(.kwl files: 0)

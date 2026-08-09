@@ -1,0 +1,25 @@
+kwalletd5 processes alive : 5
+kwalletd5 names on bus    : 0
+
+### token=kwallet5 chrome_rc=0 oscrypt_lines=0
+
+### token=kwallet6 chrome_rc=0 oscrypt_lines=8
+Histogram: OSCrypt.AsyncInitialization.Time recorded 1 samples, mean = 53.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount recorded 1 samples, mean = 3.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount.Available recorded 1 samples, mean = 1.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount.PermanentlyUnavailable recorded 1 samples, mean = 1.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount.TemporarilyUnavailable recorded 1 samples, mean = 1.0 (flags = 0x1)
+Histogram: OSCrypt.FreedesktopSecretKeyProvider.InitStatus recorded 1 samples, mean = 12.0 (flags = 0x1)
+Histogram: OSCrypt.FreedesktopSecretKeyProvider.KWalletNoService.ErrorDetail recorded 1 samples, mean = 0.0 (flags = 0x1)
+Histogram: OSCrypt.SecretPortalKeyProvider.InitStatus recorded 1 samples, mean = 1.0 (flags = 0x1)
+
+### token=kwallet chrome_rc=0 oscrypt_lines=8
+Histogram: OSCrypt.AsyncInitialization.Time recorded 1 samples, mean = 48.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount recorded 1 samples, mean = 3.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount.Available recorded 1 samples, mean = 1.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount.PermanentlyUnavailable recorded 1 samples, mean = 1.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount.TemporarilyUnavailable recorded 1 samples, mean = 1.0 (flags = 0x1)
+Histogram: OSCrypt.FreedesktopSecretKeyProvider.InitStatus recorded 1 samples, mean = 12.0 (flags = 0x1)
+Histogram: OSCrypt.FreedesktopSecretKeyProvider.KWalletNoService.ErrorDetail recorded 1 samples, mean = 0.0 (flags = 0x1)
+Histogram: OSCrypt.SecretPortalKeyProvider.InitStatus recorded 1 samples, mean = 1.0 (flags = 0x1)
+

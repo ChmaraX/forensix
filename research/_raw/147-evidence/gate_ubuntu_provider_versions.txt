@@ -1,0 +1,20 @@
+=== chrome ===
+Google Chrome 151.0.7922.108 
+ii  google-chrome-stable 151.0.7922.108-1 arm64        The web browser from Google
+
+=== kwallet provider stack ===
+libkf5wallet-bin: %{Version}
+libkwalletbackend5-5: %{Version}
+libpam-kwallet5: %{Version}
+kwalletcli: %{Version}
+kwalletd6: NOT-AVAILABLE-ON-UBUNTU-24.04
+distro: Ubuntu 24.04.4 LTS
+kernel: aarch64
+
+=== pam-login support ===
+kwalletd5 --pam-login => Unknown option (see kwalletd.log)
+kwalletd5: Unknown option 'pam-login'.
+libkf5wallet-bin: 5.115.0-0ubuntu3
+libkwalletbackend5-5: 5.115.0-0ubuntu3
+libpam-kwallet5: 4:5.27.11-0ubuntu2
+kwalletcli: 3.03-1build2

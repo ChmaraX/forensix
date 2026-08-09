@@ -1,0 +1,36 @@
+# 147 — reachability gate image (KWallet5 on Ubuntu 24.04, branded Chrome arm64).
+#
+# Base is the same pre-existing local image used by #149, carrying BRANDED
+# Google Chrome for linux arm64 (google-chrome-stable 151.0.7922.108-1 arm64)
+# plus Xvfb/fluxbox/dbus-x11/xdotool. This layer only adds the KWallet stack.
+#
+# Provider availability on this base (Ubuntu 24.04.4 LTS, arm64), established by
+# apt-cache policy rather than assumed:
+#   kwalletd5  -> libkf5wallet-bin 5.115.0-0ubuntu3   AVAILABLE
+#   kwalletd6  -> no such package in noble            UNOBTAINABLE on this base
+# KWallet6 therefore needs a different base (Debian trixie) and is handled
+# separately; KWallet4 is unobtainable on any current arm64 distro.
+#
+# The gate answers ONE question before any Source is built:
+#   does branded Chrome M151 accept kwallet/kwallet5/kwallet6, and does it
+#   actually reach KWalletKeyProvider under Xvfb?
+FROM forensix-chrome-desktop:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libkf5wallet-bin \
+      libkwalletbackend5-5 \
+      libpam-kwallet5 \
+      kwalletcli \
+      python3 \
+      python3-cryptography \
+      sqlite3 \
+      socat \
+      gpg gpg-agent \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -s /bin/bash suspect || true
+
+WORKDIR /work
+CMD ["sleep", "infinity"]

@@ -1,0 +1,32 @@
+# 147 — KWallet6 Source image (Debian trixie, arm64) with BRANDED Google Chrome.
+#
+# Ubuntu 24.04 (the #149 base) has NO kwalletd6 package, and its kwalletd5
+# 5.115.0 does not accept --pam-login, so a password wallet there always needs
+# the KDE dialog. Debian trixie ships kwallet6 6.13.0, whose kwalletd6 DOES
+# accept --pam-login — the documented headless unlock hook. That makes the
+# password-protected wallet variant reachable without a GUI.
+FROM debian:trixie-slim
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      wget curl gnupg ca-certificates coreutils procps \
+      xvfb fluxbox dbus-x11 x11-utils xdotool \
+      kwallet6 libpam-kwallet5 kwalletcli \
+      fonts-liberation libnss3 libxss1 \
+      python3 python3-cryptography sqlite3 \
+      xxd file jq socat locales-all libxcb-cursor0 \
+      gpg gpg-agent \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget -q -O /tmp/gk.pub https://dl.google.com/linux/linux_signing_key.pub \
+    && install -d -m 0755 /etc/apt/keyrings \
+    && gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg /tmp/gk.pub \
+    && echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+       > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update && apt-get install -y --no-install-recommends google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -s /bin/bash suspect
+
+WORKDIR /work
+CMD ["sleep", "infinity"]
