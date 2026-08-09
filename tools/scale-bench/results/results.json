@@ -1,0 +1,1580 @@
+{
+  "environment": {
+    "node_version": "v24.11.1",
+    "arch": "arm64",
+    "platform": "darwin",
+    "v8_heap_size_limit_bytes": 4496293888,
+    "max_string_length_units": 536870888,
+    "better_sqlite3_version": "12.2.0",
+    "sqlite_version": "3.50.2",
+    "journal_mode": "wal",
+    "synchronous": 2,
+    "cache_size": -16000,
+    "temp_store": 0,
+    "mmap_size": 0,
+    "page_size": 4096,
+    "cpu_model": "Apple M3 Pro",
+    "cpu_count": 12,
+    "total_mem_bytes": 19327352832,
+    "maxrss_units": "KiB (empirically verified on this Node build, not assumed from docs)",
+    "generated_at": "2026-08-09T12:23:39.075Z"
+  },
+  "generation": [
+    {
+      "rows": 10000,
+      "arm": "plain",
+      "generate_ms": 29.250208,
+      "case_file_bytes": 851968,
+      "wal_bytes": 0
+    },
+    {
+      "rows": 10000,
+      "arm": "candidates",
+      "generate_ms": 36.971583,
+      "case_file_bytes": 1429504,
+      "wal_bytes": 0
+    },
+    {
+      "rows": 100000,
+      "arm": "plain",
+      "generate_ms": 230.130834,
+      "case_file_bytes": 8409088,
+      "wal_bytes": 0
+    },
+    {
+      "rows": 100000,
+      "arm": "candidates",
+      "generate_ms": 343.566916,
+      "case_file_bytes": 14393344,
+      "wal_bytes": 0
+    },
+    {
+      "rows": 1000000,
+      "arm": "plain",
+      "generate_ms": 4058.967208,
+      "case_file_bytes": 85385216,
+      "wal_bytes": 0
+    },
+    {
+      "rows": 1000000,
+      "arm": "candidates",
+      "generate_ms": 4795.947458,
+      "case_file_bytes": 146505728,
+      "wal_bytes": 0
+    }
+  ],
+  "runs": [
+    {
+      "op": "cold_open",
+      "rows": 10000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 5,
+          "p50_ms": 0.515083,
+          "p95_ms": 2.251959,
+          "max_ms": 2.251959,
+          "min_ms": 0.387084
+        }
+      },
+      "maxRSS": 47360,
+      "platform": "darwin"
+    },
+    {
+      "op": "first_page",
+      "rows": 10000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.05075,
+          "p95_ms": 0.105375,
+          "max_ms": 0.247125,
+          "min_ms": 0.047792
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 156,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 9,
+            "parent": 0,
+            "notused": 38,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ]
+      },
+      "maxRSS": 47968,
+      "platform": "darwin"
+    },
+    {
+      "op": "deep_page",
+      "rows": 10000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.084083,
+          "p95_ms": 0.182125,
+          "max_ms": 0.397334,
+          "min_ms": 0.057417
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 119,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 38,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "cursor": {
+          "visit_time": 13429982205240000,
+          "id": 9000
+        }
+      },
+      "maxRSS": 48112,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_indexed",
+      "rows": 10000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.057334,
+          "p95_ms": 0.062167,
+          "max_ms": 0.243542,
+          "min_ms": 0.051375
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 147,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 38,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "threshold": 13426863618675000
+      },
+      "maxRSS": 48128,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_nonindexed",
+      "rows": 10000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 10,
+          "p50_ms": 2.169958,
+          "p95_ms": 2.27725,
+          "max_ms": 2.27725,
+          "min_ms": 2.131875
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 121,
+            "detail": "SCAN u"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 56,
+            "detail": "SEARCH v USING INDEX idx_visits_url (url=?)"
+          },
+          {
+            "id": 39,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          }
+        ],
+        "threshold": 50000
+      },
+      "maxRSS": 47952,
+      "platform": "darwin"
+    },
+    {
+      "op": "attribution",
+      "rows": 10000,
+      "arm": "plain",
+      "result": {
+        "eqp": [
+          {
+            "id": 5,
+            "parent": 0,
+            "notused": 156,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 38,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "p1_engine_ms": 2.000125,
+        "p2_raw_ms": 9.277667,
+        "p3_object_ms": 12.678708,
+        "p4_ndjson_ms": 13.675917
+      },
+      "maxRSS": 53984,
+      "platform": "darwin",
+      "trials": [
+        {
+          "p1": 2.000125,
+          "p2": 9.1225,
+          "p3": 12.048375,
+          "p4": 13.675917
+        },
+        {
+          "p1": 1.962,
+          "p2": 9.277667,
+          "p3": 12.678708,
+          "p4": 13.566291
+        },
+        {
+          "p1": 2.120917,
+          "p2": 10.026875,
+          "p3": 13.527,
+          "p4": 15.026583
+        }
+      ]
+    },
+    {
+      "op": "export",
+      "rows": 10000,
+      "arm": "plain",
+      "result": {
+        "ms": 33.360666,
+        "rows_out": 10000,
+        "bytes_out": 1864906,
+        "candidates_rows_out": 0,
+        "candidates_bytes_out": 0,
+        "extract_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-10000-plain/extract-visits.ndjson"
+      },
+      "maxRSS": 58160,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 33.360666,
+          "maxRSS": 58160
+        },
+        {
+          "ms": 51.3405,
+          "maxRSS": 58736
+        },
+        {
+          "ms": 29.331458,
+          "maxRSS": 58144
+        }
+      ]
+    },
+    {
+      "op": "report",
+      "rows": 10000,
+      "arm": "plain",
+      "result": {
+        "ms": 9.3225,
+        "rows_scanned": 10000,
+        "dom_nodes": 370,
+        "report_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-10000-plain/report.html",
+        "bytes": 8412
+      },
+      "maxRSS": 53152,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 9.717791,
+          "maxRSS": 52944
+        },
+        {
+          "ms": 9.3225,
+          "maxRSS": 53152
+        },
+        {
+          "ms": 9.23925,
+          "maxRSS": 53040
+        }
+      ]
+    },
+    {
+      "op": "cold_open",
+      "rows": 10000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 5,
+          "p50_ms": 0.519833,
+          "p95_ms": 2.255792,
+          "max_ms": 2.255792,
+          "min_ms": 0.45075
+        }
+      },
+      "maxRSS": 47344,
+      "platform": "darwin"
+    },
+    {
+      "op": "first_page",
+      "rows": 10000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.049291,
+          "p95_ms": 0.05625,
+          "max_ms": 0.22625,
+          "min_ms": 0.047166
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 156,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 9,
+            "parent": 0,
+            "notused": 38,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ]
+      },
+      "maxRSS": 48048,
+      "platform": "darwin"
+    },
+    {
+      "op": "deep_page",
+      "rows": 10000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.058208,
+          "p95_ms": 0.064791,
+          "max_ms": 0.299125,
+          "min_ms": 0.052792
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 119,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 38,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "cursor": {
+          "visit_time": 13429982206365000,
+          "id": 9000
+        }
+      },
+      "maxRSS": 47984,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_indexed",
+      "rows": 10000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.061542,
+          "p95_ms": 0.120833,
+          "max_ms": 0.362458,
+          "min_ms": 0.054917
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 147,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 38,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "threshold": 13426863619800000
+      },
+      "maxRSS": 47968,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_nonindexed",
+      "rows": 10000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 10,
+          "p50_ms": 2.315458,
+          "p95_ms": 2.352542,
+          "max_ms": 2.352542,
+          "min_ms": 2.182042
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 121,
+            "detail": "SCAN u"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 56,
+            "detail": "SEARCH v USING INDEX idx_visits_url (url=?)"
+          },
+          {
+            "id": 39,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          }
+        ],
+        "threshold": 50000
+      },
+      "maxRSS": 47920,
+      "platform": "darwin"
+    },
+    {
+      "op": "attribution",
+      "rows": 10000,
+      "arm": "candidates",
+      "result": {
+        "eqp": [
+          {
+            "id": 5,
+            "parent": 0,
+            "notused": 156,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 38,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "p1_engine_ms": 1.906167,
+        "p2_raw_ms": 8.855208,
+        "p3_object_ms": 11.916417,
+        "p4_ndjson_ms": 13.719875
+      },
+      "maxRSS": 54016,
+      "platform": "darwin",
+      "trials": [
+        {
+          "p1": 1.906167,
+          "p2": 9.020541,
+          "p3": 11.540667,
+          "p4": 13.719875
+        },
+        {
+          "p1": 1.915292,
+          "p2": 8.7095,
+          "p3": 11.916417,
+          "p4": 13.140834
+        },
+        {
+          "p1": 1.905292,
+          "p2": 8.855208,
+          "p3": 12.590041,
+          "p4": 14.050917
+        }
+      ]
+    },
+    {
+      "op": "export",
+      "rows": 10000,
+      "arm": "candidates",
+      "result": {
+        "ms": 46.34475,
+        "rows_out": 10000,
+        "bytes_out": 1864906,
+        "candidates_rows_out": 9019,
+        "candidates_bytes_out": 1151818,
+        "extract_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-10000-candidates/extract-visits.ndjson"
+      },
+      "maxRSS": 60336,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 46.34475,
+          "maxRSS": 60336
+        },
+        {
+          "ms": 45.095417,
+          "maxRSS": 60240
+        },
+        {
+          "ms": 47.242375,
+          "maxRSS": 60032
+        }
+      ]
+    },
+    {
+      "op": "report",
+      "rows": 10000,
+      "arm": "candidates",
+      "result": {
+        "ms": 9.294,
+        "rows_scanned": 10000,
+        "dom_nodes": 370,
+        "report_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-10000-candidates/report.html",
+        "bytes": 8412
+      },
+      "maxRSS": 53104,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 9.294,
+          "maxRSS": 53104
+        },
+        {
+          "ms": 9.418333,
+          "maxRSS": 53008
+        },
+        {
+          "ms": 9.184,
+          "maxRSS": 53072
+        }
+      ]
+    },
+    {
+      "op": "cold_open",
+      "rows": 100000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 5,
+          "p50_ms": 0.539167,
+          "p95_ms": 2.415875,
+          "max_ms": 2.415875,
+          "min_ms": 0.483792
+        }
+      },
+      "maxRSS": 47424,
+      "platform": "darwin"
+    },
+    {
+      "op": "first_page",
+      "rows": 100000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.057625,
+          "p95_ms": 0.065333,
+          "max_ms": 0.269459,
+          "min_ms": 0.05075
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 190,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 9,
+            "parent": 0,
+            "notused": 40,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ]
+      },
+      "maxRSS": 48208,
+      "platform": "darwin"
+    },
+    {
+      "op": "deep_page",
+      "rows": 100000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.05675,
+          "p95_ms": 0.087583,
+          "max_ms": 0.270458,
+          "min_ms": 0.0545
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 152,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 40,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "cursor": {
+          "visit_time": 13429973725974000,
+          "id": 90000
+        }
+      },
+      "maxRSS": 48176,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_indexed",
+      "rows": 100000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.054125,
+          "p95_ms": 0.063291,
+          "max_ms": 0.227333,
+          "min_ms": 0.052167
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 180,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 40,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "threshold": 13426868659739000
+      },
+      "maxRSS": 48272,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_nonindexed",
+      "rows": 100000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 10,
+          "p50_ms": 28.800583,
+          "p95_ms": 39.749709,
+          "max_ms": 39.749709,
+          "min_ms": 27.727125
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 154,
+            "detail": "SCAN u"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 57,
+            "detail": "SEARCH v USING INDEX idx_visits_url (url=?)"
+          },
+          {
+            "id": 39,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          }
+        ],
+        "threshold": 50000
+      },
+      "maxRSS": 54752,
+      "platform": "darwin"
+    },
+    {
+      "op": "attribution",
+      "rows": 100000,
+      "arm": "plain",
+      "result": {
+        "eqp": [
+          {
+            "id": 5,
+            "parent": 0,
+            "notused": 190,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 40,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "p1_engine_ms": 18.199334,
+        "p2_raw_ms": 100.402333,
+        "p3_object_ms": 129.031917,
+        "p4_ndjson_ms": 143.011166
+      },
+      "maxRSS": 62048,
+      "platform": "darwin",
+      "trials": [
+        {
+          "p1": 18.986125,
+          "p2": 99.129042,
+          "p3": 129.031917,
+          "p4": 146.077167
+        },
+        {
+          "p1": 18.199334,
+          "p2": 104.644583,
+          "p3": 136.455959,
+          "p4": 143.011166
+        },
+        {
+          "p1": 16.70325,
+          "p2": 100.402333,
+          "p3": 124.253708,
+          "p4": 139.876125
+        }
+      ]
+    },
+    {
+      "op": "export",
+      "rows": 100000,
+      "arm": "plain",
+      "result": {
+        "ms": 243.362917,
+        "rows_out": 100000,
+        "bytes_out": 18822983,
+        "candidates_rows_out": 0,
+        "candidates_bytes_out": 0,
+        "extract_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-100000-plain/extract-visits.ndjson"
+      },
+      "maxRSS": 72384,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 208.842583,
+          "maxRSS": 72656
+        },
+        {
+          "ms": 243.362917,
+          "maxRSS": 72384
+        },
+        {
+          "ms": 260.511666,
+          "maxRSS": 72448
+        }
+      ]
+    },
+    {
+      "op": "report",
+      "rows": 100000,
+      "arm": "plain",
+      "result": {
+        "ms": 63.799792,
+        "rows_scanned": 100000,
+        "dom_nodes": 370,
+        "report_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-100000-plain/report.html",
+        "bytes": 8427
+      },
+      "maxRSS": 61520,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 63.232875,
+          "maxRSS": 61680
+        },
+        {
+          "ms": 63.799792,
+          "maxRSS": 61520
+        },
+        {
+          "ms": 64.619791,
+          "maxRSS": 61744
+        }
+      ]
+    },
+    {
+      "op": "cold_open",
+      "rows": 100000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 5,
+          "p50_ms": 0.545792,
+          "p95_ms": 2.443791,
+          "max_ms": 2.443791,
+          "min_ms": 0.45775
+        }
+      },
+      "maxRSS": 47488,
+      "platform": "darwin"
+    },
+    {
+      "op": "first_page",
+      "rows": 100000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.055292,
+          "p95_ms": 0.058583,
+          "max_ms": 0.24775,
+          "min_ms": 0.051042
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 190,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 9,
+            "parent": 0,
+            "notused": 40,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ]
+      },
+      "maxRSS": 48208,
+      "platform": "darwin"
+    },
+    {
+      "op": "deep_page",
+      "rows": 100000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.061333,
+          "p95_ms": 0.094334,
+          "max_ms": 0.325917,
+          "min_ms": 0.054167
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 152,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 40,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "cursor": {
+          "visit_time": 13429973731554000,
+          "id": 90000
+        }
+      },
+      "maxRSS": 48240,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_indexed",
+      "rows": 100000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.059416,
+          "p95_ms": 0.108625,
+          "max_ms": 0.300541,
+          "min_ms": 0.052125
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 180,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 40,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "threshold": 13426868665319000
+      },
+      "maxRSS": 48240,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_nonindexed",
+      "rows": 100000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 10,
+          "p50_ms": 30.212916,
+          "p95_ms": 34.1055,
+          "max_ms": 34.1055,
+          "min_ms": 27.829959
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 154,
+            "detail": "SCAN u"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 57,
+            "detail": "SEARCH v USING INDEX idx_visits_url (url=?)"
+          },
+          {
+            "id": 39,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          }
+        ],
+        "threshold": 50000
+      },
+      "maxRSS": 54720,
+      "platform": "darwin"
+    },
+    {
+      "op": "attribution",
+      "rows": 100000,
+      "arm": "candidates",
+      "result": {
+        "eqp": [
+          {
+            "id": 5,
+            "parent": 0,
+            "notused": 190,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 40,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "p1_engine_ms": 18.512083,
+        "p2_raw_ms": 109.685792,
+        "p3_object_ms": 133.967375,
+        "p4_ndjson_ms": 155.358041
+      },
+      "maxRSS": 62048,
+      "platform": "darwin",
+      "trials": [
+        {
+          "p1": 19.770459,
+          "p2": 106.851459,
+          "p3": 129.543625,
+          "p4": 141.634625
+        },
+        {
+          "p1": 18.127208,
+          "p2": 111.651542,
+          "p3": 133.967375,
+          "p4": 172.124042
+        },
+        {
+          "p1": 18.512083,
+          "p2": 109.685792,
+          "p3": 136.3185,
+          "p4": 155.358041
+        }
+      ]
+    },
+    {
+      "op": "export",
+      "rows": 100000,
+      "arm": "candidates",
+      "result": {
+        "ms": 528.089916,
+        "rows_out": 100000,
+        "bytes_out": 18822983,
+        "candidates_rows_out": 89936,
+        "candidates_bytes_out": 11755088,
+        "extract_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-100000-candidates/extract-visits.ndjson"
+      },
+      "maxRSS": 75456,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 668.779958,
+          "maxRSS": 77488
+        },
+        {
+          "ms": 528.089916,
+          "maxRSS": 75456
+        },
+        {
+          "ms": 520.157,
+          "maxRSS": 76336
+        }
+      ]
+    },
+    {
+      "op": "report",
+      "rows": 100000,
+      "arm": "candidates",
+      "result": {
+        "ms": 85.693042,
+        "rows_scanned": 100000,
+        "dom_nodes": 370,
+        "report_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-100000-candidates/report.html",
+        "bytes": 8427
+      },
+      "maxRSS": 61712,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 95.668208,
+          "maxRSS": 61712
+        },
+        {
+          "ms": 75.016958,
+          "maxRSS": 61840
+        },
+        {
+          "ms": 85.693042,
+          "maxRSS": 61712
+        }
+      ]
+    },
+    {
+      "op": "cold_open",
+      "rows": 1000000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 5,
+          "p50_ms": 0.798958,
+          "p95_ms": 9.105125,
+          "max_ms": 9.105125,
+          "min_ms": 0.449833
+        }
+      },
+      "maxRSS": 47536,
+      "platform": "darwin"
+    },
+    {
+      "op": "first_page",
+      "rows": 1000000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.067042,
+          "p95_ms": 0.29625,
+          "max_ms": 0.700417,
+          "min_ms": 0.058542
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 223,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 9,
+            "parent": 0,
+            "notused": 43,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ]
+      },
+      "maxRSS": 48256,
+      "platform": "darwin"
+    },
+    {
+      "op": "deep_page",
+      "rows": 1000000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.065791,
+          "p95_ms": 0.078042,
+          "max_ms": 0.436917,
+          "min_ms": 0.064083
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 187,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 43,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "cursor": {
+          "visit_time": 13429983931562000,
+          "id": 900000
+        }
+      },
+      "maxRSS": 48352,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_indexed",
+      "rows": 1000000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.0635,
+          "p95_ms": 0.074125,
+          "max_ms": 0.502208,
+          "min_ms": 0.0605
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 213,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 43,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "threshold": 13426873581909000
+      },
+      "maxRSS": 48432,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_nonindexed",
+      "rows": 1000000,
+      "arm": "plain",
+      "result": {
+        "timing": {
+          "n": 10,
+          "p50_ms": 1049.520667,
+          "p95_ms": 1590.145625,
+          "max_ms": 1590.145625,
+          "min_ms": 885.177833
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 187,
+            "detail": "SCAN u"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 58,
+            "detail": "SEARCH v USING INDEX idx_visits_url (url=?)"
+          },
+          {
+            "id": 39,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          }
+        ],
+        "threshold": 50000
+      },
+      "maxRSS": 67664,
+      "platform": "darwin"
+    },
+    {
+      "op": "attribution",
+      "rows": 1000000,
+      "arm": "plain",
+      "result": {
+        "eqp": [
+          {
+            "id": 5,
+            "parent": 0,
+            "notused": 223,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 43,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "p1_engine_ms": 190.383833,
+        "p2_raw_ms": 1337.541959,
+        "p3_object_ms": 1644.383458,
+        "p4_ndjson_ms": 1884.504292
+      },
+      "maxRSS": 73312,
+      "platform": "darwin",
+      "trials": [
+        {
+          "p1": 200.308209,
+          "p2": 1340.594917,
+          "p3": 1719.079042,
+          "p4": 1884.504292
+        },
+        {
+          "p1": 190.383833,
+          "p2": 1276.608292,
+          "p3": 1644.383458,
+          "p4": 1736.938125
+        },
+        {
+          "p1": 185.568791,
+          "p2": 1337.541959,
+          "p3": 1605.992708,
+          "p4": 2130.818
+        }
+      ]
+    },
+    {
+      "op": "export",
+      "rows": 1000000,
+      "arm": "plain",
+      "result": {
+        "ms": 2791.630958,
+        "rows_out": 1000000,
+        "bytes_out": 190032740,
+        "candidates_rows_out": 0,
+        "candidates_bytes_out": 0,
+        "extract_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-1000000-plain/extract-visits.ndjson"
+      },
+      "maxRSS": 91600,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 3014.168334,
+          "maxRSS": 91440
+        },
+        {
+          "ms": 2791.630958,
+          "maxRSS": 91600
+        },
+        {
+          "ms": 2695.807791,
+          "maxRSS": 91568
+        }
+      ]
+    },
+    {
+      "op": "report",
+      "rows": 1000000,
+      "arm": "plain",
+      "result": {
+        "ms": 597.001875,
+        "rows_scanned": 1000000,
+        "dom_nodes": 370,
+        "report_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-1000000-plain/report.html",
+        "bytes": 8454
+      },
+      "maxRSS": 86576,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 583.42225,
+          "maxRSS": 86848
+        },
+        {
+          "ms": 614.136291,
+          "maxRSS": 86704
+        },
+        {
+          "ms": 597.001875,
+          "maxRSS": 86576
+        }
+      ]
+    },
+    {
+      "op": "cold_open",
+      "rows": 1000000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 5,
+          "p50_ms": 0.450125,
+          "p95_ms": 2.252,
+          "max_ms": 2.252,
+          "min_ms": 0.427208
+        }
+      },
+      "maxRSS": 47360,
+      "platform": "darwin"
+    },
+    {
+      "op": "first_page",
+      "rows": 1000000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.059584,
+          "p95_ms": 0.0775,
+          "max_ms": 0.268125,
+          "min_ms": 0.054625
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 223,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 9,
+            "parent": 0,
+            "notused": 43,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ]
+      },
+      "maxRSS": 48288,
+      "platform": "darwin"
+    },
+    {
+      "op": "deep_page",
+      "rows": 1000000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.062792,
+          "p95_ms": 0.071875,
+          "max_ms": 0.26475,
+          "min_ms": 0.060709
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 187,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 43,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "cursor": {
+          "visit_time": 13429984007569000,
+          "id": 900000
+        }
+      },
+      "maxRSS": 48256,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_indexed",
+      "rows": 1000000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 30,
+          "p50_ms": 0.063458,
+          "p95_ms": 0.092292,
+          "max_ms": 0.326625,
+          "min_ms": 0.061042
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 213,
+            "detail": "SEARCH v USING INDEX idx_visits_time (visit_time>?)"
+          },
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 43,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "threshold": 13426873657916000
+      },
+      "maxRSS": 48160,
+      "platform": "darwin"
+    },
+    {
+      "op": "filter_sort_nonindexed",
+      "rows": 1000000,
+      "arm": "candidates",
+      "result": {
+        "timing": {
+          "n": 10,
+          "p50_ms": 954.157917,
+          "p95_ms": 1361.31825,
+          "max_ms": 1361.31825,
+          "min_ms": 901.624625
+        },
+        "eqp": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 187,
+            "detail": "SCAN u"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 58,
+            "detail": "SEARCH v USING INDEX idx_visits_url (url=?)"
+          },
+          {
+            "id": 39,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          }
+        ],
+        "threshold": 50000
+      },
+      "maxRSS": 67488,
+      "platform": "darwin"
+    },
+    {
+      "op": "attribution",
+      "rows": 1000000,
+      "arm": "candidates",
+      "result": {
+        "eqp": [
+          {
+            "id": 5,
+            "parent": 0,
+            "notused": 223,
+            "detail": "SCAN v USING INDEX idx_visits_time"
+          },
+          {
+            "id": 8,
+            "parent": 0,
+            "notused": 43,
+            "detail": "SEARCH u USING INTEGER PRIMARY KEY (rowid=?)"
+          }
+        ],
+        "p1_engine_ms": 191.466625,
+        "p2_raw_ms": 1352.124584,
+        "p3_object_ms": 1633.035333,
+        "p4_ndjson_ms": 1809.495083
+      },
+      "maxRSS": 73328,
+      "platform": "darwin",
+      "trials": [
+        {
+          "p1": 194.812167,
+          "p2": 1319.831875,
+          "p3": 1633.035333,
+          "p4": 1809.495083
+        },
+        {
+          "p1": 191.466625,
+          "p2": 1352.124584,
+          "p3": 1590.446167,
+          "p4": 1815.999083
+        },
+        {
+          "p1": 185.649875,
+          "p2": 1406.196958,
+          "p3": 1691.956959,
+          "p4": 1755.295375
+        }
+      ]
+    },
+    {
+      "op": "export",
+      "rows": 1000000,
+      "arm": "candidates",
+      "result": {
+        "ms": 4680.404042,
+        "rows_out": 1000000,
+        "bytes_out": 190032740,
+        "candidates_rows_out": 899458,
+        "candidates_bytes_out": 120269560,
+        "extract_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-1000000-candidates/extract-visits.ndjson"
+      },
+      "maxRSS": 101904,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 4480.893125,
+          "maxRSS": 101984
+        },
+        {
+          "ms": 4680.404042,
+          "maxRSS": 101904
+        },
+        {
+          "ms": 5492.129667,
+          "maxRSS": 101776
+        }
+      ]
+    },
+    {
+      "op": "report",
+      "rows": 1000000,
+      "arm": "candidates",
+      "result": {
+        "ms": 655.011875,
+        "rows_scanned": 1000000,
+        "dom_nodes": 370,
+        "report_path": "/Users/adamchmara/projects/forensix/tools/scale-bench/data/out-1000000-candidates/report.html",
+        "bytes": 8454
+      },
+      "maxRSS": 84352,
+      "platform": "darwin",
+      "trials": [
+        {
+          "ms": 655.011875,
+          "maxRSS": 84352
+        },
+        {
+          "ms": 644.359708,
+          "maxRSS": 86704
+        },
+        {
+          "ms": 669.611792,
+          "maxRSS": 85552
+        }
+      ]
+    }
+  ]
+}

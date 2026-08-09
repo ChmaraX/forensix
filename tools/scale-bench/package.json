@@ -1,0 +1,17 @@
+{
+  "name": "scale-bench",
+  "version": "1.0.0",
+  "description": "ChmaraX/forensix#159 — Case query and Export latency at 10^4/10^5/10^6 History rows",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "bench": "node harness/run_bench.js",
+    "report": "node harness/make_report.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.2.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
