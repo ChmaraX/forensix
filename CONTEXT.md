@@ -12,7 +12,13 @@ Seeded from [Forensic integrity model](https://github.com/ChmaraX/forensix/issue
 
 **Profile** — one Chrome profile directory (`Default`, `Profile 1`, …) inside a User Data Dir.
 
-**Acquisition Bundle** — a source that arrives with a manifest made at acquisition time. The only source kind about which ForensiX can make a claim predating its own ingest.
+**Acquisition Bundle** — a source that arrives with a manifest made at acquisition time. The only source kind about which ForensiX can make a claim predating its own ingest. Produced by the Collector.
+
+**Collector** — the ForensiX program that acquires from a live machine and emits an Acquisition Bundle. A separate program from the analysis tool, bound by different rules: it is the only part of ForensiX permitted to read a live key store.
+
+**Selection Policy** — the named, versioned rule that decides which files a Collector or an Ingest takes as content. Recorded in every Manifest header. A per-case change is recorded as a diff against the named version, never applied silently.
+
+**Scan Record** — what a Collector looked for on a machine, what it found, and what it could not open. Keeps an unreadable user account distinct from an absent one.
 
 **Ingest** — the moment ForensiX first reads a source and records its hashes. ForensiX's chain of custody begins here.
 
@@ -20,9 +26,15 @@ Seeded from [Forensic integrity model](https://github.com/ChmaraX/forensix/issue
 
 ## Integrity
 
-**Manifest** — the per-file record of a source: path, size, hash, mtime, and file kind. The primary integrity artifact.
+**Manifest** — the per-file record of a source: path, size, hash, mtime, node type, file kind, and whether the file was copied. **Exhaustive over the source** — a file that is not copied still has a line, including its hash. The primary integrity artifact.
 
-**Evidence Set Digest** — a single hash derived from the manifest. Reproducible outside ForensiX with standard tools. Never the primary record.
+**Node Type** — what a Manifest entry is: `file`, `symlink`, `socket`, `dir`, or `absent`. For anything but `file`, the hash covers the recorded representation — a symlink's target text — and never dereferenced content.
+
+**Unclassified** — a file the Selection Policy does not name in any tier. Manifested and hashed, content not taken, and reported as a count. Makes an unknown artifact visible as a path.
+
+**Evidence Set Digest** — a single hash derived from the whole Manifest, so it covers the source as found. Reproducible outside ForensiX with standard tools. Never the primary record.
+
+**Working Copy Digest** — the same construction over the copied subset only. Distinct from the Evidence Set Digest, and never a substitute for it.
 
 **Liveness Evidence** — files whose value is that they show the browser was running: `SingletonLock` (a symlink encoding host and pid), `RunningChromeVersion`. Destroyed by a naive copy.
 
