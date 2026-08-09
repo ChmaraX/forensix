@@ -1,0 +1,2 @@
+    "/Users/adamchmara/Library/Keychains/login.keychain-db"
+    "/Library/Keychains/System.keychain"

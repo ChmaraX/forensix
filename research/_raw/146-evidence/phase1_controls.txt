@@ -1,0 +1,37 @@
+
+##### C0 isolation trace BEFORE
+    "/Users/adamchmara/Library/Keychains/login.keychain-db"
+    "/Library/Keychains/System.keychain"
+
+##### C1 correct keychain password (positive reference)
+status=ok matched=5 reason=
+
+##### C2 INCORRECT keychain password
+status=unavailable matched=- reason=macos-keychain-credential-unavailable
+
+##### C3 MISSING Safe Storage item (correct keychain, no such item)
+status=unavailable matched=- reason=macos-safe-storage-item-absent
+
+##### C4 SELECTOR MISMATCH (Chromium service/account against a Chrome keychain)
+status=unavailable matched=- reason=macos-safe-storage-item-absent
+
+##### C5 MISSING keychain store entirely
+status=unavailable matched=- reason=missing-macos-keychain-store
+
+##### C6 COPIED KEYCHAIN MOVED to a different path (must still work)
+status=ok matched=5 reason=
+
+##### C7 DAMAGED keychain (header bytes destroyed)
+   destroyed header of /private/var/folders/by/ttf99m0s4_qbqfgs1jg8zjmh0000gn/T/pi-worktree-d763df4a-0/lab/damaged.keychain-db
+status=unavailable matched=- reason=macos-keychain-store-damaged
+
+##### C8 WRONG DERIVED KEY (correct format, wrong secret)
+status=failed matched=0 reason=
+
+##### C9 MUTATED CIPHERTEXT (byte flipped in the final AES block, correct key)
+   mutated ciphertext for fx_ascii
+status=partial fx_ascii={"unavailable": "cbc-padding-invalid"}
+
+##### C10 isolation trace AFTER
+    "/Users/adamchmara/Library/Keychains/login.keychain-db"
+    "/Library/Keychains/System.keychain"

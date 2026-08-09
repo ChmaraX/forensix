@@ -1,0 +1,25 @@
+146 PHASE 1 — CDP cookie persistence probe (host: adamchmara's Mac, Chrome 151.0.7922.76)
+
+Question: can known-plaintext cookies be injected over CDP for a Source build?
+Answer: NO. They never reach disk. The page must set them.
+
+Configurations tested, all with --user-data-dir on a fresh profile:
+  1. headless=new, domain=fx146.example, about:blank      -> 0 rows on disk, 0 in memory (cookie REJECTED)
+  2. headless=new, url=http://127.0.0.1:8899/             -> setCookie success:true, 0 rows on disk
+  3. headless=new, url=http://localhost:8899/             -> 5/5 reported in store, 0 rows on disk
+  4. HEADED,       url=http://localhost:8899/             -> 5/5 reported in store, 0 rows on disk
+  5. headed, explicit expires + sameSite, session=False   -> confirmed persistent semantics, 0 rows on disk
+  6. SIGTERM instead of Browser.close                     -> 0 rows, Cookies-journal 0 bytes
+  7. page sets document.cookie, then Browser.close        -> 5/5 ROWS ON DISK, all prefix v10
+
+Conclusions:
+- Network.setCookie returns success:true even when the cookie is rejected. The return
+  value is not evidence. Read the store back.
+- CDP-injected cookies stay process-resident and are lost on exit, clean or not.
+  This is #117's "live acquisition loses data through process memory" reproduced.
+- Cookies set by the PAGE persist normally and encrypt with the v10 prefix.
+- Storage.getCookies is the browser-endpoint method; Network.getAllCookies is a
+  page-session method and errors on the browser websocket.
+
+Row lengths from the working configuration (7) match #149's Linux run exactly:
+  fx_ascii 67, fx_block16 67, fx_empty_ish 51, fx_long 243, fx_nonascii 163

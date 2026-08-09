@@ -1,0 +1,16 @@
+=== [1] create a standalone keychain at an explicit path ===
+create-keychain rc=0
+=== [2] confirm the search list was NOT touched by creation ===
+    "/Users/adamchmara/Library/Keychains/login.keychain-db"
+    "/Library/Keychains/System.keychain"
+=== [3] plant a Safe Storage item shaped like Chrome's ===
+add-generic-password rc=0
+=== [4] lock it, so recovery must genuinely unlock ===
+lock-keychain rc=0
+=== [5] RECOVER by explicit path: unlock + find-generic-password ===
+unlock rc=0
+recovered_secret=c3ludGhldGljLXNlY3JldC0xNg==
+SECRET_MATCH=yes
+=== [6] search list AFTER all operations ===
+    "/Users/adamchmara/Library/Keychains/login.keychain-db"
+    "/Library/Keychains/System.keychain"

@@ -1,0 +1,43 @@
+{
+  "label": "PHASE1-POSITIVE",
+  "keychain": "/private/var/folders/by/ttf99m0s4_qbqfgs1jg8zjmh0000gn/T/pi-worktree-d763df4a-0/lab/synthetic.keychain-db",
+  "selector": "Chrome Safe Storage/Chrome",
+  "secret_source": "keychain:/private/var/folders/by/ttf99m0s4_qbqfgs1jg8zjmh0000gn/T/pi-worktree-d763df4a-0/lab/synthetic.keychain-db",
+  "secret_len": 28,
+  "derived_key_sha256": "e7ffac927e2d0d04",
+  "status": "ok",
+  "matched": 5,
+  "mismatched": 0,
+  "rows": {
+    "fx_ascii": {
+      "plaintext": "ForensiX-ASCII-146-KNOWN",
+      "interp": "raw",
+      "matches_known": true,
+      "match_form": "stored-verbatim"
+    },
+    "fx_nonascii": {
+      "plaintext": "ForensiX-ÁÉÍÓÚ-áéí-řšč-日本語-🔐",
+      "interp": "raw",
+      "matches_known": true,
+      "match_form": "stored-verbatim"
+    },
+    "fx_block16": {
+      "plaintext": "0123456789abcdef",
+      "interp": "raw",
+      "matches_known": true,
+      "match_form": "stored-verbatim"
+    },
+    "fx_long": {
+      "plaintext": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "interp": "raw",
+      "matches_known": true,
+      "match_form": "stored-verbatim"
+    },
+    "fx_empty_ish": {
+      "plaintext": "x",
+      "interp": "raw",
+      "matches_known": true,
+      "match_form": "stored-verbatim"
+    }
+  }
+}
