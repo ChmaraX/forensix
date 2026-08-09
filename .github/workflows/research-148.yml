@@ -1,0 +1,98 @@
+name: research-148-windows-dpapi-source
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  windows-source:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arm: [cft, branded-abe-off]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install driver deps
+        shell: bash
+        run: npm install puppeteer-core@23 @puppeteer/browsers@2
+
+      - name: Install Chrome for Testing (cft arm)
+        if: matrix.arm == 'cft'
+        shell: bash
+        run: npx @puppeteer/browsers install chrome@stable --path chrome
+
+      - name: Locate chrome + node
+        id: bins
+        shell: pwsh
+        run: |
+          if ('${{ matrix.arm }}' -eq 'cft') {
+            $exe = (Get-ChildItem -Path chrome -Recurse -Filter chrome.exe | Select-Object -First 1).FullName
+          } else {
+            $exe = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+            if (-not (Test-Path $exe)) { $exe = 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe' }
+          }
+          if (-not (Test-Path $exe)) { throw "no chrome for arm ${{ matrix.arm }}" }
+          "chrome=$exe" >> $env:GITHUB_OUTPUT
+          "node=$((Get-Command node).Source)" >> $env:GITHUB_OUTPUT
+          (Get-Item $exe).VersionInfo.ProductVersion | Write-Host
+
+      - name: Build Source (real Chrome, real DPAPI, as a dedicated user)
+        shell: pwsh
+        run: |
+          ./research/_raw/148-source.ps1 -Arm '${{ matrix.arm }}' `
+            -ChromeExe '${{ steps.bins.outputs.chrome }}' `
+            -NodeExe '${{ steps.bins.outputs.node }}' `
+            -Workspace "$PWD"
+
+      - name: Prove rows are legacy v10 (no decryption here)
+        shell: pwsh
+        run: python research/_raw/148-inspect.py "C:\Users\suspect\udd" "C:\lab\logs"
+
+      - name: Acquire s1-cold
+        shell: pwsh
+        run: ./research/_raw/148-acquire.ps1 -Snapshot 's1-cold' -OutRoot "$PWD/evidence"
+
+      - name: Password change as the user (CREDHIST case, cft arm)
+        if: matrix.arm == 'cft'
+        shell: pwsh
+        run: |
+          $old = 'F0rensiX-Src!2026#A'; $new = 'F0rensiX-Src!2026#B'
+          Set-Content C:\lab\chpw.cmd "powershell -NoProfile -Command `"([adsi]'WinNT://./suspect,user').ChangePassword('$old','$new'); 'rc='+`$?`" > C:\lab\logs\chpw.txt 2>&1" -Encoding ASCII
+          schtasks /create /tn fx148_chpw /tr C:\lab\chpw.cmd /sc once /st 23:59 /ru suspect /rp $old /rl LIMITED /f | Out-Null
+          schtasks /run /tn fx148_chpw | Out-Null
+          Start-Sleep -Seconds 12
+          schtasks /delete /tn fx148_chpw /f | Out-Null
+          Get-Content C:\lab\logs\chpw.txt -ErrorAction SilentlyContinue | Write-Host
+          # touch DPAPI once as the user under the NEW password so any re-protection lands on disk
+          Set-Content C:\lab\touch.cmd "powershell -NoProfile -Command `"Add-Type -AssemblyName System.Security; [System.Security.Cryptography.ProtectedData]::Protect([byte[]](1,2,3),`$null,'CurrentUser') | Out-Null`" > C:\lab\logs\touch.txt 2>&1" -Encoding ASCII
+          schtasks /create /tn fx148_touch /tr C:\lab\touch.cmd /sc once /st 23:59 /ru suspect /rp $new /rl LIMITED /f | Out-Null
+          schtasks /run /tn fx148_touch | Out-Null
+          Start-Sleep -Seconds 12
+          schtasks /delete /tn fx148_touch /f | Out-Null
+          'user-initiated ChangePassword old=' + $old + ' new=' + $new | Set-Content C:\lab\logs\password_change.txt
+
+      - name: Acquire s2-after-user-pwchange (cft arm)
+        if: matrix.arm == 'cft'
+        shell: pwsh
+        run: ./research/_raw/148-acquire.ps1 -Snapshot 's2-after-user-pwchange' -OutRoot "$PWD/evidence"
+
+      - name: Admin password reset (branded arm)
+        if: matrix.arm == 'branded-abe-off'
+        shell: pwsh
+        run: |
+          net user suspect 'F0rensiX-Src!2026#C' | Out-Host
+          'admin net-user reset new=F0rensiX-Src!2026#C' | Set-Content C:\lab\logs\password_change.txt
+
+      - name: Acquire s3-after-admin-reset (branded arm)
+        if: matrix.arm == 'branded-abe-off'
+        shell: pwsh
+        run: ./research/_raw/148-acquire.ps1 -Snapshot 's3-after-admin-reset' -OutRoot "$PWD/evidence"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-148-evidence-${{ matrix.arm }}
+          path: evidence/**
