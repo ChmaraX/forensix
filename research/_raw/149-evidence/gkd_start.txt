@@ -1,0 +1,1 @@
+discover_other_daemon: 1

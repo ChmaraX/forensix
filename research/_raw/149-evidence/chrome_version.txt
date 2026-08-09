@@ -1,0 +1,2 @@
+Google Chrome 151.0.7922.108 
+ii  google-chrome-stable 151.0.7922.108-1 arm64        The web browser from Google

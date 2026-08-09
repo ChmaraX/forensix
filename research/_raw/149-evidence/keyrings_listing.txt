@@ -1,0 +1,7 @@
+total 16
+drwx------ 2 suspect suspect 4096 Aug  9 10:49 .
+drwxr-xr-x 3 suspect suspect 4096 Aug  9 10:49 ..
+-rw------- 1 suspect suspect  582 Aug  9 10:49 login.keyring
+-rw------- 1 suspect suspect  207 Aug  9 10:49 user.keystore
+ls: cannot access '/home/suspect/.gnome2/keyrings/': No such file or directory
+(no legacy ~/.gnome2/keyrings)

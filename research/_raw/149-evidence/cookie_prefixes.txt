@@ -1,0 +1,7 @@
+--- /home/suspect/chrome-udd/Default/Cookies (5 rows) ---
+  fx_ascii         prefix=b'v11' len=67
+  fx_block16       prefix=b'v11' len=67
+  fx_empty_ish     prefix=b'v11' len=51
+  fx_long          prefix=b'v11' len=243
+  fx_nonascii      prefix=b'v11' len=163
+DISTINCT PREFIXES: ['v11']

@@ -1,0 +1,1 @@
+DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/dbus-0ICJdaLejQ,guid=f399db1f053c62d53f2650896a785b2d

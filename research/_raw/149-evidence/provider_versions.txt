@@ -1,0 +1,5 @@
+gnome-keyring-daemon: 46.1-2ubuntu0.2
+libsecret-1-0:        0.21.4-1build3
+libsecret-tools:      0.21.4-1build3
+distro:               Ubuntu 24.04.4 LTS
+kernel:               aarch64

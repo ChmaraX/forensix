@@ -1,0 +1,3 @@
+recorded 5 known plaintext cookies
+chrome exited rc= 0
+dom: b'<html><head></head><body>fx149</body></html>\n'

@@ -1,0 +1,7 @@
+Histogram: OSCrypt.AsyncInitialization.Time recorded 1 samples, mean = 303.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount recorded 1 samples, mean = 3.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount.Available recorded 1 samples, mean = 2.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount.PermanentlyUnavailable recorded 1 samples, mean = 0.0 (flags = 0x1)
+Histogram: OSCrypt.EncryptorKeyCount.TemporarilyUnavailable recorded 1 samples, mean = 1.0 (flags = 0x1)
+Histogram: OSCrypt.FreedesktopSecretKeyProvider.InitStatus recorded 1 samples, mean = 0.0 (flags = 0x1)
+Histogram: OSCrypt.SecretPortalKeyProvider.InitStatus recorded 1 samples, mean = 1.0 (flags = 0x1)
