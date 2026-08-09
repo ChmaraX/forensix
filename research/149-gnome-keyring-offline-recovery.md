@@ -31,9 +31,11 @@ Two differences from #153, which used Chrome for Testing and relied on desktop a
 
 Which of the two is decisive is **not** separated by this run — see §7.
 
-### Corrects a stated assumption on the #116 map
+### Platform note (corrects the experiment brief, not the map)
 
-**Branded Google Chrome DOES ship a Linux arm64 build at M151.** Verified: the Source image installs `google-chrome-stable` from `deb [arch=arm64] http://dl.google.com/linux/chrome/deb/ stable main`, and the installed binary reports `151.0.7922.108`. The map's acquisition notes assume otherwise.
+**Branded Google Chrome ships a Linux arm64 build at M151.** Verified: the Source image installs `google-chrome-stable` from `deb [arch=arm64] http://dl.google.com/linux/chrome/deb/ stable main`, and the installed binary reports `151.0.7922.108`.
+
+This contradicted the brief given to this experiment, which wrongly asserted that no such build exists and instructed the use of Chromium. It does **not** correct the #116 map, which makes no such claim — and [#152](https://github.com/ChmaraX/forensix/issues/152) had already run branded Chrome on a native ARM64 Linux desktop session. The error was local to this experiment's instructions.
 
 ### Note on binary-string evidence
 
@@ -171,7 +173,7 @@ Each is recorded as `unavailable(reason)`, not as a pass.
 - **[#153](https://github.com/ChmaraX/forensix/issues/153)** — its hypothesis 1 ("Chrome for Testing may lack the secret-service path") now has supporting evidence: branded Chrome reaches `FreedesktopSecretKeyProvider` on effectively the same rig. Not conclusive, because this run also added the explicit flag. #153 is **not** closed by this ticket.
 - **[#144](https://github.com/ChmaraX/forensix/issues/144)** — the GNOME Keyring row moves from `experimental` / INFERRED-UNTESTED to **LOCALLY-DEMONSTRATED for the libsecret/Secret-Service variant on this platform pair**. The KWallet and macOS rows are untouched.
 - **[#127](https://github.com/ChmaraX/forensix/issues/127)** — the 32-byte plaintext prefix and percent-encoding of non-ASCII values are fixture-relevant and belong in the parser specification.
-- **[#116](https://github.com/ChmaraX/forensix/issues/116)** — the "no branded Chrome on Linux arm64" assumption is wrong and should be struck.
+- **[#116](https://github.com/ChmaraX/forensix/issues/116)** — no correction. An earlier draft of this write-up claimed the map assumed branded Chrome has no Linux arm64 build. It does not, and #152 had already used one. That claim was withdrawn.
 
 ## 9. Reproduction
 
