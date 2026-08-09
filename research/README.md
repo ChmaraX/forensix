@@ -21,6 +21,7 @@ produced with live primary-source access and cite the ref/sha they read against:
 - **`143-timestamp-epoch-version-matrix.md`** — see below
 - **`144-offline-oscrypt-key-recovery.md`** — live primary-source research with unresolved recovery paths explicitly marked untested
 - **`145-epoch-family-resolver-design.md`** (partial — see below)
+- **`158-live-key-capture.md`** — live primary-source research with all platform behavior requiring desktop measurement explicitly marked untested
 
 The blanket warning in this section does **not** apply to those files.
 
@@ -81,3 +82,4 @@ consequence. It exists to frame a design discussion on
 | `143-timestamp-epoch-version-matrix.md` | [#143](https://github.com/ChmaraX/forensix/issues/143) | Which epoch family every Chrome timestamp column uses, and at which `meta.version` it changed — **live primary sources**, evidence in `_raw/143-part-1..4-*.md` |
 | `144-offline-oscrypt-key-recovery.md` | [#144](https://github.com/ChmaraX/forensix/issues/144) | Whether Chrome OSCrypt keys can be recovered offline from real macOS Keychain, Linux keyring/wallet, and legacy Windows DPAPI evidence — **live primary sources**, copied-store paths explicitly untested |
 | `145-epoch-family-resolver-design.md` | [#145](https://github.com/ChmaraX/forensix/issues/145) | How ForensiX resolves a timestamp's Epoch Family, given that `meta.version` alone cannot decide it — **partial live primary sources** (Chromium process-singleton source, `hindsight` tool source), builds on `#143`/`143-timestamp-epoch-table.yaml` |
+| `158-live-key-capture.md` | [#158](https://github.com/ChmaraX/forensix/issues/158) | What authorized live key material the Collector should preserve per platform, what operator unlocking requires, and whether live capture changes copied-store recovery or Windows `v20` — **live primary sources**, behavioral claims explicitly deferred to Cua VM measurement |
