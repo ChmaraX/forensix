@@ -22,6 +22,7 @@ produced with live primary-source access and cite the ref/sha they read against:
 - **`144-offline-oscrypt-key-recovery.md`** — live primary-source research with unresolved recovery paths explicitly marked untested
 - **`145-epoch-family-resolver-design.md`** (partial — see below)
 - **`155-blockfile-format.md`** — see below
+- **`159-scale-and-latency-evidence.md`** — every performance claim read live from sqlite.org, SQLite's own `src/select.c`, the `better-sqlite3` repo, `nodejs.org/api`, `web.dev`/`developer.chrome.com`, NN/g, DuckDB docs, `material-table` source and Chromium source at a pinned sha; fetch manifest at `_raw/159-fetch-manifest.md`. **It contains no ForensiX measurement** — no benchmark was run, and it must never be cited as one. The measurement itself is [#159](https://github.com/ChmaraX/forensix/issues/159)'s closing comment and `tools/scale-bench/results/results.md`.
 
 The blanket warning in this section does **not** apply to those files.
 
@@ -76,6 +77,29 @@ header — block-file headers, the allocation bitmap, `EntryStore`, `RankingsNod
 files themselves — is explicitly flagged **source-only**: no real bytes for those structures exist in
 the `#152` evidence, and the brief says so rather than presenting source-derived claims as verified.
 
+### `159-scale-and-latency-evidence.md` — primary-sourced, and it is NOT a measurement
+
+That brief is the evidence layer *under* [#159](https://github.com/ChmaraX/forensix/issues/159), not
+the benchmark itself. It carries three things: what the primary sources already document about the
+behaviour the run will hit (SQLite's `OFFSET`-discards-produced-rows mechanism from `src/select.c`,
+un-indexed `ORDER BY` as K·logK plus full temp materialisation, `better-sqlite3`'s `.raw()`/`.iterate()`
+guidance, Node's backpressure and `MAX_STRING_LENGTH` ceilings, Lighthouse DOM thresholds); an
+**externally sourced interactive latency budget** (NN/g 0.1/1/10 s, RAIL, INP) written by someone who
+had not seen the generator, so #159's discipline rule could be satisfied by pinning it to the ticket
+*before* the generator existed; and a measurement design with the confounder list and the probe
+decomposition that separates SQLite / serialisation / render cost.
+
+**The measurement itself lives elsewhere**, once it existed: `tools/scale-bench/` (harness) and
+`tools/scale-bench/results/results.md` (generated results, PASS/FAIL against the budget pinned in this
+file's §7). A reader who takes a ForensiX timing number from *this* file rather than from `results.md`
+has misread it — this file still contains none. It does not verify `better-sqlite3` 12.2.0's bundled
+SQLite version (docs were read at the repo's `master`, `13.0.3`), does not read V8's
+`String::kMaxLength` (fetch failed), sources `material-table` from `master` rather than the pinned
+`v1.69.3` tag, and cites Miller (1968) / Card et al. (1991) only as NN/g cites them — all quarantined
+in its verification queue (§10). Its highest-blast-radius item is a **correctness** finding, not a
+performance one: `material-table` 1.x filters and sorts only the array it holds, which under `#130`'s
+keyset contract is a single page.
+
 ### `122-legal-constraints-decryption.md` — read this warning
 
 That brief discusses computer-misuse statutes. It is **not legal advice**, it is
@@ -97,3 +121,4 @@ consequence. It exists to frame a design discussion on
 | `144-offline-oscrypt-key-recovery.md` | [#144](https://github.com/ChmaraX/forensix/issues/144) | Whether Chrome OSCrypt keys can be recovered offline from real macOS Keychain, Linux keyring/wallet, and legacy Windows DPAPI evidence — **live primary sources**, copied-store paths explicitly untested |
 | `145-epoch-family-resolver-design.md` | [#145](https://github.com/ChmaraX/forensix/issues/145) | How ForensiX resolves a timestamp's Epoch Family, given that `meta.version` alone cannot decide it — **partial live primary sources** (Chromium process-singleton source, `hindsight` tool source), builds on `#143`/`143-timestamp-epoch-table.yaml` |
 | `155-blockfile-format.md` | [#155](https://github.com/ChmaraX/forensix/issues/155) | The on-disk structure of Chromium's blockfile disk cache, precisely enough to write a reader — **live primary sources**, index-header claims **bytes-verified** against `research/artifacts/152-branded-cache/`; block-file/entry/rankings claims are source-only pending a fuller capture |
+| `159-scale-and-latency-evidence.md` | [#159](https://github.com/ChmaraX/forensix/issues/159) | What the primary sources already document about Case query and Export cost at 10⁴/10⁵/10⁶ rows, a pre-registered externally sourced interactive latency budget, and a measurement design that separates SQLite / serialisation / render cost — **live primary sources**, fetch manifest at `_raw/159-fetch-manifest.md`. **Not a measurement: no benchmark was run** — see `tools/scale-bench/results/results.md` for that. |
