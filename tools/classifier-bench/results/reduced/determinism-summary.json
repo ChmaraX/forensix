@@ -1,0 +1,36 @@
+{
+  "mode": "separate-process-determinism",
+  "arch": "arm64",
+  "tags": [
+    "main",
+    "det1",
+    "det2"
+  ],
+  "per_candidate": {
+    "potion-base-8M-labelsim-v2": {
+      "measured": true,
+      "runs": 3,
+      "match": true,
+      "raw_score_match": true,
+      "decision_hashes": [
+        "9b0e8a433ac624e38399de702207bdccd5d2b4849bab6227fb80c233efc0ccdb"
+      ],
+      "raw_score_hashes": [
+        "1d2a08c9f3dbcf2a7667198bc5ecb593c4c673f71280cb5bfa27df8ff2c3bc36"
+      ]
+    },
+    "bge-micro-v2-labelsim-v2": {
+      "measured": true,
+      "runs": 3,
+      "match": true,
+      "raw_score_match": true,
+      "decision_hashes": [
+        "46f39b999b4b7fb88b455029ad2360b0719da0ef22d80cc77544781372b918b2"
+      ],
+      "raw_score_hashes": [
+        "da255f8a0c03f3d7e772adb0bffb17162ef71eb103001f12605c9a535aa23cf6"
+      ]
+    }
+  },
+  "evidence_note": "Row-level artifacts for the repeat runs are not committed; their decision and raw-score digests are retained here, and that is what the determinism claim rests on. Regenerating this file without those runs present would LOSE evidence, so a previously measured candidate that can no longer be measured is a hard failure, never a silent downgrade to \"not measured\"."
+}

@@ -1,0 +1,119 @@
+{
+  "profile": "reduced-7-v1",
+  "phase": "A",
+  "downloaded_at": "2026-08-09T09:51:48.301Z",
+  "node_version": "v22.23.2",
+  "platform": "linux/arm64",
+  "models": [
+    {
+      "model_id": "minishlab/potion-base-8M",
+      "dir": "potion-base-8M",
+      "revision": "bf8b056651a2c21b8d2565580b8569da283cab23",
+      "files": [
+        {
+          "file": "onnx/model.onnx",
+          "bytes": 30240854,
+          "sha256": "da4c828fe012ec97f053278f363645b52c3815ec9a1d13d695ac901398c10f2e",
+          "verified_against_pin": true
+        },
+        {
+          "file": "tokenizer.json",
+          "bytes": 683666,
+          "sha256": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+          "verified_against_pin": false
+        },
+        {
+          "file": "tokenizer_config.json",
+          "bytes": 1431,
+          "sha256": "6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567",
+          "verified_against_pin": false
+        },
+        {
+          "file": "config.json",
+          "bytes": 202,
+          "sha256": "2a6ac0e9aaa356a68a5688070db78fc3a464fefe85d2f06a1905ce3718687553",
+          "verified_against_pin": false
+        },
+        {
+          "file": "special_tokens_map.json",
+          "bytes": 134,
+          "sha256": "a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59",
+          "verified_against_pin": false
+        },
+        {
+          "file": "vocab.txt",
+          "bytes": 219690,
+          "sha256": "1394523a67ddd404a825428018c0582a6998bcfa044ecbcbf1f4d71adb94c61c",
+          "verified_against_pin": false
+        },
+        {
+          "file": "modules.json",
+          "bytes": 278,
+          "sha256": "a68dcbed0429dcdd5bfdca92b0b03cc30d09122c0a3fcf4758787d4b244e45b2",
+          "verified_against_pin": false
+        }
+      ]
+    },
+    {
+      "model_id": "TaylorAI/bge-micro-v2",
+      "dir": "bge-micro-v2",
+      "revision": "3edf6d7de0faa426b09780416fe61009f26ae589",
+      "files": [
+        {
+          "file": "onnx/model_quantized.onnx",
+          "bytes": 17409774,
+          "sha256": "ed65e36025aa94cb74207dab863c85452919ec0ab7df3512092932aa22c9a33a",
+          "verified_against_pin": true
+        },
+        {
+          "file": "tokenizer.json",
+          "bytes": 711661,
+          "sha256": "cb374d6bc042c22455946f4e09a89d29882a199fdaf8fb25be00dc8b8857a448",
+          "verified_against_pin": false
+        },
+        {
+          "file": "tokenizer_config.json",
+          "bytes": 1564,
+          "sha256": "dd949ead2951e7ea7d28aa67da9c351d09563b424bc9747115f4660a826390ea",
+          "verified_against_pin": false
+        },
+        {
+          "file": "config.json",
+          "bytes": 745,
+          "sha256": "86d7047bf568a9263c7020fb4950741b19b1df3de3539385d83d9e3df1e56c5b",
+          "verified_against_pin": false
+        },
+        {
+          "file": "special_tokens_map.json",
+          "bytes": 228,
+          "sha256": "cb63d0cbbf45160dc9cd786a257759593b798ae0c72957011016dbc3972df4e4",
+          "verified_against_pin": false
+        },
+        {
+          "file": "vocab.txt",
+          "bytes": 231508,
+          "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+          "verified_against_pin": false
+        },
+        {
+          "file": "added_tokens.json",
+          "bytes": 82,
+          "sha256": "909e96cb32d92ce728a01bc99850cbba26196d74115c17ebeb019275412588f2",
+          "verified_against_pin": false
+        },
+        {
+          "file": "modules.json",
+          "bytes": 229,
+          "sha256": "8f4b264b80206c830bebbdcae377e137925650a433b689343a63bdc9b3145460",
+          "verified_against_pin": false
+        },
+        {
+          "file": "1_Pooling/config.json",
+          "bytes": 270,
+          "sha256": "4fff808dd5634889dc20e89268de2b842b8ff4345519ecc5d71985cdaf124c5b",
+          "verified_against_pin": false
+        }
+      ]
+    }
+  ]
+}

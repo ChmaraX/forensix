@@ -1,0 +1,84 @@
+{
+  "_source": "Post-benchmark reduced-category experiment for ChmaraX/forensix#137",
+  "_note": "Seven broad labels derived from the frozen 20-label taxonomy. This taxonomy was selected after the original benchmark and is exploratory, not an independent confirmation result.",
+  "_supervision_note": "Candidates receive only each reduced label's name, question, and boundary. No fixture URL, title, domain, rationale, or example is present in this file.",
+  "_mapping_note": "source_labels defines a deterministic many-to-one projection from the original gold labels. A row with no in-scope source label maps to unclassified. No row is relabelled by model output.",
+  "variant_id": "reduced-7-v1",
+  "overlay_in_scope": false,
+  "core": [
+    {
+      "id": "communication_social",
+      "name": "Communication & Social",
+      "special_category": false,
+      "question": "Which communication or social services appear in the browsing history?",
+      "boundary": "Webmail, chat, voice, meetings, social networks, forums, communities, professional networks, blogs, and dating services.",
+      "source_labels": ["webmail_messaging_voice", "social_media"]
+    },
+    {
+      "id": "search_query",
+      "name": "Search, Reference & Education",
+      "special_category": false,
+      "question": "What did the subject search for, research, or learn?",
+      "boundary": "Search results, reference material, courses, academic sites, institutional sites, and instructional material.",
+      "source_labels": ["search_query", "reference_education_howto"]
+    },
+    {
+      "id": "news_entertainment",
+      "name": "News & Entertainment",
+      "special_category": false,
+      "question": "What news or leisure content did the subject consume?",
+      "boundary": "Press, current affairs, video, audio, music, film, television, sport, games, humour, celebrity, comics, and animation.",
+      "source_labels": ["news_current_affairs", "entertainment_streaming_gaming"]
+    },
+    {
+      "id": "technology_work",
+      "name": "Technology, Work & File Transfer",
+      "special_category": false,
+      "question": "Which technology, work, development, storage, or transfer services appear?",
+      "boundary": "Software, developer resources, product documentation, administration tools, code hosting, cloud storage, document collaboration, and file transfer.",
+      "source_labels": ["technology_software_dev", "employment_job_seeking", "file_sharing_cloud_storage"]
+    },
+    {
+      "id": "shopping_finance",
+      "name": "Shopping & Finance",
+      "special_category": false,
+      "question": "Which purchases, marketplaces, banks, payments, or financial services appear?",
+      "boundary": "Retail, auctions, classifieds, marketplaces, property listings, banking, payments, brokerage, insurance, tax, and accounting.",
+      "source_labels": ["shopping_marketplace", "finance_banking"]
+    },
+    {
+      "id": "travel_transport_accommodation",
+      "name": "Travel, Transport & Accommodation",
+      "special_category": false,
+      "question": "Does the browsing history show travel, routing, transport, or accommodation?",
+      "boundary": "Booking services, carriers, accommodation, maps, routing, and local transport.",
+      "source_labels": ["travel_transport_accommodation"]
+    },
+    {
+      "id": "unclassified",
+      "name": "Unclassified / Outside reduced scope",
+      "special_category": false,
+      "question": "Does this row lack enough signal, or fall outside the six displayed categories?",
+      "boundary": "Rows with insufficient signal and rows whose only original labels are outside this reduced taxonomy. This is a catch-all, not a content claim.",
+      "source_labels": []
+    }
+  ],
+  "excluded_source_labels": [
+    "cryptocurrency_exchanges",
+    "health_medical",
+    "adult_sexual_content",
+    "gambling",
+    "anonymity_privacy_tooling",
+    "hacking_security_tooling",
+    "ads_trackers_infrastructure",
+    "unclassified"
+  ],
+  "mutually_exclusive": [
+    ["unclassified", "communication_social"],
+    ["unclassified", "search_query"],
+    ["unclassified", "news_entertainment"],
+    ["unclassified", "technology_work"],
+    ["unclassified", "shopping_finance"],
+    ["unclassified", "travel_transport_accommodation"]
+  ]
+}

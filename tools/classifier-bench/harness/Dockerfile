@@ -18,12 +18,14 @@ WORKDIR /app
 COPY harness/package.json harness/package-lock.json ./
 RUN npm ci --ignore-scripts
 
-COPY harness/download.js harness/run_bench.js harness/make_leaderboard.js harness/compare_runs.js ./
+COPY harness/download.js harness/download_reduced.js harness/run_bench.js harness/run_reduced.js ./
+COPY harness/make_leaderboard.js harness/make_reduced_report.js harness/compare_runs.js ./
 COPY harness/models.js harness/expected_artifacts.json harness/ut1_category_map.json ./
 COPY harness/lib ./lib
 COPY harness/candidates ./candidates
 COPY harness/test ./test
-COPY taxonomy.json /app-root/taxonomy.json
+COPY taxonomy.json taxonomy-reduced.json /app-root/
+COPY scripts/make_reduced_fixture.js /app-root/scripts/make_reduced_fixture.js
 COPY fixture /app-root/fixture
 
 ENV BENCH_ROOT=/app-root

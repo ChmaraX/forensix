@@ -465,6 +465,43 @@ pins reconstruction fidelity and idempotence. `results.json._generator.rescored_
 `inference_rerun: false` and the exact field split, so no reader can mistake a recomputed
 number for a re-measured one.
 
+### 10b. Reduced-category follow-up
+
+After the 20-label run, the owner requested a small follow-up: merge the taxonomy into six
+broad displayed categories plus `unclassified`, and run only Potion 8M and BGE Micro. The
+original fixture remains unchanged. `scripts/make_reduced_fixture.js` deterministically maps
+its labels into `fixture/fixture_reduced.json`; rows with no in-scope source label map to
+`unclassified / outside reduced scope`.
+
+The follow-up used the original candidate operating points. It did not calibrate a threshold
+on the fixture. For these label-similarity models, the reduced label name, question and
+boundary text are the complete supervision. That text was authored after the first results,
+which is the strongest reason this run is exploratory rather than independent confirmation.
+
+Phase A downloaded only the two required pinned models. Phase B ran three separate arm64
+processes with `--network none`; both candidates matched at the decision and raw-score levels
+across all three processes. This follow-up is arm64-only and adds no cross-architecture result.
+The original §7 run found one BGE label-set difference on amd64. Full evidence is in
+`results/reduced/`.
+
+| Candidate | 7-label macro-F1 | Micro-F1 | Coverage | Domain-cluster 95% CI |
+|---|---:|---:|---:|---:|
+| BGE Micro | **0.440** | 0.462 | 74.0% | 0.374–0.542 |
+| Potion 8M | **0.395** | 0.485 | 98.6% | 0.237–0.436 |
+
+The reduced score is higher than each model's 20-label point estimate, but the values are not
+directly comparable because the target changed. The reduction did not reach the owner's
+provisional 0.6 macro-F1 gate. The two intervals overlap, `unclassified` F1 is 0.188 for BGE
+and 0 for Potion, and several displayed categories remain below 0.5 F1. Fewer categories
+helped, but did not turn either zero-shot label-similarity model into a reliable classifier.
+
+This run is post-hoc by construction: the reduced taxonomy was selected after reading the
+first results. It is useful product evidence, but not an independent confirmation result.
+Coverage also counts `unclassified` as abstention, including a correct catch-all prediction,
+so the 74.0% and 98.6% values must be read with each model's `unclassified` F1. The reduced
+fixture retains the `search_query` identifier for the wider Search, Reference & Education
+label so the shared in-site-search validation rule remains applicable.
+
 ## 11. What #126 still needs before it can decide
 
 - **Ground truth for `adult_sexual_content`** — genuinely unmeasured, not merely low. A

@@ -44,6 +44,28 @@ Under Docker binary emulation on an arm64 host the NLI candidate did not
 finish inside a two-hour bound, so that configuration is reported as **not
 measured** rather than estimated. See `research/137-harness.md` §7.
 
+## Reduced-category experiment
+
+A post-benchmark experiment maps the frozen 20-label fixture into six broad
+displayed categories plus `unclassified`, then runs only Potion 8M and BGE
+Micro. It does not change or replace the original benchmark.
+
+```bash
+cd tools/classifier-bench
+./scripts/reproduce_reduced.sh
+```
+
+The script downloads only the two required pinned models, runs three separate
+offline inference processes, tests the generated artifacts, and writes
+`results/reduced/`. The mapping is deterministic and reproducible with
+`scripts/make_reduced_fixture.js`.
+
+This experiment is explicitly post-hoc: the reduced taxonomy and its label text
+were selected after the 20-label results were known, and that text is the models'
+complete supervision. Treat the result as product exploration, not an independent
+confirmation benchmark. The committed run is arm64-only; it adds no new
+cross-architecture evidence.
+
 ## Collect only (a run already exists in its volumes)
 
 ```bash
