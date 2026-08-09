@@ -1,0 +1,4 @@
+chrome_path=C:\Program Files\Google\Chrome\Application\chrome.exe
+chrome_arch_dir=Program Files — 64-bit install
+chrome_version_output=
+os_version=Microsoft Windows NT 10.0.26100.0

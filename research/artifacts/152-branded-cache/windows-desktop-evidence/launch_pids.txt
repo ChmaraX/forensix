@@ -1,0 +1,4 @@
+launch1_pid=9112
+launch1_graceful_close=False
+launch2_pid=872
+launch2_graceful_close=True

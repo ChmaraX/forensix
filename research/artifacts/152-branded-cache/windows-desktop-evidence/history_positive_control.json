@@ -1,0 +1,20 @@
+{
+  "history_path": "D:\\a\\forensix\\forensix\\udd\\Default\\History",
+  "exists": true,
+  "sidecar-journal_present": true,
+  "urls_count": 19,
+  "visits_count": 19,
+  "sample_urls": [
+    "https://httpbin.org/uuid",
+    "https://en.wikipedia.org/wiki/Cache_(computing)",
+    "https://www.rfc-editor.org/",
+    "https://news.ycombinator.com/",
+    "https://en.wikipedia.org/wiki/Web_cache",
+    "https://en.wikipedia.org/wiki/HTTP_cookie",
+    "https://en.wikipedia.org/wiki/Chromium_(web_browser)",
+    "https://developer.mozilla.org/en-US/",
+    "https://developer.mozilla.org/",
+    "https://httpbin.org/cookies/set/testcookie/testvalue"
+  ],
+  "verdict": "LIVE \u2014 19 urls, 19 visits recorded"
+}
