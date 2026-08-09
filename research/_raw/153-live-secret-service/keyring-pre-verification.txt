@@ -1,0 +1,26 @@
+Before launching Chrome, the Secret Service was verified working end-to-end from
+outside Chrome:
+
+$ dbus-send --session --print-reply --dest=org.freedesktop.secrets \
+    /org/freedesktop/secrets/aliases/default org.freedesktop.DBus.Properties.Get \
+    string:org.freedesktop.Secret.Collection string:Label
+  variant  string "login"
+
+$ dbus-send --session --print-reply --dest=org.freedesktop.secrets \
+    /org/freedesktop/secrets/collection/login org.freedesktop.DBus.Properties.Get \
+    string:org.freedesktop.Secret.Collection string:Locked
+  variant  boolean false
+
+$ echo -n "hunter2" | secret-tool store --label="forensix153 test" service forensix153-test account tester
+(rc=0)
+
+$ secret-tool lookup service forensix153-test account tester
+hunter2
+
+$ secret-tool search service forensix153-test account tester
+[/1]
+label = forensix153 test
+secret = hunter2
+schema = org.freedesktop.Secret.Generic
+attribute.account = tester
+attribute.service = forensix153-test

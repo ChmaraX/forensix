@@ -1,0 +1,519 @@
+[5005:5005:0809/110410.329957:VERBOSE1:chrome/app/chrome_crash_reporter_client.cc:204] GetCollectStatsConsent(): settings_consent: 0 so returning that
+[5005:5005:0809/110410.345123:VERBOSE1:chrome/app/chrome_crash_reporter_client.cc:204] GetCollectStatsConsent(): settings_consent: 0 so returning that
+[5037:5037:0809/110410.517012:VERBOSE1:chrome/common/media/cdm_registration.cc:214] Registering bundled Widevine 4.10.3050.0
+[5039:5039:0809/110410.517038:VERBOSE1:chrome/common/media/cdm_registration.cc:214] Registering bundled Widevine 4.10.3050.0
+[5037:5037:0809/110410.536412:INFO:third_party/webrtc/rtc_base/cpu_info.cc:77] Available number of cores: 12
+[5039:5039:0809/110410.536412:INFO:third_party/webrtc/rtc_base/cpu_info.cc:77] Available number of cores: 12
+[5037:5037:0809/110410.539778:VERBOSE1:content/zygote/zygote_main_linux.cc:202] ZygoteMain: initializing 0 fork delegates
+[5039:5039:0809/110410.539779:VERBOSE1:content/zygote/zygote_main_linux.cc:202] ZygoteMain: initializing 0 fork delegates
+qemu: uncaught target signal 5 (Trace/breakpoint trap) - core dumped
+qemu: uncaught target signal 5 (Trace/breakpoint trap) - core dumped
+[5005:5005:0809/110410.574678:VERBOSE1:components/policy/core/common/config_dir_policy_loader.cc:120] Skipping mandatory platform policies because no policy file was found at: /etc/opt/chrome/policies/managed
+[5005:5005:0809/110410.574902:VERBOSE1:components/policy/core/common/config_dir_policy_loader.cc:120] Skipping recommended platform policies because no policy file was found at: /etc/opt/chrome/policies/recommended
+[5005:5005:0809/110410.576883:VERBOSE1:components/enterprise/browser/controller/chrome_browser_cloud_management_controller.cc:124] DM token = empty
+[5005:5005:0809/110410.576947:VERBOSE1:components/enterprise/browser/controller/chrome_browser_cloud_management_controller.cc:130] Enrollment token = 
+[5005:5005:0809/110410.576990:VERBOSE1:components/enterprise/browser/controller/chrome_browser_cloud_management_controller.cc:131] Client ID = BrT2CsYXIIxZv429s7yg0zvNZ3s
+[5005:5005:0809/110410.580135:VERBOSE1:components/policy/core/common/policy_service_impl.cc:632] Taking initial snapshot of POLICY_DOMAIN_CHROME policies
+[5005:5005:0809/110410.614377:VERBOSE1:components/variations/service/variations_field_trial_creator.cc:83] VariationsSeedUsage:2
+[5005:5005:0809/110410.615762:VERBOSE1:components/variations/service/variations_field_trial_creator.cc:393] VariationsSetupComplete
+[5005:5048:0809/110410.648938:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/VariationsSeedV2": No such file or directory (2)
+[5005:5048:0809/110410.657321:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/VariationsSeedV2": No such file or directory (2)
+[5005:5051:0809/110410.669168:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[5005:5005:0809/110410.675697:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for browser/global.
+[5005:5005:0809/110410.676949:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for browser/*.
+[5005:5005:0809/110410.677929:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for /main.
+[5005:5005:0809/110410.678136:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for /io.
+[5005:5005:0809/110411.182082:VERBOSE1:chrome/browser/media/webrtc/webrtc_event_log_manager.cc:126] WebRTC remote-bound event logging enabled.
+[5005:5005:0809/110411.194122:VERBOSE1:components/proxy_config/pref_proxy_config_tracker_impl.cc:462] 0xfdc00121800: set chrome proxy config service to 0xfdc000a1500
+[5005:5005:0809/110411.219834:VERBOSE1:components/device_event_log/device_event_log_impl.cc:203] [11:04:11.219] Display: EVENT: x11_display_manager.cc:110 Displays updated, count: 1
+[5005:5005:0809/110411.254166:VERBOSE1:components/device_event_log/device_event_log_impl.cc:203] [11:04:11.253] Display: EVENT: x11_display_manager.cc:112 Display[59] bounds=[0,0 1024x768], workarea=[0,27 1024x741], scale=1, rotation=0, panel_rotation=0 external detected
+[5005:5005:0809/110411.262136:VERBOSE1:chrome/common/media/cdm_registration.cc:214] Registering bundled Widevine 4.10.3050.0
+[5005:5058:0809/110411.287900:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/component_crx_cache/metadata.json": No such file or directory (2)
+[5005:5051:0809/110411.326211:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[5005:5051:0809/110411.326783:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[5005:5064:0809/110411.427861:WARNING:media/gpu/vaapi/vaapi_wrapper.cc:1655] drmGetDevices2() has not found any devices
+[5005:5064:0809/110411.430353:VERBOSE1:media/gpu/vaapi/vaapi_wrapper.cc:1750] GetHandle(): Either VADisplayStateSingleton::PreSandboxInitialization() hasn't been called or that method failed to find a suitable render node
+[5005:5064:0809/110411.447431:VERBOSE1:components/viz/service/main/viz_main_impl.cc:87] VizNullHypothesis is disabled (not a warning)
+[5005:5068:0809/110411.451828:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for browser/viz-compositor.
+[5005:5005:0809/110411.493367:VERBOSE1:components/enterprise/browser/controller/chrome_browser_cloud_management_controller.cc:213] Starting CBCM Controller Initialization
+[5005:5005:0809/110411.493821:INFO:components/enterprise/browser/controller/chrome_browser_cloud_management_controller.cc:241] No machine level policy manager exists.
+[5005:5005:0809/110411.710606:VERBOSE1:components/policy/core/common/cloud/user_cloud_policy_store.cc:146] [policy_type=google/chrome/user] Initiating immediate policy load from disk
+[5005:5005:0809/110411.711512:VERBOSE1:components/policy/core/common/cloud/user_cloud_policy_store.cc:249] [policy_type=google/chrome/user] No policy found on disk
+[5005:5005:0809/110411.711734:VERBOSE1:components/policy/core/common/cloud/user_cloud_policy_store.cc:146] [policy_type=google/extension-install-cloud-policy/chrome/user] Initiating immediate policy load from disk
+[5005:5005:0809/110411.711792:VERBOSE1:components/policy/core/common/cloud/user_cloud_policy_store.cc:249] [policy_type=google/extension-install-cloud-policy/chrome/user] No policy found on disk
+[5005:5005:0809/110411.715975:VERBOSE1:components/policy/core/common/policy_service_impl.cc:632] Taking initial snapshot of POLICY_DOMAIN_CHROME policies
+[5069:5069:0809/110411.732175:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for utility.net..workService/global.
+[5069:5069:0809/110411.733728:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for utility.netwo..etworkService/*.
+[5069:5069:0809/110411.733785:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for utility.netw..tworkService/amsc.
+[5069:5069:0809/110411.733867:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for utility/main.
+[5069:5069:0809/110411.733914:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for utility/io.
+[5069:5069:0809/110411.740178:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for utility.netw..tworkService/main.
+[5005:5048:0809/110411.943539:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Web Applications/Logs": No such file or directory (2)
+[5005:5005:0809/110411.996086:VERBOSE1:components/proxy_config/pref_proxy_config_tracker_impl.cc:462] 0xfdc00123f00: set chrome proxy config service to 0xfdc000a3d40
+[5005:5005:0809/110412.043953:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:355] MutablePO2TS::MutablePO2TS
+[5005:5058:0809/110412.088375:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Code Cache/pc": No such file or directory (2)
+[5005:5048:0809/110412.093808:VERBOSE1:net/disk_cache/simple/simple_index_file.cc:625] Simple Cache Index is being restored from disk.
+[5005:5048:0809/110412.094078:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Code Cache/js/index-dir/the-real-index": No such file or directory (2)
+[5005:5049:0809/110412.094365:VERBOSE1:net/disk_cache/simple/simple_index_file.cc:625] Simple Cache Index is being restored from disk.
+[5005:5049:0809/110412.094408:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Code Cache/wasm/index-dir/the-real-index": No such file or directory (2)
+[5005:5005:0809/110412.144630:VERBOSE1:google_apis/gaia/gaia_auth_util.cc:53] Canonicalized @gmail.com to @gmail.com
+[5005:5005:0809/110412.145074:VERBOSE1:google_apis/gaia/gaia_auth_util.cc:53] Canonicalized @gmail.com to @gmail.com
+[5005:5005:0809/110412.156565:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:160] AccountReconcilor::AccountReconcilor
+[5005:5005:0809/110412.156685:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:190] AccountReconcilor::Initialize
+[5005:5005:0809/110412.156833:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:243] AccountReconcilor::RegisterWithContentSettings
+[5005:5005:0809/110412.156938:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:266] AccountReconcilor::RegisterWithIdentityManager
+[5005:5048:0809/110412.197335:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Dictionaries/en-US-10-1.bdic": No such file or directory (2)
+[5005:5005:0809/110412.209817:VERBOSE1:components/proxy_config/pref_proxy_config_tracker_impl.cc:462] 0xfdc00125d00: set chrome proxy config service to 0xfdc000a5400
+[5005:5005:0809/110412.228000:VERBOSE1:chrome/browser/permissions/prediction_service/prediction_model_handler_provider_factory.cc:62] [PermissionsAI]: PredictionModelHandlerProviderFactory::BuildServiceInstanceForBrowserContext
+[5005:5005:0809/110412.228213:VERBOSE1:chrome/browser/permissions/prediction_service/prediction_model_handler_provider_factory.cc:99] [PermissionsAI]: PredictionModelHandlerProviderFactory::BuildServiceInstanceForBrowserContext PermissionsAIv4 not enabled, passage embedder not setup.
+[5005:5005:0809/110412.228293:VERBOSE1:chrome/browser/permissions/prediction_service/prediction_model_handler_provider.cc:55] [PermissionsAI] PredictionModelHandlerProvider ctor passage_embedder available: false
+[5005:5005:0809/110412.228333:VERBOSE1:chrome/browser/permissions/prediction_service/prediction_model_handler_provider.cc:58] [PermissionsAI] PredictionModelHandlerProvider ctor optimization_guide available: true
+[5005:5005:0809/110412.239563:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110412.295902:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110412.437276:VERBOSE1:extensions/browser/extension_registrar.cc:567] AddComponentExtension Chrome PDF Viewer
+[5005:5005:0809/110412.437404:VERBOSE1:extensions/browser/extension_registrar.cc:569] Component extension Chrome PDF Viewer (mhjfbmdgcfjbbpaeojofohoefgiehjai) installing/upgrading from '' to 1
+[5005:5053:0809/110412.475991:VERBOSE1:extensions/browser/content_verifier/content_verifier.cc:944] OnFetchComplete mhjfbmdgcfjbbpaeojofohoefgiehjai success:0
+[5005:5005:0809/110412.478800:VERBOSE1:extensions/browser/extension_registrar.cc:567] AddComponentExtension Google Hangouts
+[5005:5005:0809/110412.478868:VERBOSE1:extensions/browser/extension_registrar.cc:569] Component extension Google Hangouts (nkeimhogjdpnpccoofpliimaahmaaome) installing/upgrading from '' to 1.3.26
+[5005:5053:0809/110412.490800:VERBOSE1:extensions/browser/content_verifier/content_verifier.cc:944] OnFetchComplete nkeimhogjdpnpccoofpliimaahmaaome success:0
+[5005:5005:0809/110412.497710:VERBOSE1:extensions/browser/extension_registrar.cc:567] AddComponentExtension Google Network Speech
+[5005:5005:0809/110412.497789:VERBOSE1:extensions/browser/extension_registrar.cc:569] Component extension Google Network Speech (fignfifoniblkonapihmkfakmlgkbkcf) installing/upgrading from '' to 1.0
+[5005:5053:0809/110412.538984:VERBOSE1:extensions/browser/content_verifier/content_verifier.cc:944] OnFetchComplete fignfifoniblkonapihmkfakmlgkbkcf success:0
+[5005:5005:0809/110412.572194:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110412.572882:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5048:0809/110412.654725:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Policy/User Policy": No such file or directory (2)
+[5005:5048:0809/110412.656347:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Policy/Signing Key": No such file or directory (2)
+[5005:5048:0809/110412.656680:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Policy/User Extension Install Policy": No such file or directory (2)
+[5005:5048:0809/110412.656740:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Policy/User Extension Install Signing Key": No such file or directory (2)
+[5005:5048:0809/110412.661282:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Widevine Content Decryption Module
+[5005:5049:0809/110412.662201:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Subresource Filter Rules
+[5005:5005:0809/110412.663694:VERBOSE1:components/component_updater/installer_policies/on_device_head_suggest_component_installer.cc:59] On Device Head Component will fetch model for locale: ENUS500000
+[5005:5050:0809/110412.664574:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for OnDeviceHeadSuggest
+[5005:5058:0809/110412.665552:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Optimization Hints
+[5005:5005:0809/110412.665941:VERBOSE1:chrome/browser/component_updater/trust_token_key_commitments_component_installer.cc:22] Registering Trust Token Key Commitments component.
+[5005:5048:0809/110412.665198:VERBOSE1:components/component_updater/component_installer.cc:312] Preinstalled component found for Widevine Content Decryption Module at /opt/google/chrome/WidevineCdm with version 4.10.3050.0.
+
+DevTools listening on ws://127.0.0.1:9222/devtools/browser/fce5fff1-d3ce-4f7e-8a11-2847024719f4
+[5005:5059:0809/110412.666983:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Trust Token Key Commitments
+[5005:5005:0809/110412.667257:VERBOSE1:chrome/browser/component_updater/first_party_sets_component_installer.cc:40] Registering Related Website Sets component.
+[5005:5005:0809/110412.667864:VERBOSE1:chrome/browser/component_updater/privacy_sandbox_attestations_component_installer.cc:181] Registering Privacy Sandbox Attestations component
+[5005:5048:0809/110412.668241:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Privacy Sandbox Attestations
+[5005:5048:0809/110412.668976:VERBOSE1:components/component_updater/component_installer.cc:312] Preinstalled component found for Privacy Sandbox Attestations at /opt/google/chrome/PrivacySandboxAttestationsPreloaded with version 2025.7.18.0.
+[5005:5005:0809/110412.669264:VERBOSE1:chrome/browser/component_updater/file_type_policies_component_installer.cc:126] Registering File Type Policies component.
+[5005:5049:0809/110412.669267:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Certificate Error Assistant
+[5005:5048:0809/110412.669473:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for File Type Policies
+[5005:5050:0809/110412.669623:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for CRLSet
+[5005:5058:0809/110412.669680:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Origin Trials
+[5005:5049:0809/110412.670119:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for MEI Preload
+[5005:5048:0809/110412.670352:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for PKI Metadata
+[5005:5058:0809/110412.670745:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Safety Tips
+[5005:5005:0809/110412.670793:VERBOSE1:chrome/browser/component_updater/hyphenation_component_installer.cc:148] Registering Hyphenation component.
+[5005:5050:0809/110412.670814:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Crowd Deny
+[5005:5048:0809/110412.671352:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Hyphenation
+[5005:5049:0809/110412.671397:VERBOSE1:components/component_updater/component_installer.cc:312] Preinstalled component found for MEI Preload at /opt/google/chrome/MEIPreload with version 1.0.7.1652906823.
+[5005:5005:0809/110412.671640:VERBOSE1:components/component_updater/installer_policies/actor_safety_lists_component_installer.cc:140] Registering Actor Safety Lists Component.
+[5005:5050:0809/110412.671757:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Zxcvbn Data Dictionaries
+[5005:5058:0809/110412.671939:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Actor Safety Lists
+[5005:5005:0809/110412.672764:VERBOSE1:chrome/browser/component_updater/translate_kit_component_installer.cc:210] Registering TranslateKit component.
+[5005:5048:0809/110412.673459:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Amount Extraction Heuristic Regexes
+[5005:5005:0809/110412.673455:VERBOSE1:chrome/browser/component_updater/wasm_tts_engine_component_installer.cc:286] Registering WASM TTS Engine component.
+[5005:5005:0809/110412.673637:VERBOSE1:chrome/browser/component_updater/captcha_provider_component_installer.cc:175] Registering Captcha Provider component.
+[5005:5049:0809/110412.673780:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for WASM TTS Engine
+[5005:5050:0809/110412.674383:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Captcha Providers
+[5005:5005:0809/110412.729681:VERBOSE1:chrome/browser/profiles/profile_manager.cc:1407] AddKeepAlive(Default, kBrowserWindow). keep_alives=[kWaitingForFirstBrowserWindow (1), kBrowserWindow (1)]
+[5005:5005:0809/110412.730057:VERBOSE1:chrome/browser/profiles/profile_manager.cc:1489] ClearFirstBrowserWindowKeepAlive(Default). keep_alives=[kBrowserWindow (1)]
+[5005:5005:0809/110412.756688:WARNING:ui/gfx/linux/gbm_support_x11.cc:48] dri3 extension not supported.
+[5005:5051:0809/110413.497613:VERBOSE1:dbus/bus.cc:915] Method call: message_type: MESSAGE_METHOD_CALL
+interface: org.freedesktop.DBus
+member: GetNameOwner
+signature: s
+
+string "com.canonical.AppMenu.Registrar"
+
+[5005:5005:0809/110414.312284:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110414.478973:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110415.036618:VERBOSE1:chrome/browser/enterprise/data_protection/data_protection_navigation_observer.cc:227] enterprise.data_protection: same document navigation: 0
+[5005:5005:0809/110415.037318:VERBOSE1:chrome/browser/enterprise/data_protection/data_protection_navigation_observer.cc:229] enterprise.data_protection: URL to scan: http://127.0.0.1:8899/
+[5005:5005:0809/110415.156075:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110415.337780:VERBOSE1:chrome/browser/ui/views/omnibox/omnibox_popup_closer.cc:65] Closing omnibox popup with reason: kRevertAll
+[5005:5005:0809/110415.469812:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110415.743429:WARNING:device/bluetooth/dbus/bluez_dbus_manager.cc:209] Floss manager service not available, cannot set Floss enable/disable.
+[5005:5005:0809/110415.749562:VERBOSE1:ui/base/idle/idle_linux.cc:130] org.freedesktop.ScreenSaver D-Bus service does not exist
+[5069:5076:0809/110415.869506:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: http://clients2.google.com/time/1/current?cup2key=10:qDCH9OAaCASExTJyU2AKfcfWx5RrgQNDXokw7xJrhg0&cup2hreq=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+[5069:5076:0809/110415.912756:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://clientservices.googleapis.com/chrome-variations/seed?osname=linux&channel=stable&milestone=151
+[5005:5005:0809/110416.065282:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110416.096365:VERBOSE1:chrome/browser/profiles/profile_manager.cc:1407] AddKeepAlive(Default, kExtensionUpdater). keep_alives=[kBrowserWindow (1), kExtensionUpdater (1)]
+[5069:5079:0809/110416.099604:VERBOSE1:net/disk_cache/simple/simple_index_file.cc:625] Simple Cache Index is being restored from disk.
+[5069:5079:0809/110416.101884:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Shared Dictionary/cache/index-dir/the-real-index": No such file or directory (2)
+[5005:5049:0809/110416.123082:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/extensions_crx_cache/metadata.json": No such file or directory (2)
+[5005:5005:0809/110416.145420:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for OnDeviceHeadSuggest
+[5005:5005:0809/110416.148721:VERBOSE1:components/component_updater/component_updater_service.cc:177] CrxUpdateService starting up. First update attempt will take place in 60 s seconds. Next update attempt will take place in 18000 s seconds. 
+[5005:5005:0809/110416.152686:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Optimization Hints
+[5005:5005:0809/110416.153265:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Subresource Filter Rules
+[5005:5005:0809/110416.155015:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Widevine Content Decryption Module
+[5005:5005:0809/110416.155213:VERBOSE1:components/component_updater/component_installer.cc:589] Component ready, version 4.10.3050.0 in /opt/google/chrome/WidevineCdm
+[5005:5005:0809/110416.155801:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Trust Token Key Commitments
+[5005:5005:0809/110416.156154:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Privacy Sandbox Attestations
+[5005:5005:0809/110416.156661:VERBOSE1:components/component_updater/component_installer.cc:589] Component ready, version 2025.7.18.0 in /opt/google/chrome/PrivacySandboxAttestationsPreloaded
+[5005:5048:0809/110416.156589:VERBOSE1:chrome/browser/component_updater/widevine_cdm_component_installer.cc:396] Updating hint file with Widevine CDM 4.10.3050.0
+[5005:5005:0809/110416.157238:VERBOSE1:chrome/browser/component_updater/privacy_sandbox_attestations_component_installer.cc:111] Privacy Sandbox Attestations Component ready, version 2025.7.18.0 in /opt/google/chrome/PrivacySandboxAttestationsPreloaded
+[5005:5005:0809/110416.157608:VERBOSE1:chrome/browser/component_updater/privacy_sandbox_attestations_component_installer.cc:188] Received privacy sandbox attestations file
+[5005:5005:0809/110416.159815:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Certificate Error Assistant
+[5005:5005:0809/110416.160451:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for File Type Policies
+[5005:5005:0809/110416.160689:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Origin Trials
+[5005:5005:0809/110416.161101:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for CRLSet
+[5005:5005:0809/110416.161450:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Safety Tips
+[5005:5005:0809/110416.161607:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for PKI Metadata
+[5005:5005:0809/110416.161850:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Crowd Deny
+[5069:5076:0809/110416.163743:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: http://127.0.0.1:8899/
+[5069:5076:0809/110416.169701:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://accounts.google.com/ListAccounts?gpsia=1&source=ChromiumBrowser&json=standard&laf=b64bin
+[5005:5005:0809/110416.171255:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Hyphenation
+[5005:5005:0809/110416.172105:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for MEI Preload
+[5005:5005:0809/110416.172542:VERBOSE1:components/component_updater/component_installer.cc:589] Component ready, version 1.0.7.1652906823 in /opt/google/chrome/MEIPreload
+[5005:5005:0809/110416.173051:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Zxcvbn Data Dictionaries
+[5069:5076:0809/110416.173434:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://redirector.gvt1.com/edgedl/chrome/dict/en-us-10-1.bdic
+[5005:5005:0809/110416.173515:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Actor Safety Lists
+[5005:5005:0809/110416.173692:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Amount Extraction Heuristic Regexes
+[5005:5005:0809/110416.173830:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for WASM TTS Engine
+[5005:5005:0809/110416.174272:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Captcha Providers
+[5069:5076:0809/110416.176406:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://clients2.google.com/service/update2/crx?os=linux&arch=x64&prod=chromecrx&prodchannel=&prodversion=151.0.7922.108&lang=en-US&acceptformat=crx3,puff&x=id%3Dghbmnnjooekpmoecnnnilnnbdlolhkhi%26v%3D0.0.0.0%26installedby%3Dinternal%26uc%26ping%3Dr%253D-1%2526e%253D1&x=id%3Dnmmhkkegccagdldgiimedpiccmgmieda%26v%3D0.0.0.0%26installedby%3Dother%26uc%26ping%3Dr%253D-1%2526e%253D1
+[5069:5075:0809/110416.196906:VERBOSE1:net/disk_cache/simple/simple_index_file.cc:625] Simple Cache Index is being restored from disk.
+[5069:5075:0809/110416.197417:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/index-dir/the-real-index": No such file or directory (2)
+[5069:5077:0809/110416.204276:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/No_Vary_Search/snapshot-new.baf": No such file or directory (2)
+[5069:5077:0809/110416.205555:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/No_Vary_Search/journal.baj": No such file or directory (2)
+[5069:5077:0809/110416.221430:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/ed5152d08612b2ae_0": No such file or directory (2)
+[5069:5077:0809/110416.222164:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/ed5152d08612b2ae_1": No such file or directory (2)
+[5069:5077:0809/110416.222598:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/ed5152d08612b2ae_s": No such file or directory (2)
+[5005:5005:0809/110416.223526:VERBOSE1:chrome/browser/ui/views/omnibox/omnibox_popup_closer.cc:65] Closing omnibox popup with reason: kCrash
+[5069:5076:0809/110416.536786:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://www.google.com/async/folae?async=_fmt:pb&udm=50&client_locale=en-US&client_country=ZZ
+[5005:5051:0809/110416.545445:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[5005:5051:0809/110416.546337:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[5005:5005:0809/110416.549942:VERBOSE1:ui/base/idle/idle_linux.cc:130] org.cinnamon.ScreenSaver D-Bus service does not exist
+[5005:5051:0809/110416.557009:VERBOSE1:dbus/bus.cc:915] Method call: message_type: MESSAGE_METHOD_CALL
+interface: org.freedesktop.DBus
+member: GetNameOwner
+signature: s
+
+string "org.freedesktop.portal.Desktop"
+
+[5069:5076:0809/110416.613820:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://www.gstatic.com/ohttp_gateway/hpke_public_keys/sbc_prod?key=AIzaSyBqJZh-7pA44blAaAkH6490hUFOwX0KCYM
+[5005:5005:0809/110416.648027:VERBOSE1:components/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations.cc:480] Parsed Privacy Sandbox Attestation list version: 2025.7.18.0
+[5005:5005:0809/110416.648268:VERBOSE1:components/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations.cc:482] Number of attestation entries: 263
+[5005:5005:0809/110416.654995:VERBOSE1:chrome/browser/ui/views/omnibox/omnibox_popup_closer.cc:65] Closing omnibox popup with reason: kBrowserWidgetMoved
+[5005:5005:0809/110416.662933:VERBOSE1:chrome/browser/ui/views/omnibox/omnibox_popup_closer.cc:65] Closing omnibox popup with reason: kCrash
+[5005:5005:0809/110416.704008:WARNING:dbus/property.cc:94] Failed to connect to PropertiesChangedsignal.
+[5005:5005:0809/110416.704238:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.Properties.GetAll: object_path= /org/freedesktop/UPower/devices/DisplayDevice: unknown error type: 
+[5005:5005:0809/110416.704399:WARNING:dbus/property.cc:174] GetAll request failed for: org.freedesktop.UPower.Device
+[5005:5005:0809/110416.705318:WARNING:components/dbus/xdg/portal.cc:124] Failed to register with org.freedesktop.host.portal.Registry
+[5005:5005:0809/110416.705968:VERBOSE1:ui/base/idle/idle_linux.cc:130] org.gnome.ScreenSaver D-Bus service does not exist
+[5005:5048:0809/110416.732600:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Web Applications/Logs": No such file or directory (2)
+[5005:5005:0809/110416.733024:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:262] Acquiring <PartitionedLockId>{id: 0x31, partition: 0} for ScheduleAllFixes@chrome/browser/web_applications/generated_icon_fix_manager.cc:79
+[5005:5005:0809/110416.733717:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:243] All locks acquired for ScheduleAllFixes@chrome/browser/web_applications/generated_icon_fix_manager.cc:79
+[5005:5051:0809/110416.741820:VERBOSE1:dbus/bus.cc:915] Method call: message_type: MESSAGE_METHOD_CALL
+interface: org.freedesktop.DBus
+member: GetNameOwner
+signature: s
+
+string "org.freedesktop.Notifications"
+
+[5005:5051:0809/110416.743245:VERBOSE1:dbus/bus.cc:698] Filter function already exists: 1 with associated data: 0xfdc0115fb80
+[5005:5051:0809/110416.743476:VERBOSE1:dbus/bus.cc:915] Method call: message_type: MESSAGE_METHOD_CALL
+interface: org.freedesktop.DBus
+member: GetNameOwner
+signature: s
+
+string "org.freedesktop.Notifications"
+
+[5005:5051:0809/110416.744117:VERBOSE1:dbus/bus.cc:698] Filter function already exists: 1 with associated data: 0xfdc0115fb80
+[5005:5051:0809/110416.744186:VERBOSE1:dbus/bus.cc:915] Method call: message_type: MESSAGE_METHOD_CALL
+interface: org.freedesktop.DBus
+member: GetNameOwner
+signature: s
+
+string "org.freedesktop.Notifications"
+
+[5005:5051:0809/110416.744594:VERBOSE1:dbus/bus.cc:698] Filter function already exists: 1 with associated data: 0xfdc0115fb80
+[5005:5051:0809/110416.744648:VERBOSE1:dbus/bus.cc:915] Method call: message_type: MESSAGE_METHOD_CALL
+interface: org.freedesktop.DBus
+member: GetNameOwner
+signature: s
+
+string "org.freedesktop.Notifications"
+
+[5005:5005:0809/110416.769333:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing Session.TotalDuration
+[5005:5005:0809/110416.769558:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing Commerce.PriceDrops.ActiveTabNavigationComplete.IsProductDetailPage
+[5005:5005:0809/110416.769664:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:54] Segmentation platform started observing Autofill_PolledCreditCardSuggestions
+[5005:5005:0809/110416.769696:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing IOS.ParcelTracking.Tracked.AutoTrack
+[5005:5005:0809/110416.769725:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing Omnibox.SuggestionUsed.ClientSummarizedResultType
+[5005:5005:0809/110416.770046:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:54] Segmentation platform started observing MetadataWriter
+[5005:5005:0809/110416.770080:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing Sync.DeviceCount2
+[5005:5005:0809/110416.770096:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing Sync.DeviceCount2.Phone
+[5005:5005:0809/110416.770113:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing Sync.DeviceCount2.Desktop
+[5005:5005:0809/110416.770127:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing Sync.DeviceCount2.Tablet
+[5005:5005:0809/110416.770150:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:54] Segmentation platform started observing MobileBookmarkManagerOpen
+[5005:5005:0809/110416.770163:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:54] Segmentation platform started observing NewTabPage.MostVisited.Clicked
+[5005:5005:0809/110416.770174:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:54] Segmentation platform started observing TabGroup.Created.OpenInNewTab
+[5005:5005:0809/110416.770185:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:54] Segmentation platform started observing Android.HistoryPage.OpenItem
+[5005:5005:0809/110416.770196:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:54] Segmentation platform started observing MobileMenuRecentTabs
+[5005:5005:0809/110416.770208:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing PasswordManager.ManagePasswordsReferrer
+[5005:5005:0809/110416.770221:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing PasswordManager.ProfileStore.TotalAccountsHiRes3.WithScheme.Https
+[5005:5005:0809/110416.770233:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing PasswordManager.FillingAssistance
+[5005:5005:0809/110416.770245:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing PasswordManager.SavedPasswordIsGenerated
+[5005:5005:0809/110416.770255:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing PasswordManager.SaveUIDismissalReason
+[5005:5005:0809/110416.770268:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing PasswordManager.SaveUIDismissalReason
+[5005:5005:0809/110416.770296:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing IOS.CredentialExtension.IsEnabled.Startup
+[5005:5005:0809/110416.770630:VERBOSE1:components/segmentation_platform/internal/signals/signal_filter_processor.cc:61] Segmentation platform started observing Session.TotalDuration
+[5005:5053:0809/110416.839544:VERBOSE1:base/allocator/scheduler_loop_quarantine_config.cc:180] No entry found for browser/io.
+[5069:5076:0809/110416.844499:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5005:5048:0809/110416.883348:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/DeferredBrowserMetrics": No such file or directory (2)
+[5005:5048:0809/110416.883673:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/CrashpadMetrics.pma": No such file or directory (2)
+[5005:5048:0809/110416.894419:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/webrtc_event_logs": No such file or directory (2)
+[5005:5048:0809/110416.894912:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Media Cache": No such file or directory (2)
+[5069:5076:0809/110416.900316:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110416.905239:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110416.909007:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110416.909649:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110416.913453:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5005:5005:0809/110416.924109:VERBOSE1:ui/base/idle/idle_linux.cc:130] org.mate.ScreenSaver D-Bus service does not exist
+[5005:5051:0809/110416.925070:VERBOSE1:dbus/bus.cc:698] Filter function already exists: 1 with associated data: 0xfdc0042cd20
+[5005:5051:0809/110416.925221:VERBOSE1:dbus/bus.cc:915] Method call: message_type: MESSAGE_METHOD_CALL
+interface: org.freedesktop.DBus
+member: GetNameOwner
+signature: s
+
+string "org.freedesktop.portal.Desktop"
+
+[5005:5058:0809/110417.255938:VERBOSE1:net/disk_cache/simple/simple_index_file.cc:625] Simple Cache Index is being restored from disk.
+[5005:5058:0809/110417.266447:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Service Worker/ScriptCache/index-dir/the-real-index": No such file or directory (2)
+[5005:5049:0809/110417.319865:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/databases": No such file or directory (2)
+[5005:5049:0809/110417.359594:VERBOSE1:components/component_updater/component_installer.cc:477] StartRegistration for Related Website Sets
+[5005:5049:0809/110417.366149:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/HistorySearch": No such file or directory (2)
+[5005:5049:0809/110417.366749:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/DesktopSharingHub": No such file or directory (2)
+[5005:5049:0809/110417.366969:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/CookieReadinessList": No such file or directory (2)
+[5005:5049:0809/110417.367053:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/OpenCookieDatabase": No such file or directory (2)
+[5005:5049:0809/110417.367115:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/TpcdMetadata": No such file or directory (2)
+[5005:5049:0809/110417.367267:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/ProbabilisticRevealTokenRegistry": No such file or directory (2)
+[5005:5049:0809/110417.367409:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/AutofillStates": No such file or directory (2)
+[5005:5049:0809/110417.367486:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Fingerprinting Protection Filter": No such file or directory (2)
+[5005:5049:0809/110417.367542:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/PlusAddressBlocklist": No such file or directory (2)
+[5005:5005:0809/110417.467348:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:286] Releasing <PartitionedLockId>{id: 0x31, partition: 0} requested by ScheduleAllFixes@chrome/browser/web_applications/generated_icon_fix_manager.cc:79
+[5005:5005:0809/110417.468318:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:318] Acquiring <PartitionedLockId>{id: 0x31, partition: 0} for OnSyncBridgeReady@chrome/browser/web_applications/web_app_provider.cc:562
+[5005:5005:0809/110417.468974:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:243] All locks acquired for OnSyncBridgeReady@chrome/browser/web_applications/web_app_provider.cc:562
+[5005:5048:0809/110417.586220:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Breadcrumbs": No such file or directory (2)
+[5005:5005:0809/110417.595135:VERBOSE1:ui/base/idle/idle_linux.cc:130] org.xfce.ScreenSaver D-Bus service does not exist
+[5005:5005:0809/110417.595475:WARNING:ui/base/idle/idle_linux.cc:111] None of the known D-Bus ScreenSaver services could be used.
+[5005:5005:0809/110418.526942:VERBOSE1:components/component_updater/component_installer.cc:548] FinishRegistration for Related Website Sets
+[5005:5005:0809/110418.532675:VERBOSE1:chrome/browser/component_updater/first_party_sets_component_installer.cc:45] Received Related Website Sets
+[5005:5005:0809/110418.613578:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:286] Releasing <PartitionedLockId>{id: 0x31, partition: 0} requested by OnSyncBridgeReady@chrome/browser/web_applications/web_app_provider.cc:562
+[5005:5005:0809/110418.659070:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:136] GetSegmentResult: segment=OPTIMIZATION_TARGET_SEGMENTATION_DEVICE_SWITCHER ignoring DB score, executing model.
+[5005:5005:0809/110418.659249:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:277] ExecuteModelAndGetScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_DEVICE_SWITCHER server segment info not available
+[5005:5005:0809/110418.659410:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:210] OnGotModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_DEVICE_SWITCHER failed to get database model score, trying default model.
+[5069:5076:0809/110418.720074:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5005:5005:0809/110418.995873:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:262] Acquiring <PartitionedLockId>{id: 0x31, partition: 0} for SynchronizeInstalledApps@chrome/browser/web_applications/externally_managed_app_manager.cc:186
+[5005:5005:0809/110418.996438:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:243] All locks acquired for SynchronizeInstalledApps@chrome/browser/web_applications/externally_managed_app_manager.cc:186
+[5005:5051:0809/110419.043512:VERBOSE1:dbus/bus.cc:742] Match rule already exists: type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged',path='/org/freedesktop/DBus',sender='org.freedesktop.DBus',arg0='org.freedesktop.portal.Desktop'
+[5005:5051:0809/110419.045062:VERBOSE1:dbus/bus.cc:915] Method call: message_type: MESSAGE_METHOD_CALL
+interface: org.freedesktop.DBus
+member: GetNameOwner
+signature: s
+
+string "org.freedesktop.portal.Desktop"
+
+[5005:5005:0809/110419.066230:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:286] Releasing <PartitionedLockId>{id: 0x31, partition: 0} requested by SynchronizeInstalledApps@chrome/browser/web_applications/externally_managed_app_manager.cc:186
+[5005:5051:0809/110419.078901:VERBOSE1:dbus/object_proxy.cc:509] Signal received: message_type: MESSAGE_SIGNAL
+destination: :1.81
+path: /org/freedesktop/portal/desktop/request/1_81/2D2070781702272CDE8522FA59641A79
+interface: org.freedesktop.portal.Request
+member: Response
+sender: :1.70
+signature: ua{sv}
+serial: 155
+
+uint32_t 0
+array [
+]
+
+[5005:5005:0809/110419.109556:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:262] Acquiring <PartitionedLockId>{id: 0x31, partition: 0} for MaybeStartNext@chrome/browser/web_applications/externally_managed_app_manager.cc:271
+[5005:5005:0809/110419.109663:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:243] All locks acquired for MaybeStartNext@chrome/browser/web_applications/externally_managed_app_manager.cc:271
+[5005:5005:0809/110419.268043:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:262] Acquiring <PartitionedLockId>{id: 0x30, partition: 0} for StartInstallationTask@chrome/browser/web_applications/externally_managed_app_manager.cc:411
+[5005:5005:0809/110419.268258:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:243] All locks acquired for StartInstallationTask@chrome/browser/web_applications/externally_managed_app_manager.cc:411
+[5005:5005:0809/110419.270196:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:286] Releasing <PartitionedLockId>{id: 0x31, partition: 0} requested by MaybeStartNext@chrome/browser/web_applications/externally_managed_app_manager.cc:271
+[5069:5076:0809/110419.283726:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://r5---sn-4g5lznly.gvt1.com/edgedl/chrome/dict/en-us-10-1.bdic?cms_redirect=yes&met=1786273459,&mh=7g&mip=188.167.251.231&mm=28&mn=sn-4g5lznly&ms=nvh&mt=1786273211&mv=m&mvi=5&pl=24&rmhost=r3---sn-4g5lznly.gvt1.com&rms=nvh,nvh&shardbypass=sd&smhost=r5---sn-4g5lznez.gvt1.com
+[5069:5076:0809/110419.298552:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5005:5048:0809/110419.315165:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Service Worker/ScriptCache/2cc80dabc69f58b6_0": No such file or directory (2)
+[5005:5048:0809/110419.315431:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Service Worker/ScriptCache/2cc80dabc69f58b6_1": No such file or directory (2)
+[5005:5048:0809/110419.316164:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Service Worker/ScriptCache/2cc80dabc69f58b6_s": No such file or directory (2)
+[5069:5076:0809/110419.337381:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110419.337613:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110419.338147:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110419.339606:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110419.340305:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110419.340455:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110419.340659:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5005:5005:0809/110419.536241:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5048:0809/110419.630354:VERBOSE1:components/signin/public/webdata/token_service_table.cc:259] Loaded tokens: result = 3 ; number of tokens loaded = 0
+[5069:5076:0809/110419.721380:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://android.clients.google.com/checkin
+[5005:5005:0809/110419.732379:VERBOSE1:extensions/browser/extension_registrar.cc:567] AddComponentExtension Google Hangouts
+[5005:5053:0809/110419.773172:VERBOSE1:extensions/browser/content_verifier/content_verifier.cc:944] OnFetchComplete nkeimhogjdpnpccoofpliimaahmaaome success:0
+[5005:5005:0809/110419.857738:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:660] MutablePO2TS::OnWebDataServiceRequestDone. Result type: 5
+[5005:5005:0809/110419.857866:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:722] MutablePO2TS::LoadAllCredentialsIntoMemory; 0 credential(s).
+[5005:5005:0809/110419.860685:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110419.861098:VERBOSE1:google_apis/gaia/gaia_auth_util.cc:53] Canonicalized @gmail.com to @gmail.com
+[5005:5005:0809/110419.861186:VERBOSE1:google_apis/gaia/gaia_auth_util.cc:53] Canonicalized @gmail.com to @gmail.com
+[5005:5005:0809/110419.865672:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110419.866667:VERBOSE1:components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:461] MutablePO2TS::RefreshTokenIsAvailable
+[5005:5005:0809/110419.868464:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:351] AccountReconcilor::OnEndBatchOfRefreshTokenStateChanges. Reconcilor state: 1
+[5069:5076:0809/110419.914174:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5005:5005:0809/110419.916899:VERBOSE1:chrome/browser/profiles/profile_manager.cc:1468] RemoveKeepAlive(Default, kExtensionUpdater). keep_alives=[kBrowserWindow (1)]
+[5069:5075:0809/110420.011734:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/59b7adbdbd563a05_0": No such file or directory (2)
+[5069:5075:0809/110420.012315:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/59b7adbdbd563a05_1": No such file or directory (2)
+[5069:5075:0809/110420.012566:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/59b7adbdbd563a05_s": No such file or directory (2)
+[5005:5005:0809/110420.025736:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:592] AccountReconcilor::OnAccountsInCookieUpdated: CookieJar 0 accounts, Reconcilor's state is 1, Error was 
+[5005:5005:0809/110420.026362:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:686] AccountReconcilor::LoadValidAccountsFromTokenService: Chrome 0 accounts
+[5005:5005:0809/110420.027204:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:823] AccountReconcilor::CalculateIfMultiloginReconcileIsDone: Error was 
+[5005:5005:0809/110420.027450:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:722] AccountReconcilor::StartReconcileIfChromeAccountsChanged
+[5005:5005:0809/110420.042526:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:592] AccountReconcilor::OnAccountsInCookieUpdated: CookieJar 0 accounts, Reconcilor's state is 1, Error was 
+[5005:5005:0809/110420.042631:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:686] AccountReconcilor::LoadValidAccountsFromTokenService: Chrome 0 accounts
+[5005:5005:0809/110420.042717:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:823] AccountReconcilor::CalculateIfMultiloginReconcileIsDone: Error was 
+[5005:5005:0809/110420.042760:VERBOSE1:components/signin/core/browser/account_reconcilor.cc:722] AccountReconcilor::StartReconcileIfChromeAccountsChanged
+[5069:5075:0809/110420.157312:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/a02f1efe02bd9ec9_0": No such file or directory (2)
+[5069:5075:0809/110420.157537:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/a02f1efe02bd9ec9_1": No such file or directory (2)
+[5069:5075:0809/110420.157702:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/a02f1efe02bd9ec9_s": No such file or directory (2)
+[5069:5076:0809/110420.297688:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://android.clients.google.com/c2dm/register3
+[5069:5076:0809/110420.299572:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110420.319252:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://android.clients.google.com/c2dm/register3
+[5069:5076:0809/110420.320746:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://android.clients.google.com/c2dm/register3
+[5069:5076:0809/110420.350721:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110420.350881:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110420.352230:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110420.352372:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110420.352589:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5075:0809/110420.366302:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_0": No such file or directory (2)
+[5069:5075:0809/110420.366453:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_1": No such file or directory (2)
+[5069:5075:0809/110420.366542:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_s": No such file or directory (2)
+[5005:5053:0809/110420.474702:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+[5069:5075:0809/110420.485685:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_0": No such file or directory (2)
+[5069:5075:0809/110420.485785:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_1": No such file or directory (2)
+[5069:5075:0809/110420.485821:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_s": No such file or directory (2)
+[5005:5053:0809/110420.498956:VERBOSE1:google_apis/gcm/engine/registration_request.cc:256] Delaying GCM registration of app: com.google.android.gms, for 25076 milliseconds.
+[5005:5053:0809/110420.503395:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+[5005:5053:0809/110420.505030:VERBOSE1:google_apis/gcm/engine/registration_request.cc:256] Delaying GCM registration of app: com.google.chrome.fcm.invalidations-585406161706, for 26773 milliseconds.
+[5069:5076:0809/110420.535472:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5005:5048:0809/110420.840626:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/VariationsSafeSeedV2": No such file or directory (2)
+[5005:5005:0809/110421.279430:VERBOSE1:components/enterprise/browser/reporting/saas_usage/saas_usage_report_scheduler.cc:108] Scheduling next browser SaaS usage report at 1601-01-01 04:00:00.000000 UTC
+[5005:5005:0809/110421.282901:VERBOSE1:components/enterprise/browser/reporting/saas_usage/saas_usage_report_scheduler.cc:74] No domain metrics aggregated - skipping browser report upload.
+[5005:5005:0809/110421.283228:VERBOSE1:components/enterprise/browser/reporting/saas_usage/saas_usage_report_scheduler.cc:108] Scheduling next browser SaaS usage report at 2026-08-09 15:04:21.282984 UTC
+[5005:5005:0809/110421.849162:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:226] GetCachedModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT does not have a segment info.
+[5005:5005:0809/110421.850317:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:172] OnGotModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT failed to get score from database, executing server model.
+[5005:5005:0809/110421.852346:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:277] ExecuteModelAndGetScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT server segment info not available
+[5005:5005:0809/110421.855940:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:201] OnGotModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT failed to get score from executing server model, getting score from default model from db.
+[5005:5005:0809/110421.856144:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:240] GetCachedModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT has expired or unavailable result.
+[5005:5005:0809/110421.856244:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:210] OnGotModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT failed to get database model score, trying default model.
+[5005:5005:0809/110421.857015:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:295] ExecuteModelAndGetScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT signal collection not met
+[5005:5005:0809/110421.857719:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:226] GetCachedModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SEARCH_USER does not have a segment info.
+[5005:5005:0809/110421.857811:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:172] OnGotModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SEARCH_USER failed to get score from database, executing server model.
+[5005:5005:0809/110421.857898:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:277] ExecuteModelAndGetScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SEARCH_USER server segment info not available
+[5005:5005:0809/110421.857964:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:201] OnGotModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SEARCH_USER failed to get score from executing server model, getting score from default model from db.
+[5005:5005:0809/110421.858012:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:240] GetCachedModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SEARCH_USER has expired or unavailable result.
+[5005:5005:0809/110421.858097:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:210] OnGotModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SEARCH_USER failed to get database model score, trying default model.
+[5005:5005:0809/110421.858250:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:295] ExecuteModelAndGetScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SEARCH_USER signal collection not met
+[5005:5005:0809/110421.858331:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:226] GetCachedModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER does not have a segment info.
+[5005:5005:0809/110421.858364:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:172] OnGotModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER failed to get score from database, executing server model.
+[5005:5005:0809/110421.858389:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:277] ExecuteModelAndGetScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER server segment info not available
+[5005:5005:0809/110421.858416:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:201] OnGotModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER failed to get score from executing server model, getting score from default model from db.
+[5005:5005:0809/110421.858435:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:240] GetCachedModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER has expired or unavailable result.
+[5005:5005:0809/110421.858448:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:210] OnGotModelScore: segment=OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER failed to get database model score, trying default model.
+[5005:5005:0809/110421.866484:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:226] GetCachedModelScore: segment=CROSS_DEVICE_USER_SEGMENT does not have a segment info.
+[5005:5005:0809/110421.866579:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:172] OnGotModelScore: segment=CROSS_DEVICE_USER_SEGMENT failed to get score from database, executing server model.
+[5005:5005:0809/110421.866611:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:277] ExecuteModelAndGetScore: segment=CROSS_DEVICE_USER_SEGMENT server segment info not available
+[5005:5005:0809/110421.866637:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:201] OnGotModelScore: segment=CROSS_DEVICE_USER_SEGMENT failed to get score from executing server model, getting score from default model from db.
+[5005:5005:0809/110421.866692:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:240] GetCachedModelScore: segment=CROSS_DEVICE_USER_SEGMENT has expired or unavailable result.
+[5005:5005:0809/110421.866715:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:210] OnGotModelScore: segment=CROSS_DEVICE_USER_SEGMENT failed to get database model score, trying default model.
+[5005:5005:0809/110421.866765:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:295] ExecuteModelAndGetScore: segment=CROSS_DEVICE_USER_SEGMENT signal collection not met
+[5005:5005:0809/110421.866822:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:226] GetCachedModelScore: segment=RESUME_HEAVY_USER_SEGMENT does not have a segment info.
+[5005:5005:0809/110421.866849:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:172] OnGotModelScore: segment=RESUME_HEAVY_USER_SEGMENT failed to get score from database, executing server model.
+[5005:5005:0809/110421.866878:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:277] ExecuteModelAndGetScore: segment=RESUME_HEAVY_USER_SEGMENT server segment info not available
+[5005:5005:0809/110421.866898:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:201] OnGotModelScore: segment=RESUME_HEAVY_USER_SEGMENT failed to get score from executing server model, getting score from default model from db.
+[5005:5005:0809/110421.866920:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:240] GetCachedModelScore: segment=RESUME_HEAVY_USER_SEGMENT has expired or unavailable result.
+[5005:5005:0809/110421.867000:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:210] OnGotModelScore: segment=RESUME_HEAVY_USER_SEGMENT failed to get database model score, trying default model.
+[5005:5005:0809/110421.867044:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:295] ExecuteModelAndGetScore: segment=RESUME_HEAVY_USER_SEGMENT signal collection not met
+[5005:5005:0809/110421.867106:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:226] GetCachedModelScore: segment=PASSWORD_MANAGER_USER does not have a segment info.
+[5005:5005:0809/110421.867381:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:172] OnGotModelScore: segment=PASSWORD_MANAGER_USER failed to get score from database, executing server model.
+[5005:5005:0809/110421.867462:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:277] ExecuteModelAndGetScore: segment=PASSWORD_MANAGER_USER server segment info not available
+[5005:5005:0809/110421.867594:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:201] OnGotModelScore: segment=PASSWORD_MANAGER_USER failed to get score from executing server model, getting score from default model from db.
+[5005:5005:0809/110421.867861:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:240] GetCachedModelScore: segment=PASSWORD_MANAGER_USER has expired or unavailable result.
+[5005:5005:0809/110421.867890:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:210] OnGotModelScore: segment=PASSWORD_MANAGER_USER failed to get database model score, trying default model.
+[5005:5005:0809/110421.867969:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:295] ExecuteModelAndGetScore: segment=PASSWORD_MANAGER_USER signal collection not met
+[5005:5005:0809/110421.868012:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:226] GetCachedModelScore: segment=CHROME_USER_ENGAGEMENT does not have a segment info.
+[5005:5005:0809/110421.868042:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:172] OnGotModelScore: segment=CHROME_USER_ENGAGEMENT failed to get score from database, executing server model.
+[5005:5005:0809/110421.868072:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:277] ExecuteModelAndGetScore: segment=CHROME_USER_ENGAGEMENT server segment info not available
+[5005:5005:0809/110421.868099:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:201] OnGotModelScore: segment=CHROME_USER_ENGAGEMENT failed to get score from executing server model, getting score from default model from db.
+[5005:5005:0809/110421.868117:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:240] GetCachedModelScore: segment=CHROME_USER_ENGAGEMENT has expired or unavailable result.
+[5005:5005:0809/110421.868144:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:210] OnGotModelScore: segment=CHROME_USER_ENGAGEMENT failed to get database model score, trying default model.
+[5005:5005:0809/110421.868170:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:295] ExecuteModelAndGetScore: segment=CHROME_USER_ENGAGEMENT signal collection not met
+[5005:5048:0809/110421.907577:VERBOSE1:components/segmentation_platform/internal/database/ukm_database_backend.cc:354] Output from SQL query SELECT IFNULL(COUNT(metric_value),0)FROM uma_metrics WHERE metric_hash='1A94D82447638877' AND profile_id=? AND type=? AND metric_value IN(1)AND event_timestamp BETWEEN ? AND ? Bind values: 0:3570350125 1:2 2:2026-08-02 11:04:21.859534 UTC 3:2026-08-09 11:04:21.859534 UTC  Result: 0.000000,
+[5005:5048:0809/110421.910538:VERBOSE1:components/segmentation_platform/internal/database/ukm_database_backend.cc:354] Output from SQL query SELECT IFNULL(COUNT(metric_value),0)FROM uma_metrics WHERE metric_hash='8A5076C9026398BD' AND profile_id=? AND type=? AND event_timestamp BETWEEN ? AND ? Bind values: 0:3570350125 1:1 2:2026-08-02 11:04:21.859534 UTC 3:2026-08-09 11:04:21.859534 UTC  Result: 0.000000,
+[5005:5048:0809/110421.925649:VERBOSE1:components/segmentation_platform/internal/database/ukm_database_backend.cc:354] Output from SQL query SELECT COALESCE((SELECT metric_value FROM uma_metrics WHERE metric_hash='ED7CFEC70BF9942D' AND profile_id=? AND type=? AND event_timestamp BETWEEN ? AND ? ORDER BY event_timestamp DESC,id DESC LIMIT 1),0.000000) Bind values: 0:3570350125 1:3 2:2026-08-02 11:04:21.859534 UTC 3:2026-08-09 11:04:21.859534 UTC  Result: 0.000000,
+[5005:5005:0809/110421.942392:VERBOSE1:components/segmentation_platform/internal/execution/model_executor_impl.cc:191] Segmentation model input:  feature 0: 0 feature 1: 0 feature 2: 0 feature 3: 0 for segment OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER
+[5005:5005:0809/110421.949194:VERBOSE1:components/segmentation_platform/internal/execution/model_executor_impl.cc:220] Segmentation model result:  output 0: 0 for segment OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER
+[5005:5005:0809/110421.950462:VERBOSE1:components/segmentation_platform/internal/execution/model_executor_impl.cc:278] Model: OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER version: 3 execution status: 0, output size: 1
+[5005:5005:0809/110421.951548:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:29] ComputeDiscreteMapping: segment=: result=0, rank=0
+[5005:5005:0809/110421.951973:VERBOSE1:components/segmentation_platform/internal/selection/segment_result_provider.cc:359] OnModelExecuted: Default model executed successfully. Result: PredictionResult: timestamp: 13430747061950933 result 0: 0 for segment OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER
+[5005:5005:0809/110421.953036:VERBOSE1:components/segmentation_platform/internal/database/segment_info_database.cc:208] SaveSegmentResult: saving: PredictionResult: timestamp: 13430747061950933 result 0: 0 for segment id: OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER
+[5005:5005:0809/110421.960734:VERBOSE1:components/segmentation_platform/internal/database/cached_result_writer.cc:30] CachedResultWriter updating prefs with new result: PredictionResult: timestamp: 13430747061950933 result 0: 0 for segmentation key: shopping_user
+[5069:5075:0809/110422.135690:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_0": No such file or directory (2)
+[5069:5075:0809/110422.135971:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_1": No such file or directory (2)
+[5069:5075:0809/110422.136037:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_s": No such file or directory (2)
+[5069:5076:0809/110422.150447:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/v1:GetModels?key=AIzaSyBqJZh-7pA44blAaAkH6490hUFOwX0KCYM
+[5005:5005:0809/110422.155926:VERBOSE1:chrome/browser/policy/cloud/fm_registration_token_uploader.cc:193] Client is missing for kUser scope
+[5005:5005:0809/110422.250562:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:262] Acquiring <PartitionedLockId>{id: 0x31, partition: 0} for SynchronizeInstalledApps@chrome/browser/web_applications/externally_managed_app_manager.cc:186
+[5005:5005:0809/110422.251055:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:243] All locks acquired for SynchronizeInstalledApps@chrome/browser/web_applications/externally_managed_app_manager.cc:186
+[5005:5005:0809/110422.260930:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:286] Releasing <PartitionedLockId>{id: 0x31, partition: 0} requested by SynchronizeInstalledApps@chrome/browser/web_applications/externally_managed_app_manager.cc:186
+[5069:5076:0809/110424.262074:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/downloads?name=1679317318&target=OPTIMIZATION_TARGET_LANGUAGE_DETECTION
+[5069:5076:0809/110424.278527:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/downloads?name=1783972948&target=OPTIMIZATION_TARGET_NOTIFICATION_PERMISSION_PREDICTIONS
+[5069:5076:0809/110424.675746:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/downloads?name=1673999601&target=OPTIMIZATION_TARGET_PAGE_VISIBILITY
+[5069:5076:0809/110424.679621:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110424.712606:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/downloads?name=5&target=OPTIMIZATION_TARGET_PAGE_TOPICS_V2
+[5069:5076:0809/110424.729621:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110424.729862:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110424.733703:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110424.733954:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110425.154293:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/downloads?name=1783972936&target=OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS
+[5069:5076:0809/110425.298812:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/downloads?name=1728324084&target=OPTIMIZATION_TARGET_OMNIBOX_ON_DEVICE_TAIL_SUGGEST
+[5069:5076:0809/110425.513502:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/downloads?name=1781017313&target=OPTIMIZATION_TARGET_CLIENT_SIDE_PHISHING
+[5069:5076:0809/110426.529559:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/downloads?name=1696268326&target=OPTIMIZATION_TARGET_OMNIBOX_URL_SCORING
+[5069:5076:0809/110426.645158:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/downloads?name=1770062312&target=OPTIMIZATION_TARGET_PASSAGE_EMBEDDER
+[5069:5076:0809/110426.789625:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://optimizationguide-pa.googleapis.com/downloads?name=240731042075&target=OPTIMIZATION_TARGET_SEGMENTATION_COMPOSE_PROMOTION
+[5069:5076:0809/110445.642136:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://android.clients.google.com/c2dm/register3
+[5069:5076:0809/110445.662915:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110445.712203:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110445.715164:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:130] TlsClient: SSL_do_handshake returned when entering early data. After retry, rv=-1, SSL_in_early_data=1
+[5069:5076:0809/110445.725427:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5069:5076:0809/110445.727301:VERBOSE1:net/third_party/quiche/src/quiche/quic/core/tls_handshaker.cc:109] TlsClient: Continuing handshake
+[5005:5053:0809/110445.793268:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: QUOTA_EXCEEDED
+[5069:5076:0809/110447.292488:VERBOSE1:net/base/network_delegate.cc:38] NetworkDelegate::NotifyBeforeURLRequest: https://android.clients.google.com/c2dm/register3
+[5069:5075:0809/110448.794565:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_0": No such file or directory (2)
+[5069:5075:0809/110448.794935:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_1": No such file or directory (2)
+[5069:5075:0809/110448.795012:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Cache/Cache_Data/dd8cd7ce6312e569_s": No such file or directory (2)
+[5005:5005:0809/110448.802126:VERBOSE1:chrome/browser/policy/cloud/fm_registration_token_uploader.cc:193] Client is missing for kUser scope
+[5005:5005:0809/110449.516880:ERROR:components/webapps/browser/web_contents/web_app_url_loader.cc:180] Error loading about:blank page took too long to load.
+[5005:5005:0809/110449.537324:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:262] Acquiring <PartitionedLockId>{id: 0x31, partition: 0} for InstallFromInfo@chrome/browser/web_applications/commands/external_app_resolution_command.cc:800
+[5005:5005:0809/110449.537498:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:262] Acquiring <PartitionedLockId>{id: 0x666d676a6a6d6d6d6c666e6b6270706e636162666b6464626a696d63666e636d, partition: 1} for InstallFromInfo@chrome/browser/web_applications/commands/external_app_resolution_command.cc:800
+[5005:5005:0809/110449.537610:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:243] All locks acquired for InstallFromInfo@chrome/browser/web_applications/commands/external_app_resolution_command.cc:800
+[5005:5048:0809/110449.701237:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Web Applications/Manifest Resources/fmgjjmmmlfnkbppncabfkddbjimcfncm": No such file or directory (2)
+[5005:5048:0809/110449.701791:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Web Applications/Temp/scoped_dirPiCsrW": No such file or directory (2)
+[5005:5048:0809/110449.808906:VERBOSE1:base/files/file_util_posix.cc:309] Cannot stat "/home/cua/chrome-profile-153/Default/Web Applications/Manifest Resources/fmgjjmmmlfnkbppncabfkddbjimcfncm/Trusted Icons": No such file or directory (2)
+[5005:5005:0809/110449.852902:VERBOSE1:chrome/browser/profiles/profile_manager.cc:1407] AddKeepAlive(Default, kWebAppUpdate). keep_alives=[kBrowserWindow (1), kWebAppUpdate (1)]
+[5005:5005:0809/110449.868848:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:286] Releasing <PartitionedLockId>{id: 0x666d676a6a6d6d6d6c666e6b6270706e636162666b6464626a696d63666e636d, partition: 1} requested by InstallFromInfo@chrome/browser/web_applications/commands/external_app_resolution_command.cc:800
+[5005:5005:0809/110449.869002:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:286] Releasing <PartitionedLockId>{id: 0x31, partition: 0} requested by InstallFromInfo@chrome/browser/web_applications/commands/external_app_resolution_command.cc:800
+[5005:5005:0809/110449.869154:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:318] Acquiring <PartitionedLockId>{id: 0x31, partition: 0} for AdjustAppStateBeforeCommit@chrome/browser/web_applications/jobs/finalize_install_job.cc:706
+[5005:5005:0809/110449.869306:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:243] All locks acquired for AdjustAppStateBeforeCommit@chrome/browser/web_applications/jobs/finalize_install_job.cc:706
+[5005:5005:0809/110449.869412:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:286] Releasing <PartitionedLockId>{id: 0x30, partition: 0} requested by StartInstallationTask@chrome/browser/web_applications/externally_managed_app_manager.cc:411
+[5005:5005:0809/110449.875190:VERBOSE1:chrome/browser/profiles/profile_manager.cc:1468] RemoveKeepAlive(Default, kWebAppUpdate). keep_alives=[kBrowserWindow (1)]
+[5005:5005:0809/110449.877114:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:286] Releasing <PartitionedLockId>{id: 0x31, partition: 0} requested by AdjustAppStateBeforeCommit@chrome/browser/web_applications/jobs/finalize_install_job.cc:706
+[5005:5005:0809/110449.920843:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:262] Acquiring <PartitionedLockId>{id: 0x31, partition: 0} for MaybeStartNext@chrome/browser/web_applications/externally_managed_app_manager.cc:271
+[5005:5005:0809/110449.920927:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:243] All locks acquired for MaybeStartNext@chrome/browser/web_applications/externally_managed_app_manager.cc:271
+[5005:5005:0809/110449.932739:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:262] Acquiring <PartitionedLockId>{id: 0x30, partition: 0} for StartInstallationTask@chrome/browser/web_applications/externally_managed_app_manager.cc:411
+[5005:5005:0809/110449.932815:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:243] All locks acquired for StartInstallationTask@chrome/browser/web_applications/externally_managed_app_manager.cc:411
+[5005:5005:0809/110449.933697:VERBOSE1:chrome/browser/web_applications/locks/partitioned_lock_manager.cc:286] Releasing <PartitionedLockId>{id: 0x31, partition: 0} requested by MaybeStartNext@chrome/browser/web_applications/externally_managed_app_manager.cc:271
+[5005:5057:0809/110514.189159:VERBOSE1:chrome/browser/shutdown_signal_handlers_posix.cc:131] Handling shutdown for signal 15.
