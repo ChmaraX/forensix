@@ -72,7 +72,8 @@ $lines = Get-ChildItem -Recurse -File -Force | ForEach-Object {
   "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $rel"
 } | Sort-Object
 Pop-Location
-$lines | Set-Content $manifest -Encoding ASCII
+# Canonical LF, UTF-8 without BOM: sha256sum -c must work unchanged on non-Windows analysis hosts.
+[IO.File]::WriteAllText($manifest, ($lines -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
 $digest = (Get-FileHash $manifest -Algorithm SHA256).Hash.ToLower()
 "$digest" | Set-Content (Join-Path $OutRoot "EVIDENCE_SET_DIGEST-$Snapshot.txt")
 Log "files=$($lines.Count) evidence_set_digest=$digest"

@@ -61,13 +61,18 @@ jobs:
         shell: pwsh
         run: |
           $old = 'F0rensiX-Src!2026#A'; $new = 'F0rensiX-Src!2026#B'
-          Set-Content C:\lab\chpw.cmd "powershell -NoProfile -Command `"([adsi]'WinNT://./suspect,user').ChangePassword('$old','$new'); 'rc='+`$?`" > C:\lab\logs\chpw.txt 2>&1" -Encoding ASCII
+          # A new local account inherits the machine's minimum password age. This disposable
+          # Source needs zero so the user's own NetUserChangePassword call is permitted.
+          net accounts /minpwage:0 | Out-Host
+          Set-Content C:\lab\chpw.cmd "powershell -NoProfile -Command `"([adsi]'WinNT://localhost/suspect,user').ChangePassword('$old','$new'); 'rc='+`$?`" > C:\lab\logs\chpw.txt 2>&1" -Encoding ASCII
           schtasks /create /tn fx148_chpw /tr C:\lab\chpw.cmd /sc once /st 23:59 /ru suspect /rp $old /rl LIMITED /f | Out-Null
           schtasks /run /tn fx148_chpw | Out-Null
           Start-Sleep -Seconds 12
           schtasks /delete /tn fx148_chpw /f | Out-Null
-          Get-Content C:\lab\logs\chpw.txt -ErrorAction SilentlyContinue | Write-Host
-          # touch DPAPI once as the user under the NEW password so any re-protection lands on disk
+          $chpw = Get-Content C:\lab\logs\chpw.txt -ErrorAction Stop
+          $chpw | Write-Host
+          if ($chpw -notcontains 'rc=True') { throw 'user-initiated password change failed' }
+          # Touch DPAPI once as the user under the NEW password so any re-protection lands on disk
           Set-Content C:\lab\touch.cmd "powershell -NoProfile -Command `"Add-Type -AssemblyName System.Security; [System.Security.Cryptography.ProtectedData]::Protect([byte[]](1,2,3),`$null,'CurrentUser') | Out-Null`" > C:\lab\logs\touch.txt 2>&1" -Encoding ASCII
           schtasks /create /tn fx148_touch /tr C:\lab\touch.cmd /sc once /st 23:59 /ru suspect /rp $new /rl LIMITED /f | Out-Null
           schtasks /run /tn fx148_touch | Out-Null
@@ -93,6 +98,7 @@ jobs:
         run: ./research/_raw/148-acquire.ps1 -Snapshot 's3-after-admin-reset' -OutRoot "$PWD/evidence"
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: research-148-evidence-${{ matrix.arm }}
           path: evidence/**
