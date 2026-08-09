@@ -1,0 +1,10 @@
+Analysis host: macOS 26.5.1 arm64
+Python 3.12.7
+Name: impacket
+Version: 0.13.1
+Name: pycryptodomex
+Version: 3.23.0
+d26912ffd2b7cb70aba19936882a531fcb494fee71e69783c2fb3213dbd7ce1a  research/_raw/148-recover.py
+Source run: https://github.com/ChmaraX/forensix/actions/runs/31317002371
+Source workflow ref: research/148-windows-dpapi
+Source workflow commit: 2281bfa094b8aa7aa1479d0df6228bb57b20dcc6

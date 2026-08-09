@@ -1,0 +1,2 @@
+impacket==0.13.1
+pycryptodomex==3.23.0

@@ -1,0 +1,17 @@
+cft-s1
+  wrapper_masterkey_guid: d7ba1007-810b-4b5b-b3ce-42e2314d6b45
+  credhist_bytes: 24
+  d7ba1007-810b-4b5b-b3ce-42e2314d6b45 MasterKeyLen=176 BackupKeyLen=144 CredHistLen=20 works=password-A:sha1
+cft-s2
+  wrapper_masterkey_guid: d7ba1007-810b-4b5b-b3ce-42e2314d6b45
+  credhist_bytes: 24
+  d6fbc12d-edd0-46db-9497-c022c7114cee MasterKeyLen=176 BackupKeyLen=144 CredHistLen=20 works=password-B:sha1
+  d7ba1007-810b-4b5b-b3ce-42e2314d6b45 MasterKeyLen=176 BackupKeyLen=144 CredHistLen=20 works=password-A:sha1
+branded-s1
+  wrapper_masterkey_guid: 1fbe7af8-5ef7-4420-8ab6-56da9b09ea24
+  credhist_bytes: 24
+  1fbe7af8-5ef7-4420-8ab6-56da9b09ea24 MasterKeyLen=176 BackupKeyLen=144 CredHistLen=20 works=password-A:sha1
+branded-s3
+  wrapper_masterkey_guid: 1fbe7af8-5ef7-4420-8ab6-56da9b09ea24
+  credhist_bytes: 24
+  1fbe7af8-5ef7-4420-8ab6-56da9b09ea24 MasterKeyLen=176 BackupKeyLen=144 CredHistLen=20 works=password-A:sha1

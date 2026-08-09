@@ -1,0 +1,4 @@
+branded-s1: 197/197 OK after analysis
+branded-s3: 198/198 OK after analysis
+cft-s1: 186/186 OK after analysis
+cft-s2: 189/189 OK after analysis

@@ -1,0 +1,25 @@
+{
+  "host": "http://forensix.invalid/",
+  "cookies": [
+    {
+      "name": "fx_ascii",
+      "value": "ForensiX-known-plaintext-ASCII-0001"
+    },
+    {
+      "name": "fx_nonascii",
+      "value": "ForensiX-ÁÉÍÓÚ-áéí-řšč-日本語-🔐"
+    },
+    {
+      "name": "fx_block16",
+      "value": "AAAABBBBCCCCDDDD"
+    },
+    {
+      "name": "fx_long",
+      "value": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL"
+    },
+    {
+      "name": "fx_one",
+      "value": "X"
+    }
+  ]
+}

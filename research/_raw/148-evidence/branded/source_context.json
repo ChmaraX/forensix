@@ -1,0 +1,16 @@
+{
+  "udd": "C:\\Users\\suspect\\udd",
+  "account_type": "local",
+  "arm": "branded-abe-off",
+  "domain_joined": false,
+  "os": {
+    "Caption": "Microsoft Windows Server 2025 Datacenter",
+    "Version": "10.0.26100",
+    "BuildNumber": "26100"
+  },
+  "user": "suspect",
+  "machine": "runnervm7vqe0",
+  "chrome_exe": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "sid": "S-1-5-21-1178926710-2200278958-3596451971-1003",
+  "password": "F0rensiX-Src!2026#A"
+}

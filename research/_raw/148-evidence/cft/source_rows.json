@@ -1,0 +1,53 @@
+{
+  "udd": "C:\\Users\\suspect\\udd",
+  "os_crypt_keys": [
+    "audit_enabled",
+    "encrypted_key"
+  ],
+  "encrypted_key_b64_len": 424,
+  "encrypted_key_raw_len": 317,
+  "encrypted_key_prefix": "DPAPI",
+  "dpapi_blob_len": 312,
+  "app_bound_encrypted_key_present": false,
+  "cookies_db": "C:\\Users\\suspect\\udd\\Default\\Network\\Cookies",
+  "rows": [
+    {
+      "name": "fx_ascii",
+      "host_key": "forensix.invalid",
+      "prefix": "v10",
+      "len": 98,
+      "hex": "763130a3f9d1e48e0245e46caf68d3c429dc23a69b8bea96a99c58bfe913aa0dfa7bf022f89a49c4dd6da8e8bca77c46d23ffe17aa1de6673ef77389e996631e1b73fb266735862a0440346c34218c52b75f7466d6dd07f6725402c12608254a88d5"
+    },
+    {
+      "name": "fx_block16",
+      "host_key": "forensix.invalid",
+      "prefix": "v10",
+      "len": 79,
+      "hex": "763130e604e41655d9b64c4d9e107841518c74b59c7955846d4eee48279f007546fbf29d8ad2ba72ee1727c115d88f75a5835f3b3be3278c020660c47921a6d3dbeb05f3337637ce5b9338a60a2e19"
+    },
+    {
+      "name": "fx_long",
+      "host_key": "forensix.invalid",
+      "prefix": "v10",
+      "len": 263,
+      "hex": "76313019d1e7c02dc8a5f6c587407cc60e866d8a67eedd70f1f1ec4b69b09926e4113f657ee1ae9565124b3c922b22b5e6e21367434ea95caef9c420ab262efb1cb809df944faf3b18a1c30effb730cab246037e0d55b06fb67099da46e6e4b13b038e46026aebe3a46a2bd55bb4aef27b6b471bd231163b0b5532b6a42ab8864dc5988911a7080ebe72cb4a75941bdf3b1cf97eaaca9676718cd26b4ad6ec674da8ff089103b6c1a0d843e43b156b745b350728691c7002547f84484843791dcfed4a67cb98cc7072b9abc69b620f5a3083c19e903e317714b504d320c164f95ef3a5f77180666d7d2b0aba8f022dade00ea774104f00940ca86bb6e6a779817b74c711616381"
+    },
+    {
+      "name": "fx_nonascii",
+      "host_key": "forensix.invalid",
+      "prefix": "v10",
+      "len": 111,
+      "hex": "763130c6830cbd3578e5fa3e91931fafeaead0efbe5bef13d4735effa17bc4b2484045fdaa8e5074e9b13337b1490a4191644e75f3e0fce68fb6e4880e033201ce9ea63d9dda3f04d68e84b1b00c3857a64aa82c4ec1043a77ef6d7525728b6c1f20f5aa21ee5d8fbea218cb7ca94d"
+    },
+    {
+      "name": "fx_one",
+      "host_key": "forensix.invalid",
+      "prefix": "v10",
+      "len": 64,
+      "hex": "7631306916ca2dee8429b3ff63c7e6308d194ca4cf9cc43f07cf2937a225a4420b842b7abfebc51d63d2c177b5a6ba9a5ff5d4dbca28cdaeaacdaacee2fb030f"
+    }
+  ],
+  "distinct_prefixes": [
+    "v10"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "machine": "runnervm7vqe0",
+  "password": "F0rensiX-Src!2026#A",
+  "chrome_exe": "D:\\a\\forensix\\forensix\\chrome\\chrome\\win64-151.0.7922.77\\chrome-win64\\chrome.exe",
+  "arm": "cft",
+  "account_type": "local",
+  "os": {
+    "Caption": "Microsoft Windows Server 2025 Datacenter",
+    "Version": "10.0.26100",
+    "BuildNumber": "26100"
+  },
+  "domain_joined": false,
+  "user": "suspect",
+  "udd": "C:\\Users\\suspect\\udd",
+  "sid": "S-1-5-21-1178926710-2200278958-3596451971-1003"
+}
