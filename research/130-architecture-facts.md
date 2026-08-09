@@ -103,6 +103,16 @@ DuckDB is therefore out of v2.0 entirely — not held as a likely optimisation. 
 10⁶-row latency ever forces a columnar path, it returns as a derived, regenerable cache that holds no
 Finding, through a fresh ticket.
 
+**No longer unmeasured.** [#159](https://github.com/ChmaraX/forensix/issues/159) measured cold Case
+open, first/deep keyset page, indexed and non-indexed filter+sort, streamed Export, and Report
+generation at 10⁴/10⁵/10⁶ synthetic History rows (`tools/scale-bench/`,
+`research/159-scale-and-latency-evidence.md`). No operation exceeds its pre-registered interactive
+budget at 10⁶ in either arm, and the P0–P4 cost-attribution probes put SQLite's own share of
+end-to-end cost at 10–15% throughout — the cost is JS serialisation, not the database. Per §7.5's
+decision table (fixed before the run), a columnar cache is reopened only when SQL cost *dominates* an
+aggregate/scan over most of the Case with an already-optimal plan; that profile did not occur.
+**The caveat above is closed: no columnar path, and this is now measured, not assumed.**
+
 **Gap:** the SQLite side was taken from the #129 brief and not re-verified this pass. If a decision
 memo cites Library-of-Congress status, verify at `sqlite.org/locrsf.html` and `sqlite.org/fileformat2.html`.
 The #129 brief's own use of that quote is weak — it is sourced from SQLite's marketing page — and the
