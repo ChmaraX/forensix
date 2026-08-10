@@ -60,11 +60,15 @@ Seeded from [Forensic integrity model](https://github.com/ChmaraX/forensix/issue
 
 ## Case
 
-**Case** — one examination. Holds every Manifest, row, Candidate, Finding and audit entry produced from one or more Sources. The record of truth: the only place ForensiX writes analysis, and the only thing an Export is derived from.
+**Case** — one examination. Holds every Manifest, row, Candidate and Finding produced from one or more Sources. The record of truth: the only place ForensiX writes analysis, and the only thing an Export is derived from. ForensiX is its only writer: no surface outside `core/` writes to a Case, and the browser view only reads.
 
 **Case Directory** — what a Case occupies on disk: the Case file, and the Working Copy beside it. The Case file is independently valid and hashable. The Working Copy is referenced by path and by **Working Copy Digest**, and is never embedded in the Case file.
 
-**Analysis Run** — one execution of analysis against a Case. Every emitted row is attributed to the run that produced it.
+**Analysis Run** — one execution of analysis against a Case. Every emitted row is attributed to the run that produced it. A run carries its own identity: run id, start and end time, tool version, the command line as invoked, the Source, and the exit state. That identity is the provenance of a row inside the Case, as the Manifest is the provenance of a row's bytes.
+
+**Superseded** — the state of a row that a later Analysis Run replaced. Superseded rows are never deleted and never edited. A run supersedes at the granularity of one artifact within one Source, and only for an artifact it produced: an artifact that ended `unavailable` supersedes nothing.
+
+**Declared Examiner** — the person accountable for a Case, stated by that person. Nothing authenticates it: ForensiX has no accounts, and one Case has one declared name for its whole life. Recorded once on the Case and printed in an Export header. Never read from the environment or from the OS user, and always labelled as declared, never derived.
 
 ## Export
 
