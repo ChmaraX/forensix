@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forensix.dev/contracts/manifest-header-v1.schema.json",
+  "title": "ForensiX Manifest header v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_schema",
+    "source_kind",
+    "selection_policy",
+    "selection_policy_diff",
+    "tier_2_included",
+    "hash_algorithm",
+    "evidence_set_digest",
+    "working_copy_digest",
+    "entry_count",
+    "copied_entry_count",
+    "profile_count",
+    "unavailable_count",
+    "unclassified_count"
+  ],
+  "properties": {
+    "manifest_schema": { "const": "forensix/manifest/1" },
+    "source_kind": { "const": "USER_DATA_DIR" },
+    "selection_policy": { "const": "chrome-userdata/1" },
+    "selection_policy_diff": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "tier_2_included": { "type": "boolean" },
+    "hash_algorithm": { "const": "sha-256" },
+    "evidence_set_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "working_copy_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "entry_count": { "type": "integer", "minimum": 0 },
+    "copied_entry_count": { "type": "integer", "minimum": 0 },
+    "profile_count": { "type": "integer", "minimum": 0 },
+    "unavailable_count": { "type": "integer", "minimum": 0 },
+    "unclassified_count": { "type": "integer", "minimum": 0 }
+  }
+}

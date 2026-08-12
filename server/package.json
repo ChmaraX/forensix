@@ -1,36 +1,13 @@
 {
-  "name": "node-prototype",
-  "version": "1.0.0",
-  "description": "Prototype for BP01",
-  "main": "server.js",
+  "name": "@forensix/server",
+  "version": "2.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.15.0"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "DEV=true nodemon --ignore 'sha1_data.json' --ignore 'data/' server.js",
-    "start": "nodemon --ignore 'sha1_data.json' --ignore 'data/' server.js"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "any-base": "^1.1.0",
-    "axios": "^1.7.7",
-    "bcryptjs": "^2.4.3",
-    "bluebird": "^3.7.2",
-    "chalk": "^4.1.2",
-    "cors": "^2.8.5",
-    "directory-tree": "^3.5.1",
-    "express": "^4.21.1",
-    "folder-hash": "^4.0.4",
-    "hexdump-nodejs": "^0.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "libphonenumber-js": "^1.11.14",
-    "lodash": "^4.17.21",
-    "moment": "^2.30.1",
-    "mongoose": "^6.12.8",
-    "better-sqlite3": "^12.2.0",
-    "tld-countries": "^1.0.1",
-    "url-parse": "^1.5.10"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.7"
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   }
 }

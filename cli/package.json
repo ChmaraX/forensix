@@ -1,10 +1,16 @@
 {
-  "name": "@forensix/client",
+  "name": "@forensix/cli",
   "version": "2.0.0-alpha.1",
   "private": true,
   "type": "module",
+  "bin": {
+    "forensix": "./dist/cli.js"
+  },
   "engines": {
     "node": ">=24.15.0"
+  },
+  "dependencies": {
+    "@forensix/core": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

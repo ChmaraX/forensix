@@ -1,0 +1,131 @@
+{
+  "selection_policy": "chrome-userdata/1",
+  "cases": [
+    {
+      "path": "Local State",
+      "node_type": "file",
+      "selection_tier": "tier_1",
+      "file_kind": "json",
+      "unclassified": false,
+      "copy_default": true,
+      "copy_with_tier_2": true
+    },
+    {
+      "path": "SingletonLock",
+      "node_type": "symlink",
+      "selection_tier": "tier_1",
+      "file_kind": "liveness_evidence",
+      "unclassified": false,
+      "copy_default": false,
+      "copy_with_tier_2": false
+    },
+    {
+      "path": "Default",
+      "node_type": "dir",
+      "selection_tier": "tier_1",
+      "file_kind": "directory",
+      "unclassified": false,
+      "copy_default": false,
+      "copy_with_tier_2": false
+    },
+    {
+      "path": "Default/History",
+      "node_type": "file",
+      "selection_tier": "tier_1",
+      "file_kind": "database",
+      "unclassified": false,
+      "copy_default": true,
+      "copy_with_tier_2": true
+    },
+    {
+      "path": "Default/History-wal",
+      "node_type": "file",
+      "selection_tier": "tier_1",
+      "file_kind": "sidecar",
+      "unclassified": false,
+      "copy_default": true,
+      "copy_with_tier_2": true
+    },
+    {
+      "path": "Default/Network",
+      "node_type": "dir",
+      "selection_tier": "tier_1",
+      "file_kind": "directory",
+      "unclassified": false,
+      "copy_default": false,
+      "copy_with_tier_2": false
+    },
+    {
+      "path": "Default/Network/Cookies",
+      "node_type": "file",
+      "selection_tier": "tier_1",
+      "file_kind": "database",
+      "unclassified": false,
+      "copy_default": true,
+      "copy_with_tier_2": true
+    },
+    {
+      "path": "Default/Cache/data_0",
+      "node_type": "file",
+      "selection_tier": "tier_2",
+      "file_kind": "bulk_data",
+      "unclassified": false,
+      "copy_default": false,
+      "copy_with_tier_2": true
+    },
+    {
+      "path": "Default/DIPS",
+      "node_type": "file",
+      "selection_tier": "tier_3",
+      "file_kind": "ballast",
+      "unclassified": false,
+      "copy_default": false,
+      "copy_with_tier_2": false
+    },
+    {
+      "path": "optimization_guide_model_store/model.tflite",
+      "node_type": "file",
+      "selection_tier": "tier_3",
+      "file_kind": "ballast",
+      "unclassified": false,
+      "copy_default": false,
+      "copy_with_tier_2": false
+    },
+    {
+      "path": "BrowserMetrics-123.pma",
+      "node_type": "file",
+      "selection_tier": "tier_3",
+      "file_kind": "ballast",
+      "unclassified": false,
+      "copy_default": false,
+      "copy_with_tier_2": false
+    },
+    {
+      "path": "Profile 2/Web Data-journal",
+      "node_type": "file",
+      "selection_tier": "tier_1",
+      "file_kind": "sidecar",
+      "unclassified": false,
+      "copy_default": true,
+      "copy_with_tier_2": true
+    },
+    {
+      "path": "Default/new-artifact.db",
+      "node_type": "file",
+      "selection_tier": "unclassified",
+      "file_kind": "unclassified",
+      "unclassified": true,
+      "copy_default": false,
+      "copy_with_tier_2": false
+    },
+    {
+      "path": "Profiles/History",
+      "node_type": "file",
+      "selection_tier": "unclassified",
+      "file_kind": "unclassified",
+      "unclassified": true,
+      "copy_default": false,
+      "copy_with_tier_2": false
+    }
+  ]
+}

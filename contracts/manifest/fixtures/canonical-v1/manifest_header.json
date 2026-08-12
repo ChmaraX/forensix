@@ -1,0 +1,15 @@
+{
+  "manifest_schema": "forensix/manifest/1",
+  "source_kind": "USER_DATA_DIR",
+  "selection_policy": "chrome-userdata/1",
+  "selection_policy_diff": [],
+  "tier_2_included": false,
+  "hash_algorithm": "sha-256",
+  "evidence_set_digest": "701e3149545d82322a3f214f52ef20a6896ae70fe40bd660363d715fb24423e2",
+  "working_copy_digest": "8a243613e39c3837708c1a0fc28d5b23e305a7b36eb9fdc3b53a5209c0f97022",
+  "entry_count": 6,
+  "copied_entry_count": 1,
+  "profile_count": 1,
+  "unavailable_count": 0,
+  "unclassified_count": 2
+}

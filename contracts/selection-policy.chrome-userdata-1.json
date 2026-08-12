@@ -1,0 +1,100 @@
+{
+  "schema": "forensix/selection-policy/1",
+  "name": "chrome-userdata/1",
+  "profile_directories": {
+    "exact": ["Default", "Guest Profile", "System Profile"],
+    "numbered_prefix": "Profile ",
+    "numbered_minimum": 1
+  },
+  "sqlite_sidecar_suffixes": ["-wal", "-shm", "-journal"],
+  "browser_tier_1": [
+    { "path": "Local State", "file_kind": "json", "expected": true },
+    { "path": "Last Version", "file_kind": "metadata", "expected": true },
+    { "path": "First Run", "file_kind": "metadata", "expected": true },
+    {
+      "path": "SingletonLock",
+      "file_kind": "liveness_evidence",
+      "expected": false
+    },
+    {
+      "path": "SingletonSocket",
+      "file_kind": "liveness_evidence",
+      "expected": false
+    },
+    {
+      "path": "RunningChromeVersion",
+      "file_kind": "liveness_evidence",
+      "expected": false
+    }
+  ],
+  "profile_tier_1": [
+    { "path": "History", "file_kind": "database", "expected": true },
+    { "path": "Favicons", "file_kind": "database", "expected": true },
+    { "path": "Top Sites", "file_kind": "database", "expected": true },
+    {
+      "path": "Network/Cookies",
+      "file_kind": "database",
+      "expected": true
+    },
+    { "path": "Cookies", "file_kind": "database", "expected": false },
+    { "path": "Login Data", "file_kind": "database", "expected": true },
+    {
+      "path": "Login Data For Account",
+      "file_kind": "database",
+      "expected": true
+    },
+    { "path": "Web Data", "file_kind": "database", "expected": true },
+    {
+      "path": "Account Web Data",
+      "file_kind": "database",
+      "expected": true
+    },
+    {
+      "path": "Affiliation Database",
+      "file_kind": "database",
+      "expected": true
+    },
+    { "path": "Preferences", "file_kind": "json", "expected": true },
+    {
+      "path": "Secure Preferences",
+      "file_kind": "json",
+      "expected": true
+    },
+    { "path": "Bookmarks", "file_kind": "json", "expected": true },
+    { "path": "Bookmarks.bak", "file_kind": "json", "expected": true },
+    {
+      "path": "Google Profile Picture.png",
+      "file_kind": "image",
+      "expected": true
+    },
+    {
+      "path": "Network/Network Persistent State",
+      "file_kind": "json",
+      "expected": true
+    },
+    {
+      "path": "Network Persistent State",
+      "file_kind": "json",
+      "expected": false
+    }
+  ],
+  "profile_tier_2_roots": [
+    "Cache",
+    "Code Cache",
+    "GPUCache",
+    "Service Worker",
+    "Storage",
+    "Extensions",
+    "Sessions"
+  ],
+  "browser_tier_3_roots": [
+    "optimization_guide_model_store",
+    "component_crx_cache",
+    "WasmTtsEngine",
+    "DeferredBrowserMetrics",
+    "GraphiteDawnCache",
+    "OnDeviceHeadSuggestModel"
+  ],
+  "browser_tier_3_globs": ["BrowserMetrics*.pma"],
+  "profile_tier_3_roots": ["DIPS", "Shortcuts", "Network Action Predictor"]
+}

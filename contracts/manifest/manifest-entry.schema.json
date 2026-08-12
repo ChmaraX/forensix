@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forensix.dev/contracts/manifest-entry-v1.schema.json",
+  "title": "ForensiX Manifest entry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "path",
+    "state",
+    "unavailable_reason",
+    "node_type",
+    "file_kind",
+    "selection_tier",
+    "copied",
+    "unclassified",
+    "size",
+    "mtime_ns",
+    "hash_algorithm",
+    "sha256",
+    "link_target"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Source-relative path with forward slash separators"
+    },
+    "state": {
+      "enum": ["value", "absent", "unavailable"]
+    },
+    "unavailable_reason": {
+      "type": ["string", "null"],
+      "enum": [
+        null,
+        "permission_denied",
+        "io_error",
+        "changed_during_ingest",
+        "parent_unavailable"
+      ]
+    },
+    "node_type": {
+      "enum": ["file", "symlink", "socket", "dir", "absent"]
+    },
+    "file_kind": {
+      "enum": [
+        "database",
+        "sidecar",
+        "json",
+        "image",
+        "metadata",
+        "liveness_evidence",
+        "bulk_data",
+        "ballast",
+        "directory",
+        "unclassified"
+      ]
+    },
+    "selection_tier": {
+      "enum": ["tier_1", "tier_2", "tier_3", "unclassified"]
+    },
+    "copied": {
+      "type": "boolean"
+    },
+    "unclassified": {
+      "type": "boolean"
+    },
+    "size": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "mtime_ns": {
+      "type": ["string", "null"],
+      "pattern": "^-?[0-9]+$"
+    },
+    "hash_algorithm": {
+      "const": "sha-256"
+    },
+    "sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "link_target": {
+      "type": ["string", "null"]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "unavailable" } } },
+      "then": {
+        "properties": {
+          "unavailable_reason": { "type": "string" },
+          "sha256": { "type": "null" },
+          "copied": { "const": false }
+        }
+      },
+      "else": {
+        "properties": {
+          "unavailable_reason": { "type": "null" },
+          "sha256": { "type": "string" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "state": { "const": "absent" } } },
+      "then": {
+        "properties": {
+          "node_type": { "const": "absent" },
+          "copied": { "const": false },
+          "size": { "type": "null" },
+          "mtime_ns": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "copied": { "const": true } } },
+      "then": {
+        "properties": {
+          "state": { "const": "value" },
+          "node_type": { "const": "file" },
+          "selection_tier": { "enum": ["tier_1", "tier_2"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "node_type": { "const": "symlink" },
+          "state": { "const": "value" }
+        }
+      },
+      "then": { "properties": { "link_target": { "type": "string" } } },
+      "else": { "properties": { "link_target": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "unclassified": { "const": true } } },
+      "then": {
+        "properties": {
+          "selection_tier": { "const": "unclassified" },
+          "file_kind": { "enum": ["directory", "unclassified"] }
+        }
+      }
+    }
+  ]
+}

@@ -1,140 +1,86 @@
-<h1 align="center" color="blue">ForensiX</h1>
-<p align="center" text>Google Chrome forensic tool</p>
+# ForensiX v2
 
-<p align="center">
-<a href="https://github.com/ChmaraX/forensix/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-</p>
+ForensiX is a local, offline analyzer for Google Chrome forensic evidence.
+Version 2 is a rebuild and does not use version 1 as a behavior reference.
 
-<p align="center" text>Forensic tool for processing, analyzing and visually presenting Google Chrome artifacts.</p>
+## Current implementation
 
-![forensix ui](https://i.imgur.com/sT3y7Bv.png)
+The Wave 1 tracer bullet can ingest a Chrome User Data Dir.
+It creates one Case Directory for all detected Profiles.
 
-## Features 
-* Mounting of volume with Google Chrome data and preserving integrity trough manipulation process
-  - read only
-  - hash checking
-* Suspect profile and behavior estimations including:
-  - personal information (emails, phone nums, date of birth, gender, nation, city, adress...) 
-  - Chrome metadata
-    - Accounts
-    - Version
-  - Target system metadata
-    - Operating system
-    - Display resolution
-    - Mobile Devices
-  - Browsing history URL category classification using ML model
-  - Login data frequency (most used emails and credentials)
-  - Browsing activity during time periods (heatmap, barchart)
-  - Most visited websites
-* Browsing history
-  - transition types
-  - visit durations
-  - avg. visit duration for most common sites
-* Login data (including parsed metadata)
-* Autofills
-  - estimated cities and zip codes
-  - estimated phone number
-  - other possible addresses 
-  - geolocation API (needed to be registered to Google)
-* Downloads (including default download directory, download statistics...)
- - default download directory
- - download statistics
-* Bookmarks
-* Favicons (including all subdomains used for respective favicon)
-* Cache 
-  - URLs
-  - content types
-  - payloads (images or base64)
-  - additional parsed metadata
-* Volume
-  - volume structure data (visual, JSON)
-* Shared database to save potential evidence found by investigators
+The Case Directory contains:
 
+- `case.fxdb`: the SQLite Case and its recorded Manifest
+- `manifest.jsonl`: the canonical, path-sorted Manifest
+- `manifest_header.json`: the Selection Policy, counts, and both digests
+- `working-copy/`: the selected content for later analysis
 
-## Installation
+The compiled CLI also runs the integrity check that occurs before analysis.
+Artifact parsing starts in issue #168.
 
-### Requirements
+## Requirements
 
-- [Docker](https://docs.docker.com/install/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
+- Node.js 24.15.0 or newer
+- pnpm 11.0.9 through Corepack
 
-### Quick Start
+## Build
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ChmaraX/forensix.git
-   cd forensix
-   ```
+1. Select the required Node version.
+2. Install the locked dependencies.
+3. Build all four analyzer workspaces.
 
-2. **Prepare your browser data:**
-   Copy your Chrome/Brave browser data to the `data` directory:
-   ```bash
-   # For Chrome (replace with your actual profile path)
-   cp -r "/Users/username/Library/Application Support/Google/Chrome/Default/." ./data/
-   
-   # For Brave (replace with your actual profile path)
-   cp -r "/Users/username/Library/Application Support/BraveSoftware/Brave-Browser/Profile 2/." ./data/
-   ```
-
-3. **Build and start the application:**
-   ```bash
-   docker-compose up --build
-   ```
-
-**That's it!** The Docker setup will automatically:
-- Build all services from source code
-- Install Node.js and Python dependencies
-- Download the ML model (~700MB) for URL classification
-- Start all services
-
-**Note:** The first build may take several minutes due to downloading dependencies and the ML model.
-
-### Manual Installation (Alternative)
-
-If you prefer to run without Docker:
-
-1. **Install Python dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Download the ML model:**
-   ```bash
-   ./download-model.sh
-   ```
-
-3. **Install and start services manually:**
-   ```bash
-   # Server
-   cd server
-   npm install
-   npm start
-   
-   # Client (in another terminal)
-   cd client
-   npm install
-   npm start
-   ```
-
-The runninng services are listenning on:
-
-- ForensiX UI => http://localhost:3000
-- ForensiX Server => http://localhost:3001
-- MongoDB => http://localhost:27017
-
-## HTTPS/SSL
-
-If you want to use `HTTPS` for communication between on UI or Server side, place key and certificate into `/certificates` directory in either `/server` or `/client` directory.
-
-To generate self-signed keys:
-
-```bash
-openssl req -nodes -new -x509 -keyout server.key -out server.cert
+```sh
+nvm use
+corepack enable
+pnpm install --frozen-lockfile
+pnpm build
 ```
 
-Change `baseURL` protocol to https in `/client/src/axios-api.js`,
-then rebuild the specific changed image:
+The workspace members are `core`, `cli`, `server`, and `client`.
+The Collector and the tools under `tools/` are not workspace members.
 
-```bash
-docker-compose build <client|server>
+## Ingest a User Data Dir
+
+Run the compiled CLI against the top-level Chrome directory.
+Do not select one Profile directory for this command.
+
+```sh
+node cli/dist/cli.js ingest "/path/to/User Data" \
+  --case "/path/to/CASE-001" \
+  --json
 ```
+
+Tier 2 content is off by default.
+Add `--include-tier-2` to copy the Tier 2 paths from Selection Policy `chrome-userdata/1`.
+
+## Check the Working Copy
+
+Run the analysis preflight after ingest:
+
+```sh
+node cli/dist/cli.js analyse --case "/path/to/CASE-001" --json
+```
+
+The command refuses a missing, moved, changed, or extended Working Copy.
+The refusal is a JSON diagnostic with code `WORKING_COPY_INTEGRITY_REFUSAL`.
+
+## Verify the implementation
+
+Run the offline verification command:
+
+```sh
+pnpm verify
+```
+
+The e2e tests run the compiled CLI.
+They independently check Source bytes, per-node hashes, the Evidence Set Digest, and the Working Copy Digest.
+
+## Shared Manifest contract
+
+The language-neutral contract is in [`contracts/manifest/`](contracts/manifest/README.md).
+The Selection Policy is in [`contracts/selection-policy.chrome-userdata-1.json`](contracts/selection-policy.chrome-userdata-1.json).
+The Analyzer and Go Collector must pass the same conformance fixtures.
+
+## License
+
+ForensiX uses the [MIT License](LICENSE).
