@@ -4,28 +4,61 @@ import {
   ForensixError,
   MINIMUM_NODE_VERSION,
   TOOL_VERSION,
+  analyseCase,
   ingestUserDataDir,
-  preflightAnalysis,
+  queryHistory,
+  type CommitState,
+  type DeclaredOriginOs,
+  type HistoryDirection,
+  type HistorySort,
+  type HistoryView,
   type IngestProgress,
   type IngestResult,
 } from "@forensix/core";
 
 const USAGE = `Usage:
   forensix ingest <user-data-dir> --case <case-directory> [--include-tier-2] [--json]
-  forensix analyse --case <case-directory> [--json]
+  forensix analyse --case <case-directory> [--timezone <iana-zone>] [--origin-os <windows|macos|linux>] [--json]
+  forensix history --case <case-directory> [--view <visits|activity|most-visited|durations>]
+                   [--profile <profile>]... [--search <text>]
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--transition <name>] [--from <instant>] [--to <instant>]
+                   [--sort <field>] [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
   forensix --version
 `;
+
+type OptionValue = string | true;
 
 interface ParsedArguments {
   readonly command: string | undefined;
   readonly positionals: readonly string[];
-  readonly options: ReadonlyMap<string, string | true>;
+  readonly options: ReadonlyMap<string, readonly OptionValue[]>;
 }
+
+const FLAG_OPTIONS = new Set(["--json", "--include-tier-2"]);
+const VALUE_OPTIONS = new Set([
+  "--case",
+  "--timezone",
+  "--origin-os",
+  "--view",
+  "--profile",
+  "--search",
+  "--commit-state",
+  "--transition",
+  "--from",
+  "--to",
+  "--sort",
+  "--direction",
+  "--limit",
+  "--after",
+]);
+const REPEATABLE_OPTIONS = new Set(["--profile"]);
 
 function parseArguments(arguments_: readonly string[]): ParsedArguments {
   const [command, ...remaining] = arguments_;
   const positionals: string[] = [];
-  const options = new Map<string, string | true>();
+  const options = new Map<string, OptionValue[]>();
 
   for (let index = 0; index < remaining.length; index += 1) {
     const argument = remaining[index];
@@ -36,32 +69,52 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
       positionals.push(argument);
       continue;
     }
-    if (options.has(argument)) {
+    if (!FLAG_OPTIONS.has(argument) && !VALUE_OPTIONS.has(argument)) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        `Unknown option: ${argument}`,
+      );
+    }
+    const existing = options.get(argument);
+    if (existing !== undefined && !REPEATABLE_OPTIONS.has(argument)) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
         `Option is repeated: ${argument}`,
       );
     }
-    if (argument === "--json" || argument === "--include-tier-2") {
-      options.set(argument, true);
+    if (FLAG_OPTIONS.has(argument)) {
+      options.set(argument, [true]);
       continue;
     }
-    if (argument === "--case") {
-      const value = remaining[index + 1];
-      if (value === undefined || value.startsWith("--")) {
-        throw new ForensixError(
-          "INVALID_ARGUMENT",
-          "Option --case needs a path.",
-        );
-      }
-      options.set(argument, value);
-      index += 1;
-      continue;
+    const value = remaining[index + 1];
+    if (value === undefined || value.startsWith("--")) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        `Option ${argument} needs a value.`,
+      );
     }
-    throw new ForensixError("INVALID_ARGUMENT", `Unknown option: ${argument}`);
+    options.set(argument, [...(existing ?? []), value]);
+    index += 1;
   }
 
   return { command, positionals, options };
+}
+
+function hasOption(arguments_: ParsedArguments, option: string): boolean {
+  return arguments_.options.has(option);
+}
+
+function optionValues(arguments_: ParsedArguments, option: string): string[] {
+  return (arguments_.options.get(option) ?? []).filter(
+    (value): value is string => typeof value === "string",
+  );
+}
+
+function optionValue(
+  arguments_: ParsedArguments,
+  option: string,
+): string | undefined {
+  return optionValues(arguments_, option)[0];
 }
 
 function nodeVersionIsSupported(version: string): boolean {
@@ -78,11 +131,64 @@ function nodeVersionIsSupported(version: string): boolean {
 }
 
 function requiredCasePath(arguments_: ParsedArguments): string {
-  const casePath = arguments_.options.get("--case");
-  if (typeof casePath !== "string") {
+  const casePath = optionValue(arguments_, "--case");
+  if (casePath === undefined) {
     throw new ForensixError("INVALID_ARGUMENT", "Option --case is required.");
   }
   return casePath;
+}
+
+function assertAllowedOptions(
+  arguments_: ParsedArguments,
+  allowed: ReadonlySet<string>,
+): void {
+  const invalid = [...arguments_.options.keys()].filter(
+    (option) => !allowed.has(option),
+  );
+  if (invalid.length > 0) {
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      `The ${arguments_.command ?? "unknown"} command has invalid options.`,
+      { invalid_options: invalid },
+    );
+  }
+}
+
+function enumOption<const Values extends readonly string[]>(
+  arguments_: ParsedArguments,
+  option: string,
+  values: Values,
+): Values[number] | undefined {
+  const value = optionValue(arguments_, option);
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!values.includes(value)) {
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      `Option ${option} has an unsupported value: ${value}`,
+      { option, value, allowed: values },
+    );
+  }
+  return value as Values[number];
+}
+
+function integerOption(
+  arguments_: ParsedArguments,
+  option: string,
+): number | undefined {
+  const value = optionValue(arguments_, option);
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!/^[0-9]+$/.test(value)) {
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      `Option ${option} must be an integer.`,
+      { option, value },
+    );
+  }
+  return Number(value);
 }
 
 async function consumeIngest(
@@ -118,27 +224,18 @@ async function run(arguments_: readonly string[]): Promise<number> {
   }
 
   const parsed = parseArguments(arguments_);
-  const jsonOutput = parsed.options.has("--json");
+  const jsonOutput = hasOption(parsed, "--json");
   if (parsed.command === "ingest") {
+    assertAllowedOptions(
+      parsed,
+      new Set(["--case", "--json", "--include-tier-2"]),
+    );
     if (parsed.positionals.length !== 1) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
         "The ingest command needs one User Data Dir path.",
       );
     }
-    const unknownIngestOptions = [...parsed.options.keys()].filter(
-      (option) =>
-        option !== "--case" &&
-        option !== "--json" &&
-        option !== "--include-tier-2",
-    );
-    if (unknownIngestOptions.length > 0) {
-      throw new ForensixError(
-        "INVALID_ARGUMENT",
-        "The ingest command has an invalid option.",
-      );
-    }
-
     const sourcePath = parsed.positionals[0];
     if (sourcePath === undefined) {
       throw new ForensixError(
@@ -150,7 +247,7 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ingestUserDataDir({
         sourcePath,
         caseDirectory: requiredCasePath(parsed),
-        includeTier2: parsed.options.has("--include-tier-2"),
+        includeTier2: hasOption(parsed, "--include-tier-2"),
       }),
       !jsonOutput,
     );
@@ -159,16 +256,87 @@ async function run(arguments_: readonly string[]): Promise<number> {
   }
 
   if (parsed.command === "analyse") {
-    if (
-      parsed.positionals.length !== 0 ||
-      parsed.options.has("--include-tier-2")
-    ) {
+    assertAllowedOptions(
+      parsed,
+      new Set(["--case", "--json", "--timezone", "--origin-os"]),
+    );
+    if (parsed.positionals.length !== 0) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
-        "The analyse command accepts only --case and --json.",
+        "The analyse command accepts no positional values.",
       );
     }
-    const result = await preflightAnalysis(requiredCasePath(parsed));
+    const result = await analyseCase({
+      caseDirectory: requiredCasePath(parsed),
+      declaredTimezone: optionValue(parsed, "--timezone"),
+      declaredOriginOs: enumOption(parsed, "--origin-os", [
+        "windows",
+        "macos",
+        "linux",
+      ] as const) as DeclaredOriginOs | undefined,
+      invocation: arguments_,
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "history") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--view",
+        "--profile",
+        "--search",
+        "--commit-state",
+        "--transition",
+        "--from",
+        "--to",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The history command accepts no positional values.",
+      );
+    }
+    const result = queryHistory({
+      caseDirectory: requiredCasePath(parsed),
+      view: enumOption(parsed, "--view", [
+        "visits",
+        "activity",
+        "most-visited",
+        "durations",
+      ] as const) as HistoryView | undefined,
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      transition: optionValue(parsed, "--transition"),
+      from: optionValue(parsed, "--from"),
+      to: optionValue(parsed, "--to"),
+      sort: enumOption(parsed, "--sort", [
+        "visit-time",
+        "local-time",
+        "url",
+        "duration",
+        "visit-count",
+        "profile",
+      ] as const) as HistorySort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | HistoryDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
     process.stdout.write(`${JSON.stringify(result)}\n`);
     return 0;
   }
@@ -186,12 +354,10 @@ try {
     error instanceof ForensixError
       ? error.toDiagnostic()
       : new ForensixError(
-          "INGEST_FAILED",
+          process.argv[2] === "ingest" ? "INGEST_FAILED" : "ANALYSIS_FAILED",
           "ForensiX stopped before completion.",
           {},
-          {
-            cause: error,
-          },
+          { cause: error },
         ).toDiagnostic();
   process.stderr.write(`${JSON.stringify(diagnostic)}\n`);
   process.exitCode = 1;

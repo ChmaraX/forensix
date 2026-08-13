@@ -15,8 +15,11 @@ The Case Directory contains:
 - `manifest_header.json`: the Selection Policy, counts, and both digests
 - `working-copy/`: the selected content for later analysis
 
-The compiled CLI also runs the integrity check that occurs before analysis.
-Artifact parsing starts in issue #168.
+The compiled CLI checks the Working Copy before each analysis.
+It parses History from all Profiles and writes Findings to the Case.
+
+Committed and recovery content use separate passes.
+Recovered rows keep the `wal_resident` or `journal_resident` Commit State.
 
 ## Requirements
 
@@ -53,16 +56,49 @@ node cli/dist/cli.js ingest "/path/to/User Data" \
 Tier 2 content is off by default.
 Add `--include-tier-2` to copy the Tier 2 paths from Selection Policy `chrome-userdata/1`.
 
-## Check the Working Copy
+## Analyze History
 
-Run the analysis preflight after ingest:
+Run the analysis after ingest:
 
 ```sh
-node cli/dist/cli.js analyse --case "/path/to/CASE-001" --json
+node cli/dist/cli.js analyse \
+  --case "/path/to/CASE-001" \
+  --timezone "America/New_York" \
+  --origin-os macos \
+  --json
 ```
 
+The Declared Timezone defaults to `UTC`.
+Use `--origin-os` only for History version 16 or earlier.
+The accepted values are `windows`, `macos`, and `linux`.
+
 The command refuses a missing, moved, changed, or extended Working Copy.
-The refusal is a JSON diagnostic with code `WORKING_COPY_INTEGRITY_REFUSAL`.
+The refusal has the JSON code `WORKING_COPY_INTEGRITY_REFUSAL`.
+
+## Query History Findings
+
+Each query returns 50 rows by default.
+Set `--limit` from 1 through 100.
+Use `nextCursor` as the next `--after` value.
+
+```sh
+node cli/dist/cli.js history \
+  --case "/path/to/CASE-001" \
+  --view visits \
+  --profile Default \
+  --search "example.com" \
+  --commit-state committed \
+  --sort visit-time \
+  --direction desc \
+  --limit 50 \
+  --json
+```
+
+The views are `visits`, `activity`, `most-visited`, and `durations`.
+You can repeat `--profile` to query at most 100 Profiles.
+Use `--commit-state` to keep committed and recovered rows separate.
+The `--from`, `--to`, and `--transition` filters apply only to `visits`.
+Timestamp bounds must include `Z` or a numeric offset.
 
 ## Verify the implementation
 

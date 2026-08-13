@@ -54,5 +54,41 @@ export {
   type AnalysisPreflightResult,
   type WorkingCopyVerification,
 } from "./verify.js";
+export {
+  absentField,
+  createCandidate,
+  createFinding,
+  FindingCollection,
+  unavailableField,
+  valueField,
+  type AbsentField,
+  type Candidate,
+  type CommitState,
+  type FieldState,
+  type FieldUnavailableReason,
+  type Finding,
+  type ForensicFields,
+  type Provenance,
+  type SourceRowProvenance,
+  type UnavailableField,
+  type ValueField,
+} from "./forensic-model.js";
+export {
+  analyseCase,
+  type AnalyseCaseOptions,
+  type AnalyseCaseResult,
+  type EpochFamily,
+  type ForensicTimestamp,
+  type HistoryAnalysisSummary,
+} from "./history.js";
+export {
+  queryHistory,
+  type HistoryDirection,
+  type HistoryPage,
+  type HistoryQuery,
+  type HistorySort,
+  type HistoryView,
+} from "./history-query.js";
+export { type DeclaredOriginOs } from "./case-findings.js";
 
 export const MINIMUM_NODE_VERSION = "24.15.0" as const;
