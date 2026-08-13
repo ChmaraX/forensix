@@ -1,8 +1,10 @@
 package collector
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,12 +22,19 @@ type Options struct {
 	AuthorizationReference string
 	IncludeBulk            bool
 	ContinueIfRunning      bool
+	CaptureKeyMaterial     bool
+	KeyMaterialRecipient   []byte
+	LinuxKeyProvider       string
 	Version                string
 	Commit                 string
 	Now                    func() time.Time
 }
 
-type Collector struct{ Scanner platformscanner.Scanner }
+type Collector struct {
+	Scanner     platformscanner.Scanner
+	KeyCapturer KeyCapturer
+	Random      io.Reader
+}
 
 type CollectionOutcome string
 
@@ -50,15 +59,23 @@ type CollectorRecord struct {
 		WitnessedByCollector bool   `json:"witnessed_by_collector"`
 		AuthorityVerified    bool   `json:"authority_verified"`
 	} `json:"authorization_claim"`
-	StartedAt         time.Time        `json:"started_at"`
-	EndedAt           time.Time        `json:"ended_at"`
-	HostReportedLocal HostReportedTime `json:"host_reported_local_time"`
-	Hostname          string           `json:"hostname"`
-	OS                string           `json:"os"`
-	OSVersion         EnvironmentValue `json:"os_version"`
-	Architecture      string           `json:"architecture"`
-	MachineIdentifier EnvironmentValue `json:"machine_identifier"`
-	NetworkCalls      string           `json:"network_calls"`
+	StartedAt          time.Time          `json:"started_at"`
+	EndedAt            time.Time          `json:"ended_at"`
+	HostReportedLocal  HostReportedTime   `json:"host_reported_local_time"`
+	Hostname           string             `json:"hostname"`
+	OS                 string             `json:"os"`
+	OSVersion          EnvironmentValue   `json:"os_version"`
+	Architecture       string             `json:"architecture"`
+	MachineIdentifier  EnvironmentValue   `json:"machine_identifier"`
+	NetworkCalls       string             `json:"network_calls"`
+	KeyMaterialCapture KeyMaterialCapture `json:"key_material_capture"`
+}
+
+type KeyMaterialCapture struct {
+	Requested              bool   `json:"requested"`
+	AuthorizationReference string `json:"authorization_reference,omitempty"`
+	SealingAlgorithm       string `json:"sealing_algorithm,omitempty"`
+	RecipientFingerprint   string `json:"recipient_fingerprint,omitempty"`
 }
 
 type EnvironmentValue struct {
@@ -91,13 +108,27 @@ type BundleFile struct {
 	Size   int64  `json:"size"`
 	SHA256 string `json:"sha256"`
 }
+
+type BundleKeyMaterial struct {
+	AccountID         string `json:"account_id"`
+	BundlePath        string `json:"bundle_path"`
+	CaptureState      string `json:"capture_state"`
+	ManifestDigest    string `json:"manifest_digest"`
+	EntryCount        int    `json:"entry_count"`
+	UsableRowKeyCount int    `json:"usable_row_key_count"`
+}
+
 type BundleManifest struct {
-	SchemaVersion       string              `json:"schema_version"`
-	HashAlgorithm       string              `json:"hash_algorithm"`
-	KeyMaterialCaptured bool                `json:"key_material_captured"`
-	UserDataDirs        []BundleUserDataDir `json:"user_data_dirs"`
-	Files               []BundleFile        `json:"files"`
-	BundleDigest        string              `json:"bundle_digest"`
+	SchemaVersion               string              `json:"schema_version"`
+	HashAlgorithm               string              `json:"hash_algorithm"`
+	KeyMaterialCaptureRequested bool                `json:"key_material_capture_requested"`
+	KeyMaterialCaptured         bool                `json:"key_material_captured"`
+	KeyMaterialStripped         bool                `json:"key_material_stripped"`
+	OriginalBundleDigest        string              `json:"original_bundle_digest,omitempty"`
+	UserDataDirs                []BundleUserDataDir `json:"user_data_dirs"`
+	KeyMaterial                 []BundleKeyMaterial `json:"key_material"`
+	Files                       []BundleFile        `json:"files"`
+	BundleDigest                string              `json:"bundle_digest"`
 }
 
 func (c Collector) Run(opts Options) (BundleManifest, error) {
@@ -106,6 +137,12 @@ func (c Collector) Run(opts Options) (BundleManifest, error) {
 	}
 	if opts.Now == nil {
 		opts.Now = time.Now
+	}
+	if c.Random == nil {
+		c.Random = rand.Reader
+	}
+	if opts.CaptureKeyMaterial && c.KeyCapturer == nil {
+		c.KeyCapturer = NewHostKeyCapturer(opts.LinuxKeyProvider)
 	}
 	startedHost := opts.Now()
 	scan := c.Scanner.Scan()
@@ -123,7 +160,10 @@ func (c Collector) Run(opts Options) (BundleManifest, error) {
 			_ = os.RemoveAll(tmp)
 		}
 	}()
-	manifest := BundleManifest{SchemaVersion: "forensix-acquisition-bundle-draft/1", HashAlgorithm: conformance.HashAlgorithm}
+	manifest := BundleManifest{
+		SchemaVersion: "forensix-acquisition-bundle-draft/2", HashAlgorithm: conformance.HashAlgorithm,
+		KeyMaterialCaptureRequested: opts.CaptureKeyMaterial, KeyMaterial: []BundleKeyMaterial{},
+	}
 	if err := conformance.WriteJSON(filepath.Join(tmp, "scan_record.json"), ScanRecord{Attempts: scan.Attempts}); err != nil {
 		return manifest, err
 	}
@@ -143,7 +183,17 @@ func (c Collector) Run(opts Options) (BundleManifest, error) {
 			_ = os.RemoveAll(staging)
 		}
 		manifest.UserDataDirs = append(manifest.UserDataDirs, outcome)
+		if opts.CaptureKeyMaterial && outcome.Outcome == Collected {
+			keyRel := filepath.ToSlash(filepath.Join("key_material", safeComponent(found.AccountID), fmt.Sprintf("udd-%d", indexForAccount(scan.Found, index))))
+			capture := c.KeyCapturer.Capture(found)
+			summary, err := writeKeyMaterialSubtree(filepath.Join(tmp, filepath.FromSlash(keyRel)), keyRel, found.AccountID, capture, opts.KeyMaterialRecipient, c.Random)
+			if err != nil {
+				return manifest, err
+			}
+			manifest.KeyMaterial = append(manifest.KeyMaterial, summary)
+		}
 	}
+	manifest.KeyMaterialCaptured = len(manifest.KeyMaterial) > 0
 
 	endedHost := opts.Now()
 	record := collectorRecord(opts, startedHost, endedHost)
@@ -254,8 +304,17 @@ func validateOptions(scanner platformscanner.Scanner, opts Options) error {
 	if opts.OperatorIdentifier == "" {
 		return errors.New("operator identifier is required")
 	}
-	if opts.AuthorizationReference == "" {
+	if strings.TrimSpace(opts.AuthorizationReference) == "" {
 		return errors.New("authorization reference is required as a witnessed operator claim")
+	}
+	if opts.CaptureKeyMaterial && len(opts.KeyMaterialRecipient) != 32 {
+		return errors.New("key-material capture requires a 32-byte X25519 recipient public key")
+	}
+	if !opts.CaptureKeyMaterial && len(opts.KeyMaterialRecipient) != 0 {
+		return errors.New("key-material recipient requires explicit key-material capture opt-in")
+	}
+	if opts.LinuxKeyProvider != "" && !validLinuxKeyProvider(opts.LinuxKeyProvider) {
+		return fmt.Errorf("unsupported Linux key provider %q", opts.LinuxKeyProvider)
 	}
 	return nil
 }
@@ -276,7 +335,7 @@ func prepareOutput(output string) error {
 }
 
 func safeComponent(value string) string {
-	value = strings.ReplaceAll(value, string(filepath.Separator), "_")
+	value = strings.NewReplacer("/", "_", `\`, "_", ":", "_").Replace(value)
 	if value == "" || value == "." || value == ".." {
 		return "unknown"
 	}

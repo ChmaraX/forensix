@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forensix.dev/contracts/key-material-manifest-entry-v1.schema.json",
+  "title": "ForensiX key-material Manifest entry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["path", "size", "hash_algorithm", "sha256"],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(/|$)).+$"
+    },
+    "size": { "type": "integer", "minimum": 0 },
+    "hash_algorithm": { "const": "sha-256" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

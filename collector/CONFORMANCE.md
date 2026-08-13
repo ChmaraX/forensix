@@ -31,3 +31,12 @@ The tests compare Manifest bytes and both digests exactly, run every language-ne
 The Evidence Set Digest is SHA-256 over canonical Manifest bytes.
 The Working Copy Digest uses the same construction over entries where `copied` is `true`.
 Both include the final LF for each line.
+
+## Key-material boundary
+
+Issue #187 adds a separate Collector-owned contract under `contracts/key-material/`.
+It does not add key files to the User Data Dir Manifest or the Selection Policy.
+
+Each key-material subtree has its own canonical Manifest and digest.
+The Acquisition Bundle Manifest covers that Manifest, its header, all sealed records, and all opaque wrapper evidence.
+The `strip-keys` operation removes the complete subtree and writes a new Acquisition Bundle Manifest and digest.

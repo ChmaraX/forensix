@@ -21,6 +21,12 @@ func collectorRecord(opts Options, startedHost, endedHost time.Time) CollectorRe
 	record.AuthorizationClaim.Reference = opts.AuthorizationReference
 	record.AuthorizationClaim.WitnessedByCollector = true
 	record.AuthorizationClaim.AuthorityVerified = false
+	record.KeyMaterialCapture.Requested = opts.CaptureKeyMaterial
+	if opts.CaptureKeyMaterial {
+		record.KeyMaterialCapture.AuthorizationReference = opts.AuthorizationReference
+		record.KeyMaterialCapture.SealingAlgorithm = keyMaterialSealingAlgorithm
+		record.KeyMaterialCapture.RecipientFingerprint = recipientFingerprint(opts.KeyMaterialRecipient)
+	}
 	return record
 }
 

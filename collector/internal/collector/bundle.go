@@ -40,11 +40,19 @@ func bundleFiles(root string) ([]BundleFile, string, error) {
 		return nil, "", err
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
-	encoded, err := json.Marshal(files)
+	digest, err := bundleFileDigest(files)
 	if err != nil {
 		return nil, "", err
 	}
-	return files, conformance.Digest(append(encoded, '\n')), nil
+	return files, digest, nil
+}
+
+func bundleFileDigest(files []BundleFile) (string, error) {
+	encoded, err := json.Marshal(files)
+	if err != nil {
+		return "", err
+	}
+	return conformance.Digest(append(encoded, '\n')), nil
 }
 
 func rejectOutputInsideSources(output string, found []platformscanner.UserDataDir) error {

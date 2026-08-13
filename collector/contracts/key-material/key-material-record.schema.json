@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forensix.dev/contracts/key-material-record-v1.schema.json",
+  "title": "ForensiX sealed key-material record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "capture_state",
+    "key_kind",
+    "usable_row_key",
+    "provider",
+    "context",
+    "policy",
+    "evidence",
+    "sealed_material"
+  ],
+  "properties": {
+    "schema_version": { "const": "forensix/key-material-record/1" },
+    "record_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "capture_state": { "enum": ["captured", "unsupported", "unavailable"] },
+    "key_kind": { "const": "oscrypt_row_key" },
+    "usable_row_key": { "type": "boolean" },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "name", "item", "scope"],
+      "properties": {
+        "platform": { "enum": ["darwin", "linux", "windows", "unknown"] },
+        "name": { "type": "string", "minLength": 1 },
+        "item": { "type": "string", "minLength": 1 },
+        "scope": { "type": "string", "minLength": 1 }
+      }
+    },
+    "context": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "value"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "value": { "type": "string" }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row_prefix", "support"],
+      "properties": {
+        "row_prefix": { "enum": ["", "v10", "v11", "v20"] },
+        "support": { "enum": ["supported", "unsupported", "unavailable"] },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string", "pattern": "^evidence/" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "version": { "type": "string", "minLength": 1 },
+          "policy": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "sealed_material": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "algorithm",
+            "recipient_fingerprint",
+            "ephemeral_public_key",
+            "salt",
+            "nonce",
+            "ciphertext",
+            "associated_data_sha256"
+          ],
+          "properties": {
+            "algorithm": { "const": "x25519-hkdf-sha256-aes-256-gcm" },
+            "recipient_fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "ephemeral_public_key": { "type": "string", "contentEncoding": "base64" },
+            "salt": { "type": "string", "contentEncoding": "base64" },
+            "nonce": { "type": "string", "contentEncoding": "base64" },
+            "ciphertext": { "type": "string", "contentEncoding": "base64" },
+            "associated_data_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "capture_state": { "const": "captured" } }, "required": ["capture_state"] },
+      "then": {
+        "properties": {
+          "usable_row_key": { "const": true },
+          "sealed_material": { "type": "object" }
+        }
+      },
+      "else": {
+        "properties": {
+          "usable_row_key": { "const": false },
+          "sealed_material": { "type": "null" }
+        }
+      }
+    }
+  ]
+}
