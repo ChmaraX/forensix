@@ -5,19 +5,22 @@ Version 2 is a rebuild and does not use version 1 as a behavior reference.
 
 ## Current implementation
 
-The Wave 1 tracer bullet can ingest a Chrome User Data Dir.
-It creates one Case Directory for all detected Profiles.
+The Analyzer ingests all five Source kinds: `USER_DATA_DIR`, `PROFILE_DIR`, `FILESYSTEM_ROOT`, `IMAGE_CONTAINER`, and `ACQUISITION_BUNDLE`.
+A Case can hold multiple Sources and Profiles.
+Each Source has an independent Manifest identity, Evidence Set Digest, and Working Copy Digest.
 
-The Case Directory contains:
+A single User Data Dir or Profile Dir keeps the Wave 1 Case Directory layout:
 
 - `case.fxdb`: the SQLite Case and its recorded Manifest
 - `manifest.jsonl`: the canonical, path-sorted Manifest
 - `manifest_header.json`: the Selection Policy, counts, and both digests
 - `working-copy/`: the selected content for later analysis
 
-The compiled CLI checks the Working Copy before each analysis.
-It parses History from all Profiles and writes Findings to the Case.
+A Filesystem Root, Image Container, or Acquisition Bundle stores each Source under `sources/<source-id>/`.
+The Case records all identities and paths.
 
+The compiled CLI checks every Working Copy before each analysis.
+It parses History from all Profiles and Sources, then writes Findings to the Case.
 Committed and recovery content use separate passes.
 Recovered rows keep the `wal_resident` or `journal_resident` Commit State.
 
@@ -42,10 +45,9 @@ pnpm build
 The workspace members are `core`, `cli`, `server`, and `client`.
 The Collector and the tools under `tools/` are not workspace members.
 
-## Ingest a User Data Dir
+## Ingest a Source
 
-Run the compiled CLI against the top-level Chrome directory.
-Do not select one Profile directory for this command.
+A User Data Dir is the canonical Source kind and remains the default:
 
 ```sh
 node cli/dist/cli.js ingest "/path/to/User Data" \
@@ -53,8 +55,30 @@ node cli/dist/cli.js ingest "/path/to/User Data" \
   --json
 ```
 
-Tier 2 content is off by default.
-Add `--include-tier-2` to copy the Tier 2 paths from Selection Policy `chrome-userdata/1`.
+Select another Source kind explicitly:
+
+```sh
+node cli/dist/cli.js ingest "/path/to/Default" --source-kind PROFILE_DIR --case "/path/to/CASE-002" --json
+node cli/dist/cli.js ingest "/mnt/filesystem" --source-kind FILESYSTEM_ROOT --case "/path/to/CASE-003" --json
+node cli/dist/cli.js ingest "/mnt/image" --source-kind IMAGE_CONTAINER --case "/path/to/CASE-004" --json
+node cli/dist/cli.js ingest "/path/to/bundle" --source-kind ACQUISITION_BUNDLE --case "/path/to/CASE-005" --json
+```
+
+A Profile Dir is a partial Source.
+The Case records browser-level evidence such as `Local State` as `unavailable(outside_source)` without adding paths outside the Profile Dir to its Manifest.
+
+A Filesystem Root is searched recursively for supported Chrome Sources.
+Discovery does not assume one account or installation path.
+For Image Containers, mount or extract the container offline and read-only first.
+The Analyzer does not boot images, write to them, or parse opaque E01 files directly.
+
+An Acquisition Bundle preserves every supplied acquisition-time Manifest in the Case.
+Verification reports `match`, `mismatch`, `missing_on_disk`, and `missing_in_manifest` per file.
+Divergent files do not enter the Working Copy; unaffected evidence remains available.
+
+Tier 2 content is off by default for direct, filesystem, and image ingestion.
+Add `--include-tier-2` to copy Tier 2 paths from Selection Policy `chrome-userdata/1`.
+An Acquisition Bundle retains the Collector's recorded Tier 2 choice.
 
 ## Analyze History
 

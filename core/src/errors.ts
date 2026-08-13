@@ -54,7 +54,9 @@ export type WorkingCopyIssueReason =
   | "entry_hash_mismatch"
   | "entry_size_mismatch"
   | "unexpected_entry"
+  | "manifest_artifact_missing"
   | "manifest_digest_mismatch"
+  | "manifest_header_mismatch"
   | "working_copy_digest_mismatch";
 
 export interface WorkingCopyIssue {

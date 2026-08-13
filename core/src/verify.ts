@@ -1,26 +1,47 @@
-import { lstat, readdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { lstat, readFile, readdir } from "node:fs/promises";
+import { join, posix, resolve } from "node:path";
 
-import { loadCaseSource, workingCopyAbsolutePath } from "./case.js";
+import {
+  caseArtifactAbsolutePath,
+  loadCaseSources,
+  workingCopyAbsolutePath,
+  type CaseSourceRecord,
+} from "./case.js";
 import {
   WorkingCopyIntegrityRefusal,
   type WorkingCopyIssue,
 } from "./errors.js";
 import {
+  HASH_ALGORITHM,
+  decodeManifestHeader,
   evidenceSetDigest,
+  manifestBytes,
+  sha256,
   workingCopyDigest,
   type ManifestEntry,
+  type ManifestHeader,
 } from "./manifest.js";
 import { readStableRegularFile } from "./stable-file.js";
+
+export interface WorkingCopySourceVerification {
+  readonly sourceId: string;
+  readonly manifestId: string;
+  readonly workingCopyPath: string;
+  readonly evidenceSetDigest: string;
+  readonly workingCopyDigest: string;
+  readonly verifiedFileCount: number;
+}
 
 export interface WorkingCopyVerification {
   readonly status: "verified";
   readonly caseDirectory: string;
   readonly sourceId: string;
+  readonly sourceCount: number;
   readonly workingCopyPath: string;
   readonly evidenceSetDigest: string;
   readonly workingCopyDigest: string;
   readonly verifiedFileCount: number;
+  readonly sources: readonly WorkingCopySourceVerification[];
 }
 
 export interface AnalysisPreflightResult extends WorkingCopyVerification {
@@ -93,16 +114,133 @@ async function findUnexpectedEntries(
   return issues;
 }
 
-export async function verifyWorkingCopy(
+function expectedManifestHeader(source: CaseSourceRecord): ManifestHeader {
+  return {
+    manifest_schema: source.manifestSchema,
+    source_kind: source.sourceKind,
+    selection_policy: source.selectionPolicy,
+    selection_policy_diff: [],
+    tier_2_included: source.tier2Included,
+    hash_algorithm: HASH_ALGORITHM,
+    evidence_set_digest: source.evidenceSetDigest,
+    working_copy_digest: source.workingCopyDigest,
+    entry_count: source.entryCount,
+    copied_entry_count: source.copiedEntryCount,
+    profile_count: source.profileCount,
+    unavailable_count: source.unavailableCount,
+    unclassified_count: source.unclassifiedCount,
+  };
+}
+
+async function verifyManifestArtifacts(
   caseDirectory: string,
-): Promise<WorkingCopyVerification> {
-  const resolvedCaseDirectory = resolve(caseDirectory);
-  const source = loadCaseSource(resolvedCaseDirectory);
-  const workingCopyPath = workingCopyAbsolutePath(
-    resolvedCaseDirectory,
-    source,
-  );
+  source: CaseSourceRecord,
+): Promise<WorkingCopyIssue[]> {
   const issues: WorkingCopyIssue[] = [];
+  const manifestPath = caseArtifactAbsolutePath(
+    caseDirectory,
+    source.manifestPath,
+  );
+  let manifestStats;
+  try {
+    manifestStats = await lstat(manifestPath, { bigint: true });
+  } catch {
+    issues.push({
+      path: source.manifestPath,
+      reason: "manifest_artifact_missing",
+    });
+  }
+  if (manifestStats !== undefined) {
+    if (!manifestStats.isFile() || manifestStats.isSymbolicLink()) {
+      issues.push({
+        path: source.manifestPath,
+        reason: "manifest_digest_mismatch",
+        expected: source.evidenceSetDigest,
+        actual: manifestStats.isSymbolicLink() ? "symlink" : "not_file",
+      });
+    } else {
+      try {
+        const actualBytes = await readFile(manifestPath);
+        const expectedBytes = manifestBytes(source.entries);
+        if (!actualBytes.equals(expectedBytes)) {
+          issues.push({
+            path: source.manifestPath,
+            reason: "manifest_digest_mismatch",
+            expected: source.evidenceSetDigest,
+            actual: sha256(actualBytes),
+          });
+        }
+      } catch {
+        issues.push({
+          path: source.manifestPath,
+          reason: "manifest_digest_mismatch",
+          expected: source.evidenceSetDigest,
+          actual: "unreadable",
+        });
+      }
+    }
+  }
+
+  const headerPath = posix.join(
+    posix.dirname(source.manifestPath),
+    "manifest_header.json",
+  );
+  const absoluteHeaderPath = caseArtifactAbsolutePath(
+    caseDirectory,
+    headerPath,
+  );
+  let headerStats;
+  try {
+    headerStats = await lstat(absoluteHeaderPath, { bigint: true });
+  } catch {
+    issues.push({ path: headerPath, reason: "manifest_artifact_missing" });
+  }
+  if (headerStats !== undefined) {
+    if (!headerStats.isFile() || headerStats.isSymbolicLink()) {
+      issues.push({
+        path: headerPath,
+        reason: "manifest_header_mismatch",
+        expected: "valid_manifest_header",
+        actual: headerStats.isSymbolicLink() ? "symlink" : "not_file",
+      });
+    } else {
+      try {
+        const actualHeader = decodeManifestHeader(
+          JSON.parse(await readFile(absoluteHeaderPath, "utf8")),
+        );
+        if (
+          JSON.stringify(actualHeader) !==
+          JSON.stringify(expectedManifestHeader(source))
+        ) {
+          issues.push({
+            path: headerPath,
+            reason: "manifest_header_mismatch",
+            expected: "case_source_metadata",
+            actual: "different_header_values",
+          });
+        }
+      } catch {
+        issues.push({
+          path: headerPath,
+          reason: "manifest_header_mismatch",
+          expected: "valid_manifest_header",
+          actual: "invalid_or_unreadable",
+        });
+      }
+    }
+  }
+  return issues;
+}
+
+async function verifySource(
+  caseDirectory: string,
+  source: CaseSourceRecord,
+): Promise<{
+  readonly verification: WorkingCopySourceVerification;
+  readonly issues: readonly WorkingCopyIssue[];
+}> {
+  const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
+  const issues = await verifyManifestArtifacts(caseDirectory, source);
 
   const manifestDigest = evidenceSetDigest(source.entries);
   if (manifestDigest !== source.evidenceSetDigest) {
@@ -128,7 +266,17 @@ export async function verifyWorkingCopy(
     workingRootStats = await lstat(workingCopyPath, { bigint: true });
   } catch {
     issues.push({ path: ".", reason: "working_copy_missing" });
-    throw new WorkingCopyIntegrityRefusal(issues);
+    return {
+      verification: {
+        sourceId: source.sourceId,
+        manifestId: source.manifestId,
+        workingCopyPath,
+        evidenceSetDigest: source.evidenceSetDigest,
+        workingCopyDigest: source.workingCopyDigest,
+        verifiedFileCount: 0,
+      },
+      issues,
+    };
   }
   if (!workingRootStats.isDirectory() || workingRootStats.isSymbolicLink()) {
     issues.push({
@@ -136,7 +284,17 @@ export async function verifyWorkingCopy(
       reason: "working_copy_missing",
       actual: workingRootStats.isSymbolicLink() ? "symlink" : "not_directory",
     });
-    throw new WorkingCopyIntegrityRefusal(issues);
+    return {
+      verification: {
+        sourceId: source.sourceId,
+        manifestId: source.manifestId,
+        workingCopyPath,
+        evidenceSetDigest: source.evidenceSetDigest,
+        workingCopyDigest: source.workingCopyDigest,
+        verifiedFileCount: 0,
+      },
+      issues,
+    };
   }
 
   const copiedEntries = source.entries.filter((entry) => entry.copied);
@@ -208,6 +366,41 @@ export async function verifyWorkingCopy(
     }
   }
 
+  return {
+    verification: {
+      sourceId: source.sourceId,
+      manifestId: source.manifestId,
+      workingCopyPath,
+      evidenceSetDigest: source.evidenceSetDigest,
+      workingCopyDigest: source.workingCopyDigest,
+      verifiedFileCount: copiedEntries.length,
+    },
+    issues,
+  };
+}
+
+export async function verifyWorkingCopy(
+  caseDirectory: string,
+): Promise<WorkingCopyVerification> {
+  const resolvedCaseDirectory = resolve(caseDirectory);
+  const caseSources = loadCaseSources(resolvedCaseDirectory);
+  const results = [];
+  const issues: WorkingCopyIssue[] = [];
+
+  for (const source of caseSources) {
+    const result = await verifySource(resolvedCaseDirectory, source);
+    results.push(result.verification);
+    issues.push(
+      ...result.issues.map((issue) => ({
+        ...issue,
+        path:
+          caseSources.length === 1
+            ? issue.path
+            : `${source.sourceId}:${issue.path}`,
+      })),
+    );
+  }
+
   if (issues.length > 0) {
     issues.sort((left, right) => {
       const pathOrder = Buffer.compare(
@@ -221,14 +414,23 @@ export async function verifyWorkingCopy(
     throw new WorkingCopyIntegrityRefusal(issues);
   }
 
+  const first = results[0];
+  if (first === undefined) {
+    throw new Error("Case contains no Source verification.");
+  }
   return {
     status: "verified",
     caseDirectory: resolvedCaseDirectory,
-    sourceId: source.sourceId,
-    workingCopyPath,
-    evidenceSetDigest: source.evidenceSetDigest,
-    workingCopyDigest: source.workingCopyDigest,
-    verifiedFileCount: copiedEntries.length,
+    sourceId: first.sourceId,
+    sourceCount: results.length,
+    workingCopyPath: first.workingCopyPath,
+    evidenceSetDigest: first.evidenceSetDigest,
+    workingCopyDigest: first.workingCopyDigest,
+    verifiedFileCount: results.reduce(
+      (total, result) => total + result.verifiedFileCount,
+      0,
+    ),
+    sources: results,
   };
 }
 

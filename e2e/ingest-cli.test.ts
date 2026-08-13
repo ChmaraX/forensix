@@ -48,6 +48,7 @@ interface ManifestEntry {
 interface IngestOutput {
   readonly status: "ok";
   readonly caseDirectory: string;
+  readonly manifestPath: string;
   readonly workingCopyPath: string;
   readonly evidenceSetDigest: string;
   readonly workingCopyDigest: string;
@@ -526,6 +527,34 @@ describe("compiled analyzer CLI ingest", () => {
     );
 
     await writeFile(historyPath, "history-main\n");
+    expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
+      0,
+    );
+
+    const manifestBytesBeforeDamage = await readFile(output.manifestPath);
+    await rm(output.manifestPath);
+    const missingManifest = runCli([
+      "analyse",
+      "--case",
+      caseDirectory,
+      "--json",
+    ]);
+    expect(missingManifest.status).toBe(1);
+    expect(missingManifest.stderr).toContain("manifest_artifact_missing");
+    await writeFile(output.manifestPath, manifestBytesBeforeDamage);
+
+    const headerPath = join(caseDirectory, "manifest_header.json");
+    const headerBytesBeforeDamage = await readFile(headerPath);
+    await writeFile(headerPath, "{}\n");
+    const changedHeader = runCli([
+      "analyse",
+      "--case",
+      caseDirectory,
+      "--json",
+    ]);
+    expect(changedHeader.status).toBe(1);
+    expect(changedHeader.stderr).toContain("manifest_header_mismatch");
+    await writeFile(headerPath, headerBytesBeforeDamage);
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
       0,
     );

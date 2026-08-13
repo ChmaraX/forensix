@@ -25,6 +25,7 @@ export interface PersistedCandidate {
 }
 
 export interface HistoryArtifactWrite {
+  readonly sourceId: string;
   readonly profile: string;
   readonly status: "complete" | "absent" | "unavailable";
   readonly manifestEntryOrdinal: number | null;
@@ -41,7 +42,7 @@ export interface HistoryArtifactWrite {
 
 export interface StoreHistoryAnalysisOptions {
   readonly caseDirectory: string;
-  readonly sourceId: string;
+  readonly sourceIds: readonly string[];
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
   readonly invocation: readonly string[];
@@ -61,7 +62,6 @@ export function initializeFindingSchema(database: DatabaseSync): void {
 
     CREATE TABLE IF NOT EXISTS analysis_runs (
       run_id TEXT PRIMARY KEY,
-      source_id TEXT NOT NULL REFERENCES sources(source_id),
       artifact TEXT NOT NULL CHECK (artifact = 'History'),
       started_at TEXT NOT NULL,
       finished_at TEXT,
@@ -73,6 +73,12 @@ export function initializeFindingSchema(database: DatabaseSync): void {
         declared_origin_os IN ('windows', 'macos', 'linux')
       ),
       status TEXT NOT NULL CHECK (status IN ('running', 'complete', 'partial'))
+    ) STRICT;
+
+    CREATE TABLE IF NOT EXISTS analysis_run_sources (
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL REFERENCES sources(source_id),
+      PRIMARY KEY (run_id, source_id)
     ) STRICT;
 
     CREATE TABLE IF NOT EXISTS history_artifact_results (
@@ -93,7 +99,7 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
       FOREIGN KEY (source_id, manifest_entry_ordinal)
         REFERENCES manifest_entries(source_id, ordinal),
-      UNIQUE (run_id, profile_path, artifact)
+      UNIQUE (run_id, source_id, profile_path, artifact)
     ) STRICT;
 
     CREATE UNIQUE INDEX IF NOT EXISTS history_one_active_result
@@ -222,19 +228,24 @@ export function storeHistoryAnalysis(
       database
         .prepare(
           `INSERT INTO analysis_runs
-             (run_id, source_id, artifact, started_at, tool_version,
-              invocation_json, declared_timezone, declared_origin_os, status)
-           VALUES (?, ?, 'History', ?, ?, ?, ?, ?, 'running')`,
+             (run_id, artifact, started_at, tool_version, invocation_json,
+              declared_timezone, declared_origin_os, status)
+           VALUES (?, 'History', ?, ?, ?, ?, ?, 'running')`,
         )
         .run(
           runId,
-          options.sourceId,
           options.startedAt,
           TOOL_VERSION,
           JSON.stringify(options.invocation),
           options.declaredTimezone,
           options.declaredOriginOs,
         );
+      const insertRunSource = database.prepare(
+        "INSERT INTO analysis_run_sources (run_id, source_id) VALUES (?, ?)",
+      );
+      for (const sourceId of [...new Set(options.sourceIds)].sort()) {
+        insertRunSource.run(runId, sourceId);
+      }
 
       const insertArtifact = database.prepare(
         `INSERT INTO history_artifact_results
@@ -271,7 +282,7 @@ export function storeHistoryAnalysis(
       for (const artifact of options.artifacts) {
         const insertion = insertArtifact.run(
           runId,
-          options.sourceId,
+          artifact.sourceId,
           artifact.profile,
           artifact.manifestEntryOrdinal,
           artifact.databasePath,
@@ -299,7 +310,7 @@ export function storeHistoryAnalysis(
           );
         }
         if (artifact.status === "complete") {
-          deactivatePrevious.run(options.sourceId, artifact.profile);
+          deactivatePrevious.run(artifact.sourceId, artifact.profile);
           activateCurrent.run(artifactResultId);
         }
       }

@@ -13,9 +13,13 @@ The Manifest contains each descendant of the Source root.
 The Manifest does not contain the Source root itself.
 It also contains expected Tier 1 paths that are absent or unavailable.
 Each `path` is relative to the Source root and uses `/` separators.
+A Profile Dir Manifest uses Profile-relative paths such as `History`.
+It does not add `../Local State` or another path outside the Source.
+The Case records that browser-level evidence is unavailable for this partial Source.
 
 `manifest_header.json` obeys `manifest-header.schema.json`.
-The header records whether the operator included Tier 2 content.
+The header records the Source kind and whether the operator included Tier 2 content.
+The supported Source kinds are `USER_DATA_DIR`, `PROFILE_DIR`, `FILESYSTEM_ROOT`, `IMAGE_CONTAINER`, and `ACQUISITION_BUNDLE`.
 The header does not contribute bytes to either digest.
 
 The object keys have this fixed order:
