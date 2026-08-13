@@ -1,1 +1,8 @@
-server/utils/predictor/finalized_model.sav filter=lfs diff=lfs merge=lfs -text
+# Repository text must have identical bytes on every checkout platform.
+* text=auto eol=lf
+
+# Canonical contract bytes must not change with the checkout platform.
+contracts/manifest/** text eol=lf
+contracts/selection-policy.chrome-userdata-1.json text eol=lf
+
+server/utils/predictor/finalized_model.sav filter=lfs diff=lfs merge=lfs -text -eol

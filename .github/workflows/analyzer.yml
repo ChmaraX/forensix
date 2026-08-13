@@ -1,0 +1,30 @@
+name: analyzer
+
+on:
+  pull_request:
+    branches: [v2, master]
+  push:
+    branches: [v2, master]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: analyzer / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.15.0
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install locked dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Verify Analyzer
+        run: corepack pnpm verify

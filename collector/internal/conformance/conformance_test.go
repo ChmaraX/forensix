@@ -96,16 +96,35 @@ func TestSelectionPolicyRejectsUnknownContractFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	content = bytes.Replace(content, []byte("{\n"), []byte("{\n  \"unsupported\": true,\n"), 1)
+	var contract map[string]any
+	if err := json.Unmarshal(content, &contract); err != nil {
+		t.Fatal(err)
+	}
+	contract["unsupported"] = true
+	content, err = json.Marshal(contract)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := DecodeSelectionPolicy(content); err == nil || !strings.Contains(err.Error(), "unknown field") {
 		t.Fatalf("unknown contract field was not rejected: %v", err)
 	}
 }
 
 func TestDigestReproducesWithStandardSortAndSHA256Tools(t *testing.T) {
-	sortPath, err := exec.LookPath("sort")
-	if err != nil {
-		t.Skip("standard sort tool unavailable")
+	var sortCommand *exec.Cmd
+	if runtime.GOOS == "windows" {
+		bashPath, err := exec.LookPath("bash")
+		if err != nil {
+			t.Skip("Git Bash sort tool unavailable")
+		}
+		sortCommand = exec.Command(bashPath, "-c", "LC_ALL=C sort")
+	} else {
+		sortPath, err := exec.LookPath("sort")
+		if err != nil {
+			t.Skip("standard sort tool unavailable")
+		}
+		sortCommand = exec.Command(sortPath)
+		sortCommand.Env = append(os.Environ(), "LC_ALL=C")
 	}
 	hashPath, hashArgs := "", []string{}
 	if candidate, lookErr := exec.LookPath("sha256sum"); lookErr == nil {
@@ -116,20 +135,30 @@ func TestDigestReproducesWithStandardSortAndSHA256Tools(t *testing.T) {
 		t.Skip("standard SHA-256 tool unavailable")
 	}
 	manifestPath := filepath.Join(contractRoot(t), "manifest", "fixtures", "canonical-v1", "manifest.jsonl")
-	command := exec.Command(sortPath, manifestPath)
-	command.Env = append(os.Environ(), "LC_ALL=C")
-	content, err := command.Output()
+	manifest, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	args := append(hashArgs, manifestPath)
-	output, err := exec.Command(hashPath, args...).Output()
+	if bytes.Contains(manifest, []byte{'\r'}) {
+		t.Fatal("canonical Manifest fixture contains a CR byte")
+	}
+	sortCommand.Stdin = bytes.NewReader(manifest)
+	sorted, err := sortCommand.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(sorted, manifest) {
+		t.Fatal("canonical Manifest fixture is not in unsigned byte order")
+	}
+	hashCommand := exec.Command(hashPath, hashArgs...)
+	hashCommand.Stdin = bytes.NewReader(sorted)
+	output, err := hashCommand.Output()
 	if err != nil {
 		t.Fatal(err)
 	}
 	fields := strings.Fields(string(output))
-	if len(fields) == 0 || fields[0] != Digest(content) {
-		t.Fatalf("standard-tool digest=%q Go digest=%s", fields, Digest(content))
+	if len(fields) == 0 || fields[0] != Digest(sorted) {
+		t.Fatalf("standard-tool digest=%q Go digest=%s", fields, Digest(sorted))
 	}
 }
 
