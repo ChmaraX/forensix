@@ -12,24 +12,24 @@ import (
 	"sort"
 )
 
+// CanonicalLines encodes entries first, then byte-sorts complete JSONL lines.
+// This exactly matches LC_ALL=C sort, including escaped path characters.
 func CanonicalLines(entries []ManifestEntry) ([]byte, error) {
-	sorted := append([]ManifestEntry(nil), entries...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Path < sorted[j].Path })
-	var out bytes.Buffer
-	encoder := json.NewEncoder(&out)
-	encoder.SetEscapeHTML(false)
-	for _, entry := range sorted {
+	lines := make([][]byte, 0, len(entries))
+	for _, entry := range entries {
+		var line bytes.Buffer
+		encoder := json.NewEncoder(&line)
+		encoder.SetEscapeHTML(false)
 		if err := encoder.Encode(entry); err != nil {
 			return nil, fmt.Errorf("encode manifest entry: %w", err)
 		}
+		lines = append(lines, append([]byte(nil), line.Bytes()...))
 	}
-	return out.Bytes(), nil
+	sort.Slice(lines, func(i, j int) bool { return bytes.Compare(lines[i], lines[j]) < 0 })
+	return bytes.Join(lines, nil), nil
 }
 
-func Digest(lines []byte) string {
-	sum := sha256.Sum256(lines)
-	return hex.EncodeToString(sum[:])
-}
+func Digest(lines []byte) string { sum := sha256.Sum256(lines); return hex.EncodeToString(sum[:]) }
 
 func WorkingCopyLines(entries []ManifestEntry) ([]byte, error) {
 	copied := make([]ManifestEntry, 0, len(entries))
@@ -56,12 +56,8 @@ func WriteJSON(path string, value any) error {
 	return file.Close()
 }
 
-func WriteFile(path string, content []byte) error {
-	return os.WriteFile(path, content, 0o600)
-}
+func WriteFile(path string, content []byte) error { return os.WriteFile(path, content, 0o600) }
 
-// VerifySortedDigest demonstrates the standard-tools construction: LF-delimited
-// lines sorted by raw byte value, then SHA-256 over those exact bytes.
 func VerifySortedDigest(reader io.Reader) (string, error) {
 	scanner := bufio.NewScanner(reader)
 	var lines [][]byte

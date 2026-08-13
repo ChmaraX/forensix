@@ -10,7 +10,7 @@ The Collector:
 - never starts, stops, or signals Chrome;
 - links no Go networking package and performs no update or telemetry check;
 - copies bytes without parsing Chrome artifacts or opening SQLite;
-- does not capture or decrypt key material in this walking skeleton;
+- copies required browser evidence such as `Local State`, but does not perform the separate opt-in capture of live derived keys or key-store backing evidence;
 - records authorization as an operator-supplied claim that it witnesses but does not verify.
 
 Run it from removable media. Do not download it on the Source machine.
@@ -25,7 +25,7 @@ go vet ./...
 go build -trimpath ./cmd/forensix-collect
 ```
 
-The module is intentionally outside the analyzer pnpm workspace. It has no third-party or runtime dependencies.
+The module is intentionally outside the analyzer pnpm workspace. It has no runtime dependencies; `golang.org/x/sys` provides native read-only OS account and environment APIs.
 
 ## Collect
 

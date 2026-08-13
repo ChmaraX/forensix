@@ -104,6 +104,25 @@ func TestDigestReproducesWithStandardSortAndSHA256Tools(t *testing.T) {
 	}
 }
 
+func TestCanonicalOrderingMatchesEncodedByteSort(t *testing.T) {
+	t.Parallel()
+	entries := []ManifestEntry{
+		{Path: "a\\file", HashAlgorithm: HashAlgorithm, NodeType: NodeFile, FileKind: KindUnclassified, Selection: Unclassified},
+		{Path: "a\nfile", HashAlgorithm: HashAlgorithm, NodeType: NodeFile, FileKind: KindUnclassified, Selection: Unclassified},
+	}
+	lines, err := CanonicalLines(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	standardDigest, err := VerifySortedDigest(bytes.NewReader(lines))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if standardDigest != Digest(lines) {
+		t.Fatalf("encoded byte order differs from standard sort: %q", lines)
+	}
+}
+
 func TestSelectionPolicyChromeUserdataOne(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -114,16 +133,40 @@ func TestSelectionPolicyChromeUserdataOne(t *testing.T) {
 	}{
 		{"Default/History", false, Tier1, true},
 		{"Default/History-wal", false, Tier1, true},
+		{"Default/Network/Cookies", false, Tier1, true},
+		{"Default/Network/Cookies-wal", false, Tier1, true},
 		{"Default/Cache/data_0", false, Tier2, false},
 		{"Default/Cache/data_0", true, Tier2, true},
 		{"optimization_guide_model_store/model", true, Tier3, false},
 		{"Default/new-chrome-artifact", true, Unclassified, false},
+		{"Default/Cache/History", false, Tier2, false},
+		{"Default/Extensions/x/History", false, Tier2, false},
+		{"unrelated/History", false, Unclassified, false},
 	}
 	for _, test := range tests {
 		selection, _, copied := Classify(test.path, NodeFile, test.bulk)
 		if selection != test.selection || copied != test.copied {
 			t.Errorf("%s: got (%s,%v), want (%s,%v)", test.path, selection, copied, test.selection, test.copied)
 		}
+	}
+}
+
+func TestNetworkCookiesSatisfyExpectedCookiesWithoutSuppressingOtherAbsence(t *testing.T) {
+	t.Parallel()
+	missing := MissingExpectedPaths([]ManifestEntry{{Path: "Default/Network/Cookies", NodeType: NodeFile}})
+	for _, path := range missing {
+		if path == "Default/Cookies" {
+			t.Fatal("Network/Cookies must satisfy the Cookies expected artifact")
+		}
+	}
+	foundHistory := false
+	for _, path := range missing {
+		if path == "Default/History" {
+			foundHistory = true
+		}
+	}
+	if !foundHistory {
+		t.Fatal("unrelated expected artifact was suppressed")
 	}
 }
 

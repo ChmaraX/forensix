@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/ChmaraX/forensix/collector/internal/collector"
@@ -43,20 +44,24 @@ func run(args []string) int {
 		fmt.Fprintf(os.Stderr, "collection failed: %v\n", err)
 		return 1
 	}
+	return reportResult(bundle, *out, os.Stderr)
+}
+
+func reportResult(bundle collector.BundleManifest, output string, stderr io.Writer) int {
 	partial := false
 	for _, udd := range bundle.UserDataDirs {
 		if len(udd.LivenessEvidence) > 0 {
-			fmt.Fprintf(os.Stderr, "%s: %s\n", udd.SourcePath, udd.LivenessExplanation)
+			fmt.Fprintf(stderr, "%s: %s\n", udd.SourcePath, udd.LivenessExplanation)
 		}
 		if udd.Outcome == collector.SkippedRunning {
 			partial = true
-			fmt.Fprintln(os.Stderr, "No content was copied for this User Data Dir. Wait for Chrome to close or rerun with --continue-if-chrome-running if collection must proceed.")
+			fmt.Fprintln(stderr, "No content was copied for this User Data Dir. Wait for Chrome to close or rerun with --continue-if-chrome-running if collection must proceed.")
 		} else if udd.Outcome == collector.Failed {
 			partial = true
-			fmt.Fprintf(os.Stderr, "%s: collection unavailable: %s\n", udd.SourcePath, udd.Error)
+			fmt.Fprintf(stderr, "%s: collection unavailable: %s\n", udd.SourcePath, udd.Error)
 		}
 	}
-	fmt.Printf("Acquisition Bundle: %s\nBundle Digest: %s\n", *out, bundle.BundleDigest)
+	fmt.Printf("Acquisition Bundle: %s\nBundle Digest: %s\n", output, bundle.BundleDigest)
 	if partial {
 		return 2
 	}

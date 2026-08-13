@@ -44,9 +44,12 @@ type Scanner interface {
 }
 
 type HostScanner struct {
-	GOOS string
-	Root string
+	GOOS     string
+	Root     string
+	Accounts []Account
 }
+
+type Account struct{ ID, Home string }
 
 func NewHostScanner() HostScanner { return HostScanner{GOOS: runtime.GOOS} }
 
@@ -54,8 +57,8 @@ func (s HostScanner) Scan() ScanResult {
 	accounts, accountAttempts := s.accounts()
 	result := ScanResult{Attempts: accountAttempts}
 	for _, account := range accounts {
-		for _, candidate := range candidates(s.GOOS, account.home) {
-			attempt := Attempt{AccountID: account.id, Path: candidate}
+		for _, candidate := range candidates(s.GOOS, account.Home) {
+			attempt := Attempt{AccountID: account.ID, Path: candidate}
 			info, err := os.Stat(candidate)
 			switch {
 			case err == nil && info.IsDir():
@@ -69,7 +72,7 @@ func (s HostScanner) Scan() ScanResult {
 						attempt.Outcome, attempt.Reason = classifyOpenError(readErr)
 					} else {
 						attempt.Outcome = Found
-						result.Found = append(result.Found, UserDataDir{AccountID: account.id, Path: candidate, CachePath: externalCachePath(s.GOOS, account.home, candidate)})
+						result.Found = append(result.Found, UserDataDir{AccountID: account.ID, Path: candidate, CachePath: externalCachePath(s.GOOS, account.Home, candidate)})
 					}
 				}
 			case err == nil:
@@ -91,27 +94,26 @@ func (s HostScanner) Scan() ScanResult {
 	return result
 }
 
-type account struct{ id, home string }
+func (s HostScanner) accounts() ([]Account, []Attempt) {
+	if len(s.Accounts) > 0 {
+		return append([]Account(nil), s.Accounts...), nil
+	}
+	if s.Root != "" {
+		return directoryAccounts(s.GOOS, s.Root)
+	}
+	accounts, err := nativeAccounts()
+	if err != nil {
+		outcome, reason := classifyOpenError(err)
+		return nil, []Attempt{{AccountID: "<account-enumeration>", Path: "<os-account-database>", Outcome: outcome, Reason: reason}}
+	}
+	sort.Slice(accounts, func(i, j int) bool { return accounts[i].ID < accounts[j].ID })
+	return accounts, nil
+}
 
-func (s HostScanner) accounts() ([]account, []Attempt) {
-	root := s.Root
-	if root == "" {
-		root = string(filepath.Separator)
-	}
-	var base string
-	switch s.GOOS {
-	case "windows":
+func directoryAccounts(goos, root string) ([]Account, []Attempt) {
+	base := filepath.Join(root, "home")
+	if goos == "windows" || goos == "darwin" {
 		base = filepath.Join(root, "Users")
-	case "darwin":
-		base = filepath.Join(root, "Users")
-	case "linux":
-		base = filepath.Join(root, "home")
-	default:
-		return nil, []Attempt{{AccountID: "<account-enumeration>", Path: root, Outcome: Unreadable, Reason: "unsupported_platform"}}
-	}
-	out := make([]account, 0)
-	if s.GOOS == "linux" {
-		out = append(out, account{id: "root", home: filepath.Join(root, "root")})
 	}
 	entries, err := os.ReadDir(base)
 	if err != nil {
@@ -119,15 +121,18 @@ func (s HostScanner) accounts() ([]account, []Attempt) {
 		if os.IsNotExist(err) {
 			outcome, reason = Absent, "accounts_root_absent"
 		}
-		return out, []Attempt{{AccountID: "<account-enumeration>", Path: base, Outcome: outcome, Reason: reason}}
+		return nil, []Attempt{{AccountID: "<account-enumeration>", Path: base, Outcome: outcome, Reason: reason}}
+	}
+	var accounts []Account
+	if goos == "linux" {
+		accounts = append(accounts, Account{ID: "root", Home: filepath.Join(root, "root")})
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			out = append(out, account{id: entry.Name(), home: filepath.Join(base, entry.Name())})
+			accounts = append(accounts, Account{ID: entry.Name(), Home: filepath.Join(base, entry.Name())})
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].id < out[j].id })
-	return out, nil
+	return accounts, nil
 }
 
 func candidates(goos, home string) []string {

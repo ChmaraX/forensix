@@ -1,6 +1,6 @@
 # Draft Collector conformance boundary
 
-Issue #167 owns the canonical Analyzer–Collector contract. This walking skeleton does not silently claim that its draft wire schema is final.
+Issue #167 owns the canonical Analyzer–Collector contract. This walking skeleton does not silently claim that its draft wire schema is final. Its golden fixture verifies Collector determinism only; the required cross-implementation test remains pending until #167 supplies the Analyzer implementation.
 
 ## Settled decisions implemented
 

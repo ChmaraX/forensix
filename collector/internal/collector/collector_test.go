@@ -124,6 +124,28 @@ func TestChromeLivenessRequiresExplicitOperatorDecisionBeforeCopy(t *testing.T) 
 	}
 }
 
+func TestExternalPlatformCacheIsAlwaysManifestedButOnlyCopiedByOptIn(t *testing.T) {
+	source := t.TempDir()
+	cache := t.TempDir()
+	mustWrite(t, filepath.Join(source, "Local State"), "state")
+	cacheFile := filepath.Join(cache, "Default", "Cache", "data_0")
+	mustWrite(t, cacheFile, "cache")
+	out := filepath.Join(t.TempDir(), "bundle")
+	scan := platformscanner.ScanResult{Found: []platformscanner.UserDataDir{{AccountID: "a", Path: source, CachePath: cache}}}
+	_, err := (Collector{Scanner: fixedScanner{scan}}).Run(Options{Output: out, OperatorIdentifier: "examiner", AuthorizationReference: "case/ref"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := readManifest(t, filepath.Join(out, "accounts", "a", "udd-1", "manifest.jsonl"))
+	entry, ok := manifest["external_cache/Default/Cache/data_0"]
+	if !ok || entry.SourcePath != cacheFile || entry.Copied || entry.Selection != conformance.Tier2 {
+		t.Fatalf("external cache not correctly manifested: %#v", entry)
+	}
+	if _, err := os.Stat(filepath.Join(out, "accounts", "a", "udd-1", "working_copy", "external_cache", "Default", "Cache", "data_0")); !os.IsNotExist(err) {
+		t.Fatal("external cache copied without opt-in")
+	}
+}
+
 func TestBulkOptInCollectsExternalPlatformCacheWithRealSourcePath(t *testing.T) {
 	source := t.TempDir()
 	cache := t.TempDir()
@@ -158,6 +180,38 @@ func TestBulkOptInCollectsExternalPlatformCacheWithRealSourcePath(t *testing.T) 
 	}
 }
 
+func TestOutputInsideSourceIsRejectedBeforeWrite(t *testing.T) {
+	source := t.TempDir()
+	mustWrite(t, filepath.Join(source, "Local State"), "state")
+	out := filepath.Join(source, "bundle")
+	scan := platformscanner.ScanResult{Found: []platformscanner.UserDataDir{{AccountID: "a", Path: source}}}
+	_, err := (Collector{Scanner: fixedScanner{scan}}).Run(Options{Output: out, OperatorIdentifier: "examiner", AuthorizationReference: "case/ref"})
+	if err == nil || !strings.Contains(err.Error(), "inside Source") {
+		t.Fatalf("error=%v", err)
+	}
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		t.Fatal("output was created inside Source")
+	}
+}
+
+func TestNestedHistoryUnderCacheIsNotTierOneOrCopied(t *testing.T) {
+	source := t.TempDir()
+	mustWrite(t, filepath.Join(source, "Default", "Cache", "History"), "not a profile database")
+	out := filepath.Join(t.TempDir(), "bundle")
+	scan := platformscanner.ScanResult{Found: []platformscanner.UserDataDir{{AccountID: "a", Path: source}}}
+	_, err := (Collector{Scanner: fixedScanner{scan}}).Run(Options{Output: out, OperatorIdentifier: "examiner", AuthorizationReference: "case/ref"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := readManifest(t, filepath.Join(out, "accounts", "a", "udd-1", "manifest.jsonl"))
+	if manifest["Default/Cache/History"].Selection != conformance.Tier2 || manifest["Default/Cache/History"].Copied {
+		t.Fatalf("nested History misclassified: %#v", manifest["Default/Cache/History"])
+	}
+	if manifest["Default/History"].NodeType != conformance.NodeAbsent {
+		t.Fatalf("expected artifact absence suppressed: %#v", manifest["Default/History"])
+	}
+}
+
 func TestUnreadableAccountDoesNotBlockReadableAccount(t *testing.T) {
 	source := t.TempDir()
 	mustWrite(t, filepath.Join(source, "Local State"), "ok")
@@ -187,6 +241,23 @@ func mustWrite(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+func readManifest(t *testing.T, path string) map[string]conformance.ManifestEntry {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := map[string]conformance.ManifestEntry{}
+	for _, line := range strings.Split(strings.TrimSpace(string(content)), "\n") {
+		var entry conformance.ManifestEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			t.Fatal(err)
+		}
+		entries[entry.Path] = entry
+	}
+	return entries
+}
+
 func readJSON(t *testing.T, path string, target any) {
 	t.Helper()
 	content, err := os.ReadFile(path)
