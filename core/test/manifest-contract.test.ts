@@ -7,6 +7,8 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalManifestLine,
   classifySourcePath,
+  decodeManifestEntry,
+  decodeManifestHeader,
   evidenceSetDigest,
   manifestBytes,
   representationDigest,
@@ -66,6 +68,42 @@ describe("Manifest contract v1", () => {
     ).toBe(expectedDigests.working_copy_digest);
     expect([...lines].sort()).toEqual(lines);
     expect(entries.map(canonicalManifestLine)).not.toEqual(lines);
+    expect(decodeManifestHeader(expectedHeader)).toEqual(expectedHeader);
+    expect(entries.map(decodeManifestEntry)).toEqual(entries);
+  });
+
+  it("rejects values outside the runtime Manifest contract", () => {
+    const valid = {
+      path: "Default/History",
+      state: "value",
+      unavailable_reason: null,
+      node_type: "file",
+      file_kind: "database",
+      selection_tier: "tier_1",
+      copied: true,
+      unclassified: false,
+      size: 1,
+      mtime_ns: "1",
+      hash_algorithm: "sha-256",
+      sha256: independentSha256("x"),
+      link_target: null,
+    };
+
+    expect(() => decodeManifestEntry({ ...valid, state: "invented" })).toThrow(
+      "state has an unsupported value",
+    );
+    expect(() =>
+      decodeManifestEntry({ ...valid, node_type: "invented" }),
+    ).toThrow("node_type has an unsupported value");
+    expect(() =>
+      decodeManifestEntry({ ...valid, file_kind: "invented" }),
+    ).toThrow("file_kind has an unsupported value");
+    expect(() =>
+      decodeManifestEntry({ ...valid, selection_tier: "invented" }),
+    ).toThrow("selection_tier has an unsupported value");
+    expect(() => decodeManifestEntry({ ...valid, extra: true })).toThrow(
+      "missing or unknown fields",
+    );
   });
 
   it("hashes non-file representations without dereferencing them", () => {

@@ -1,4 +1,5 @@
 .idea/
+.pi/
 data/
 node_modules/
 **/node_modules/

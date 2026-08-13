@@ -1,6 +1,4 @@
-import { createHash } from "node:crypto";
-import { constants } from "node:fs";
-import { lstat, open, readdir } from "node:fs/promises";
+import { lstat, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { loadCaseSource, workingCopyAbsolutePath } from "./case.js";
@@ -13,8 +11,7 @@ import {
   workingCopyDigest,
   type ManifestEntry,
 } from "./manifest.js";
-
-const READ_BUFFER_SIZE = 1024 * 1024;
+import { readStableRegularFile } from "./stable-file.js";
 
 export interface WorkingCopyVerification {
   readonly status: "verified";
@@ -30,49 +27,6 @@ export interface AnalysisPreflightResult extends WorkingCopyVerification {
   readonly command: "analyse";
   readonly analysisStatus: "ready";
   readonly artifactCount: 0;
-}
-
-async function hashRegularFile(path: string): Promise<{
-  readonly size: number;
-  readonly sha256: string;
-}> {
-  const noFollowFlag = "O_NOFOLLOW" in constants ? constants.O_NOFOLLOW : 0;
-  const handle = await open(path, constants.O_RDONLY | noFollowFlag);
-  try {
-    const openedStats = await handle.stat({ bigint: true });
-    if (!openedStats.isFile()) {
-      throw new TypeError("Working Copy entry is not a regular file.");
-    }
-    if (openedStats.size > BigInt(Number.MAX_SAFE_INTEGER)) {
-      throw new RangeError("Working Copy entry is too large to record safely.");
-    }
-
-    const digest = createHash("sha256");
-    const buffer = Buffer.allocUnsafe(READ_BUFFER_SIZE);
-    let size = 0;
-    while (true) {
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
-      if (bytesRead === 0) {
-        break;
-      }
-      digest.update(buffer.subarray(0, bytesRead));
-      size += bytesRead;
-    }
-
-    const finalStats = await handle.stat({ bigint: true });
-    if (
-      openedStats.dev !== finalStats.dev ||
-      openedStats.ino !== finalStats.ino ||
-      openedStats.size !== finalStats.size ||
-      openedStats.mtimeNs !== finalStats.mtimeNs ||
-      size !== Number(finalStats.size)
-    ) {
-      throw new Error("Working Copy entry changed during verification.");
-    }
-    return { size, sha256: digest.digest("hex") };
-  } finally {
-    await handle.close();
-  }
 }
 
 function allowedWorkingDirectories(
@@ -209,10 +163,8 @@ export async function verifyWorkingCopy(
       continue;
     }
 
-    let actual;
-    try {
-      actual = await hashRegularFile(absolutePath);
-    } catch {
+    const actual = await readStableRegularFile(absolutePath, stats);
+    if (actual.status !== "stable") {
       issues.push({ path: entry.path, reason: "entry_unreadable" });
       continue;
     }

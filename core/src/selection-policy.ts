@@ -2,12 +2,14 @@ import { existsSync, readFileSync } from "node:fs";
 
 import type { FileKind, NodeType, SelectionTier } from "./manifest.js";
 
+type ArtifactKind = Exclude<
+  FileKind,
+  "sidecar" | "bulk_data" | "ballast" | "directory" | "unclassified"
+>;
+
 interface PolicyArtifact {
   readonly path: string;
-  readonly file_kind: Exclude<
-    FileKind,
-    "sidecar" | "bulk_data" | "ballast" | "directory" | "unclassified"
-  >;
+  readonly file_kind: ArtifactKind;
   readonly expected: boolean;
 }
 
@@ -34,6 +36,152 @@ export interface Selection {
   readonly unclassified: boolean;
 }
 
+const POLICY_KEYS = [
+  "schema",
+  "name",
+  "profile_directories",
+  "sqlite_sidecar_suffixes",
+  "browser_tier_1",
+  "profile_tier_1",
+  "profile_tier_2_roots",
+  "browser_tier_3_roots",
+  "browser_tier_3_globs",
+  "profile_tier_3_roots",
+] as const;
+const PROFILE_DIRECTORY_KEYS = [
+  "exact",
+  "numbered_prefix",
+  "numbered_minimum",
+] as const;
+const ARTIFACT_KEYS = ["path", "file_kind", "expected"] as const;
+const ARTIFACT_KINDS = [
+  "database",
+  "json",
+  "image",
+  "metadata",
+  "liveness_evidence",
+] as const satisfies readonly ArtifactKind[];
+
+function objectValue(value: unknown, name: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError(`${name} must be an object.`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function exactKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+  name: string,
+): void {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  if (
+    actual.length !== expected.length ||
+    actual.some((key, index) => key !== expected[index])
+  ) {
+    throw new TypeError(`${name} has missing or unknown fields.`);
+  }
+}
+
+function stringValue(value: unknown, name: string): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new TypeError(`${name} must be a nonempty string.`);
+  }
+  return value;
+}
+
+function stringArray(value: unknown, name: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${name} must be an array.`);
+  }
+  return value.map((item, index) => stringValue(item, `${name}[${index}]`));
+}
+
+function artifactArray(value: unknown, name: string): PolicyArtifact[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${name} must be an array.`);
+  }
+  return value.map((item, index) => {
+    const object = objectValue(item, `${name}[${index}]`);
+    exactKeys(object, ARTIFACT_KEYS, `${name}[${index}]`);
+    const fileKind = object.file_kind;
+    if (
+      typeof fileKind !== "string" ||
+      !ARTIFACT_KINDS.includes(fileKind as ArtifactKind)
+    ) {
+      throw new TypeError(`${name}[${index}].file_kind is unsupported.`);
+    }
+    if (typeof object.expected !== "boolean") {
+      throw new TypeError(`${name}[${index}].expected must be a boolean.`);
+    }
+    return {
+      path: stringValue(object.path, `${name}[${index}].path`),
+      file_kind: fileKind as ArtifactKind,
+      expected: object.expected,
+    };
+  });
+}
+
+function decodeSelectionPolicy(value: unknown): SelectionPolicyContract {
+  const policy = objectValue(value, "Selection Policy");
+  exactKeys(policy, POLICY_KEYS, "Selection Policy");
+  if (policy.schema !== "forensix/selection-policy/1") {
+    throw new TypeError("Selection Policy schema is unsupported.");
+  }
+  if (policy.name !== "chrome-userdata/1") {
+    throw new TypeError("Selection Policy name is unsupported.");
+  }
+
+  const profileDirectories = objectValue(
+    policy.profile_directories,
+    "profile_directories",
+  );
+  exactKeys(profileDirectories, PROFILE_DIRECTORY_KEYS, "profile_directories");
+  const numberedMinimum = profileDirectories.numbered_minimum;
+  if (
+    !Number.isSafeInteger(numberedMinimum) ||
+    (numberedMinimum as number) < 1
+  ) {
+    throw new TypeError("numbered_minimum must be a positive integer.");
+  }
+
+  return {
+    schema: "forensix/selection-policy/1",
+    name: "chrome-userdata/1",
+    profile_directories: {
+      exact: stringArray(profileDirectories.exact, "profile_directories.exact"),
+      numbered_prefix: stringValue(
+        profileDirectories.numbered_prefix,
+        "profile_directories.numbered_prefix",
+      ),
+      numbered_minimum: numberedMinimum as number,
+    },
+    sqlite_sidecar_suffixes: stringArray(
+      policy.sqlite_sidecar_suffixes,
+      "sqlite_sidecar_suffixes",
+    ),
+    browser_tier_1: artifactArray(policy.browser_tier_1, "browser_tier_1"),
+    profile_tier_1: artifactArray(policy.profile_tier_1, "profile_tier_1"),
+    profile_tier_2_roots: stringArray(
+      policy.profile_tier_2_roots,
+      "profile_tier_2_roots",
+    ),
+    browser_tier_3_roots: stringArray(
+      policy.browser_tier_3_roots,
+      "browser_tier_3_roots",
+    ),
+    browser_tier_3_globs: stringArray(
+      policy.browser_tier_3_globs,
+      "browser_tier_3_globs",
+    ),
+    profile_tier_3_roots: stringArray(
+      policy.profile_tier_3_roots,
+      "profile_tier_3_roots",
+    ),
+  };
+}
+
 function loadSelectionPolicy(): SelectionPolicyContract {
   const candidates = [
     new URL(
@@ -52,21 +200,7 @@ function loadSelectionPolicy(): SelectionPolicyContract {
     );
   }
 
-  const value: unknown = JSON.parse(readFileSync(contractUrl, "utf8"));
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("schema" in value) ||
-    value.schema !== "forensix/selection-policy/1" ||
-    !("name" in value) ||
-    value.name !== "chrome-userdata/1"
-  ) {
-    throw new Error(
-      "The chrome-userdata/1 Selection Policy contract is invalid.",
-    );
-  }
-
-  return value as SelectionPolicyContract;
+  return decodeSelectionPolicy(JSON.parse(readFileSync(contractUrl, "utf8")));
 }
 
 export const CHROME_USERDATA_POLICY = loadSelectionPolicy();
@@ -186,7 +320,6 @@ export function classifySourcePath(
   if (!isProfileDirectoryName(first)) {
     return unclassified(nodeType);
   }
-
   if (parts.length === 1) {
     return selected("tier_1", "directory", nodeType);
   }

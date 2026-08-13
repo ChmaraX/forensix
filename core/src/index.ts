@@ -25,6 +25,8 @@ export {
   MANIFEST_SCHEMA,
   assertManifestEntry,
   canonicalManifestLine,
+  decodeManifestEntry,
+  decodeManifestHeader,
   evidenceSetDigest,
   manifestBytes,
   representationDigest,

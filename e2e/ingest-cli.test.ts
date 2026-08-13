@@ -39,6 +39,8 @@ interface ManifestEntry {
   readonly copied: boolean;
   readonly unclassified: boolean;
   readonly size: number | null;
+  readonly mtime_ns: string | null;
+  readonly hash_algorithm: "sha-256";
   readonly sha256: string | null;
   readonly link_target: string | null;
 }
@@ -365,13 +367,24 @@ describe("compiled analyzer CLI ingest", () => {
       expect(
         database.prepare("SELECT path FROM profiles ORDER BY path").all(),
       ).toEqual([{ path: "Default" }, { path: "Profile 1" }]);
-      const caseLines = database
-        .prepare("SELECT canonical_json FROM manifest_entries ORDER BY ordinal")
+      const caseEntries = database
+        .prepare(
+          `SELECT path, state, unavailable_reason, node_type, file_kind,
+                  selection_tier, copied, unclassified, size, mtime_ns,
+                  hash_algorithm, sha256, link_target
+             FROM manifest_entries
+            ORDER BY ordinal`,
+        )
         .all()
-        .map(
-          (row) => (row as { readonly canonical_json: string }).canonical_json,
-        );
-      expect(caseLines).toEqual(manifest.lines);
+        .map((row) => {
+          const entry = row as Record<string, unknown>;
+          return {
+            ...entry,
+            copied: entry.copied === 1,
+            unclassified: entry.unclassified === 1,
+          };
+        });
+      expect(caseEntries).toEqual(manifest.entries);
     } finally {
       database.close();
     }
@@ -423,6 +436,31 @@ describe("compiled analyzer CLI ingest", () => {
       ),
     ).toBe("bulk-cache\n");
     expect(await sourceSnapshot(source)).toEqual(before);
+  });
+
+  it("refuses a Case path whose existing parent symlink enters the Source", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    const root = await mkdtemp(join(tmpdir(), "forensix-case-path-e2e-"));
+    temporaryRoots.push(root);
+    const { source } = await createRecordedSource(root);
+    const sourceBefore = await sourceSnapshot(source);
+    const linkedParent = join(root, "linked-parent");
+    await symlink(source, linkedParent);
+
+    const command = runCli([
+      "ingest",
+      source,
+      "--case",
+      join(linkedParent, "CASE-ESCAPE"),
+      "--json",
+    ]);
+    expect(command.status).toBe(1);
+    expect(parseJson<Record<string, unknown>>(command.stderr)).toMatchObject({
+      code: "CASE_INSIDE_SOURCE",
+    });
+    expect(await sourceSnapshot(source)).toEqual(sourceBefore);
   });
 
   it("refuses missing, moved, and changed Working Copy content before analysis", async () => {
@@ -491,6 +529,75 @@ describe("compiled analyzer CLI ingest", () => {
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
       0,
     );
+
+    const database = new DatabaseSync(join(caseDirectory, "case.fxdb"));
+    try {
+      database
+        .prepare(
+          "UPDATE sources SET working_copy_path = '../working-copy-escape' WHERE working_copy_path_kind = 'relative'",
+        )
+        .run();
+    } finally {
+      database.close();
+    }
+    const escaped = runCli(["analyse", "--case", caseDirectory, "--json"]);
+    expect(escaped.status).toBe(1);
+    expect(parseJson<Record<string, unknown>>(escaped.stderr)).toMatchObject({
+      code: "CASE_INVALID",
+      message: "Relative Working Copy path escapes the Case Directory.",
+    });
+
+    if (process.platform !== "win32") {
+      const externalWorkingCopy = join(root, "external-working-copy");
+      await rename(output.workingCopyPath, externalWorkingCopy);
+      await symlink(root, output.workingCopyPath);
+      const symlinkDatabase = new DatabaseSync(
+        join(caseDirectory, "case.fxdb"),
+      );
+      try {
+        symlinkDatabase
+          .prepare(
+            "UPDATE sources SET working_copy_path = 'working-copy/external-working-copy' WHERE working_copy_path_kind = 'relative'",
+          )
+          .run();
+      } finally {
+        symlinkDatabase.close();
+      }
+      const symlinkEscape = runCli([
+        "analyse",
+        "--case",
+        caseDirectory,
+        "--json",
+      ]);
+      expect(symlinkEscape.status).toBe(1);
+      expect(
+        parseJson<Record<string, unknown>>(symlinkEscape.stderr),
+      ).toMatchObject({
+        code: "CASE_INVALID",
+        message: "Relative Working Copy path escapes the Case Directory.",
+      });
+      await rm(output.workingCopyPath);
+
+      const absoluteDatabase = new DatabaseSync(
+        join(caseDirectory, "case.fxdb"),
+      );
+      try {
+        absoluteDatabase
+          .prepare(
+            "UPDATE sources SET working_copy_path = ?, working_copy_path_kind = 'absolute'",
+          )
+          .run(externalWorkingCopy);
+      } finally {
+        absoluteDatabase.close();
+      }
+      const absolute = runCli(["analyse", "--case", caseDirectory, "--json"]);
+      expect(absolute.status).toBe(0);
+      expect(parseJson<Record<string, unknown>>(absolute.stdout)).toMatchObject(
+        {
+          workingCopyPath: externalWorkingCopy,
+        },
+      );
+    }
     expect(await sourceSnapshot(source)).toEqual(sourceBefore);
   });
 

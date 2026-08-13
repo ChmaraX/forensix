@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { realpathSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
 
 import { ForensixError } from "./errors.js";
 import {
-  assertManifestEntry,
-  canonicalManifestLine,
+  decodeManifestEntry,
   type ManifestEntry,
   type ManifestHeader,
 } from "./manifest.js";
@@ -45,6 +45,22 @@ export interface CaseSourceRecord {
   readonly unavailableCount: number;
   readonly unclassifiedCount: number;
   readonly entries: readonly ManifestEntry[];
+}
+
+interface ManifestEntryRow {
+  readonly path: unknown;
+  readonly state: unknown;
+  readonly unavailable_reason: unknown;
+  readonly node_type: unknown;
+  readonly file_kind: unknown;
+  readonly selection_tier: unknown;
+  readonly copied: number;
+  readonly unclassified: number;
+  readonly size: unknown;
+  readonly mtime_ns: unknown;
+  readonly hash_algorithm: unknown;
+  readonly sha256: unknown;
+  readonly link_target: unknown;
 }
 
 interface SourceRow {
@@ -134,7 +150,6 @@ export function createCaseDatabase(options: CreateCaseDatabaseOptions): {
         hash_algorithm TEXT NOT NULL CHECK (hash_algorithm = 'sha-256'),
         sha256 TEXT,
         link_target TEXT,
-        canonical_json TEXT NOT NULL,
         PRIMARY KEY (source_id, ordinal),
         UNIQUE (source_id, path)
       ) STRICT;
@@ -197,8 +212,8 @@ export function createCaseDatabase(options: CreateCaseDatabaseOptions): {
         INSERT INTO manifest_entries
           (source_id, ordinal, path, state, unavailable_reason, node_type,
            file_kind, selection_tier, copied, unclassified, size, mtime_ns,
-           hash_algorithm, sha256, link_target, canonical_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           hash_algorithm, sha256, link_target)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const [ordinal, entry] of options.entries.entries()) {
         insertEntry.run(
@@ -217,7 +232,6 @@ export function createCaseDatabase(options: CreateCaseDatabaseOptions): {
           entry.hash_algorithm,
           entry.sha256,
           entry.link_target,
-          canonicalManifestLine(entry),
         );
       }
       database.exec("COMMIT;");
@@ -298,25 +312,40 @@ export function loadCaseSource(caseDirectory: string): CaseSourceRecord {
 
     const rows = database
       .prepare(
-        `SELECT canonical_json
+        `SELECT path, state, unavailable_reason, node_type, file_kind,
+                selection_tier, copied, unclassified, size, mtime_ns,
+                hash_algorithm, sha256, link_target
            FROM manifest_entries
           WHERE source_id = ?
           ORDER BY ordinal`,
       )
-      .all(source.source_id) as { readonly canonical_json: string }[];
+      .all(source.source_id) as unknown as ManifestEntryRow[];
     const entries = rows.map((row) => {
-      const entry = JSON.parse(row.canonical_json) as ManifestEntry;
-      assertManifestEntry(entry);
-      if (canonicalManifestLine(entry) !== row.canonical_json) {
+      if (
+        (row.copied !== 0 && row.copied !== 1) ||
+        (row.unclassified !== 0 && row.unclassified !== 1)
+      ) {
         throw new ForensixError(
           "CASE_INVALID",
-          "Case contains a non-canonical Manifest line.",
-          {
-            path: entry.path,
-          },
+          "Case contains an invalid Manifest boolean.",
+          { path: row.path },
         );
       }
-      return entry;
+      return decodeManifestEntry({
+        path: row.path,
+        state: row.state,
+        unavailable_reason: row.unavailable_reason,
+        node_type: row.node_type,
+        file_kind: row.file_kind,
+        selection_tier: row.selection_tier,
+        copied: row.copied === 1,
+        unclassified: row.unclassified === 1,
+        size: row.size,
+        mtime_ns: row.mtime_ns,
+        hash_algorithm: row.hash_algorithm,
+        sha256: row.sha256,
+        link_target: row.link_target,
+      });
     });
     if (entries.length !== source.entry_count) {
       throw new ForensixError(
@@ -368,7 +397,77 @@ export function workingCopyAbsolutePath(
   caseDirectory: string,
   source: Pick<CaseSourceRecord, "workingCopyPath" | "workingCopyPathKind">,
 ): string {
-  return source.workingCopyPathKind === "absolute"
-    ? source.workingCopyPath
-    : resolve(caseDirectory, source.workingCopyPath);
+  if (source.workingCopyPathKind === "absolute") {
+    if (!isAbsolute(source.workingCopyPath)) {
+      throw new ForensixError(
+        "CASE_INVALID",
+        "Absolute Working Copy path is not absolute.",
+        { working_copy_path: source.workingCopyPath },
+      );
+    }
+    return resolve(source.workingCopyPath);
+  }
+  if (isAbsolute(source.workingCopyPath)) {
+    throw new ForensixError(
+      "CASE_INVALID",
+      "Relative Working Copy path is absolute.",
+      { working_copy_path: source.workingCopyPath },
+    );
+  }
+
+  const resolvedCaseDirectory = resolve(caseDirectory);
+  const workingCopyPath = resolve(
+    resolvedCaseDirectory,
+    source.workingCopyPath,
+  );
+  const difference = relative(resolvedCaseDirectory, workingCopyPath);
+  if (
+    difference === "" ||
+    difference === ".." ||
+    difference.startsWith(`..${sep}`)
+  ) {
+    throw new ForensixError(
+      "CASE_INVALID",
+      "Relative Working Copy path escapes the Case Directory.",
+      { working_copy_path: source.workingCopyPath },
+    );
+  }
+  let physicalCaseDirectory: string;
+  let physicalWorkingCopyPath: string;
+  try {
+    physicalCaseDirectory = realpathSync(resolvedCaseDirectory);
+    physicalWorkingCopyPath = realpathSync(workingCopyPath);
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return workingCopyPath;
+    }
+    throw new ForensixError(
+      "CASE_INVALID",
+      "Relative Working Copy path cannot be resolved.",
+      { working_copy_path: source.workingCopyPath },
+      { cause: error },
+    );
+  }
+  const physicalDifference = relative(
+    physicalCaseDirectory,
+    physicalWorkingCopyPath,
+  );
+  if (
+    physicalDifference === "" ||
+    physicalDifference === ".." ||
+    physicalDifference.startsWith(`..${sep}`) ||
+    isAbsolute(physicalDifference)
+  ) {
+    throw new ForensixError(
+      "CASE_INVALID",
+      "Relative Working Copy path escapes the Case Directory.",
+      { working_copy_path: source.workingCopyPath },
+    );
+  }
+  return workingCopyPath;
 }
