@@ -1,25 +1,33 @@
-# Draft Collector conformance boundary
+# Collector conformance boundary
 
-Issue #167 owns the canonical Analyzer–Collector contract. This walking skeleton does not silently claim that its draft wire schema is final. Its golden fixture verifies Collector determinism only; the required cross-implementation test remains pending until #167 supplies the Analyzer implementation.
+Issue #167 owns the canonical Analyzer–Collector Manifest and Selection Policy contract.
+The Collector implements that contract in `internal/conformance`.
 
-## Settled decisions implemented
+## Canonical contract
 
-1. Selection Policy is named `chrome-userdata/1`.
-2. A Manifest is exhaustive and canonical path-sorted JSONL. `path` is the first key. Encoding is UTF-8 with LF endings and no insignificant whitespace.
-3. Each entry records path, size, SHA-256, mtime, Node Type, file kind, copied state, and policy tier.
-4. Evidence Set Digest is SHA-256 over all canonical Manifest lines. Working Copy Digest uses the identical construction over entries with `copied: true`.
-5. A symlink hash covers its target text. Other non-file nodes hash their recorded Node Type representation and are never dereferenced.
-6. Expected missing Tier 1 artifacts use Node Type `absent`. Unclassified entries are hashed but not copied.
+The canonical files are:
 
-## Draft assumptions requiring #167 reconciliation
+- `../contracts/manifest/manifest-entry.schema.json`
+- `../contracts/manifest/manifest-header.schema.json`
+- `../contracts/selection-policy.chrome-userdata-1.json`
+- `../contracts/manifest/fixtures/canonical-v1/`
+- `../contracts/manifest/fixtures/selection-policy-v1.json`
 
-- Schema identifiers and exact JSON field names.
-- RFC 3339 encoding and precision for mtime.
-- Whether `hash_algorithm` is repeated per entry or only stated in the header.
-- The exact recorded representation for `dir`, `socket`, and `absent` hashes.
-- Whether Working Copy Digest hashes copied Manifest lines, as here, or a separate canonical projection.
-- File-kind vocabulary and classification of browser state files.
-- Exact expected paths for artifacts that moved between profile root and subdirectories. The Collector matches Tier 1 by basename and emits canonical absent placeholders at the profile root.
-- Bundle-level digest projection. This draft hashes canonical JSON for the path-sorted list of all bundle files except `bundle_manifest.json`, avoiding a circular self-hash.
+Collector tests read these files directly.
+There is no private Collector copy of the fixtures.
+The tests compare Manifest bytes and both digests exactly, run every language-neutral Selection Policy case, compare the compiled policy with the machine-readable policy, and reject unknown policy fields.
 
-All assumptions above are confined to `internal/conformance` or bundle assembly. Reconciliation must change that boundary and its fixtures, not scanner or Source-read behavior.
+## Boundary decisions
+
+1. Manifest entries and headers contain only canonical fields in canonical order.
+2. Acquisition-only values, such as the absolute Source path and Go `time.Time`, do not enter Manifest JSON.
+3. Chrome-running and Liveness Evidence remain Acquisition Bundle metadata. They are not added to the canonical Manifest header.
+4. Tier 2 opt-in is recorded by `tier_2_included`; `selection_policy_diff` remains empty.
+5. Paths outside a User Data Dir, including a platform scanner's external cache path, are not folded into that User Data Dir Manifest. The shared contract must define a second Source boundary before the Collector can represent those paths without a policy diff.
+6. Unsupported filesystem Node Types fail collection explicitly instead of being mislabeled as sockets.
+
+## Digest reproduction
+
+The Evidence Set Digest is SHA-256 over canonical Manifest bytes.
+The Working Copy Digest uses the same construction over entries where `copied` is `true`.
+Both include the final LF for each line.

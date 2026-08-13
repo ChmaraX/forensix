@@ -2,13 +2,18 @@ name: collector
 
 on:
   pull_request:
+    branches: [v2, master]
     paths:
       - "collector/**"
+      - "contracts/manifest/**"
+      - "contracts/selection-policy.chrome-userdata-1.json"
       - ".github/workflows/collector.yml"
   push:
-    branches: [main]
+    branches: [v2, master]
     paths:
       - "collector/**"
+      - "contracts/manifest/**"
+      - "contracts/selection-policy.chrome-userdata-1.json"
       - ".github/workflows/collector.yml"
 
 permissions:

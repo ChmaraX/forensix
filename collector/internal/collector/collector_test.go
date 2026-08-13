@@ -62,8 +62,14 @@ func TestCollectorCreatesVerifiableBundleWithoutMutatingSource(t *testing.T) {
 	if header.EvidenceSetDigest != conformance.Digest(manifestBytes) {
 		t.Fatalf("evidence digest is not SHA-256(manifest): %s", header.EvidenceSetDigest)
 	}
-	if header.SelectionPolicy != conformance.SelectionPolicy || !header.ChromeRunning || header.Unclassified == 0 {
-		t.Fatalf("bad header: %#v", header)
+	if header.ManifestSchema != conformance.ManifestSchema || header.SourceKind != conformance.SourceKind || header.SelectionPolicy != conformance.SelectionPolicy || header.UnclassifiedCount == 0 || header.ProfileCount != 1 || header.EntryCount == 0 {
+		t.Fatalf("bad canonical header: %#v", header)
+	}
+	if len(header.SelectionPolicyDiff) != 0 || header.Tier2Included {
+		t.Fatalf("unexpected Selection Policy diff: %#v", header)
+	}
+	if !bundle.UserDataDirs[0].ChromeRunning {
+		t.Fatalf("Chrome liveness state missing from Acquisition Bundle: %#v", bundle.UserDataDirs[0])
 	}
 	if _, err := os.Stat(filepath.Join(udd, "working_copy", "Default", "History")); err != nil {
 		t.Fatal("Tier 1 was not copied:", err)
@@ -97,13 +103,13 @@ func TestStaleSingletonLockIsRecordedWithoutClaimingChromeIsRunning(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	var header conformance.ManifestHeader
-	readJSON(t, filepath.Join(out, "accounts", "a", "udd-1", "manifest_header.json"), &header)
-	if header.ChromeRunning {
+	var bundle BundleManifest
+	readJSON(t, filepath.Join(out, "bundle_manifest.json"), &bundle)
+	if bundle.UserDataDirs[0].ChromeRunning {
 		t.Fatal("SingletonLock can survive a crash and must not prove Chrome is running")
 	}
-	if len(header.LivenessEvidence) != 1 || header.LivenessEvidence[0] != "SingletonLock" {
-		t.Fatalf("liveness evidence lost: %#v", header.LivenessEvidence)
+	if len(bundle.UserDataDirs[0].LivenessEvidence) != 1 || bundle.UserDataDirs[0].LivenessEvidence[0] != "SingletonLock" {
+		t.Fatalf("liveness evidence lost: %#v", bundle.UserDataDirs[0].LivenessEvidence)
 	}
 }
 
@@ -124,59 +130,41 @@ func TestChromeLivenessRequiresExplicitOperatorDecisionBeforeCopy(t *testing.T) 
 	}
 }
 
-func TestExternalPlatformCacheIsAlwaysManifestedButOnlyCopiedByOptIn(t *testing.T) {
+func TestExternalPlatformCacheIsNotMergedIntoCanonicalSourceManifest(t *testing.T) {
 	source := t.TempDir()
 	cache := t.TempDir()
 	mustWrite(t, filepath.Join(source, "Local State"), "state")
-	cacheFile := filepath.Join(cache, "Default", "Cache", "data_0")
-	mustWrite(t, cacheFile, "cache")
-	out := filepath.Join(t.TempDir(), "bundle")
-	scan := platformscanner.ScanResult{Found: []platformscanner.UserDataDir{{AccountID: "a", Path: source, CachePath: cache}}}
-	_, err := (Collector{Scanner: fixedScanner{scan}}).Run(Options{Output: out, OperatorIdentifier: "examiner", AuthorizationReference: "case/ref"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifest := readManifest(t, filepath.Join(out, "accounts", "a", "udd-1", "manifest.jsonl"))
-	entry, ok := manifest["external_cache/Default/Cache/data_0"]
-	if !ok || entry.SourcePath != cacheFile || entry.Copied || entry.Selection != conformance.Tier2 {
-		t.Fatalf("external cache not correctly manifested: %#v", entry)
-	}
-	if _, err := os.Stat(filepath.Join(out, "accounts", "a", "udd-1", "working_copy", "external_cache", "Default", "Cache", "data_0")); !os.IsNotExist(err) {
-		t.Fatal("external cache copied without opt-in")
-	}
-}
-
-func TestBulkOptInCollectsExternalPlatformCacheWithRealSourcePath(t *testing.T) {
-	source := t.TempDir()
-	cache := t.TempDir()
-	mustWrite(t, filepath.Join(source, "Local State"), "state")
-	cacheFile := filepath.Join(cache, "Default", "Cache", "data_0")
-	mustWrite(t, cacheFile, "cache")
+	mustWrite(t, filepath.Join(cache, "Default", "Cache", "data_0"), "external cache")
 	out := filepath.Join(t.TempDir(), "bundle")
 	scan := platformscanner.ScanResult{Found: []platformscanner.UserDataDir{{AccountID: "a", Path: source, CachePath: cache}}}
 	_, err := (Collector{Scanner: fixedScanner{scan}}).Run(Options{Output: out, OperatorIdentifier: "examiner", AuthorizationReference: "case/ref", IncludeBulk: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(out, "accounts", "a", "udd-1", "working_copy", "external_cache", "Default", "Cache", "data_0")); err != nil {
-		t.Fatal(err)
+	manifest := readManifest(t, filepath.Join(out, "accounts", "a", "udd-1", "manifest.jsonl"))
+	for path := range manifest {
+		if strings.HasPrefix(path, "external_cache/") {
+			t.Fatalf("path outside the User Data Dir entered the canonical Manifest: %s", path)
+		}
 	}
-	content, err := os.ReadFile(filepath.Join(out, "accounts", "a", "udd-1", "manifest.jsonl"))
+}
+
+func TestBulkOptInCopiesCanonicalTierTwoPath(t *testing.T) {
+	source := t.TempDir()
+	mustWrite(t, filepath.Join(source, "Default", "Cache", "data_0"), "cache")
+	out := filepath.Join(t.TempDir(), "bundle")
+	scan := platformscanner.ScanResult{Found: []platformscanner.UserDataDir{{AccountID: "a", Path: source}}}
+	_, err := (Collector{Scanner: fixedScanner{scan}}).Run(Options{Output: out, OperatorIdentifier: "examiner", AuthorizationReference: "case/ref", IncludeBulk: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	foundSource := false
-	for _, line := range strings.Split(strings.TrimSpace(string(content)), "\n") {
-		var entry conformance.ManifestEntry
-		if err := json.Unmarshal([]byte(line), &entry); err != nil {
-			t.Fatal(err)
-		}
-		if entry.SourcePath == cacheFile {
-			foundSource = true
-		}
+	if _, err := os.Stat(filepath.Join(out, "accounts", "a", "udd-1", "working_copy", "Default", "Cache", "data_0")); err != nil {
+		t.Fatal(err)
 	}
-	if !foundSource {
-		t.Fatalf("external cache source path not recorded: %s", content)
+	var header conformance.ManifestHeader
+	readJSON(t, filepath.Join(out, "accounts", "a", "udd-1", "manifest_header.json"), &header)
+	if !header.Tier2Included {
+		t.Fatal("canonical Manifest header did not record Tier 2 opt-in")
 	}
 }
 
@@ -204,7 +192,7 @@ func TestNestedHistoryUnderCacheIsNotTierOneOrCopied(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifest := readManifest(t, filepath.Join(out, "accounts", "a", "udd-1", "manifest.jsonl"))
-	if manifest["Default/Cache/History"].Selection != conformance.Tier2 || manifest["Default/Cache/History"].Copied {
+	if manifest["Default/Cache/History"].SelectionTier != conformance.Tier2 || manifest["Default/Cache/History"].Copied {
 		t.Fatalf("nested History misclassified: %#v", manifest["Default/Cache/History"])
 	}
 	if manifest["Default/History"].NodeType != conformance.NodeAbsent {

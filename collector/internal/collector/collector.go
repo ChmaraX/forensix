@@ -196,10 +196,22 @@ func collectUserDataDir(found platformscanner.UserDataDir, destination string, o
 		return result, err
 	}
 	result.EvidenceSetDigest, result.WorkingCopyDigest = conformance.Digest(lines), conformance.Digest(workingLines)
-	header := conformance.ManifestHeader{SchemaVersion: conformance.SchemaVersion, SelectionPolicy: conformance.SelectionPolicy, SelectionDiff: conformance.PolicyDiff{IncludeBulk: opts.IncludeBulk, Includes: []string{}, Excludes: []string{}}, SourcePath: found.Path, ChromeRunning: plan.running, LivenessEvidence: plan.liveness, EvidenceSetDigest: result.EvidenceSetDigest, WorkingCopyDigest: result.WorkingCopyDigest, HashAlgorithm: conformance.HashAlgorithm}
+	header := conformance.ManifestHeader{
+		ManifestSchema: conformance.ManifestSchema, SourceKind: conformance.SourceKind,
+		SelectionPolicy: conformance.SelectionPolicy, SelectionPolicyDiff: []string{},
+		Tier2Included: opts.IncludeBulk, HashAlgorithm: conformance.HashAlgorithm,
+		EvidenceSetDigest: result.EvidenceSetDigest, WorkingCopyDigest: result.WorkingCopyDigest,
+		EntryCount: len(entries), ProfileCount: plan.profileCount(),
+	}
 	for _, entry := range entries {
-		if entry.Selection == conformance.Unclassified && entry.NodeType == conformance.NodeFile {
-			header.Unclassified++
+		if entry.Copied {
+			header.CopiedEntryCount++
+		}
+		if entry.State == conformance.StateUnavailable {
+			header.UnavailableCount++
+		}
+		if entry.State == conformance.StateValue && entry.Unclassified && entry.NodeType != conformance.NodeDir {
+			header.UnclassifiedCount++
 		}
 	}
 	if err := conformance.WriteFile(filepath.Join(destination, "manifest.jsonl"), lines); err != nil {

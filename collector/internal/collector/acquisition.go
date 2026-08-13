@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/ChmaraX/forensix/collector/internal/conformance"
 	"github.com/ChmaraX/forensix/collector/internal/platformscanner"
@@ -25,65 +27,72 @@ type acquisitionPlan struct {
 	running  bool
 }
 
-func planAcquisition(found platformscanner.UserDataDir, includeBulk bool) (acquisitionPlan, error) {
+func planAcquisition(found platformscanner.UserDataDir, includeTier2 bool) (acquisitionPlan, error) {
 	plan := acquisitionPlan{}
-	if err := plan.walk(found.Path, "", includeBulk); err != nil {
+	if err := plan.walk(found.Path, includeTier2); err != nil {
 		return plan, err
 	}
-	if found.CachePath != "" {
-		info, err := os.Stat(found.CachePath)
-		if err == nil && info.IsDir() {
-			if err := plan.walk(found.CachePath, "external_cache", includeBulk); err != nil {
-				return plan, err
-			}
-		} else if err != nil && !os.IsNotExist(err) {
-			return plan, fmt.Errorf("inventory external cache %q: %w", found.CachePath, err)
-		}
-	}
+	// CachePath can point outside the User Data Dir. The canonical Manifest
+	// contract only permits Source-relative descendants, so it cannot be folded
+	// into this Manifest until the shared contract defines that source boundary.
 	plan.addExpectedAbsent()
 	sort.Strings(plan.liveness)
 	plan.running = indicatesRunningChrome(plan.liveness)
 	return plan, nil
 }
 
-func (plan *acquisitionPlan) walk(root, prefix string, includeBulk bool) error {
+func (plan *acquisitionPlan) walk(root string, includeTier2 bool) error {
 	return filepath.WalkDir(root, func(source string, dirEntry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return fmt.Errorf("inventory %q: %w", source, walkErr)
 		}
-		rel, err := filepath.Rel(root, source)
+		relative, err := filepath.Rel(root, source)
 		if err != nil {
 			return err
 		}
-		if rel == "." {
+		if relative == "." {
 			return nil
 		}
-		rel = filepath.ToSlash(rel)
-		manifestPath := rel
-		if prefix != "" {
-			manifestPath = filepath.ToSlash(filepath.Join(prefix, filepath.FromSlash(rel)))
+		manifestPath := filepath.ToSlash(relative)
+		if strings.Contains(manifestPath, `\`) {
+			return fmt.Errorf("Source path cannot be represented by the Manifest contract: %q", manifestPath)
 		}
 		info, err := os.Lstat(source)
 		if err != nil {
 			return fmt.Errorf("lstat %q: %w", source, err)
 		}
-		node := nodeType(info.Mode())
-		selection, kind, copied := conformance.Classify(manifestPath, node, includeBulk)
-		entry := conformance.ManifestEntry{Path: manifestPath, SourcePath: source, Size: info.Size(), HashAlgorithm: conformance.HashAlgorithm, MTime: info.ModTime().UTC(), NodeType: node, FileKind: kind, Copied: copied, Selection: selection}
+		node, err := nodeType(info.Mode())
+		if err != nil {
+			return fmt.Errorf("inventory %q: %w", source, err)
+		}
+		tier, kind, copied := conformance.Classify(manifestPath, node, includeTier2)
+		mtimeNS := strconv.FormatInt(info.ModTime().UnixNano(), 10)
+		entry := conformance.ManifestEntry{
+			Path: manifestPath, State: conformance.StateValue, NodeType: node,
+			FileKind: kind, SelectionTier: tier, Copied: copied,
+			Unclassified: tier == conformance.Unclassified,
+			MTimeNS:      &mtimeNS, HashAlgorithm: conformance.HashAlgorithm,
+			SourcePath: source, MTime: info.ModTime().UTC(),
+		}
 		switch node {
 		case conformance.NodeFile:
-			entry.SHA256, err = hashFile(source)
-		case conformance.NodeSymlink:
-			var target string
-			target, err = os.Readlink(source)
-			if err == nil {
-				entry.Size, entry.SHA256 = int64(len([]byte(target))), hashString(target)
+			size := info.Size()
+			entry.Size = &size
+			digest, hashErr := hashFile(source)
+			if hashErr != nil {
+				return hashErr
 			}
-		default:
-			entry.SHA256 = hashString(string(node))
-		}
-		if err != nil {
-			return err
+			entry.SHA256 = &digest
+		case conformance.NodeSymlink:
+			target, readErr := os.Readlink(source)
+			if readErr != nil {
+				return readErr
+			}
+			size, digest := int64(len([]byte(target))), hashString(target)
+			entry.Size, entry.SHA256, entry.LinkTarget = &size, &digest, &target
+		case conformance.NodeSocket, conformance.NodeDir:
+			digest := hashString(string(node))
+			entry.SHA256 = &digest
 		}
 		if kind == conformance.KindLivenessEvidence {
 			plan.liveness = append(plan.liveness, manifestPath)
@@ -94,13 +103,15 @@ func (plan *acquisitionPlan) walk(root, prefix string, includeBulk bool) error {
 }
 
 func (plan *acquisitionPlan) addExpectedAbsent() {
-	manifestEntries := make([]conformance.ManifestEntry, 0, len(plan.entries))
-	for _, entry := range plan.entries {
-		manifestEntries = append(manifestEntries, entry.manifest)
-	}
-	for _, path := range conformance.MissingExpectedPaths(manifestEntries) {
-		selection, kind, _ := conformance.Classify(path, conformance.NodeAbsent, false)
-		entry := conformance.ManifestEntry{Path: path, HashAlgorithm: conformance.HashAlgorithm, SHA256: hashString("absent"), NodeType: conformance.NodeAbsent, FileKind: kind, Selection: selection}
+	manifestEntries := plan.manifestEntries()
+	for _, missingPath := range conformance.MissingExpectedPaths(manifestEntries) {
+		tier, kind, _ := conformance.Classify(missingPath, conformance.NodeAbsent, false)
+		digest := hashString("absent")
+		entry := conformance.ManifestEntry{
+			Path: missingPath, State: conformance.StateAbsent, NodeType: conformance.NodeAbsent,
+			FileKind: kind, SelectionTier: tier, HashAlgorithm: conformance.HashAlgorithm,
+			SHA256: &digest,
+		}
 		plan.entries = append(plan.entries, plannedEntry{manifest: entry})
 	}
 }
@@ -111,6 +122,17 @@ func (plan acquisitionPlan) manifestEntries() []conformance.ManifestEntry {
 		entries[index] = plan.entries[index].manifest
 	}
 	return entries
+}
+
+func (plan acquisitionPlan) profileCount() int {
+	count := 0
+	for _, entry := range plan.entries {
+		manifest := entry.manifest
+		if !strings.Contains(manifest.Path, "/") && conformance.IsProfileName(manifest.Path) && manifest.NodeType == conformance.NodeDir && manifest.State == conformance.StateValue {
+			count++
+		}
+	}
+	return count
 }
 
 func (plan acquisitionPlan) materialize(destination string) error {
@@ -127,11 +149,14 @@ func (plan acquisitionPlan) materialize(destination string) error {
 }
 
 func copyPlannedFile(entry plannedEntry, destination string) error {
+	if entry.manifest.Size == nil || entry.manifest.SHA256 == nil {
+		return fmt.Errorf("planned file %q lacks canonical size or hash", entry.manifest.SourcePath)
+	}
 	before, err := os.Stat(entry.manifest.SourcePath)
 	if err != nil {
 		return fmt.Errorf("reopen planned source %q: %w", entry.manifest.SourcePath, err)
 	}
-	if before.Size() != entry.manifest.Size || !before.ModTime().UTC().Equal(entry.manifest.MTime) {
+	if before.Size() != *entry.manifest.Size || !before.ModTime().UTC().Equal(entry.manifest.MTime) {
 		return fmt.Errorf("source changed after inventory %q", entry.manifest.SourcePath)
 	}
 	input, err := os.Open(entry.manifest.SourcePath)
@@ -159,40 +184,40 @@ func copyPlannedFile(entry plannedEntry, destination string) error {
 	if closeErr != nil {
 		return closeErr
 	}
-	if hex.EncodeToString(hash.Sum(nil)) != entry.manifest.SHA256 {
+	if hex.EncodeToString(hash.Sum(nil)) != *entry.manifest.SHA256 {
 		return fmt.Errorf("source changed while copying %q", entry.manifest.SourcePath)
 	}
 	after, err := input.Stat()
 	if err != nil {
 		return err
 	}
-	if after.Size() != entry.manifest.Size || !after.ModTime().UTC().Equal(entry.manifest.MTime) {
+	if after.Size() != *entry.manifest.Size || !after.ModTime().UTC().Equal(entry.manifest.MTime) {
 		return fmt.Errorf("source changed while copying %q", entry.manifest.SourcePath)
 	}
 	copyDigest, err := hashFile(destination)
 	if err != nil {
 		return err
 	}
-	if copyDigest != entry.manifest.SHA256 {
+	if copyDigest != *entry.manifest.SHA256 {
 		return fmt.Errorf("copied file digest mismatch for %q", entry.manifest.SourcePath)
 	}
 	return nil
 }
 
-func nodeType(mode fs.FileMode) conformance.NodeType {
+func nodeType(mode fs.FileMode) (conformance.NodeType, error) {
 	if mode.IsRegular() {
-		return conformance.NodeFile
+		return conformance.NodeFile, nil
 	}
 	if mode&os.ModeSymlink != 0 {
-		return conformance.NodeSymlink
+		return conformance.NodeSymlink, nil
 	}
 	if mode&os.ModeSocket != 0 {
-		return conformance.NodeSocket
+		return conformance.NodeSocket, nil
 	}
 	if mode.IsDir() {
-		return conformance.NodeDir
+		return conformance.NodeDir, nil
 	}
-	return conformance.NodeSocket
+	return "", fmt.Errorf("unsupported Node Type with mode %s", mode)
 }
 
 func hashFile(path string) (string, error) {

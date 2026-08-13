@@ -68,4 +68,6 @@ grep '"copied":true' manifest.jsonl | LC_ALL=C sort | sha256sum
 
 ## Conformance status
 
-The Analyzer implementation in issue #167 owns the final cross-implementation contract. Draft schema, Selection Policy, and digest logic are isolated in `internal/conformance`. See [`CONFORMANCE.md`](CONFORMANCE.md) for the assumptions that must be reconciled before merge.
+The Collector implements the canonical Analyzer contract owned by issue #167.
+Its Go tests consume the shared Manifest and Selection Policy fixtures directly and compare wire bytes and both digests exactly.
+See [`CONFORMANCE.md`](CONFORMANCE.md) for the boundary decisions and the explicit external-cache limitation.

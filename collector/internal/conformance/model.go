@@ -1,14 +1,31 @@
-// Package conformance is the replaceable boundary shared conceptually with the
-// analyzer. The Analyzer lane (#167) owns the final cross-implementation wire
-// contract. Keep serialization, selection, and digest rules confined here.
+// Package conformance implements the language-neutral Manifest and Selection
+// Policy contracts shared with the analyzer.
 package conformance
 
 import "time"
 
 const (
-	SchemaVersion   = "forensix-manifest-draft/1"
+	ManifestSchema  = "forensix/manifest/1"
+	SourceKind      = "USER_DATA_DIR"
 	SelectionPolicy = "chrome-userdata/1"
 	HashAlgorithm   = "sha-256"
+)
+
+type ManifestState string
+
+const (
+	StateValue       ManifestState = "value"
+	StateAbsent      ManifestState = "absent"
+	StateUnavailable ManifestState = "unavailable"
+)
+
+type UnavailableReason string
+
+const (
+	PermissionDenied    UnavailableReason = "permission_denied"
+	IOError             UnavailableReason = "io_error"
+	ChangedDuringIngest UnavailableReason = "changed_during_ingest"
+	ParentUnavailable   UnavailableReason = "parent_unavailable"
 )
 
 type NodeType string
@@ -21,13 +38,13 @@ const (
 	NodeAbsent  NodeType = "absent"
 )
 
-type Selection string
+type SelectionTier string
 
 const (
-	Tier1        Selection = "tier_1"
-	Tier2        Selection = "tier_2"
-	Tier3        Selection = "tier_3"
-	Unclassified Selection = "unclassified"
+	Tier1        SelectionTier = "tier_1"
+	Tier2        SelectionTier = "tier_2"
+	Tier3        SelectionTier = "tier_3"
+	Unclassified SelectionTier = "unclassified"
 )
 
 type FileKind string
@@ -35,44 +52,50 @@ type FileKind string
 const (
 	KindDatabase         FileKind = "database"
 	KindSidecar          FileKind = "sidecar"
-	KindBrowserState     FileKind = "browser_state"
+	KindJSON             FileKind = "json"
+	KindImage            FileKind = "image"
+	KindMetadata         FileKind = "metadata"
 	KindLivenessEvidence FileKind = "liveness_evidence"
-	KindBulkArtifact     FileKind = "bulk_artifact"
+	KindBulkData         FileKind = "bulk_data"
 	KindBallast          FileKind = "ballast"
+	KindDirectory        FileKind = "directory"
 	KindUnclassified     FileKind = "unclassified"
-	KindExpectedArtifact FileKind = "expected_artifact"
 )
 
-// ManifestEntry field order is the canonical JSON key order. Path must remain
-// first so byte sorting complete lines is path sorting.
+// ManifestEntry field order is the canonical JSON key order. SourcePath and
+// MTime are acquisition-only values and never enter the wire representation.
 type ManifestEntry struct {
-	Path          string    `json:"path"`
-	SourcePath    string    `json:"source_path"`
-	Size          int64     `json:"size"`
-	HashAlgorithm string    `json:"hash_algorithm"`
-	SHA256        string    `json:"sha256"`
-	MTime         time.Time `json:"mtime"`
-	NodeType      NodeType  `json:"node_type"`
-	FileKind      FileKind  `json:"file_kind"`
-	Copied        bool      `json:"copied"`
-	Selection     Selection `json:"selection"`
+	Path              string             `json:"path"`
+	State             ManifestState      `json:"state"`
+	UnavailableReason *UnavailableReason `json:"unavailable_reason"`
+	NodeType          NodeType           `json:"node_type"`
+	FileKind          FileKind           `json:"file_kind"`
+	SelectionTier     SelectionTier      `json:"selection_tier"`
+	Copied            bool               `json:"copied"`
+	Unclassified      bool               `json:"unclassified"`
+	Size              *int64             `json:"size"`
+	MTimeNS           *string            `json:"mtime_ns"`
+	HashAlgorithm     string             `json:"hash_algorithm"`
+	SHA256            *string            `json:"sha256"`
+	LinkTarget        *string            `json:"link_target"`
+
+	SourcePath string    `json:"-"`
+	MTime      time.Time `json:"-"`
 }
 
-type PolicyDiff struct {
-	IncludeBulk bool     `json:"include_bulk"`
-	Includes    []string `json:"includes"`
-	Excludes    []string `json:"excludes"`
-}
-
+// ManifestHeader field order follows the canonical Analyzer contract.
 type ManifestHeader struct {
-	SchemaVersion     string     `json:"schema_version"`
-	SelectionPolicy   string     `json:"selection_policy"`
-	SelectionDiff     PolicyDiff `json:"selection_diff"`
-	SourcePath        string     `json:"source_path"`
-	ChromeRunning     bool       `json:"chrome_running"`
-	LivenessEvidence  []string   `json:"liveness_evidence"`
-	Unclassified      int        `json:"unclassified"`
-	EvidenceSetDigest string     `json:"evidence_set_digest"`
-	WorkingCopyDigest string     `json:"working_copy_digest"`
-	HashAlgorithm     string     `json:"hash_algorithm"`
+	ManifestSchema      string   `json:"manifest_schema"`
+	SourceKind          string   `json:"source_kind"`
+	SelectionPolicy     string   `json:"selection_policy"`
+	SelectionPolicyDiff []string `json:"selection_policy_diff"`
+	Tier2Included       bool     `json:"tier_2_included"`
+	HashAlgorithm       string   `json:"hash_algorithm"`
+	EvidenceSetDigest   string   `json:"evidence_set_digest"`
+	WorkingCopyDigest   string   `json:"working_copy_digest"`
+	EntryCount          int      `json:"entry_count"`
+	CopiedEntryCount    int      `json:"copied_entry_count"`
+	ProfileCount        int      `json:"profile_count"`
+	UnavailableCount    int      `json:"unavailable_count"`
+	UnclassifiedCount   int      `json:"unclassified_count"`
 }
