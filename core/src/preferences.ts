@@ -1,5 +1,3 @@
-import { join } from "node:path";
-
 import type {
   MetadataArtifactWrite,
   PersistedMetadataFinding,
@@ -15,10 +13,7 @@ import {
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
-import {
-  readVerifiedJsonFile,
-  type VerifiedJsonFile,
-} from "./preferences-json.js";
+import { readVerifiedJsonFile, resolveJsonFile } from "./preferences-json.js";
 
 export const BROWSER_METADATA_KIND = "browser_metadata";
 export const PROFILE_METADATA_KIND = "profile_metadata";
@@ -201,76 +196,6 @@ function firstAccount(preferences: unknown): {
     return { count, account: result.value[0] ?? null };
   }
   return { count, account: null };
-}
-
-type FileResolution =
-  | {
-      readonly kind: "ready";
-      readonly file: VerifiedJsonFile;
-      readonly ordinal: number;
-    }
-  | {
-      readonly kind: "absent" | "unavailable";
-      readonly reason: string;
-      readonly ordinal: number | null;
-    };
-
-function resolveJsonFile(
-  source: CaseSourceRecord,
-  workingCopyPath: string,
-  path: string,
-  label: string,
-): FileResolution {
-  const ordinal = source.entries.findIndex((entry) => entry.path === path);
-  if (ordinal < 0) {
-    return {
-      kind: "absent",
-      reason: `${label}_manifest_entry_missing`,
-      ordinal: null,
-    };
-  }
-  const entry = source.entries[ordinal];
-  if (entry === undefined) {
-    return {
-      kind: "absent",
-      reason: `${label}_manifest_entry_missing`,
-      ordinal: null,
-    };
-  }
-  if (entry.state === "absent") {
-    return { kind: "absent", reason: `${label}_absent`, ordinal };
-  }
-  if (entry.state === "unavailable") {
-    return {
-      kind: "unavailable",
-      reason: `${label}_unavailable:${entry.unavailable_reason ?? "unknown"}`,
-      ordinal,
-    };
-  }
-  if (!entry.copied) {
-    return {
-      kind: "unavailable",
-      reason: `${label}_not_in_working_copy`,
-      ordinal,
-    };
-  }
-  if (entry.size === null || entry.sha256 === null) {
-    return {
-      kind: "unavailable",
-      reason: `${label}_manifest_representation_incomplete`,
-      ordinal,
-    };
-  }
-  return {
-    kind: "ready",
-    ordinal,
-    file: {
-      path: join(workingCopyPath, ...path.split("/")),
-      manifestPath: path,
-      size: entry.size,
-      sha256: entry.sha256,
-    },
-  };
 }
 
 function unavailableArtifact(

@@ -1,5 +1,3 @@
-import { join } from "node:path";
-
 import type {
   BookmarksArtifactWrite,
   BookmarkSourceFile,
@@ -16,10 +14,11 @@ import {
   type Provenance,
 } from "./forensic-model.js";
 import type { ForensicTimestamp } from "./history.js";
+import { readVerifiedJsonFile, resolveJsonFile } from "./preferences-json.js";
 import {
-  readVerifiedJsonFile,
-  type VerifiedJsonFile,
-} from "./preferences-json.js";
+  WINDOWS_EPOCH_OFFSET_MICROS,
+  utcFromUnixMicros,
+} from "./forensic-time.js";
 
 /**
  * Chrome stores Bookmarks as a JSON document (not SQLite). Every Profile has a
@@ -38,7 +37,6 @@ export const BOOKMARK_KIND = "bookmark";
  * resolve it.
  */
 const BOOKMARKS_EPOCH_FAMILY = "1601-us" as const;
-const WINDOWS_EPOCH_OFFSET_MICROS = 11_644_473_600_000_000n;
 
 /** The two Bookmarks evidence files, in their canonical relative filenames. */
 const BOOKMARK_SOURCE_FILES = [
@@ -64,28 +62,6 @@ interface WalkContext {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function floorDivision(value: bigint, divisor: bigint): bigint {
-  const quotient = value / divisor;
-  const remainder = value % divisor;
-  return remainder < 0n ? quotient - 1n : quotient;
-}
-
-function utcFromUnixMicros(unixMicros: bigint): string | null {
-  const seconds = floorDivision(unixMicros, 1_000_000n);
-  const micros = unixMicros - seconds * 1_000_000n;
-  const milliseconds = seconds * 1000n + micros / 1000n;
-  const numericMilliseconds = Number(milliseconds);
-  if (!Number.isSafeInteger(numericMilliseconds)) {
-    return null;
-  }
-  const date = new Date(numericMilliseconds);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  const base = date.toISOString();
-  return `${base.slice(0, -5)}.${micros.toString().padStart(6, "0")}Z`;
 }
 
 /**
@@ -316,66 +292,6 @@ function parseDocument(document: unknown, context: WalkContext): DocumentParse {
   return { kind: "ok", findings: out };
 }
 
-type FileResolution =
-  | {
-      readonly kind: "ready";
-      readonly file: VerifiedJsonFile;
-      readonly ordinal: number;
-    }
-  | {
-      readonly kind: "absent" | "unavailable";
-      readonly reason: string;
-      readonly ordinal: number | null;
-    };
-
-function resolveFile(options: {
-  readonly source: CaseSourceRecord;
-  readonly workingCopyPath: string;
-  readonly path: string;
-  readonly label: string;
-}): FileResolution {
-  const { source, workingCopyPath, path, label } = options;
-  const ordinal = source.entries.findIndex((entry) => entry.path === path);
-  if (ordinal < 0) {
-    return { kind: "absent", reason: `${label}_absent`, ordinal: null };
-  }
-  const entry = source.entries[ordinal];
-  if (entry === undefined || entry.state === "absent") {
-    return { kind: "absent", reason: `${label}_absent`, ordinal };
-  }
-  if (entry.state === "unavailable") {
-    return {
-      kind: "unavailable",
-      reason: `${label}_unavailable:${entry.unavailable_reason ?? "unknown"}`,
-      ordinal,
-    };
-  }
-  if (!entry.copied) {
-    return {
-      kind: "unavailable",
-      reason: `${label}_not_in_working_copy`,
-      ordinal,
-    };
-  }
-  if (entry.size === null || entry.sha256 === null) {
-    return {
-      kind: "unavailable",
-      reason: `${label}_manifest_representation_incomplete`,
-      ordinal,
-    };
-  }
-  return {
-    kind: "ready",
-    ordinal,
-    file: {
-      path: join(workingCopyPath, ...path.split("/")),
-      manifestPath: path,
-      size: entry.size,
-      sha256: entry.sha256,
-    },
-  };
-}
-
 function unavailableArtifact(options: {
   readonly sourceId: string;
   readonly profile: string;
@@ -409,12 +325,12 @@ async function analyseBookmarkFile(options: {
   const databasePath =
     profile === "." ? sourceFile : `${profile}/${sourceFile}`;
   const label = sourceFile === "Bookmarks" ? "bookmarks" : "bookmarks_backup";
-  const resolution = resolveFile({
+  const resolution = resolveJsonFile(
     source,
-    workingCopyPath: options.workingCopyPath,
-    path: databasePath,
+    options.workingCopyPath,
+    databasePath,
     label,
-  });
+  );
   if (resolution.kind !== "ready") {
     return unavailableArtifact({
       sourceId: source.sourceId,

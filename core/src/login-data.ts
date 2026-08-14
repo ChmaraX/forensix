@@ -1,5 +1,9 @@
 import { join } from "node:path";
 
+import {
+  WINDOWS_EPOCH_OFFSET_MICROS,
+  utcFromUnixMicros,
+} from "./forensic-time.js";
 import type {
   LoginDataArtifactWrite,
   PersistedLoginFinding,
@@ -27,8 +31,6 @@ import {
   type VerifiedLoginFile,
 } from "./login-data-sqlite.js";
 
-const WINDOWS_EPOCH_OFFSET_MICROS = 11_644_473_600_000_000n;
-
 /**
  * Chrome stores password-store timestamps as `base::Time` internal values, i.e.
  * microseconds since 1601-01-01 UTC, on every platform. Unlike History, the
@@ -45,28 +47,6 @@ interface ManifestIdentity {
 
 interface BuiltCredential {
   readonly persisted: PersistedLoginFinding;
-}
-
-function floorDivision(value: bigint, divisor: bigint): bigint {
-  const quotient = value / divisor;
-  const remainder = value % divisor;
-  return remainder < 0n ? quotient - 1n : quotient;
-}
-
-function utcFromUnixMicros(unixMicros: bigint): string | null {
-  const seconds = floorDivision(unixMicros, 1_000_000n);
-  const micros = unixMicros - seconds * 1_000_000n;
-  const milliseconds = seconds * 1000n + micros / 1000n;
-  const numericMilliseconds = Number(milliseconds);
-  if (!Number.isSafeInteger(numericMilliseconds)) {
-    return null;
-  }
-  const date = new Date(numericMilliseconds);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  const base = date.toISOString();
-  return `${base.slice(0, -5)}.${micros.toString().padStart(6, "0")}Z`;
 }
 
 function preservedString(value: RawLoginValue): FieldState<string> {
