@@ -178,5 +178,6 @@ export {
   type AnalysisRunExitState,
   type DeclaredOriginOs,
 } from "./case-findings.js";
+export { openDatabaseSync, type OpenDatabaseConfig } from "./sqlite-open.js";
 
 export const MINIMUM_NODE_VERSION = "24.15.0" as const;

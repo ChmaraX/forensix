@@ -48,7 +48,12 @@ const TRANSIENT_PRIMARY_CODES = new Set([
   SQLITE_CANTOPEN,
 ]);
 
-function isTransientOpenError(error: unknown): boolean {
+/**
+ * Classify an error thrown while opening a SQLite database as transient
+ * (worth a bounded retry) or not. Exported for unit testing; not re-exported
+ * from the package index.
+ */
+export function isTransientOpenError(error: unknown): boolean {
   if (typeof error !== "object" || error === null) {
     return false;
   }
