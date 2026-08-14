@@ -8,9 +8,11 @@ import {
   type HistoryArtifactWrite,
   type LoginDataArtifactWrite,
   type PersistedFinding,
+  type TopSitesArtifactWrite,
 } from "./case-findings.js";
 import { analyseSourceCookies } from "./cookies.js";
 import { analyseLoginDataProfile } from "./login-data.js";
+import { analyseSourceTopSites } from "./top-sites.js";
 import {
   loadAuthorizedKeyMaterial,
   type KeyMaterialIssue,
@@ -144,6 +146,18 @@ export interface LoginDataAnalysisSummary {
   readonly findingCount: number;
 }
 
+export interface TopSitesAnalysisSummary {
+  readonly status: "complete" | "partial";
+  readonly profileCount: number;
+  readonly analysedProfileCount: number;
+  readonly absentProfileCount: number;
+  readonly unavailableProfileCount: number;
+  readonly recoveryUnavailableProfileCount: number;
+  readonly committedTopSiteCount: number;
+  readonly recoveredTopSiteCount: number;
+  readonly findingCount: number;
+}
+
 export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly command: "analyse";
   readonly analysisStatus: "ready";
@@ -153,6 +167,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly history: HistoryAnalysisSummary;
   readonly cookies: CookieAnalysisSummary;
   readonly loginData: LoginDataAnalysisSummary;
+  readonly topSites: TopSitesAnalysisSummary;
   readonly decryption: DecryptionSummary;
 }
 
@@ -1211,6 +1226,7 @@ export async function analyseCase(
   const artifacts: HistoryArtifactWrite[] = [];
   const cookieArtifacts: CookieArtifactWrite[] = [];
   const loginDataArtifacts: LoginDataArtifactWrite[] = [];
+  const topSitesArtifacts: TopSitesArtifactWrite[] = [];
   for (const source of sources) {
     const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
     for (const profile of source.profiles) {
@@ -1242,6 +1258,12 @@ export async function analyseCase(
         decryption,
       })),
     );
+    topSitesArtifacts.push(
+      ...(await analyseSourceTopSites({
+        source,
+        workingCopyPath,
+      })),
+    );
   }
 
   await verifyWorkingCopy(caseDirectory);
@@ -1255,6 +1277,7 @@ export async function analyseCase(
     artifacts,
     cookieArtifacts,
     loginDataArtifacts,
+    topSitesArtifacts,
   });
   const singletonLockPresent = sources.some((source) =>
     source.entries.some(
@@ -1289,12 +1312,24 @@ export async function analyseCase(
   const loginUnavailable = loginDataArtifacts.filter(
     (artifact) => artifact.status === "unavailable",
   );
+  const topSitesAnalysed = topSitesArtifacts.filter(
+    (artifact) => artifact.status === "complete",
+  );
+  const topSitesAbsent = topSitesArtifacts.filter(
+    (artifact) => artifact.status === "absent",
+  );
+  const topSitesUnavailable = topSitesArtifacts.filter(
+    (artifact) => artifact.status === "unavailable",
+  );
   return {
     ...verification,
     command: "analyse",
     analysisStatus: "ready",
     artifactCount:
-      analysed.length + cookiesAnalysed.length + loginAnalysed.length,
+      analysed.length +
+      cookiesAnalysed.length +
+      loginAnalysed.length +
+      topSitesAnalysed.length,
     runId: stored.runId,
     exitState: stored.runStatus,
     cookies: {
@@ -1372,6 +1407,31 @@ export async function analyseCase(
         0,
       ),
       findingCount: loginAnalysed.reduce(
+        (count, artifact) => count + artifact.findings.length,
+        0,
+      ),
+    },
+    topSites: {
+      status: topSitesUnavailable.length === 0 ? "complete" : "partial",
+      profileCount: sources.reduce(
+        (count, source) => count + source.profiles.length,
+        0,
+      ),
+      analysedProfileCount: topSitesAnalysed.length,
+      absentProfileCount: topSitesAbsent.length,
+      unavailableProfileCount: topSitesUnavailable.length,
+      recoveryUnavailableProfileCount: topSitesAnalysed.filter(
+        (artifact) => artifact.recoveryStatus === "unavailable",
+      ).length,
+      committedTopSiteCount: topSitesAnalysed.reduce(
+        (count, artifact) => count + artifact.committedTopSiteCount,
+        0,
+      ),
+      recoveredTopSiteCount: topSitesAnalysed.reduce(
+        (count, artifact) => count + artifact.recoveredTopSiteCount,
+        0,
+      ),
+      findingCount: topSitesAnalysed.reduce(
         (count, artifact) => count + artifact.findings.length,
         0,
       ),

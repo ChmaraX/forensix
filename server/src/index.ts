@@ -15,6 +15,7 @@ import {
   queryCredentials,
   queryHistory,
   queryProfiles,
+  queryTopSites,
   type CommitState,
   type CookieDirection,
   type CookieSort,
@@ -23,6 +24,8 @@ import {
   type HistoryDirection,
   type HistorySort,
   type HistoryView,
+  type TopSiteDirection,
+  type TopSiteSort,
 } from "@forensix/core";
 
 /**
@@ -268,6 +271,19 @@ function handleApi(
         sort: firstString(parameters.get("sort")) as CredentialSort | undefined,
         direction: firstString(parameters.get("direction")) as
           | CredentialDirection
+          | undefined,
+        limit: integerParameter(parameters, "limit"),
+        after: firstString(parameters.get("after")),
+      });
+    case "top-sites":
+      return queryTopSites({
+        caseDirectory,
+        profiles,
+        search: firstString(parameters.get("search")),
+        commitState,
+        sort: firstString(parameters.get("sort")) as TopSiteSort | undefined,
+        direction: firstString(parameters.get("direction")) as
+          | TopSiteDirection
           | undefined,
         limit: integerParameter(parameters, "limit"),
         after: firstString(parameters.get("after")),
