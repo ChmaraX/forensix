@@ -227,10 +227,13 @@ describe("analyseSourceBookmarks", () => {
       workingCopyPath,
       profiles: ["Default"],
       entries: [
-        // Primary parses as JSON but has no roots: unsupported shape.
-        { path: "Default/Bookmarks", bytes: JSON.stringify({ version: 1 }) },
-        // Backup is byte-intact but not JSON: malformed.
-        { path: "Default/Bookmarks.bak", bytes: "{ broken," },
+        // Primary is byte-intact but not JSON: malformed.
+        { path: "Default/Bookmarks", bytes: "{ broken," },
+        // Backup parses as JSON but has no roots: unsupported shape.
+        {
+          path: "Default/Bookmarks.bak",
+          bytes: JSON.stringify({ version: 1 }),
+        },
       ],
     });
 
@@ -245,14 +248,16 @@ describe("analyseSourceBookmarks", () => {
     const backup = artifacts.find(
       (candidate) => candidate.artifact === "Bookmarks.bak",
     );
+    // Both reasons are label-prefixed, so primary and backup stay
+    // distinguishable by reason string alone across every failure branch.
     expect(primary).toMatchObject({
       status: "unavailable",
-      reason: "bookmarks_unsupported_shape",
+      reason: "bookmarks_malformed_json",
       findings: [],
     });
     expect(backup).toMatchObject({
       status: "unavailable",
-      reason: "bookmarks_backup_malformed_json",
+      reason: "bookmarks_backup_unsupported_shape",
     });
   });
 

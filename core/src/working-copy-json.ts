@@ -6,10 +6,11 @@ import { WorkingCopyIntegrityRefusal } from "./errors.js";
 import { readStableRegularFile } from "./stable-file.js";
 
 /**
- * A Working Copy JSON file (Chrome `Preferences` or `Local State`) pinned to the
- * exact Manifest representation recorded at ingest. The reader re-verifies the
- * bytes against this identity before it parses anything, so analysis never
- * trusts content that drifted from the recorded evidence.
+ * A Working Copy JSON file (any Chrome JSON artifact, e.g. `Preferences`,
+ * `Local State`, or `Bookmarks`/`Bookmarks.bak`) pinned to the exact Manifest
+ * representation recorded at ingest. The reader re-verifies the bytes against
+ * this identity before it parses anything, so analysis never trusts content
+ * that drifted from the recorded evidence.
  */
 export interface VerifiedJsonFile {
   readonly path: string;

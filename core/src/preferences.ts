@@ -13,7 +13,7 @@ import {
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
-import { readVerifiedJsonFile, resolveJsonFile } from "./preferences-json.js";
+import { readVerifiedJsonFile, resolveJsonFile } from "./working-copy-json.js";
 
 export const BROWSER_METADATA_KIND = "browser_metadata";
 export const PROFILE_METADATA_KIND = "profile_metadata";

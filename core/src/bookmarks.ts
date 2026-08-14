@@ -14,7 +14,7 @@ import {
   type Provenance,
 } from "./forensic-model.js";
 import type { ForensicTimestamp } from "./history.js";
-import { readVerifiedJsonFile, resolveJsonFile } from "./preferences-json.js";
+import { readVerifiedJsonFile, resolveJsonFile } from "./working-copy-json.js";
 import {
   WINDOWS_EPOCH_OFFSET_MICROS,
   utcFromUnixMicros,
@@ -261,13 +261,15 @@ type DocumentParse =
 /**
  * Parse a top-level Bookmarks document. A document that parsed as JSON but has
  * no `roots` object is structurally unsupported (typed `unavailable`), distinct
- * from a byte-level parse failure. Roots are walked in the conventional
+ * from a byte-level parse failure. The returned reason is a bare suffix; the
+ * caller prefixes it with the per-file label so primary and backup stay
+ * distinguishable by reason string. Roots are walked in the conventional
  * `bookmark_bar`, `other`, `synced` order first, then any remaining roots in
  * sorted order, so Finding ordering is deterministic across runs.
  */
 function parseDocument(document: unknown, context: WalkContext): DocumentParse {
   if (!isObject(document) || !isObject(document.roots)) {
-    return { kind: "unsupported", reason: "bookmarks_unsupported_shape" };
+    return { kind: "unsupported", reason: "unsupported_shape" };
   }
   const roots = document.roots;
   const remaining = Object.keys(roots)
@@ -375,7 +377,7 @@ async function analyseBookmarkFile(options: {
       databasePath,
       ordinal: resolution.ordinal,
       status: "unavailable",
-      reason: parsed.reason,
+      reason: `${label}_${parsed.reason}`,
     });
   }
 

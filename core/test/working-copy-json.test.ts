@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { WorkingCopyIntegrityRefusal } from "../src/errors.js";
-import { readVerifiedJsonFile } from "../src/preferences-json.js";
+import { readVerifiedJsonFile } from "../src/working-copy-json.js";
 
 const roots: string[] = [];
 
