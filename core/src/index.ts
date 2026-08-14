@@ -95,6 +95,7 @@ export {
   type EpochFamily,
   type ForensicTimestamp,
   type HistoryAnalysisSummary,
+  type LoginDataAnalysisSummary,
 } from "./history.js";
 export {
   queryHistory,
@@ -120,6 +121,13 @@ export {
   type ExtractRedactionState,
   type RedactedField,
 } from "./export.js";
+export {
+  queryCredentials,
+  type CredentialDirection,
+  type CredentialPage,
+  type CredentialQuery,
+  type CredentialSort,
+} from "./login-data-query.js";
 export {
   type AnalysisRunExitState,
   type DeclaredOriginOs,

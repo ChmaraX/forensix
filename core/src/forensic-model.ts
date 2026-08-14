@@ -7,7 +7,8 @@ export type FieldUnavailableReason =
   | "related_row_missing"
   | "epoch_requires_declared_origin_os"
   | "timestamp_out_of_range"
-  | "unsupported_value";
+  | "unsupported_value"
+  | "encrypted_secret_without_key_material";
 
 export interface ValueField<T> {
   readonly state: "value";

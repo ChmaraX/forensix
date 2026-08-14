@@ -5,8 +5,10 @@ import {
   type AnalysisRunExitState,
   type DeclaredOriginOs,
   type HistoryArtifactWrite,
+  type LoginDataArtifactWrite,
   type PersistedFinding,
 } from "./case-findings.js";
+import { analyseLoginDataProfile } from "./login-data.js";
 import {
   loadCaseSources,
   workingCopyAbsolutePath,
@@ -94,6 +96,17 @@ export const ANALYSE_EXIT_CODES = {
   failed: 3,
 } as const satisfies Record<AnalysisRunExitState, number>;
 
+export interface LoginDataAnalysisSummary {
+  readonly status: "complete" | "partial";
+  readonly profileCount: number;
+  readonly analysedProfileCount: number;
+  readonly absentProfileCount: number;
+  readonly unavailableProfileCount: number;
+  readonly committedCredentialCount: number;
+  readonly recoveredCredentialCount: number;
+  readonly findingCount: number;
+}
+
 export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly command: "analyse";
   readonly analysisStatus: "ready";
@@ -101,6 +114,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly runId: string;
   readonly exitState: AnalysisRunExitState;
   readonly history: HistoryAnalysisSummary;
+  readonly loginData: LoginDataAnalysisSummary;
 }
 
 interface ManifestIdentity {
@@ -1138,6 +1152,7 @@ export async function analyseCase(
   const verification = await verifyWorkingCopy(caseDirectory);
   const sources = loadCaseSources(caseDirectory);
   const artifacts: HistoryArtifactWrite[] = [];
+  const loginDataArtifacts: LoginDataArtifactWrite[] = [];
   for (const source of sources) {
     const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
     for (const profile of source.profiles) {
@@ -1148,6 +1163,14 @@ export async function analyseCase(
           workingCopyPath,
           declaredTimezone,
           declaredOriginOs,
+        }),
+      );
+      loginDataArtifacts.push(
+        await analyseLoginDataProfile({
+          source,
+          profile: profile.path,
+          workingCopyPath,
+          declaredTimezone,
         }),
       );
     }
@@ -1162,6 +1185,7 @@ export async function analyseCase(
     invocation: options.invocation ?? ["analyse", "--case", caseDirectory],
     startedAt,
     artifacts,
+    loginDataArtifacts,
   });
   const singletonLockPresent = sources.some((source) =>
     source.entries.some(
@@ -1176,6 +1200,15 @@ export async function analyseCase(
   );
   const absent = artifacts.filter((artifact) => artifact.status === "absent");
   const unavailable = artifacts.filter(
+    (artifact) => artifact.status === "unavailable",
+  );
+  const loginAnalysed = loginDataArtifacts.filter(
+    (artifact) => artifact.status === "complete",
+  );
+  const loginAbsent = loginDataArtifacts.filter(
+    (artifact) => artifact.status === "absent",
+  );
+  const loginUnavailable = loginDataArtifacts.filter(
     (artifact) => artifact.status === "unavailable",
   );
   return {
@@ -1214,6 +1247,28 @@ export async function analyseCase(
       declaredOriginOs,
       declaredOriginOsConflict:
         declaredOriginOs === "windows" && singletonLockPresent,
+    },
+    loginData: {
+      status: loginUnavailable.length === 0 ? "complete" : "partial",
+      profileCount: sources.reduce(
+        (count, source) => count + source.profiles.length,
+        0,
+      ),
+      analysedProfileCount: loginAnalysed.length,
+      absentProfileCount: loginAbsent.length,
+      unavailableProfileCount: loginUnavailable.length,
+      committedCredentialCount: loginAnalysed.reduce(
+        (count, artifact) => count + artifact.committedCredentialCount,
+        0,
+      ),
+      recoveredCredentialCount: loginAnalysed.reduce(
+        (count, artifact) => count + artifact.recoveredCredentialCount,
+        0,
+      ),
+      findingCount: loginAnalysed.reduce(
+        (count, artifact) => count + artifact.findings.length,
+        0,
+      ),
     },
   };
 }
