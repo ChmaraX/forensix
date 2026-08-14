@@ -12,6 +12,7 @@ import {
   queryCookies,
   queryCredentials,
   queryHistory,
+  renderReport,
   type CommitState,
   type CookieDirection,
   type CookieSort,
@@ -53,6 +54,7 @@ const USAGE = `Usage:
                    [--collection <findings|candidates>]... [--profile <profile>]...
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--examiner <name>] [--csv] [--include-secrets] [--json]
+  forensix report --extract <extract-directory> --out <report.html> [--json]
   forensix --version
 
 Source kinds:
@@ -100,6 +102,7 @@ const VALUE_OPTIONS = new Set([
   "--out",
   "--collection",
   "--examiner",
+  "--extract",
 ]);
 const REPEATABLE_OPTIONS = new Set(["--profile", "--collection"]);
 
@@ -549,6 +552,30 @@ async function run(arguments_: readonly string[]): Promise<number> {
       csv: hasOption(parsed, "--csv"),
       includeSecrets: hasOption(parsed, "--include-secrets"),
     });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "report") {
+    assertAllowedOptions(parsed, new Set(["--extract", "--out", "--json"]));
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The report command accepts no positional values.",
+      );
+    }
+    const extractDirectory = optionValue(parsed, "--extract");
+    if (extractDirectory === undefined) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "Option --extract is required.",
+      );
+    }
+    const outputPath = optionValue(parsed, "--out");
+    if (outputPath === undefined) {
+      throw new ForensixError("INVALID_ARGUMENT", "Option --out is required.");
+    }
+    const result = await renderReport({ extractDirectory, outputPath });
     process.stdout.write(`${JSON.stringify(result)}\n`);
     return 0;
   }

@@ -241,6 +241,26 @@ The Export Manifest and its derived digest are independently reproducible.
 Two exports of the same Case are byte-identical except for the quarantined generation instant.
 Use `--collection`, `--profile`, and `--commit-state` to scope the Extract.
 
+## Generate an HTML Report
+
+A Report is a self-contained, human-readable rendering of a single Extract.
+The generator reads only the Extract that `export` emitted and never opens the Case.
+
+```sh
+node cli/dist/cli.js report \
+  --extract "/path/to/EXTRACT-001" \
+  --out "/path/to/report.html" \
+  --json
+```
+
+The output is one self-contained HTML file with no runtime network dependency: every style is inlined and no external script, stylesheet, font, or image is loaded when the Report is opened.
+The `report` command accepts no `--case` option; its only forensic input is the Extract.
+
+The Report preserves the Extract scope, Redaction State, Completeness Statement, Finding vs Candidate type, Field State, Commit State, Provenance, and timestamp semantics.
+Committed and sidecar (WAL / rollback-journal) rows stay in separate groups.
+An empty string, an absent field, and an unavailable value render with three distinct words, never by color alone.
+The Report recomputes the Export Manifest derived digest from the Extract bytes and marks the integrity as `verified` or `altered`, so an Extract edited after export is reported as altered rather than passed off as authentic.
+
 ## Verify the implementation
 
 Run the offline verification command:

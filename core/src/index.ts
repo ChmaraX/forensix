@@ -123,6 +123,12 @@ export {
   type RedactedField,
 } from "./export.js";
 export {
+  REPORT_SCHEMA,
+  renderReport,
+  type RenderReportOptions,
+  type RenderReportResult,
+} from "./report.js";
+export {
   queryCredentials,
   type CredentialDirection,
   type CredentialPage,
