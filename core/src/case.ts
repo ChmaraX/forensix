@@ -42,6 +42,7 @@ export interface CaseSourceRecord {
   readonly entryCount: number;
   readonly copiedEntryCount: number;
   readonly profileCount: number;
+  readonly profiles: readonly string[];
   readonly unavailableCount: number;
   readonly unclassifiedCount: number;
   readonly entries: readonly ManifestEntry[];
@@ -310,6 +311,17 @@ export function loadCaseSource(caseDirectory: string): CaseSourceRecord {
       );
     }
 
+    const profileRows = database
+      .prepare("SELECT path FROM profiles WHERE source_id = ? ORDER BY path")
+      .all(source.source_id) as unknown as { readonly path: string }[];
+    if (profileRows.length !== source.profile_count) {
+      throw new ForensixError(
+        "CASE_INVALID",
+        "Case Profile count does not match.",
+        { expected: source.profile_count, actual: profileRows.length },
+      );
+    }
+
     const rows = database
       .prepare(
         `SELECT path, state, unavailable_reason, node_type, file_kind,
@@ -374,6 +386,7 @@ export function loadCaseSource(caseDirectory: string): CaseSourceRecord {
       entryCount: source.entry_count,
       copiedEntryCount: source.copied_entry_count,
       profileCount: source.profile_count,
+      profiles: profileRows.map((row) => row.path),
       unavailableCount: source.unavailable_count,
       unclassifiedCount: source.unclassified_count,
       entries,

@@ -8,6 +8,9 @@ export type ForensixErrorCode =
   | "INGEST_FAILED"
   | "CASE_NOT_FOUND"
   | "CASE_INVALID"
+  | "ANALYSIS_FAILED"
+  | "ANALYSIS_NOT_FOUND"
+  | "INVALID_CURSOR"
   | "WORKING_COPY_INTEGRITY_REFUSAL";
 
 export interface ErrorDiagnostic {
