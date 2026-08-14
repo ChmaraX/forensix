@@ -7,10 +7,12 @@ import {
   SOURCE_KINDS,
   TOOL_VERSION,
   analyseCase,
+  exportCase,
   ingestSource,
   queryHistory,
   type CommitState,
   type DeclaredOriginOs,
+  type ExtractCollection,
   type HistoryDirection,
   type HistorySort,
   type HistoryView,
@@ -28,6 +30,10 @@ const USAGE = `Usage:
                    [--transition <name>] [--from <instant>] [--to <instant>]
                    [--sort <field>] [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
+  forensix export --case <case-directory> --out <output-directory>
+                   [--collection <findings|candidates>]... [--profile <profile>]...
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--examiner <name>] [--csv] [--include-secrets] [--json]
   forensix --version
 
 Source kinds:
@@ -48,7 +54,12 @@ interface ParsedArguments {
   readonly options: ReadonlyMap<string, readonly OptionValue[]>;
 }
 
-const FLAG_OPTIONS = new Set(["--json", "--include-tier-2"]);
+const FLAG_OPTIONS = new Set([
+  "--json",
+  "--include-tier-2",
+  "--csv",
+  "--include-secrets",
+]);
 const VALUE_OPTIONS = new Set([
   "--case",
   "--source-kind",
@@ -65,8 +76,11 @@ const VALUE_OPTIONS = new Set([
   "--direction",
   "--limit",
   "--after",
+  "--out",
+  "--collection",
+  "--examiner",
 ]);
-const REPEATABLE_OPTIONS = new Set(["--profile"]);
+const REPEATABLE_OPTIONS = new Set(["--profile", "--collection"]);
 
 function parseArguments(arguments_: readonly string[]): ParsedArguments {
   const [command, ...remaining] = arguments_;
@@ -358,6 +372,62 @@ async function run(arguments_: readonly string[]): Promise<number> {
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "export") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--out",
+        "--collection",
+        "--profile",
+        "--commit-state",
+        "--examiner",
+        "--csv",
+        "--include-secrets",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The export command accepts no positional values.",
+      );
+    }
+    const outDirectory = optionValue(parsed, "--out");
+    if (outDirectory === undefined) {
+      throw new ForensixError("INVALID_ARGUMENT", "Option --out is required.");
+    }
+    const collections = optionValues(parsed, "--collection");
+    for (const collection of collections) {
+      if (collection !== "findings" && collection !== "candidates") {
+        throw new ForensixError(
+          "INVALID_ARGUMENT",
+          `Option --collection has an unsupported value: ${collection}`,
+          { option: "--collection", value: collection },
+        );
+      }
+    }
+    const result = await exportCase({
+      caseDirectory: requiredCasePath(parsed),
+      outDirectory,
+      examiner: optionValue(parsed, "--examiner"),
+      profiles: optionValues(parsed, "--profile"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      collections:
+        collections.length === 0
+          ? undefined
+          : (collections as ExtractCollection[]),
+      csv: hasOption(parsed, "--csv"),
+      includeSecrets: hasOption(parsed, "--include-secrets"),
     });
     process.stdout.write(`${JSON.stringify(result)}\n`);
     return 0;

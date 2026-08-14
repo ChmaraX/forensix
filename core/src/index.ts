@@ -105,6 +105,22 @@ export {
   type HistoryView,
 } from "./history-query.js";
 export {
+  EXTRACT_SCHEMA,
+  REDACTION_POLICY,
+  exportCase,
+  isSecretFieldName,
+  redactFields,
+  type ExportCaseOptions,
+  type ExportCaseResult,
+  type ExtractCollection,
+  type ExtractCompletenessArtifact,
+  type ExtractCompletenessStatement,
+  type ExtractManifest,
+  type ExtractManifestFile,
+  type ExtractRedactionState,
+  type RedactedField,
+} from "./export.js";
+export {
   type AnalysisRunExitState,
   type DeclaredOriginOs,
 } from "./case-findings.js";
