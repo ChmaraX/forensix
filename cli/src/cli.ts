@@ -12,6 +12,7 @@ import {
   queryAutofill,
   queryCookies,
   queryCredentials,
+  queryDownloads,
   queryFavicons,
   queryHistory,
   queryMetadata,
@@ -24,6 +25,8 @@ import {
   type CookieSort,
   type CredentialDirection,
   type CredentialSort,
+  type DownloadDirection,
+  type DownloadSort,
   type FaviconDirection,
   type FaviconSort,
   type TopSiteDirection,
@@ -83,6 +86,14 @@ const USAGE = `Usage:
                    [--sort <icon-url|page-url|last-updated|width|profile>]
                    [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
+  forensix downloads --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--state <in_progress|complete|cancelled|interrupted>]
+                   [--danger <danger-type>]
+                   [--sort <start-time|end-time|target-path|state|total-bytes|profile>]
+                   [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
   forensix metadata --case <case-directory>
                    [--profile <profile>]... [--search <text>]
                    [--commit-state <committed|wal_resident|journal_resident>]
@@ -137,6 +148,8 @@ const VALUE_OPTIONS = new Set([
   "--to",
   "--host",
   "--same-site",
+  "--state",
+  "--danger",
   "--type",
   "--sort",
   "--direction",
@@ -748,6 +761,58 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ] as const) as AutofillSort | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | AutofillDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "downloads") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--commit-state",
+        "--state",
+        "--danger",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The downloads command accepts no positional values.",
+      );
+    }
+    const result = queryDownloads({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      state: optionValue(parsed, "--state"),
+      dangerType: optionValue(parsed, "--danger"),
+      sort: enumOption(parsed, "--sort", [
+        "start-time",
+        "end-time",
+        "target-path",
+        "state",
+        "total-bytes",
+        "profile",
+      ] as const) as DownloadSort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | DownloadDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),

@@ -94,6 +94,7 @@ export {
   type AnalyseCaseResult,
   type CookieAnalysisSummary,
   type DecryptionSummary,
+  type DownloadsAnalysisSummary,
   type EpochFamily,
   type FaviconsAnalysisSummary,
   type ForensicTimestamp,
@@ -199,6 +200,13 @@ export {
   type FaviconQuery,
   type FaviconSort,
 } from "./favicons-query.js";
+export {
+  queryDownloads,
+  type DownloadDirection,
+  type DownloadPage,
+  type DownloadQuery,
+  type DownloadSort,
+} from "./downloads-query.js";
 export {
   queryMetadata,
   type MetadataDirection,

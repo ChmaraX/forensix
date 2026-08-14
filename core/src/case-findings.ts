@@ -89,6 +89,32 @@ export interface WebDataArtifactWrite {
   readonly recoveredFieldCount: number;
 }
 
+export interface PersistedDownloadFinding {
+  readonly finding: Finding;
+  readonly searchText: string;
+  readonly sortStart: string | null;
+  readonly sortEnd: string | null;
+  readonly sortTargetPath: string | null;
+  readonly sortState: string | null;
+  readonly sortTotalBytes: bigint | null;
+  readonly dangerType: string | null;
+}
+
+export interface DownloadsArtifactWrite {
+  readonly sourceId: string;
+  readonly profile: string;
+  readonly status: "complete" | "absent" | "unavailable";
+  readonly manifestEntryOrdinal: number | null;
+  readonly databasePath: string;
+  readonly schemaVersion: number | null;
+  readonly integrity: string | null;
+  readonly recoveryStatus: "complete" | "unavailable" | "not_applicable";
+  readonly reason: string | null;
+  readonly findings: readonly PersistedDownloadFinding[];
+  readonly committedDownloadCount: number;
+  readonly recoveredDownloadCount: number;
+}
+
 export interface PersistedCookieFinding {
   readonly finding: Finding;
   readonly searchText: string;
@@ -201,6 +227,7 @@ export interface StoreHistoryAnalysisOptions {
   readonly topSitesArtifacts?: readonly TopSitesArtifactWrite[];
   readonly webDataArtifacts?: readonly WebDataArtifactWrite[];
   readonly faviconArtifacts?: readonly FaviconArtifactWrite[];
+  readonly downloadsArtifacts?: readonly DownloadsArtifactWrite[];
   readonly metadataArtifacts?: readonly MetadataArtifactWrite[];
 }
 
@@ -437,6 +464,70 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       ON web_data_findings(finding_kind, COALESCE(sort_value, ''), finding_id);
     CREATE INDEX IF NOT EXISTS web_data_findings_profile_query
       ON web_data_findings(finding_kind, profile_path, finding_id);
+
+    CREATE TABLE IF NOT EXISTS downloads_artifact_results (
+      artifact_result_id INTEGER PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL REFERENCES sources(source_id),
+      profile_path TEXT NOT NULL,
+      artifact TEXT NOT NULL CHECK (artifact = 'Downloads'),
+      manifest_entry_ordinal INTEGER,
+      database_path TEXT NOT NULL,
+      schema_version INTEGER,
+      integrity TEXT,
+      recovery_status TEXT NOT NULL CHECK (
+        recovery_status IN ('complete', 'unavailable', 'not_applicable')
+      ),
+      status TEXT NOT NULL CHECK (status IN ('complete', 'absent', 'unavailable')),
+      reason TEXT,
+      active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal),
+      UNIQUE (run_id, source_id, profile_path, artifact)
+    ) STRICT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS downloads_one_active_result
+      ON downloads_artifact_results(source_id, profile_path, artifact)
+      WHERE active = 1;
+
+    CREATE TABLE IF NOT EXISTS downloads_findings (
+      finding_id INTEGER PRIMARY KEY,
+      artifact_result_id INTEGER NOT NULL
+        REFERENCES downloads_artifact_results(artifact_result_id),
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL,
+      manifest_entry_ordinal INTEGER NOT NULL,
+      record_type TEXT NOT NULL CHECK (record_type = 'finding'),
+      finding_kind TEXT NOT NULL,
+      profile_path TEXT NOT NULL,
+      commit_state TEXT NOT NULL CHECK (
+        commit_state IN ('committed', 'wal_resident', 'journal_resident')
+      ),
+      provenance_json TEXT NOT NULL,
+      fields_json TEXT NOT NULL,
+      search_text TEXT NOT NULL,
+      sort_start TEXT,
+      sort_end TEXT,
+      sort_target TEXT,
+      sort_state TEXT,
+      sort_bytes INTEGER,
+      danger_type TEXT,
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal)
+    ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS downloads_findings_start_query
+      ON downloads_findings(finding_kind, COALESCE(sort_start, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS downloads_findings_end_query
+      ON downloads_findings(finding_kind, COALESCE(sort_end, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS downloads_findings_target_query
+      ON downloads_findings(finding_kind, COALESCE(sort_target, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS downloads_findings_state_query
+      ON downloads_findings(finding_kind, COALESCE(sort_state, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS downloads_findings_bytes_query
+      ON downloads_findings(finding_kind, COALESCE(sort_bytes, -1), finding_id);
+    CREATE INDEX IF NOT EXISTS downloads_findings_profile_query
+      ON downloads_findings(finding_kind, profile_path, commit_state, finding_id);
 
     CREATE TABLE IF NOT EXISTS cookie_artifact_results (
       artifact_result_id INTEGER PRIMARY KEY,
@@ -770,6 +861,34 @@ function insertAutofillFinding(
   );
 }
 
+function insertDownloadFinding(
+  statement: ReturnType<DatabaseSync["prepare"]>,
+  artifactResultId: bigint,
+  runId: string,
+  row: PersistedDownloadFinding,
+): void {
+  const finding = row.finding;
+  statement.run(
+    artifactResultId,
+    runId,
+    finding.provenance.sourceId,
+    finding.provenance.manifestEntryOrdinal,
+    finding.recordType,
+    finding.findingKind,
+    finding.profile,
+    finding.commitState,
+    JSON.stringify(finding.provenance),
+    JSON.stringify(finding.fields),
+    row.searchText,
+    row.sortStart,
+    row.sortEnd,
+    row.sortTargetPath,
+    row.sortState,
+    row.sortTotalBytes,
+    row.dangerType,
+  );
+}
+
 function insertCookieFinding(
   statement: ReturnType<DatabaseSync["prepare"]>,
   artifactResultId: bigint,
@@ -988,6 +1107,30 @@ export function storeHistoryAnalysis(
       );
       const activateCurrentWebData = database.prepare(
         "UPDATE web_data_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+      );
+      const insertDownloadsArtifact = database.prepare(
+        `INSERT INTO downloads_artifact_results
+           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
+            database_path, schema_version, integrity, recovery_status,
+            status, reason, active)
+         VALUES (?, ?, ?, 'Downloads', ?, ?, ?, ?, ?, ?, ?, 0)`,
+      );
+      const insertDownloadFindingStatement = database.prepare(
+        `INSERT INTO downloads_findings
+           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
+            record_type, finding_kind, profile_path, commit_state,
+            provenance_json, fields_json, search_text, sort_start, sort_end,
+            sort_target, sort_state, sort_bytes, danger_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      const deactivatePreviousDownloads = database.prepare(
+        `UPDATE downloads_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Downloads'
+            AND active = 1`,
+      );
+      const activateCurrentDownloads = database.prepare(
+        "UPDATE downloads_artifact_results SET active = 1 WHERE artifact_result_id = ?",
       );
       const insertCookieArtifact = database.prepare(
         `INSERT INTO cookie_artifact_results
@@ -1260,6 +1403,34 @@ export function storeHistoryAnalysis(
         }
       }
 
+      for (const artifact of options.downloadsArtifacts ?? []) {
+        const insertion = insertDownloadsArtifact.run(
+          runId,
+          artifact.sourceId,
+          artifact.profile,
+          artifact.manifestEntryOrdinal,
+          artifact.databasePath,
+          artifact.schemaVersion,
+          artifact.integrity,
+          artifact.recoveryStatus,
+          artifact.status,
+          artifact.reason,
+        );
+        const artifactResultId = insertion.lastInsertRowid as bigint;
+        for (const finding of artifact.findings) {
+          insertDownloadFinding(
+            insertDownloadFindingStatement,
+            artifactResultId,
+            runId,
+            finding,
+          );
+        }
+        if (artifact.status === "complete") {
+          deactivatePreviousDownloads.run(artifact.sourceId, artifact.profile);
+          activateCurrentDownloads.run(artifactResultId);
+        }
+      }
+
       for (const artifact of metadataArtifacts) {
         const insertion = insertMetadataArtifact.run(
           runId,
@@ -1302,6 +1473,7 @@ export function storeHistoryAnalysis(
         ...(options.topSitesArtifacts ?? []),
         ...(options.webDataArtifacts ?? []),
         ...(options.faviconArtifacts ?? []),
+        ...(options.downloadsArtifacts ?? []),
       ];
       const unavailableCount = combinedArtifacts.filter(
         (artifact) => artifact.status === "unavailable",
