@@ -20,9 +20,13 @@ A Filesystem Root, Image Container, or Acquisition Bundle stores each Source und
 The Case records all identities and paths.
 
 The compiled CLI checks every Working Copy before each analysis.
-It parses History from all Profiles and Sources, then writes Findings to the Case.
+It parses History and Login Data from all Profiles and Sources, then writes Findings to the Case.
 Committed and recovery content use separate passes.
 Recovered rows keep the `wal_resident` or `journal_resident` Commit State.
+
+Login Data yields credential metadata: origin, username, timestamps, and the encrypted-secret wrapper.
+The metadata is available independently of secret decryption.
+An encrypted secret without authorized key material is `unavailable` with a typed reason, never absent or blank.
 
 ## Requirements
 
@@ -150,6 +154,29 @@ You can repeat `--profile` to query at most 100 Profiles.
 Use `--commit-state` to keep committed and recovered rows separate.
 The `--from`, `--to`, and `--transition` filters apply only to `visits`.
 Timestamp bounds must include `Z` or a numeric offset.
+
+## Query Credential Metadata
+
+The `credentials` command returns Login Data Findings with the same bounded, multi-Profile query surface as History.
+Each query returns 50 rows by default; set `--limit` from 1 through 100 and use `nextCursor` as the next `--after` value.
+
+```sh
+node cli/dist/cli.js credentials \
+  --case "/path/to/CASE-001" \
+  --profile Default \
+  --search "example.com" \
+  --commit-state committed \
+  --sort created-time \
+  --direction desc \
+  --limit 50 \
+  --json
+```
+
+The sorts are `created-time`, `last-used-time`, `origin`, `username`, and `profile`.
+You can repeat `--profile` to query at most 100 Profiles.
+Use `--commit-state` to keep committed and recovered rows separate.
+Each credential Finding carries Provenance, the raw and UTC timestamps with their Epoch Family, and the secret's encryption prefix.
+The secret itself stays `unavailable` with the reason `encrypted_secret_without_key_material` until authorized key material is supplied.
 
 ## Export a canonical Extract
 

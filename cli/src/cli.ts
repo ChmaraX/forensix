@@ -9,8 +9,11 @@ import {
   analyseCase,
   exportCase,
   ingestSource,
+  queryCredentials,
   queryHistory,
   type CommitState,
+  type CredentialDirection,
+  type CredentialSort,
   type DeclaredOriginOs,
   type ExtractCollection,
   type HistoryDirection,
@@ -29,6 +32,12 @@ const USAGE = `Usage:
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--transition <name>] [--from <instant>] [--to <instant>]
                    [--sort <field>] [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
+  forensix credentials --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--sort <created-time|last-used-time|origin|username|profile>]
+                   [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix export --case <case-directory> --out <output-directory>
                    [--collection <findings|candidates>]... [--profile <profile>]...
@@ -369,6 +378,53 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ] as const) as HistorySort | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | HistoryDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "credentials") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--commit-state",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The credentials command accepts no positional values.",
+      );
+    }
+    const result = queryCredentials({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      sort: enumOption(parsed, "--sort", [
+        "created-time",
+        "last-used-time",
+        "origin",
+        "username",
+        "profile",
+      ] as const) as CredentialSort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | CredentialDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),
