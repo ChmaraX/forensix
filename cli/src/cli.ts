@@ -9,11 +9,14 @@ import {
   analyseCase,
   exportCase,
   ingestSource,
+  queryAutofill,
   queryCookies,
   queryCredentials,
   queryHistory,
   queryTopSites,
   renderReport,
+  type AutofillDirection,
+  type AutofillSort,
   type CommitState,
   type CookieDirection,
   type CookieSort,
@@ -59,6 +62,12 @@ const USAGE = `Usage:
                    [--profile <profile>]... [--search <text>]
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--sort <rank|url|title|profile>]
+                   [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
+  forensix autofill --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--sort <created-time|last-used-time|field-name|value|profile>]
                    [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix serve --case <case-directory> [--port <port>] [--json]
@@ -577,6 +586,53 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ] as const) as TopSiteSort | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | TopSiteDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "autofill") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--commit-state",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The autofill command accepts no positional values.",
+      );
+    }
+    const result = queryAutofill({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      sort: enumOption(parsed, "--sort", [
+        "created-time",
+        "last-used-time",
+        "field-name",
+        "value",
+        "profile",
+      ] as const) as AutofillSort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | AutofillDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),

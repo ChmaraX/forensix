@@ -99,6 +99,7 @@ export {
   type HistoryAnalysisSummary,
   type LoginDataAnalysisSummary,
   type TopSitesAnalysisSummary,
+  type WebDataAnalysisSummary,
 } from "./history.js";
 export {
   DECRYPTION_DISABLED,
@@ -182,6 +183,13 @@ export {
   type TopSiteQuery,
   type TopSiteSort,
 } from "./top-sites-query.js";
+export {
+  queryAutofill,
+  type AutofillDirection,
+  type AutofillPage,
+  type AutofillQuery,
+  type AutofillSort,
+} from "./web-data-query.js";
 export {
   type AnalysisRunExitState,
   type DeclaredOriginOs,

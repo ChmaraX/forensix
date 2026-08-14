@@ -65,6 +65,30 @@ export interface LoginDataArtifactWrite {
   readonly recoveredCredentialCount: number;
 }
 
+export interface PersistedAutofillFinding {
+  readonly finding: Finding;
+  readonly searchText: string;
+  readonly sortCreated: string | null;
+  readonly sortLastUsed: string | null;
+  readonly sortName: string | null;
+  readonly sortValue: string | null;
+}
+
+export interface WebDataArtifactWrite {
+  readonly sourceId: string;
+  readonly profile: string;
+  readonly status: "complete" | "absent" | "unavailable";
+  readonly manifestEntryOrdinal: number | null;
+  readonly databasePath: string;
+  readonly schemaVersion: number | null;
+  readonly integrity: string | null;
+  readonly recoveryStatus: "complete" | "unavailable" | "not_applicable";
+  readonly reason: string | null;
+  readonly findings: readonly PersistedAutofillFinding[];
+  readonly committedFieldCount: number;
+  readonly recoveredFieldCount: number;
+}
+
 export interface PersistedCookieFinding {
   readonly finding: Finding;
   readonly searchText: string;
@@ -126,6 +150,7 @@ export interface StoreHistoryAnalysisOptions {
   readonly cookieArtifacts?: readonly CookieArtifactWrite[];
   readonly loginDataArtifacts?: readonly LoginDataArtifactWrite[];
   readonly topSitesArtifacts?: readonly TopSitesArtifactWrite[];
+  readonly webDataArtifacts?: readonly WebDataArtifactWrite[];
 }
 
 export type AnalysisRunExitState = "complete" | "partial" | "failed";
@@ -301,6 +326,66 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       ON login_data_findings(finding_kind, COALESCE(sort_username, ''), finding_id);
     CREATE INDEX IF NOT EXISTS login_data_findings_profile_query
       ON login_data_findings(finding_kind, profile_path, finding_id);
+
+    CREATE TABLE IF NOT EXISTS web_data_artifact_results (
+      artifact_result_id INTEGER PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL REFERENCES sources(source_id),
+      profile_path TEXT NOT NULL,
+      artifact TEXT NOT NULL CHECK (artifact = 'Web Data'),
+      manifest_entry_ordinal INTEGER,
+      database_path TEXT NOT NULL,
+      schema_version INTEGER,
+      integrity TEXT,
+      recovery_status TEXT NOT NULL CHECK (
+        recovery_status IN ('complete', 'unavailable', 'not_applicable')
+      ),
+      status TEXT NOT NULL CHECK (status IN ('complete', 'absent', 'unavailable')),
+      reason TEXT,
+      active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal),
+      UNIQUE (run_id, source_id, profile_path, artifact)
+    ) STRICT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS web_data_one_active_result
+      ON web_data_artifact_results(source_id, profile_path, artifact)
+      WHERE active = 1;
+
+    CREATE TABLE IF NOT EXISTS web_data_findings (
+      finding_id INTEGER PRIMARY KEY,
+      artifact_result_id INTEGER NOT NULL
+        REFERENCES web_data_artifact_results(artifact_result_id),
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL,
+      manifest_entry_ordinal INTEGER NOT NULL,
+      record_type TEXT NOT NULL CHECK (record_type = 'finding'),
+      finding_kind TEXT NOT NULL,
+      profile_path TEXT NOT NULL,
+      commit_state TEXT NOT NULL CHECK (
+        commit_state IN ('committed', 'wal_resident', 'journal_resident')
+      ),
+      provenance_json TEXT NOT NULL,
+      fields_json TEXT NOT NULL,
+      search_text TEXT NOT NULL,
+      sort_created TEXT,
+      sort_last_used TEXT,
+      sort_name TEXT,
+      sort_value TEXT,
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal)
+    ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS web_data_findings_created_query
+      ON web_data_findings(finding_kind, COALESCE(sort_created, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS web_data_findings_last_used_query
+      ON web_data_findings(finding_kind, COALESCE(sort_last_used, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS web_data_findings_name_query
+      ON web_data_findings(finding_kind, COALESCE(sort_name, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS web_data_findings_value_query
+      ON web_data_findings(finding_kind, COALESCE(sort_value, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS web_data_findings_profile_query
+      ON web_data_findings(finding_kind, profile_path, finding_id);
 
     CREATE TABLE IF NOT EXISTS cookie_artifact_results (
       artifact_result_id INTEGER PRIMARY KEY,
@@ -501,6 +586,32 @@ function insertLoginFinding(
   );
 }
 
+function insertAutofillFinding(
+  statement: ReturnType<DatabaseSync["prepare"]>,
+  artifactResultId: bigint,
+  runId: string,
+  row: PersistedAutofillFinding,
+): void {
+  const finding = row.finding;
+  statement.run(
+    artifactResultId,
+    runId,
+    finding.provenance.sourceId,
+    finding.provenance.manifestEntryOrdinal,
+    finding.recordType,
+    finding.findingKind,
+    finding.profile,
+    finding.commitState,
+    JSON.stringify(finding.provenance),
+    JSON.stringify(finding.fields),
+    row.searchText,
+    row.sortCreated,
+    row.sortLastUsed,
+    row.sortName,
+    row.sortValue,
+  );
+}
+
 function insertCookieFinding(
   statement: ReturnType<DatabaseSync["prepare"]>,
   artifactResultId: bigint,
@@ -644,6 +755,30 @@ export function storeHistoryAnalysis(
       );
       const activateCurrentLogin = database.prepare(
         "UPDATE login_data_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+      );
+      const insertWebDataArtifact = database.prepare(
+        `INSERT INTO web_data_artifact_results
+           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
+            database_path, schema_version, integrity, recovery_status,
+            status, reason, active)
+         VALUES (?, ?, ?, 'Web Data', ?, ?, ?, ?, ?, ?, ?, 0)`,
+      );
+      const insertWebDataFindingStatement = database.prepare(
+        `INSERT INTO web_data_findings
+           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
+            record_type, finding_kind, profile_path, commit_state,
+            provenance_json, fields_json, search_text, sort_created,
+            sort_last_used, sort_name, sort_value)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      const deactivatePreviousWebData = database.prepare(
+        `UPDATE web_data_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Web Data'
+            AND active = 1`,
+      );
+      const activateCurrentWebData = database.prepare(
+        "UPDATE web_data_artifact_results SET active = 1 WHERE artifact_result_id = ?",
       );
       const insertCookieArtifact = database.prepare(
         `INSERT INTO cookie_artifact_results
@@ -814,11 +949,40 @@ export function storeHistoryAnalysis(
         }
       }
 
+      for (const artifact of options.webDataArtifacts ?? []) {
+        const insertion = insertWebDataArtifact.run(
+          runId,
+          artifact.sourceId,
+          artifact.profile,
+          artifact.manifestEntryOrdinal,
+          artifact.databasePath,
+          artifact.schemaVersion,
+          artifact.integrity,
+          artifact.recoveryStatus,
+          artifact.status,
+          artifact.reason,
+        );
+        const artifactResultId = insertion.lastInsertRowid as bigint;
+        for (const finding of artifact.findings) {
+          insertAutofillFinding(
+            insertWebDataFindingStatement,
+            artifactResultId,
+            runId,
+            finding,
+          );
+        }
+        if (artifact.status === "complete") {
+          deactivatePreviousWebData.run(artifact.sourceId, artifact.profile);
+          activateCurrentWebData.run(artifactResultId);
+        }
+      }
+
       const combinedArtifacts = [
         ...options.artifacts,
         ...cookieArtifacts,
         ...(options.loginDataArtifacts ?? []),
         ...(options.topSitesArtifacts ?? []),
+        ...(options.webDataArtifacts ?? []),
       ];
       const unavailableCount = combinedArtifacts.filter(
         (artifact) => artifact.status === "unavailable",
