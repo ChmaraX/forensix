@@ -116,13 +116,28 @@ export interface ExportCaseResult {
   readonly files: readonly string[];
 }
 
-const HEADER_FILE = "export_header.json";
-const FINDINGS_JSONL = "findings.jsonl";
-const CANDIDATES_JSONL = "candidates.jsonl";
-const FINDINGS_CSV = "findings.lossy.csv";
-const CANDIDATES_CSV = "candidates.lossy.csv";
-const MANIFEST_FILE = "export_manifest.json";
-const GENERATION_FILE = "export_generation.json";
+/**
+ * The canonical Extract file layout. This is the single source of truth for
+ * the filenames the export produces and the report consumes, so a rename can
+ * never silently desynchronize the producer from the verifier.
+ */
+export const EXTRACT_FILES = {
+  header: "export_header.json",
+  findingsJsonl: "findings.jsonl",
+  candidatesJsonl: "candidates.jsonl",
+  findingsCsv: "findings.lossy.csv",
+  candidatesCsv: "candidates.lossy.csv",
+  manifest: "export_manifest.json",
+  generation: "export_generation.json",
+} as const;
+
+const HEADER_FILE = EXTRACT_FILES.header;
+const FINDINGS_JSONL = EXTRACT_FILES.findingsJsonl;
+const CANDIDATES_JSONL = EXTRACT_FILES.candidatesJsonl;
+const FINDINGS_CSV = EXTRACT_FILES.findingsCsv;
+const CANDIDATES_CSV = EXTRACT_FILES.candidatesCsv;
+const MANIFEST_FILE = EXTRACT_FILES.manifest;
+const GENERATION_FILE = EXTRACT_FILES.generation;
 
 interface FindingRow {
   readonly finding_id: bigint;
@@ -208,6 +223,22 @@ function canonicalJson(value: unknown): string {
 
 function sha256(data: Buffer): string {
   return createHash("sha256").update(data).digest("hex");
+}
+
+/**
+ * The single source of truth for the Extract derived digest. Both the export
+ * (producer) and the report (verifier) hash the manifest file list through this
+ * function, so the verifier can never drift from the producer's canonical key
+ * ordering or path sort. The sort is applied here (not assumed of the caller)
+ * so an unsorted manifest still hashes deterministically.
+ */
+export function computeDerivedDigest(
+  files: readonly ExtractManifestFile[],
+): string {
+  const sorted = [...files].sort((left, right) =>
+    left.path.localeCompare(right.path),
+  );
+  return sha256(Buffer.from(canonicalJson(sorted), "utf8"));
 }
 
 export function isSecretFieldName(name: string): boolean {
@@ -835,9 +866,7 @@ export async function exportCase(
       sha256: sha256(file.bytes),
       size: file.bytes.byteLength,
     }));
-  const derivedDigest = sha256(
-    Buffer.from(canonicalJson(manifestFiles), "utf8"),
-  );
+  const derivedDigest = computeDerivedDigest(manifestFiles);
   const manifest: ExtractManifest = {
     extract_schema: EXTRACT_SCHEMA,
     files: manifestFiles,

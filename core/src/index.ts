@@ -107,8 +107,10 @@ export {
   type HistoryView,
 } from "./history-query.js";
 export {
+  EXTRACT_FILES,
   EXTRACT_SCHEMA,
   REDACTION_POLICY,
+  computeDerivedDigest,
   exportCase,
   isSecretFieldName,
   redactFields,
@@ -122,6 +124,12 @@ export {
   type ExtractRedactionState,
   type RedactedField,
 } from "./export.js";
+export {
+  REPORT_SCHEMA,
+  renderReport,
+  type RenderReportOptions,
+  type RenderReportResult,
+} from "./report.js";
 export {
   queryCredentials,
   type CredentialDirection,
