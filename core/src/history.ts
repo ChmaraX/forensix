@@ -5,6 +5,7 @@ import {
   type AnalysisRunExitState,
   type CookieArtifactWrite,
   type DeclaredOriginOs,
+  type FaviconArtifactWrite,
   type HistoryArtifactWrite,
   type LoginDataArtifactWrite,
   type MetadataArtifactWrite,
@@ -13,6 +14,7 @@ import {
   type WebDataArtifactWrite,
 } from "./case-findings.js";
 import { analyseSourceCookies } from "./cookies.js";
+import { analyseSourceFavicons } from "./favicons.js";
 import { analyseLoginDataProfile } from "./login-data.js";
 import { analyseSourcePreferences } from "./preferences.js";
 import { analyseSourceTopSites } from "./top-sites.js";
@@ -173,6 +175,19 @@ export interface WebDataAnalysisSummary {
   readonly findingCount: number;
 }
 
+export interface FaviconsAnalysisSummary {
+  readonly status: "complete" | "partial";
+  readonly profileCount: number;
+  readonly analysedProfileCount: number;
+  readonly absentProfileCount: number;
+  readonly unavailableProfileCount: number;
+  readonly recoveryUnavailableProfileCount: number;
+  readonly committedFaviconCount: number;
+  readonly recoveredFaviconCount: number;
+  readonly payloadFileCount: number;
+  readonly findingCount: number;
+}
+
 export interface PreferencesAnalysisSummary {
   readonly status: "complete" | "partial";
   readonly artifactCount: number;
@@ -195,6 +210,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly loginData: LoginDataAnalysisSummary;
   readonly topSites: TopSitesAnalysisSummary;
   readonly webData: WebDataAnalysisSummary;
+  readonly favicons: FaviconsAnalysisSummary;
   readonly preferences: PreferencesAnalysisSummary;
   readonly decryption: DecryptionSummary;
 }
@@ -1256,6 +1272,7 @@ export async function analyseCase(
   const loginDataArtifacts: LoginDataArtifactWrite[] = [];
   const topSitesArtifacts: TopSitesArtifactWrite[] = [];
   const webDataArtifacts: WebDataArtifactWrite[] = [];
+  const faviconArtifacts: FaviconArtifactWrite[] = [];
   const metadataArtifacts: MetadataArtifactWrite[] = [];
   for (const source of sources) {
     const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
@@ -1302,6 +1319,14 @@ export async function analyseCase(
         workingCopyPath,
       })),
     );
+    faviconArtifacts.push(
+      ...(await analyseSourceFavicons({
+        source,
+        workingCopyPath,
+        caseDirectory,
+        declaredTimezone,
+      })),
+    );
     metadataArtifacts.push(
       ...(await analyseSourcePreferences({ source, workingCopyPath })),
     );
@@ -1320,6 +1345,7 @@ export async function analyseCase(
     loginDataArtifacts,
     topSitesArtifacts,
     webDataArtifacts,
+    faviconArtifacts,
     metadataArtifacts,
   });
   const singletonLockPresent = sources.some((source) =>
@@ -1373,6 +1399,15 @@ export async function analyseCase(
   const webUnavailable = webDataArtifacts.filter(
     (artifact) => artifact.status === "unavailable",
   );
+  const faviconsAnalysed = faviconArtifacts.filter(
+    (artifact) => artifact.status === "complete",
+  );
+  const faviconsAbsent = faviconArtifacts.filter(
+    (artifact) => artifact.status === "absent",
+  );
+  const faviconsUnavailable = faviconArtifacts.filter(
+    (artifact) => artifact.status === "unavailable",
+  );
   const metadataAnalysed = metadataArtifacts.filter(
     (artifact) => artifact.status === "complete",
   );
@@ -1391,7 +1426,8 @@ export async function analyseCase(
       cookiesAnalysed.length +
       loginAnalysed.length +
       topSitesAnalysed.length +
-      webAnalysed.length,
+      webAnalysed.length +
+      faviconsAnalysed.length,
     runId: stored.runId,
     exitState: stored.runStatus,
     cookies: {
@@ -1516,6 +1552,35 @@ export async function analyseCase(
         0,
       ),
       findingCount: webAnalysed.reduce(
+        (count, artifact) => count + artifact.findings.length,
+        0,
+      ),
+    },
+    favicons: {
+      status: faviconsUnavailable.length === 0 ? "complete" : "partial",
+      profileCount: sources.reduce(
+        (count, source) => count + source.profiles.length,
+        0,
+      ),
+      analysedProfileCount: faviconsAnalysed.length,
+      absentProfileCount: faviconsAbsent.length,
+      unavailableProfileCount: faviconsUnavailable.length,
+      recoveryUnavailableProfileCount: faviconsAnalysed.filter(
+        (artifact) => artifact.recoveryStatus === "unavailable",
+      ).length,
+      committedFaviconCount: faviconsAnalysed.reduce(
+        (count, artifact) => count + artifact.committedFaviconCount,
+        0,
+      ),
+      recoveredFaviconCount: faviconsAnalysed.reduce(
+        (count, artifact) => count + artifact.recoveredFaviconCount,
+        0,
+      ),
+      payloadFileCount: faviconsAnalysed.reduce(
+        (count, artifact) => count + artifact.payloadFileCount,
+        0,
+      ),
+      findingCount: faviconsAnalysed.reduce(
         (count, artifact) => count + artifact.findings.length,
         0,
       ),

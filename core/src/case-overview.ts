@@ -17,7 +17,8 @@ export type OverviewArtifact =
   | "Cookies"
   | "Login Data"
   | "Top Sites"
-  | "Web Data";
+  | "Web Data"
+  | "Favicons";
 export type CompletenessOutcome = "produced" | "absent" | "unavailable";
 
 export interface CompletenessArtifact {
@@ -80,6 +81,7 @@ const ARTIFACT_TABLES: readonly ArtifactTable[] = [
   { artifact: "Login Data", resultsTable: "login_data_artifact_results" },
   { artifact: "Top Sites", resultsTable: "top_sites_artifact_results" },
   { artifact: "Web Data", resultsTable: "web_data_artifact_results" },
+  { artifact: "Favicons", resultsTable: "favicon_artifact_results" },
 ];
 
 function openCase(caseDirectory: string): DatabaseSync {

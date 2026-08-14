@@ -12,6 +12,7 @@ import {
   queryAutofill,
   queryCookies,
   queryCredentials,
+  queryFavicons,
   queryHistory,
   queryMetadata,
   queryTopSites,
@@ -23,6 +24,8 @@ import {
   type CookieSort,
   type CredentialDirection,
   type CredentialSort,
+  type FaviconDirection,
+  type FaviconSort,
   type TopSiteDirection,
   type TopSiteSort,
   type DeclaredOriginOs,
@@ -72,6 +75,12 @@ const USAGE = `Usage:
                    [--profile <profile>]... [--search <text>]
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--sort <created-time|last-used-time|field-name|value|profile>]
+                   [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
+  forensix favicons --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--sort <icon-url|page-url|last-updated|width|profile>]
                    [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix metadata --case <case-directory>
@@ -645,6 +654,53 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ] as const) as TopSiteSort | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | TopSiteDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "favicons") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--commit-state",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The favicons command accepts no positional values.",
+      );
+    }
+    const result = queryFavicons({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      sort: enumOption(parsed, "--sort", [
+        "icon-url",
+        "page-url",
+        "last-updated",
+        "width",
+        "profile",
+      ] as const) as FaviconSort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | FaviconDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),
