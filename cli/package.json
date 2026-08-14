@@ -10,7 +10,8 @@
     "node": ">=24.15.0"
   },
   "dependencies": {
-    "@forensix/core": "workspace:*"
+    "@forensix/core": "workspace:*",
+    "@forensix/server": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

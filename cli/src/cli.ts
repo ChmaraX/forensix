@@ -27,6 +27,7 @@ import {
   type IngestResult,
   type SourceKind,
 } from "@forensix/core";
+import { startDashboardServer } from "@forensix/server";
 
 const USAGE = `Usage:
   forensix ingest <source> --case <case-directory> [--source-kind <kind>] [--include-tier-2] [--json]
@@ -51,6 +52,7 @@ const USAGE = `Usage:
                    [--sort <created-time|last-used-time|origin|username|profile>]
                    [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
+  forensix serve --case <case-directory> [--port <port>] [--json]
   forensix export --case <case-directory> --out <output-directory>
                    [--collection <findings|candidates>]... [--profile <profile>]...
                    [--commit-state <committed|wal_resident|journal_resident>]
@@ -85,6 +87,7 @@ const FLAG_OPTIONS = new Set([
 ]);
 const VALUE_OPTIONS = new Set([
   "--case",
+  "--port",
   "--source-kind",
   "--timezone",
   "--origin-os",
@@ -604,6 +607,52 @@ async function run(arguments_: readonly string[]): Promise<number> {
     }
     const result = await renderReport({ extractDirectory, outputPath });
     process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "serve") {
+    assertAllowedOptions(parsed, new Set(["--case", "--json", "--port"]));
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The serve command accepts no positional values.",
+      );
+    }
+    const port = integerOption(parsed, "--port");
+    if (port !== undefined && (port < 0 || port > 65535)) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "Option --port must be between 0 and 65535.",
+        { port },
+      );
+    }
+    const server = await startDashboardServer({
+      caseDirectory: requiredCasePath(parsed),
+      port,
+    });
+    const announcement = {
+      status: "ok",
+      command: "serve",
+      url: server.url,
+      host: server.host,
+      port: server.port,
+      token: server.token,
+    };
+    process.stdout.write(`${JSON.stringify(announcement)}\n`);
+    if (!jsonOutput) {
+      process.stderr.write(
+        `ForensiX read-only dashboard on ${server.url} (loopback only). ` +
+          `Press Ctrl+C to stop.\n`,
+      );
+    }
+    const stop = (): void => {
+      void server.close().then(() => {
+        process.exit(0);
+      });
+    };
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
+    // The listening loopback socket keeps the process alive until stopped.
     return 0;
   }
 

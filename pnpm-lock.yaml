@@ -38,12 +38,22 @@ importers:
       '@forensix/core':
         specifier: workspace:*
         version: link:../core
+      '@forensix/server':
+        specifier: workspace:*
+        version: link:../server
 
   client: {}
 
   core: {}
 
-  server: {}
+  server:
+    dependencies:
+      '@forensix/client':
+        specifier: workspace:*
+        version: link:../client
+      '@forensix/core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 

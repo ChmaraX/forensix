@@ -119,6 +119,16 @@ export {
   type ResolvedKeyMaterial,
 } from "./key-material.js";
 export {
+  queryCompleteness,
+  queryProfiles,
+  type CaseCompleteness,
+  type CaseProfiles,
+  type CompletenessArtifact,
+  type CompletenessOutcome,
+  type CompletenessStatement,
+  type OverviewArtifact,
+} from "./case-overview.js";
+export {
   queryHistory,
   type HistoryDirection,
   type HistoryPage,
