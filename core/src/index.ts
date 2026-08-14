@@ -98,6 +98,7 @@ export {
   type ForensicTimestamp,
   type HistoryAnalysisSummary,
   type LoginDataAnalysisSummary,
+  type PreferencesAnalysisSummary,
   type TopSitesAnalysisSummary,
   type WebDataAnalysisSummary,
 } from "./history.js";
@@ -190,6 +191,14 @@ export {
   type AutofillQuery,
   type AutofillSort,
 } from "./web-data-query.js";
+export {
+  queryMetadata,
+  type MetadataDirection,
+  type MetadataPage,
+  type MetadataQuery,
+  type MetadataSort,
+  type MetadataType,
+} from "./preferences-query.js";
 export {
   type AnalysisRunExitState,
   type DeclaredOriginOs,

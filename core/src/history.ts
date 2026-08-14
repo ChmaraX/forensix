@@ -7,12 +7,14 @@ import {
   type DeclaredOriginOs,
   type HistoryArtifactWrite,
   type LoginDataArtifactWrite,
+  type MetadataArtifactWrite,
   type PersistedFinding,
   type TopSitesArtifactWrite,
   type WebDataArtifactWrite,
 } from "./case-findings.js";
 import { analyseSourceCookies } from "./cookies.js";
 import { analyseLoginDataProfile } from "./login-data.js";
+import { analyseSourcePreferences } from "./preferences.js";
 import { analyseSourceTopSites } from "./top-sites.js";
 import { analyseWebDataProfile } from "./web-data.js";
 import {
@@ -171,6 +173,17 @@ export interface WebDataAnalysisSummary {
   readonly findingCount: number;
 }
 
+export interface PreferencesAnalysisSummary {
+  readonly status: "complete" | "partial";
+  readonly artifactCount: number;
+  readonly analysedArtifactCount: number;
+  readonly absentArtifactCount: number;
+  readonly unavailableArtifactCount: number;
+  readonly browserMetadataCount: number;
+  readonly profileMetadataCount: number;
+  readonly findingCount: number;
+}
+
 export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly command: "analyse";
   readonly analysisStatus: "ready";
@@ -182,6 +195,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly loginData: LoginDataAnalysisSummary;
   readonly topSites: TopSitesAnalysisSummary;
   readonly webData: WebDataAnalysisSummary;
+  readonly preferences: PreferencesAnalysisSummary;
   readonly decryption: DecryptionSummary;
 }
 
@@ -1242,6 +1256,7 @@ export async function analyseCase(
   const loginDataArtifacts: LoginDataArtifactWrite[] = [];
   const topSitesArtifacts: TopSitesArtifactWrite[] = [];
   const webDataArtifacts: WebDataArtifactWrite[] = [];
+  const metadataArtifacts: MetadataArtifactWrite[] = [];
   for (const source of sources) {
     const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
     for (const profile of source.profiles) {
@@ -1287,6 +1302,9 @@ export async function analyseCase(
         workingCopyPath,
       })),
     );
+    metadataArtifacts.push(
+      ...(await analyseSourcePreferences({ source, workingCopyPath })),
+    );
   }
 
   await verifyWorkingCopy(caseDirectory);
@@ -1302,6 +1320,7 @@ export async function analyseCase(
     loginDataArtifacts,
     topSitesArtifacts,
     webDataArtifacts,
+    metadataArtifacts,
   });
   const singletonLockPresent = sources.some((source) =>
     source.entries.some(
@@ -1352,6 +1371,15 @@ export async function analyseCase(
     (artifact) => artifact.status === "absent",
   );
   const webUnavailable = webDataArtifacts.filter(
+    (artifact) => artifact.status === "unavailable",
+  );
+  const metadataAnalysed = metadataArtifacts.filter(
+    (artifact) => artifact.status === "complete",
+  );
+  const metadataAbsent = metadataArtifacts.filter(
+    (artifact) => artifact.status === "absent",
+  );
+  const metadataUnavailable = metadataArtifacts.filter(
     (artifact) => artifact.status === "unavailable",
   );
   return {
@@ -1488,6 +1516,23 @@ export async function analyseCase(
         0,
       ),
       findingCount: webAnalysed.reduce(
+        (count, artifact) => count + artifact.findings.length,
+        0,
+      ),
+    },
+    preferences: {
+      status: metadataUnavailable.length === 0 ? "complete" : "partial",
+      artifactCount: metadataArtifacts.length,
+      analysedArtifactCount: metadataAnalysed.length,
+      absentArtifactCount: metadataAbsent.length,
+      unavailableArtifactCount: metadataUnavailable.length,
+      browserMetadataCount: metadataAnalysed.filter(
+        (artifact) => artifact.artifact === "Local State",
+      ).length,
+      profileMetadataCount: metadataAnalysed.filter(
+        (artifact) => artifact.artifact === "Preferences",
+      ).length,
+      findingCount: metadataAnalysed.reduce(
         (count, artifact) => count + artifact.findings.length,
         0,
       ),

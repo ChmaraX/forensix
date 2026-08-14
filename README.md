@@ -28,6 +28,11 @@ Login Data yields credential metadata: origin, username, timestamps, and the enc
 The metadata is available independently of secret decryption.
 An encrypted secret without authorized key material is `unavailable` with a typed reason, never absent or blank.
 
+The analyzer also parses `Local State` and each Profile's `Preferences` JSON into metadata Findings.
+Browser-level metadata (Chrome version, variations country, OSCrypt key presence) is scoped to the Source; Profile-level metadata (account data, demographics, screen resolution, and avatars) is scoped to its Profile.
+Avatar and demographic values that live in the browser-level `profile.info_cache` slice are attributed to the owning Profile through a supporting Provenance row.
+Every value is verified against the current schema and carries a Field State: a removed or inapplicable key is `absent`, while a malformed or unreadable input is `unavailable` with a typed reason.
+
 ## Requirements
 
 - Node.js 24.15.0 or newer

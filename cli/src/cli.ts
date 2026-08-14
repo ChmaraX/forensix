@@ -13,6 +13,7 @@ import {
   queryCookies,
   queryCredentials,
   queryHistory,
+  queryMetadata,
   queryTopSites,
   renderReport,
   type AutofillDirection,
@@ -31,6 +32,9 @@ import {
   type HistoryView,
   type IngestProgress,
   type IngestResult,
+  type MetadataDirection,
+  type MetadataSort,
+  type MetadataType,
   type SourceKind,
 } from "@forensix/core";
 import { startDashboardServer } from "@forensix/server";
@@ -69,6 +73,12 @@ const USAGE = `Usage:
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--sort <created-time|last-used-time|field-name|value|profile>]
                    [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
+  forensix metadata --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--type <browser_metadata|profile_metadata>]
+                   [--sort <type|profile>] [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix serve --case <case-directory> [--port <port>] [--json]
   forensix export --case <case-directory> --out <output-directory>
@@ -118,6 +128,7 @@ const VALUE_OPTIONS = new Set([
   "--to",
   "--host",
   "--same-site",
+  "--type",
   "--sort",
   "--direction",
   "--limit",
@@ -493,6 +504,54 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ] as const) as CookieSort | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | CookieDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "metadata") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--commit-state",
+        "--type",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The metadata command accepts no positional values.",
+      );
+    }
+    const result = queryMetadata({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      type: enumOption(parsed, "--type", [
+        "browser_metadata",
+        "profile_metadata",
+      ] as const) as MetadataType | undefined,
+      sort: enumOption(parsed, "--sort", ["type", "profile"] as const) as
+        | MetadataSort
+        | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | MetadataDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),
