@@ -391,11 +391,14 @@ describe("compiled analyzer CLI ingest", () => {
     }
 
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
-    expect(analysis.status).toBe(0);
+    // The Profiles hold placeholder Histories, so every artifact is
+    // unavailable and the analysis exits failed (3).
+    expect(analysis.status).toBe(3);
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
       status: "verified",
       command: "analyse",
       analysisStatus: "ready",
+      exitState: "failed",
       evidenceSetDigest: output.evidenceSetDigest,
       workingCopyDigest: output.workingCopyDigest,
       verifiedFileCount: 7,
@@ -527,8 +530,10 @@ describe("compiled analyzer CLI ingest", () => {
     );
 
     await writeFile(historyPath, "history-main\n");
+    // The restored Working Copy verifies, but the placeholder History is not a
+    // real Chrome database, so the analysis exits failed (3).
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
-      0,
+      3,
     );
 
     const manifestBytesBeforeDamage = await readFile(output.manifestPath);
@@ -555,8 +560,10 @@ describe("compiled analyzer CLI ingest", () => {
     expect(changedHeader.status).toBe(1);
     expect(changedHeader.stderr).toContain("manifest_header_mismatch");
     await writeFile(headerPath, headerBytesBeforeDamage);
+    // Restored Manifest header verifies; the placeholder History still exits
+    // failed (3).
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
-      0,
+      3,
     );
 
     const database = new DatabaseSync(join(caseDirectory, "case.fxdb"));
@@ -620,7 +627,9 @@ describe("compiled analyzer CLI ingest", () => {
         absoluteDatabase.close();
       }
       const absolute = runCli(["analyse", "--case", caseDirectory, "--json"]);
-      expect(absolute.status).toBe(0);
+      // Placeholder History resolves through the absolute Working Copy path but
+      // is not a real Chrome database, so the analysis exits failed (3).
+      expect(absolute.status).toBe(3);
       expect(parseJson<Record<string, unknown>>(absolute.stdout)).toMatchObject(
         {
           workingCopyPath: externalWorkingCopy,

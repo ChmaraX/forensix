@@ -2,6 +2,7 @@ import { join, resolve } from "node:path";
 
 import {
   storeHistoryAnalysis,
+  type AnalysisRunExitState,
   type DeclaredOriginOs,
   type HistoryArtifactWrite,
   type PersistedFinding,
@@ -73,11 +74,32 @@ export interface HistoryAnalysisSummary {
   readonly declaredOriginOsConflict: boolean;
 }
 
+/**
+ * Distinct, documented exit codes for the `analyse` command. The Case is the
+ * record of truth for the exit state; these codes map each recorded Analysis
+ * Run exit state onto a stable process exit code so operators and scripts can
+ * tell a clean analysis from a partial or failed one.
+ *
+ * - `complete` (0): every artifact produced defensible results.
+ * - `partial` (2): at least one artifact was unavailable, but other artifacts
+ *   produced defensible, queryable results.
+ * - `failed` (3): the analysis produced no defensible artifact result.
+ *
+ * Usage errors, a missing Case, and a Working Copy integrity refusal exit with
+ * the generic error code 1 handled by the CLI entrypoint.
+ */
+export const ANALYSE_EXIT_CODES = {
+  complete: 0,
+  partial: 2,
+  failed: 3,
+} as const satisfies Record<AnalysisRunExitState, number>;
+
 export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly command: "analyse";
   readonly analysisStatus: "ready";
   readonly artifactCount: number;
   readonly runId: string;
+  readonly exitState: AnalysisRunExitState;
   readonly history: HistoryAnalysisSummary;
 }
 
@@ -1162,6 +1184,7 @@ export async function analyseCase(
     analysisStatus: "ready",
     artifactCount: analysed.length,
     runId: stored.runId,
+    exitState: stored.runStatus,
     history: {
       status: unavailable.length === 0 ? "complete" : "partial",
       profileCount: sources.reduce(

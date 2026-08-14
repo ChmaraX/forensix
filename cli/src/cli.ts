@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {
+  ANALYSE_EXIT_CODES,
   ForensixError,
   MINIMUM_NODE_VERSION,
   SOURCE_KINDS,
@@ -31,6 +32,12 @@ const USAGE = `Usage:
 
 Source kinds:
   USER_DATA_DIR (default), PROFILE_DIR, FILESYSTEM_ROOT, IMAGE_CONTAINER, ACQUISITION_BUNDLE
+
+analyse exit codes:
+  0  clean    every artifact produced defensible results
+  2  partial  some artifacts were unavailable; other results stay queryable
+  3  failed   the analysis produced no defensible artifact result
+  1  error    usage error, missing Case, or Working Copy integrity refusal
 `;
 
 type OptionValue = string | true;
@@ -292,7 +299,7 @@ async function run(arguments_: readonly string[]): Promise<number> {
       invocation: arguments_,
     });
     process.stdout.write(`${JSON.stringify(result)}\n`);
-    return 0;
+    return ANALYSE_EXIT_CODES[result.exitState];
   }
 
   if (parsed.command === "history") {

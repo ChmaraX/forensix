@@ -320,8 +320,10 @@ describe("compiled analyzer CLI Source kinds", () => {
       database.close();
     }
     expect(await treeSnapshot(profile)).toEqual(before);
+    // The placeholder History is not a real Chrome database, so the single
+    // artifact is unavailable and the analysis exits failed (3).
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
-      0,
+      3,
     );
 
     await writeFile(
@@ -383,9 +385,12 @@ describe("compiled analyzer CLI Source kinds", () => {
     ).toBe(3);
     expect(await treeSnapshot(filesystemRoot)).toEqual(before);
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
-    expect(analysis.status).toBe(0);
+    // Every discovered Profile has a placeholder History, so all three
+    // artifacts are unavailable and the analysis exits failed (3).
+    expect(analysis.status).toBe(3);
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
       sourceCount: 3,
+      exitState: "failed",
       history: {
         profileCount: 3,
         unavailableProfileCount: 3,
@@ -449,8 +454,10 @@ describe("compiled analyzer CLI Source kinds", () => {
       sourcePath: await realpath(source),
     });
     expect(await treeSnapshot(imageRoot)).toEqual(before);
+    // The placeholder History is not a real Chrome database, so the analysis
+    // exits failed (3).
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
-      0,
+      3,
     );
 
     const opaqueContainer = join(root, "disk.E01");
@@ -517,7 +524,8 @@ describe("compiled analyzer CLI Source kinds", () => {
     expect(new Set(valid.sources.map((source) => source.manifestId)).size).toBe(
       2,
     );
-    expect(runCli(["analyse", "--case", validCase, "--json"]).status).toBe(0);
+    // Bundle Histories are placeholders, so analysis exits failed (3).
+    expect(runCli(["analyse", "--case", validCase, "--json"]).status).toBe(3);
 
     const damagedBundle = join(root, "damaged-bundle");
     await cp(bundle, damagedBundle, { recursive: true });
@@ -597,7 +605,8 @@ describe("compiled analyzer CLI Source kinds", () => {
       ),
     ).toBe("history-bundle-two\n");
     expect(await treeSnapshot(damagedBundle)).toEqual(damagedBefore);
-    expect(runCli(["analyse", "--case", damagedCase, "--json"]).status).toBe(0);
+    // Unaffected evidence is a placeholder History, so analysis exits failed (3).
+    expect(runCli(["analyse", "--case", damagedCase, "--json"]).status).toBe(3);
 
     const database = new DatabaseSync(join(damagedCase, "case.fxdb"), {
       readOnly: true,

@@ -99,6 +99,33 @@ The accepted values are `windows`, `macos`, and `linux`.
 The command refuses a missing, moved, changed, or extended Working Copy.
 The refusal has the JSON code `WORKING_COPY_INTEGRITY_REFUSAL`.
 
+### Analysis Run identity
+
+Every `analyse` records one Analysis Run in the Case.
+The Case is the record of truth.
+Each Analysis Run keeps its run id, start time, end time, tool version, command line, Source, and exit state.
+
+### Supersede semantics
+
+A later successful Analysis Run supersedes earlier results at artifact granularity within the same Source.
+Supersede retains every earlier row, so the lineage stays complete.
+Queries return only the active result for each Source, Profile, and artifact.
+An artifact rerun that ends unavailable supersedes nothing, and unrelated artifact rows stay untouched.
+A failure in one artifact leaves the defensible results from the other artifacts queryable.
+
+### Exit codes
+
+The `analyse` command reports the run exit state through the process exit code:
+
+| Code | Exit state | Meaning                                                        |
+| ---- | ---------- | ------------------------------------------------------------- |
+| 0    | clean      | Every artifact produced defensible results.                   |
+| 2    | partial    | Some artifacts were unavailable; other results stay queryable. |
+| 3    | failed     | The analysis produced no defensible artifact result.          |
+| 1    | error      | Usage error, missing Case, or Working Copy integrity refusal.  |
+
+The JSON output carries the same value in the `exitState` field.
+
 ## Query History Findings
 
 Each query returns 50 rows by default.

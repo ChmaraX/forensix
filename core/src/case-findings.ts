@@ -50,10 +50,12 @@ export interface StoreHistoryAnalysisOptions {
   readonly artifacts: readonly HistoryArtifactWrite[];
 }
 
+export type AnalysisRunExitState = "complete" | "partial" | "failed";
+
 export interface StoredHistoryAnalysis {
   readonly runId: string;
   readonly finishedAt: string;
-  readonly runStatus: "complete" | "partial";
+  readonly runStatus: AnalysisRunExitState;
 }
 
 export function initializeFindingSchema(database: DatabaseSync): void {
@@ -72,7 +74,7 @@ export function initializeFindingSchema(database: DatabaseSync): void {
         declared_origin_os IS NULL OR
         declared_origin_os IN ('windows', 'macos', 'linux')
       ),
-      status TEXT NOT NULL CHECK (status IN ('running', 'complete', 'partial'))
+      status TEXT NOT NULL CHECK (status IN ('running', 'complete', 'partial', 'failed'))
     ) STRICT;
 
     CREATE TABLE IF NOT EXISTS analysis_run_sources (
@@ -315,11 +317,18 @@ export function storeHistoryAnalysis(
         }
       }
 
-      const runStatus = options.artifacts.some(
+      const unavailableCount = options.artifacts.filter(
         (artifact) => artifact.status === "unavailable",
-      )
-        ? "partial"
-        : "complete";
+      ).length;
+      const completeCount = options.artifacts.filter(
+        (artifact) => artifact.status === "complete",
+      ).length;
+      const runStatus: AnalysisRunExitState =
+        unavailableCount === 0
+          ? "complete"
+          : completeCount === 0
+            ? "failed"
+            : "partial";
       const finishedAt = new Date().toISOString();
       database
         .prepare(
