@@ -46,6 +46,14 @@ const SECRET_FIELD_PATTERNS = [
   "private_key",
 ] as const;
 
+/**
+ * Field names that are secrets by exact match rather than substring. The Cookie
+ * Finding's decrypted plaintext lives in a field named exactly `value`; it must
+ * be withheld by default without over-matching metadata fields such as
+ * `encryptedValueByteLength`.
+ */
+const SECRET_FIELD_EXACT = new Set(["value"]);
+
 export interface ExportCaseOptions {
   readonly caseDirectory: string;
   readonly outDirectory: string;
@@ -243,7 +251,10 @@ export function computeDerivedDigest(
 
 export function isSecretFieldName(name: string): boolean {
   const lower = name.toLowerCase();
-  return SECRET_FIELD_PATTERNS.some((pattern) => lower.includes(pattern));
+  return (
+    SECRET_FIELD_EXACT.has(lower) ||
+    SECRET_FIELD_PATTERNS.some((pattern) => lower.includes(pattern))
+  );
 }
 
 export interface RedactedField {

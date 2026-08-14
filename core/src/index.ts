@@ -93,11 +93,31 @@ export {
   type AnalyseCaseOptions,
   type AnalyseCaseResult,
   type CookieAnalysisSummary,
+  type DecryptionSummary,
   type EpochFamily,
   type ForensicTimestamp,
   type HistoryAnalysisSummary,
   type LoginDataAnalysisSummary,
 } from "./history.js";
+export {
+  DECRYPTION_DISABLED,
+  OSCRYPT_ROUTES,
+  decryptOscryptValue,
+  schemeOf,
+  type AuthorizedKeyMaterial,
+  type DecryptionFailureReason,
+  type DecryptionOutcome,
+  type DecryptionSettings,
+  type KeyMaterialProvenance,
+  type OscryptRoute,
+  type OscryptScheme,
+} from "./oscrypt.js";
+export {
+  loadAuthorizedKeyMaterial,
+  type KeyMaterialIssue,
+  type LoadKeyMaterialOptions,
+  type ResolvedKeyMaterial,
+} from "./key-material.js";
 export {
   queryHistory,
   type HistoryDirection,

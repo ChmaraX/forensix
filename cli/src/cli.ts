@@ -30,7 +30,8 @@ import {
 
 const USAGE = `Usage:
   forensix ingest <source> --case <case-directory> [--source-kind <kind>] [--include-tier-2] [--json]
-  forensix analyse --case <case-directory> [--timezone <iana-zone>] [--origin-os <windows|macos|linux>] [--json]
+  forensix analyse --case <case-directory> [--timezone <iana-zone>] [--origin-os <windows|macos|linux>]
+                   [--decrypt --key-material <path> [--recipient-key <path>]] [--json]
   forensix history --case <case-directory> [--view <visits|activity|most-visited|durations>]
                    [--profile <profile>]... [--search <text>]
                    [--commit-state <committed|wal_resident|journal_resident>]
@@ -80,6 +81,7 @@ const FLAG_OPTIONS = new Set([
   "--include-tier-2",
   "--csv",
   "--include-secrets",
+  "--decrypt",
 ]);
 const VALUE_OPTIONS = new Set([
   "--case",
@@ -103,6 +105,8 @@ const VALUE_OPTIONS = new Set([
   "--collection",
   "--examiner",
   "--extract",
+  "--key-material",
+  "--recipient-key",
 ]);
 const REPEATABLE_OPTIONS = new Set(["--profile", "--collection"]);
 
@@ -318,12 +322,32 @@ async function run(arguments_: readonly string[]): Promise<number> {
   if (parsed.command === "analyse") {
     assertAllowedOptions(
       parsed,
-      new Set(["--case", "--json", "--timezone", "--origin-os"]),
+      new Set([
+        "--case",
+        "--json",
+        "--timezone",
+        "--origin-os",
+        "--decrypt",
+        "--key-material",
+        "--recipient-key",
+      ]),
     );
     if (parsed.positionals.length !== 0) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
         "The analyse command accepts no positional values.",
+      );
+    }
+    const decryptionEnabled = hasOption(parsed, "--decrypt");
+    const keyMaterialPath = optionValue(parsed, "--key-material");
+    const recipientKeyPath = optionValue(parsed, "--recipient-key");
+    if (
+      !decryptionEnabled &&
+      (keyMaterialPath !== undefined || recipientKeyPath !== undefined)
+    ) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "Key material options require the explicit --decrypt opt-in.",
       );
     }
     const result = await analyseCase({
@@ -334,6 +358,9 @@ async function run(arguments_: readonly string[]): Promise<number> {
         "macos",
         "linux",
       ] as const) as DeclaredOriginOs | undefined,
+      decryptionEnabled,
+      ...(keyMaterialPath === undefined ? {} : { keyMaterialPath }),
+      ...(recipientKeyPath === undefined ? {} : { recipientKeyPath }),
       invocation: arguments_,
     });
     process.stdout.write(`${JSON.stringify(result)}\n`);

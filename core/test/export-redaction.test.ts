@@ -18,8 +18,37 @@ describe("Extract redaction primitive", () => {
     expect(isSecretFieldName("Encrypted_Value")).toBe(true);
     expect(isSecretFieldName("cookie_value")).toBe(true);
     expect(isSecretFieldName("token")).toBe(true);
+    // A Cookie Finding's plaintext (or decrypted) secret lives in the field
+    // named exactly `value`; it is a secret by exact match.
+    expect(isSecretFieldName("value")).toBe(true);
     expect(isSecretFieldName("url")).toBe(false);
     expect(isSecretFieldName("visitTime")).toBe(false);
+    // The exact `value` rule must not over-match metadata fields.
+    expect(isSecretFieldName("encryptedValueByteLength")).toBe(false);
+    expect(isSecretFieldName("encryptedValueScheme")).toBe(false);
+  });
+
+  it("withholds a Cookie value (plaintext or decrypted) unless opted in", () => {
+    const fields: Readonly<Record<string, FieldState<unknown>>> = {
+      value: { state: "value", value: "session-token" },
+      encryptedValueByteLength: { state: "value", value: "48" },
+    };
+    const redacted = redactFields(fields, false);
+    expect(redacted.redactedCount).toBe(1);
+    expect(redacted.fields.value).toEqual({
+      state: "redacted",
+      reason: "plaintext_secret_withheld",
+      sha256: sha256(JSON.stringify("session-token")),
+    });
+    // Retained metadata is not a secret and stays disclosed.
+    expect(redacted.fields.encryptedValueByteLength).toBe(
+      fields.encryptedValueByteLength,
+    );
+    // With the explicit opt-in the value is disclosed.
+    expect(redactFields(fields, true).fields.value).toEqual({
+      state: "value",
+      value: "session-token",
+    });
   });
 
   it("withholds secret values by default while keeping them citable by hash", () => {
