@@ -52,6 +52,7 @@ interface FaviconFinding {
     readonly payloadPath: Field<string>;
     readonly pageUrls: Field<readonly string[]>;
     readonly pageAssociationCount: Field<string>;
+    readonly unreadablePageAssociationCount: Field<string>;
   };
 }
 
@@ -383,6 +384,82 @@ describe("compiled analyzer CLI Favicons metadata", () => {
     expect(await readFile(join(source, "Default", "Favicons"))).toEqual(
       defaultBytes,
     );
+  });
+
+  it("keeps bitmap-less icons and their page associations as Findings", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-favicons-nobitmap-"));
+    temporaryRoots.push(root);
+    const source = join(root, "source");
+    await mkdir(source, { recursive: true });
+    await writeFile(join(source, "Local State"), "{}\n");
+    const micros = 13_000_000_000_000_000n;
+
+    // One icon WITH a cached bitmap, and one known favicon that Chromium
+    // recorded on a page visit but never downloaded: a favicons row and its
+    // icon_mapping with no favicon_bitmaps row. Neither the icon URL nor its
+    // page association may be dropped.
+    const path = join(source, "Default", "Favicons");
+    await createFavicons(path, [
+      {
+        iconUrl: "https://cached.example/favicon.ico",
+        iconType: 1,
+        width: 16,
+        height: 16,
+        imageData: new Uint8Array([0x01, 0x02]),
+        lastUpdatedMicros: micros,
+        pageUrls: ["https://cached.example/"],
+      },
+    ]);
+    const writer = new DatabaseSync(path);
+    try {
+      const iconId = writer
+        .prepare("INSERT INTO favicons (url, icon_type) VALUES (?, 1)")
+        .run("https://known.example/favicon.ico").lastInsertRowid as number;
+      writer
+        .prepare("INSERT INTO icon_mapping (page_url, icon_id) VALUES (?, ?)")
+        .run("https://known.example/", iconId);
+    } finally {
+      writer.close();
+    }
+
+    const caseDirectory = join(root, "CASE-FAVICONS-NOBITMAP");
+    expect(
+      runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+    ).toBe(0);
+    expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
+      0,
+    );
+
+    const rows = parseJson<FaviconPage>(
+      runCli([
+        "favicons",
+        "--case",
+        caseDirectory,
+        "--sort",
+        "icon-url",
+        "--json",
+      ]).stdout,
+    );
+    expect(rows.items).toHaveLength(2);
+    const known = rows.items.find(
+      (item) =>
+        item.fields.iconUrl.state === "value" &&
+        item.fields.iconUrl.value === "https://known.example/favicon.ico",
+    );
+    expect(known).toBeDefined();
+    // The bitmap-less Finding keeps the icon URL and its page association, cites
+    // the favicons row as Provenance, and reports no cached payload.
+    expect(known).toMatchObject({
+      commitState: "committed",
+      provenance: { table: "favicons", database: "Default/Favicons" },
+      fields: {
+        bitmapId: { state: "absent" },
+        payloadSha256: { state: "absent" },
+        payloadPath: { state: "absent" },
+        pageUrls: { state: "value", value: ["https://known.example/"] },
+        pageAssociationCount: { state: "value", value: "1" },
+      },
+    });
   });
 
   it("distinguishes a missing payload from an unreadable payload value", async () => {

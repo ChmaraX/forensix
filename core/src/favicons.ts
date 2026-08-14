@@ -237,6 +237,204 @@ function iconMappingsByIcon(
   return grouped;
 }
 
+interface FaviconRow {
+  readonly bitmap: RawFaviconBitmap | null;
+  readonly bitmapId: string | null;
+  readonly iconId: string | null;
+  readonly record:
+    | { readonly url: RawFaviconValue; readonly iconType: RawFaviconValue }
+    | undefined;
+  readonly associations: readonly PageAssociation[];
+}
+
+interface BuildFaviconContext {
+  readonly commitState: CommitState;
+  readonly profile: string;
+  readonly manifest: ManifestIdentity;
+  readonly declaredTimezone: string;
+  readonly payloads: Map<string, PayloadFile>;
+  readonly bitmapColumns: ReadonlySet<string>;
+}
+
+function buildFaviconFinding(
+  context: BuildFaviconContext,
+  row: FaviconRow,
+): BuiltFavicon {
+  const base = {
+    manifestEntryId: `${context.manifest.sourceId}:${context.manifest.ordinal}`,
+    sourceId: context.manifest.sourceId,
+    manifestEntryOrdinal: context.manifest.ordinal,
+    manifestPath: context.manifest.path,
+    database: context.manifest.databasePath,
+  };
+  // The Finding grain is one favicon_bitmaps row. An icon that has no cached
+  // bitmap yet -- a known favicon Chromium recorded on a page visit but never
+  // downloaded -- still yields one bitmap-less Finding so the icon URL and its
+  // page associations are never dropped. The primary row then falls back to the
+  // favicons row, or to the first icon_mapping row when even the favicons record
+  // is missing, so every favicons and icon_mapping row stays citable.
+  const primary: SourceRowProvenance =
+    row.bitmap !== null && row.bitmapId !== null
+      ? { ...base, table: "favicon_bitmaps", rowId: row.bitmapId }
+      : row.record !== undefined && row.iconId !== null
+        ? { ...base, table: "favicons", rowId: row.iconId }
+        : {
+            ...base,
+            table: "icon_mapping",
+            rowId: row.associations[0]?.rowId ?? "",
+          };
+
+  const supportingRows: SourceRowProvenance[] = [];
+  if (
+    row.record !== undefined &&
+    row.iconId !== null &&
+    primary.table !== "favicons"
+  ) {
+    supportingRows.push({ ...base, table: "favicons", rowId: row.iconId });
+  }
+  for (const association of row.associations) {
+    if (
+      primary.table === "icon_mapping" &&
+      primary.rowId === association.rowId
+    ) {
+      continue;
+    }
+    supportingRows.push({
+      ...base,
+      table: "icon_mapping",
+      rowId: association.rowId,
+    });
+  }
+  const fullProvenance: Provenance =
+    supportingRows.length === 0 ? primary : { ...primary, supportingRows };
+
+  const payload = classifyPayload(
+    row.bitmap?.imageData ?? null,
+    row.bitmap !== null && context.bitmapColumns.has("image_data"),
+  );
+  if (payload.state === "value") {
+    context.payloads.set(payload.payload.sha256, payload.payload);
+  }
+  const iconUrl = preservedString(
+    row.record?.url ?? null,
+    row.record !== undefined,
+  );
+  const iconType = iconTypeField(row.record?.iconType ?? null);
+  const lastUpdated = faviconTimestamp(
+    row.bitmap?.lastUpdated ?? null,
+    row.bitmap !== null && context.bitmapColumns.has("last_updated"),
+    context.declaredTimezone,
+  );
+  const pageUrls = row.associations
+    .map((association) => association.pageUrl)
+    .filter((value): value is string => value !== null);
+  // page_url is NOT NULL text in Chromium, so a non-string mapping is a read
+  // failure. It is dropped from the URL list but counted separately, so the
+  // list and its count never silently diverge and the failure stays visible.
+  const unreadablePageAssociationCount =
+    row.associations.length - pageUrls.length;
+
+  const relatedRowMissing = row.record === undefined && row.iconId !== null;
+  const fields = {
+    bitmapId: row.bitmapId === null ? absentField() : valueField(row.bitmapId),
+    iconId:
+      row.iconId === null
+        ? unavailableField("related_row_missing")
+        : valueField(row.iconId),
+    iconUrl: relatedRowMissing
+      ? unavailableField("related_row_missing")
+      : iconUrl,
+    iconType: relatedRowMissing
+      ? unavailableField("related_row_missing")
+      : iconType,
+    iconTypeRaw: preservedInteger(
+      row.record?.iconType ?? null,
+      row.record !== undefined,
+    ),
+    width: preservedInteger(
+      row.bitmap?.width ?? null,
+      row.bitmap !== null && context.bitmapColumns.has("width"),
+    ),
+    height: preservedInteger(
+      row.bitmap?.height ?? null,
+      row.bitmap !== null && context.bitmapColumns.has("height"),
+    ),
+    lastUpdated,
+    lastRequested: faviconTimestamp(
+      row.bitmap?.lastRequested ?? null,
+      row.bitmap !== null && context.bitmapColumns.has("last_requested"),
+      context.declaredTimezone,
+    ),
+    payloadSha256:
+      payload.state === "value"
+        ? valueField(payload.payload.sha256)
+        : payload.state === "absent"
+          ? absentField()
+          : unavailableField("unsupported_value"),
+    payloadBytes:
+      payload.state === "value"
+        ? valueField(payload.payload.bytes.toString())
+        : payload.state === "absent"
+          ? absentField()
+          : unavailableField("unsupported_value"),
+    payloadPath:
+      payload.state === "value"
+        ? valueField(`${FAVICON_PAYLOAD_DIRECTORY}/${payload.payload.sha256}`)
+        : payload.state === "absent"
+          ? absentField()
+          : unavailableField("unsupported_value"),
+    pageUrls: valueField(pageUrls),
+    pageAssociationCount: valueField(pageUrls.length.toString()),
+    unreadablePageAssociationCount: valueField(
+      unreadablePageAssociationCount.toString(),
+    ),
+  };
+
+  const finding = createFinding({
+    findingKind: "favicon",
+    profile: context.profile,
+    commitState: context.commitState,
+    provenance: fullProvenance,
+    fields,
+  });
+
+  const iconUrlValue = iconUrl.state === "value" ? iconUrl.value : null;
+  const firstPageUrl =
+    pageUrls.length > 0 ? ([...pageUrls].sort()[0] ?? null) : null;
+  const widthKey =
+    typeof row.bitmap?.width === "bigint" ? row.bitmap.width : null;
+  const lastUpdatedUtc =
+    lastUpdated.state === "value" ? lastUpdated.value.utc : null;
+
+  const signature = JSON.stringify({
+    bitmapId: row.bitmapId,
+    iconId: row.iconId,
+    iconUrl: iconUrlValue,
+    iconType: row.record?.iconType?.toString() ?? null,
+    width: bigintText(row.bitmap?.width ?? null),
+    height: bigintText(row.bitmap?.height ?? null),
+    lastUpdated: bigintText(row.bitmap?.lastUpdated ?? null),
+    lastRequested: bigintText(row.bitmap?.lastRequested ?? null),
+    payload: payload.state === "value" ? payload.payload.sha256 : payload.state,
+    pageUrls: [...pageUrls].sort(),
+    unreadablePageAssociationCount,
+  });
+
+  return {
+    signature,
+    persisted: {
+      finding,
+      searchText: [context.profile, iconUrlValue ?? "", ...pageUrls]
+        .join("\n")
+        .toLocaleLowerCase("en-US"),
+      sortIconUrl: iconUrlValue,
+      sortPageUrl: firstPageUrl,
+      sortLastUpdated: lastUpdatedUtc,
+      sortWidth: widthKey,
+    },
+  };
+}
+
 function buildFavicons(options: {
   readonly pass: FaviconPass;
   readonly commitState: CommitState;
@@ -247,7 +445,17 @@ function buildFavicons(options: {
 }): BuiltFavicon[] {
   const records = faviconRecords(options.pass);
   const mappings = iconMappingsByIcon(options.pass);
-  return options.pass.bitmaps.map((bitmap: RawFaviconBitmap) => {
+  const context: BuildFaviconContext = {
+    commitState: options.commitState,
+    profile: options.profile,
+    manifest: options.manifest,
+    declaredTimezone: options.declaredTimezone,
+    payloads: options.payloads,
+    bitmapColumns: options.pass.schema.bitmapColumns,
+  };
+  const results: BuiltFavicon[] = [];
+  const bitmapIconIds = new Set<string>();
+  for (const bitmap of options.pass.bitmaps) {
     const bitmapId = bigintText(bitmap.rowId);
     if (bitmapId === null) {
       throw new ForensixError(
@@ -256,149 +464,50 @@ function buildFavicons(options: {
       );
     }
     const iconId = bigintText(bitmap.iconId);
-    const record = iconId === null ? undefined : records.get(iconId);
-    const associations = iconId === null ? [] : (mappings.get(iconId) ?? []);
-
-    const provenance: Provenance = {
-      manifestEntryId: `${options.manifest.sourceId}:${options.manifest.ordinal}`,
-      sourceId: options.manifest.sourceId,
-      manifestEntryOrdinal: options.manifest.ordinal,
-      manifestPath: options.manifest.path,
-      database: options.manifest.databasePath,
-      table: "favicon_bitmaps",
-      rowId: bitmapId,
-    };
-    const supportingRows: SourceRowProvenance[] = [];
-    if (iconId !== null && record !== undefined) {
-      supportingRows.push({ ...provenance, table: "favicons", rowId: iconId });
+    if (iconId !== null) {
+      bitmapIconIds.add(iconId);
     }
-    for (const association of associations) {
-      supportingRows.push({
-        ...provenance,
-        table: "icon_mapping",
-        rowId: association.rowId,
-      });
-    }
-    const fullProvenance: Provenance =
-      supportingRows.length === 0
-        ? provenance
-        : { ...provenance, supportingRows };
-
-    const payload = classifyPayload(
-      bitmap.imageData,
-      options.pass.schema.bitmapColumns.has("image_data"),
+    results.push(
+      buildFaviconFinding(context, {
+        bitmap,
+        bitmapId,
+        iconId,
+        record: iconId === null ? undefined : records.get(iconId),
+        associations: iconId === null ? [] : (mappings.get(iconId) ?? []),
+      }),
     );
-    if (payload.state === "value") {
-      options.payloads.set(payload.payload.sha256, payload.payload);
+  }
+
+  // Every favicons row and icon_mapping target with no covering bitmap still
+  // becomes one Finding, so a known icon URL or page association is never lost
+  // just because its payload was never cached.
+  const bitmaplessIconIds = new Set<string>();
+  for (const record of options.pass.favicons) {
+    const id = bigintText(record.rowId);
+    if (id !== null && !bitmapIconIds.has(id)) {
+      bitmaplessIconIds.add(id);
     }
-    const iconUrl = preservedString(record?.url ?? null, record !== undefined);
-    const iconType = iconTypeField(record?.iconType ?? null);
-    const lastUpdated = faviconTimestamp(
-      bitmap.lastUpdated,
-      options.pass.schema.bitmapColumns.has("last_updated"),
-      options.declaredTimezone,
+  }
+  for (const iconId of mappings.keys()) {
+    if (!bitmapIconIds.has(iconId)) {
+      bitmaplessIconIds.add(iconId);
+    }
+  }
+  const sortedBitmapless = [...bitmaplessIconIds].sort((left, right) =>
+    BigInt(left) < BigInt(right) ? -1 : 1,
+  );
+  for (const iconId of sortedBitmapless) {
+    results.push(
+      buildFaviconFinding(context, {
+        bitmap: null,
+        bitmapId: null,
+        iconId,
+        record: records.get(iconId),
+        associations: mappings.get(iconId) ?? [],
+      }),
     );
-    const pageUrls = associations
-      .map((association) => association.pageUrl)
-      .filter((value): value is string => value !== null);
-
-    const fields = {
-      bitmapId: valueField(bitmapId),
-      iconId:
-        iconId === null
-          ? unavailableField("related_row_missing")
-          : valueField(iconId),
-      iconUrl:
-        record === undefined && iconId !== null
-          ? unavailableField("related_row_missing")
-          : iconUrl,
-      iconType:
-        record === undefined && iconId !== null
-          ? unavailableField("related_row_missing")
-          : iconType,
-      iconTypeRaw: preservedInteger(
-        record?.iconType ?? null,
-        record !== undefined,
-      ),
-      width: preservedInteger(
-        bitmap.width,
-        options.pass.schema.bitmapColumns.has("width"),
-      ),
-      height: preservedInteger(
-        bitmap.height,
-        options.pass.schema.bitmapColumns.has("height"),
-      ),
-      lastUpdated,
-      lastRequested: faviconTimestamp(
-        bitmap.lastRequested,
-        options.pass.schema.bitmapColumns.has("last_requested"),
-        options.declaredTimezone,
-      ),
-      payloadSha256:
-        payload.state === "value"
-          ? valueField(payload.payload.sha256)
-          : payload.state === "absent"
-            ? absentField()
-            : unavailableField("unsupported_value"),
-      payloadBytes:
-        payload.state === "value"
-          ? valueField(payload.payload.bytes.toString())
-          : payload.state === "absent"
-            ? absentField()
-            : unavailableField("unsupported_value"),
-      payloadPath:
-        payload.state === "value"
-          ? valueField(`${FAVICON_PAYLOAD_DIRECTORY}/${payload.payload.sha256}`)
-          : payload.state === "absent"
-            ? absentField()
-            : unavailableField("unsupported_value"),
-      pageUrls: valueField(pageUrls),
-      pageAssociationCount: valueField(associations.length.toString()),
-    };
-
-    const finding = createFinding({
-      findingKind: "favicon",
-      profile: options.profile,
-      commitState: options.commitState,
-      provenance: fullProvenance,
-      fields,
-    });
-
-    const iconUrlValue = iconUrl.state === "value" ? iconUrl.value : null;
-    const firstPageUrl =
-      pageUrls.length > 0 ? ([...pageUrls].sort()[0] ?? null) : null;
-    const widthKey = typeof bitmap.width === "bigint" ? bitmap.width : null;
-    const lastUpdatedUtc =
-      lastUpdated.state === "value" ? lastUpdated.value.utc : null;
-
-    const signature = JSON.stringify({
-      bitmapId,
-      iconId,
-      iconUrl: iconUrlValue,
-      iconType: record?.iconType?.toString() ?? null,
-      width: bigintText(bitmap.width),
-      height: bigintText(bitmap.height),
-      lastUpdated: bigintText(bitmap.lastUpdated),
-      lastRequested: bigintText(bitmap.lastRequested),
-      payload:
-        payload.state === "value" ? payload.payload.sha256 : payload.state,
-      pageUrls: [...pageUrls].sort(),
-    });
-
-    return {
-      signature,
-      persisted: {
-        finding,
-        searchText: [options.profile, iconUrlValue ?? "", ...pageUrls]
-          .join("\n")
-          .toLocaleLowerCase("en-US"),
-        sortIconUrl: iconUrlValue,
-        sortPageUrl: firstPageUrl,
-        sortLastUpdated: lastUpdatedUtc,
-        sortWidth: widthKey,
-      },
-    };
-  });
+  }
+  return results;
 }
 
 function manifestIdentity(
