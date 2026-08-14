@@ -331,18 +331,40 @@ function renderRow(row: ExtractRow, isCandidate: boolean): string {
   )}</td></tr>`;
 }
 
+/**
+ * Render a bordered result table from a header list and pre-built <tr> row
+ * strings. When there are no rows, a single colspan note row keeps the empty
+ * state in one place instead of every caller hand-rolling it.
+ */
+function htmlTable(
+  headers: readonly string[],
+  rows: readonly string[],
+  emptyNote: string,
+): string {
+  const head = headers
+    .map((header) => `<th>${escapeHtml(header)}</th>`)
+    .join("");
+  const body =
+    rows.length > 0
+      ? rows.join("")
+      : `<tr><td colspan="${headers.length}" class="fx-note">${escapeHtml(
+          emptyNote,
+        )}</td></tr>`;
+  return `<table class="fx-rows"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
 function renderRowGroup(
   title: string,
   rows: readonly ExtractRow[],
   isCandidate: boolean,
 ): string {
-  if (rows.length === 0) {
-    return `<h4>${escapeHtml(title)} <span class="fx-count">0 rows</span></h4><p class="fx-note">No rows in this Commit State.</p>`;
-  }
-  const body = rows.map((row) => renderRow(row, isCandidate)).join("");
   return `<h4>${escapeHtml(title)} <span class="fx-count">${
     rows.length
-  } rows</span></h4><table class="fx-rows"><thead><tr><th>Type</th><th>Profile</th><th>Commit State</th><th>Source</th><th>Provenance</th><th>Fields</th></tr></thead><tbody>${body}</tbody></table>`;
+  } rows</span></h4>${htmlTable(
+    ["Type", "Profile", "Commit State", "Source", "Provenance", "Fields"],
+    rows.map((row) => renderRow(row, isCandidate)),
+    "No rows in this Commit State.",
+  )}`;
 }
 
 function renderCollection(
@@ -407,27 +429,25 @@ function renderCompleteness(
     ["Absent", escapeHtml(String(completeness.absent ?? "?"))],
     ["Unavailable", escapeHtml(String(completeness.unavailable ?? "?"))],
   ]);
-  const rows = artifacts
-    .map((artifact) => {
-      const outcome = String(artifact.outcome ?? "?");
-      const reason =
-        artifact.reason === null || artifact.reason === undefined
-          ? '<span class="fx-state fx-absent">no reason</span>'
-          : `<span class="fx-value">${escapeHtml(String(artifact.reason))}</span>`;
-      return `<tr><td><span class="fx-outcome fx-outcome-${escapeHtml(
-        outcome,
-      )}">${escapeHtml(outcome)}</span></td><td>${escapeHtml(
-        String(artifact.artifact ?? "?"),
-      )}</td><td>${escapeHtml(String(artifact.sourceId ?? "?"))}</td><td>${escapeHtml(
-        String(artifact.profile ?? "?"),
-      )}</td><td>${reason}</td></tr>`;
-    })
-    .join("");
-  return `${summary}<table class="fx-rows"><thead><tr><th>Outcome</th><th>Artifact</th><th>Source</th><th>Profile</th><th>Reason</th></tr></thead><tbody>${
-    rows.length > 0
-      ? rows
-      : '<tr><td colspan="5" class="fx-note">No artifact outcomes recorded.</td></tr>'
-  }</tbody></table>`;
+  const rows = artifacts.map((artifact) => {
+    const outcome = String(artifact.outcome ?? "?");
+    const reason =
+      artifact.reason === null || artifact.reason === undefined
+        ? '<span class="fx-state fx-absent">no reason</span>'
+        : `<span class="fx-value">${escapeHtml(String(artifact.reason))}</span>`;
+    return `<tr><td><span class="fx-outcome fx-outcome-${escapeHtml(
+      outcome,
+    )}">${escapeHtml(outcome)}</span></td><td>${escapeHtml(
+      String(artifact.artifact ?? "?"),
+    )}</td><td>${escapeHtml(String(artifact.sourceId ?? "?"))}</td><td>${escapeHtml(
+      String(artifact.profile ?? "?"),
+    )}</td><td>${reason}</td></tr>`;
+  });
+  return `${summary}${htmlTable(
+    ["Outcome", "Artifact", "Source", "Profile", "Reason"],
+    rows,
+    "No artifact outcomes recorded.",
+  )}`;
 }
 
 function renderScope(scope: Record<string, Json> | undefined): string {
@@ -484,41 +504,43 @@ function renderRedaction(redaction: Record<string, Json> | undefined): string {
 }
 
 function renderSources(sources: Json | undefined): string {
-  if (!Array.isArray(sources) || sources.length === 0) {
-    return `<p class="fx-note">The Extract listed no Sources.</p>`;
-  }
-  const rows = (sources as Record<string, Json>[])
-    .map(
-      (source) =>
-        `<tr><td>${escapeHtml(String(source.sourceId ?? "?"))}</td><td>${escapeHtml(
-          String(source.sourceKind ?? "?"),
-        )}</td><td>${escapeHtml(
-          String(source.sourcePath ?? "?"),
-        )}</td><td class="fx-mono">${escapeHtml(
-          String(source.evidenceSetDigest ?? "?"),
-        )}</td></tr>`,
-    )
-    .join("");
-  return `<table class="fx-rows"><thead><tr><th>Source</th><th>Kind</th><th>Path</th><th>Evidence Set Digest</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const list = Array.isArray(sources)
+    ? (sources as Record<string, Json>[])
+    : [];
+  const rows = list.map(
+    (source) =>
+      `<tr><td>${escapeHtml(String(source.sourceId ?? "?"))}</td><td>${escapeHtml(
+        String(source.sourceKind ?? "?"),
+      )}</td><td>${escapeHtml(
+        String(source.sourcePath ?? "?"),
+      )}</td><td class="fx-mono">${escapeHtml(
+        String(source.evidenceSetDigest ?? "?"),
+      )}</td></tr>`,
+  );
+  return htmlTable(
+    ["Source", "Kind", "Path", "Evidence Set Digest"],
+    rows,
+    "The Extract listed no Sources.",
+  );
 }
 
 function renderRuns(runs: Json | undefined): string {
-  if (!Array.isArray(runs) || runs.length === 0) {
-    return `<p class="fx-note">The Extract listed no Analysis Runs.</p>`;
-  }
-  const rows = (runs as Record<string, Json>[])
-    .map(
-      (run) =>
-        `<tr><td class="fx-mono">${escapeHtml(
-          String(run.runId ?? "?"),
-        )}</td><td>${escapeHtml(String(run.status ?? "?"))}</td><td>${escapeHtml(
-          String(run.startedAt ?? "?"),
-        )}</td><td>${escapeHtml(
-          String(run.declaredTimezone ?? "?"),
-        )}</td><td>${escapeHtml(String(run.toolVersion ?? "?"))}</td></tr>`,
-    )
-    .join("");
-  return `<table class="fx-rows"><thead><tr><th>Run</th><th>Status</th><th>Started</th><th>Declared Timezone</th><th>Tool</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const list = Array.isArray(runs) ? (runs as Record<string, Json>[]) : [];
+  const rows = list.map(
+    (run) =>
+      `<tr><td class="fx-mono">${escapeHtml(
+        String(run.runId ?? "?"),
+      )}</td><td>${escapeHtml(String(run.status ?? "?"))}</td><td>${escapeHtml(
+        String(run.startedAt ?? "?"),
+      )}</td><td>${escapeHtml(
+        String(run.declaredTimezone ?? "?"),
+      )}</td><td>${escapeHtml(String(run.toolVersion ?? "?"))}</td></tr>`,
+  );
+  return htmlTable(
+    ["Run", "Status", "Started", "Declared Timezone", "Tool"],
+    rows,
+    "The Extract listed no Analysis Runs.",
+  );
 }
 
 const STYLE = `
