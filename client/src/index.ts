@@ -149,6 +149,14 @@ const ARTIFACTS: readonly ArtifactConfig[] = [
     sorts: ["created-time", "last-used-time", "origin", "username", "profile"],
     extras: [],
   },
+  {
+    key: "top-sites",
+    label: "Top Sites",
+    route: "top-sites",
+    completenessArtifact: "Top Sites",
+    sorts: ["rank", "url", "title", "profile"],
+    extras: [],
+  },
 ];
 
 function el<K extends keyof HTMLElementTagNameMap>(

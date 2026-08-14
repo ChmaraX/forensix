@@ -12,7 +12,11 @@ import { ForensixError } from "./errors.js";
  * mirroring the History/Cookies/Login Data query contracts.
  */
 
-export type OverviewArtifact = "History" | "Cookies" | "Login Data";
+export type OverviewArtifact =
+  | "History"
+  | "Cookies"
+  | "Login Data"
+  | "Top Sites";
 export type CompletenessOutcome = "produced" | "absent" | "unavailable";
 
 export interface CompletenessArtifact {
@@ -73,6 +77,7 @@ const ARTIFACT_TABLES: readonly ArtifactTable[] = [
   { artifact: "History", resultsTable: "history_artifact_results" },
   { artifact: "Cookies", resultsTable: "cookie_artifact_results" },
   { artifact: "Login Data", resultsTable: "login_data_artifact_results" },
+  { artifact: "Top Sites", resultsTable: "top_sites_artifact_results" },
 ];
 
 function openCase(caseDirectory: string): DatabaseSync {

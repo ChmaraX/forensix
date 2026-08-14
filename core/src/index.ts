@@ -98,6 +98,7 @@ export {
   type ForensicTimestamp,
   type HistoryAnalysisSummary,
   type LoginDataAnalysisSummary,
+  type TopSitesAnalysisSummary,
 } from "./history.js";
 export {
   DECRYPTION_DISABLED,
@@ -174,6 +175,13 @@ export {
   type CookieQuery,
   type CookieSort,
 } from "./cookies-query.js";
+export {
+  queryTopSites,
+  type TopSiteDirection,
+  type TopSitePage,
+  type TopSiteQuery,
+  type TopSiteSort,
+} from "./top-sites-query.js";
 export {
   type AnalysisRunExitState,
   type DeclaredOriginOs,

@@ -12,12 +12,15 @@ import {
   queryCookies,
   queryCredentials,
   queryHistory,
+  queryTopSites,
   renderReport,
   type CommitState,
   type CookieDirection,
   type CookieSort,
   type CredentialDirection,
   type CredentialSort,
+  type TopSiteDirection,
+  type TopSiteSort,
   type DeclaredOriginOs,
   type ExtractCollection,
   type HistoryDirection,
@@ -50,6 +53,12 @@ const USAGE = `Usage:
                    [--profile <profile>]... [--search <text>]
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--sort <created-time|last-used-time|origin|username|profile>]
+                   [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
+  forensix top-sites --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--sort <rank|url|title|profile>]
                    [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix serve --case <case-directory> [--port <port>] [--json]
@@ -522,6 +531,52 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ] as const) as CredentialSort | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | CredentialDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "top-sites") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--commit-state",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The top-sites command accepts no positional values.",
+      );
+    }
+    const result = queryTopSites({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      sort: enumOption(parsed, "--sort", [
+        "rank",
+        "url",
+        "title",
+        "profile",
+      ] as const) as TopSiteSort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | TopSiteDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),
