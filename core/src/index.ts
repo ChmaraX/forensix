@@ -88,6 +88,7 @@ export {
   type ValueField,
 } from "./forensic-model.js";
 export {
+  ANALYSE_EXIT_CODES,
   analyseCase,
   type AnalyseCaseOptions,
   type AnalyseCaseResult,
@@ -103,6 +104,9 @@ export {
   type HistorySort,
   type HistoryView,
 } from "./history-query.js";
-export { type DeclaredOriginOs } from "./case-findings.js";
+export {
+  type AnalysisRunExitState,
+  type DeclaredOriginOs,
+} from "./case-findings.js";
 
 export const MINIMUM_NODE_VERSION = "24.15.0" as const;
