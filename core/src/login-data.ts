@@ -138,11 +138,12 @@ interface SecretDescription {
 }
 
 /**
- * Describe the encrypted secret wrapper without ever attempting to read the
- * plaintext. A stored secret is always reported `unavailable` with the typed
- * reason `encrypted_secret_without_key_material`; an empty or missing blob is
- * `absent`. The wrapper prefix (for example `v10`, `v11`, `v20`) and byte
- * length are retained as metadata so an investigator can classify the scheme.
+ * Describe the encrypted secret wrapper and resolve the secret through the
+ * shared opt-in decrypt gate. With decryption disabled (the default) the secret
+ * stays `unavailable` with the typed reason `encrypted_secret_without_key_material`;
+ * an empty or missing blob is `absent`. The wrapper prefix (for example `v10`,
+ * `v11`, `v20`) and byte length are always retained as metadata so an
+ * investigator can classify the scheme even when the secret is not disclosed.
  */
 function describeSecret(
   value: RawLoginValue,

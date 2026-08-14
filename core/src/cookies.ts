@@ -248,16 +248,19 @@ function buildCookies(options: {
     const plaintextValue = preservedString(row.value, columns.has("value"));
     const encrypted =
       row.encryptedValue instanceof Uint8Array ? row.encryptedValue : null;
-    const isEncrypted = encrypted !== null && encrypted.length > 0;
-    const schemeClass =
-      isEncrypted && encrypted !== null ? schemeOf(encrypted) : null;
+    // The encrypted secret, narrowed to a non-empty blob; an empty blob is not
+    // a secret. `encrypted` is kept for the retained byte-length metadata.
+    const secretBlob =
+      encrypted !== null && encrypted.length > 0 ? encrypted : null;
+    const isEncrypted = secretBlob !== null;
+    const schemeClass = secretBlob !== null ? schemeOf(secretBlob) : null;
     // The displayed scheme keeps only the canonical v10/v11/v20 classes; a
     // legacy (unprefixed) blob has no recognised scheme string.
     const scheme =
       schemeClass === null || schemeClass === "legacy" ? null : schemeClass;
     const decrypted =
-      isEncrypted && encrypted !== null
-        ? decryptSecretField(encrypted, options.profile, options.decryption)
+      secretBlob !== null
+        ? decryptSecretField(secretBlob, options.profile, options.decryption)
         : null;
 
     const sameSite = enumFields(
