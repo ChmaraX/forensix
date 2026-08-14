@@ -5,6 +5,7 @@ import {
   type AnalysisRunExitState,
   type CookieArtifactWrite,
   type DeclaredOriginOs,
+  type DownloadsArtifactWrite,
   type FaviconArtifactWrite,
   type HistoryArtifactWrite,
   type LoginDataArtifactWrite,
@@ -14,6 +15,7 @@ import {
   type WebDataArtifactWrite,
 } from "./case-findings.js";
 import { analyseSourceCookies } from "./cookies.js";
+import { analyseDownloadsProfile } from "./downloads.js";
 import { analyseSourceFavicons } from "./favicons.js";
 import { analyseLoginDataProfile } from "./login-data.js";
 import { analyseSourcePreferences } from "./preferences.js";
@@ -30,6 +32,11 @@ import {
   type CaseSourceRecord,
 } from "./case.js";
 import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
+import {
+  boundedSortInteger,
+  utcFromUnixMicros,
+  WINDOWS_EPOCH_OFFSET_MICROS,
+} from "./forensic-time.js";
 import {
   absentField,
   createFinding,
@@ -188,6 +195,18 @@ export interface FaviconsAnalysisSummary {
   readonly findingCount: number;
 }
 
+export interface DownloadsAnalysisSummary {
+  readonly status: "complete" | "partial";
+  readonly profileCount: number;
+  readonly analysedProfileCount: number;
+  readonly absentProfileCount: number;
+  readonly unavailableProfileCount: number;
+  readonly recoveryUnavailableProfileCount: number;
+  readonly committedDownloadCount: number;
+  readonly recoveredDownloadCount: number;
+  readonly findingCount: number;
+}
+
 export interface PreferencesAnalysisSummary {
   readonly status: "complete" | "partial";
   readonly artifactCount: number;
@@ -211,6 +230,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly topSites: TopSitesAnalysisSummary;
   readonly webData: WebDataAnalysisSummary;
   readonly favicons: FaviconsAnalysisSummary;
+  readonly downloads: DownloadsAnalysisSummary;
   readonly preferences: PreferencesAnalysisSummary;
   readonly decryption: DecryptionSummary;
 }
@@ -234,9 +254,6 @@ interface BuiltVisit {
   readonly provenance: Provenance;
 }
 
-const WINDOWS_EPOCH_OFFSET_MICROS = 11_644_473_600_000_000n;
-const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
-const SQLITE_MIN_INTEGER = -9_223_372_036_854_775_808n;
 const TRANSITION_CORES = new Map<number, string>([
   [0, "link"],
   [1, "typed"],
@@ -343,28 +360,6 @@ function preservedString(
   return typeof value === "string"
     ? valueField(value)
     : unavailableField("unsupported_value");
-}
-
-function floorDivision(value: bigint, divisor: bigint): bigint {
-  const quotient = value / divisor;
-  const remainder = value % divisor;
-  return remainder < 0n ? quotient - 1n : quotient;
-}
-
-function utcFromUnixMicros(unixMicros: bigint): string | null {
-  const seconds = floorDivision(unixMicros, 1_000_000n);
-  const micros = unixMicros - seconds * 1_000_000n;
-  const milliseconds = seconds * 1000n + micros / 1000n;
-  const numericMilliseconds = Number(milliseconds);
-  if (!Number.isSafeInteger(numericMilliseconds)) {
-    return null;
-  }
-  const date = new Date(numericMilliseconds);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  const base = date.toISOString();
-  return `${base.slice(0, -5)}.${micros.toString().padStart(6, "0")}Z`;
 }
 
 function resolveHistoryEpoch(
@@ -879,12 +874,6 @@ function durationSummaryFields(visits: readonly BuiltVisit[]): {
   };
 }
 
-function boundedSortInteger(value: bigint): bigint | null {
-  return value >= SQLITE_MIN_INTEGER && value <= SQLITE_MAX_INTEGER
-    ? value
-    : null;
-}
-
 function buildSummaries(
   visits: readonly BuiltVisit[],
   declaredTimezone: string,
@@ -1273,6 +1262,7 @@ export async function analyseCase(
   const topSitesArtifacts: TopSitesArtifactWrite[] = [];
   const webDataArtifacts: WebDataArtifactWrite[] = [];
   const faviconArtifacts: FaviconArtifactWrite[] = [];
+  const downloadsArtifacts: DownloadsArtifactWrite[] = [];
   const metadataArtifacts: MetadataArtifactWrite[] = [];
   for (const source of sources) {
     const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
@@ -1297,6 +1287,14 @@ export async function analyseCase(
       );
       webDataArtifacts.push(
         await analyseWebDataProfile({
+          source,
+          profile: profile.path,
+          workingCopyPath,
+          declaredTimezone,
+        }),
+      );
+      downloadsArtifacts.push(
+        await analyseDownloadsProfile({
           source,
           profile: profile.path,
           workingCopyPath,
@@ -1346,6 +1344,7 @@ export async function analyseCase(
     topSitesArtifacts,
     webDataArtifacts,
     faviconArtifacts,
+    downloadsArtifacts,
     metadataArtifacts,
   });
   const singletonLockPresent = sources.some((source) =>
@@ -1408,6 +1407,15 @@ export async function analyseCase(
   const faviconsUnavailable = faviconArtifacts.filter(
     (artifact) => artifact.status === "unavailable",
   );
+  const downloadsAnalysed = downloadsArtifacts.filter(
+    (artifact) => artifact.status === "complete",
+  );
+  const downloadsAbsent = downloadsArtifacts.filter(
+    (artifact) => artifact.status === "absent",
+  );
+  const downloadsUnavailable = downloadsArtifacts.filter(
+    (artifact) => artifact.status === "unavailable",
+  );
   const metadataAnalysed = metadataArtifacts.filter(
     (artifact) => artifact.status === "complete",
   );
@@ -1427,7 +1435,8 @@ export async function analyseCase(
       loginAnalysed.length +
       topSitesAnalysed.length +
       webAnalysed.length +
-      faviconsAnalysed.length,
+      faviconsAnalysed.length +
+      downloadsAnalysed.length,
     runId: stored.runId,
     exitState: stored.runStatus,
     cookies: {
@@ -1581,6 +1590,31 @@ export async function analyseCase(
         0,
       ),
       findingCount: faviconsAnalysed.reduce(
+        (count, artifact) => count + artifact.findings.length,
+        0,
+      ),
+    },
+    downloads: {
+      status: downloadsUnavailable.length === 0 ? "complete" : "partial",
+      profileCount: sources.reduce(
+        (count, source) => count + source.profiles.length,
+        0,
+      ),
+      analysedProfileCount: downloadsAnalysed.length,
+      absentProfileCount: downloadsAbsent.length,
+      unavailableProfileCount: downloadsUnavailable.length,
+      recoveryUnavailableProfileCount: downloadsAnalysed.filter(
+        (artifact) => artifact.recoveryStatus === "unavailable",
+      ).length,
+      committedDownloadCount: downloadsAnalysed.reduce(
+        (count, artifact) => count + artifact.committedDownloadCount,
+        0,
+      ),
+      recoveredDownloadCount: downloadsAnalysed.reduce(
+        (count, artifact) => count + artifact.recoveredDownloadCount,
+        0,
+      ),
+      findingCount: downloadsAnalysed.reduce(
         (count, artifact) => count + artifact.findings.length,
         0,
       ),
