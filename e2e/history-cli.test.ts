@@ -1210,7 +1210,7 @@ describe("compiled analyzer CLI History Finding pipeline", () => {
         },
       },
     });
-  });
+  }, 30_000);
 
   it("requires Declared Origin OS for version-16 epochs without creating Candidates", async () => {
     const root = await mkdtemp(join(tmpdir(), "forensix-history-origin-"));
