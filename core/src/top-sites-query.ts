@@ -61,11 +61,21 @@ const COMMIT_STATES = [
 ] as const;
 const TOP_SITE_KIND = "top_site";
 
-const SORT_EXPRESSIONS: Readonly<Record<TopSiteSort, string>> = {
-  rank: "COALESCE(f.sort_rank, -1)",
-  url: "COALESCE(f.sort_url, '')",
-  title: "COALESCE(f.sort_title, '')",
-  profile: "f.profile_path",
+interface SortDefinition {
+  readonly expression: string;
+  readonly kind: "text" | "integer";
+}
+
+// `rank` keys on the integer `sort_rank` column (with a -1 COALESCE sentinel, so
+// keys can be negative); every other sort keys on text. The `kind` tag drives
+// the cursor-key validation below, mirroring history-query.ts's SortDefinition
+// so the integer/text decision lives in one place rather than in scattered
+// `sort === "rank"` branches.
+const SORTS: Readonly<Record<TopSiteSort, SortDefinition>> = {
+  rank: { expression: "COALESCE(f.sort_rank, -1)", kind: "integer" },
+  url: { expression: "COALESCE(f.sort_url, '')", kind: "text" },
+  title: { expression: "COALESCE(f.sort_title, '')", kind: "text" },
+  profile: { expression: "f.profile_path", kind: "text" },
 };
 
 const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
@@ -243,7 +253,8 @@ export function queryTopSites(input: TopSiteQuery): TopSitePage {
           COMMIT_STATES,
           "--commit-state",
         );
-  const sortExpression = SORT_EXPRESSIONS[sort];
+  const sortDefinition = SORTS[sort];
+  const sortExpression = sortDefinition.expression;
   const limit = normalizeLimit(input.limit);
   const profiles = [...new Set(input.profiles ?? [])].sort();
   if (profiles.length > 100) {
@@ -303,18 +314,16 @@ export function queryTopSites(input: TopSiteQuery): TopSitePage {
           `(${sortExpression} = ? AND f.finding_id ${operator} ?))`,
       );
       const findingId = BigInt(cursor.findingId);
-      // The `rank` sort keys on the integer `sort_rank` column (with a -1
-      // COALESCE sentinel, so keys can be negative), whereas every other sort
-      // keys on text. Validate an integer key with the same regex and int64
-      // range guard History uses, so a forged or out-of-range cursor surfaces a
-      // typed INVALID_CURSOR instead of a raw BigInt/node:sqlite throw.
+      // An integer sort validates its key with the same regex and int64 range
+      // guard History uses, so a forged or out-of-range cursor surfaces a typed
+      // INVALID_CURSOR instead of a raw BigInt/node:sqlite throw.
       const integerCursorKey =
-        sort === "rank" && /^-?[0-9]+$/.test(cursor.key)
+        sortDefinition.kind === "integer" && /^-?[0-9]+$/.test(cursor.key)
           ? BigInt(cursor.key)
           : null;
       if (
         findingId > SQLITE_MAX_INTEGER ||
-        (sort === "rank" &&
+        (sortDefinition.kind === "integer" &&
           (integerCursorKey === null ||
             integerCursorKey < SQLITE_MIN_INTEGER ||
             integerCursorKey > SQLITE_MAX_INTEGER))
@@ -325,7 +334,9 @@ export function queryTopSites(input: TopSiteQuery): TopSitePage {
         );
       }
       const cursorKey =
-        sort === "rank" ? (integerCursorKey as bigint) : cursor.key;
+        sortDefinition.kind === "integer"
+          ? (integerCursorKey as bigint)
+          : cursor.key;
       parameters.push(cursorKey, cursorKey, findingId);
     }
 
