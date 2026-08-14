@@ -17,6 +17,11 @@ import {
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import {
+  boundedSortInteger,
+  utcFromUnixMicros,
+  WINDOWS_EPOCH_OFFSET_MICROS,
+} from "./forensic-time.js";
 import type { ForensicTimestamp } from "./history.js";
 import {
   DownloadsTableAbsentError,
@@ -34,7 +39,6 @@ import type { VerifiedHistoryFile } from "./history-sqlite.js";
  * Declared Origin OS is needed to resolve the Epoch Family.
  */
 const DOWNLOAD_EPOCH_FAMILY = "1601-us" as const;
-const WINDOWS_EPOCH_OFFSET_MICROS = 11_644_473_600_000_000n;
 
 /**
  * `downloads.state` — `DownloadDatabase` `DownloadState`. Value 3 (BUG_140687)
@@ -116,27 +120,8 @@ interface ManifestIdentity {
   readonly databasePath: string;
 }
 
-function floorDivision(value: bigint, divisor: bigint): bigint {
-  const quotient = value / divisor;
-  const remainder = value % divisor;
-  return remainder < 0n ? quotient - 1n : quotient;
-}
-
 function utcFromWindowsMicros(windowsMicros: bigint): string | null {
-  const unixMicros = windowsMicros - WINDOWS_EPOCH_OFFSET_MICROS;
-  const seconds = floorDivision(unixMicros, 1_000_000n);
-  const micros = unixMicros - seconds * 1_000_000n;
-  const milliseconds = seconds * 1000n + micros / 1000n;
-  const numericMilliseconds = Number(milliseconds);
-  if (!Number.isSafeInteger(numericMilliseconds)) {
-    return null;
-  }
-  const date = new Date(numericMilliseconds);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  const base = date.toISOString();
-  return `${base.slice(0, -5)}.${micros.toString().padStart(6, "0")}Z`;
+  return utcFromUnixMicros(windowsMicros - WINDOWS_EPOCH_OFFSET_MICROS);
 }
 
 function preservedString(value: RawDownloadValue): FieldState<string> {
@@ -433,15 +418,6 @@ function buildDownloads(options: {
         dangerType.decoded.state === "value" ? dangerType.decoded.value : null,
     };
   });
-}
-
-const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
-const SQLITE_MIN_INTEGER = -9_223_372_036_854_775_808n;
-
-function boundedSortInteger(value: bigint): bigint | null {
-  return value >= SQLITE_MIN_INTEGER && value <= SQLITE_MAX_INTEGER
-    ? value
-    : null;
 }
 
 function manifestIdentity(
