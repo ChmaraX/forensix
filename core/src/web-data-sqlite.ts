@@ -54,11 +54,15 @@ export interface VerifiedWebDataFile {
 }
 
 /**
- * Columns the metadata pipeline preserves when present. The `name` column holds
- * the form field type (for example `email`, `phone`, `city`, or a structured
- * address component such as `ADDRESS_HOME_CITY`), which is how the `autofill`
- * table captures form/phone/address/city evidence. All values are cleartext, so
- * no decryption is involved.
+ * Columns the metadata pipeline preserves when present. The `autofill` table is
+ * Chrome's form-autocomplete history: one row per distinct submitted
+ * (field, value) pair. The `name` column holds the raw HTML form field `name`
+ * (or `autocomplete`) attribute as authored by the visited site — for example
+ * `email`, `phone`, `tel`, `city`, `address`, or `postal-code` — which is how
+ * this table captures form/phone/address/city evidence. It is not Chrome's
+ * internal address-book `ServerFieldType` token, and it is not the structured
+ * address profiles stored separately in `autofill_profiles` / `contact_info` /
+ * `local_addresses`. All values are cleartext, so no decryption is involved.
  */
 export const SUPPORTED_AUTOFILL_COLUMNS = [
   "name",

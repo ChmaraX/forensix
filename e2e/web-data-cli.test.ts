@@ -151,7 +151,7 @@ async function createSource(root: string): Promise<string> {
       count: 2n,
     },
     {
-      name: "ADDRESS_HOME_CITY",
+      name: "city",
       value: "Springfield",
       dateCreated: 1_704_300_000n,
       dateLastUsed: 1_704_400_000n,
@@ -160,7 +160,7 @@ async function createSource(root: string): Promise<string> {
   ]);
   await createWebData(join(source, "Profile 1", "Web Data"), [
     {
-      name: "ADDRESS_HOME_STREET_ADDRESS",
+      name: "address",
       value: "742 Evergreen Terrace",
       dateCreated: 1_705_000_000n,
       dateLastUsed: 1_705_100_000n,
@@ -298,7 +298,7 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
     expect(city).toHaveLength(1);
     expect(city[0]?.fields.fieldName).toEqual({
       state: "value",
-      value: "ADDRESS_HOME_CITY",
+      value: "city",
     });
     expect(city[0]?.fields.fieldValue).toEqual({
       state: "value",
@@ -359,7 +359,7 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
       PRAGMA wal_checkpoint(TRUNCATE);
     `);
     insertAutofill(writer, {
-      name: "ADDRESS_HOME_CITY",
+      name: "city",
       value: "Portland",
       dateCreated: 1_704_300_000n,
       dateLastUsed: 1_704_300_000n,
@@ -416,7 +416,7 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
         table: "autofill",
       },
       fields: {
-        fieldName: { state: "value", value: "ADDRESS_HOME_CITY" },
+        fieldName: { state: "value", value: "city" },
         fieldValue: { state: "value", value: "Portland" },
       },
     });
@@ -461,5 +461,41 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
     }>(analysis.stdout);
     expect(parsed.webData.analysedProfileCount).toBe(0);
     expect(parsed.webData.unavailableProfileCount).toBe(2);
+
+    // The two failures carry DISTINCT typed reasons in the Case: a missing
+    // autofill table is not conflated with a malformed/unreadable database.
+    const caseDatabase = new DatabaseSync(join(caseDirectory, "case.fxdb"), {
+      readOnly: true,
+    });
+    let reasons: Record<string, string>;
+    try {
+      const rows = caseDatabase
+        .prepare(
+          `SELECT profile_path, status, reason
+             FROM web_data_artifact_results
+            ORDER BY profile_path`,
+        )
+        .all() as unknown as readonly {
+        readonly profile_path: string;
+        readonly status: string;
+        readonly reason: string;
+      }[];
+      reasons = Object.fromEntries(
+        rows.map((row) => {
+          expect(row.status).toBe("unavailable");
+          return [row.profile_path, row.reason];
+        }),
+      );
+    } finally {
+      caseDatabase.close();
+    }
+    // Missing table: a structured ANALYSIS_FAILED reason naming the table.
+    expect(reasons.Default).toContain("missing the autofill table");
+    // Malformed database: a distinct read-failure reason, not "missing".
+    expect(reasons["Profile 1"]).not.toContain("missing the autofill table");
+    expect(reasons["Profile 1"]).toMatch(
+      /ANALYSIS_FAILED|web_data_read_failed/,
+    );
+    expect(reasons.Default).not.toBe(reasons["Profile 1"]);
   });
 });
