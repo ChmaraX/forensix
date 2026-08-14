@@ -7,7 +7,7 @@ import {
   type PersistedFinding,
 } from "./case-findings.js";
 import {
-  loadCaseSource,
+  loadCaseSources,
   workingCopyAbsolutePath,
   type CaseSourceRecord,
 } from "./case.js";
@@ -896,6 +896,7 @@ function manifestIdentity(
 }
 
 function unavailableArtifact(
+  sourceId: string,
   profile: string,
   databasePath: string,
   manifestEntryOrdinal: number | null,
@@ -903,6 +904,7 @@ function unavailableArtifact(
   reason: string,
 ): HistoryArtifactWrite {
   return {
+    sourceId,
     profile,
     status,
     manifestEntryOrdinal,
@@ -924,10 +926,12 @@ async function analyseProfile(options: {
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
 }): Promise<HistoryArtifactWrite> {
-  const databasePath = `${options.profile}/History`;
+  const databasePath =
+    options.profile === "." ? "History" : `${options.profile}/History`;
   const manifest = manifestIdentity(options.source, databasePath);
   if (manifest === null) {
     return unavailableArtifact(
+      options.source.sourceId,
       options.profile,
       databasePath,
       null,
@@ -941,6 +945,7 @@ async function analyseProfile(options: {
   }
   if (entry.state === "absent") {
     return unavailableArtifact(
+      options.source.sourceId,
       options.profile,
       databasePath,
       manifest.ordinal,
@@ -950,6 +955,7 @@ async function analyseProfile(options: {
   }
   if (entry.state === "unavailable") {
     return unavailableArtifact(
+      options.source.sourceId,
       options.profile,
       databasePath,
       manifest.ordinal,
@@ -959,6 +965,7 @@ async function analyseProfile(options: {
   }
   if (!entry.copied) {
     return unavailableArtifact(
+      options.source.sourceId,
       options.profile,
       databasePath,
       manifest.ordinal,
@@ -969,6 +976,7 @@ async function analyseProfile(options: {
 
   if (entry.size === null || entry.sha256 === null) {
     return unavailableArtifact(
+      options.source.sourceId,
       options.profile,
       databasePath,
       manifest.ordinal,
@@ -1061,6 +1069,7 @@ async function analyseProfile(options: {
           });
     const allVisits = [...committed, ...recovered];
     return {
+      sourceId: options.source.sourceId,
       profile: options.profile,
       status: "complete",
       manifestEntryOrdinal: manifest.ordinal,
@@ -1085,6 +1094,7 @@ async function analyseProfile(options: {
         ? `${error.code}:${error.message}`
         : `history_read_failed:${String(error)}`;
     return unavailableArtifact(
+      options.source.sourceId,
       options.profile,
       databasePath,
       manifest.ordinal,
@@ -1104,36 +1114,40 @@ export async function analyseCase(
   const declaredOriginOs = options.declaredOriginOs ?? null;
   const startedAt = new Date().toISOString();
   const verification = await verifyWorkingCopy(caseDirectory);
-  const source = loadCaseSource(caseDirectory);
-  const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
+  const sources = loadCaseSources(caseDirectory);
   const artifacts: HistoryArtifactWrite[] = [];
-  for (const profile of source.profiles) {
-    artifacts.push(
-      await analyseProfile({
-        source,
-        profile,
-        workingCopyPath,
-        declaredTimezone,
-        declaredOriginOs,
-      }),
-    );
+  for (const source of sources) {
+    const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
+    for (const profile of source.profiles) {
+      artifacts.push(
+        await analyseProfile({
+          source,
+          profile: profile.path,
+          workingCopyPath,
+          declaredTimezone,
+          declaredOriginOs,
+        }),
+      );
+    }
   }
 
   await verifyWorkingCopy(caseDirectory);
   const stored = storeHistoryAnalysis({
     caseDirectory,
-    sourceId: source.sourceId,
+    sourceIds: sources.map((source) => source.sourceId),
     declaredTimezone,
     declaredOriginOs,
     invocation: options.invocation ?? ["analyse", "--case", caseDirectory],
     startedAt,
     artifacts,
   });
-  const singletonLock = source.entries.find(
-    (entry) =>
-      entry.path === "SingletonLock" &&
-      entry.state === "value" &&
-      entry.node_type === "symlink",
+  const singletonLockPresent = sources.some((source) =>
+    source.entries.some(
+      (entry) =>
+        entry.path === "SingletonLock" &&
+        entry.state === "value" &&
+        entry.node_type === "symlink",
+    ),
   );
   const analysed = artifacts.filter(
     (artifact) => artifact.status === "complete",
@@ -1150,7 +1164,10 @@ export async function analyseCase(
     runId: stored.runId,
     history: {
       status: unavailable.length === 0 ? "complete" : "partial",
-      profileCount: source.profiles.length,
+      profileCount: sources.reduce(
+        (count, source) => count + source.profiles.length,
+        0,
+      ),
       analysedProfileCount: analysed.length,
       absentProfileCount: absent.length,
       unavailableProfileCount: unavailable.length,
@@ -1173,7 +1190,7 @@ export async function analyseCase(
       declaredTimezone,
       declaredOriginOs,
       declaredOriginOsConflict:
-        declaredOriginOs === "windows" && singletonLock !== undefined,
+        declaredOriginOs === "windows" && singletonLockPresent,
     },
   };
 }

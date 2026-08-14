@@ -21,7 +21,15 @@
   ],
   "properties": {
     "manifest_schema": { "const": "forensix/manifest/1" },
-    "source_kind": { "const": "USER_DATA_DIR" },
+    "source_kind": {
+      "enum": [
+        "USER_DATA_DIR",
+        "PROFILE_DIR",
+        "FILESYSTEM_ROOT",
+        "IMAGE_CONTAINER",
+        "ACQUISITION_BUNDLE"
+      ]
+    },
     "selection_policy": { "const": "chrome-userdata/1" },
     "selection_policy_diff": {
       "type": "array",

@@ -36,6 +36,11 @@ export interface Selection {
   readonly unclassified: boolean;
 }
 
+export interface BrowserLevelEvidence {
+  readonly path: string;
+  readonly fileKind: FileKind;
+}
+
 const POLICY_KEYS = [
   "schema",
   "name",
@@ -361,6 +366,36 @@ export function classifySourcePath(
   }
 
   return unclassified(nodeType);
+}
+
+export function classifyProfileSourcePath(
+  path: string,
+  nodeType: NodeType,
+): Selection {
+  return classifySourcePath(`Default/${path}`, nodeType);
+}
+
+export function browserLevelEvidence(): readonly BrowserLevelEvidence[] {
+  return CHROME_USERDATA_POLICY.browser_tier_1.map((artifact) => ({
+    path: artifact.path,
+    fileKind: artifact.file_kind,
+  }));
+}
+
+export function expectedProfileTierOnePaths(): string[] {
+  const expected: string[] = [];
+  for (const artifact of CHROME_USERDATA_POLICY.profile_tier_1) {
+    if (!artifact.expected) {
+      continue;
+    }
+    expected.push(artifact.path);
+    if (artifact.file_kind === "database") {
+      for (const suffix of CHROME_USERDATA_POLICY.sqlite_sidecar_suffixes) {
+        expected.push(`${artifact.path}${suffix}`);
+      }
+    }
+  }
+  return expected;
 }
 
 export function expectedTierOnePaths(

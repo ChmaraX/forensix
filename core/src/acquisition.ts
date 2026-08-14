@@ -13,9 +13,12 @@ import {
   type UnavailableReason,
 } from "./manifest.js";
 import {
+  classifyProfileSourcePath,
   classifySourcePath,
+  expectedProfileTierOnePaths,
   expectedTierOnePaths,
   isProfileDirectoryName,
+  type Selection,
 } from "./selection-policy.js";
 import { readStableRegularFile, sameNodeMetadata } from "./stable-file.js";
 
@@ -31,6 +34,8 @@ interface ScanContext {
   readonly includeTier2: boolean;
   readonly entries: ManifestEntry[];
   readonly profilePaths: Set<string>;
+  readonly classify: (path: string, nodeType: NodeType) => Selection;
+  readonly sourceLabel: "User Data Dir" | "Profile Dir";
 }
 
 class SourceRootChanged extends Error {}
@@ -74,8 +79,9 @@ function unavailableEntry(
   nodeType: Exclude<NodeType, "absent">,
   reason: UnavailableReason,
   mtimeNs: string | null,
+  classify: (path: string, nodeType: NodeType) => Selection,
 ): ManifestEntry {
-  const selection = classifySourcePath(path, nodeType);
+  const selection = classify(path, nodeType);
   return {
     path,
     state: "unavailable",
@@ -124,7 +130,7 @@ async function inspectFile(
   initialStats: BigIntStats,
   context: ScanContext,
 ): Promise<ManifestEntry> {
-  const selection = classifySourcePath(manifestPath, "file");
+  const selection = context.classify(manifestPath, "file");
   const shouldCopy =
     selection.tier === "tier_1" ||
     (selection.tier === "tier_2" && context.includeTier2);
@@ -181,6 +187,7 @@ async function inspectFile(
         "file",
         unavailableReason(result.error),
         initialStats.mtimeNs.toString(),
+        context.classify,
       );
     }
     if (result.status !== "stable") {
@@ -189,6 +196,7 @@ async function inspectFile(
         "file",
         "changed_during_ingest",
         initialStats.mtimeNs.toString(),
+        context.classify,
       );
     }
 
@@ -225,6 +233,7 @@ async function inspectSymlink(
   absolutePath: string,
   manifestPath: string,
   initialStats: BigIntStats,
+  context: ScanContext,
 ): Promise<ManifestEntry> {
   let target: string;
   try {
@@ -235,6 +244,7 @@ async function inspectSymlink(
       "symlink",
       unavailableReason(error),
       initialStats.mtimeNs.toString(),
+      context.classify,
     );
   }
 
@@ -247,6 +257,7 @@ async function inspectSymlink(
       "symlink",
       "changed_during_ingest",
       initialStats.mtimeNs.toString(),
+      context.classify,
     );
   }
   if (!sameNodeMetadata(initialStats, finalStats)) {
@@ -255,10 +266,11 @@ async function inspectSymlink(
       "symlink",
       "changed_during_ingest",
       initialStats.mtimeNs.toString(),
+      context.classify,
     );
   }
 
-  const selection = classifySourcePath(manifestPath, "symlink");
+  const selection = context.classify(manifestPath, "symlink");
   return {
     path: manifestPath,
     state: "value",
@@ -303,6 +315,7 @@ async function discardDirectoryObservation(
       "dir",
       reason,
       initialStats.mtimeNs.toString(),
+      context.classify,
     ),
   );
 }
@@ -314,7 +327,7 @@ async function inspectDirectory(
   context: ScanContext,
 ): Promise<void> {
   const entryStart = context.entries.length;
-  const selection = classifySourcePath(manifestPath, "dir");
+  const selection = context.classify(manifestPath, "dir");
   context.entries.push({
     path: manifestPath,
     state: "value",
@@ -331,7 +344,11 @@ async function inspectDirectory(
     link_target: null,
   });
 
-  if (!manifestPath.includes("/") && isProfileDirectoryName(manifestPath)) {
+  if (
+    context.sourceLabel === "User Data Dir" &&
+    !manifestPath.includes("/") &&
+    isProfileDirectoryName(manifestPath)
+  ) {
     context.profilePaths.add(manifestPath);
   }
 
@@ -405,7 +422,13 @@ async function inspectNode(
     stats = await lstat(absolutePath, { bigint: true });
   } catch (error) {
     context.entries.push(
-      unavailableEntry(manifestPath, "file", unavailableReason(error), null),
+      unavailableEntry(
+        manifestPath,
+        "file",
+        unavailableReason(error),
+        null,
+        context.classify,
+      ),
     );
     return;
   }
@@ -427,12 +450,12 @@ async function inspectNode(
   }
   if (nodeType === "symlink") {
     context.entries.push(
-      await inspectSymlink(absolutePath, manifestPath, stats),
+      await inspectSymlink(absolutePath, manifestPath, stats, context),
     );
     return;
   }
   if (nodeType === "socket") {
-    const selection = classifySourcePath(manifestPath, "socket");
+    const selection = context.classify(manifestPath, "socket");
     context.entries.push({
       path: manifestPath,
       state: "value",
@@ -473,19 +496,23 @@ function hasUnavailableParent(
 }
 
 function addExpectedEntries(
-  entries: ManifestEntry[],
+  context: ScanContext,
   profilePaths: readonly string[],
 ): void {
-  const actualPaths = new Set(entries.map((entry) => entry.path));
-  for (const path of expectedTierOnePaths(profilePaths)) {
+  const actualPaths = new Set(context.entries.map((entry) => entry.path));
+  const expectedPaths =
+    context.sourceLabel === "Profile Dir"
+      ? expectedProfileTierOnePaths()
+      : expectedTierOnePaths(profilePaths);
+  for (const path of expectedPaths) {
     if (actualPaths.has(path)) {
       continue;
     }
 
-    const parentUnavailable = hasUnavailableParent(path, entries);
+    const parentUnavailable = hasUnavailableParent(path, context.entries);
     const nodeType = parentUnavailable ? "file" : "absent";
-    const selection = classifySourcePath(path, nodeType);
-    entries.push({
+    const selection = context.classify(path, nodeType);
+    context.entries.push({
       path,
       state: parentUnavailable ? "unavailable" : "absent",
       unavailable_reason: parentUnavailable ? "parent_unavailable" : null,
@@ -507,6 +534,8 @@ async function scanOnce(
   sourceRoot: string,
   workingCopyRoot: string,
   includeTier2: boolean,
+  sourceLabel: "User Data Dir" | "Profile Dir",
+  classify: (path: string, nodeType: NodeType) => Selection,
 ): Promise<AcquisitionResult> {
   const initialRootStats = await lstat(sourceRoot, { bigint: true });
   let topLevelNames: string[];
@@ -515,7 +544,7 @@ async function scanOnce(
   } catch (error) {
     throw new ForensixError(
       "INGEST_FAILED",
-      "User Data Dir cannot be enumerated.",
+      `${sourceLabel} cannot be enumerated.`,
       { source_path: sourceRoot, reason: unavailableReason(error) },
       { cause: error },
     );
@@ -526,6 +555,8 @@ async function scanOnce(
     includeTier2,
     entries: [],
     profilePaths: new Set<string>(),
+    classify,
+    sourceLabel,
   };
   for (const childName of topLevelNames) {
     if (childName.includes("\\")) {
@@ -555,23 +586,34 @@ async function scanOnce(
     throw new SourceRootChanged();
   }
 
-  const profiles = [...context.profilePaths].sort((left, right) =>
-    Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8")),
-  );
-  addExpectedEntries(context.entries, profiles);
+  const profiles =
+    sourceLabel === "Profile Dir"
+      ? ["."]
+      : [...context.profilePaths].sort((left, right) =>
+          Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8")),
+        );
+  addExpectedEntries(context, profiles);
   return { entries: sortManifestEntries(context.entries), profiles };
 }
 
-export async function acquireUserDataDir(
+async function acquireDirectory(
   sourceRoot: string,
   workingCopyRoot: string,
   includeTier2: boolean,
+  sourceLabel: "User Data Dir" | "Profile Dir",
+  classify: (path: string, nodeType: NodeType) => Selection,
 ): Promise<AcquisitionResult> {
   for (let attempt = 1; attempt <= ROOT_SCAN_ATTEMPTS; attempt += 1) {
     await rm(workingCopyRoot, { force: true, recursive: true });
     await mkdir(workingCopyRoot, { recursive: true, mode: 0o700 });
     try {
-      return await scanOnce(sourceRoot, workingCopyRoot, includeTier2);
+      return await scanOnce(
+        sourceRoot,
+        workingCopyRoot,
+        includeTier2,
+        sourceLabel,
+        classify,
+      );
     } catch (error) {
       if (!(error instanceof SourceRootChanged)) {
         throw error;
@@ -579,7 +621,7 @@ export async function acquireUserDataDir(
       if (attempt === ROOT_SCAN_ATTEMPTS) {
         throw new ForensixError(
           "INGEST_FAILED",
-          "User Data Dir changed during ingest.",
+          `${sourceLabel} changed during ingest.`,
           { source_path: sourceRoot, reason: "changed_during_ingest" },
         );
       }
@@ -587,4 +629,32 @@ export async function acquireUserDataDir(
   }
 
   throw new Error("Unreachable acquisition retry state.");
+}
+
+export async function acquireUserDataDir(
+  sourceRoot: string,
+  workingCopyRoot: string,
+  includeTier2: boolean,
+): Promise<AcquisitionResult> {
+  return acquireDirectory(
+    sourceRoot,
+    workingCopyRoot,
+    includeTier2,
+    "User Data Dir",
+    classifySourcePath,
+  );
+}
+
+export async function acquireProfileDir(
+  sourceRoot: string,
+  workingCopyRoot: string,
+  includeTier2: boolean,
+): Promise<AcquisitionResult> {
+  return acquireDirectory(
+    sourceRoot,
+    workingCopyRoot,
+    includeTier2,
+    "Profile Dir",
+    classifyProfileSourcePath,
+  );
 }

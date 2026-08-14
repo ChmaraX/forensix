@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  SOURCE_KINDS,
   canonicalManifestLine,
   classifySourcePath,
   decodeManifestEntry,
@@ -104,6 +105,29 @@ describe("Manifest contract v1", () => {
     expect(() => decodeManifestEntry({ ...valid, extra: true })).toThrow(
       "missing or unknown fields",
     );
+  });
+
+  it("accepts every supported Source kind in a Manifest header", () => {
+    const digest = independentSha256("");
+    for (const sourceKind of SOURCE_KINDS) {
+      expect(
+        decodeManifestHeader({
+          manifest_schema: "forensix/manifest/1",
+          source_kind: sourceKind,
+          selection_policy: "chrome-userdata/1",
+          selection_policy_diff: [],
+          tier_2_included: false,
+          hash_algorithm: "sha-256",
+          evidence_set_digest: digest,
+          working_copy_digest: digest,
+          entry_count: 0,
+          copied_entry_count: 0,
+          profile_count: 0,
+          unavailable_count: 0,
+          unclassified_count: 0,
+        }).source_kind,
+      ).toBe(sourceKind);
+    }
   });
 
   it("hashes non-file representations without dereferencing them", () => {

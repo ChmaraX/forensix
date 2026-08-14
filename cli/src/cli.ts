@@ -3,9 +3,10 @@
 import {
   ForensixError,
   MINIMUM_NODE_VERSION,
+  SOURCE_KINDS,
   TOOL_VERSION,
   analyseCase,
-  ingestUserDataDir,
+  ingestSource,
   queryHistory,
   type CommitState,
   type DeclaredOriginOs,
@@ -14,10 +15,11 @@ import {
   type HistoryView,
   type IngestProgress,
   type IngestResult,
+  type SourceKind,
 } from "@forensix/core";
 
 const USAGE = `Usage:
-  forensix ingest <user-data-dir> --case <case-directory> [--include-tier-2] [--json]
+  forensix ingest <source> --case <case-directory> [--source-kind <kind>] [--include-tier-2] [--json]
   forensix analyse --case <case-directory> [--timezone <iana-zone>] [--origin-os <windows|macos|linux>] [--json]
   forensix history --case <case-directory> [--view <visits|activity|most-visited|durations>]
                    [--profile <profile>]... [--search <text>]
@@ -26,6 +28,9 @@ const USAGE = `Usage:
                    [--sort <field>] [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix --version
+
+Source kinds:
+  USER_DATA_DIR (default), PROFILE_DIR, FILESYSTEM_ROOT, IMAGE_CONTAINER, ACQUISITION_BUNDLE
 `;
 
 type OptionValue = string | true;
@@ -39,6 +44,7 @@ interface ParsedArguments {
 const FLAG_OPTIONS = new Set(["--json", "--include-tier-2"]);
 const VALUE_OPTIONS = new Set([
   "--case",
+  "--source-kind",
   "--timezone",
   "--origin-os",
   "--view",
@@ -228,12 +234,12 @@ async function run(arguments_: readonly string[]): Promise<number> {
   if (parsed.command === "ingest") {
     assertAllowedOptions(
       parsed,
-      new Set(["--case", "--json", "--include-tier-2"]),
+      new Set(["--case", "--json", "--include-tier-2", "--source-kind"]),
     );
     if (parsed.positionals.length !== 1) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
-        "The ingest command needs one User Data Dir path.",
+        "The ingest command needs one Source path.",
       );
     }
     const sourcePath = parsed.positionals[0];
@@ -243,9 +249,18 @@ async function run(arguments_: readonly string[]): Promise<number> {
         "The Source path is missing.",
       );
     }
+    const requestedKind =
+      optionValue(parsed, "--source-kind") ?? "USER_DATA_DIR";
+    if (!SOURCE_KINDS.includes(requestedKind as SourceKind)) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        `Unsupported Source kind: ${String(requestedKind)}`,
+      );
+    }
     const result = await consumeIngest(
-      ingestUserDataDir({
+      ingestSource({
         sourcePath,
+        sourceKind: requestedKind as SourceKind,
         caseDirectory: requiredCasePath(parsed),
         includeTier2: hasOption(parsed, "--include-tier-2"),
       }),

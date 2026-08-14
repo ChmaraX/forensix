@@ -2,6 +2,15 @@ import { createHash } from "node:crypto";
 
 export const MANIFEST_SCHEMA = "forensix/manifest/1" as const;
 export const HASH_ALGORITHM = "sha-256" as const;
+export const SOURCE_KINDS = [
+  "USER_DATA_DIR",
+  "PROFILE_DIR",
+  "FILESYSTEM_ROOT",
+  "IMAGE_CONTAINER",
+  "ACQUISITION_BUNDLE",
+] as const;
+
+export type SourceKind = (typeof SOURCE_KINDS)[number];
 
 const MANIFEST_ENTRY_KEYS = [
   "path",
@@ -80,7 +89,7 @@ export interface ManifestEntry {
 
 export interface ManifestHeader {
   readonly manifest_schema: typeof MANIFEST_SCHEMA;
-  readonly source_kind: "USER_DATA_DIR";
+  readonly source_kind: SourceKind;
   readonly selection_policy: "chrome-userdata/1";
   readonly selection_policy_diff: readonly [];
   readonly tier_2_included: boolean;
@@ -343,7 +352,7 @@ export function decodeManifestHeader(value: unknown): ManifestHeader {
       MANIFEST_SCHEMA,
       "manifest_schema",
     ),
-    source_kind: exactValue(object.source_kind, "USER_DATA_DIR", "source_kind"),
+    source_kind: enumValue(object.source_kind, SOURCE_KINDS, "source_kind"),
     selection_policy: exactValue(
       object.selection_policy,
       "chrome-userdata/1",
