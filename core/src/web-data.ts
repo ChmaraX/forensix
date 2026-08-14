@@ -39,10 +39,6 @@ interface ManifestIdentity {
   readonly databasePath: string;
 }
 
-interface BuiltAutofill {
-  readonly persisted: PersistedAutofillFinding;
-}
-
 function utcFromUnixSeconds(seconds: bigint): string | null {
   const milliseconds = seconds * 1000n;
   const numericMilliseconds = Number(milliseconds);
@@ -132,7 +128,7 @@ function buildAutofillEntries(options: {
   readonly profile: string;
   readonly manifest: ManifestIdentity;
   readonly declaredTimezone: string;
-}): BuiltAutofill[] {
+}): PersistedAutofillFinding[] {
   return options.rows.map((row) => {
     if (row.rowId === null) {
       throw new ForensixError(
@@ -175,20 +171,14 @@ function buildAutofillEntries(options: {
       fields,
     });
     return {
-      persisted: {
-        finding,
-        searchText: [
-          options.profile,
-          textValue(fieldName),
-          textValue(fieldValue),
-        ]
-          .join("\n")
-          .toLocaleLowerCase("en-US"),
-        sortCreated: timeValue(dateCreated),
-        sortLastUsed: timeValue(dateLastUsed),
-        sortName: textValue(fieldName) || null,
-        sortValue: textValue(fieldValue) || null,
-      },
+      finding,
+      searchText: [options.profile, textValue(fieldName), textValue(fieldValue)]
+        .join("\n")
+        .toLocaleLowerCase("en-US"),
+      sortCreated: timeValue(dateCreated),
+      sortLastUsed: timeValue(dateLastUsed),
+      sortName: textValue(fieldName) || null,
+      sortValue: textValue(fieldValue) || null,
     };
   });
 }
@@ -368,10 +358,7 @@ export async function analyseWebDataProfile(options: {
       integrity: passes.committed.integrity,
       recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
       reason: passes.recoveryUnavailableReason,
-      findings: [
-        ...committed.map((entry) => entry.persisted),
-        ...recovered.map((entry) => entry.persisted),
-      ],
+      findings: [...committed, ...recovered],
       committedFieldCount: committed.length,
       recoveredFieldCount: recovered.length,
     };
