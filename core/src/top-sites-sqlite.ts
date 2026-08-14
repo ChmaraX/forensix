@@ -58,13 +58,6 @@ export interface TopSitePasses {
  */
 const REQUIRED_TOP_SITE_COLUMNS = ["url", "url_rank", "title"] as const;
 
-const SUPPORTED_TOP_SITE_COLUMNS = [
-  "url",
-  "url_rank",
-  "title",
-  "redirects",
-] as const;
-
 function tableExists(database: DatabaseSync, table: string): boolean {
   return (
     database
@@ -234,8 +227,6 @@ function recoveredOnlyTopSites(
   }
   return rows;
 }
-
-export { SUPPORTED_TOP_SITE_COLUMNS };
 
 export async function readTopSitePasses(options: {
   readonly database: VerifiedTopSiteFile;

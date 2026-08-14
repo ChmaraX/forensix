@@ -110,6 +110,40 @@ function insertTopSite(database: DatabaseSync, row: TopSiteRow): void {
 }
 
 /**
+ * Build a version-4 Top Sites database, which still carries the (unused since
+ * 2019) `redirects` column dropped by version 5. It proves the reader parses
+ * both current schemas and keeps `redirects` as an exact value when present.
+ */
+async function createTopSitesV4(
+  path: string,
+  rows: readonly (TopSiteRow & { readonly redirects: string })[],
+): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  const database = new DatabaseSync(path);
+  try {
+    database.exec(`
+      CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);
+      INSERT INTO meta (key, value) VALUES ('version', '4'), ('last_compatible_version', '1');
+
+      CREATE TABLE top_sites (
+        url LONGVARCHAR PRIMARY KEY,
+        url_rank INTEGER NOT NULL,
+        title LONGVARCHAR NOT NULL,
+        redirects LONGVARCHAR
+      );
+    `);
+    const insert = database.prepare(
+      "INSERT INTO top_sites (url, url_rank, title, redirects) VALUES (?, ?, ?, ?)",
+    );
+    for (const row of rows) {
+      insert.run(row.url, row.urlRank, row.title, row.redirects);
+    }
+  } finally {
+    database.close();
+  }
+}
+
+/**
  * A valid SQLite file that is not a supported Top Sites store: it carries a
  * `meta` table but no `top_sites` table. The analyzer must classify this as
  * unavailable (unreadable/unsupported), distinct from an absent database.
@@ -355,6 +389,41 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
         rowId: "2",
       },
       fields: { url: { state: "value", value: "https://wal.example/" } },
+    });
+  });
+
+  it("parses the version-4 schema and keeps redirects as an exact value", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-top-sites-v4-"));
+    temporaryRoots.push(root);
+    const source = join(root, "source");
+    await mkdir(source, { recursive: true });
+    await writeFile(join(source, "Local State"), "{}\n");
+    await createTopSitesV4(join(source, "Default", "Top Sites"), [
+      {
+        url: "https://legacy.example/",
+        urlRank: 0n,
+        title: "Legacy",
+        redirects: "https://legacy.example/ https://www.legacy.example/",
+      },
+    ]);
+    const caseDirectory = join(root, "CASE-TOP-SITES-V4");
+    expect(
+      runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+    ).toBe(0);
+    expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
+      0,
+    );
+
+    const rows = parseJson<TopSitePage>(
+      runCli(["top-sites", "--case", caseDirectory, "--json"]).stdout,
+    );
+    expect(rows.items).toHaveLength(1);
+    expect(rows.items[0]?.fields).toMatchObject({
+      url: { state: "value", value: "https://legacy.example/" },
+      redirects: {
+        state: "value",
+        value: "https://legacy.example/ https://www.legacy.example/",
+      },
     });
   });
 
