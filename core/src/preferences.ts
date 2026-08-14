@@ -101,6 +101,11 @@ function booleanField(result: Lookup): FieldState<boolean> {
  * The browser-level Chrome version recorded in the current `Local State` schema
  * as the first element of `variations_permanent_consistency_country`
  * (`[version, country]`). A present-but-wrong shape is unavailable, never blank.
+ *
+ * Caveat for examiners: this element is the version at which the variations
+ * consistency country was last persisted, not necessarily the currently
+ * installed or last-run build. `Local State` has no dedicated version key, so
+ * this is the best in-file proxy; the Provenance points at the exact source.
  */
 export function chromeVersionField(localState: unknown): FieldState<string> {
   const result = lookup(localState, [
@@ -176,6 +181,12 @@ export function screenWorkAreaField(
   return valueField(`${width}x${height}`, { synthetic: true });
 }
 
+/**
+ * Resolve the primary account from `account_info` plus the total account count.
+ * Only the first entry (`account_info[0]`) is detailed; a Profile signed into
+ * multiple accounts reports the rest only through `count`, so the per-account
+ * fields describe the primary account and `accountCount` bounds the remainder.
+ */
 function firstAccount(preferences: unknown): {
   readonly count: FieldState<string>;
   readonly account: unknown;
@@ -442,8 +453,16 @@ function buildProfileFinding(options: {
     booleanField,
   );
 
+  // A supporting Provenance row is attached only when the browser `info_cache`
+  // slice was actually consulted for this Finding: the file was readable and a
+  // Profile directory key exists to locate the slice. A single-Profile Source
+  // (`profile === "."`) has no directory key, so its info_cache fields are
+  // absent and no supporting row is claimed — Provenance never asserts a source
+  // that did not contribute.
   const supportingRows: SourceRowProvenance[] =
-    infoCacheAvailable && options.localStateOrdinal !== null
+    infoCacheAvailable &&
+    options.localStateOrdinal !== null &&
+    profileDir !== null
       ? [
           {
             manifestEntryId: `${options.sourceId}:${options.localStateOrdinal}`,
@@ -452,10 +471,7 @@ function buildProfileFinding(options: {
             manifestPath: "Local State",
             database: "Local State",
             table: "local_state",
-            rowId:
-              profileDir === null
-                ? "profile.info_cache"
-                : `profile.info_cache/${profileDir}`,
+            rowId: `profile.info_cache/${profileDir}`,
           },
         ]
       : [];
