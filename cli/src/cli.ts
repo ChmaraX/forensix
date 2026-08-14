@@ -9,9 +9,12 @@ import {
   analyseCase,
   exportCase,
   ingestSource,
+  queryCookies,
   queryCredentials,
   queryHistory,
   type CommitState,
+  type CookieDirection,
+  type CookieSort,
   type CredentialDirection,
   type CredentialSort,
   type DeclaredOriginOs,
@@ -32,6 +35,13 @@ const USAGE = `Usage:
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--transition <name>] [--from <instant>] [--to <instant>]
                    [--sort <field>] [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
+  forensix cookies --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--host <host-key>] [--same-site <name>]
+                   [--sort <host|name|creation-time|expires-time|last-access-time|profile>]
+                   [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix credentials --case <case-directory>
                    [--profile <profile>]... [--search <text>]
@@ -81,6 +91,8 @@ const VALUE_OPTIONS = new Set([
   "--transition",
   "--from",
   "--to",
+  "--host",
+  "--same-site",
   "--sort",
   "--direction",
   "--limit",
@@ -378,6 +390,58 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ] as const) as HistorySort | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | HistoryDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "cookies") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--commit-state",
+        "--host",
+        "--same-site",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The cookies command accepts no positional values.",
+      );
+    }
+    const result = queryCookies({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      host: optionValue(parsed, "--host"),
+      sameSite: optionValue(parsed, "--same-site"),
+      sort: enumOption(parsed, "--sort", [
+        "host",
+        "name",
+        "creation-time",
+        "expires-time",
+        "last-access-time",
+        "profile",
+      ] as const) as CookieSort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | CookieDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),

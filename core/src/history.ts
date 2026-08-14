@@ -3,11 +3,13 @@ import { join, resolve } from "node:path";
 import {
   storeHistoryAnalysis,
   type AnalysisRunExitState,
+  type CookieArtifactWrite,
   type DeclaredOriginOs,
   type HistoryArtifactWrite,
   type LoginDataArtifactWrite,
   type PersistedFinding,
 } from "./case-findings.js";
+import { analyseSourceCookies } from "./cookies.js";
 import { analyseLoginDataProfile } from "./login-data.js";
 import {
   loadCaseSources,
@@ -76,6 +78,20 @@ export interface HistoryAnalysisSummary {
   readonly declaredOriginOsConflict: boolean;
 }
 
+export interface CookieAnalysisSummary {
+  readonly status: "complete" | "partial";
+  readonly profileCount: number;
+  readonly analysedProfileCount: number;
+  readonly absentProfileCount: number;
+  readonly unavailableProfileCount: number;
+  readonly recoveryUnavailableProfileCount: number;
+  readonly committedCookieCount: number;
+  readonly recoveredCookieCount: number;
+  readonly findingCount: number;
+  readonly declaredTimezone: string;
+  readonly declaredOriginOs: DeclaredOriginOs | null;
+}
+
 /**
  * Distinct, documented exit codes for the `analyse` command. The Case is the
  * record of truth for the exit state; these codes map each recorded Analysis
@@ -114,6 +130,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly runId: string;
   readonly exitState: AnalysisRunExitState;
   readonly history: HistoryAnalysisSummary;
+  readonly cookies: CookieAnalysisSummary;
   readonly loginData: LoginDataAnalysisSummary;
 }
 
@@ -1152,6 +1169,7 @@ export async function analyseCase(
   const verification = await verifyWorkingCopy(caseDirectory);
   const sources = loadCaseSources(caseDirectory);
   const artifacts: HistoryArtifactWrite[] = [];
+  const cookieArtifacts: CookieArtifactWrite[] = [];
   const loginDataArtifacts: LoginDataArtifactWrite[] = [];
   for (const source of sources) {
     const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
@@ -1174,6 +1192,14 @@ export async function analyseCase(
         }),
       );
     }
+    cookieArtifacts.push(
+      ...(await analyseSourceCookies({
+        source,
+        workingCopyPath,
+        declaredTimezone,
+        declaredOriginOs,
+      })),
+    );
   }
 
   await verifyWorkingCopy(caseDirectory);
@@ -1185,6 +1211,7 @@ export async function analyseCase(
     invocation: options.invocation ?? ["analyse", "--case", caseDirectory],
     startedAt,
     artifacts,
+    cookieArtifacts,
     loginDataArtifacts,
   });
   const singletonLockPresent = sources.some((source) =>
@@ -1202,6 +1229,15 @@ export async function analyseCase(
   const unavailable = artifacts.filter(
     (artifact) => artifact.status === "unavailable",
   );
+  const cookiesAnalysed = cookieArtifacts.filter(
+    (artifact) => artifact.status === "complete",
+  );
+  const cookiesAbsent = cookieArtifacts.filter(
+    (artifact) => artifact.status === "absent",
+  );
+  const cookiesUnavailable = cookieArtifacts.filter(
+    (artifact) => artifact.status === "unavailable",
+  );
   const loginAnalysed = loginDataArtifacts.filter(
     (artifact) => artifact.status === "complete",
   );
@@ -1215,9 +1251,37 @@ export async function analyseCase(
     ...verification,
     command: "analyse",
     analysisStatus: "ready",
-    artifactCount: analysed.length,
+    artifactCount:
+      analysed.length + cookiesAnalysed.length + loginAnalysed.length,
     runId: stored.runId,
     exitState: stored.runStatus,
+    cookies: {
+      status: cookiesUnavailable.length === 0 ? "complete" : "partial",
+      profileCount: sources.reduce(
+        (count, source) => count + source.profiles.length,
+        0,
+      ),
+      analysedProfileCount: cookiesAnalysed.length,
+      absentProfileCount: cookiesAbsent.length,
+      unavailableProfileCount: cookiesUnavailable.length,
+      recoveryUnavailableProfileCount: cookiesAnalysed.filter(
+        (artifact) => artifact.recoveryStatus === "unavailable",
+      ).length,
+      committedCookieCount: cookiesAnalysed.reduce(
+        (count, artifact) => count + artifact.committedCookieCount,
+        0,
+      ),
+      recoveredCookieCount: cookiesAnalysed.reduce(
+        (count, artifact) => count + artifact.recoveredCookieCount,
+        0,
+      ),
+      findingCount: cookiesAnalysed.reduce(
+        (count, artifact) => count + artifact.findings.length,
+        0,
+      ),
+      declaredTimezone,
+      declaredOriginOs,
+    },
     history: {
       status: unavailable.length === 0 ? "complete" : "partial",
       profileCount: sources.reduce(

@@ -64,6 +64,33 @@ export interface LoginDataArtifactWrite {
   readonly recoveredCredentialCount: number;
 }
 
+export interface PersistedCookieFinding {
+  readonly finding: Finding;
+  readonly searchText: string;
+  readonly sortHost: string | null;
+  readonly sortName: string | null;
+  readonly sortCreation: string | null;
+  readonly sortExpires: string | null;
+  readonly sortLastAccess: string | null;
+  readonly hostKey: string | null;
+  readonly sameSite: string | null;
+}
+
+export interface CookieArtifactWrite {
+  readonly sourceId: string;
+  readonly profile: string;
+  readonly status: "complete" | "absent" | "unavailable";
+  readonly manifestEntryOrdinal: number | null;
+  readonly databasePath: string;
+  readonly schemaVersion: number | null;
+  readonly integrity: string | null;
+  readonly recoveryStatus: "complete" | "unavailable" | "not_applicable";
+  readonly reason: string | null;
+  readonly findings: readonly PersistedCookieFinding[];
+  readonly committedCookieCount: number;
+  readonly recoveredCookieCount: number;
+}
+
 export interface StoreHistoryAnalysisOptions {
   readonly caseDirectory: string;
   readonly sourceIds: readonly string[];
@@ -72,6 +99,7 @@ export interface StoreHistoryAnalysisOptions {
   readonly invocation: readonly string[];
   readonly startedAt: string;
   readonly artifacts: readonly HistoryArtifactWrite[];
+  readonly cookieArtifacts?: readonly CookieArtifactWrite[];
   readonly loginDataArtifacts?: readonly LoginDataArtifactWrite[];
 }
 
@@ -248,6 +276,71 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       ON login_data_findings(finding_kind, COALESCE(sort_username, ''), finding_id);
     CREATE INDEX IF NOT EXISTS login_data_findings_profile_query
       ON login_data_findings(finding_kind, profile_path, finding_id);
+
+    CREATE TABLE IF NOT EXISTS cookie_artifact_results (
+      artifact_result_id INTEGER PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL REFERENCES sources(source_id),
+      profile_path TEXT NOT NULL,
+      artifact TEXT NOT NULL CHECK (artifact = 'Cookies'),
+      manifest_entry_ordinal INTEGER,
+      database_path TEXT NOT NULL,
+      schema_version INTEGER,
+      integrity TEXT,
+      recovery_status TEXT NOT NULL CHECK (
+        recovery_status IN ('complete', 'unavailable', 'not_applicable')
+      ),
+      status TEXT NOT NULL CHECK (status IN ('complete', 'absent', 'unavailable')),
+      reason TEXT,
+      active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal),
+      UNIQUE (run_id, source_id, profile_path, artifact)
+    ) STRICT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS cookie_one_active_result
+      ON cookie_artifact_results(source_id, profile_path, artifact)
+      WHERE active = 1;
+
+    CREATE TABLE IF NOT EXISTS cookie_findings (
+      finding_id INTEGER PRIMARY KEY,
+      artifact_result_id INTEGER NOT NULL
+        REFERENCES cookie_artifact_results(artifact_result_id),
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL,
+      manifest_entry_ordinal INTEGER NOT NULL,
+      record_type TEXT NOT NULL CHECK (record_type = 'finding'),
+      finding_kind TEXT NOT NULL,
+      profile_path TEXT NOT NULL,
+      commit_state TEXT NOT NULL CHECK (
+        commit_state IN ('committed', 'wal_resident', 'journal_resident')
+      ),
+      provenance_json TEXT NOT NULL,
+      fields_json TEXT NOT NULL,
+      search_text TEXT NOT NULL,
+      sort_host TEXT,
+      sort_name TEXT,
+      sort_creation TEXT,
+      sort_expires TEXT,
+      sort_last_access TEXT,
+      host_key TEXT,
+      same_site TEXT,
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal)
+    ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS cookie_findings_host_query
+      ON cookie_findings(finding_kind, COALESCE(sort_host, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS cookie_findings_name_query
+      ON cookie_findings(finding_kind, COALESCE(sort_name, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS cookie_findings_creation_query
+      ON cookie_findings(finding_kind, COALESCE(sort_creation, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS cookie_findings_expires_query
+      ON cookie_findings(finding_kind, COALESCE(sort_expires, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS cookie_findings_last_access_query
+      ON cookie_findings(finding_kind, COALESCE(sort_last_access, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS cookie_findings_profile_query
+      ON cookie_findings(finding_kind, profile_path, commit_state, finding_id);
   `);
 }
 
@@ -326,9 +419,39 @@ function insertLoginFinding(
   );
 }
 
+function insertCookieFinding(
+  statement: ReturnType<DatabaseSync["prepare"]>,
+  artifactResultId: bigint,
+  runId: string,
+  row: PersistedCookieFinding,
+): void {
+  const finding = row.finding;
+  statement.run(
+    artifactResultId,
+    runId,
+    finding.provenance.sourceId,
+    finding.provenance.manifestEntryOrdinal,
+    finding.recordType,
+    finding.findingKind,
+    finding.profile,
+    finding.commitState,
+    JSON.stringify(finding.provenance),
+    JSON.stringify(finding.fields),
+    row.searchText,
+    row.sortHost,
+    row.sortName,
+    row.sortCreation,
+    row.sortExpires,
+    row.sortLastAccess,
+    row.hostKey,
+    row.sameSite,
+  );
+}
+
 export function storeHistoryAnalysis(
   options: StoreHistoryAnalysisOptions,
 ): StoredHistoryAnalysis {
+  const cookieArtifacts = options.cookieArtifacts ?? [];
   const runId = randomUUID();
   const database = new DatabaseSync(
     join(resolve(options.caseDirectory), CASE_FILENAME),
@@ -415,6 +538,30 @@ export function storeHistoryAnalysis(
       const activateCurrentLogin = database.prepare(
         "UPDATE login_data_artifact_results SET active = 1 WHERE artifact_result_id = ?",
       );
+      const insertCookieArtifact = database.prepare(
+        `INSERT INTO cookie_artifact_results
+           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
+            database_path, schema_version, integrity, recovery_status,
+            status, reason, active)
+         VALUES (?, ?, ?, 'Cookies', ?, ?, ?, ?, ?, ?, ?, 0)`,
+      );
+      const insertCookieFindingStatement = database.prepare(
+        `INSERT INTO cookie_findings
+           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
+            record_type, finding_kind, profile_path, commit_state,
+            provenance_json, fields_json, search_text, sort_host, sort_name,
+            sort_creation, sort_expires, sort_last_access, host_key, same_site)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      const deactivatePreviousCookie = database.prepare(
+        `UPDATE cookie_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Cookies'
+            AND active = 1`,
+      );
+      const activateCurrentCookie = database.prepare(
+        "UPDATE cookie_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+      );
 
       for (const artifact of options.artifacts) {
         const insertion = insertArtifact.run(
@@ -452,6 +599,34 @@ export function storeHistoryAnalysis(
         }
       }
 
+      for (const artifact of cookieArtifacts) {
+        const insertion = insertCookieArtifact.run(
+          runId,
+          artifact.sourceId,
+          artifact.profile,
+          artifact.manifestEntryOrdinal,
+          artifact.databasePath,
+          artifact.schemaVersion,
+          artifact.integrity,
+          artifact.recoveryStatus,
+          artifact.status,
+          artifact.reason,
+        );
+        const artifactResultId = insertion.lastInsertRowid as bigint;
+        for (const finding of artifact.findings) {
+          insertCookieFinding(
+            insertCookieFindingStatement,
+            artifactResultId,
+            runId,
+            finding,
+          );
+        }
+        if (artifact.status === "complete") {
+          deactivatePreviousCookie.run(artifact.sourceId, artifact.profile);
+          activateCurrentCookie.run(artifactResultId);
+        }
+      }
+
       for (const artifact of options.loginDataArtifacts ?? []) {
         const insertion = insertLoginArtifact.run(
           runId,
@@ -482,6 +657,7 @@ export function storeHistoryAnalysis(
 
       const combinedArtifacts = [
         ...options.artifacts,
+        ...cookieArtifacts,
         ...(options.loginDataArtifacts ?? []),
       ];
       const unavailableCount = combinedArtifacts.filter(
