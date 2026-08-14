@@ -155,6 +155,35 @@ Use `--commit-state` to keep committed and recovered rows separate.
 The `--from`, `--to`, and `--transition` filters apply only to `visits`.
 Timestamp bounds must include `Z` or a numeric offset.
 
+## Query Cookie Findings
+
+The `analyse` command parses each Profile's Cookie store in the same Analysis
+Run as History, without decrypting any value. Query the Cookie Findings with:
+
+```sh
+node cli/dist/cli.js cookies \
+  --case "/path/to/CASE-001" \
+  --profile Default \
+  --search "example.com" \
+  --commit-state committed \
+  --host ".example.com" \
+  --same-site lax \
+  --sort host \
+  --direction asc \
+  --limit 50 \
+  --json
+```
+
+Each Cookie Finding records host, name, path, flags, and the exact SameSite,
+priority, source scheme, source type, and port. Cookie timestamps use the
+1601 Epoch Family; a legacy schema needs `--origin-os` before the analyzer
+asserts the UTC instant. An encrypted cookie value stays `unavailable` with the
+typed reason `encrypted_secret_without_key_material`, and the Finding still
+reports the encryption scheme (`v10`, `v11`, `v20`) and the ciphertext byte
+length. Use `--commit-state` to keep committed and sidecar-resident cookies
+separate. Repeat `--profile` to query at most 100 Profiles, and use `nextCursor`
+as the next `--after` value.
+
 ## Query Credential Metadata
 
 The `credentials` command returns Login Data Findings with the same bounded, multi-Profile query surface as History.

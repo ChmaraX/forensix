@@ -328,7 +328,7 @@ function readPass(database: DatabaseSync): HistoryPass {
   return { schema, rows, integrity };
 }
 
-function immutableDatabase(path: string): DatabaseSync {
+export function immutableDatabase(path: string): DatabaseSync {
   const url = pathToFileURL(path);
   url.searchParams.set("immutable", "1");
   return new DatabaseSync(url.href, {
@@ -451,7 +451,7 @@ async function writeAll(destination: FileHandle, chunk: Buffer): Promise<void> {
   }
 }
 
-async function snapshotVerifiedFile(
+export async function snapshotVerifiedFile(
   source: VerifiedHistoryFile,
   destinationPath: string,
 ): Promise<void> {

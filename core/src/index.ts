@@ -92,6 +92,7 @@ export {
   analyseCase,
   type AnalyseCaseOptions,
   type AnalyseCaseResult,
+  type CookieAnalysisSummary,
   type EpochFamily,
   type ForensicTimestamp,
   type HistoryAnalysisSummary,
@@ -128,6 +129,13 @@ export {
   type CredentialQuery,
   type CredentialSort,
 } from "./login-data-query.js";
+export {
+  queryCookies,
+  type CookieDirection,
+  type CookiePage,
+  type CookieQuery,
+  type CookieSort,
+} from "./cookies-query.js";
 export {
   type AnalysisRunExitState,
   type DeclaredOriginOs,
