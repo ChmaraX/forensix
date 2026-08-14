@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forensix.dev/contracts/key-material-manifest-header-v1.schema.json",
+  "title": "ForensiX key-material Manifest header v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_schema", "hash_algorithm", "manifest_digest", "entry_count"],
+  "properties": {
+    "manifest_schema": { "const": "forensix/key-material-manifest/1" },
+    "hash_algorithm": { "const": "sha-256" },
+    "manifest_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "entry_count": { "type": "integer", "minimum": 1 }
+  }
+}

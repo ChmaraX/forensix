@@ -11,10 +11,12 @@ import (
 	"testing"
 )
 
-func TestProductionCodeHasNoNetworkOrProcessControlImports(t *testing.T) {
+func TestProductionCodeHasNoNetworkProcessControlOrLoggingImports(t *testing.T) {
 	_, current, _, _ := runtime.Caller(0)
 	moduleRoot := filepath.Clean(filepath.Join(filepath.Dir(current), "..", ".."))
-	forbidden := []string{"net", "net/", "os/exec", "syscall", "unsafe"}
+	// The Windows DPAPI adapter needs unsafe only to copy and immediately zero
+	// the OS-owned DATA_BLOB. Network, process-control, and logging packages remain banned.
+	forbidden := []string{"net", "net/", "os/exec", "syscall", "log", "log/"}
 	err := filepath.WalkDir(moduleRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
