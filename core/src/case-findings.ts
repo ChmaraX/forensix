@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { CASE_FILENAME, TOOL_VERSION } from "./case.js";
+import { openDatabaseSync } from "./sqlite-open.js";
 import type { Candidate, Finding } from "./forensic-model.js";
 
 export type DeclaredOriginOs = "windows" | "macos" | "linux";
@@ -453,7 +454,7 @@ export function storeHistoryAnalysis(
 ): StoredHistoryAnalysis {
   const cookieArtifacts = options.cookieArtifacts ?? [];
   const runId = randomUUID();
-  const database = new DatabaseSync(
+  const database = openDatabaseSync(
     join(resolve(options.caseDirectory), CASE_FILENAME),
     { readBigInts: true },
   );
