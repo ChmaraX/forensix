@@ -139,6 +139,31 @@ export interface TopSitesArtifactWrite {
   readonly recoveredTopSiteCount: number;
 }
 
+export interface PersistedMetadataFinding {
+  readonly finding: Finding;
+  readonly searchText: string;
+  readonly sortType: string;
+  readonly sortProfile: string;
+}
+
+export interface MetadataArtifactWrite {
+  readonly sourceId: string;
+  readonly profile: string;
+  /**
+   * The evidence file backing this metadata scope. `Local State` is
+   * browser-level, `Preferences` is Profile-level. It keeps the two scopes
+   * distinct in storage even when a single-Profile Source reports both under
+   * the `.` Profile path.
+   */
+  readonly artifact: "Local State" | "Preferences";
+  readonly status: "complete" | "absent" | "unavailable";
+  readonly manifestEntryOrdinal: number | null;
+  readonly databasePath: string;
+  readonly reason: string | null;
+  readonly findings: readonly PersistedMetadataFinding[];
+  readonly metadataFindingCount: number;
+}
+
 export interface StoreHistoryAnalysisOptions {
   readonly caseDirectory: string;
   readonly sourceIds: readonly string[];
@@ -151,6 +176,7 @@ export interface StoreHistoryAnalysisOptions {
   readonly loginDataArtifacts?: readonly LoginDataArtifactWrite[];
   readonly topSitesArtifacts?: readonly TopSitesArtifactWrite[];
   readonly webDataArtifacts?: readonly WebDataArtifactWrite[];
+  readonly metadataArtifacts?: readonly MetadataArtifactWrite[];
 }
 
 export type AnalysisRunExitState = "complete" | "partial" | "failed";
@@ -508,6 +534,53 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       ON top_sites_findings(finding_kind, COALESCE(sort_title, ''), finding_id);
     CREATE INDEX IF NOT EXISTS top_sites_findings_profile_query
       ON top_sites_findings(finding_kind, profile_path, commit_state, finding_id);
+
+    CREATE TABLE IF NOT EXISTS preferences_artifact_results (
+      artifact_result_id INTEGER PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL REFERENCES sources(source_id),
+      profile_path TEXT NOT NULL,
+      artifact TEXT NOT NULL CHECK (artifact IN ('Local State', 'Preferences')),
+      manifest_entry_ordinal INTEGER,
+      database_path TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('complete', 'absent', 'unavailable')),
+      reason TEXT,
+      active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal),
+      UNIQUE (run_id, source_id, profile_path, artifact)
+    ) STRICT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS preferences_one_active_result
+      ON preferences_artifact_results(source_id, profile_path, artifact)
+      WHERE active = 1;
+
+    CREATE TABLE IF NOT EXISTS preferences_findings (
+      finding_id INTEGER PRIMARY KEY,
+      artifact_result_id INTEGER NOT NULL
+        REFERENCES preferences_artifact_results(artifact_result_id),
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL,
+      manifest_entry_ordinal INTEGER NOT NULL,
+      record_type TEXT NOT NULL CHECK (record_type = 'finding'),
+      finding_kind TEXT NOT NULL,
+      profile_path TEXT NOT NULL,
+      commit_state TEXT NOT NULL CHECK (
+        commit_state IN ('committed', 'wal_resident', 'journal_resident')
+      ),
+      provenance_json TEXT NOT NULL,
+      fields_json TEXT NOT NULL,
+      search_text TEXT NOT NULL,
+      sort_type TEXT NOT NULL,
+      sort_profile TEXT NOT NULL,
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal)
+    ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS preferences_findings_type_query
+      ON preferences_findings(finding_kind, sort_type, finding_id);
+    CREATE INDEX IF NOT EXISTS preferences_findings_profile_query
+      ON preferences_findings(finding_kind, sort_profile, finding_id);
   `);
 }
 
@@ -666,10 +739,35 @@ function insertTopSiteFinding(
   );
 }
 
+function insertMetadataFinding(
+  statement: ReturnType<DatabaseSync["prepare"]>,
+  artifactResultId: bigint,
+  runId: string,
+  row: PersistedMetadataFinding,
+): void {
+  const finding = row.finding;
+  statement.run(
+    artifactResultId,
+    runId,
+    finding.provenance.sourceId,
+    finding.provenance.manifestEntryOrdinal,
+    finding.recordType,
+    finding.findingKind,
+    finding.profile,
+    finding.commitState,
+    JSON.stringify(finding.provenance),
+    JSON.stringify(finding.fields),
+    row.searchText,
+    row.sortType,
+    row.sortProfile,
+  );
+}
+
 export function storeHistoryAnalysis(
   options: StoreHistoryAnalysisOptions,
 ): StoredHistoryAnalysis {
   const cookieArtifacts = options.cookieArtifacts ?? [];
+  const metadataArtifacts = options.metadataArtifacts ?? [];
   const runId = randomUUID();
   const database = openDatabaseSync(
     join(resolve(options.caseDirectory), CASE_FILENAME),
@@ -828,6 +926,28 @@ export function storeHistoryAnalysis(
       const activateCurrentTopSite = database.prepare(
         "UPDATE top_sites_artifact_results SET active = 1 WHERE artifact_result_id = ?",
       );
+      const insertMetadataArtifact = database.prepare(
+        `INSERT INTO preferences_artifact_results
+           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
+            database_path, status, reason, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      );
+      const insertMetadataFindingStatement = database.prepare(
+        `INSERT INTO preferences_findings
+           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
+            record_type, finding_kind, profile_path, commit_state,
+            provenance_json, fields_json, search_text, sort_type, sort_profile)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      const deactivatePreviousMetadata = database.prepare(
+        `UPDATE preferences_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = ?
+            AND active = 1`,
+      );
+      const activateCurrentMetadata = database.prepare(
+        "UPDATE preferences_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+      );
 
       for (const artifact of options.artifacts) {
         const insertion = insertArtifact.run(
@@ -977,6 +1097,41 @@ export function storeHistoryAnalysis(
         }
       }
 
+      for (const artifact of metadataArtifacts) {
+        const insertion = insertMetadataArtifact.run(
+          runId,
+          artifact.sourceId,
+          artifact.profile,
+          artifact.artifact,
+          artifact.manifestEntryOrdinal,
+          artifact.databasePath,
+          artifact.status,
+          artifact.reason,
+        );
+        const artifactResultId = insertion.lastInsertRowid as bigint;
+        for (const finding of artifact.findings) {
+          insertMetadataFinding(
+            insertMetadataFindingStatement,
+            artifactResultId,
+            runId,
+            finding,
+          );
+        }
+        if (artifact.status === "complete") {
+          deactivatePreviousMetadata.run(
+            artifact.sourceId,
+            artifact.profile,
+            artifact.artifact,
+          );
+          activateCurrentMetadata.run(artifactResultId);
+        }
+      }
+
+      // Metadata artifacts are recorded and queryable but deliberately excluded
+      // from the Analysis Run exit-state aggregation: `Local State` and
+      // `Preferences` are contextual scaffolding, and their presence must not
+      // change the History/Cookies/Login exit-code semantics an operator relies
+      // on. Metadata health is surfaced separately in the analyse summary.
       const combinedArtifacts = [
         ...options.artifacts,
         ...cookieArtifacts,
