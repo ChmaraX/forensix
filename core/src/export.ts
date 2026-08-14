@@ -116,13 +116,28 @@ export interface ExportCaseResult {
   readonly files: readonly string[];
 }
 
-const HEADER_FILE = "export_header.json";
-const FINDINGS_JSONL = "findings.jsonl";
-const CANDIDATES_JSONL = "candidates.jsonl";
-const FINDINGS_CSV = "findings.lossy.csv";
-const CANDIDATES_CSV = "candidates.lossy.csv";
-const MANIFEST_FILE = "export_manifest.json";
-const GENERATION_FILE = "export_generation.json";
+/**
+ * The canonical Extract file layout. This is the single source of truth for
+ * the filenames the export produces and the report consumes, so a rename can
+ * never silently desynchronize the producer from the verifier.
+ */
+export const EXTRACT_FILES = {
+  header: "export_header.json",
+  findingsJsonl: "findings.jsonl",
+  candidatesJsonl: "candidates.jsonl",
+  findingsCsv: "findings.lossy.csv",
+  candidatesCsv: "candidates.lossy.csv",
+  manifest: "export_manifest.json",
+  generation: "export_generation.json",
+} as const;
+
+const HEADER_FILE = EXTRACT_FILES.header;
+const FINDINGS_JSONL = EXTRACT_FILES.findingsJsonl;
+const CANDIDATES_JSONL = EXTRACT_FILES.candidatesJsonl;
+const FINDINGS_CSV = EXTRACT_FILES.findingsCsv;
+const CANDIDATES_CSV = EXTRACT_FILES.candidatesCsv;
+const MANIFEST_FILE = EXTRACT_FILES.manifest;
+const GENERATION_FILE = EXTRACT_FILES.generation;
 
 interface FindingRow {
   readonly finding_id: bigint;

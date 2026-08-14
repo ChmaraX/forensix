@@ -4,7 +4,11 @@ import { join, resolve } from "node:path";
 
 import { ForensixError } from "./errors.js";
 import { TOOL_VERSION } from "./case.js";
-import { computeDerivedDigest, type ExtractManifestFile } from "./export.js";
+import {
+  EXTRACT_FILES,
+  computeDerivedDigest,
+  type ExtractManifestFile,
+} from "./export.js";
 
 /**
  * The Report is a self-contained, human-readable rendering of a single Extract.
@@ -16,11 +20,11 @@ import { computeDerivedDigest, type ExtractManifestFile } from "./export.js";
  */
 export const REPORT_SCHEMA = "forensix/report/1" as const;
 
-const HEADER_FILE = "export_header.json";
-const MANIFEST_FILE = "export_manifest.json";
-const GENERATION_FILE = "export_generation.json";
-const FINDINGS_JSONL = "findings.jsonl";
-const CANDIDATES_JSONL = "candidates.jsonl";
+const HEADER_FILE = EXTRACT_FILES.header;
+const MANIFEST_FILE = EXTRACT_FILES.manifest;
+const GENERATION_FILE = EXTRACT_FILES.generation;
+const FINDINGS_JSONL = EXTRACT_FILES.findingsJsonl;
+const CANDIDATES_JSONL = EXTRACT_FILES.candidatesJsonl;
 
 export interface RenderReportOptions {
   readonly extractDirectory: string;

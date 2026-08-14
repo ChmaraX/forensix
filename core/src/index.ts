@@ -107,8 +107,10 @@ export {
   type HistoryView,
 } from "./history-query.js";
 export {
+  EXTRACT_FILES,
   EXTRACT_SCHEMA,
   REDACTION_POLICY,
+  computeDerivedDigest,
   exportCase,
   isSecretFieldName,
   redactFields,
