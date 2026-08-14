@@ -190,6 +190,36 @@ export interface FaviconArtifactWrite {
   readonly payloadFileCount: number;
 }
 
+export type BookmarkSourceFile = "Bookmarks" | "Bookmarks.bak";
+
+export interface PersistedBookmarkFinding {
+  readonly finding: Finding;
+  readonly searchText: string;
+  readonly sourceFile: BookmarkSourceFile;
+  readonly sortName: string | null;
+  readonly sortUrl: string | null;
+  readonly sortDateAdded: bigint | null;
+  readonly sortFolder: string | null;
+}
+
+export interface BookmarksArtifactWrite {
+  readonly sourceId: string;
+  readonly profile: string;
+  /**
+   * The Bookmarks evidence file backing this record. Chrome keeps a primary
+   * `Bookmarks` document and a `Bookmarks.bak` snapshot of the previous state;
+   * storing the filename here keeps the two scopes distinct so the primary and
+   * backup records are never silently merged.
+   */
+  readonly artifact: BookmarkSourceFile;
+  readonly status: "complete" | "absent" | "unavailable";
+  readonly manifestEntryOrdinal: number | null;
+  readonly databasePath: string;
+  readonly reason: string | null;
+  readonly findings: readonly PersistedBookmarkFinding[];
+  readonly bookmarkCount: number;
+}
+
 export interface PersistedMetadataFinding {
   readonly finding: Finding;
   readonly searchText: string;
@@ -229,6 +259,7 @@ export interface StoreHistoryAnalysisOptions {
   readonly faviconArtifacts?: readonly FaviconArtifactWrite[];
   readonly downloadsArtifacts?: readonly DownloadsArtifactWrite[];
   readonly metadataArtifacts?: readonly MetadataArtifactWrite[];
+  readonly bookmarksArtifacts?: readonly BookmarksArtifactWrite[];
 }
 
 export type AnalysisRunExitState = "complete" | "partial" | "failed";
@@ -757,6 +788,62 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       ON preferences_findings(finding_kind, sort_type, finding_id);
     CREATE INDEX IF NOT EXISTS preferences_findings_profile_query
       ON preferences_findings(finding_kind, sort_profile, finding_id);
+
+    CREATE TABLE IF NOT EXISTS bookmarks_artifact_results (
+      artifact_result_id INTEGER PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL REFERENCES sources(source_id),
+      profile_path TEXT NOT NULL,
+      artifact TEXT NOT NULL CHECK (artifact IN ('Bookmarks', 'Bookmarks.bak')),
+      manifest_entry_ordinal INTEGER,
+      database_path TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('complete', 'absent', 'unavailable')),
+      reason TEXT,
+      active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal),
+      UNIQUE (run_id, source_id, profile_path, artifact)
+    ) STRICT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS bookmarks_one_active_result
+      ON bookmarks_artifact_results(source_id, profile_path, artifact)
+      WHERE active = 1;
+
+    CREATE TABLE IF NOT EXISTS bookmarks_findings (
+      finding_id INTEGER PRIMARY KEY,
+      artifact_result_id INTEGER NOT NULL
+        REFERENCES bookmarks_artifact_results(artifact_result_id),
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL,
+      manifest_entry_ordinal INTEGER NOT NULL,
+      record_type TEXT NOT NULL CHECK (record_type = 'finding'),
+      finding_kind TEXT NOT NULL,
+      profile_path TEXT NOT NULL,
+      commit_state TEXT NOT NULL CHECK (
+        commit_state IN ('committed', 'wal_resident', 'journal_resident')
+      ),
+      provenance_json TEXT NOT NULL,
+      fields_json TEXT NOT NULL,
+      search_text TEXT NOT NULL,
+      source_file TEXT NOT NULL CHECK (source_file IN ('Bookmarks', 'Bookmarks.bak')),
+      sort_name TEXT,
+      sort_url TEXT,
+      sort_date_added INTEGER,
+      sort_folder TEXT,
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal)
+    ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS bookmarks_findings_name_query
+      ON bookmarks_findings(finding_kind, COALESCE(sort_name, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS bookmarks_findings_url_query
+      ON bookmarks_findings(finding_kind, COALESCE(sort_url, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS bookmarks_findings_date_added_query
+      ON bookmarks_findings(finding_kind, COALESCE(sort_date_added, -1), finding_id);
+    CREATE INDEX IF NOT EXISTS bookmarks_findings_folder_query
+      ON bookmarks_findings(finding_kind, COALESCE(sort_folder, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS bookmarks_findings_profile_query
+      ON bookmarks_findings(finding_kind, source_file, profile_path, finding_id);
   `);
 }
 
@@ -993,11 +1080,39 @@ function insertMetadataFinding(
   );
 }
 
+function insertBookmarkFinding(
+  statement: ReturnType<DatabaseSync["prepare"]>,
+  artifactResultId: bigint,
+  runId: string,
+  row: PersistedBookmarkFinding,
+): void {
+  const finding = row.finding;
+  statement.run(
+    artifactResultId,
+    runId,
+    finding.provenance.sourceId,
+    finding.provenance.manifestEntryOrdinal,
+    finding.recordType,
+    finding.findingKind,
+    finding.profile,
+    finding.commitState,
+    JSON.stringify(finding.provenance),
+    JSON.stringify(finding.fields),
+    row.searchText,
+    row.sourceFile,
+    row.sortName,
+    row.sortUrl,
+    row.sortDateAdded,
+    row.sortFolder,
+  );
+}
+
 export function storeHistoryAnalysis(
   options: StoreHistoryAnalysisOptions,
 ): StoredHistoryAnalysis {
   const cookieArtifacts = options.cookieArtifacts ?? [];
   const metadataArtifacts = options.metadataArtifacts ?? [];
+  const bookmarksArtifacts = options.bookmarksArtifacts ?? [];
   const runId = randomUUID();
   const database = openDatabaseSync(
     join(resolve(options.caseDirectory), CASE_FILENAME),
@@ -1225,6 +1340,29 @@ export function storeHistoryAnalysis(
       );
       const activateCurrentMetadata = database.prepare(
         "UPDATE preferences_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+      );
+      const insertBookmarkArtifact = database.prepare(
+        `INSERT INTO bookmarks_artifact_results
+           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
+            database_path, status, reason, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      );
+      const insertBookmarkFindingStatement = database.prepare(
+        `INSERT INTO bookmarks_findings
+           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
+            record_type, finding_kind, profile_path, commit_state,
+            provenance_json, fields_json, search_text, source_file, sort_name,
+            sort_url, sort_date_added, sort_folder)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      const deactivatePreviousBookmark = database.prepare(
+        `UPDATE bookmarks_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = ?
+            AND active = 1`,
+      );
+      const activateCurrentBookmark = database.prepare(
+        "UPDATE bookmarks_artifact_results SET active = 1 WHERE artifact_result_id = ?",
       );
 
       for (const artifact of options.artifacts) {
@@ -1461,11 +1599,44 @@ export function storeHistoryAnalysis(
         }
       }
 
-      // Metadata artifacts are recorded and queryable but deliberately excluded
-      // from the Analysis Run exit-state aggregation: `Local State` and
-      // `Preferences` are contextual scaffolding, and their presence must not
+      for (const artifact of bookmarksArtifacts) {
+        const insertion = insertBookmarkArtifact.run(
+          runId,
+          artifact.sourceId,
+          artifact.profile,
+          artifact.artifact,
+          artifact.manifestEntryOrdinal,
+          artifact.databasePath,
+          artifact.status,
+          artifact.reason,
+        );
+        const artifactResultId = insertion.lastInsertRowid as bigint;
+        for (const finding of artifact.findings) {
+          insertBookmarkFinding(
+            insertBookmarkFindingStatement,
+            artifactResultId,
+            runId,
+            finding,
+          );
+        }
+        if (artifact.status === "complete") {
+          deactivatePreviousBookmark.run(
+            artifact.sourceId,
+            artifact.profile,
+            artifact.artifact,
+          );
+          activateCurrentBookmark.run(artifactResultId);
+        }
+      }
+
+      // The SQLite primary stores (History, Cookies, Login Data, Web Data, Top
+      // Sites, Favicons) drive the Analysis Run exit state. The JSON-derived
+      // artifacts —
+      // `Local State`/`Preferences` metadata and the `Bookmarks`/`Bookmarks.bak`
+      // documents — are recorded and independently queryable but deliberately
+      // excluded here: a valid-but-empty or malformed JSON document must not
       // change the History/Cookies/Login exit-code semantics an operator relies
-      // on. Metadata health is surfaced separately in the analyse summary.
+      // on. Their health is surfaced separately in the analyse summary.
       const combinedArtifacts = [
         ...options.artifacts,
         ...cookieArtifacts,

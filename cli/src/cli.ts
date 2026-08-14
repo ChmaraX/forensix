@@ -10,6 +10,7 @@ import {
   exportCase,
   ingestSource,
   queryAutofill,
+  queryBookmarks,
   queryCookies,
   queryCredentials,
   queryDownloads,
@@ -20,6 +21,9 @@ import {
   renderReport,
   type AutofillDirection,
   type AutofillSort,
+  type BookmarkDirection,
+  type BookmarkSort,
+  type BookmarkSource,
   type CommitState,
   type CookieDirection,
   type CookieSort,
@@ -100,6 +104,13 @@ const USAGE = `Usage:
                    [--type <browser_metadata|profile_metadata>]
                    [--sort <type|profile>] [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
+  forensix bookmarks --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--source <primary|backup>]
+                   [--sort <name|url|date-added|folder|profile>]
+                   [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
   forensix serve --case <case-directory> [--port <port>] [--json]
   forensix export --case <case-directory> --out <output-directory>
                    [--collection <findings|candidates>]... [--profile <profile>]...
@@ -151,6 +162,7 @@ const VALUE_OPTIONS = new Set([
   "--state",
   "--danger",
   "--type",
+  "--source",
   "--sort",
   "--direction",
   "--limit",
@@ -574,6 +586,57 @@ async function run(arguments_: readonly string[]): Promise<number> {
         | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | MetadataDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "bookmarks") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--commit-state",
+        "--source",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The bookmarks command accepts no positional values.",
+      );
+    }
+    const result = queryBookmarks({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      source: enumOption(parsed, "--source", ["primary", "backup"] as const) as
+        | BookmarkSource
+        | undefined,
+      sort: enumOption(parsed, "--sort", [
+        "name",
+        "url",
+        "date-added",
+        "folder",
+        "profile",
+      ] as const) as BookmarkSort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | BookmarkDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),
