@@ -254,8 +254,8 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
         accountCount: { state: "value", value: "1" },
         accountEmail: { state: "value", value: "ada@example.com" },
         accountLocale: { state: "value", value: "en-US" },
-        // AC1: screen resolution derived from the work area, marked synthetic.
-        screenResolution: {
+        // AC1: screen work area derived from the window placement, synthetic.
+        screenWorkArea: {
           state: "value",
           value: "1920x1080",
           synthetic: true,
@@ -284,7 +284,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
       state: "unavailable",
       reason: "unsupported_value",
     });
-    expect(workProfile?.fields.screenResolution).toEqual({
+    expect(workProfile?.fields.screenWorkArea).toEqual({
       state: "unavailable",
       reason: "unsupported_value",
     });

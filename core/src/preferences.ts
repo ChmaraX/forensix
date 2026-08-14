@@ -129,12 +129,29 @@ function arrayLengthField(result: Lookup): FieldState<string> {
 }
 
 /**
- * A synthetic screen-resolution string derived from the Profile window
- * placement work area. It is emitted only when every bound is an integer, and it
- * is always marked `synthetic` so an examiner never mistakes a derived value for
- * a stored one.
+ * Presence-only classification of an OSCrypt key blob. The key material itself
+ * is never disclosed here; only whether the current `Local State` schema records
+ * a string value at the given path.
  */
-function screenResolutionField(
+function presenceField(
+  localState: unknown,
+  keys: readonly string[],
+): FieldState<boolean> {
+  const result = lookup(localState, keys);
+  if (result.kind === "value") {
+    return valueField(typeof result.value === "string");
+  }
+  return booleanField(result);
+}
+
+/**
+ * A synthetic `WxH` string for the Profile window-placement work area. This is
+ * the display work area Chrome records (it excludes OS chrome such as a taskbar
+ * or dock), not the full physical screen resolution, so it is named for the work
+ * area and always marked `synthetic` so an examiner never mistakes a derived
+ * value for a stored one.
+ */
+function screenWorkAreaField(
   left: FieldState<string>,
   top: FieldState<string>,
   right: FieldState<string>,
@@ -304,30 +321,14 @@ function buildBrowserFinding(options: {
     profileCount: arrayLengthField(
       lookup(options.localState, ["profile", "profiles_order"]),
     ),
-    osCryptKeyPresent: booleanField(
-      (() => {
-        const result = lookup(options.localState, [
-          "os_crypt",
-          "encrypted_key",
-        ]);
-        if (result.kind === "value") {
-          return { kind: "value", value: typeof result.value === "string" };
-        }
-        return result;
-      })(),
-    ),
-    osCryptAppBoundKeyPresent: booleanField(
-      (() => {
-        const result = lookup(options.localState, [
-          "os_crypt",
-          "app_bound_encrypted_key",
-        ]);
-        if (result.kind === "value") {
-          return { kind: "value", value: typeof result.value === "string" };
-        }
-        return result;
-      })(),
-    ),
+    osCryptKeyPresent: presenceField(options.localState, [
+      "os_crypt",
+      "encrypted_key",
+    ]),
+    osCryptAppBoundKeyPresent: presenceField(options.localState, [
+      "os_crypt",
+      "app_bound_encrypted_key",
+    ]),
   };
   const finding: Finding = createFinding({
     findingKind: BROWSER_METADATA_KIND,
@@ -394,7 +395,7 @@ function buildProfileFinding(options: {
       FieldState<string>,
       FieldState<string>,
     ];
-  const screenResolution = screenResolutionField(
+  const screenWorkArea = screenWorkAreaField(
     workAreaLeft,
     workAreaTop,
     workAreaRight,
@@ -487,7 +488,7 @@ function buildProfileFinding(options: {
     workAreaTop,
     workAreaRight,
     workAreaBottom,
-    screenResolution,
+    screenWorkArea,
     avatarIcon,
     gaiaName,
     gaiaGivenName,
