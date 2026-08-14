@@ -61,6 +61,7 @@ interface ArtifactResultRow {
   readonly run_id: string;
   readonly artifact_result_id: bigint | number;
   readonly started_at: string;
+  readonly active: bigint | number;
 }
 
 interface ArtifactTable {
@@ -102,9 +103,12 @@ function readCaseId(database: DatabaseSync): string {
 
 /**
  * Reduce the retained artifact-result lineage to the current outcome per
- * (Source, Profile) by keeping the most recent Analysis Run. This is exactly
- * what a reader must see before any result row: supersede keeps every earlier
- * row, so the newest run is the active outcome.
+ * (Source, Profile). Supersede keeps every earlier row, so the current outcome
+ * is the active result when one exists (a superseding rerun that ended
+ * unavailable supersedes nothing, so the active complete row stays current);
+ * otherwise it is the most recent attempt, which surfaces absent or
+ * unavailable. This is the same notion of "current" the list queries use
+ * (`WHERE active = 1`), so Completeness always matches the rows shown.
  */
 function buildStatement(
   database: DatabaseSync,
@@ -126,26 +130,38 @@ function buildStatement(
   const rows = database
     .prepare(
       `SELECT r.source_id, r.profile_path, r.database_path, r.status,
-              r.reason, r.run_id, r.artifact_result_id, a.started_at
+              r.reason, r.run_id, r.artifact_result_id, r.active, a.started_at
          FROM ${table.resultsTable} r
          JOIN analysis_runs a ON a.run_id = r.run_id
         ORDER BY r.source_id, r.profile_path`,
     )
     .all() as unknown as ArtifactResultRow[];
-  const latest = new Map<string, ArtifactResultRow>();
+  const current = new Map<string, ArtifactResultRow>();
   for (const row of rows) {
     const key = `${row.source_id}\u0000${row.profile_path}`;
-    const current = latest.get(key);
+    const chosen = current.get(key);
+    if (chosen === undefined) {
+      current.set(key, row);
+      continue;
+    }
+    // An active result is always current; it is never superseded by a later
+    // rerun that failed to produce. Between two non-active rows, keep the most
+    // recent attempt.
+    const rowActive = BigInt(row.active) === 1n;
+    const chosenActive = BigInt(chosen.active) === 1n;
+    if (chosenActive) {
+      continue;
+    }
     if (
-      current === undefined ||
-      row.started_at > current.started_at ||
-      (row.started_at === current.started_at &&
-        BigInt(row.artifact_result_id) > BigInt(current.artifact_result_id))
+      rowActive ||
+      row.started_at > chosen.started_at ||
+      (row.started_at === chosen.started_at &&
+        BigInt(row.artifact_result_id) > BigInt(chosen.artifact_result_id))
     ) {
-      latest.set(key, row);
+      current.set(key, row);
     }
   }
-  const artifacts = [...latest.values()]
+  const artifacts = [...current.values()]
     .map((row): CompletenessArtifact => {
       const outcome: CompletenessOutcome =
         row.status === "complete"

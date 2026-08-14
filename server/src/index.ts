@@ -59,6 +59,8 @@ export interface DashboardServer {
 const LOOPBACK_HOST = "127.0.0.1" as const;
 const TOKEN_HEADER = "x-forensix-token";
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
+// Fetch Metadata values that prove a request was not initiated cross-site.
+const SAME_ORIGIN_FETCH_SITES = new Set(["same-origin", "none"]);
 
 const require = createRequire(import.meta.url);
 
@@ -86,18 +88,55 @@ function htmlShell(token: string): string {
 `;
 }
 
-function isLoopbackOrigin(origin: string | undefined): boolean {
-  if (origin === undefined || origin === "null") {
-    // A same-origin GET navigation or fetch may omit Origin. The bearer token
-    // still gates every /api response, so an absent Origin is acceptable.
-    return true;
+function headerValue(
+  value: string | readonly string[] | undefined,
+): string | undefined {
+  return Array.isArray(value) ? value[0] : (value as string | undefined);
+}
+
+/**
+ * The host authority (without port) the request was addressed to. It is the
+ * anchor for the loopback Host allowlist that defeats DNS-rebinding.
+ */
+function hostAuthority(hostHeader: string | undefined): string | null {
+  if (hostHeader === undefined || hostHeader.length === 0) {
+    return null;
   }
-  try {
-    const parsed = new URL(origin);
-    return LOOPBACK_HOSTNAMES.has(parsed.hostname);
-  } catch {
-    return false;
+  if (hostHeader.startsWith("[")) {
+    const end = hostHeader.indexOf("]");
+    return end === -1 ? null : hostHeader.slice(0, end + 1);
   }
+  const colon = hostHeader.lastIndexOf(":");
+  return colon === -1 ? hostHeader : hostHeader.slice(0, colon);
+}
+
+/**
+ * Reject any Host header that does not name a loopback authority. A rebinding
+ * attacker's page carries its own hostname in Host even though it resolves to
+ * 127.0.0.1, so this closes that vector regardless of the socket binding.
+ */
+function isLoopbackHost(hostHeader: string | undefined): boolean {
+  const authority = hostAuthority(hostHeader);
+  return authority !== null && LOOPBACK_HOSTNAMES.has(authority);
+}
+
+/**
+ * Whether an /api request is proven to originate from the loopback dashboard
+ * itself. An Origin, when present, must be loopback. When Origin is absent the
+ * request must carry Fetch Metadata proving it was not initiated cross-site;
+ * an absent Origin with no such proof is rejected.
+ */
+function isSameOriginApiRequest(request: IncomingMessage): boolean {
+  const origin = headerValue(request.headers.origin);
+  if (origin !== undefined && origin !== "null") {
+    try {
+      return LOOPBACK_HOSTNAMES.has(new URL(origin).hostname);
+    } catch {
+      return false;
+    }
+  }
+  const fetchSite = headerValue(request.headers["sec-fetch-site"]);
+  return fetchSite !== undefined && SAME_ORIGIN_FETCH_SITES.has(fetchSite);
 }
 
 function tokensMatch(expected: string, provided: string | undefined): boolean {
@@ -247,11 +286,11 @@ function handleRequest(
   caseDirectory: string,
   clientBundle: string,
 ): void {
-  const origin = request.headers.origin;
-  if (!isLoopbackOrigin(Array.isArray(origin) ? origin[0] : origin)) {
+  // Loopback Host allowlist first: defeats DNS-rebinding before any work.
+  if (!isLoopbackHost(headerValue(request.headers.host))) {
     sendJson(response, 403, {
-      code: "FORBIDDEN_ORIGIN",
-      message: "The dashboard accepts loopback origins only.",
+      code: "FORBIDDEN_HOST",
+      message: "The dashboard answers loopback hosts only.",
     });
     return;
   }
@@ -268,7 +307,15 @@ function handleRequest(
   const path = requestUrl.pathname;
 
   if (path === "/" || path === "/index.html") {
-    sendText(response, 200, "text/html; charset=utf-8", htmlShell(token));
+    response.writeHead(200, {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "DENY",
+      "content-security-policy":
+        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'",
+    });
+    response.end(htmlShell(token));
     return;
   }
   if (path === "/index.js") {
@@ -277,14 +324,19 @@ function handleRequest(
   }
 
   if (path.startsWith("/api/")) {
-    const headerToken = request.headers[TOKEN_HEADER];
-    const provided = Array.isArray(headerToken)
-      ? headerToken[0]
-      : (headerToken ?? firstString(requestUrl.searchParams.get("token")));
-    if (!tokensMatch(token, provided)) {
+    // The per-run token is accepted from the request header only; it is never
+    // read from the URL, so it cannot leak through logs or referrers.
+    if (!tokensMatch(token, headerValue(request.headers[TOKEN_HEADER]))) {
       sendJson(response, 401, {
         code: "UNAUTHORIZED",
         message: "A valid per-run dashboard token is required.",
+      });
+      return;
+    }
+    if (!isSameOriginApiRequest(request)) {
+      sendJson(response, 403, {
+        code: "FORBIDDEN_ORIGIN",
+        message: "The dashboard accepts same-origin loopback requests only.",
       });
       return;
     }

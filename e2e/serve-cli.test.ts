@@ -4,6 +4,7 @@ import {
   type ChildProcessWithoutNullStreams,
 } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -42,6 +43,26 @@ interface Page {
   readonly items: readonly Finding[];
   readonly nextCursor: string | null;
   readonly limit: number;
+}
+
+function rawGet(
+  port: number,
+  path: string,
+  headers: Readonly<Record<string, string>>,
+): Promise<number> {
+  return new Promise<number>((resolvePromise, rejectPromise) => {
+    const request = httpRequest(
+      { host: "127.0.0.1", port, path, method: "GET", headers },
+      (response) => {
+        response.resume();
+        response.on("end", () => {
+          resolvePromise(response.statusCode ?? 0);
+        });
+      },
+    );
+    request.on("error", rejectPromise);
+    request.end();
+  });
 }
 
 function runCli(arguments_: readonly string[]): {
@@ -269,23 +290,57 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     expect(server.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
     expect(server.token.length).toBeGreaterThanOrEqual(32);
     const base = server.url.replace(/\/$/, "");
-    const auth = { "x-forensix-token": server.token };
+    const authToken = { "x-forensix-token": server.token };
+    // The browser page always sends a same-origin loopback Origin; simulate it.
+    const auth = { ...authToken, origin: base };
 
-    // AC1: a request without the per-run token is rejected.
+    // AC1: a request without the per-run token is rejected (token gate first).
     const noToken = await fetch(`${base}/api/history`);
     expect(noToken.status).toBe(401);
 
     // AC1: a non-loopback Origin is rejected even with a valid token.
     const badOrigin = await fetch(`${base}/api/history`, {
-      headers: { ...auth, origin: "https://evil.example" },
+      headers: { ...authToken, origin: "https://evil.example" },
     });
     expect(badOrigin.status).toBe(403);
 
+    // AC1 hardening: a token with an absent Origin and no same-origin Fetch
+    // Metadata proof is rejected — "loopback Origin only", not "or no Origin".
+    const absentOrigin = await fetch(`${base}/api/history`, {
+      headers: authToken,
+    });
+    expect(absentOrigin.status).toBe(403);
+
+    // A same-origin GET that omits Origin but carries Fetch Metadata is allowed,
+    // so the real browser dashboard keeps working.
+    expect(
+      await rawGet(server.port, "/api/history?limit=1", {
+        ...authToken,
+        "sec-fetch-site": "same-origin",
+      }),
+    ).toBe(200);
+
+    // AC1 hardening: a loopback socket but a spoofed (rebinding) Host is
+    // rejected by the Host allowlist.
+    expect(
+      await rawGet(server.port, "/api/history", {
+        ...authToken,
+        host: "evil.example",
+      }),
+    ).toBe(403);
+
     // AC1: a loopback Origin with the token is accepted.
     const okOrigin = await fetch(`${base}/api/history?limit=10`, {
-      headers: { ...auth, origin: `${base}` },
+      headers: auth,
     });
     expect(okOrigin.status).toBe(200);
+
+    // The token is never accepted from the URL; a query-param token is ignored.
+    const queryToken = await fetch(
+      `${base}/api/history?token=${encodeURIComponent(server.token)}`,
+      { headers: { origin: base } },
+    );
+    expect(queryToken.status).toBe(401);
 
     // AC3 + read-only: only GET is answered; writes/methods are refused.
     const post = await fetch(`${base}/api/history`, {
