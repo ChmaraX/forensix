@@ -69,6 +69,7 @@ const SORT_EXPRESSIONS: Readonly<Record<TopSiteSort, string>> = {
 };
 
 const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
+const SQLITE_MIN_INTEGER = -9_223_372_036_854_775_808n;
 
 function queryFingerprint(input: {
   readonly caseId: string;
@@ -302,14 +303,29 @@ export function queryTopSites(input: TopSiteQuery): TopSitePage {
           `(${sortExpression} = ? AND f.finding_id ${operator} ?))`,
       );
       const findingId = BigInt(cursor.findingId);
-      if (findingId > SQLITE_MAX_INTEGER) {
+      // The `rank` sort keys on the integer `sort_rank` column (with a -1
+      // COALESCE sentinel, so keys can be negative), whereas every other sort
+      // keys on text. Validate an integer key with the same regex and int64
+      // range guard History uses, so a forged or out-of-range cursor surfaces a
+      // typed INVALID_CURSOR instead of a raw BigInt/node:sqlite throw.
+      const integerCursorKey =
+        sort === "rank" && /^-?[0-9]+$/.test(cursor.key)
+          ? BigInt(cursor.key)
+          : null;
+      if (
+        findingId > SQLITE_MAX_INTEGER ||
+        (sort === "rank" &&
+          (integerCursorKey === null ||
+            integerCursorKey < SQLITE_MIN_INTEGER ||
+            integerCursorKey > SQLITE_MAX_INTEGER))
+      ) {
         throw new ForensixError(
           "INVALID_CURSOR",
           "Top Sites cursor contains an invalid sort key.",
         );
       }
       const cursorKey =
-        sort === "rank" ? (BigInt(cursor.key) as bigint) : cursor.key;
+        sort === "rank" ? (integerCursorKey as bigint) : cursor.key;
       parameters.push(cursorKey, cursorKey, findingId);
     }
 

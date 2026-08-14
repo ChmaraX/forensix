@@ -276,6 +276,32 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
       [...firstPage.items, ...secondPage.items].map((item) => item.profile),
     ).toContain("Profile 1");
 
+    // A forged rank cursor (fingerprint-matching but with a non-numeric sort
+    // key) fails with a typed INVALID_CURSOR, never a raw BigInt throw.
+    const decoded = JSON.parse(
+      Buffer.from(firstPage.nextCursor as string, "base64url").toString("utf8"),
+    ) as Record<string, unknown>;
+    const forged = Buffer.from(
+      JSON.stringify({ ...decoded, key: "not-a-number" }),
+      "utf8",
+    ).toString("base64url");
+    const forgedResult = runCli([
+      "top-sites",
+      "--case",
+      caseDirectory,
+      "--sort",
+      "rank",
+      "--direction",
+      "asc",
+      "--after",
+      forged,
+      "--json",
+    ]);
+    expect(forgedResult.status).toBe(1);
+    expect(
+      parseJson<Record<string, unknown>>(forgedResult.stderr),
+    ).toMatchObject({ code: "INVALID_CURSOR" });
+
     // AC5: search matches url and title.
     const searched = parseJson<TopSitePage>(
       runCli([
