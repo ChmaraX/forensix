@@ -101,6 +101,7 @@ export {
   type HistoryAnalysisSummary,
   type LoginDataAnalysisSummary,
   type PreferencesAnalysisSummary,
+  type BookmarksAnalysisSummary,
   type TopSitesAnalysisSummary,
   type WebDataAnalysisSummary,
 } from "./history.js";
@@ -216,7 +217,17 @@ export {
   type MetadataType,
 } from "./preferences-query.js";
 export {
+  queryBookmarks,
+  type BookmarkDirection,
+  type BookmarkPage,
+  type BookmarkQuery,
+  type BookmarkSort,
+  type BookmarkSource,
+} from "./bookmarks-query.js";
+export {
   type AnalysisRunExitState,
+  type BookmarksArtifactWrite,
+  type BookmarkSourceFile,
   type DeclaredOriginOs,
 } from "./case-findings.js";
 export { openDatabaseSync, type OpenDatabaseConfig } from "./sqlite-open.js";

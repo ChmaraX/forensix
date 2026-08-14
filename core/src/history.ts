@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import {
   storeHistoryAnalysis,
   type AnalysisRunExitState,
+  type BookmarksArtifactWrite,
   type CookieArtifactWrite,
   type DeclaredOriginOs,
   type DownloadsArtifactWrite,
@@ -14,6 +15,7 @@ import {
   type TopSitesArtifactWrite,
   type WebDataArtifactWrite,
 } from "./case-findings.js";
+import { analyseSourceBookmarks } from "./bookmarks.js";
 import { analyseSourceCookies } from "./cookies.js";
 import { analyseDownloadsProfile } from "./downloads.js";
 import { analyseSourceFavicons } from "./favicons.js";
@@ -218,6 +220,18 @@ export interface PreferencesAnalysisSummary {
   readonly findingCount: number;
 }
 
+export interface BookmarksAnalysisSummary {
+  readonly status: "complete" | "partial";
+  readonly profileCount: number;
+  readonly primaryAnalysedCount: number;
+  readonly backupAnalysedCount: number;
+  readonly absentCount: number;
+  readonly unavailableCount: number;
+  readonly bookmarkCount: number;
+  readonly findingCount: number;
+  readonly declaredTimezone: string;
+}
+
 export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly command: "analyse";
   readonly analysisStatus: "ready";
@@ -232,6 +246,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly favicons: FaviconsAnalysisSummary;
   readonly downloads: DownloadsAnalysisSummary;
   readonly preferences: PreferencesAnalysisSummary;
+  readonly bookmarks: BookmarksAnalysisSummary;
   readonly decryption: DecryptionSummary;
 }
 
@@ -1264,6 +1279,7 @@ export async function analyseCase(
   const faviconArtifacts: FaviconArtifactWrite[] = [];
   const downloadsArtifacts: DownloadsArtifactWrite[] = [];
   const metadataArtifacts: MetadataArtifactWrite[] = [];
+  const bookmarksArtifacts: BookmarksArtifactWrite[] = [];
   for (const source of sources) {
     const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
     for (const profile of source.profiles) {
@@ -1328,6 +1344,13 @@ export async function analyseCase(
     metadataArtifacts.push(
       ...(await analyseSourcePreferences({ source, workingCopyPath })),
     );
+    bookmarksArtifacts.push(
+      ...(await analyseSourceBookmarks({
+        source,
+        workingCopyPath,
+        declaredTimezone,
+      })),
+    );
   }
 
   await verifyWorkingCopy(caseDirectory);
@@ -1346,6 +1369,7 @@ export async function analyseCase(
     faviconArtifacts,
     downloadsArtifacts,
     metadataArtifacts,
+    bookmarksArtifacts,
   });
   const singletonLockPresent = sources.some((source) =>
     source.entries.some(
@@ -1423,6 +1447,15 @@ export async function analyseCase(
     (artifact) => artifact.status === "absent",
   );
   const metadataUnavailable = metadataArtifacts.filter(
+    (artifact) => artifact.status === "unavailable",
+  );
+  const bookmarksAnalysed = bookmarksArtifacts.filter(
+    (artifact) => artifact.status === "complete",
+  );
+  const bookmarksAbsent = bookmarksArtifacts.filter(
+    (artifact) => artifact.status === "absent",
+  );
+  const bookmarksUnavailable = bookmarksArtifacts.filter(
     (artifact) => artifact.status === "unavailable",
   );
   return {
@@ -1635,6 +1668,30 @@ export async function analyseCase(
         (count, artifact) => count + artifact.findings.length,
         0,
       ),
+    },
+    bookmarks: {
+      status: bookmarksUnavailable.length === 0 ? "complete" : "partial",
+      profileCount: sources.reduce(
+        (count, source) => count + source.profiles.length,
+        0,
+      ),
+      primaryAnalysedCount: bookmarksAnalysed.filter(
+        (artifact) => artifact.artifact === "Bookmarks",
+      ).length,
+      backupAnalysedCount: bookmarksAnalysed.filter(
+        (artifact) => artifact.artifact === "Bookmarks.bak",
+      ).length,
+      absentCount: bookmarksAbsent.length,
+      unavailableCount: bookmarksUnavailable.length,
+      bookmarkCount: bookmarksAnalysed.reduce(
+        (count, artifact) => count + artifact.bookmarkCount,
+        0,
+      ),
+      findingCount: bookmarksAnalysed.reduce(
+        (count, artifact) => count + artifact.findings.length,
+        0,
+      ),
+      declaredTimezone,
     },
     decryption: {
       enabled: decryption.enabled,
