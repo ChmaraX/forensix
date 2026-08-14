@@ -269,11 +269,14 @@ describe("compiled analyzer CLI HTML Report", () => {
       readBigInts: true,
     });
     try {
-      database
+      const update = database
         .prepare(
           "UPDATE forensic_findings SET fields_json = REPLACE(fields_json, 'alpha.example', 'caseonly.example')",
         )
         .run();
+      // Guard against a vacuous negative: the Case must really have changed, so
+      // the byte-identical Report below proves the Extract boundary held.
+      expect(Number(update.changes)).toBeGreaterThan(0);
     } finally {
       database.close();
     }

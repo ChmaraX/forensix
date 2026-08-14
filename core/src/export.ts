@@ -210,6 +210,22 @@ function sha256(data: Buffer): string {
   return createHash("sha256").update(data).digest("hex");
 }
 
+/**
+ * The single source of truth for the Extract derived digest. Both the export
+ * (producer) and the report (verifier) hash the manifest file list through this
+ * function, so the verifier can never drift from the producer's canonical key
+ * ordering or path sort. The sort is applied here (not assumed of the caller)
+ * so an unsorted manifest still hashes deterministically.
+ */
+export function computeDerivedDigest(
+  files: readonly ExtractManifestFile[],
+): string {
+  const sorted = [...files].sort((left, right) =>
+    left.path.localeCompare(right.path),
+  );
+  return sha256(Buffer.from(canonicalJson(sorted), "utf8"));
+}
+
 export function isSecretFieldName(name: string): boolean {
   const lower = name.toLowerCase();
   return SECRET_FIELD_PATTERNS.some((pattern) => lower.includes(pattern));
@@ -835,9 +851,7 @@ export async function exportCase(
       sha256: sha256(file.bytes),
       size: file.bytes.byteLength,
     }));
-  const derivedDigest = sha256(
-    Buffer.from(canonicalJson(manifestFiles), "utf8"),
-  );
+  const derivedDigest = computeDerivedDigest(manifestFiles);
   const manifest: ExtractManifest = {
     extract_schema: EXTRACT_SCHEMA,
     files: manifestFiles,

@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 
 import { ForensixError } from "./errors.js";
 import { TOOL_VERSION } from "./case.js";
+import { computeDerivedDigest, type ExtractManifestFile } from "./export.js";
 
 /**
  * The Report is a self-contained, human-readable rendering of a single Extract.
@@ -42,15 +43,9 @@ export interface RenderReportResult {
   readonly bytes: number;
 }
 
-interface ManifestFile {
-  readonly path: string;
-  readonly sha256: string;
-  readonly size: number;
-}
-
 interface ExtractManifest {
   readonly extract_schema?: string;
-  readonly files?: readonly ManifestFile[];
+  readonly files?: readonly ExtractManifestFile[];
   readonly derivedDigest?: string;
 }
 
@@ -151,7 +146,7 @@ async function recomputeDigest(
   readonly integrity: "verified" | "altered";
 }> {
   const files = manifest.files ?? [];
-  const entries: ManifestFile[] = [];
+  const entries: ExtractManifestFile[] = [];
   for (const file of files) {
     const bytes = await readExtractFile(extractDirectory, file.path);
     if (bytes === undefined) {
@@ -163,7 +158,7 @@ async function recomputeDigest(
       size: bytes.byteLength,
     });
   }
-  const recomputed = sha256(Buffer.from(JSON.stringify(entries), "utf8"));
+  const recomputed = computeDerivedDigest(entries);
   const integrity =
     manifest.derivedDigest !== undefined &&
     recomputed === manifest.derivedDigest
@@ -382,19 +377,10 @@ function textOrUnavailable(value: Json | undefined, reason: string): string {
     )}</span>`;
   }
   if (typeof value === "object") {
-    // A common { state, value } / { state, reason } shape from the header.
-    const record = value as Record<string, Json>;
-    if (record.state === "value") {
-      return renderFieldValue(record.value ?? null);
-    }
-    if (record.state === "unavailable") {
-      const stateReason =
-        typeof record.reason === "string" ? record.reason : reason;
-      return `<span class="fx-state fx-unavailable">unavailable — ${escapeHtml(
-        stateReason,
-      )}</span>`;
-    }
-    return `<span class="fx-value">${escapeHtml(JSON.stringify(value))}</span>`;
+    // A common { state, value } / { state, reason } Field State shape from the
+    // header. Delegate to the single Field-State renderer so state branching
+    // lives in one place.
+    return renderFieldState(value);
   }
   const text = String(value);
   return text.length === 0
