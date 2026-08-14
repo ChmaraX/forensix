@@ -9,10 +9,12 @@ import {
   type LoginDataArtifactWrite,
   type PersistedFinding,
   type TopSitesArtifactWrite,
+  type WebDataArtifactWrite,
 } from "./case-findings.js";
 import { analyseSourceCookies } from "./cookies.js";
 import { analyseLoginDataProfile } from "./login-data.js";
 import { analyseSourceTopSites } from "./top-sites.js";
+import { analyseWebDataProfile } from "./web-data.js";
 import {
   loadAuthorizedKeyMaterial,
   type KeyMaterialIssue,
@@ -158,6 +160,17 @@ export interface TopSitesAnalysisSummary {
   readonly findingCount: number;
 }
 
+export interface WebDataAnalysisSummary {
+  readonly status: "complete" | "partial";
+  readonly profileCount: number;
+  readonly analysedProfileCount: number;
+  readonly absentProfileCount: number;
+  readonly unavailableProfileCount: number;
+  readonly committedFieldCount: number;
+  readonly recoveredFieldCount: number;
+  readonly findingCount: number;
+}
+
 export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly command: "analyse";
   readonly analysisStatus: "ready";
@@ -168,6 +181,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly cookies: CookieAnalysisSummary;
   readonly loginData: LoginDataAnalysisSummary;
   readonly topSites: TopSitesAnalysisSummary;
+  readonly webData: WebDataAnalysisSummary;
   readonly decryption: DecryptionSummary;
 }
 
@@ -1227,6 +1241,7 @@ export async function analyseCase(
   const cookieArtifacts: CookieArtifactWrite[] = [];
   const loginDataArtifacts: LoginDataArtifactWrite[] = [];
   const topSitesArtifacts: TopSitesArtifactWrite[] = [];
+  const webDataArtifacts: WebDataArtifactWrite[] = [];
   for (const source of sources) {
     const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
     for (const profile of source.profiles) {
@@ -1246,6 +1261,14 @@ export async function analyseCase(
           workingCopyPath,
           declaredTimezone,
           decryption,
+        }),
+      );
+      webDataArtifacts.push(
+        await analyseWebDataProfile({
+          source,
+          profile: profile.path,
+          workingCopyPath,
+          declaredTimezone,
         }),
       );
     }
@@ -1278,6 +1301,7 @@ export async function analyseCase(
     cookieArtifacts,
     loginDataArtifacts,
     topSitesArtifacts,
+    webDataArtifacts,
   });
   const singletonLockPresent = sources.some((source) =>
     source.entries.some(
@@ -1321,6 +1345,15 @@ export async function analyseCase(
   const topSitesUnavailable = topSitesArtifacts.filter(
     (artifact) => artifact.status === "unavailable",
   );
+  const webAnalysed = webDataArtifacts.filter(
+    (artifact) => artifact.status === "complete",
+  );
+  const webAbsent = webDataArtifacts.filter(
+    (artifact) => artifact.status === "absent",
+  );
+  const webUnavailable = webDataArtifacts.filter(
+    (artifact) => artifact.status === "unavailable",
+  );
   return {
     ...verification,
     command: "analyse",
@@ -1329,7 +1362,8 @@ export async function analyseCase(
       analysed.length +
       cookiesAnalysed.length +
       loginAnalysed.length +
-      topSitesAnalysed.length,
+      topSitesAnalysed.length +
+      webAnalysed.length,
     runId: stored.runId,
     exitState: stored.runStatus,
     cookies: {
@@ -1432,6 +1466,28 @@ export async function analyseCase(
         0,
       ),
       findingCount: topSitesAnalysed.reduce(
+        (count, artifact) => count + artifact.findings.length,
+        0,
+      ),
+    },
+    webData: {
+      status: webUnavailable.length === 0 ? "complete" : "partial",
+      profileCount: sources.reduce(
+        (count, source) => count + source.profiles.length,
+        0,
+      ),
+      analysedProfileCount: webAnalysed.length,
+      absentProfileCount: webAbsent.length,
+      unavailableProfileCount: webUnavailable.length,
+      committedFieldCount: webAnalysed.reduce(
+        (count, artifact) => count + artifact.committedFieldCount,
+        0,
+      ),
+      recoveredFieldCount: webAnalysed.reduce(
+        (count, artifact) => count + artifact.recoveredFieldCount,
+        0,
+      ),
+      findingCount: webAnalysed.reduce(
         (count, artifact) => count + artifact.findings.length,
         0,
       ),

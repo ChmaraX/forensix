@@ -9,14 +9,15 @@ import { ForensixError } from "./errors.js";
  * Read-only Case overview surface. It powers the loopback dashboard's
  * Completeness Statements and Profile filters. It interprets no artifact rows
  * and writes nothing: every function opens the Case immutable and read-only,
- * mirroring the History/Cookies/Login Data query contracts.
+ * mirroring the History/Cookies/Login Data/Web Data query contracts.
  */
 
 export type OverviewArtifact =
   | "History"
   | "Cookies"
   | "Login Data"
-  | "Top Sites";
+  | "Top Sites"
+  | "Web Data";
 export type CompletenessOutcome = "produced" | "absent" | "unavailable";
 
 export interface CompletenessArtifact {
@@ -78,6 +79,7 @@ const ARTIFACT_TABLES: readonly ArtifactTable[] = [
   { artifact: "Cookies", resultsTable: "cookie_artifact_results" },
   { artifact: "Login Data", resultsTable: "login_data_artifact_results" },
   { artifact: "Top Sites", resultsTable: "top_sites_artifact_results" },
+  { artifact: "Web Data", resultsTable: "web_data_artifact_results" },
 ];
 
 function openCase(caseDirectory: string): DatabaseSync {
