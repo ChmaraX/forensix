@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import type { CommitState } from "./forensic-model.js";
 import { ForensixError } from "./errors.js";
+import { openDatabaseSync } from "./sqlite-open.js";
 import {
   immutableDatabase,
   snapshotVerifiedFile,
@@ -350,7 +351,7 @@ export async function readCookiePasses(options: {
 
     let recoveryDatabase: DatabaseSync;
     try {
-      recoveryDatabase = new DatabaseSync(temporaryDatabasePath, {
+      recoveryDatabase = openDatabaseSync(temporaryDatabasePath, {
         readBigInts: true,
       });
     } catch (error) {

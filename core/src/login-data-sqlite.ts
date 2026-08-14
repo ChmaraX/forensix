@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 
 import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
 import type { CommitState } from "./forensic-model.js";
+import { openDatabaseSync } from "./sqlite-open.js";
 import { readStableRegularFile } from "./stable-file.js";
 
 export type RawLoginValue = null | string | bigint | Uint8Array;
@@ -200,7 +201,7 @@ function readPass(database: DatabaseSync): LoginPass {
 function immutableDatabase(path: string): DatabaseSync {
   const url = pathToFileURL(path);
   url.searchParams.set("immutable", "1");
-  return new DatabaseSync(url.href, {
+  return openDatabaseSync(url.href, {
     readOnly: true,
     readBigInts: true,
   });
@@ -369,7 +370,7 @@ export async function readLoginPasses(options: {
 
     let recoveryDatabase: DatabaseSync;
     try {
-      recoveryDatabase = new DatabaseSync(temporaryDatabasePath, {
+      recoveryDatabase = openDatabaseSync(temporaryDatabasePath, {
         readBigInts: true,
       });
     } catch (error) {

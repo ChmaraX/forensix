@@ -1210,7 +1210,12 @@ describe("compiled analyzer CLI History Finding pipeline", () => {
         },
       },
     });
-  }, 30_000);
+    // Finite (not disabled): the compiled CLI opens a freshly-copied working
+    // snapshot that still carries a hot rollback journal while a live writer
+    // holds the source. On Windows CI the open can be transiently refused and
+    // retried (see openDatabaseSync), so allow more headroom than the 30s
+    // default while still failing a genuine hang.
+  }, 60_000);
 
   it("requires Declared Origin OS for version-16 epochs without creating Candidates", async () => {
     const root = await mkdtemp(join(tmpdir(), "forensix-history-origin-"));

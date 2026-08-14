@@ -8,6 +8,7 @@ import type {
   AcquisitionVerificationOutcome,
 } from "./acquisition-bundle.js";
 import { ForensixError } from "./errors.js";
+import { openDatabaseSync } from "./sqlite-open.js";
 import {
   SOURCE_KINDS,
   decodeManifestEntry,
@@ -313,7 +314,7 @@ function insertEntry(
 
 export function createCaseDatabase(options: CreateCaseDatabaseOptions): void {
   const databasePath = join(options.caseDirectory, CASE_FILENAME);
-  const database = new DatabaseSync(databasePath);
+  const database = openDatabaseSync(databasePath);
   try {
     createSchema(database);
     database.exec("BEGIN IMMEDIATE;");
@@ -501,7 +502,7 @@ function openCaseDatabase(caseDirectory: string): {
     const databaseUrl = pathToFileURL(databasePath);
     databaseUrl.searchParams.set("immutable", "1");
     return {
-      database: new DatabaseSync(databaseUrl.href),
+      database: openDatabaseSync(databaseUrl.href),
       databasePath,
       resolvedCaseDirectory,
     };
