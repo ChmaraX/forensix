@@ -207,6 +207,28 @@ Use `--commit-state` to keep committed and recovered rows separate.
 Each credential Finding carries Provenance, the raw and UTC timestamps with their Epoch Family, and the secret's encryption prefix.
 The secret itself stays `unavailable` with the reason `encrypted_secret_without_key_material` until authorized key material is supplied.
 
+## Decrypt supported secrets offline
+
+Decryption is disabled by default.
+An authorized investigator opts in with `--decrypt` and supplies authorized key material that carries Provenance.
+The Analyzer stays offline: it makes no network calls, runs no provider daemons, never queries a live suspect key store, and never writes Source bytes.
+
+```sh
+node cli/dist/cli.js analyse \
+  --case "/path/to/CASE-001" \
+  --decrypt \
+  --key-material "/path/to/key-material.json" \
+  --recipient-key "/path/to/recipient.pem" \
+  --json
+```
+
+Key material is either operator-`supplied` (`forensix/supplied-key-material/1`) or Collector-`captured` (`forensix/key-material-bundle/1`).
+A captured bundle seals each derived OSCrypt row key to an X25519 recipient key, so `--recipient-key` unseals it offline (see `collector/contracts/key-material`).
+Each row is dispatched independently by its own `v10`, `v11`, or `v20` prefix, so a mixed-version database is handled correctly.
+Supported routes are Linux basic, GNOME Keyring, KWallet, macOS Keychain, the Windows `v10` key, and legacy Windows DPAPI, each only within its evidenced bounds.
+A decrypted secret becomes a `value`; it is a Redaction State secret and stays withheld in an Extract unless `--include-secrets` is set.
+Everything else stays `unavailable` with a distinct typed reason and is never a guessed unwrap: `unsupported_app_bound_v20` (Windows `v20` App-Bound), `unsupported_encryption_route`, `no_authorized_key_material`, `decryption_wrong_key`, `decryption_malformed_ciphertext`, `decryption_missing_context`, and `decryption_authentication_failed`.
+
 ## Export a canonical Extract
 
 An Extract is a scoped, deterministic, citable read over the Case.

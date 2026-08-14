@@ -8,7 +8,17 @@ export type FieldUnavailableReason =
   | "epoch_requires_declared_origin_os"
   | "timestamp_out_of_range"
   | "unsupported_value"
-  | "encrypted_secret_without_key_material";
+  | "encrypted_secret_without_key_material"
+  // Typed reasons for an opted-in offline OSCrypt decryption attempt. They keep
+  // unsupported schemes, absent key material, wrong credentials, malformed
+  // stores, missing context, and authentication failures distinguishable.
+  | "unsupported_app_bound_v20"
+  | "unsupported_encryption_route"
+  | "no_authorized_key_material"
+  | "decryption_wrong_key"
+  | "decryption_malformed_ciphertext"
+  | "decryption_missing_context"
+  | "decryption_authentication_failed";
 
 export interface ValueField<T> {
   readonly state: "value";

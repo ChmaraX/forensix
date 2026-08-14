@@ -12,6 +12,11 @@ import {
 import { analyseSourceCookies } from "./cookies.js";
 import { analyseLoginDataProfile } from "./login-data.js";
 import {
+  loadAuthorizedKeyMaterial,
+  type KeyMaterialIssue,
+} from "./key-material.js";
+import { DECRYPTION_DISABLED, type DecryptionSettings } from "./oscrypt.js";
+import {
   loadCaseSources,
   workingCopyAbsolutePath,
   type CaseSourceRecord,
@@ -60,6 +65,22 @@ export interface AnalyseCaseOptions {
   readonly declaredTimezone?: string;
   readonly declaredOriginOs?: DeclaredOriginOs;
   readonly invocation?: readonly string[];
+  /**
+   * Explicit operator opt-in to offline OSCrypt decryption. Disabled by
+   * default. When enabled, `keyMaterialPath` is required; encrypted values stay
+   * `unavailable` with typed reasons whenever key material is missing or fails.
+   */
+  readonly decryptionEnabled?: boolean;
+  /** Path to supplied or captured authorized key material with Provenance. */
+  readonly keyMaterialPath?: string;
+  /** Recipient X25519 private key (PEM) used to unseal captured key material. */
+  readonly recipientKeyPath?: string;
+}
+
+export interface DecryptionSummary {
+  readonly enabled: boolean;
+  readonly keyMaterialCount: number;
+  readonly keyMaterialIssueCount: number;
 }
 
 export interface HistoryAnalysisSummary {
@@ -132,6 +153,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly history: HistoryAnalysisSummary;
   readonly cookies: CookieAnalysisSummary;
   readonly loginData: LoginDataAnalysisSummary;
+  readonly decryption: DecryptionSummary;
 }
 
 interface ManifestIdentity {
@@ -1166,6 +1188,24 @@ export async function analyseCase(
   );
   const declaredOriginOs = options.declaredOriginOs ?? null;
   const startedAt = new Date().toISOString();
+  let decryption: DecryptionSettings = DECRYPTION_DISABLED;
+  let keyMaterialIssues: readonly KeyMaterialIssue[] = [];
+  if (options.decryptionEnabled === true) {
+    if (options.keyMaterialPath === undefined) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "Decryption opt-in requires authorized key material; pass --key-material.",
+      );
+    }
+    const resolved = loadAuthorizedKeyMaterial({
+      keyMaterialPath: options.keyMaterialPath,
+      ...(options.recipientKeyPath === undefined
+        ? {}
+        : { recipientKeyPath: options.recipientKeyPath }),
+    });
+    decryption = { enabled: true, keyMaterial: resolved.material };
+    keyMaterialIssues = resolved.issues;
+  }
   const verification = await verifyWorkingCopy(caseDirectory);
   const sources = loadCaseSources(caseDirectory);
   const artifacts: HistoryArtifactWrite[] = [];
@@ -1189,6 +1229,7 @@ export async function analyseCase(
           profile: profile.path,
           workingCopyPath,
           declaredTimezone,
+          decryption,
         }),
       );
     }
@@ -1198,6 +1239,7 @@ export async function analyseCase(
         workingCopyPath,
         declaredTimezone,
         declaredOriginOs,
+        decryption,
       })),
     );
   }
@@ -1333,6 +1375,11 @@ export async function analyseCase(
         (count, artifact) => count + artifact.findings.length,
         0,
       ),
+    },
+    decryption: {
+      enabled: decryption.enabled,
+      keyMaterialCount: decryption.keyMaterial.length,
+      keyMaterialIssueCount: keyMaterialIssues.length,
     },
   };
 }

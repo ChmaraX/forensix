@@ -17,6 +17,7 @@ import {
   type SourceRowProvenance,
 } from "./forensic-model.js";
 import type { ForensicTimestamp } from "./history.js";
+import { decryptOscryptValue, type DecryptionSettings } from "./oscrypt.js";
 import {
   readLoginPasses,
   type LoginSchema,
@@ -131,6 +132,49 @@ interface SecretDescription {
   readonly scheme: FieldState<string>;
   readonly prefix: FieldState<string>;
   readonly byteLength: FieldState<string>;
+  readonly decryptionRoute: FieldState<string>;
+  readonly keyMaterialRecordId: FieldState<string>;
+}
+
+/**
+ * Decrypt an encrypted secret blob strictly within the opt-in gate. Disabled by
+ * default: the secret stays `unavailable` with the historic typed reason. When
+ * enabled the blob is dispatched offline by its own prefix, and every outcome
+ * (plaintext, unsupported scheme, wrong key, malformed store, missing context,
+ * or authentication failure) is a distinct typed state.
+ */
+function decryptSecretValue(
+  value: Uint8Array,
+  profile: string,
+  decryption: DecryptionSettings,
+): Pick<
+  SecretDescription,
+  "secret" | "decryptionRoute" | "keyMaterialRecordId"
+> {
+  if (!decryption.enabled) {
+    return {
+      secret: unavailableField("encrypted_secret_without_key_material"),
+      decryptionRoute: absentField(),
+      keyMaterialRecordId: absentField(),
+    };
+  }
+  const outcome = decryptOscryptValue({
+    ciphertext: value,
+    profile,
+    keyMaterial: decryption.keyMaterial,
+  });
+  if (outcome.state === "unavailable") {
+    return {
+      secret: unavailableField(outcome.reason),
+      decryptionRoute: absentField(),
+      keyMaterialRecordId: absentField(),
+    };
+  }
+  return {
+    secret: valueField(Buffer.from(outcome.plaintext).toString("utf8")),
+    decryptionRoute: valueField(outcome.route),
+    keyMaterialRecordId: valueField(outcome.provenance.recordId),
+  };
 }
 
 /**
@@ -143,6 +187,8 @@ interface SecretDescription {
 function describeSecret(
   value: RawLoginValue,
   columnPresent: boolean,
+  profile: string,
+  decryption: DecryptionSettings,
 ): SecretDescription {
   if (!columnPresent || value === undefined || value === null) {
     return {
@@ -150,6 +196,8 @@ function describeSecret(
       scheme: absentField(),
       prefix: absentField(),
       byteLength: absentField(),
+      decryptionRoute: absentField(),
+      keyMaterialRecordId: absentField(),
     };
   }
   if (!(value instanceof Uint8Array)) {
@@ -158,6 +206,8 @@ function describeSecret(
       scheme: unavailableField("unsupported_value"),
       prefix: unavailableField("unsupported_value"),
       byteLength: unavailableField("unsupported_value"),
+      decryptionRoute: absentField(),
+      keyMaterialRecordId: absentField(),
     };
   }
   if (value.length === 0) {
@@ -166,13 +216,16 @@ function describeSecret(
       scheme: absentField(),
       prefix: absentField(),
       byteLength: valueField("0"),
+      decryptionRoute: absentField(),
+      keyMaterialRecordId: absentField(),
     };
   }
   const head = value.subarray(0, 3);
   const ascii = Buffer.from(head).toString("latin1");
   const recognizedScheme = /^v\d\d$/.test(ascii);
+  const decrypted = decryptSecretValue(value, profile, decryption);
   return {
-    secret: unavailableField("encrypted_secret_without_key_material"),
+    secret: decrypted.secret,
     scheme: recognizedScheme
       ? valueField(ascii)
       : unavailableField("unsupported_value"),
@@ -180,6 +233,8 @@ function describeSecret(
       ? valueField(ascii)
       : valueField(Buffer.from(head).toString("hex")),
     byteLength: valueField(value.length.toString()),
+    decryptionRoute: decrypted.decryptionRoute,
+    keyMaterialRecordId: decrypted.keyMaterialRecordId,
   };
 }
 
@@ -213,6 +268,7 @@ function buildCredentials(options: {
   readonly profile: string;
   readonly manifest: ManifestIdentity;
   readonly declaredTimezone: string;
+  readonly decryption: DecryptionSettings;
 }): BuiltCredential[] {
   return options.rows.map((row) => {
     if (row.id === null) {
@@ -225,7 +281,12 @@ function buildCredentials(options: {
     const has = (column: string): boolean => options.schema.columns.has(column);
     const get = (column: string): RawLoginValue =>
       row.values.get(column) ?? null;
-    const secret = describeSecret(get("password_value"), has("password_value"));
+    const secret = describeSecret(
+      get("password_value"),
+      has("password_value"),
+      options.profile,
+      options.decryption,
+    );
     const originUrl = preservedString(get("origin_url"));
     const signonRealm = preservedString(get("signon_realm"));
     const usernameValue = preservedString(get("username_value"));
@@ -254,6 +315,8 @@ function buildCredentials(options: {
       secretEncryptionScheme: secret.scheme,
       secretEncryptionPrefix: secret.prefix,
       secretByteLength: secret.byteLength,
+      secretDecryptionRoute: secret.decryptionRoute,
+      secretKeyMaterialRecordId: secret.keyMaterialRecordId,
       dateCreated,
       dateLastUsed,
       datePasswordModified: timestampField(
@@ -340,6 +403,7 @@ export async function analyseLoginDataProfile(options: {
   readonly profile: string;
   readonly workingCopyPath: string;
   readonly declaredTimezone: string;
+  readonly decryption: DecryptionSettings;
 }): Promise<LoginDataArtifactWrite> {
   const databasePath =
     options.profile === "." ? "Login Data" : `${options.profile}/Login Data`;
@@ -453,6 +517,7 @@ export async function analyseLoginDataProfile(options: {
       profile: options.profile,
       manifest,
       declaredTimezone: options.declaredTimezone,
+      decryption: options.decryption,
     });
     const recovered =
       passes.recovered === null
@@ -464,6 +529,7 @@ export async function analyseLoginDataProfile(options: {
             profile: options.profile,
             manifest: recoveredManifest as ManifestIdentity,
             declaredTimezone: options.declaredTimezone,
+            decryption: options.decryption,
           });
     return {
       sourceId: options.source.sourceId,

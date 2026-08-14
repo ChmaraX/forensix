@@ -25,6 +25,7 @@ import {
   type Provenance,
 } from "./forensic-model.js";
 import type { ForensicTimestamp } from "./history.js";
+import { decryptOscryptValue, type DecryptionSettings } from "./oscrypt.js";
 
 /**
  * Chromium stores cookie times as `base::Time`: microseconds since the Windows
@@ -67,6 +68,55 @@ interface ManifestIdentity {
 
 interface BuiltCookie {
   readonly persisted: PersistedCookieFinding;
+}
+
+interface DecryptedSecret {
+  readonly value: FieldState<string>;
+  readonly route: FieldState<string>;
+  readonly keyMaterialRecordId: FieldState<string>;
+  readonly plaintext: string | null;
+}
+
+/**
+ * Resolve the plaintext of an encrypted value strictly within the opt-in gate.
+ * With decryption disabled the value stays `unavailable` with the historic
+ * typed reason. With decryption enabled the row is dispatched offline by its
+ * own prefix; success yields the plaintext plus the citing key-material
+ * Provenance, and every failure keeps a distinct typed reason.
+ */
+function decryptSecret(
+  encrypted: Uint8Array,
+  profile: string,
+  decryption: DecryptionSettings,
+): DecryptedSecret {
+  if (!decryption.enabled) {
+    return {
+      value: unavailableField("encrypted_secret_without_key_material"),
+      route: absentField(),
+      keyMaterialRecordId: absentField(),
+      plaintext: null,
+    };
+  }
+  const outcome = decryptOscryptValue({
+    ciphertext: encrypted,
+    profile,
+    keyMaterial: decryption.keyMaterial,
+  });
+  if (outcome.state === "unavailable") {
+    return {
+      value: unavailableField(outcome.reason),
+      route: absentField(),
+      keyMaterialRecordId: absentField(),
+      plaintext: null,
+    };
+  }
+  const plaintext = Buffer.from(outcome.plaintext).toString("utf8");
+  return {
+    value: valueField(plaintext),
+    route: valueField(outcome.route),
+    keyMaterialRecordId: valueField(outcome.provenance.recordId),
+    plaintext,
+  };
 }
 
 function preservedString(
@@ -230,6 +280,7 @@ function buildCookies(options: {
   readonly manifest: ManifestIdentity;
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
+  readonly decryption: DecryptionSettings;
 }): BuiltCookie[] {
   const columns = options.schema.cookieColumns;
   return options.rows.map((row) => {
@@ -259,6 +310,10 @@ function buildCookies(options: {
       row.encryptedValue instanceof Uint8Array ? row.encryptedValue : null;
     const isEncrypted = encrypted !== null && encrypted.length > 0;
     const scheme = isEncrypted ? encryptionScheme(encrypted) : null;
+    const decrypted =
+      isEncrypted && encrypted !== null
+        ? decryptSecret(encrypted, options.profile, options.decryption)
+        : null;
 
     const sameSite = enumFields(
       row.samesite,
@@ -319,9 +374,11 @@ function buildCookies(options: {
         row.topFrameSiteKey,
         columns.has("top_frame_site_key"),
       ),
-      value: isEncrypted
-        ? unavailableField("encrypted_secret_without_key_material")
-        : plaintextValue,
+      value: decrypted !== null ? decrypted.value : plaintextValue,
+      valueDecryptionRoute:
+        decrypted !== null ? decrypted.route : absentField(),
+      valueKeyMaterialRecordId:
+        decrypted !== null ? decrypted.keyMaterialRecordId : absentField(),
       isEncrypted: valueField(isEncrypted),
       encryptedValueScheme: isEncrypted
         ? scheme === null
@@ -468,6 +525,7 @@ async function analyseProfile(options: {
   readonly workingCopyPath: string;
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
+  readonly decryption: DecryptionSettings;
 }): Promise<CookieArtifactWrite> {
   const modernPath =
     options.profile === "."
@@ -566,6 +624,7 @@ async function analyseProfile(options: {
       manifest,
       declaredTimezone: options.declaredTimezone,
       declaredOriginOs: options.declaredOriginOs,
+      decryption: options.decryption,
     });
     const recovered =
       passes.recovered === null
@@ -578,6 +637,7 @@ async function analyseProfile(options: {
             manifest: recoveredManifest as ManifestIdentity,
             declaredTimezone: options.declaredTimezone,
             declaredOriginOs: options.declaredOriginOs,
+            decryption: options.decryption,
           });
     return {
       sourceId: options.source.sourceId,
@@ -617,6 +677,7 @@ export interface CookieAnalysisInput {
   readonly workingCopyPath: string;
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
+  readonly decryption: DecryptionSettings;
 }
 
 export async function analyseSourceCookies(
@@ -631,6 +692,7 @@ export async function analyseSourceCookies(
         workingCopyPath: input.workingCopyPath,
         declaredTimezone: input.declaredTimezone,
         declaredOriginOs: input.declaredOriginOs,
+        decryption: input.decryption,
       }),
     );
   }
