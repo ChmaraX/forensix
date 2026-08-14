@@ -19,6 +19,7 @@ import {
 } from "./forensic-model.js";
 import type { ForensicTimestamp } from "./history.js";
 import {
+  DownloadsTableAbsentError,
   readDownloadsPasses,
   type DownloadsSchema,
   type RawDownloadRow,
@@ -495,12 +496,16 @@ export async function analyseDownloadsProfile(options: {
     options.profile === "." ? "History" : `${options.profile}/History`;
   const manifest = manifestIdentity(options.source, databasePath);
   if (manifest === null) {
+    // Mirror the sibling per-Profile artifacts (e.g. Web Data): a missing
+    // manifest entry is `absent`, not `unavailable`, so it never degrades an
+    // otherwise clean Analysis Run. The History artifact independently reports
+    // the missing History file.
     return unavailableArtifact(
       options.source.sourceId,
       options.profile,
       databasePath,
       null,
-      "unavailable",
+      "absent",
       "downloads_manifest_entry_missing",
     );
   }
@@ -637,17 +642,14 @@ export async function analyseDownloadsProfile(options: {
     // download evidence: report it as `absent` so it never degrades an
     // otherwise clean Analysis Run, while a corrupt or unreadable database
     // stays `unavailable` with its distinct typed reason.
-    if (
-      error instanceof ForensixError &&
-      error.details.downloads_table_absent === true
-    ) {
+    if (error instanceof DownloadsTableAbsentError) {
       return unavailableArtifact(
         options.source.sourceId,
         options.profile,
         databasePath,
         manifest.ordinal,
         "absent",
-        "downloads_table_absent:History database is missing the downloads table.",
+        `downloads_table_absent:${error.message}`,
       );
     }
     const reason =

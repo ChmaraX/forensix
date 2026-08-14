@@ -12,6 +12,21 @@ import {
 } from "./history-sqlite.js";
 import { openDatabaseSync } from "./sqlite-open.js";
 
+/**
+ * Signals that a History database has no `downloads` table at all. This is a
+ * typed, distinct outcome — the table is simply not present, carrying no
+ * download evidence — so the artifact layer can classify it as `absent`
+ * (inapplicable) by `instanceof` rather than by inspecting an untyped error
+ * detail. A corrupt or unreadable database throws a `ForensixError` instead and
+ * stays `unavailable`.
+ */
+export class DownloadsTableAbsentError extends Error {
+  public constructor() {
+    super("History database is missing the downloads table.");
+    this.name = "DownloadsTableAbsentError";
+  }
+}
+
 export type RawDownloadValue = null | string | bigint | Uint8Array;
 
 /**
@@ -134,14 +149,10 @@ function readSchema(database: DatabaseSync): DownloadsSchema {
   }
   // A History database with no `downloads` table simply carries no download
   // evidence. That is `absent` (inapplicable), distinct from a corrupt or
-  // unreadable database, which stays `unavailable`. The flag lets the artifact
-  // layer classify it without conflating the two.
+  // unreadable database, which stays `unavailable`. A dedicated typed error
+  // lets the artifact layer classify it without conflating the two.
   if (!tableExists(database, "downloads")) {
-    throw new ForensixError(
-      "ANALYSIS_FAILED",
-      "History database is missing the downloads table.",
-      { table: "downloads", downloads_table_absent: true },
-    );
+    throw new DownloadsTableAbsentError();
   }
 
   const versionRow = database
