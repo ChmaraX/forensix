@@ -1,0 +1,31 @@
+name: commitlint-pr-title
+
+# Squash-merge promotes the PR title to the commit that lands on v2/master, so
+# the title itself must be a valid Conventional Commit. This job lints it.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches: [v2, master]
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint-pr-title:
+    name: commitlint-pr-title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.15.0
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install locked dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Lint PR title as a Conventional Commit
+        env:
+          # Pass the untrusted title via env, never interpolated into the shell.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s' "$PR_TITLE" | corepack pnpm exec commitlint
