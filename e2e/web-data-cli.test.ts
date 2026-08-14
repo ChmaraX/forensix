@@ -284,7 +284,7 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
     });
     expect(phone[0]?.fields.dateLastUsed).toEqual({ state: "absent" });
 
-    // A city field is recovered from the address-bearing Default Profile.
+    // The Default Profile's `city` form field is matched by a value search.
     const city = parseJson<AutofillPage>(
       runCli([
         "autofill",
