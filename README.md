@@ -118,10 +118,10 @@ A failure in one artifact leaves the defensible results from the other artifacts
 The `analyse` command reports the run exit state through the process exit code:
 
 | Code | Exit state | Meaning                                                        |
-| ---- | ---------- | ------------------------------------------------------------- |
-| 0    | clean      | Every artifact produced defensible results.                   |
+| ---- | ---------- | -------------------------------------------------------------- |
+| 0    | clean      | Every artifact produced defensible results.                    |
 | 2    | partial    | Some artifacts were unavailable; other results stay queryable. |
-| 3    | failed     | The analysis produced no defensible artifact result.          |
+| 3    | failed     | The analysis produced no defensible artifact result.           |
 | 1    | error      | Usage error, missing Case, or Working Copy integrity refusal.  |
 
 The JSON output carries the same value in the `exitState` field.
@@ -150,6 +150,40 @@ You can repeat `--profile` to query at most 100 Profiles.
 Use `--commit-state` to keep committed and recovered rows separate.
 The `--from`, `--to`, and `--transition` filters apply only to `visits`.
 Timestamp bounds must include `Z` or a numeric offset.
+
+## Export a canonical Extract
+
+An Extract is a scoped, deterministic, citable read over the Case.
+It never becomes a second record of truth: every row is copied from Findings and Candidates that an Analysis Run already recorded.
+
+```sh
+node cli/dist/cli.js export \
+  --case "/path/to/CASE-001" \
+  --out "/path/to/EXTRACT-001" \
+  --examiner "Jane Doe" \
+  --csv \
+  --json
+```
+
+The output directory must be outside the Case Directory and empty.
+The command writes these files:
+
+- `export_header.json`: a versioned header with the Case, Source, tool, examiner, Declared Timezone, scope, Redaction State, and the Completeness Statement.
+- `findings.jsonl` and `candidates.jsonl`: canonical JSONL rows, one per line, with Findings and Candidates in separate collections.
+- `findings.lossy.csv` and `candidates.lossy.csv` (only with `--csv`): a lossy CSV profile whose first column is `record_type`.
+- `export_manifest.json`: the Export Manifest listing each file digest and a derived digest over them.
+- `export_generation.json`: the single quarantined generation instant.
+
+Each row keeps its Provenance, Field State, Commit State, and timestamp semantics.
+The Completeness Statement records attempted, produced, absent, and unavailable artifacts before any result row is interpreted.
+
+Plaintext secrets are redacted by default; each withheld value keeps a hash so it stays citable.
+Add `--include-secrets` to disclose them.
+Binary payloads are separately hashed files, never base64 cells.
+
+The Export Manifest and its derived digest are independently reproducible.
+Two exports of the same Case are byte-identical except for the quarantined generation instant.
+Use `--collection`, `--profile`, and `--commit-state` to scope the Extract.
 
 ## Verify the implementation
 
