@@ -3,8 +3,18 @@
   "version": "2.0.0-alpha.1",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "engines": {
     "node": ">=24.15.0"
+  },
+  "dependencies": {
+    "@forensix/core": "workspace:*",
+    "@forensix/client": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

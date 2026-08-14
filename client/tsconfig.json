@@ -4,6 +4,7 @@
     "rootDir": "src",
     "outDir": "dist",
     "composite": true,
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src/**/*.ts"]
