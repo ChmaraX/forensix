@@ -17,7 +17,8 @@ import {
   type SourceRowProvenance,
 } from "./forensic-model.js";
 import type { ForensicTimestamp } from "./history.js";
-import { decryptOscryptValue, type DecryptionSettings } from "./oscrypt.js";
+import { decryptSecretField } from "./decrypted-field.js";
+import { schemeOf, type DecryptionSettings } from "./oscrypt.js";
 import {
   readLoginPasses,
   type LoginSchema,
@@ -137,47 +138,6 @@ interface SecretDescription {
 }
 
 /**
- * Decrypt an encrypted secret blob strictly within the opt-in gate. Disabled by
- * default: the secret stays `unavailable` with the historic typed reason. When
- * enabled the blob is dispatched offline by its own prefix, and every outcome
- * (plaintext, unsupported scheme, wrong key, malformed store, missing context,
- * or authentication failure) is a distinct typed state.
- */
-function decryptSecretValue(
-  value: Uint8Array,
-  profile: string,
-  decryption: DecryptionSettings,
-): Pick<
-  SecretDescription,
-  "secret" | "decryptionRoute" | "keyMaterialRecordId"
-> {
-  if (!decryption.enabled) {
-    return {
-      secret: unavailableField("encrypted_secret_without_key_material"),
-      decryptionRoute: absentField(),
-      keyMaterialRecordId: absentField(),
-    };
-  }
-  const outcome = decryptOscryptValue({
-    ciphertext: value,
-    profile,
-    keyMaterial: decryption.keyMaterial,
-  });
-  if (outcome.state === "unavailable") {
-    return {
-      secret: unavailableField(outcome.reason),
-      decryptionRoute: absentField(),
-      keyMaterialRecordId: absentField(),
-    };
-  }
-  return {
-    secret: valueField(Buffer.from(outcome.plaintext).toString("utf8")),
-    decryptionRoute: valueField(outcome.route),
-    keyMaterialRecordId: valueField(outcome.provenance.recordId),
-  };
-}
-
-/**
  * Describe the encrypted secret wrapper without ever attempting to read the
  * plaintext. A stored secret is always reported `unavailable` with the typed
  * reason `encrypted_secret_without_key_material`; an empty or missing blob is
@@ -220,20 +180,19 @@ function describeSecret(
       keyMaterialRecordId: absentField(),
     };
   }
-  const head = value.subarray(0, 3);
-  const ascii = Buffer.from(head).toString("latin1");
-  const recognizedScheme = /^v\d\d$/.test(ascii);
-  const decrypted = decryptSecretValue(value, profile, decryption);
+  const schemeClass = schemeOf(value);
+  const recognizedScheme = schemeClass !== "legacy";
+  const decrypted = decryptSecretField(value, profile, decryption);
   return {
-    secret: decrypted.secret,
+    secret: decrypted.value,
     scheme: recognizedScheme
-      ? valueField(ascii)
+      ? valueField(schemeClass)
       : unavailableField("unsupported_value"),
     prefix: recognizedScheme
-      ? valueField(ascii)
-      : valueField(Buffer.from(head).toString("hex")),
+      ? valueField(schemeClass)
+      : valueField(Buffer.from(value.subarray(0, 3)).toString("hex")),
     byteLength: valueField(value.length.toString()),
-    decryptionRoute: decrypted.decryptionRoute,
+    decryptionRoute: decrypted.route,
     keyMaterialRecordId: decrypted.keyMaterialRecordId,
   };
 }

@@ -454,8 +454,11 @@ function decryptWith(
  * Decrypt one stored blob offline. Dispatch is per row, driven by the blob's
  * own scheme prefix, so a database mixing `v10`, `v11`, and `v20` rows is
  * handled correctly. `v20` App-Bound blobs are never unwrapped. When no
- * authorized key material matches the row, or every candidate fails, the most
- * specific typed reason is returned so distinct failure modes stay separable.
+ * authorized key material matches the row it is `no_authorized_key_material`;
+ * when candidates match but every attempt fails, the last attempt's typed
+ * reason is returned so distinct failure modes stay separable. An unexpected
+ * (non-decryption) error is never masked as a wrong key; it propagates so the
+ * parser records it plainly instead of a guessed forensic outcome.
  */
 export function decryptOscryptValue(options: {
   readonly ciphertext: Uint8Array;
@@ -487,7 +490,7 @@ export function decryptOscryptValue(options: {
         failure = error.reason;
         continue;
       }
-      failure = "decryption_wrong_key";
+      throw error;
     }
   }
   return { state: "unavailable", reason: failure };
