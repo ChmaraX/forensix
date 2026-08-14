@@ -95,6 +95,7 @@ export {
   type CookieAnalysisSummary,
   type DecryptionSummary,
   type EpochFamily,
+  type FaviconsAnalysisSummary,
   type ForensicTimestamp,
   type HistoryAnalysisSummary,
   type LoginDataAnalysisSummary,
@@ -191,6 +192,13 @@ export {
   type AutofillQuery,
   type AutofillSort,
 } from "./web-data-query.js";
+export {
+  queryFavicons,
+  type FaviconDirection,
+  type FaviconPage,
+  type FaviconQuery,
+  type FaviconSort,
+} from "./favicons-query.js";
 export {
   queryMetadata,
   type MetadataDirection,
