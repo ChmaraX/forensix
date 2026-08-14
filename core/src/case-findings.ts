@@ -161,7 +161,6 @@ export interface MetadataArtifactWrite {
   readonly databasePath: string;
   readonly reason: string | null;
   readonly findings: readonly PersistedMetadataFinding[];
-  readonly metadataFindingCount: number;
 }
 
 export interface StoreHistoryAnalysisOptions {

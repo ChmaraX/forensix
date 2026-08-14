@@ -33,7 +33,7 @@ export const PROFILE_METADATA_KIND = "profile_metadata";
  * supporting Provenance row.
  */
 
-type Lookup =
+export type Lookup =
   | { readonly kind: "value"; readonly value: unknown }
   | { readonly kind: "absent" }
   | { readonly kind: "malformed" };
@@ -44,7 +44,7 @@ type Lookup =
  * mid-path is `malformed`. This is what lets removed or inapplicable keys stay
  * absent while a wrong-shaped document surfaces as unavailable.
  */
-function lookup(root: unknown, keys: readonly string[]): Lookup {
+export function lookup(root: unknown, keys: readonly string[]): Lookup {
   let current: unknown = root;
   for (const key of keys) {
     if (current === undefined || current === null) {
@@ -61,7 +61,7 @@ function lookup(root: unknown, keys: readonly string[]): Lookup {
   return { kind: "value", value: current };
 }
 
-function stringField(result: Lookup): FieldState<string> {
+export function stringField(result: Lookup): FieldState<string> {
   if (result.kind === "absent") {
     return absentField();
   }
@@ -73,7 +73,7 @@ function stringField(result: Lookup): FieldState<string> {
     : unavailableField("unsupported_value");
 }
 
-function integerField(result: Lookup): FieldState<string> {
+export function integerField(result: Lookup): FieldState<string> {
   if (result.kind === "absent") {
     return absentField();
   }
@@ -102,7 +102,7 @@ function booleanField(result: Lookup): FieldState<boolean> {
  * as the first element of `variations_permanent_consistency_country`
  * (`[version, country]`). A present-but-wrong shape is unavailable, never blank.
  */
-function chromeVersionField(localState: unknown): FieldState<string> {
+export function chromeVersionField(localState: unknown): FieldState<string> {
   const result = lookup(localState, [
     "variations_permanent_consistency_country",
   ]);
@@ -151,7 +151,7 @@ function presenceField(
  * area and always marked `synthetic` so an examiner never mistakes a derived
  * value for a stored one.
  */
-function screenWorkAreaField(
+export function screenWorkAreaField(
   left: FieldState<string>,
   top: FieldState<string>,
   right: FieldState<string>,
@@ -280,7 +280,6 @@ function unavailableArtifact(
     databasePath,
     reason,
     findings: [],
-    metadataFindingCount: 0,
   };
 }
 
@@ -571,7 +570,6 @@ export async function analyseSourcePreferences(
             localState: read.value,
           }),
         ],
-        metadataFindingCount: 1,
       });
     } else {
       artifacts.push(
@@ -658,7 +656,6 @@ export async function analyseSourcePreferences(
           preferencesPath,
         }),
       ],
-      metadataFindingCount: 1,
     });
   }
 
