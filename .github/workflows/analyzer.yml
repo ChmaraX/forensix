@@ -126,6 +126,10 @@ jobs:
         run: |
           set -euo pipefail
           tarball=$(ls dist/analyzer/*.tgz)
-          tar tzf "$tarball" | grep -qx 'package/dist/cli.js'
-          tar tzf "$tarball" | grep -qx 'package/dist/build-info.json'
+          # Materialize the listing once; piping tar into `grep -q` makes grep
+          # close the pipe on first match, killing tar with SIGPIPE and failing
+          # the step under pipefail even though the files are present.
+          listing=$(tar tzf "$tarball")
+          grep -qx 'package/dist/cli.js' <<<"$listing"
+          grep -qx 'package/dist/build-info.json' <<<"$listing"
           echo "tarball contains the compiled CLI and injected build info"
