@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { crc32 as zlibCrc32 } from "node:zlib";
 
+import {
+  WINDOWS_EPOCH_OFFSET_MICROS,
+  utcFromUnixMicros,
+} from "./forensic-time.js";
+
 /**
  * Pure, filesystem-free readers for the three Chromium HTTP-cache backends.
  *
@@ -38,10 +43,6 @@ const FLAG_HAS_KEY_SHA256 = 1 << 1;
 const SIMPLE_HEADER_BYTES = 24;
 const SIMPLE_EOF_BYTES = 24;
 const SIMPLE_KEY_SHA256_BYTES = 32;
-
-// Microseconds between the 1601-01-01 Windows epoch (base::Time internal value
-// origin) and the 1970 Unix epoch. base::Time::ToInternalValue() emits this.
-const WINDOWS_EPOCH_OFFSET_MICROS = 11_644_473_600_000_000n;
 
 const SQLITE_MAGIC = Buffer.from("SQLite format 3\u0000", "latin1");
 
@@ -114,25 +115,15 @@ function startsWith(bytes: Uint8Array, prefix: Uint8Array): boolean {
 export function detectCacheBackend(
   entries: readonly CacheDirEntry[],
 ): BackendDetection {
-  const byPath = new Map<string, CacheDirEntry>();
-  for (const entry of entries) {
-    byPath.set(entry.relativePath, entry);
-  }
-
-  const indexFile = byPath.get("index");
-  if (indexFile !== undefined) {
-    const magic = readUint32LE(indexFile.head, 0);
-    if (magic === BLOCKFILE_INDEX_MAGIC) {
-      return { backend: "blockfile", evidence: "index_magic" };
-    }
-  }
   for (const entry of entries) {
     if (readUint32LE(entry.head, 0) === BLOCKFILE_INDEX_MAGIC) {
       return { backend: "blockfile", evidence: "index_magic" };
     }
   }
 
-  if (byPath.has("index-dir/the-real-index")) {
+  if (
+    entries.some((entry) => entry.relativePath === "index-dir/the-real-index")
+  ) {
     return { backend: "simple", evidence: "the_real_index" };
   }
   for (const entry of entries) {
@@ -220,24 +211,11 @@ export function entryHashHexFromKey(key: Uint8Array): string {
   return value.toString(16).padStart(16, "0");
 }
 
+// A base::Time internal value is microseconds since the 1601 Windows epoch;
+// shift it to the Unix epoch and render it with the canonical History-family
+// converter so cache timestamps can never drift from the other artifacts.
 function internalMicrosToUtc(internalMicros: bigint): string | null {
-  const unixMicros = internalMicros - WINDOWS_EPOCH_OFFSET_MICROS;
-  const seconds =
-    unixMicros >= 0n
-      ? unixMicros / 1_000_000n
-      : (unixMicros - 999_999n) / 1_000_000n;
-  const micros = unixMicros - seconds * 1_000_000n;
-  const milliseconds = Number(seconds * 1000n + micros / 1000n);
-  if (!Number.isSafeInteger(milliseconds)) {
-    return null;
-  }
-  const date = new Date(milliseconds);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return `${date.toISOString().slice(0, -5)}.${micros
-    .toString()
-    .padStart(6, "0")}Z`;
+  return utcFromUnixMicros(internalMicros - WINDOWS_EPOCH_OFFSET_MICROS);
 }
 
 export interface SimpleStream {

@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { CASE_FILENAME } from "./case.js";
 import { ForensixError } from "./errors.js";
+import { SQLITE_MAX_INTEGER, SQLITE_MIN_INTEGER } from "./forensic-time.js";
 import {
   createCandidate,
   createFinding,
@@ -168,9 +169,6 @@ const RECORD_TYPE_CONFIG: Readonly<Record<CacheRecordType, RecordTypeConfig>> =
         }),
     },
   };
-
-const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
-const SQLITE_MIN_INTEGER = -9_223_372_036_854_775_808n;
 
 function queryFingerprint(input: Record<string, unknown>): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");

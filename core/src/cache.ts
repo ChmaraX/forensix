@@ -39,7 +39,6 @@ import type { ManifestEntry } from "./manifest.js";
 export const CACHE_PAYLOAD_DIRECTORY = "cache-payloads";
 
 // The Simple Cache stream-0/stream-1 entry file name for a hash.
-const ENTRY_FILE_SUFFIX = "_0";
 const SIMPLE_ENTRY_NAME = /^([0-9a-f]{16})_([01s])$/;
 const REAL_INDEX_NAME = "index-dir/the-real-index";
 
@@ -642,9 +641,15 @@ async function analyseProfileCache(options: {
 
   await writePayloads(options.caseDirectory, built.payloads);
 
+  // Cite a real stream-0 entry file as the artifact's representative Manifest
+  // ordinal, matched with the same precise regex used to group entries.
   const stream0Ordinal =
-    cache.files.find((file) => file.relativePath.endsWith(ENTRY_FILE_SUFFIX))
-      ?.ordinal ?? null;
+    cache.files.find((file) => {
+      const match = SIMPLE_ENTRY_NAME.exec(
+        file.relativePath.split("/").at(-1) ?? "",
+      );
+      return match !== null && match[2] === "0";
+    })?.ordinal ?? null;
 
   return {
     sourceId: options.source.sourceId,
