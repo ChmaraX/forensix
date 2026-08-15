@@ -190,6 +190,44 @@ export interface FaviconArtifactWrite {
   readonly payloadFileCount: number;
 }
 
+export interface PersistedCacheFinding {
+  readonly finding: Finding;
+  readonly searchText: string;
+  readonly backend: string;
+  readonly sortKey: string | null;
+  readonly sortLastUsed: string | null;
+  readonly sortSizeBytes: bigint | null;
+  readonly sortEntryHash: string;
+}
+
+export interface PersistedCacheCandidate {
+  readonly candidate: Candidate;
+  readonly profile: string;
+  readonly commitState: "committed" | "wal_resident" | "journal_resident";
+  readonly backend: string;
+  readonly candidateKind: string;
+  readonly searchText: string;
+  readonly sortKey: string | null;
+  readonly sortLastUsed: string | null;
+}
+
+export interface CacheArtifactWrite {
+  readonly sourceId: string;
+  readonly profile: string;
+  readonly status: "complete" | "absent" | "unavailable";
+  readonly manifestEntryOrdinal: number | null;
+  /** The cache data directory, e.g. `Default/Cache/Cache_Data`. */
+  readonly databasePath: string;
+  /** The detected backend, or null when the cache was absent/uncollected. */
+  readonly backend: string | null;
+  readonly reason: string | null;
+  readonly findings: readonly PersistedCacheFinding[];
+  readonly candidates: readonly PersistedCacheCandidate[];
+  readonly entryFindingCount: number;
+  readonly candidateCount: number;
+  readonly payloadFileCount: number;
+}
+
 export type BookmarkSourceFile = "Bookmarks" | "Bookmarks.bak";
 
 export interface PersistedBookmarkFinding {
@@ -260,6 +298,7 @@ export interface StoreHistoryAnalysisOptions {
   readonly downloadsArtifacts?: readonly DownloadsArtifactWrite[];
   readonly metadataArtifacts?: readonly MetadataArtifactWrite[];
   readonly bookmarksArtifacts?: readonly BookmarksArtifactWrite[];
+  readonly cacheArtifacts?: readonly CacheArtifactWrite[];
 }
 
 export type AnalysisRunExitState = "complete" | "partial" | "failed";
@@ -844,6 +883,93 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       ON bookmarks_findings(finding_kind, COALESCE(sort_folder, ''), finding_id);
     CREATE INDEX IF NOT EXISTS bookmarks_findings_profile_query
       ON bookmarks_findings(finding_kind, source_file, profile_path, finding_id);
+
+    CREATE TABLE IF NOT EXISTS cache_artifact_results (
+      artifact_result_id INTEGER PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL REFERENCES sources(source_id),
+      profile_path TEXT NOT NULL,
+      artifact TEXT NOT NULL CHECK (artifact = 'Cache'),
+      manifest_entry_ordinal INTEGER,
+      database_path TEXT NOT NULL,
+      backend TEXT,
+      status TEXT NOT NULL CHECK (status IN ('complete', 'absent', 'unavailable')),
+      reason TEXT,
+      active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal),
+      UNIQUE (run_id, source_id, profile_path, artifact)
+    ) STRICT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS cache_one_active_result
+      ON cache_artifact_results(source_id, profile_path, artifact)
+      WHERE active = 1;
+
+    CREATE TABLE IF NOT EXISTS cache_findings (
+      finding_id INTEGER PRIMARY KEY,
+      artifact_result_id INTEGER NOT NULL
+        REFERENCES cache_artifact_results(artifact_result_id),
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL,
+      manifest_entry_ordinal INTEGER NOT NULL,
+      record_type TEXT NOT NULL CHECK (record_type = 'finding'),
+      finding_kind TEXT NOT NULL,
+      profile_path TEXT NOT NULL,
+      commit_state TEXT NOT NULL CHECK (
+        commit_state IN ('committed', 'wal_resident', 'journal_resident')
+      ),
+      backend TEXT NOT NULL,
+      provenance_json TEXT NOT NULL,
+      fields_json TEXT NOT NULL,
+      search_text TEXT NOT NULL,
+      sort_key TEXT,
+      sort_last_used TEXT,
+      sort_size INTEGER,
+      sort_entry_hash TEXT NOT NULL,
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal)
+    ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS cache_findings_key_query
+      ON cache_findings(finding_kind, COALESCE(sort_key, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS cache_findings_last_used_query
+      ON cache_findings(finding_kind, COALESCE(sort_last_used, ''), finding_id);
+    CREATE INDEX IF NOT EXISTS cache_findings_size_query
+      ON cache_findings(finding_kind, COALESCE(sort_size, -1), finding_id);
+    CREATE INDEX IF NOT EXISTS cache_findings_hash_query
+      ON cache_findings(finding_kind, sort_entry_hash, finding_id);
+    CREATE INDEX IF NOT EXISTS cache_findings_profile_query
+      ON cache_findings(finding_kind, profile_path, finding_id);
+
+    CREATE TABLE IF NOT EXISTS cache_candidates (
+      candidate_id INTEGER PRIMARY KEY,
+      artifact_result_id INTEGER NOT NULL
+        REFERENCES cache_artifact_results(artifact_result_id),
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL,
+      manifest_entry_ordinal INTEGER NOT NULL,
+      record_type TEXT NOT NULL CHECK (record_type = 'candidate'),
+      candidate_kind TEXT NOT NULL,
+      profile_path TEXT NOT NULL,
+      commit_state TEXT NOT NULL CHECK (
+        commit_state IN ('committed', 'wal_resident', 'journal_resident')
+      ),
+      backend TEXT NOT NULL,
+      rank INTEGER NOT NULL CHECK (rank > 0),
+      supporting_count INTEGER NOT NULL CHECK (supporting_count > 0),
+      provenance_json TEXT NOT NULL,
+      fields_json TEXT NOT NULL,
+      search_text TEXT NOT NULL,
+      sort_key TEXT,
+      sort_last_used TEXT,
+      FOREIGN KEY (source_id, manifest_entry_ordinal)
+        REFERENCES manifest_entries(source_id, ordinal)
+    ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS cache_candidates_kind_query
+      ON cache_candidates(candidate_kind, COALESCE(sort_last_used, ''), candidate_id);
+    CREATE INDEX IF NOT EXISTS cache_candidates_profile_query
+      ON cache_candidates(profile_path, candidate_id);
   `);
 }
 
@@ -1053,6 +1179,60 @@ function insertFaviconFinding(
     row.sortPageUrl,
     row.sortLastUpdated,
     row.sortWidth,
+  );
+}
+
+function insertCacheFinding(
+  statement: ReturnType<DatabaseSync["prepare"]>,
+  artifactResultId: bigint,
+  runId: string,
+  row: PersistedCacheFinding,
+): void {
+  const finding = row.finding;
+  statement.run(
+    artifactResultId,
+    runId,
+    finding.provenance.sourceId,
+    finding.provenance.manifestEntryOrdinal,
+    finding.recordType,
+    finding.findingKind,
+    finding.profile,
+    finding.commitState,
+    row.backend,
+    JSON.stringify(finding.provenance),
+    JSON.stringify(finding.fields),
+    row.searchText,
+    row.sortKey,
+    row.sortLastUsed,
+    row.sortSizeBytes,
+    row.sortEntryHash,
+  );
+}
+
+function insertCacheCandidate(
+  statement: ReturnType<DatabaseSync["prepare"]>,
+  artifactResultId: bigint,
+  runId: string,
+  row: PersistedCacheCandidate,
+): void {
+  const candidate = row.candidate;
+  statement.run(
+    artifactResultId,
+    runId,
+    candidate.provenance.sourceId,
+    candidate.provenance.manifestEntryOrdinal,
+    candidate.recordType,
+    candidate.candidateKind,
+    row.profile,
+    row.commitState,
+    row.backend,
+    candidate.rank,
+    candidate.count,
+    JSON.stringify(candidate.provenance),
+    JSON.stringify(candidate.fields),
+    row.searchText,
+    row.sortKey,
+    row.sortLastUsed,
   );
 }
 
@@ -1364,6 +1544,37 @@ export function storeHistoryAnalysis(
       const activateCurrentBookmark = database.prepare(
         "UPDATE bookmarks_artifact_results SET active = 1 WHERE artifact_result_id = ?",
       );
+      const insertCacheArtifact = database.prepare(
+        `INSERT INTO cache_artifact_results
+           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
+            database_path, backend, status, reason, active)
+         VALUES (?, ?, ?, 'Cache', ?, ?, ?, ?, ?, 0)`,
+      );
+      const insertCacheFindingStatement = database.prepare(
+        `INSERT INTO cache_findings
+           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
+            record_type, finding_kind, profile_path, commit_state, backend,
+            provenance_json, fields_json, search_text, sort_key, sort_last_used,
+            sort_size, sort_entry_hash)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      const insertCacheCandidateStatement = database.prepare(
+        `INSERT INTO cache_candidates
+           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
+            record_type, candidate_kind, profile_path, commit_state, backend,
+            rank, supporting_count, provenance_json, fields_json, search_text,
+            sort_key, sort_last_used)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      const deactivatePreviousCache = database.prepare(
+        `UPDATE cache_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Cache'
+            AND active = 1`,
+      );
+      const activateCurrentCache = database.prepare(
+        "UPDATE cache_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+      );
 
       for (const artifact of options.artifacts) {
         const insertion = insertArtifact.run(
@@ -1629,6 +1840,40 @@ export function storeHistoryAnalysis(
         }
       }
 
+      for (const artifact of options.cacheArtifacts ?? []) {
+        const insertion = insertCacheArtifact.run(
+          runId,
+          artifact.sourceId,
+          artifact.profile,
+          artifact.manifestEntryOrdinal,
+          artifact.databasePath,
+          artifact.backend,
+          artifact.status,
+          artifact.reason,
+        );
+        const artifactResultId = insertion.lastInsertRowid as bigint;
+        for (const finding of artifact.findings) {
+          insertCacheFinding(
+            insertCacheFindingStatement,
+            artifactResultId,
+            runId,
+            finding,
+          );
+        }
+        for (const candidate of artifact.candidates) {
+          insertCacheCandidate(
+            insertCacheCandidateStatement,
+            artifactResultId,
+            runId,
+            candidate,
+          );
+        }
+        if (artifact.status === "complete") {
+          deactivatePreviousCache.run(artifact.sourceId, artifact.profile);
+          activateCurrentCache.run(artifactResultId);
+        }
+      }
+
       // The SQLite primary stores (History, Cookies, Login Data, Web Data, Top
       // Sites, Favicons) drive the Analysis Run exit state. The JSON-derived
       // artifacts —
@@ -1645,6 +1890,7 @@ export function storeHistoryAnalysis(
         ...(options.webDataArtifacts ?? []),
         ...(options.faviconArtifacts ?? []),
         ...(options.downloadsArtifacts ?? []),
+        ...(options.cacheArtifacts ?? []),
       ];
       const unavailableCount = combinedArtifacts.filter(
         (artifact) => artifact.status === "unavailable",
