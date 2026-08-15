@@ -52,6 +52,12 @@ import {
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import { type EmbeddingEngine } from "./topic-candidates.js";
+import {
+  classifyHistoryTopics,
+  type TopicCandidateSummary,
+} from "./history-topic-classification.js";
+export type { TopicCandidateSummary } from "./history-topic-classification.js";
 import {
   readHistoryPasses,
   type HistorySchema,
@@ -94,6 +100,18 @@ export interface AnalyseCaseOptions {
   readonly keyMaterialPath?: string;
   /** Recipient X25519 private key (PEM) used to unseal captured key material. */
   readonly recipientKeyPath?: string;
+  /**
+   * Local topic classification (issue #184). Enabled by default; the settled
+   * ONNX model runs only when its optional runtime and model directory are
+   * present, and a typed unavailability is recorded otherwise. Disabling it, or
+   * removing the model, leaves every source artifact row byte-for-byte
+   * unchanged — Candidates are additive and live in a separate collection.
+   */
+  readonly topicClassification?: {
+    readonly enabled?: boolean;
+    /** Inject an engine (tests, alternate deployments). Overrides the loader. */
+    readonly engine?: EmbeddingEngine;
+  };
 }
 
 export interface DecryptionSummary {
@@ -112,7 +130,7 @@ export interface HistoryAnalysisSummary {
   readonly committedVisitCount: number;
   readonly recoveredVisitCount: number;
   readonly findingCount: number;
-  readonly candidateCount: 0;
+  readonly candidateCount: number;
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
   readonly declaredOriginOsConflict: boolean;
@@ -262,6 +280,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly bookmarks: BookmarksAnalysisSummary;
   readonly cache: CacheAnalysisSummary;
   readonly decryption: DecryptionSummary;
+  readonly topicCandidates: TopicCandidateSummary;
 }
 
 interface ManifestIdentity {
@@ -1376,6 +1395,11 @@ export async function analyseCase(
     );
   }
 
+  const classification = await classifyHistoryTopics(
+    artifacts,
+    options.topicClassification,
+  );
+
   await verifyWorkingCopy(caseDirectory);
   const stored = storeHistoryAnalysis({
     caseDirectory,
@@ -1384,7 +1408,7 @@ export async function analyseCase(
     declaredOriginOs,
     invocation: options.invocation ?? ["analyse", "--case", caseDirectory],
     startedAt,
-    artifacts,
+    artifacts: classification.artifacts,
     cookieArtifacts,
     loginDataArtifacts,
     topSitesArtifacts,
@@ -1557,7 +1581,7 @@ export async function analyseCase(
         (count, artifact) => count + artifact.findings.length,
         0,
       ),
-      candidateCount: 0,
+      candidateCount: classification.summary.candidateCount,
       declaredTimezone,
       declaredOriginOs,
       declaredOriginOsConflict:
@@ -1754,5 +1778,6 @@ export async function analyseCase(
       keyMaterialCount: decryption.keyMaterial.length,
       keyMaterialIssueCount: keyMaterialIssues.length,
     },
+    topicCandidates: classification.summary,
   };
 }
