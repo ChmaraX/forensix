@@ -52,13 +52,12 @@ import {
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import { type EmbeddingEngine } from "./topic-candidates.js";
 import {
-  createTopicClassifier,
-  type EmbeddingEngine,
-  type TopicCandidateInput,
-  type TopicClassifierUnavailableReason,
-} from "./topic-candidates.js";
-import { loadTopicEngine } from "./topic-candidates-onnx.js";
+  classifyHistoryTopics,
+  type TopicCandidateSummary,
+} from "./history-topic-classification.js";
+export type { TopicCandidateSummary } from "./history-topic-classification.js";
 import {
   readHistoryPasses,
   type HistorySchema,
@@ -135,20 +134,6 @@ export interface HistoryAnalysisSummary {
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
   readonly declaredOriginOsConflict: boolean;
-}
-
-/**
- * Outcome of the local topic classifier. `disabled` and every `unavailable`
- * reason are first-class recorded states: the History analysis is complete and
- * queryable regardless, and no classifier output is ever a Finding.
- */
-export interface TopicCandidateSummary {
-  readonly status: "complete" | "disabled" | "unavailable";
-  readonly reason: TopicClassifierUnavailableReason | null;
-  readonly classifiedUrlCount: number;
-  readonly candidateCount: number;
-  readonly modelId: string | null;
-  readonly modelRevision: string | null;
 }
 
 export interface CookieAnalysisSummary {
@@ -1288,141 +1273,6 @@ async function analyseProfile(options: {
       reason,
     );
   }
-}
-
-function topicInputsFromArtifact(
-  artifact: HistoryArtifactWrite,
-): TopicCandidateInput[] {
-  const inputs: TopicCandidateInput[] = [];
-  // Classification consumes the already-built distinct-URL summaries. It reads
-  // Findings but never writes them: the summary Findings are identical whether
-  // or not the classifier runs, so disabling classification cannot perturb a
-  // single source artifact row.
-  for (const persisted of artifact.findings) {
-    const finding = persisted.finding;
-    if (finding.findingKind !== "history_most_visited_summary") {
-      continue;
-    }
-    const urlField = finding.fields.url;
-    const titleField = finding.fields.title;
-    const countField = finding.fields.supportingVisitCount;
-    const url =
-      urlField !== undefined && urlField.state === "value"
-        ? String(urlField.value)
-        : null;
-    const title =
-      titleField !== undefined && titleField.state === "value"
-        ? String(titleField.value)
-        : null;
-    const rawCount =
-      countField !== undefined && countField.state === "value"
-        ? Number(countField.value)
-        : 1;
-    inputs.push({
-      url,
-      title,
-      profile: finding.profile,
-      commitState: finding.commitState,
-      provenance: finding.provenance,
-      supportingCount:
-        Number.isSafeInteger(rawCount) && rawCount >= 1 ? rawCount : 1,
-    });
-  }
-  return inputs;
-}
-
-async function classifyHistoryTopics(
-  artifacts: readonly HistoryArtifactWrite[],
-  setting: AnalyseCaseOptions["topicClassification"],
-): Promise<{
-  readonly artifacts: readonly HistoryArtifactWrite[];
-  readonly summary: TopicCandidateSummary;
-}> {
-  const enabled = setting?.enabled ?? true;
-  if (!enabled) {
-    return {
-      artifacts,
-      summary: {
-        status: "disabled",
-        reason: null,
-        classifiedUrlCount: 0,
-        candidateCount: 0,
-        modelId: null,
-        modelRevision: null,
-      },
-    };
-  }
-  const engineOrUnavailable = setting?.engine ?? (await loadTopicEngine());
-  if ("available" in engineOrUnavailable) {
-    return {
-      artifacts,
-      summary: {
-        status: "unavailable",
-        reason: engineOrUnavailable.reason,
-        classifiedUrlCount: 0,
-        candidateCount: 0,
-        modelId: null,
-        modelRevision: null,
-      },
-    };
-  }
-  // Prepare the classifier once: the label anchors depend only on the engine,
-  // so embedding them per artifact would be wasted work. Anchor-embedding
-  // failure surfaces here as a typed unavailability.
-  const prepared = await createTopicClassifier(engineOrUnavailable);
-  if ("available" in prepared) {
-    return {
-      artifacts,
-      summary: {
-        status: "unavailable",
-        reason: prepared.reason,
-        classifiedUrlCount: 0,
-        candidateCount: 0,
-        modelId: engineOrUnavailable.modelId,
-        modelRevision: engineOrUnavailable.modelRevision,
-      },
-    };
-  }
-  const withCandidates: HistoryArtifactWrite[] = [];
-  let classifiedUrlCount = 0;
-  let candidateCount = 0;
-  for (const artifact of artifacts) {
-    if (artifact.status !== "complete") {
-      withCandidates.push(artifact);
-      continue;
-    }
-    const inputs = topicInputsFromArtifact(artifact);
-    classifiedUrlCount += inputs.length;
-    const result = await prepared.classifyBatch(inputs);
-    if (!Array.isArray(result)) {
-      // An inference failure keeps every Finding intact: return the original
-      // artifacts with no Candidates attached and a typed reason.
-      return {
-        artifacts,
-        summary: {
-          status: "unavailable",
-          reason: result.reason,
-          classifiedUrlCount: 0,
-          candidateCount: 0,
-          modelId: prepared.modelId,
-          modelRevision: prepared.modelRevision,
-        },
-      };
-    }
-    candidateCount += result.length;
-    withCandidates.push({ ...artifact, candidates: result });
-  }
-  return {
-    artifacts: withCandidates,
-    summary: {
-      status: "complete",
-      reason: null,
-      classifiedUrlCount,
-      candidateCount,
-      modelId: prepared.modelId,
-      modelRevision: prepared.modelRevision,
-    },
-  };
 }
 
 export async function analyseCase(

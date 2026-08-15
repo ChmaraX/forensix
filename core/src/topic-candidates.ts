@@ -187,19 +187,12 @@ function selectEmittedLabels(
   if (top === undefined) {
     return [];
   }
-  let emitted = ranked.filter(
+  // `unclassified` is excluded from the anchors (it is never scored), so it can
+  // never appear here — it reaches the Case only through the blank-input path.
+  // The emitted set is therefore always positive labels within the delta band.
+  const emitted = ranked.filter(
     (label) => top.score - label.score <= multiLabelDelta,
   );
-  // `unclassified` asserts the absence of signal; it cannot co-occur with a
-  // positive label. Mirrors the taxonomy's mutual-exclusivity rule.
-  if (emitted.length > 1) {
-    const positives = emitted.filter(
-      (label) => label.labelId !== UNCLASSIFIED_LABEL_ID,
-    );
-    if (positives.length > 0) {
-      emitted = positives;
-    }
-  }
   return emitted.slice(0, Math.max(1, maxLabels));
 }
 
