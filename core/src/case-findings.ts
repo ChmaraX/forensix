@@ -4,7 +4,11 @@ import { DatabaseSync } from "node:sqlite";
 
 import { CASE_FILENAME, TOOL_VERSION } from "./case.js";
 import { openDatabaseSync } from "./sqlite-open.js";
-import type { Candidate, Finding } from "./forensic-model.js";
+import type {
+  Candidate,
+  CandidateCategory,
+  Finding,
+} from "./forensic-model.js";
 
 export type DeclaredOriginOs = "windows" | "macos" | "linux";
 
@@ -23,6 +27,29 @@ export interface PersistedCandidate {
   readonly profile: string;
   readonly commitState: "committed" | "wal_resident" | "journal_resident";
   readonly searchText: string;
+}
+
+/**
+ * A ranked identity/behavior Candidate (issue #185). Unlike the History-scoped
+ * `PersistedCandidate` above, these are derived across Web Data, Preferences,
+ * and History Findings and carry a category plus a normalized sort key. They
+ * are never Findings and never carry a Commit State: they summarize committed
+ * evidence, ranked and hedged.
+ */
+export interface PersistedIdentityCandidate {
+  readonly candidate: Candidate;
+  readonly category: CandidateCategory;
+  readonly profile: string;
+  readonly searchText: string;
+  readonly sortValue: string;
+}
+
+export interface CandidateArtifactWrite {
+  readonly sourceId: string;
+  readonly profile: string;
+  readonly status: "complete" | "absent" | "unavailable";
+  readonly reason: string | null;
+  readonly candidates: readonly PersistedIdentityCandidate[];
 }
 
 export interface HistoryArtifactWrite {
@@ -298,6 +325,7 @@ export interface StoreHistoryAnalysisOptions {
   readonly metadataArtifacts?: readonly MetadataArtifactWrite[];
   readonly bookmarksArtifacts?: readonly BookmarksArtifactWrite[];
   readonly cacheArtifacts?: readonly CacheArtifactWrite[];
+  readonly candidateArtifacts?: readonly CandidateArtifactWrite[];
 }
 
 export type AnalysisRunExitState = "complete" | "partial" | "failed";
@@ -425,6 +453,43 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       ON forensic_candidates(candidate_kind, COALESCE(topic_label, ''), candidate_id);
     CREATE INDEX IF NOT EXISTS forensic_candidates_profile_query
       ON forensic_candidates(candidate_kind, profile_path, commit_state, candidate_id);
+
+    CREATE TABLE IF NOT EXISTS candidate_artifact_results (
+      artifact_result_id INTEGER PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      source_id TEXT NOT NULL REFERENCES sources(source_id),
+      profile_path TEXT NOT NULL,
+      artifact TEXT NOT NULL CHECK (artifact = 'Candidates'),
+      database_path TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('complete', 'absent', 'unavailable')),
+      reason TEXT,
+      active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
+      UNIQUE (run_id, source_id, profile_path, artifact)
+    ) STRICT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS candidate_one_active_result
+      ON candidate_artifact_results(source_id, profile_path, artifact)
+      WHERE active = 1;
+
+    CREATE TABLE IF NOT EXISTS identity_candidates (
+      candidate_id INTEGER PRIMARY KEY,
+      artifact_result_id INTEGER NOT NULL
+        REFERENCES candidate_artifact_results(artifact_result_id),
+      run_id TEXT NOT NULL REFERENCES analysis_runs(run_id),
+      record_type TEXT NOT NULL CHECK (record_type = 'candidate'),
+      candidate_kind TEXT NOT NULL,
+      category TEXT NOT NULL CHECK (category IN ('identity', 'behavior')),
+      profile_path TEXT NOT NULL,
+      rank INTEGER NOT NULL CHECK (rank > 0),
+      supporting_count INTEGER NOT NULL CHECK (supporting_count > 0),
+      provenance_json TEXT NOT NULL,
+      fields_json TEXT NOT NULL,
+      search_text TEXT NOT NULL,
+      sort_value TEXT NOT NULL
+    ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS identity_candidates_query
+      ON identity_candidates(candidate_kind, rank, candidate_id);
 
     CREATE TABLE IF NOT EXISTS login_data_artifact_results (
       artifact_result_id INTEGER PRIMARY KEY,
@@ -1042,6 +1107,29 @@ function insertCandidate(
   );
 }
 
+function insertIdentityCandidate(
+  statement: ReturnType<DatabaseSync["prepare"]>,
+  artifactResultId: bigint,
+  runId: string,
+  row: PersistedIdentityCandidate,
+): void {
+  const candidate = row.candidate;
+  statement.run(
+    artifactResultId,
+    runId,
+    candidate.recordType,
+    candidate.candidateKind,
+    row.category,
+    row.profile,
+    candidate.rank,
+    candidate.count,
+    JSON.stringify(candidate.provenance),
+    JSON.stringify(candidate.fields),
+    row.searchText,
+    row.sortValue,
+  );
+}
+
 function insertLoginFinding(
   statement: ReturnType<DatabaseSync["prepare"]>,
   artifactResultId: bigint,
@@ -1313,6 +1401,7 @@ export function storeHistoryAnalysis(
   const cookieArtifacts = options.cookieArtifacts ?? [];
   const metadataArtifacts = options.metadataArtifacts ?? [];
   const bookmarksArtifacts = options.bookmarksArtifacts ?? [];
+  const candidateArtifacts = options.candidateArtifacts ?? [];
   const runId = randomUUID();
   const database = openDatabaseSync(
     join(resolve(options.caseDirectory), CASE_FILENAME),
@@ -1594,6 +1683,28 @@ export function storeHistoryAnalysis(
       );
       const activateCurrentCache = database.prepare(
         "UPDATE cache_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+      );
+      const insertCandidateArtifact = database.prepare(
+        `INSERT INTO candidate_artifact_results
+           (run_id, source_id, profile_path, artifact, database_path, status,
+            reason, active)
+         VALUES (?, ?, ?, 'Candidates', 'Candidates', ?, ?, 0)`,
+      );
+      const insertIdentityCandidateStatement = database.prepare(
+        `INSERT INTO identity_candidates
+           (artifact_result_id, run_id, record_type, candidate_kind, category,
+            profile_path, rank, supporting_count, provenance_json, fields_json,
+            search_text, sort_value)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      const deactivatePreviousCandidate = database.prepare(
+        `UPDATE candidate_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Candidates'
+            AND active = 1`,
+      );
+      const activateCurrentCandidate = database.prepare(
+        "UPDATE candidate_artifact_results SET active = 1 WHERE artifact_result_id = ?",
       );
 
       for (const artifact of options.artifacts) {
@@ -1891,6 +2002,29 @@ export function storeHistoryAnalysis(
         if (artifact.status === "complete") {
           deactivatePreviousCache.run(artifact.sourceId, artifact.profile);
           activateCurrentCache.run(artifactResultId);
+        }
+      }
+
+      for (const artifact of candidateArtifacts) {
+        const insertion = insertCandidateArtifact.run(
+          runId,
+          artifact.sourceId,
+          artifact.profile,
+          artifact.status,
+          artifact.reason,
+        );
+        const artifactResultId = insertion.lastInsertRowid as bigint;
+        for (const candidate of artifact.candidates) {
+          insertIdentityCandidate(
+            insertIdentityCandidateStatement,
+            artifactResultId,
+            runId,
+            candidate,
+          );
+        }
+        if (artifact.status === "complete") {
+          deactivatePreviousCandidate.run(artifact.sourceId, artifact.profile);
+          activateCurrentCandidate.run(artifactResultId);
         }
       }
 

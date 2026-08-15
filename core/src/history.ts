@@ -22,6 +22,7 @@ import { analyseSourceCookies } from "./cookies.js";
 import { analyseDownloadsProfile } from "./downloads.js";
 import { analyseSourceFavicons } from "./favicons.js";
 import { analyseLoginDataProfile } from "./login-data.js";
+import { generateCaseCandidates } from "./identity-candidates.js";
 import { analyseSourcePreferences } from "./preferences.js";
 import { analyseSourceTopSites } from "./top-sites.js";
 import { analyseWebDataProfile } from "./web-data.js";
@@ -1400,6 +1401,16 @@ export async function analyseCase(
     options.topicClassification,
   );
 
+  // Identity and behavior Candidates are derived from the Findings just
+  // produced: Web Data autofill, Preferences/Local State metadata, and History
+  // visits. Generation reads those Findings and never mutates them.
+  const candidateArtifacts = generateCaseCandidates({
+    sources,
+    historyArtifacts: artifacts,
+    webDataArtifacts,
+    metadataArtifacts,
+  });
+
   await verifyWorkingCopy(caseDirectory);
   const stored = storeHistoryAnalysis({
     caseDirectory,
@@ -1418,6 +1429,7 @@ export async function analyseCase(
     metadataArtifacts,
     bookmarksArtifacts,
     cacheArtifacts,
+    candidateArtifacts,
   });
   const singletonLockPresent = sources.some((source) =>
     source.entries.some(

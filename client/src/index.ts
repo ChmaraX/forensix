@@ -45,11 +45,26 @@ interface Finding {
   readonly fields: Readonly<Record<string, FieldState>>;
 }
 
-interface Page {
+interface PageOf<Row> {
   readonly status: "ok";
-  readonly items: readonly Finding[];
+  readonly items: readonly Row[];
   readonly nextCursor: string | null;
   readonly limit: number;
+}
+
+interface CandidateRecord {
+  readonly recordType: "candidate";
+  readonly candidateKind: string;
+  readonly category: "identity" | "behavior";
+  readonly profile: string;
+  readonly rank: number;
+  readonly supportingCount: number;
+  readonly provenance: {
+    readonly manifestPath?: string;
+    readonly table?: string;
+    readonly rowId?: string;
+  };
+  readonly fields: Readonly<Record<string, FieldState>>;
 }
 
 interface CompletenessArtifact {
@@ -82,6 +97,8 @@ interface CaseProfiles {
 interface ExtraFilter {
   readonly parameter: string;
   readonly label: string;
+  /** When present the filter renders a <select> of these values, not a text box. */
+  readonly options?: readonly string[];
 }
 
 interface ArtifactConfig {
@@ -91,6 +108,13 @@ interface ArtifactConfig {
   readonly completenessArtifact: string;
   readonly sorts: readonly string[];
   readonly extras: readonly ExtraFilter[];
+  /** Direction options; the first is the default. Defaults to desc-then-asc. */
+  readonly directions?: readonly string[];
+  /**
+   * A single ranked list with no Commit State duality (Candidates), instead of
+   * the committed + sidecar pair every Finding artifact renders.
+   */
+  readonly singleList?: boolean;
 }
 
 const TOKEN = window.__FORENSIX_TOKEN__ ?? "";
@@ -156,6 +180,23 @@ const ARTIFACTS: readonly ArtifactConfig[] = [
     completenessArtifact: "Top Sites",
     sorts: ["rank", "url", "title", "profile"],
     extras: [],
+  },
+  {
+    key: "candidates",
+    label: "Candidates",
+    route: "candidates",
+    completenessArtifact: "Candidates",
+    sorts: ["rank", "kind", "supporting-count", "value", "profile"],
+    directions: ["asc", "desc"],
+    singleList: true,
+    extras: [
+      {
+        parameter: "category",
+        label: "Category",
+        options: ["", "identity", "behavior"],
+      },
+      { parameter: "kind", label: "Kind" },
+    ],
   },
 ];
 
@@ -253,7 +294,9 @@ function renderFieldCell(field: FieldState): HTMLTableCellElement {
   return cell;
 }
 
-function collectColumns(rows: readonly Finding[]): readonly string[] {
+function collectColumns(
+  rows: readonly { readonly fields: Readonly<Record<string, FieldState>> }[],
+): readonly string[] {
   const columns: string[] = [];
   const seen = new Set<string>();
   for (const row of rows) {
@@ -265,6 +308,43 @@ function collectColumns(rows: readonly Finding[]): readonly string[] {
     }
   }
   return columns;
+}
+
+/** The SOURCE ROW cell shared by every result table: manifest · table · rowid. */
+function sourceRowCell(provenance: {
+  readonly manifestPath?: string;
+  readonly table?: string;
+  readonly rowId?: string;
+}): HTMLTableCellElement {
+  const source = [
+    provenance.manifestPath ?? "",
+    provenance.table ?? "",
+    provenance.rowId ?? "",
+  ]
+    .filter((part) => part.length > 0)
+    .join(" · ");
+  return el("td", { className: "muted", textContent: source });
+}
+
+/** Append one <td> per dynamic field column, marking a missing field absent. */
+function appendFieldCells(
+  tr: HTMLElement,
+  fields: Readonly<Record<string, FieldState>>,
+  columns: readonly string[],
+): void {
+  for (const column of columns) {
+    const field = fields[column];
+    tr.append(
+      field === undefined
+        ? el("td", {}, [
+            el("span", {
+              className: "mark mark-absent",
+              textContent: "absent",
+            }),
+          ])
+        : renderFieldCell(field),
+    );
+  }
 }
 
 function renderRowsTable(rows: readonly Finding[]): HTMLElement {
@@ -299,62 +379,38 @@ function renderRowsTable(rows: readonly Finding[]): HTMLElement {
         textContent: COMMIT_LABELS[row.commitState],
       }),
     );
-    const source = [
-      row.provenance.manifestPath ?? "",
-      row.provenance.table ?? "",
-      row.provenance.rowId ?? "",
-    ]
-      .filter((part) => part.length > 0)
-      .join(" · ");
-    tr.append(el("td", { className: "muted", textContent: source }));
-    for (const column of columns) {
-      const field = row.fields[column];
-      tr.append(
-        field === undefined
-          ? el("td", {}, [
-              el("span", {
-                className: "mark mark-absent",
-                textContent: "absent",
-              }),
-            ])
-          : renderFieldCell(field),
-      );
-    }
+    tr.append(sourceRowCell(row.provenance));
+    appendFieldCells(tr, row.fields, columns);
     tbody.append(tr);
   }
   table.append(thead, tbody);
   return table;
 }
 
-interface ListParameters {
-  readonly config: ArtifactConfig;
-  readonly commitStates: readonly CommitState[];
-  readonly base: readonly (readonly [string, string])[];
+interface PaginatedListParameters<Row> {
+  readonly route: string;
   readonly heading: string;
+  readonly controls?: HTMLElement;
+  /** Full query parameters for one load, evaluated fresh each request. */
+  readonly baseParams: () => readonly (readonly [string, string])[];
+  readonly renderTable: (rows: readonly Row[]) => HTMLElement;
+  /** Wire a control (e.g. a Commit State select) to reload from the top. */
+  readonly bindReload?: (reload: () => void) => void;
 }
 
 /**
- * One keyset-paginated, single-commit-state list. Committed and sidecar rows
- * live in separate lists, so each list pins exactly one Commit State.
+ * One keyset-paginated list: status line, accumulating body, and Load more.
+ * Every artifact list — Finding or Candidate — shares this loop; only the row
+ * renderer and the per-load parameters differ.
  */
-function createList(parameters: ListParameters): HTMLElement {
+function createPaginatedList<Row>(
+  parameters: PaginatedListParameters<Row>,
+): HTMLElement {
   const section = el("section", { className: "list" });
   section.append(el("h4", { textContent: parameters.heading }));
   const controls = el("div", { className: "list-controls" });
-  const commitSelect = el("select");
-  for (const state of parameters.commitStates) {
-    const option = document.createElement("option");
-    option.value = state;
-    option.textContent = COMMIT_LABELS[state];
-    commitSelect.append(option);
-  }
-  if (parameters.commitStates.length > 1) {
-    const label = el("label", {
-      className: "inline",
-      textContent: "Commit State ",
-    });
-    label.append(commitSelect);
-    controls.append(label);
+  if (parameters.controls !== undefined) {
+    controls.append(parameters.controls);
   }
   const status = el("div", { className: "list-status", textContent: "" });
   const body = el("div", { className: "list-body" });
@@ -364,27 +420,23 @@ function createList(parameters: ListParameters): HTMLElement {
   section.append(controls, status, body, moreButton);
 
   let cursor: string | null = null;
-  let accumulated: Finding[] = [];
+  let accumulated: Row[] = [];
 
   const load = async (reset: boolean): Promise<void> => {
     if (reset) {
       cursor = null;
       accumulated = [];
     }
-    const commitState = commitSelect.value;
-    const request: (readonly [string, string])[] = [
-      ...parameters.base,
-      ["commit-state", commitState],
-    ];
+    const request: (readonly [string, string])[] = [...parameters.baseParams()];
     if (cursor !== null) {
       request.push(["after", cursor]);
     }
     status.textContent = "Loading…";
     try {
-      const page = await callApi<Page>(parameters.config.route, request);
+      const page = await callApi<PageOf<Row>>(parameters.route, request);
       accumulated = [...accumulated, ...page.items];
       cursor = page.nextCursor;
-      body.replaceChildren(renderRowsTable(accumulated));
+      body.replaceChildren(parameters.renderTable(accumulated));
       status.textContent = `${String(accumulated.length)} row(s) shown${
         cursor === null ? "" : "; more available"
       }.`;
@@ -399,11 +451,52 @@ function createList(parameters: ListParameters): HTMLElement {
   moreButton.addEventListener("click", () => {
     void load(false);
   });
-  commitSelect.addEventListener("change", () => {
+  parameters.bindReload?.(() => {
     void load(true);
   });
   void load(true);
   return section;
+}
+
+/**
+ * One keyset-paginated, single-commit-state Finding list. Committed and sidecar
+ * rows live in separate lists, so each list pins exactly one Commit State.
+ */
+function createList(parameters: {
+  readonly config: ArtifactConfig;
+  readonly commitStates: readonly CommitState[];
+  readonly base: readonly (readonly [string, string])[];
+  readonly heading: string;
+}): HTMLElement {
+  const commitSelect = el("select");
+  for (const state of parameters.commitStates) {
+    const option = document.createElement("option");
+    option.value = state;
+    option.textContent = COMMIT_LABELS[state];
+    commitSelect.append(option);
+  }
+  let controls: HTMLElement | undefined;
+  if (parameters.commitStates.length > 1) {
+    const label = el("label", {
+      className: "inline",
+      textContent: "Commit State ",
+    });
+    label.append(commitSelect);
+    controls = label;
+  }
+  return createPaginatedList<Finding>({
+    route: parameters.config.route,
+    heading: parameters.heading,
+    ...(controls === undefined ? {} : { controls }),
+    baseParams: () => [
+      ...parameters.base,
+      ["commit-state", commitSelect.value],
+    ],
+    renderTable: renderRowsTable,
+    bindReload: (reload) => {
+      commitSelect.addEventListener("change", reload);
+    },
+  });
 }
 
 function renderCompleteness(
@@ -492,7 +585,7 @@ function collectFilters(
   sortLabel.append(sortSelect);
 
   const directionSelect = el("select");
-  for (const direction of ["desc", "asc"]) {
+  for (const direction of config.directions ?? ["desc", "asc"]) {
     const option = document.createElement("option");
     option.value = direction;
     option.textContent = direction;
@@ -515,15 +608,27 @@ function collectFilters(
 
   bar.append(searchLabel, sortLabel, directionLabel, limitLabel);
 
-  const extraInputs = new Map<string, HTMLInputElement>();
+  const extraInputs = new Map<string, HTMLInputElement | HTMLSelectElement>();
   for (const extra of config.extras) {
-    const input = el("input", { type: "text", value: "" });
+    let control: HTMLInputElement | HTMLSelectElement;
+    if (extra.options === undefined) {
+      control = el("input", { type: "text", value: "" });
+    } else {
+      const select = el("select");
+      for (const option of extra.options) {
+        const node = document.createElement("option");
+        node.value = option;
+        node.textContent = option === "" ? "all" : option;
+        select.append(node);
+      }
+      control = select;
+    }
     const label = el("label", {
       className: "inline",
       textContent: `${extra.label} `,
     });
-    label.append(input);
-    extraInputs.set(extra.parameter, input);
+    label.append(control);
+    extraInputs.set(extra.parameter, control);
     bar.append(label);
   }
 
@@ -609,6 +714,18 @@ async function renderArtifactTab(
 
   const draw = (): void => {
     const { base } = filters.read();
+    if (config.singleList === true) {
+      // Candidates are one ranked list with no Commit State duality.
+      listsHost.replaceChildren(
+        createPaginatedList<CandidateRecord>({
+          route: config.route,
+          heading: "Ranked Candidates",
+          baseParams: () => base,
+          renderTable: renderCandidateTable,
+        }),
+      );
+      return;
+    }
     listsHost.replaceChildren(
       createList({
         config,
@@ -632,6 +749,57 @@ async function renderArtifactTab(
   container.append(filters.element);
   container.append(listsHost);
   draw();
+}
+
+/**
+ * Candidates render in their own table. TYPE stays the first column, but the
+ * Candidate is clearly not a Finding: RANK and SUPPORTING sit up front, and
+ * there is no Commit State. Nominal values live only in the field columns.
+ */
+function renderCandidateTable(rows: readonly CandidateRecord[]): HTMLElement {
+  if (rows.length === 0) {
+    return el("p", {
+      className: "muted",
+      textContent: "No Candidates for this filter.",
+    });
+  }
+  const columns = collectColumns(rows);
+  const table = el("table", { className: "rows" });
+  const head = el("tr");
+  for (const column of [
+    "TYPE",
+    "CATEGORY",
+    "PROFILE",
+    "RANK",
+    "SUPPORTING",
+    "SOURCE ROW",
+  ]) {
+    head.append(
+      el("th", {
+        className: column === "TYPE" ? "col-type" : "",
+        textContent: column,
+      }),
+    );
+  }
+  for (const column of columns) {
+    head.append(el("th", { textContent: column }));
+  }
+  const tbody = el("tbody");
+  for (const row of rows) {
+    const tr = el("tr");
+    tr.append(
+      el("td", { className: "col-type", textContent: row.candidateKind }),
+    );
+    tr.append(el("td", { textContent: row.category }));
+    tr.append(el("td", { textContent: row.profile }));
+    tr.append(el("td", { textContent: String(row.rank) }));
+    tr.append(el("td", { textContent: String(row.supportingCount) }));
+    tr.append(sourceRowCell(row.provenance));
+    appendFieldCells(tr, row.fields, columns);
+    tbody.append(tr);
+  }
+  table.append(el("thead", {}, [head]), tbody);
+  return table;
 }
 
 function renderLegend(): HTMLElement {
@@ -722,10 +890,10 @@ function main(): void {
   const buttons = new Map<string, HTMLButtonElement>();
 
   const select = (config: ArtifactConfig): void => {
-    for (const [key, button] of buttons) {
+    for (const [buttonKey, button] of buttons) {
       button.setAttribute(
         "aria-current",
-        key === config.key ? "true" : "false",
+        buttonKey === config.key ? "true" : "false",
       );
     }
     void renderArtifactTab(config, main);

@@ -227,6 +227,20 @@ export {
   type AutofillSort,
 } from "./web-data-query.js";
 export {
+  queryCandidates,
+  type CandidateDirection,
+  type CandidatePage,
+  type CandidateQuery,
+  type CandidateRecord,
+  type CandidateSort,
+} from "./identity-candidates-query.js";
+export {
+  generateCaseCandidates,
+  generateProfileCandidates,
+  CANDIDATE_ARTIFACT,
+  type CandidateCategory,
+} from "./identity-candidates.js";
+export {
   queryFavicons,
   type FaviconDirection,
   type FaviconPage,
@@ -280,7 +294,9 @@ export {
   type BookmarksArtifactWrite,
   type BookmarkSourceFile,
   type CacheArtifactWrite,
+  type CandidateArtifactWrite,
   type DeclaredOriginOs,
+  type PersistedIdentityCandidate,
 } from "./case-findings.js";
 export { openDatabaseSync, type OpenDatabaseConfig } from "./sqlite-open.js";
 
