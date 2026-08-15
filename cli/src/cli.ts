@@ -58,6 +58,35 @@ import {
   type SourceKind,
 } from "@forensix/core";
 import { startDashboardServer } from "@forensix/server";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+/**
+ * Release-injected build identity (issue #188, AC6). The release workflow
+ * writes `build-info.json` next to the compiled CLI with the published version
+ * and the exact git SHA it was built from. When present it is appended to the
+ * reported version as `<version>+<gitSha>`. Reading it is a local file read
+ * only — no network, no git invocation — so the offline invariant holds.
+ */
+function resolveToolVersion(): string {
+  try {
+    const buildInfoPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "build-info.json",
+    );
+    const info = JSON.parse(readFileSync(buildInfoPath, "utf8")) as {
+      readonly version?: unknown;
+      readonly gitSha?: unknown;
+    };
+    if (typeof info.version === "string" && typeof info.gitSha === "string") {
+      return `${info.version}+${info.gitSha}`;
+    }
+  } catch {
+    // No build stamp (dev tree): fall back to the compiled tool version.
+  }
+  return TOOL_VERSION;
+}
 
 const USAGE = `Usage:
   forensix ingest <source> --case <case-directory> [--source-kind <kind>] [--include-tier-2] [--json]
@@ -375,7 +404,7 @@ async function run(arguments_: readonly string[]): Promise<number> {
     return 0;
   }
   if (arguments_.length === 1 && arguments_[0] === "--version") {
-    process.stdout.write(`${TOOL_VERSION}\n`);
+    process.stdout.write(`${resolveToolVersion()}\n`);
     return 0;
   }
 

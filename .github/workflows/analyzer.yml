@@ -10,8 +10,11 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: analyzer / ${{ matrix.os }}
+  # Required gate 1: three-platform full offline verification. `verify:full`
+  # runs format:check, lint, typecheck, the vitest suite, and then the offline
+  # verification harness (compiled CLI: ingest -> analyse -> export) on each OS.
+  verify-full:
+    name: verify:full / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -26,5 +29,62 @@ jobs:
         run: corepack enable
       - name: Install locked dependencies
         run: corepack pnpm install --frozen-lockfile
-      - name: Verify Analyzer
-        run: corepack pnpm verify
+      - name: Verify Analyzer (full, offline)
+        run: corepack pnpm verify:full
+
+  # Required gate 2: static analysis. Redundant with verify-full by design, so
+  # a static regression is reported as its own required check.
+  static:
+    name: static
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.15.0
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install locked dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Format, lint, and type-check
+        run: |
+          corepack pnpm format:check
+          corepack pnpm lint
+          corepack pnpm typecheck
+
+  # Required gate 3: supply chain. The lockfile must be frozen and free of
+  # high-severity advisories in production dependencies.
+  supply-chain:
+    name: supply-chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.15.0
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install with a frozen lockfile
+        run: corepack pnpm install --frozen-lockfile
+      - name: Fail on lockfile drift
+        run: git diff --exit-code pnpm-lock.yaml
+      - name: Audit production dependencies
+        run: corepack pnpm audit --prod --audit-level high
+
+  # Required gate 4: bounded scale. The pipeline must process a mid-size History
+  # within a settled wall-clock budget. The million-row case stays a manual
+  # pre-release job (.github/workflows/scale-million.yml).
+  scale:
+    name: scale (bounded)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.15.0
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install locked dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Bounded scale gate (25k visits, 180s budget)
+        run: corepack pnpm verify:scale 25000 180000

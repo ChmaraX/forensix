@@ -1,4 +1,4 @@
-import { lstat, mkdtemp, open, rm } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, open, rm } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -507,6 +507,19 @@ export async function snapshotVerifiedFile(
   }
 }
 
+/**
+ * Windows CI can transiently refuse the read-write recovery open of a freshly
+ * copied snapshot that still carries a hot rollback journal or WAL. This
+ * budget is finite and comfortably under the History E2E ceiling (60s), so a
+ * genuine deadlock still fails instead of hanging, while a slow-but-transient
+ * Windows lock/scanner window is absorbed. Successful opens are unaffected.
+ */
+const RECOVERY_OPEN_CONFIG = {
+  maxAttempts: 12,
+  maxTotalMs: 15_000,
+  busyTimeoutMs: 10_000,
+} as const;
+
 export async function readHistoryPasses(options: {
   readonly database: VerifiedHistoryFile;
   readonly sidecars: readonly VerifiedHistoryFile[];
@@ -514,20 +527,30 @@ export async function readHistoryPasses(options: {
   const temporaryDirectory = await mkdtemp(
     join(tmpdir(), "forensix-history-snapshot-"),
   );
-  const temporaryDatabasePath = join(
-    temporaryDirectory,
+  // The committed pass reads an immutable (lock-free) snapshot. The recovery
+  // pass must open read-write to roll back a hot journal / checkpoint a WAL,
+  // which acquires exclusive locks and mutates the file. Give recovery its own
+  // pristine copy in a separate directory so its read-write open never contends
+  // with the just-closed committed handle. On Windows a handle close does not
+  // synchronously release the OS lock, and reusing one file for both opens is
+  // the observed source of intermittent "unable to open database file".
+  const committedDirectory = join(temporaryDirectory, "committed");
+  const recoveryDirectory = join(temporaryDirectory, "recovery");
+  await mkdir(committedDirectory, { recursive: true });
+  const committedDatabasePath = join(
+    committedDirectory,
     basename(options.database.path),
   );
   try {
-    await snapshotVerifiedFile(options.database, temporaryDatabasePath);
+    await snapshotVerifiedFile(options.database, committedDatabasePath);
     for (const sidecar of options.sidecars) {
       await snapshotVerifiedFile(
         sidecar,
-        join(temporaryDirectory, basename(sidecar.path)),
+        join(committedDirectory, basename(sidecar.path)),
       );
     }
 
-    const committedDatabase = immutableDatabase(temporaryDatabasePath);
+    const committedDatabase = immutableDatabase(committedDatabasePath);
     let committed: HistoryPass;
     try {
       committed = readPass(committedDatabase);
@@ -555,11 +578,27 @@ export async function readHistoryPasses(options: {
       };
     }
 
+    // Fresh, isolated copy for the read-write rollback/checkpoint open.
+    await mkdir(recoveryDirectory, { recursive: true });
+    const recoveryDatabasePath = join(
+      recoveryDirectory,
+      basename(options.database.path),
+    );
+    await snapshotVerifiedFile(options.database, recoveryDatabasePath);
+    for (const sidecar of options.sidecars) {
+      await snapshotVerifiedFile(
+        sidecar,
+        join(recoveryDirectory, basename(sidecar.path)),
+      );
+    }
+
     let recoveryDatabase: DatabaseSync;
     try {
-      recoveryDatabase = openDatabaseSync(temporaryDatabasePath, {
-        readBigInts: true,
-      });
+      recoveryDatabase = openDatabaseSync(
+        recoveryDatabasePath,
+        { readBigInts: true },
+        RECOVERY_OPEN_CONFIG,
+      );
     } catch (error) {
       return {
         committed,

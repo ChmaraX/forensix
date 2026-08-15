@@ -1,0 +1,22 @@
+[
+  {
+    "path": "sources/00000000-0000-4000-8000-000000000001/bundle_manifest_source.json",
+    "size": 512,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "path": "sources/00000000-0000-4000-8000-000000000001/manifest.jsonl",
+    "size": 2048,
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  {
+    "path": "sources/00000000-0000-4000-8000-000000000001/working_copy/Default/History",
+    "size": 40960,
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  {
+    "path": "sources/00000000-0000-4000-8000-000000000001/working_copy/Local State",
+    "size": 3,
+    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  }
+]

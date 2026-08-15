@@ -83,10 +83,25 @@ interface ActualNode {
   readonly stats: BigIntStats;
 }
 
-interface BundleFile {
+export interface BundleFile {
   readonly path: string;
   readonly size: number;
   readonly sha256: string;
+}
+
+/**
+ * The Acquisition Bundle Digest is SHA-256 over the JSON encoding of the sorted
+ * Bundle file list followed by one trailing LF. The Collector emits this as
+ * `bundle_digest`; the analyzer recomputes it independently and refuses a
+ * Bundle whose recomputed digest differs. Both implementations must serialize
+ * the file list identically (field order `path`, `size`, `sha256`), so this is
+ * the single cross-implementation digest construction. See
+ * `contracts/acquisition-bundle/` for the shared golden.
+ */
+export function acquisitionBundleFilesDigest(
+  files: readonly BundleFile[],
+): string {
+  return sha256(`${JSON.stringify(files)}\n`);
 }
 
 interface BundleUserDataDir {
@@ -473,7 +488,7 @@ export async function inspectAcquisitionBundle(
     }
   }
 
-  const actualBundleDigest = sha256(`${JSON.stringify(actualBundleFiles)}\n`);
+  const actualBundleDigest = acquisitionBundleFilesDigest(actualBundleFiles);
   return {
     bundleRoot,
     expectedBundleDigest: manifest.bundleDigest,

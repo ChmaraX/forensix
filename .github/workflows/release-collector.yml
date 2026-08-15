@@ -1,0 +1,82 @@
+name: release-collector
+
+# The Collector publishes on its own SemVer line and tag prefix `collector-v*`,
+# independently of the analyzer (issue #188, AC5). Each release ships six raw
+# static Go binaries with checksums and build-provenance attestations, and the
+# version plus git SHA injected at build time (AC6).
+on:
+  push:
+    tags:
+      - "collector-v*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: release collector binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: collector/go.mod
+          cache-dependency-path: collector/go.mod
+
+      - name: Resolve version and SHA
+        id: meta
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#collector-v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Test and vet before release
+        working-directory: collector
+        run: |
+          go test ./...
+          go vet ./...
+
+      - name: Cross-build six static binaries with injected version + SHA
+        working-directory: collector
+        shell: bash
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          COMMIT: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p ../dist/collector
+          ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}"
+          for target in windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
+            os=${target%/*}
+            arch=${target#*/}
+            suffix=""
+            if [[ "$os" == windows ]]; then suffix=".exe"; fi
+            out="../dist/collector/forensix-collect-${VERSION}-${os}-${arch}${suffix}"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
+              go build -trimpath -ldflags "$ldflags" -o "$out" ./cmd/forensix-collect
+          done
+
+      - name: Generate checksums
+        working-directory: dist/collector
+        run: |
+          set -euo pipefail
+          sha256sum forensix-collect-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: "dist/collector/forensix-collect-*"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Collector ${{ steps.meta.outputs.version }}" \
+            --notes "Collector ${{ steps.meta.outputs.version }} (${{ steps.meta.outputs.sha }}). Six static binaries with checksums and provenance attestations." \
+            dist/collector/forensix-collect-* dist/collector/SHA256SUMS
