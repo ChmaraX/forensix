@@ -34,6 +34,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 
+import {
+  createHistoryDatabase,
+  writeLocalState,
+} from "./lib/chrome-history-schema.mjs";
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "..");
 const COMPILED_CLI = resolve(REPO_ROOT, "cli/dist/cli.js");
@@ -89,35 +94,8 @@ function gitSha() {
 
 /** @param {string} path */
 function seedGroundTruthHistory(path) {
-  mkdirSync(dirname(path), { recursive: true });
-  const database = new DatabaseSync(path);
-  try {
+  createHistoryDatabase(path, (database) => {
     database.exec(`
-      CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);
-      INSERT INTO meta (key, value) VALUES ('version', '70'), ('last_compatible_version', '16');
-      CREATE TABLE urls (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        url LONGVARCHAR, title LONGVARCHAR,
-        visit_count INTEGER DEFAULT 0 NOT NULL,
-        typed_count INTEGER DEFAULT 0 NOT NULL,
-        last_visit_time INTEGER NOT NULL,
-        hidden INTEGER DEFAULT 0 NOT NULL
-      );
-      CREATE TABLE visits (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        url INTEGER NOT NULL, visit_time INTEGER NOT NULL,
-        from_visit INTEGER, external_referrer_url TEXT,
-        transition INTEGER DEFAULT 0 NOT NULL, segment_id INTEGER,
-        visit_duration INTEGER DEFAULT 0 NOT NULL,
-        incremented_omnibox_typed_score BOOLEAN DEFAULT FALSE NOT NULL,
-        opener_visit INTEGER, originator_cache_guid TEXT,
-        originator_visit_id INTEGER, originator_from_visit INTEGER,
-        originator_opener_visit INTEGER,
-        is_known_to_sync BOOLEAN DEFAULT FALSE NOT NULL,
-        consider_for_ntp_most_visited BOOLEAN DEFAULT FALSE NOT NULL,
-        visited_link_id INTEGER, app_id TEXT
-      );
-      CREATE TABLE visit_source (id INTEGER PRIMARY KEY, source INTEGER NOT NULL);
       INSERT INTO urls (id, url, title, visit_count, typed_count, last_visit_time, hidden)
       VALUES
         (10, 'https://alpha.example/start', 'Alpha start', 1, 1, 13348638245123456, 0),
@@ -133,16 +111,14 @@ function seedGroundTruthHistory(path) {
         (2, 11, 13348638305456000, 1, '', 1610612736, 0, 5000000, 1, 0, 'origin-cache-guid', 1002, 0, 0, 1, 1, 2002, 'com.example.browser');
       INSERT INTO visit_source (id, source) VALUES (2, 2);
     `);
-  } finally {
-    database.close();
-  }
+  });
 }
 
 /** @param {string} root */
 function makeGroundTruthSource(root) {
   const source = join(root, "source");
   mkdirSync(source, { recursive: true });
-  writeFileSync(join(source, "Local State"), "{}\n");
+  writeLocalState(source);
   seedGroundTruthHistory(join(source, "Default", "History"));
   return source;
 }
@@ -151,7 +127,7 @@ function makeGroundTruthSource(root) {
 function makeBrokenSource(root) {
   const source = join(root, "broken-source");
   mkdirSync(join(source, "Default"), { recursive: true });
-  writeFileSync(join(source, "Local State"), "{}\n");
+  writeLocalState(source);
   // Valid SQLite magic header then garbage: opens but fails integrity/reads.
   const header = Buffer.from("SQLite format 3\u0000", "binary");
   const garbage = Buffer.alloc(4096 - header.length, 0x7a);
@@ -175,14 +151,17 @@ function fail(scope, name, message) {
 }
 
 /**
- * Record a supported capability that was actually exercised.
+ * Record a supported capability. It is PASS only when actually exercised; an
+ * unexercised capability is a FAIL, never a PASS row that lies in the table.
  * @param {string} name @param {boolean} exercised @param {string} [detail]
  */
 function capabilityPass(name, exercised, detail) {
-  if (exercised) {
-    capabilities.push({ name, status: "PASS", detail: detail ?? null });
-  } else {
-    capabilities.push({ name, status: "PASS", detail: detail ?? null });
+  capabilities.push({
+    name,
+    status: exercised ? "PASS" : "FAIL",
+    detail: detail ?? null,
+  });
+  if (!exercised) {
     fail("capability", name, "expected PASS but capability was not exercised");
   }
 }
@@ -228,29 +207,36 @@ function invariant(name, ok, detail) {
 
 // --- Golden Extract handling ------------------------------------------------
 
-const UUID_GLOBAL_RE =
-  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+// Provenance identity keys that are randomly assigned per acquisition (Case,
+// Source, and Run UUIDs, plus the composite `<sourceId>:<ordinal>` entry id).
+// Redaction is scoped to these keys only — never by value shape — so a
+// path-shaped or UUID-shaped *forensic field value* stays in the fingerprint
+// and a regression there still moves the golden digest.
+const VOLATILE_KEYS = new Set([
+  "caseId",
+  "manifestId",
+  "manifestEntryId",
+  "sourceId",
+  "source_id",
+  "runId",
+  "run_id",
+]);
 
 /**
- * Redact values that are inherently per-acquisition — random Case/Source/Run
- * UUIDs (including composite ids such as `<sourceId>:<ordinal>`) and absolute
- * filesystem paths — while keeping every stable forensic value: field values,
- * table/rowId Provenance, Commit State, transition semantics, and ordinals.
+ * Redact only the known per-acquisition identity keys, keeping every stable
+ * forensic value: field values, table/rowId Provenance, Commit State,
+ * transition semantics, and ordinals.
  *
  * The golden is deliberately taken over the Findings/Candidates *records*, not
  * over physical file digests. A freshly created SQLite file is not guaranteed
  * byte-reproducible across acquisitions, so the Evidence Set and Working Copy
  * digests differ per run even for identical logical content. The record-level
  * fingerprint is the reproducible whole-Extract ground truth.
- * @param {unknown} value
+ * @param {unknown} value @param {string} [key]
  */
-function redactVolatile(value) {
-  if (typeof value === "string") {
-    let out = value.replace(UUID_GLOBAL_RE, "<uuid>");
-    if (out.startsWith("/") || /^[A-Za-z]:[\\/]/.test(out)) {
-      out = "<path>";
-    }
-    return out;
+function redactVolatile(value, key) {
+  if (key !== undefined && VOLATILE_KEYS.has(key)) {
+    return "<volatile>";
   }
   if (Array.isArray(value)) {
     return value.map((item) => redactVolatile(item));
@@ -258,7 +244,7 @@ function redactVolatile(value) {
   if (value !== null && typeof value === "object") {
     const out = {};
     for (const [k, v] of Object.entries(value)) {
-      out[k] = redactVolatile(v);
+      out[k] = redactVolatile(v, k);
     }
     return out;
   }

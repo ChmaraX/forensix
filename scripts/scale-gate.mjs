@@ -13,10 +13,14 @@
 // Exit 0 only when the counts are exact and the run stayed within budget.
 
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { join, resolve } from "node:path";
+
+import {
+  createHistoryDatabase,
+  writeLocalState,
+} from "./lib/chrome-history-schema.mjs";
 
 const rowCount = Number.parseInt(process.argv[2] ?? "25000", 10);
 const budgetMs = Number.parseInt(process.argv[3] ?? "180000", 10);
@@ -37,36 +41,7 @@ function runCli(argv) {
 
 /** @param {string} path @param {number} count */
 function seedHistory(path, count) {
-  mkdirSync(dirname(path), { recursive: true });
-  const database = new DatabaseSync(path);
-  try {
-    database.exec(`
-      CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);
-      INSERT INTO meta (key, value) VALUES ('version', '70'), ('last_compatible_version', '16');
-      CREATE TABLE urls (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        url LONGVARCHAR, title LONGVARCHAR,
-        visit_count INTEGER DEFAULT 0 NOT NULL,
-        typed_count INTEGER DEFAULT 0 NOT NULL,
-        last_visit_time INTEGER NOT NULL,
-        hidden INTEGER DEFAULT 0 NOT NULL
-      );
-      CREATE TABLE visits (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        url INTEGER NOT NULL, visit_time INTEGER NOT NULL,
-        from_visit INTEGER, external_referrer_url TEXT,
-        transition INTEGER DEFAULT 0 NOT NULL, segment_id INTEGER,
-        visit_duration INTEGER DEFAULT 0 NOT NULL,
-        incremented_omnibox_typed_score BOOLEAN DEFAULT FALSE NOT NULL,
-        opener_visit INTEGER, originator_cache_guid TEXT,
-        originator_visit_id INTEGER, originator_from_visit INTEGER,
-        originator_opener_visit INTEGER,
-        is_known_to_sync BOOLEAN DEFAULT FALSE NOT NULL,
-        consider_for_ntp_most_visited BOOLEAN DEFAULT FALSE NOT NULL,
-        visited_link_id INTEGER, app_id TEXT
-      );
-      CREATE TABLE visit_source (id INTEGER PRIMARY KEY, source INTEGER NOT NULL);
-    `);
+  createHistoryDatabase(path, (database) => {
     const insertUrl = database.prepare(
       `INSERT INTO urls (id, url, title, visit_count, typed_count, last_visit_time, hidden)
        VALUES (?, ?, ?, 1, 0, ?, 0)`,
@@ -89,9 +64,7 @@ function seedHistory(path, count) {
       insertVisit.run(id, id, visitTime, id);
     }
     database.exec("COMMIT");
-  } finally {
-    database.close();
-  }
+  });
 }
 
 function main() {
@@ -100,7 +73,7 @@ function main() {
   try {
     const source = join(root, "source");
     mkdirSync(source, { recursive: true });
-    writeFileSync(join(source, "Local State"), "{}\n");
+    writeLocalState(source);
     const seedStart = Date.now();
     seedHistory(join(source, "Default", "History"), rowCount);
     const seedMs = Date.now() - seedStart;

@@ -1133,7 +1133,11 @@ describe("compiled analyzer CLI History Finding pipeline", () => {
         }),
       ]),
     );
-  });
+    // Same headroom as the rollback-journal test: the read-write recovery pass
+    // checkpoints a hot WAL on a freshly-copied snapshot, which Windows CI can
+    // transiently refuse and retry (see openDatabaseSync). Finite, not
+    // disabled: a genuine hang still fails within this ceiling.
+  }, 60_000);
 
   it("recovers rollback-journal rows without merging their Commit State", async () => {
     const root = await mkdtemp(join(tmpdir(), "forensix-history-journal-"));
