@@ -304,7 +304,7 @@ describe("compiled analyzer CLI Cache backends", () => {
         status: "complete",
         analysedProfileCount: 1,
         unavailableProfileCount: 0,
-        entryFindingCount: 3,
+        findingCount: 3,
         candidateCount: 2,
         payloadFileCount: 4,
       },
@@ -504,7 +504,7 @@ describe("compiled analyzer CLI Cache backends", () => {
         status: "partial",
         analysedProfileCount: 1,
         unavailableProfileCount: 2,
-        entryFindingCount: 1,
+        findingCount: 1,
       },
     });
 
@@ -565,7 +565,7 @@ describe("compiled analyzer CLI Cache backends", () => {
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
     expect(analysis.status).toBe(0);
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
-      cache: { entryFindingCount: count, payloadFileCount: count },
+      cache: { findingCount: count, payloadFileCount: count },
     });
 
     // AC6: the query is bounded; the whole result set is walked in fixed-size

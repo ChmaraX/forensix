@@ -199,7 +199,6 @@ function unavailableArtifact(
     reason,
     findings: [],
     candidates: [],
-    entryFindingCount: 0,
     candidateCount: 0,
     payloadFileCount: 0,
   };
@@ -316,8 +315,7 @@ async function buildSimpleRecords(options: {
     if (payload !== null) {
       payloads.set(payload.sha256, payload);
     }
-    const indexed = indexRecords.get(hash);
-    const record = indexed;
+    const record = indexRecords.get(hash);
     const fields = {
       backend: valueField("simple"),
       entryHash: valueField(hash),
@@ -347,7 +345,7 @@ async function buildSimpleRecords(options: {
       ...payloadFields(payload),
     };
 
-    if (indexed === undefined) {
+    if (record === undefined) {
       // On disk, parseable, but absent from the index: allocated-deleted or
       // doomed. Its key and payload are preserved as evidence, but the record
       // stays a Candidate and is never promoted to a Finding by heuristic.
@@ -378,7 +376,9 @@ async function buildSimpleRecords(options: {
         candidateKind: "doomed_entry",
         searchText: searchTextOf(profile, hash, parsed.keyText),
         sortKey: parsed.keyText,
-        sortLastUsed: record?.lastUsedUtc ?? null,
+        // A doomed entry is by definition absent from the index, so it has no
+        // index-recorded last-used time to sort on.
+        sortLastUsed: null,
       });
       continue;
     }
@@ -656,7 +656,6 @@ async function analyseProfileCache(options: {
     reason: null,
     findings: built.findings,
     candidates: built.candidates,
-    entryFindingCount: built.findings.length,
     candidateCount: built.candidates.length,
     payloadFileCount: built.payloads.size,
   };

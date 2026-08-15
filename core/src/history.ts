@@ -240,7 +240,6 @@ export interface CacheAnalysisSummary {
   readonly analysedProfileCount: number;
   readonly absentProfileCount: number;
   readonly unavailableProfileCount: number;
-  readonly entryFindingCount: number;
   readonly candidateCount: number;
   readonly payloadFileCount: number;
   readonly findingCount: number;
@@ -1737,10 +1736,6 @@ export async function analyseCase(
       analysedProfileCount: cacheAnalysed.length,
       absentProfileCount: cacheAbsent.length,
       unavailableProfileCount: cacheUnavailable.length,
-      entryFindingCount: cacheAnalysed.reduce(
-        (count, artifact) => count + artifact.entryFindingCount,
-        0,
-      ),
       candidateCount: cacheAnalysed.reduce(
         (count, artifact) => count + artifact.candidateCount,
         0,

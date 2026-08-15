@@ -84,11 +84,90 @@ const FINDING_SORT_SQL: Readonly<Record<CacheSort, SortDefinition>> = {
   profile: { expression: "c.profile_path", kind: "text" },
 };
 
-const CANDIDATE_SORT_SQL: Readonly<Record<string, SortDefinition>> = {
+const CANDIDATE_SORT_SQL: Readonly<
+  Record<(typeof CANDIDATE_SORTS)[number], SortDefinition>
+> = {
   key: { expression: "COALESCE(c.sort_key, '')", kind: "text" },
   "last-used": { expression: "COALESCE(c.sort_last_used, '')", kind: "text" },
   profile: { expression: "c.profile_path", kind: "text" },
 };
+
+/**
+ * Everything that differs between a Finding query and a Candidate query, keyed
+ * by record type and resolved once. Findings and Candidates share the same
+ * cache tables' shape but diverge in table, id column, kind filter, sortable
+ * columns, and how a row is rehydrated — collecting that here keeps the query
+ * body a single code path instead of a cluster of parallel ternaries.
+ */
+interface RecordTypeConfig {
+  readonly table: string;
+  readonly idColumn: string;
+  readonly kindFilter: {
+    readonly column: string;
+    readonly value: string;
+  } | null;
+  readonly sorts: readonly string[];
+  readonly defaultSort: string;
+  readonly sortSql: Readonly<Record<string, SortDefinition>>;
+  readonly selectExtra: string;
+  readonly parse: (
+    row: QueryRow,
+    provenance: Provenance,
+    fields: ForensicFields,
+  ) => Finding | Candidate;
+}
+
+const RECORD_TYPE_CONFIG: Readonly<Record<CacheRecordType, RecordTypeConfig>> =
+  {
+    finding: {
+      table: "cache_findings",
+      idColumn: "finding_id",
+      kindFilter: { column: "finding_kind", value: CACHE_FINDING_KIND },
+      sorts: FINDING_SORTS,
+      defaultSort: "key",
+      sortSql: FINDING_SORT_SQL,
+      selectExtra:
+        "c.finding_kind AS finding_kind, c.commit_state AS commit_state",
+      parse: (row, provenance, fields) => {
+        if (
+          row.commit_state !== "committed" &&
+          row.commit_state !== "wal_resident" &&
+          row.commit_state !== "journal_resident"
+        ) {
+          throw new ForensixError(
+            "CASE_INVALID",
+            "Case contains an invalid Commit State.",
+            { row_id: row.row_id.toString() },
+          );
+        }
+        return createFinding({
+          findingKind: row.finding_kind as string,
+          profile: row.profile_path,
+          commitState: row.commit_state,
+          provenance,
+          fields,
+        });
+      },
+    },
+    candidate: {
+      table: "cache_candidates",
+      idColumn: "candidate_id",
+      kindFilter: null,
+      sorts: CANDIDATE_SORTS,
+      defaultSort: "last-used",
+      sortSql: CANDIDATE_SORT_SQL,
+      selectExtra:
+        "c.candidate_kind AS candidate_kind, c.rank AS rank, c.supporting_count AS supporting_count",
+      parse: (row, provenance, fields) =>
+        createCandidate({
+          candidateKind: row.candidate_kind as string,
+          rank: Number(row.rank),
+          count: Number(row.supporting_count),
+          provenance,
+          fields,
+        }),
+    },
+  };
 
 const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
 const SQLITE_MIN_INTEGER = -9_223_372_036_854_775_808n;
@@ -208,7 +287,7 @@ function activeIdentity(database: DatabaseSync): {
 
 function parseRecord(
   row: QueryRow,
-  recordType: CacheRecordType,
+  config: RecordTypeConfig,
 ): Finding | Candidate {
   let provenance: Provenance;
   let fields: ForensicFields;
@@ -223,33 +302,7 @@ function parseRecord(
       { cause: error },
     );
   }
-  if (recordType === "candidate") {
-    return createCandidate({
-      candidateKind: row.candidate_kind as string,
-      rank: Number(row.rank),
-      count: Number(row.supporting_count),
-      provenance,
-      fields,
-    });
-  }
-  if (
-    row.commit_state !== "committed" &&
-    row.commit_state !== "wal_resident" &&
-    row.commit_state !== "journal_resident"
-  ) {
-    throw new ForensixError(
-      "CASE_INVALID",
-      "Case contains an invalid Commit State.",
-      { row_id: row.row_id.toString() },
-    );
-  }
-  return createFinding({
-    findingKind: row.finding_kind as string,
-    profile: row.profile_path,
-    commitState: row.commit_state,
-    provenance,
-    fields,
-  });
+  return config.parse(row, provenance, fields);
 }
 
 export function queryCache(input: CacheQuery): CachePage {
@@ -265,17 +318,14 @@ export function queryCache(input: CacheQuery): CachePage {
     CACHE_DIRECTIONS,
     "--direction",
   );
-  const sortValues = recordType === "finding" ? FINDING_SORTS : CANDIDATE_SORTS;
+  const config = RECORD_TYPE_CONFIG[recordType];
   const sort = enumValue(
     input.sort,
-    recordType === "finding" ? "key" : "last-used",
-    sortValues,
+    config.defaultSort,
+    config.sorts,
     "--sort",
   );
-  const sortDefinition =
-    recordType === "finding"
-      ? FINDING_SORT_SQL[sort]
-      : (CANDIDATE_SORT_SQL[sort] as SortDefinition);
+  const sortDefinition = config.sortSql[sort] as SortDefinition;
   const sortExpression = sortDefinition.expression;
   const limit = normalizeLimit(input.limit);
   const profiles = [...new Set(input.profiles ?? [])].sort();
@@ -289,12 +339,7 @@ export function queryCache(input: CacheQuery): CachePage {
   const search = input.search?.toLocaleLowerCase("en-US") ?? null;
   const backend = input.backend ?? null;
 
-  const table =
-    recordType === "finding" ? "cache_findings" : "cache_candidates";
-  const idColumn = recordType === "finding" ? "finding_id" : "candidate_id";
-  const kindColumn =
-    recordType === "finding" ? "finding_kind" : "candidate_kind";
-  const kindValue = recordType === "finding" ? CACHE_FINDING_KIND : null;
+  const { table, idColumn, kindFilter, selectExtra } = config;
 
   const database = openCase(input.caseDirectory);
   try {
@@ -320,9 +365,9 @@ export function queryCache(input: CacheQuery): CachePage {
 
     const conditions = ["r.active = 1", "c.record_type = ?"];
     const parameters: (string | bigint)[] = [recordType];
-    if (kindValue !== null) {
-      conditions.push(`c.${kindColumn} = ?`);
-      parameters.push(kindValue);
+    if (kindFilter !== null) {
+      conditions.push(`c.${kindFilter.column} = ?`);
+      parameters.push(kindFilter.value);
     }
     if (profiles.length > 0) {
       conditions.push(
@@ -370,10 +415,6 @@ export function queryCache(input: CacheQuery): CachePage {
 
     parameters.push(BigInt(limit + 1));
     const sqlDirection = direction === "asc" ? "ASC" : "DESC";
-    const selectExtra =
-      recordType === "finding"
-        ? "c.finding_kind AS finding_kind, c.commit_state AS commit_state"
-        : "c.candidate_kind AS candidate_kind, c.rank AS rank, c.supporting_count AS supporting_count";
     const rows = database
       .prepare(
         `SELECT c.${idColumn} AS row_id, c.profile_path,
@@ -396,7 +437,7 @@ export function queryCache(input: CacheQuery): CachePage {
       status: "ok",
       command: "cache",
       recordType,
-      items: pageRows.map((row) => parseRecord(row, recordType)),
+      items: pageRows.map((row) => parseRecord(row, config)),
       nextCursor:
         hasNext && last !== undefined
           ? encodeCursor({

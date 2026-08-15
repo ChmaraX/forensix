@@ -223,7 +223,6 @@ export interface CacheArtifactWrite {
   readonly reason: string | null;
   readonly findings: readonly PersistedCacheFinding[];
   readonly candidates: readonly PersistedCacheCandidate[];
-  readonly entryFindingCount: number;
   readonly candidateCount: number;
   readonly payloadFileCount: number;
 }

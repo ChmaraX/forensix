@@ -21,15 +21,12 @@ import { crc32 as zlibCrc32 } from "node:zlib";
 
 export type CacheBackend = "blockfile" | "simple" | "sql" | "unknown";
 
-// Blockfile `index` file magic and version, and the `data_*` block-file magic.
-// disk_format.h: kIndexMagic / kBlockMagic. Read as little-endian uint32.
+// Blockfile `index` file magic. disk_format.h: kIndexMagic. LE uint32.
 export const BLOCKFILE_INDEX_MAGIC = 0xc103cac3;
-export const BLOCKFILE_BLOCK_MAGIC = 0xc104cac3;
 
 // simple_entry_format.h magic numbers, read as little-endian uint64.
 export const SIMPLE_INITIAL_MAGIC = 0xfcfb6d1ba7725c30n;
 export const SIMPLE_FINAL_MAGIC = 0xf4fa6f45970d41d8n;
-export const SIMPLE_SPARSE_MAGIC = 0xeb97bf016553676bn;
 
 // simple_index_file.h kSimpleIndexMagicNumber, read as little-endian uint64.
 export const SIMPLE_INDEX_MAGIC = 0x656e74657220796fn;
@@ -529,10 +526,4 @@ export function parseBlockfileIndexHeader(
     version: readUint32LE(bytes, 4) as number,
     numEntries: readUint32LE(bytes, 8) as number,
   };
-}
-
-export function internalMicrosToUtcOrNull(
-  internalMicros: bigint,
-): string | null {
-  return internalMicros === 0n ? null : internalMicrosToUtc(internalMicros);
 }
