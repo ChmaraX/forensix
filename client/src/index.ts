@@ -45,9 +45,9 @@ interface Finding {
   readonly fields: Readonly<Record<string, FieldState>>;
 }
 
-interface Page {
+interface PageOf<Row> {
   readonly status: "ok";
-  readonly items: readonly Finding[];
+  readonly items: readonly Row[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -65,13 +65,6 @@ interface CandidateRecord {
     readonly rowId?: string;
   };
   readonly fields: Readonly<Record<string, FieldState>>;
-}
-
-interface CandidatePage {
-  readonly status: "ok";
-  readonly items: readonly CandidateRecord[];
-  readonly nextCursor: string | null;
-  readonly limit: number;
 }
 
 interface CompletenessArtifact {
@@ -104,6 +97,8 @@ interface CaseProfiles {
 interface ExtraFilter {
   readonly parameter: string;
   readonly label: string;
+  /** When present the filter renders a <select> of these values, not a text box. */
+  readonly options?: readonly string[];
 }
 
 interface ArtifactConfig {
@@ -113,6 +108,13 @@ interface ArtifactConfig {
   readonly completenessArtifact: string;
   readonly sorts: readonly string[];
   readonly extras: readonly ExtraFilter[];
+  /** Direction options; the first is the default. Defaults to desc-then-asc. */
+  readonly directions?: readonly string[];
+  /**
+   * A single ranked list with no Commit State duality (Candidates), instead of
+   * the committed + sidecar pair every Finding artifact renders.
+   */
+  readonly singleList?: boolean;
 }
 
 const TOKEN = window.__FORENSIX_TOKEN__ ?? "";
@@ -178,6 +180,23 @@ const ARTIFACTS: readonly ArtifactConfig[] = [
     completenessArtifact: "Top Sites",
     sorts: ["rank", "url", "title", "profile"],
     extras: [],
+  },
+  {
+    key: "candidates",
+    label: "Candidates",
+    route: "candidates",
+    completenessArtifact: "Candidates",
+    sorts: ["rank", "kind", "supporting-count", "value", "profile"],
+    directions: ["asc", "desc"],
+    singleList: true,
+    extras: [
+      {
+        parameter: "category",
+        label: "Category",
+        options: ["", "identity", "behavior"],
+      },
+      { parameter: "kind", label: "Kind" },
+    ],
   },
 ];
 
@@ -291,6 +310,43 @@ function collectColumns(
   return columns;
 }
 
+/** The SOURCE ROW cell shared by every result table: manifest · table · rowid. */
+function sourceRowCell(provenance: {
+  readonly manifestPath?: string;
+  readonly table?: string;
+  readonly rowId?: string;
+}): HTMLTableCellElement {
+  const source = [
+    provenance.manifestPath ?? "",
+    provenance.table ?? "",
+    provenance.rowId ?? "",
+  ]
+    .filter((part) => part.length > 0)
+    .join(" · ");
+  return el("td", { className: "muted", textContent: source });
+}
+
+/** Append one <td> per dynamic field column, marking a missing field absent. */
+function appendFieldCells(
+  tr: HTMLElement,
+  fields: Readonly<Record<string, FieldState>>,
+  columns: readonly string[],
+): void {
+  for (const column of columns) {
+    const field = fields[column];
+    tr.append(
+      field === undefined
+        ? el("td", {}, [
+            el("span", {
+              className: "mark mark-absent",
+              textContent: "absent",
+            }),
+          ])
+        : renderFieldCell(field),
+    );
+  }
+}
+
 function renderRowsTable(rows: readonly Finding[]): HTMLElement {
   if (rows.length === 0) {
     return el("p", {
@@ -323,62 +379,38 @@ function renderRowsTable(rows: readonly Finding[]): HTMLElement {
         textContent: COMMIT_LABELS[row.commitState],
       }),
     );
-    const source = [
-      row.provenance.manifestPath ?? "",
-      row.provenance.table ?? "",
-      row.provenance.rowId ?? "",
-    ]
-      .filter((part) => part.length > 0)
-      .join(" · ");
-    tr.append(el("td", { className: "muted", textContent: source }));
-    for (const column of columns) {
-      const field = row.fields[column];
-      tr.append(
-        field === undefined
-          ? el("td", {}, [
-              el("span", {
-                className: "mark mark-absent",
-                textContent: "absent",
-              }),
-            ])
-          : renderFieldCell(field),
-      );
-    }
+    tr.append(sourceRowCell(row.provenance));
+    appendFieldCells(tr, row.fields, columns);
     tbody.append(tr);
   }
   table.append(thead, tbody);
   return table;
 }
 
-interface ListParameters {
-  readonly config: ArtifactConfig;
-  readonly commitStates: readonly CommitState[];
-  readonly base: readonly (readonly [string, string])[];
+interface PaginatedListParameters<Row> {
+  readonly route: string;
   readonly heading: string;
+  readonly controls?: HTMLElement;
+  /** Full query parameters for one load, evaluated fresh each request. */
+  readonly baseParams: () => readonly (readonly [string, string])[];
+  readonly renderTable: (rows: readonly Row[]) => HTMLElement;
+  /** Wire a control (e.g. a Commit State select) to reload from the top. */
+  readonly bindReload?: (reload: () => void) => void;
 }
 
 /**
- * One keyset-paginated, single-commit-state list. Committed and sidecar rows
- * live in separate lists, so each list pins exactly one Commit State.
+ * One keyset-paginated list: status line, accumulating body, and Load more.
+ * Every artifact list — Finding or Candidate — shares this loop; only the row
+ * renderer and the per-load parameters differ.
  */
-function createList(parameters: ListParameters): HTMLElement {
+function createPaginatedList<Row>(
+  parameters: PaginatedListParameters<Row>,
+): HTMLElement {
   const section = el("section", { className: "list" });
   section.append(el("h4", { textContent: parameters.heading }));
   const controls = el("div", { className: "list-controls" });
-  const commitSelect = el("select");
-  for (const state of parameters.commitStates) {
-    const option = document.createElement("option");
-    option.value = state;
-    option.textContent = COMMIT_LABELS[state];
-    commitSelect.append(option);
-  }
-  if (parameters.commitStates.length > 1) {
-    const label = el("label", {
-      className: "inline",
-      textContent: "Commit State ",
-    });
-    label.append(commitSelect);
-    controls.append(label);
+  if (parameters.controls !== undefined) {
+    controls.append(parameters.controls);
   }
   const status = el("div", { className: "list-status", textContent: "" });
   const body = el("div", { className: "list-body" });
@@ -388,27 +420,23 @@ function createList(parameters: ListParameters): HTMLElement {
   section.append(controls, status, body, moreButton);
 
   let cursor: string | null = null;
-  let accumulated: Finding[] = [];
+  let accumulated: Row[] = [];
 
   const load = async (reset: boolean): Promise<void> => {
     if (reset) {
       cursor = null;
       accumulated = [];
     }
-    const commitState = commitSelect.value;
-    const request: (readonly [string, string])[] = [
-      ...parameters.base,
-      ["commit-state", commitState],
-    ];
+    const request: (readonly [string, string])[] = [...parameters.baseParams()];
     if (cursor !== null) {
       request.push(["after", cursor]);
     }
     status.textContent = "Loading…";
     try {
-      const page = await callApi<Page>(parameters.config.route, request);
+      const page = await callApi<PageOf<Row>>(parameters.route, request);
       accumulated = [...accumulated, ...page.items];
       cursor = page.nextCursor;
-      body.replaceChildren(renderRowsTable(accumulated));
+      body.replaceChildren(parameters.renderTable(accumulated));
       status.textContent = `${String(accumulated.length)} row(s) shown${
         cursor === null ? "" : "; more available"
       }.`;
@@ -423,11 +451,52 @@ function createList(parameters: ListParameters): HTMLElement {
   moreButton.addEventListener("click", () => {
     void load(false);
   });
-  commitSelect.addEventListener("change", () => {
+  parameters.bindReload?.(() => {
     void load(true);
   });
   void load(true);
   return section;
+}
+
+/**
+ * One keyset-paginated, single-commit-state Finding list. Committed and sidecar
+ * rows live in separate lists, so each list pins exactly one Commit State.
+ */
+function createList(parameters: {
+  readonly config: ArtifactConfig;
+  readonly commitStates: readonly CommitState[];
+  readonly base: readonly (readonly [string, string])[];
+  readonly heading: string;
+}): HTMLElement {
+  const commitSelect = el("select");
+  for (const state of parameters.commitStates) {
+    const option = document.createElement("option");
+    option.value = state;
+    option.textContent = COMMIT_LABELS[state];
+    commitSelect.append(option);
+  }
+  let controls: HTMLElement | undefined;
+  if (parameters.commitStates.length > 1) {
+    const label = el("label", {
+      className: "inline",
+      textContent: "Commit State ",
+    });
+    label.append(commitSelect);
+    controls = label;
+  }
+  return createPaginatedList<Finding>({
+    route: parameters.config.route,
+    heading: parameters.heading,
+    ...(controls === undefined ? {} : { controls }),
+    baseParams: () => [
+      ...parameters.base,
+      ["commit-state", commitSelect.value],
+    ],
+    renderTable: renderRowsTable,
+    bindReload: (reload) => {
+      commitSelect.addEventListener("change", reload);
+    },
+  });
 }
 
 function renderCompleteness(
@@ -516,7 +585,7 @@ function collectFilters(
   sortLabel.append(sortSelect);
 
   const directionSelect = el("select");
-  for (const direction of ["desc", "asc"]) {
+  for (const direction of config.directions ?? ["desc", "asc"]) {
     const option = document.createElement("option");
     option.value = direction;
     option.textContent = direction;
@@ -539,15 +608,27 @@ function collectFilters(
 
   bar.append(searchLabel, sortLabel, directionLabel, limitLabel);
 
-  const extraInputs = new Map<string, HTMLInputElement>();
+  const extraInputs = new Map<string, HTMLInputElement | HTMLSelectElement>();
   for (const extra of config.extras) {
-    const input = el("input", { type: "text", value: "" });
+    let control: HTMLInputElement | HTMLSelectElement;
+    if (extra.options === undefined) {
+      control = el("input", { type: "text", value: "" });
+    } else {
+      const select = el("select");
+      for (const option of extra.options) {
+        const node = document.createElement("option");
+        node.value = option;
+        node.textContent = option === "" ? "all" : option;
+        select.append(node);
+      }
+      control = select;
+    }
     const label = el("label", {
       className: "inline",
       textContent: `${extra.label} `,
     });
-    label.append(input);
-    extraInputs.set(extra.parameter, input);
+    label.append(control);
+    extraInputs.set(extra.parameter, control);
     bar.append(label);
   }
 
@@ -633,6 +714,18 @@ async function renderArtifactTab(
 
   const draw = (): void => {
     const { base } = filters.read();
+    if (config.singleList === true) {
+      // Candidates are one ranked list with no Commit State duality.
+      listsHost.replaceChildren(
+        createPaginatedList<CandidateRecord>({
+          route: config.route,
+          heading: "Ranked Candidates",
+          baseParams: () => base,
+          renderTable: renderCandidateTable,
+        }),
+      );
+      return;
+    }
     listsHost.replaceChildren(
       createList({
         config,
@@ -658,14 +751,6 @@ async function renderArtifactTab(
   draw();
 }
 
-const CANDIDATE_SORTS = [
-  "rank",
-  "kind",
-  "supporting-count",
-  "value",
-  "profile",
-] as const;
-
 /**
  * Candidates render in their own table. TYPE stays the first column, but the
  * Candidate is clearly not a Finding: RANK and SUPPORTING sit up front, and
@@ -681,12 +766,21 @@ function renderCandidateTable(rows: readonly CandidateRecord[]): HTMLElement {
   const columns = collectColumns(rows);
   const table = el("table", { className: "rows" });
   const head = el("tr");
-  head.append(el("th", { className: "col-type", textContent: "TYPE" }));
-  head.append(el("th", { textContent: "CATEGORY" }));
-  head.append(el("th", { textContent: "PROFILE" }));
-  head.append(el("th", { textContent: "RANK" }));
-  head.append(el("th", { textContent: "SUPPORTING" }));
-  head.append(el("th", { textContent: "SOURCE ROW" }));
+  for (const column of [
+    "TYPE",
+    "CATEGORY",
+    "PROFILE",
+    "RANK",
+    "SUPPORTING",
+    "SOURCE ROW",
+  ]) {
+    head.append(
+      el("th", {
+        className: column === "TYPE" ? "col-type" : "",
+        textContent: column,
+      }),
+    );
+  }
   for (const column of columns) {
     head.append(el("th", { textContent: column }));
   }
@@ -700,205 +794,12 @@ function renderCandidateTable(rows: readonly CandidateRecord[]): HTMLElement {
     tr.append(el("td", { textContent: row.profile }));
     tr.append(el("td", { textContent: String(row.rank) }));
     tr.append(el("td", { textContent: String(row.supportingCount) }));
-    const source = [
-      row.provenance.manifestPath ?? "",
-      row.provenance.table ?? "",
-      row.provenance.rowId ?? "",
-    ]
-      .filter((part) => part.length > 0)
-      .join(" · ");
-    tr.append(el("td", { className: "muted", textContent: source }));
-    for (const column of columns) {
-      const field = row.fields[column];
-      tr.append(
-        field === undefined
-          ? el("td", {}, [
-              el("span", {
-                className: "mark mark-absent",
-                textContent: "absent",
-              }),
-            ])
-          : renderFieldCell(field),
-      );
-    }
+    tr.append(sourceRowCell(row.provenance));
+    appendFieldCells(tr, row.fields, columns);
     tbody.append(tr);
   }
   table.append(el("thead", {}, [head]), tbody);
   return table;
-}
-
-async function renderCandidatesTab(container: HTMLElement): Promise<void> {
-  container.replaceChildren(el("p", { textContent: "Loading…" }));
-  let completeness: CaseCompleteness;
-  let profiles: CaseProfiles;
-  try {
-    [completeness, profiles] = await Promise.all([
-      callApi<CaseCompleteness>("completeness", []),
-      callApi<CaseProfiles>("profiles", []),
-    ]);
-  } catch (error) {
-    container.replaceChildren(
-      el("p", {
-        className: "mark mark-unavailable",
-        textContent:
-          error instanceof Error
-            ? `Error: ${error.message}`
-            : "Request failed.",
-      }),
-    );
-    return;
-  }
-
-  const bar = el("div", { className: "filters" });
-  const search = el("input", { type: "search", value: "" });
-  const searchLabel = el("label", {
-    className: "inline",
-    textContent: "Search ",
-  });
-  searchLabel.append(search);
-  const categorySelect = el("select");
-  for (const option of ["", "identity", "behavior"]) {
-    const node = document.createElement("option");
-    node.value = option;
-    node.textContent = option === "" ? "all categories" : option;
-    categorySelect.append(node);
-  }
-  const categoryLabel = el("label", {
-    className: "inline",
-    textContent: "Category ",
-  });
-  categoryLabel.append(categorySelect);
-  const kind = el("input", { type: "text", value: "" });
-  const kindLabel = el("label", { className: "inline", textContent: "Kind " });
-  kindLabel.append(kind);
-  const sortSelect = el("select");
-  for (const sort of CANDIDATE_SORTS) {
-    const node = document.createElement("option");
-    node.value = sort;
-    node.textContent = sort;
-    sortSelect.append(node);
-  }
-  const sortLabel = el("label", { className: "inline", textContent: "Sort " });
-  sortLabel.append(sortSelect);
-  const directionSelect = el("select");
-  for (const direction of ["asc", "desc"]) {
-    const node = document.createElement("option");
-    node.value = direction;
-    node.textContent = direction;
-    directionSelect.append(node);
-  }
-  const directionLabel = el("label", {
-    className: "inline",
-    textContent: "Direction ",
-  });
-  directionLabel.append(directionSelect);
-  const limit = el("input", { type: "number", value: "25" });
-  limit.min = "1";
-  limit.max = "100";
-  const limitLabel = el("label", {
-    className: "inline",
-    textContent: "Limit ",
-  });
-  limitLabel.append(limit);
-  bar.append(
-    searchLabel,
-    categoryLabel,
-    kindLabel,
-    sortLabel,
-    directionLabel,
-    limitLabel,
-  );
-  const profileBox = el("fieldset", { className: "profiles" });
-  profileBox.append(el("legend", { textContent: "Profiles (multi-select)" }));
-  const profileInputs = new Map<string, HTMLInputElement>();
-  if (profiles.profiles.length === 0) {
-    profileBox.append(
-      el("span", { className: "muted", textContent: "No Profiles." }),
-    );
-  }
-  for (const profile of profiles.profiles) {
-    const checkbox = el("input", { type: "checkbox", value: profile });
-    profileInputs.set(profile, checkbox);
-    profileBox.append(
-      el("label", { className: "inline" }, [checkbox, ` ${profile}`]),
-    );
-  }
-  bar.append(profileBox);
-  const apply = el("button", { textContent: "Apply filters" });
-  apply.type = "button";
-  bar.append(apply);
-
-  const statement = completeness.statements.find(
-    (entry) => entry.artifact === "Candidates",
-  );
-  const status = el("div", { className: "list-status", textContent: "" });
-  const body = el("div", { className: "list-body" });
-  const moreButton = el("button", { textContent: "Load more" });
-  moreButton.type = "button";
-  moreButton.style.display = "none";
-
-  let cursor: string | null = null;
-  let accumulated: CandidateRecord[] = [];
-
-  const request = (): (readonly [string, string])[] => {
-    const base: (readonly [string, string])[] = [
-      ["search", search.value.trim()],
-      ["category", categorySelect.value],
-      ["kind", kind.value.trim()],
-      ["sort", sortSelect.value],
-      ["direction", directionSelect.value],
-      ["limit", limit.value.trim()],
-    ];
-    for (const [profile, checkbox] of profileInputs) {
-      if (checkbox.checked) {
-        base.push(["profile", profile]);
-      }
-    }
-    return base;
-  };
-
-  const load = async (reset: boolean): Promise<void> => {
-    if (reset) {
-      cursor = null;
-      accumulated = [];
-    }
-    const parameters = request();
-    if (cursor !== null) {
-      parameters.push(["after", cursor]);
-    }
-    status.textContent = "Loading…";
-    try {
-      const page = await callApi<CandidatePage>("candidates", parameters);
-      accumulated = [...accumulated, ...page.items];
-      cursor = page.nextCursor;
-      body.replaceChildren(renderCandidateTable(accumulated));
-      status.textContent = `${String(accumulated.length)} Candidate(s) shown${
-        cursor === null ? "" : "; more available"
-      }.`;
-      moreButton.style.display = cursor === null ? "none" : "inline-block";
-    } catch (error) {
-      status.textContent =
-        error instanceof Error ? `Error: ${error.message}` : "Request failed.";
-      moreButton.style.display = "none";
-    }
-  };
-
-  apply.addEventListener("click", () => {
-    void load(true);
-  });
-  moreButton.addEventListener("click", () => {
-    void load(false);
-  });
-
-  // Completeness always renders before any row.
-  container.replaceChildren(
-    renderCompleteness(statement),
-    bar,
-    status,
-    body,
-    moreButton,
-  );
-  void load(true);
 }
 
 function renderLegend(): HTMLElement {
@@ -988,43 +889,30 @@ function main(): void {
   const main = el("main");
   const buttons = new Map<string, HTMLButtonElement>();
 
-  const CANDIDATES_KEY = "candidates";
-
-  const select = (key: string): void => {
+  const select = (config: ArtifactConfig): void => {
     for (const [buttonKey, button] of buttons) {
-      button.setAttribute("aria-current", buttonKey === key ? "true" : "false");
+      button.setAttribute(
+        "aria-current",
+        buttonKey === config.key ? "true" : "false",
+      );
     }
-    if (key === CANDIDATES_KEY) {
-      void renderCandidatesTab(main);
-      return;
-    }
-    const config = ARTIFACTS.find((entry) => entry.key === key);
-    if (config !== undefined) {
-      void renderArtifactTab(config, main);
-    }
+    void renderArtifactTab(config, main);
   };
 
   for (const config of ARTIFACTS) {
     const button = el("button", { textContent: config.label });
     button.type = "button";
     button.addEventListener("click", () => {
-      select(config.key);
+      select(config);
     });
     buttons.set(config.key, button);
     nav.append(button);
   }
-  const candidatesButton = el("button", { textContent: "Candidates" });
-  candidatesButton.type = "button";
-  candidatesButton.addEventListener("click", () => {
-    select(CANDIDATES_KEY);
-  });
-  buttons.set(CANDIDATES_KEY, candidatesButton);
-  nav.append(candidatesButton);
 
   root.replaceChildren(header, nav, renderLegend(), main);
   const first = ARTIFACTS[0];
   if (first !== undefined) {
-    select(first.key);
+    select(first);
   }
 }
 

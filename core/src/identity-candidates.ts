@@ -53,7 +53,12 @@ export const CANDIDATE_ARTIFACT = "Candidates" as const;
 /** The upper bound on ranked Candidates emitted per kind per Profile. */
 const MAX_CANDIDATES_PER_KIND = 100;
 
-/** The upper bound on total Provenance rows (primary + supporting) per Candidate. */
+/**
+ * The upper bound on total Provenance rows (primary + supporting) per Candidate.
+ * The `supportingCount` reports the full tally of supporting rows; when a group
+ * has more rows than this bound, the carried Provenance is a bounded sample and
+ * the count stays larger than the resolvable rows (never truncated to match).
+ */
 const MAX_PROVENANCE_ROWS = 200;
 
 interface HeuristicDefinition {

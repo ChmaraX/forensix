@@ -63,6 +63,13 @@ At most 100 Candidates are emitted per kind per Profile, and at most 200
 Provenance rows total are carried per Candidate (one primary plus up to 199
 supporting).
 
+The `supportingCount` is the **full** tally of distinct source rows behind a
+Candidate, even when that exceeds 200. The carried Provenance is a bounded
+sample: `supportingCount` may therefore be larger than the number of resolvable
+Provenance rows. This keeps the rank faithful to all the evidence while keeping
+the stored row list bounded; the count is never silently truncated to match the
+sample.
+
 ## Deterministic behavior for the awkward cases
 
 - **Ties.** Equal supporting counts are a total order: they break by normalized
