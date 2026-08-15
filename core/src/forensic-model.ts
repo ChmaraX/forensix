@@ -67,6 +67,8 @@ export interface Finding<
   readonly [findingBrand]: true;
 }
 
+export type CandidateCategory = "identity" | "behavior";
+
 export interface Candidate<
   Kind extends string = string,
   Fields extends ForensicFields = ForensicFields,

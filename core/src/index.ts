@@ -228,7 +228,6 @@ export {
 } from "./web-data-query.js";
 export {
   queryCandidates,
-  type CandidateCompleteness,
   type CandidateDirection,
   type CandidatePage,
   type CandidateQuery,

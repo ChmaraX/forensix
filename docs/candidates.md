@@ -31,15 +31,19 @@ Candidate pass leaves every other artifact byte-for-byte identical.
 
 Each heuristic consumes committed Findings from earlier parsers in the same run.
 
-| Kind | Category | Evidence |
-| --- | --- | --- |
-| `identity_name` | identity | Web Data autofill name-like fields; Preferences `full_name` / `given_name` |
-| `identity_email` | identity | Web Data autofill email-like fields or values; Preferences account `email` |
-| `identity_phone` | identity | Web Data autofill phone/tel/mobile fields |
-| `identity_postal_address` | identity | Web Data autofill address/street/city/state/zip fields |
-| `identity_country` | identity | Web Data autofill country fields; Local State `variations_country` |
-| `behavior_frequent_host` | behavior | Host of each committed History visit URL |
-| `behavior_search_query` | behavior | Query term parsed from known search-engine History URLs |
+| Kind                      | Category | Evidence                                                                   |
+| ------------------------- | -------- | -------------------------------------------------------------------------- |
+| `identity_name`           | identity | Web Data autofill name-like fields; Preferences `full_name` / `given_name` |
+| `identity_email`          | identity | Web Data autofill email-like fields or values; Preferences account `email` |
+| `identity_phone`          | identity | Web Data autofill phone/tel/mobile fields                                  |
+| `identity_postal_address` | identity | Web Data autofill address/street/city/state/zip fields                     |
+| `identity_country`        | identity | Web Data autofill country fields; Local State `variations_country`         |
+| `behavior_frequent_host`  | behavior | Host of each committed History visit URL                                   |
+| `behavior_search_query`   | behavior | Query term parsed from known search-engine History URLs                    |
+
+**Linked-device Candidates are deferred.** The parent intent names "linked
+devices" as a future Candidate class, but no linked-device heuristic is supported
+yet; none is emitted, so no linked-device value is ever asserted.
 
 Only committed evidence is used. Sidecar (WAL / rollback-journal) rows never
 feed Candidate generation, so a recovered row can never inflate a rank.
@@ -56,7 +60,8 @@ Within one `candidateKind` and Profile, evidence is grouped by a normalized key
   ascending, and assigned dense ranks `1..N` in that order.
 
 At most 100 Candidates are emitted per kind per Profile, and at most 200
-supporting Provenance rows are carried per Candidate.
+Provenance rows total are carried per Candidate (one primary plus up to 199
+supporting).
 
 ## Deterministic behavior for the awkward cases
 
@@ -79,7 +84,10 @@ supporting Provenance rows are carried per Candidate.
 ## Query surface
 
 The `candidates` CLI command and the dashboard `Candidates` tab share the same
-contract as every Finding list: TYPE first, a Completeness Statement before any
-row, and `--search`, `--category`, `--kind`, `--profile` (multi-Profile),
-`--sort`, `--direction`, and keyset `--limit` / `--after` pagination. The sorts
-are `rank`, `kind`, `supporting-count`, `value`, and `profile`.
+contract as every Finding list: TYPE first, and `--search`, `--category`,
+`--kind`, `--profile` (multi-Profile), `--sort`, `--direction`, and keyset
+`--limit` / `--after` pagination. The sorts are `rank`, `kind`,
+`supporting-count`, `value`, and `profile`. Like every other artifact list, the
+Candidate list returns rows only; the Completeness Statement for `Candidates` is
+read from the shared `completeness` route (and the dashboard renders it before
+any row).

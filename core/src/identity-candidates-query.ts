@@ -44,17 +44,9 @@ export interface CandidateRecord {
   readonly fields: ForensicFields;
 }
 
-export interface CandidateCompleteness {
-  readonly attempted: number;
-  readonly produced: number;
-  readonly absent: number;
-  readonly unavailable: number;
-}
-
 export interface CandidatePage {
   readonly status: "ok";
   readonly command: "candidates";
-  readonly completeness: CandidateCompleteness;
   readonly items: readonly CandidateRecord[];
   readonly nextCursor: string | null;
   readonly limit: number;
@@ -221,65 +213,6 @@ function activeAnalysisIdentity(database: DatabaseSync): {
   };
 }
 
-/**
- * The Completeness Statement for Candidate generation, computed before any row
- * is read. It reduces the retained artifact-result lineage to the current
- * outcome per (Source, Profile): the active result when one exists, otherwise
- * the most recent attempt.
- */
-function buildCompleteness(
-  database: DatabaseSync,
-  profiles: readonly string[],
-): CandidateCompleteness {
-  const rows = database
-    .prepare(
-      `SELECT r.source_id, r.profile_path, r.status, r.active, a.started_at,
-              r.artifact_result_id
-         FROM candidate_artifact_results r
-         JOIN analysis_runs a ON a.run_id = r.run_id
-        ORDER BY r.source_id, r.profile_path`,
-    )
-    .all() as unknown as {
-    readonly source_id: string;
-    readonly profile_path: string;
-    readonly status: string;
-    readonly active: bigint | number;
-    readonly started_at: string;
-    readonly artifact_result_id: bigint | number;
-  }[];
-  const profileSet = new Set(profiles);
-  const current = new Map<string, (typeof rows)[number]>();
-  for (const row of rows) {
-    if (profileSet.size > 0 && !profileSet.has(row.profile_path)) {
-      continue;
-    }
-    const key = `${row.source_id}\u0000${row.profile_path}`;
-    const chosen = current.get(key);
-    if (chosen === undefined) {
-      current.set(key, row);
-      continue;
-    }
-    if (BigInt(chosen.active) === 1n) {
-      continue;
-    }
-    if (
-      BigInt(row.active) === 1n ||
-      row.started_at > chosen.started_at ||
-      (row.started_at === chosen.started_at &&
-        BigInt(row.artifact_result_id) > BigInt(chosen.artifact_result_id))
-    ) {
-      current.set(key, row);
-    }
-  }
-  const values = [...current.values()];
-  return {
-    attempted: values.length,
-    produced: values.filter((row) => row.status === "complete").length,
-    absent: values.filter((row) => row.status === "absent").length,
-    unavailable: values.filter((row) => row.status === "unavailable").length,
-  };
-}
-
 function parseRecord(row: QueryRow): CandidateRecord {
   let provenance: Provenance;
   let fields: ForensicFields;
@@ -348,7 +281,6 @@ export function queryCandidates(input: CandidateQuery): CandidatePage {
       );
     }
     const identity = activeAnalysisIdentity(database);
-    const completeness = buildCompleteness(database, profiles);
     const fingerprint = queryFingerprint({
       caseId: identity.caseId,
       activeArtifactResultIds: identity.artifactResultIds,
@@ -420,7 +352,6 @@ export function queryCandidates(input: CandidateQuery): CandidatePage {
     return {
       status: "ok",
       command: "candidates",
-      completeness,
       items: pageRows.map(parseRecord),
       nextCursor:
         hasNext && last !== undefined

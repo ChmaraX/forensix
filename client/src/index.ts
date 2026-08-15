@@ -69,12 +69,6 @@ interface CandidateRecord {
 
 interface CandidatePage {
   readonly status: "ok";
-  readonly completeness: {
-    readonly attempted: number;
-    readonly produced: number;
-    readonly absent: number;
-    readonly unavailable: number;
-  };
   readonly items: readonly CandidateRecord[];
   readonly nextCursor: string | null;
   readonly limit: number;
@@ -281,7 +275,9 @@ function renderFieldCell(field: FieldState): HTMLTableCellElement {
   return cell;
 }
 
-function collectColumns(rows: readonly Finding[]): readonly string[] {
+function collectColumns(
+  rows: readonly { readonly fields: Readonly<Record<string, FieldState>> }[],
+): readonly string[] {
   const columns: string[] = [];
   const seen = new Set<string>();
   for (const row of rows) {
@@ -670,20 +666,6 @@ const CANDIDATE_SORTS = [
   "profile",
 ] as const;
 
-function candidateColumns(rows: readonly CandidateRecord[]): readonly string[] {
-  const columns: string[] = [];
-  const seen = new Set<string>();
-  for (const row of rows) {
-    for (const key of Object.keys(row.fields)) {
-      if (!seen.has(key)) {
-        seen.add(key);
-        columns.push(key);
-      }
-    }
-  }
-  return columns;
-}
-
 /**
  * Candidates render in their own table. TYPE stays the first column, but the
  * Candidate is clearly not a Finding: RANK and SUPPORTING sit up front, and
@@ -696,7 +678,7 @@ function renderCandidateTable(rows: readonly CandidateRecord[]): HTMLElement {
       textContent: "No Candidates for this filter.",
     });
   }
-  const columns = candidateColumns(rows);
+  const columns = collectColumns(rows);
   const table = el("table", { className: "rows" });
   const head = el("tr");
   head.append(el("th", { className: "col-type", textContent: "TYPE" }));
@@ -745,45 +727,15 @@ function renderCandidateTable(rows: readonly CandidateRecord[]): HTMLElement {
   return table;
 }
 
-function renderCandidateCompleteness(
-  completeness: CandidatePage["completeness"] | undefined,
-): HTMLElement {
-  const panel = el("section", { className: "completeness" });
-  panel.append(el("h4", { textContent: "Completeness Statement" }));
-  if (completeness === undefined || completeness.attempted === 0) {
-    panel.append(
-      el("p", {
-        className: "muted",
-        textContent: "Candidate generation was not attempted.",
-      }),
-    );
-    return panel;
-  }
-  panel.append(
-    el("p", {
-      textContent:
-        `Attempted ${String(completeness.attempted)} · ` +
-        `produced ${String(completeness.produced)} · ` +
-        `absent ${String(completeness.absent)} · ` +
-        `unavailable ${String(completeness.unavailable)}`,
-    }),
-  );
-  panel.append(
-    el("p", {
-      className: "muted",
-      textContent:
-        "Candidates are nominal and ranked. They are never Findings and never " +
-        "factual summaries.",
-    }),
-  );
-  return panel;
-}
-
 async function renderCandidatesTab(container: HTMLElement): Promise<void> {
   container.replaceChildren(el("p", { textContent: "Loading…" }));
+  let completeness: CaseCompleteness;
   let profiles: CaseProfiles;
   try {
-    profiles = await callApi<CaseProfiles>("profiles", []);
+    [completeness, profiles] = await Promise.all([
+      callApi<CaseCompleteness>("completeness", []),
+      callApi<CaseProfiles>("profiles", []),
+    ]);
   } catch (error) {
     container.replaceChildren(
       el("p", {
@@ -876,7 +828,9 @@ async function renderCandidatesTab(container: HTMLElement): Promise<void> {
   apply.type = "button";
   bar.append(apply);
 
-  const completenessHost = el("div");
+  const statement = completeness.statements.find(
+    (entry) => entry.artifact === "Candidates",
+  );
   const status = el("div", { className: "list-status", textContent: "" });
   const body = el("div", { className: "list-body" });
   const moreButton = el("button", { textContent: "Load more" });
@@ -915,10 +869,6 @@ async function renderCandidatesTab(container: HTMLElement): Promise<void> {
     status.textContent = "Loading…";
     try {
       const page = await callApi<CandidatePage>("candidates", parameters);
-      // Completeness always renders before any row.
-      completenessHost.replaceChildren(
-        renderCandidateCompleteness(page.completeness),
-      );
       accumulated = [...accumulated, ...page.items];
       cursor = page.nextCursor;
       body.replaceChildren(renderCandidateTable(accumulated));
@@ -940,7 +890,14 @@ async function renderCandidatesTab(container: HTMLElement): Promise<void> {
     void load(false);
   });
 
-  container.replaceChildren(completenessHost, bar, status, body, moreButton);
+  // Completeness always renders before any row.
+  container.replaceChildren(
+    renderCompleteness(statement),
+    bar,
+    status,
+    body,
+    moreButton,
+  );
   void load(true);
 }
 

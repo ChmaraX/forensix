@@ -10,10 +10,13 @@ import {
   createCandidate,
   valueField,
   type Candidate,
+  type CandidateCategory,
   type FieldState,
   type Finding,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+
+export type { CandidateCategory };
 
 /**
  * Identity and behavior Candidate generation (issue #185).
@@ -45,29 +48,90 @@ import {
  *    the artifact is `unavailable` (an input failed) or `absent` (none present).
  */
 
-export type CandidateCategory = "identity" | "behavior";
-
 export const CANDIDATE_ARTIFACT = "Candidates" as const;
 
 /** The upper bound on ranked Candidates emitted per kind per Profile. */
 const MAX_CANDIDATES_PER_KIND = 100;
 
-/** The upper bound on supporting Provenance rows carried by one Candidate. */
-const MAX_SUPPORTING_ROWS = 200;
+/** The upper bound on total Provenance rows (primary + supporting) per Candidate. */
+const MAX_PROVENANCE_ROWS = 200;
 
 interface HeuristicDefinition {
   readonly kind: string;
   readonly category: CandidateCategory;
+  /** Gather every piece of evidence this heuristic recognizes for a Profile. */
+  readonly collect: (inputs: ProfileInputs) => Evidence[];
 }
 
+// Each heuristic owns its own collector, so the kind, category, and evidence
+// rule live in one place. There is no separate kind-keyed matcher/field table
+// to keep in sync.
 const HEURISTICS: readonly HeuristicDefinition[] = [
-  { kind: "identity_name", category: "identity" },
-  { kind: "identity_email", category: "identity" },
-  { kind: "identity_phone", category: "identity" },
-  { kind: "identity_postal_address", category: "identity" },
-  { kind: "identity_country", category: "identity" },
-  { kind: "behavior_frequent_host", category: "behavior" },
-  { kind: "behavior_search_query", category: "behavior" },
+  {
+    kind: "identity_name",
+    category: "identity",
+    collect: (inputs) => [
+      ...autofillEvidence(inputs, (fieldName) =>
+        NAME_FIELD_PATTERN.test(fieldName),
+      ),
+      ...preferencesFieldEvidence(inputs, [
+        "accountFullName",
+        "accountGivenName",
+      ]),
+    ],
+  },
+  {
+    kind: "identity_email",
+    category: "identity",
+    collect: (inputs) => [
+      ...autofillEvidence(
+        inputs,
+        (fieldName, value) =>
+          EMAIL_FIELD_PATTERN.test(fieldName) ||
+          EMAIL_VALUE_PATTERN.test(value),
+      ),
+      ...preferencesFieldEvidence(inputs, ["accountEmail"]),
+    ],
+  },
+  {
+    kind: "identity_phone",
+    category: "identity",
+    collect: (inputs) =>
+      autofillEvidence(inputs, (fieldName) =>
+        PHONE_FIELD_PATTERN.test(fieldName),
+      ),
+  },
+  {
+    kind: "identity_postal_address",
+    category: "identity",
+    collect: (inputs) =>
+      autofillEvidence(
+        inputs,
+        (fieldName) =>
+          ADDRESS_FIELD_PATTERN.test(fieldName) &&
+          !COUNTRY_FIELD_PATTERN.test(fieldName),
+      ),
+  },
+  {
+    kind: "identity_country",
+    category: "identity",
+    collect: (inputs) => [
+      ...autofillEvidence(inputs, (fieldName) =>
+        COUNTRY_FIELD_PATTERN.test(fieldName),
+      ),
+      ...localStateCountryEvidence(inputs),
+    ],
+  },
+  {
+    kind: "behavior_frequent_host",
+    category: "behavior",
+    collect: (inputs) => collectHostEvidence(inputs),
+  },
+  {
+    kind: "behavior_search_query",
+    category: "behavior",
+    collect: (inputs) => collectSearchEvidence(inputs),
+  },
 ];
 
 interface Evidence {
@@ -103,7 +167,8 @@ function rowKey(row: SourceRowProvenance): string {
 
 /**
  * A total, locale-independent order over strings so ranking never depends on
- * the host locale. Shorter prefixes sort first; otherwise compare by code unit.
+ * the host locale. It compares by UTF-16 code unit through the built-in
+ * `<`/`>` operators; there is no prefix or length special-casing.
  */
 function compareStrings(left: string, right: string): number {
   if (left < right) {
@@ -126,17 +191,6 @@ const EMAIL_VALUE_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type AutofillMatcher = (fieldName: string, value: string) => boolean;
 
-const AUTOFILL_MATCHERS: Readonly<Record<string, AutofillMatcher>> = {
-  identity_name: (fieldName) => NAME_FIELD_PATTERN.test(fieldName),
-  identity_email: (fieldName, value) =>
-    EMAIL_FIELD_PATTERN.test(fieldName) || EMAIL_VALUE_PATTERN.test(value),
-  identity_phone: (fieldName) => PHONE_FIELD_PATTERN.test(fieldName),
-  identity_postal_address: (fieldName) =>
-    ADDRESS_FIELD_PATTERN.test(fieldName) &&
-    !COUNTRY_FIELD_PATTERN.test(fieldName),
-  identity_country: (fieldName) => COUNTRY_FIELD_PATTERN.test(fieldName),
-};
-
 function autofillFindings(
   webData: WebDataArtifactWrite | undefined,
 ): readonly Finding[] {
@@ -152,14 +206,10 @@ function autofillFindings(
     );
 }
 
-function collectAutofillEvidence(
+function autofillEvidence(
   inputs: ProfileInputs,
-  kind: string,
+  matcher: AutofillMatcher,
 ): Evidence[] {
-  const matcher = AUTOFILL_MATCHERS[kind];
-  if (matcher === undefined) {
-    return [];
-  }
   const evidence: Evidence[] = [];
   for (const finding of autofillFindings(inputs.webData)) {
     const fieldName = normalizeKey(fieldText(finding.fields.fieldName));
@@ -189,44 +239,46 @@ function preferencesFinding(
   return metadata.findings[0]?.finding;
 }
 
-function collectPreferencesEvidence(
+function preferencesFieldEvidence(
   inputs: ProfileInputs,
-  kind: string,
+  fieldNames: readonly string[],
 ): Evidence[] {
-  const evidence: Evidence[] = [];
   const profileFinding = preferencesFinding(inputs.preferences);
-  if (profileFinding !== undefined) {
-    const fieldsByKind: Readonly<Record<string, readonly string[]>> = {
-      identity_name: ["accountFullName", "accountGivenName"],
-      identity_email: ["accountEmail"],
-    };
-    for (const fieldName of fieldsByKind[kind] ?? []) {
-      const value = fieldText(profileFinding.fields[fieldName]).trim();
-      if (value.length > 0) {
-        evidence.push({
-          key: normalizeKey(value),
-          raw: value,
-          basis: "preferences",
-          row: profileFinding.provenance,
-        });
-      }
-    }
+  if (profileFinding === undefined) {
+    return [];
   }
-  if (kind === "identity_country") {
-    const browserFinding = preferencesFinding(inputs.localState);
-    if (browserFinding !== undefined) {
-      const value = fieldText(browserFinding.fields.variationsCountry).trim();
-      if (value.length > 0) {
-        evidence.push({
-          key: normalizeKey(value),
-          raw: value,
-          basis: "local_state",
-          row: browserFinding.provenance,
-        });
-      }
+  const evidence: Evidence[] = [];
+  for (const fieldName of fieldNames) {
+    const value = fieldText(profileFinding.fields[fieldName]).trim();
+    if (value.length > 0) {
+      evidence.push({
+        key: normalizeKey(value),
+        raw: value,
+        basis: "preferences",
+        row: profileFinding.provenance,
+      });
     }
   }
   return evidence;
+}
+
+function localStateCountryEvidence(inputs: ProfileInputs): Evidence[] {
+  const browserFinding = preferencesFinding(inputs.localState);
+  if (browserFinding === undefined) {
+    return [];
+  }
+  const value = fieldText(browserFinding.fields.variationsCountry).trim();
+  if (value.length === 0) {
+    return [];
+  }
+  return [
+    {
+      key: normalizeKey(value),
+      raw: value,
+      basis: "local_state",
+      row: browserFinding.provenance,
+    },
+  ];
 }
 
 function committedVisits(
@@ -320,20 +372,6 @@ function collectSearchEvidence(inputs: ProfileInputs): Evidence[] {
   return evidence;
 }
 
-function collectEvidence(inputs: ProfileInputs, kind: string): Evidence[] {
-  switch (kind) {
-    case "behavior_frequent_host":
-      return collectHostEvidence(inputs);
-    case "behavior_search_query":
-      return collectSearchEvidence(inputs);
-    default:
-      return [
-        ...collectAutofillEvidence(inputs, kind),
-        ...collectPreferencesEvidence(inputs, kind),
-      ];
-  }
-}
-
 interface Group {
   readonly key: string;
   readonly display: string;
@@ -416,7 +454,8 @@ function toCandidate(
       "A Candidate group must carry at least one Provenance row.",
     );
   }
-  const supportingRows = rest.slice(0, MAX_SUPPORTING_ROWS);
+  // The primary row plus its supporting rows stay within the total bound.
+  const supportingRows = rest.slice(0, MAX_PROVENANCE_ROWS - 1);
   const provenance =
     supportingRows.length === 0
       ? { ...primary }
@@ -501,7 +540,7 @@ export function generateProfileCandidates(
   const candidates: PersistedIdentityCandidate[] = [];
   if (outcome.status === "complete") {
     for (const definition of HEURISTICS) {
-      const groups = buildGroups(collectEvidence(inputs, definition.kind));
+      const groups = buildGroups(definition.collect(inputs));
       groups.forEach((group, index) => {
         const candidate = toCandidate(definition, group, index + 1);
         candidates.push(

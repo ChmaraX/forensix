@@ -379,19 +379,20 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     ).json()) as { readonly profiles: readonly string[] };
     expect([...profiles.profiles].sort()).toEqual(["Default", "Profile 1"]);
 
-    // #185: the dashboard exposes ranked identity/behavior Candidates with
-    // Completeness before rows and the shared Profile/kind/search filters.
+    // #185: Candidate Completeness comes from the shared completeness route,
+    // exactly like every other artifact — not embedded in the list response.
     const candidatesStatement = completeness.statements.find(
       (entry) => entry.artifact === "Candidates",
     );
     expect(candidatesStatement?.attempted).toBe(2);
+    expect(candidatesStatement?.produced).toBe(2);
+    // The list route returns ranked rows only, with the shared filters.
     const candidates = (await (
       await fetch(
         `${base}/api/candidates?category=behavior&kind=behavior_frequent_host&profile=Default&limit=10`,
         { headers: auth },
       )
     ).json()) as {
-      readonly completeness: { readonly attempted: number };
       readonly items: readonly {
         readonly recordType: string;
         readonly candidateKind: string;
@@ -403,7 +404,6 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
         };
       }[];
     };
-    expect(candidates.completeness.attempted).toBeGreaterThan(0);
     expect(candidates.items[0]).toMatchObject({
       recordType: "candidate",
       candidateKind: "behavior_frequent_host",

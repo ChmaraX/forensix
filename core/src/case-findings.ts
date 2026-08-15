@@ -4,7 +4,11 @@ import { DatabaseSync } from "node:sqlite";
 
 import { CASE_FILENAME, TOOL_VERSION } from "./case.js";
 import { openDatabaseSync } from "./sqlite-open.js";
-import type { Candidate, Finding } from "./forensic-model.js";
+import type {
+  Candidate,
+  CandidateCategory,
+  Finding,
+} from "./forensic-model.js";
 
 export type DeclaredOriginOs = "windows" | "macos" | "linux";
 
@@ -34,7 +38,7 @@ export interface PersistedCandidate {
  */
 export interface PersistedIdentityCandidate {
   readonly candidate: Candidate;
-  readonly category: "identity" | "behavior";
+  readonly category: CandidateCategory;
   readonly profile: string;
   readonly searchText: string;
   readonly sortValue: string;
