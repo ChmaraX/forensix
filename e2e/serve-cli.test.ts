@@ -379,6 +379,41 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     ).json()) as { readonly profiles: readonly string[] };
     expect([...profiles.profiles].sort()).toEqual(["Default", "Profile 1"]);
 
+    // #185: the dashboard exposes ranked identity/behavior Candidates with
+    // Completeness before rows and the shared Profile/kind/search filters.
+    const candidatesStatement = completeness.statements.find(
+      (entry) => entry.artifact === "Candidates",
+    );
+    expect(candidatesStatement?.attempted).toBe(2);
+    const candidates = (await (
+      await fetch(
+        `${base}/api/candidates?category=behavior&kind=behavior_frequent_host&profile=Default&limit=10`,
+        { headers: auth },
+      )
+    ).json()) as {
+      readonly completeness: { readonly attempted: number };
+      readonly items: readonly {
+        readonly recordType: string;
+        readonly candidateKind: string;
+        readonly category: string;
+        readonly rank: number;
+        readonly supportingCount: number;
+        readonly fields: {
+          readonly candidateValue: { readonly value: string };
+        };
+      }[];
+    };
+    expect(candidates.completeness.attempted).toBeGreaterThan(0);
+    expect(candidates.items[0]).toMatchObject({
+      recordType: "candidate",
+      candidateKind: "behavior_frequent_host",
+      category: "behavior",
+      rank: 1,
+    });
+    expect(candidates.items[0]?.fields.candidateValue.value).toBe(
+      "alpha.example",
+    );
+
     // AC4: keyset pagination returns bounded pages with a cursor.
     const firstPage = (await (
       await fetch(`${base}/api/history?sort=visit-time&direction=asc&limit=1`, {

@@ -33,6 +33,13 @@ Browser-level metadata (Chrome version, variations country, OSCrypt key presence
 Avatar and demographic values that live in the browser-level `profile.info_cache` slice are attributed to the owning Profile through a supporting Provenance row.
 Every value is verified against the current schema and carries a Field State: a removed or inapplicable key is `absent`, while a malformed or unreadable input is `unavailable` with a typed reason.
 
+After the Findings are written, the analyzer derives ranked identity and behavior **Candidates** from them (Web Data autofill, Preferences/Local State metadata, and History visits).
+A Candidate is nominal: it is a ranked hypothesis with a supporting count and resolvable row-level Provenance.
+A Candidate is never a Finding and never a factual summary tile.
+Names, countries, phone numbers, addresses, and habits only ever appear as ranked, hedged Candidates, never as asserted facts.
+Candidate generation reads Findings and never mutates, hides, or re-scores any source row.
+See [`docs/candidates.md`](docs/candidates.md) for the supported heuristics and their deterministic behavior for ties, no evidence, conflicting evidence, and unavailable inputs.
+
 ## Requirements
 
 - Node.js 24.15.0 or newer
@@ -211,6 +218,31 @@ You can repeat `--profile` to query at most 100 Profiles.
 Use `--commit-state` to keep committed and recovered rows separate.
 Each credential Finding carries Provenance, the raw and UTC timestamps with their Epoch Family, and the secret's encryption prefix.
 The secret itself stays `unavailable` with the reason `encrypted_secret_without_key_material` until authorized key material is supplied.
+
+## Query identity and behavior Candidates
+
+The `candidates` command returns ranked identity and behavior Candidates with the same bounded, multi-Profile query surface as the Finding lists.
+TYPE (the `candidateKind`) is the first column, and each query returns a Completeness Statement before any row.
+Each query returns 50 rows by default; set `--limit` from 1 through 100 and use `nextCursor` as the next `--after` value.
+
+```sh
+node cli/dist/cli.js candidates \
+  --case "/path/to/CASE-001" \
+  --profile Default \
+  --category identity \
+  --kind identity_email \
+  --search "example" \
+  --sort rank \
+  --direction asc \
+  --limit 50 \
+  --json
+```
+
+The sorts are `rank`, `kind`, `supporting-count`, `value`, and `profile`.
+Filter by `--category identity|behavior` and by an exact `--kind`, and repeat `--profile` to query at most 100 Profiles.
+Every row carries its `rank`, `supportingCount`, and resolvable Provenance; aggregated evidence is carried as supporting Provenance rows.
+A Candidate never carries a Commit State and is never a Finding.
+See [`docs/candidates.md`](docs/candidates.md) for the heuristics and the deterministic behavior for ties, no evidence, conflicting evidence, and unavailable inputs.
 
 ## Decrypt supported secrets offline
 

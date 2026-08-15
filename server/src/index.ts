@@ -10,12 +10,15 @@ import { createRequire } from "node:module";
 
 import {
   ForensixError,
+  queryCandidates,
   queryCompleteness,
   queryCookies,
   queryCredentials,
   queryHistory,
   queryProfiles,
   queryTopSites,
+  type CandidateDirection,
+  type CandidateSort,
   type CommitState,
   type CookieDirection,
   type CookieSort,
@@ -284,6 +287,20 @@ function handleApi(
         sort: firstString(parameters.get("sort")) as TopSiteSort | undefined,
         direction: firstString(parameters.get("direction")) as
           | TopSiteDirection
+          | undefined,
+        limit: integerParameter(parameters, "limit"),
+        after: firstString(parameters.get("after")),
+      });
+    case "candidates":
+      return queryCandidates({
+        caseDirectory,
+        profiles,
+        search: firstString(parameters.get("search")),
+        category: firstString(parameters.get("category")),
+        kind: firstString(parameters.get("kind")),
+        sort: firstString(parameters.get("sort")) as CandidateSort | undefined,
+        direction: firstString(parameters.get("direction")) as
+          | CandidateDirection
           | undefined,
         limit: integerParameter(parameters, "limit"),
         after: firstString(parameters.get("after")),

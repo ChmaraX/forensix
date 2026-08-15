@@ -52,6 +52,34 @@ interface Page {
   readonly limit: number;
 }
 
+interface CandidateRecord {
+  readonly recordType: "candidate";
+  readonly candidateKind: string;
+  readonly category: "identity" | "behavior";
+  readonly profile: string;
+  readonly rank: number;
+  readonly supportingCount: number;
+  readonly provenance: {
+    readonly manifestPath?: string;
+    readonly table?: string;
+    readonly rowId?: string;
+  };
+  readonly fields: Readonly<Record<string, FieldState>>;
+}
+
+interface CandidatePage {
+  readonly status: "ok";
+  readonly completeness: {
+    readonly attempted: number;
+    readonly produced: number;
+    readonly absent: number;
+    readonly unavailable: number;
+  };
+  readonly items: readonly CandidateRecord[];
+  readonly nextCursor: string | null;
+  readonly limit: number;
+}
+
 interface CompletenessArtifact {
   readonly sourceId: string;
   readonly profile: string;
@@ -634,6 +662,288 @@ async function renderArtifactTab(
   draw();
 }
 
+const CANDIDATE_SORTS = [
+  "rank",
+  "kind",
+  "supporting-count",
+  "value",
+  "profile",
+] as const;
+
+function candidateColumns(rows: readonly CandidateRecord[]): readonly string[] {
+  const columns: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    for (const key of Object.keys(row.fields)) {
+      if (!seen.has(key)) {
+        seen.add(key);
+        columns.push(key);
+      }
+    }
+  }
+  return columns;
+}
+
+/**
+ * Candidates render in their own table. TYPE stays the first column, but the
+ * Candidate is clearly not a Finding: RANK and SUPPORTING sit up front, and
+ * there is no Commit State. Nominal values live only in the field columns.
+ */
+function renderCandidateTable(rows: readonly CandidateRecord[]): HTMLElement {
+  if (rows.length === 0) {
+    return el("p", {
+      className: "muted",
+      textContent: "No Candidates for this filter.",
+    });
+  }
+  const columns = candidateColumns(rows);
+  const table = el("table", { className: "rows" });
+  const head = el("tr");
+  head.append(el("th", { className: "col-type", textContent: "TYPE" }));
+  head.append(el("th", { textContent: "CATEGORY" }));
+  head.append(el("th", { textContent: "PROFILE" }));
+  head.append(el("th", { textContent: "RANK" }));
+  head.append(el("th", { textContent: "SUPPORTING" }));
+  head.append(el("th", { textContent: "SOURCE ROW" }));
+  for (const column of columns) {
+    head.append(el("th", { textContent: column }));
+  }
+  const tbody = el("tbody");
+  for (const row of rows) {
+    const tr = el("tr");
+    tr.append(
+      el("td", { className: "col-type", textContent: row.candidateKind }),
+    );
+    tr.append(el("td", { textContent: row.category }));
+    tr.append(el("td", { textContent: row.profile }));
+    tr.append(el("td", { textContent: String(row.rank) }));
+    tr.append(el("td", { textContent: String(row.supportingCount) }));
+    const source = [
+      row.provenance.manifestPath ?? "",
+      row.provenance.table ?? "",
+      row.provenance.rowId ?? "",
+    ]
+      .filter((part) => part.length > 0)
+      .join(" · ");
+    tr.append(el("td", { className: "muted", textContent: source }));
+    for (const column of columns) {
+      const field = row.fields[column];
+      tr.append(
+        field === undefined
+          ? el("td", {}, [
+              el("span", {
+                className: "mark mark-absent",
+                textContent: "absent",
+              }),
+            ])
+          : renderFieldCell(field),
+      );
+    }
+    tbody.append(tr);
+  }
+  table.append(el("thead", {}, [head]), tbody);
+  return table;
+}
+
+function renderCandidateCompleteness(
+  completeness: CandidatePage["completeness"] | undefined,
+): HTMLElement {
+  const panel = el("section", { className: "completeness" });
+  panel.append(el("h4", { textContent: "Completeness Statement" }));
+  if (completeness === undefined || completeness.attempted === 0) {
+    panel.append(
+      el("p", {
+        className: "muted",
+        textContent: "Candidate generation was not attempted.",
+      }),
+    );
+    return panel;
+  }
+  panel.append(
+    el("p", {
+      textContent:
+        `Attempted ${String(completeness.attempted)} · ` +
+        `produced ${String(completeness.produced)} · ` +
+        `absent ${String(completeness.absent)} · ` +
+        `unavailable ${String(completeness.unavailable)}`,
+    }),
+  );
+  panel.append(
+    el("p", {
+      className: "muted",
+      textContent:
+        "Candidates are nominal and ranked. They are never Findings and never " +
+        "factual summaries.",
+    }),
+  );
+  return panel;
+}
+
+async function renderCandidatesTab(container: HTMLElement): Promise<void> {
+  container.replaceChildren(el("p", { textContent: "Loading…" }));
+  let profiles: CaseProfiles;
+  try {
+    profiles = await callApi<CaseProfiles>("profiles", []);
+  } catch (error) {
+    container.replaceChildren(
+      el("p", {
+        className: "mark mark-unavailable",
+        textContent:
+          error instanceof Error
+            ? `Error: ${error.message}`
+            : "Request failed.",
+      }),
+    );
+    return;
+  }
+
+  const bar = el("div", { className: "filters" });
+  const search = el("input", { type: "search", value: "" });
+  const searchLabel = el("label", {
+    className: "inline",
+    textContent: "Search ",
+  });
+  searchLabel.append(search);
+  const categorySelect = el("select");
+  for (const option of ["", "identity", "behavior"]) {
+    const node = document.createElement("option");
+    node.value = option;
+    node.textContent = option === "" ? "all categories" : option;
+    categorySelect.append(node);
+  }
+  const categoryLabel = el("label", {
+    className: "inline",
+    textContent: "Category ",
+  });
+  categoryLabel.append(categorySelect);
+  const kind = el("input", { type: "text", value: "" });
+  const kindLabel = el("label", { className: "inline", textContent: "Kind " });
+  kindLabel.append(kind);
+  const sortSelect = el("select");
+  for (const sort of CANDIDATE_SORTS) {
+    const node = document.createElement("option");
+    node.value = sort;
+    node.textContent = sort;
+    sortSelect.append(node);
+  }
+  const sortLabel = el("label", { className: "inline", textContent: "Sort " });
+  sortLabel.append(sortSelect);
+  const directionSelect = el("select");
+  for (const direction of ["asc", "desc"]) {
+    const node = document.createElement("option");
+    node.value = direction;
+    node.textContent = direction;
+    directionSelect.append(node);
+  }
+  const directionLabel = el("label", {
+    className: "inline",
+    textContent: "Direction ",
+  });
+  directionLabel.append(directionSelect);
+  const limit = el("input", { type: "number", value: "25" });
+  limit.min = "1";
+  limit.max = "100";
+  const limitLabel = el("label", {
+    className: "inline",
+    textContent: "Limit ",
+  });
+  limitLabel.append(limit);
+  bar.append(
+    searchLabel,
+    categoryLabel,
+    kindLabel,
+    sortLabel,
+    directionLabel,
+    limitLabel,
+  );
+  const profileBox = el("fieldset", { className: "profiles" });
+  profileBox.append(el("legend", { textContent: "Profiles (multi-select)" }));
+  const profileInputs = new Map<string, HTMLInputElement>();
+  if (profiles.profiles.length === 0) {
+    profileBox.append(
+      el("span", { className: "muted", textContent: "No Profiles." }),
+    );
+  }
+  for (const profile of profiles.profiles) {
+    const checkbox = el("input", { type: "checkbox", value: profile });
+    profileInputs.set(profile, checkbox);
+    profileBox.append(
+      el("label", { className: "inline" }, [checkbox, ` ${profile}`]),
+    );
+  }
+  bar.append(profileBox);
+  const apply = el("button", { textContent: "Apply filters" });
+  apply.type = "button";
+  bar.append(apply);
+
+  const completenessHost = el("div");
+  const status = el("div", { className: "list-status", textContent: "" });
+  const body = el("div", { className: "list-body" });
+  const moreButton = el("button", { textContent: "Load more" });
+  moreButton.type = "button";
+  moreButton.style.display = "none";
+
+  let cursor: string | null = null;
+  let accumulated: CandidateRecord[] = [];
+
+  const request = (): (readonly [string, string])[] => {
+    const base: (readonly [string, string])[] = [
+      ["search", search.value.trim()],
+      ["category", categorySelect.value],
+      ["kind", kind.value.trim()],
+      ["sort", sortSelect.value],
+      ["direction", directionSelect.value],
+      ["limit", limit.value.trim()],
+    ];
+    for (const [profile, checkbox] of profileInputs) {
+      if (checkbox.checked) {
+        base.push(["profile", profile]);
+      }
+    }
+    return base;
+  };
+
+  const load = async (reset: boolean): Promise<void> => {
+    if (reset) {
+      cursor = null;
+      accumulated = [];
+    }
+    const parameters = request();
+    if (cursor !== null) {
+      parameters.push(["after", cursor]);
+    }
+    status.textContent = "Loading…";
+    try {
+      const page = await callApi<CandidatePage>("candidates", parameters);
+      // Completeness always renders before any row.
+      completenessHost.replaceChildren(
+        renderCandidateCompleteness(page.completeness),
+      );
+      accumulated = [...accumulated, ...page.items];
+      cursor = page.nextCursor;
+      body.replaceChildren(renderCandidateTable(accumulated));
+      status.textContent = `${String(accumulated.length)} Candidate(s) shown${
+        cursor === null ? "" : "; more available"
+      }.`;
+      moreButton.style.display = cursor === null ? "none" : "inline-block";
+    } catch (error) {
+      status.textContent =
+        error instanceof Error ? `Error: ${error.message}` : "Request failed.";
+      moreButton.style.display = "none";
+    }
+  };
+
+  apply.addEventListener("click", () => {
+    void load(true);
+  });
+  moreButton.addEventListener("click", () => {
+    void load(false);
+  });
+
+  container.replaceChildren(completenessHost, bar, status, body, moreButton);
+  void load(true);
+}
+
 function renderLegend(): HTMLElement {
   const legend = el("section", { className: "legend" });
   legend.append(el("h4", { textContent: "How to read values" }));
@@ -721,30 +1031,43 @@ function main(): void {
   const main = el("main");
   const buttons = new Map<string, HTMLButtonElement>();
 
-  const select = (config: ArtifactConfig): void => {
-    for (const [key, button] of buttons) {
-      button.setAttribute(
-        "aria-current",
-        key === config.key ? "true" : "false",
-      );
+  const CANDIDATES_KEY = "candidates";
+
+  const select = (key: string): void => {
+    for (const [buttonKey, button] of buttons) {
+      button.setAttribute("aria-current", buttonKey === key ? "true" : "false");
     }
-    void renderArtifactTab(config, main);
+    if (key === CANDIDATES_KEY) {
+      void renderCandidatesTab(main);
+      return;
+    }
+    const config = ARTIFACTS.find((entry) => entry.key === key);
+    if (config !== undefined) {
+      void renderArtifactTab(config, main);
+    }
   };
 
   for (const config of ARTIFACTS) {
     const button = el("button", { textContent: config.label });
     button.type = "button";
     button.addEventListener("click", () => {
-      select(config);
+      select(config.key);
     });
     buttons.set(config.key, button);
     nav.append(button);
   }
+  const candidatesButton = el("button", { textContent: "Candidates" });
+  candidatesButton.type = "button";
+  candidatesButton.addEventListener("click", () => {
+    select(CANDIDATES_KEY);
+  });
+  buttons.set(CANDIDATES_KEY, candidatesButton);
+  nav.append(candidatesButton);
 
   root.replaceChildren(header, nav, renderLegend(), main);
   const first = ARTIFACTS[0];
   if (first !== undefined) {
-    select(first);
+    select(first.key);
   }
 }
 

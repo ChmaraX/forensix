@@ -12,6 +12,7 @@ import {
   queryAutofill,
   queryBookmarks,
   queryCache,
+  queryCandidates,
   queryCookies,
   queryCredentials,
   queryDownloads,
@@ -23,6 +24,8 @@ import {
   renderReport,
   type AutofillDirection,
   type AutofillSort,
+  type CandidateDirection,
+  type CandidateSort,
   type BookmarkDirection,
   type BookmarkSort,
   type BookmarkSource,
@@ -96,6 +99,12 @@ const USAGE = `Usage:
                    [--profile <profile>]... [--search <text>]
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--sort <created-time|last-used-time|field-name|value|profile>]
+                   [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
+  forensix candidates --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--category <identity|behavior>] [--kind <candidate-kind>]
+                   [--sort <rank|kind|supporting-count|value|profile>]
                    [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix favicons --case <case-directory>
@@ -182,6 +191,8 @@ const VALUE_OPTIONS = new Set([
   "--same-site",
   "--state",
   "--danger",
+  "--category",
+  "--kind",
   "--type",
   "--source",
   "--record-type",
@@ -950,6 +961,54 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ] as const) as AutofillSort | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | AutofillDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "candidates") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--category",
+        "--kind",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The candidates command accepts no positional values.",
+      );
+    }
+    const result = queryCandidates({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      category: enumOption(parsed, "--category", [
+        "identity",
+        "behavior",
+      ] as const),
+      kind: optionValue(parsed, "--kind"),
+      sort: enumOption(parsed, "--sort", [
+        "rank",
+        "kind",
+        "supporting-count",
+        "value",
+        "profile",
+      ] as const) as CandidateSort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | CandidateDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),
