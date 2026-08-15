@@ -6,6 +6,7 @@ on:
     paths:
       - "collector/**"
       - "contracts/manifest/**"
+      - "contracts/acquisition-bundle/**"
       - "contracts/selection-policy.chrome-userdata-1.json"
       - ".github/workflows/collector.yml"
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - "collector/**"
       - "contracts/manifest/**"
+      - "contracts/acquisition-bundle/**"
       - "contracts/selection-policy.chrome-userdata-1.json"
       - ".github/workflows/collector.yml"
 

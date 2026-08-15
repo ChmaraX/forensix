@@ -3,9 +3,31 @@
 // exact same ground-truth schema; keeping the DDL here prevents silent drift
 // between the golden Extract and the scale gate.
 
+import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+
+const COMPILED_CLI = resolve("cli/dist/cli.js");
+
+/**
+ * Run the compiled analyzer CLI once and return its normalized result. Shared
+ * by the offline verification harness and the scale gate so both spawn the
+ * exact same binary the same way (large buffer for big JSON pages).
+ * @param {readonly string[]} argv
+ * @returns {{ status: number | null, stdout: string, stderr: string }}
+ */
+export function runCompiledCli(argv) {
+  const result = spawnSync(process.execPath, [COMPILED_CLI, ...argv], {
+    encoding: "utf8",
+    maxBuffer: 256 * 1024 * 1024,
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+  };
+}
 
 /** Chrome History schema (version 70) shared by every fixture seeder. */
 export const CHROME_HISTORY_DDL = `

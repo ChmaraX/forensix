@@ -4,6 +4,10 @@ name: release-collector
 # independently of the analyzer (issue #188, AC5). Each release ships six raw
 # static Go binaries with checksums and build-provenance attestations, and the
 # version plus git SHA injected at build time (AC6).
+#
+# This workflow triggers ONLY on a matching tag push. Opening or merging a PR
+# never runs it, so merging this PR publishes nothing. The six-target build is
+# still validated on every PR by the `race-and-cross-build` job in collector.yml.
 on:
   push:
     tags:
@@ -67,7 +71,7 @@ jobs:
           cat SHA256SUMS
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: "dist/collector/forensix-collect-*"
 

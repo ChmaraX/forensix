@@ -534,22 +534,26 @@ export async function readHistoryPasses(options: {
   // with the just-closed committed handle. On Windows a handle close does not
   // synchronously release the OS lock, and reusing one file for both opens is
   // the observed source of intermittent "unable to open database file".
-  const committedDirectory = join(temporaryDirectory, "committed");
-  const recoveryDirectory = join(temporaryDirectory, "recovery");
-  await mkdir(committedDirectory, { recursive: true });
-  const committedDatabasePath = join(
-    committedDirectory,
-    basename(options.database.path),
-  );
-  try {
-    await snapshotVerifiedFile(options.database, committedDatabasePath);
+  // Copy the verified database and every sidecar into `directory`, preserving
+  // basenames so a hot journal/WAL still sits next to its database. Returns the
+  // snapshot database path.
+  const snapshotInto = async (directory: string): Promise<string> => {
+    await mkdir(directory, { recursive: true });
+    const databasePath = join(directory, basename(options.database.path));
+    await snapshotVerifiedFile(options.database, databasePath);
     for (const sidecar of options.sidecars) {
       await snapshotVerifiedFile(
         sidecar,
-        join(committedDirectory, basename(sidecar.path)),
+        join(directory, basename(sidecar.path)),
       );
     }
+    return databasePath;
+  };
 
+  const committedDirectory = join(temporaryDirectory, "committed");
+  const recoveryDirectory = join(temporaryDirectory, "recovery");
+  try {
+    const committedDatabasePath = await snapshotInto(committedDirectory);
     const committedDatabase = immutableDatabase(committedDatabasePath);
     let committed: HistoryPass;
     try {
@@ -578,18 +582,18 @@ export async function readHistoryPasses(options: {
       };
     }
 
-    // Fresh, isolated copy for the read-write rollback/checkpoint open.
-    await mkdir(recoveryDirectory, { recursive: true });
-    const recoveryDatabasePath = join(
-      recoveryDirectory,
-      basename(options.database.path),
-    );
-    await snapshotVerifiedFile(options.database, recoveryDatabasePath);
-    for (const sidecar of options.sidecars) {
-      await snapshotVerifiedFile(
-        sidecar,
-        join(recoveryDirectory, basename(sidecar.path)),
-      );
+    // Fresh, isolated copy for the read-write rollback/checkpoint open. A copy
+    // failure degrades to committed-only for symmetry with a recovery-open
+    // failure, rather than throwing and killing the whole read.
+    let recoveryDatabasePath: string;
+    try {
+      recoveryDatabasePath = await snapshotInto(recoveryDirectory);
+    } catch (error) {
+      return {
+        committed,
+        recovered: null,
+        recoveryUnavailableReason: `recovery_snapshot_failed:${String(error)}`,
+      };
     }
 
     let recoveryDatabase: DatabaseSync;

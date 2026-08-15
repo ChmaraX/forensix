@@ -5,6 +5,10 @@ name: release-analyzer
 # full offline verification, injects the version plus git SHA into the compiled
 # CLI, and ships an npm package tarball with checksums and a build-provenance
 # attestation (AC6). npm publish runs only when an NPM_TOKEN secret is present.
+#
+# This workflow triggers ONLY on a matching tag push. Opening or merging a PR
+# never runs it, so merging this PR publishes nothing. The packaging path is
+# still validated on every PR by the `package-dry-run` job in analyzer.yml.
 on:
   push:
     tags:
@@ -69,7 +73,7 @@ jobs:
           cat SHA256SUMS
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: "dist/analyzer/*.tgz"
 

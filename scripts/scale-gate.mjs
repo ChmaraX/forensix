@@ -12,32 +12,25 @@
 //
 // Exit 0 only when the counts are exact and the run stayed within budget.
 
-import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 import {
   createHistoryDatabase,
+  runCompiledCli,
   writeLocalState,
 } from "./lib/chrome-history-schema.mjs";
 
 const rowCount = Number.parseInt(process.argv[2] ?? "25000", 10);
 const budgetMs = Number.parseInt(process.argv[3] ?? "180000", 10);
-const COMPILED_CLI = resolve("cli/dist/cli.js");
 
 if (!Number.isInteger(rowCount) || rowCount < 1) {
   process.stderr.write(`invalid row count: ${process.argv[2]}\n`);
   process.exit(2);
 }
 
-/** @param {readonly string[]} argv */
-function runCli(argv) {
-  return spawnSync(process.execPath, [COMPILED_CLI, ...argv], {
-    encoding: "utf8",
-    maxBuffer: 256 * 1024 * 1024,
-  });
-}
+const runCli = runCompiledCli;
 
 /** @param {string} path @param {number} count */
 function seedHistory(path, count) {

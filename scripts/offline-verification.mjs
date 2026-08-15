@@ -36,12 +36,12 @@ import { DatabaseSync } from "node:sqlite";
 
 import {
   createHistoryDatabase,
+  runCompiledCli,
   writeLocalState,
 } from "./lib/chrome-history-schema.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "..");
-const COMPILED_CLI = resolve(REPO_ROOT, "cli/dist/cli.js");
 const GOLDEN_DIR = resolve(
   REPO_ROOT,
   "e2e/fixtures/offline-verification/golden",
@@ -53,21 +53,35 @@ const inCi = process.env.CI !== undefined && process.env.CI !== "";
 
 /** @typedef {{ status: number | null, stdout: string, stderr: string }} CliResult */
 
-/** @param {readonly string[]} argv @returns {CliResult} */
-function runCli(argv) {
-  const result = spawnSync(process.execPath, [COMPILED_CLI, ...argv], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout ?? "",
-    stderr: result.stderr ?? "",
-  };
-}
+const runCli = runCompiledCli;
 
 /** @param {string} value */
 function parseJson(value) {
   return JSON.parse(value.trim());
+}
+
+/**
+ * Extract a typed ForensixError code from a CLI result, or null if the result
+ * carries no structured refusal. Typed errors are emitted on stderr, but some
+ * commands also mirror them to stdout, so both streams are checked. The caller
+ * decides whether the accompanying exit status is acceptable.
+ * @param {CliResult} result @returns {string | null}
+ */
+function typedRefusalCode(result) {
+  for (const stream of [result.stderr, result.stdout]) {
+    if (!stream) {
+      continue;
+    }
+    try {
+      const parsed = parseJson(stream);
+      if (parsed && typeof parsed.code === "string") {
+        return parsed.code;
+      }
+    } catch {
+      // Not JSON on this stream; try the next.
+    }
+  }
+  return null;
 }
 
 /** @param {Buffer} data */
@@ -172,17 +186,7 @@ function capabilityPass(name, exercised, detail) {
  * @param {string} name @param {CliResult} result
  */
 function capabilityUncovered(name, result) {
-  let code = null;
-  if (result.status === 1) {
-    try {
-      const parsed = parseJson(result.stderr);
-      if (parsed && typeof parsed.code === "string") {
-        code = parsed.code;
-      }
-    } catch {
-      code = null;
-    }
-  }
+  const code = result.status === 1 ? typedRefusalCode(result) : null;
   capabilities.push({
     name,
     status: "UNCOVERED",
@@ -551,11 +555,7 @@ function runBrokenInputFixture(root) {
     }
     refused = honestExit && honestReport;
   } else {
-    try {
-      refused = typeof parseJson(ingest.stderr).code === "string";
-    } catch {
-      refused = false;
-    }
+    refused = typedRefusalCode(ingest) !== null;
   }
   invariant(
     "broken-input.honest-unavailable",
@@ -629,15 +629,7 @@ function runNegativeControl(root) {
   const missing = join(root, "does-not-exist");
   const caseDirectory = join(root, "CASE-MISSING");
   const ingest = runCli(["ingest", missing, "--case", caseDirectory, "--json"]);
-  let code = null;
-  if (ingest.status === 1) {
-    try {
-      const parsed = parseJson(ingest.stdout || ingest.stderr);
-      code = typeof parsed.code === "string" ? parsed.code : null;
-    } catch {
-      code = null;
-    }
-  }
+  const code = ingest.status === 1 ? typedRefusalCode(ingest) : null;
   const refused = code !== null;
   invariant(
     "negative-control.missing-source",

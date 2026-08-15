@@ -88,3 +88,44 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
       - name: Bounded scale gate (25k visits, 180s budget)
         run: corepack pnpm verify:scale 25000 180000
+
+  # Release packaging DRY RUN. Exercises the exact packaging path used by the
+  # analyzer-v* release (version + git SHA injection, npm pack, checksums) so a
+  # broken release is caught on every PR, but publishes NOTHING: no provenance
+  # attestation, no GitHub Release, no npm publish. Those run only from the
+  # tag-triggered release-analyzer.yml workflow.
+  package-dry-run:
+    name: package (dry run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.15.0
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install locked dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Build
+        run: corepack pnpm build
+      - name: Inject a placeholder version + git SHA
+        run: |
+          set -euo pipefail
+          printf '{\n  "version": "0.0.0-dryrun",\n  "gitSha": "%s"\n}\n' "$GITHUB_SHA" \
+            > cli/dist/build-info.json
+          node cli/dist/cli.js --version
+      - name: Pack and checksum
+        run: |
+          set -euo pipefail
+          mkdir -p dist/analyzer
+          corepack pnpm --filter @forensix/cli pack --pack-destination "$PWD/dist/analyzer"
+          cd dist/analyzer
+          sha256sum ./*.tgz > SHA256SUMS
+          cat SHA256SUMS
+      - name: Assert the tarball ships the compiled CLI
+        run: |
+          set -euo pipefail
+          tarball=$(ls dist/analyzer/*.tgz)
+          tar tzf "$tarball" | grep -qx 'package/dist/cli.js'
+          tar tzf "$tarball" | grep -qx 'package/dist/build-info.json'
+          echo "tarball contains the compiled CLI and injected build info"
