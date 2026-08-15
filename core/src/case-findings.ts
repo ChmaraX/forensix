@@ -409,10 +409,21 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       ),
       rank INTEGER NOT NULL CHECK (rank > 0),
       supporting_count INTEGER NOT NULL CHECK (supporting_count > 0),
+      topic_label TEXT,
+      special_category INTEGER NOT NULL DEFAULT 0 CHECK (special_category IN (0, 1)),
       provenance_json TEXT NOT NULL,
       fields_json TEXT NOT NULL,
       search_text TEXT NOT NULL
     ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS forensic_candidates_rank_query
+      ON forensic_candidates(candidate_kind, rank, candidate_id);
+    CREATE INDEX IF NOT EXISTS forensic_candidates_supporting_query
+      ON forensic_candidates(candidate_kind, supporting_count, candidate_id);
+    CREATE INDEX IF NOT EXISTS forensic_candidates_label_query
+      ON forensic_candidates(candidate_kind, COALESCE(topic_label, ''), candidate_id);
+    CREATE INDEX IF NOT EXISTS forensic_candidates_profile_query
+      ON forensic_candidates(candidate_kind, profile_path, commit_state, candidate_id);
 
     CREATE TABLE IF NOT EXISTS login_data_artifact_results (
       artifact_result_id INTEGER PRIMARY KEY,
@@ -1006,6 +1017,19 @@ function insertCandidate(
   row: PersistedCandidate,
 ): void {
   const candidate = row.candidate;
+  // Denormalise the topic label and special-category flag into columns so the
+  // Candidate query can filter and sort on them without parsing JSON per row.
+  // They are a projection of `fields`, never a second source of truth.
+  const labelField = candidate.fields.topicLabel;
+  const topicLabel =
+    labelField !== undefined && labelField.state === "value"
+      ? String(labelField.value)
+      : null;
+  const scField = candidate.fields.specialCategory;
+  const specialCategory =
+    scField !== undefined && scField.state === "value" && scField.value === true
+      ? 1
+      : 0;
   statement.run(
     artifactResultId,
     runId,
@@ -1015,6 +1039,8 @@ function insertCandidate(
     row.commitState,
     candidate.rank,
     candidate.count,
+    topicLabel,
+    specialCategory,
     JSON.stringify(candidate.provenance),
     JSON.stringify(candidate.fields),
     row.searchText,
@@ -1342,8 +1368,9 @@ export function storeHistoryAnalysis(
         `INSERT INTO forensic_candidates
            (artifact_result_id, run_id, record_type, candidate_kind,
             profile_path, commit_state, rank, supporting_count,
-            provenance_json, fields_json, search_text)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            topic_label, special_category, provenance_json, fields_json,
+            search_text)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       const deactivatePrevious = database.prepare(
         `UPDATE history_artifact_results

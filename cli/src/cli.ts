@@ -18,6 +18,7 @@ import {
   queryFavicons,
   queryHistory,
   queryMetadata,
+  queryTopicCandidates,
   queryTopSites,
   renderReport,
   type AutofillDirection,
@@ -37,6 +38,8 @@ import {
   type DownloadSort,
   type FaviconDirection,
   type FaviconSort,
+  type TopicCandidateDirection,
+  type TopicCandidateSort,
   type TopSiteDirection,
   type TopSiteSort,
   type DeclaredOriginOs,
@@ -77,6 +80,7 @@ const USAGE = `Usage:
                    [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix top-sites --case <case-directory>
+  forensix topic-candidates --case <case-directory> [--label <topic-id>] [--sort rank|supporting|label|profile]
                    [--profile <profile>]... [--search <text>]
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--sort <rank|url|title|profile>]
@@ -153,6 +157,7 @@ const FLAG_OPTIONS = new Set([
   "--csv",
   "--include-secrets",
   "--decrypt",
+  "--no-topic-classification",
 ]);
 const VALUE_OPTIONS = new Set([
   "--case",
@@ -185,6 +190,7 @@ const VALUE_OPTIONS = new Set([
   "--extract",
   "--key-material",
   "--recipient-key",
+  "--label",
 ]);
 const REPEATABLE_OPTIONS = new Set(["--profile", "--collection"]);
 
@@ -408,6 +414,7 @@ async function run(arguments_: readonly string[]): Promise<number> {
         "--decrypt",
         "--key-material",
         "--recipient-key",
+        "--no-topic-classification",
       ]),
     );
     if (parsed.positionals.length !== 0) {
@@ -417,6 +424,10 @@ async function run(arguments_: readonly string[]): Promise<number> {
       );
     }
     const decryptionEnabled = hasOption(parsed, "--decrypt");
+    const topicClassificationEnabled = !hasOption(
+      parsed,
+      "--no-topic-classification",
+    );
     const keyMaterialPath = optionValue(parsed, "--key-material");
     const recipientKeyPath = optionValue(parsed, "--recipient-key");
     if (
@@ -439,6 +450,7 @@ async function run(arguments_: readonly string[]): Promise<number> {
       decryptionEnabled,
       ...(keyMaterialPath === undefined ? {} : { keyMaterialPath }),
       ...(recipientKeyPath === undefined ? {} : { recipientKeyPath }),
+      topicClassification: { enabled: topicClassificationEnabled },
       invocation: arguments_,
     });
     process.stdout.write(`${JSON.stringify(result)}\n`);
@@ -742,6 +754,54 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ] as const) as TopSiteSort | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | TopSiteDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "topic-candidates") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--commit-state",
+        "--label",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The topic-candidates command accepts no positional values.",
+      );
+    }
+    const result = queryTopicCandidates({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      commitState: enumOption(parsed, "--commit-state", [
+        "committed",
+        "wal_resident",
+        "journal_resident",
+      ] as const) as CommitState | undefined,
+      label: optionValue(parsed, "--label"),
+      sort: enumOption(parsed, "--sort", [
+        "rank",
+        "supporting",
+        "label",
+        "profile",
+      ] as const) as TopicCandidateSort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | TopicCandidateDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),

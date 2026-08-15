@@ -53,6 +53,13 @@ import {
   type SourceRowProvenance,
 } from "./forensic-model.js";
 import {
+  classifyTopicCandidates,
+  type EmbeddingEngine,
+  type TopicCandidateInput,
+  type TopicClassifierUnavailableReason,
+} from "./topic-candidates.js";
+import { loadTopicEngine } from "./topic-candidates-onnx.js";
+import {
   readHistoryPasses,
   type HistorySchema,
   type HistorySourceTable,
@@ -94,6 +101,18 @@ export interface AnalyseCaseOptions {
   readonly keyMaterialPath?: string;
   /** Recipient X25519 private key (PEM) used to unseal captured key material. */
   readonly recipientKeyPath?: string;
+  /**
+   * Local topic classification (issue #184). Enabled by default; the settled
+   * ONNX model runs only when its optional runtime and model directory are
+   * present, and a typed unavailability is recorded otherwise. Disabling it, or
+   * removing the model, leaves every source artifact row byte-for-byte
+   * unchanged — Candidates are additive and live in a separate collection.
+   */
+  readonly topicClassification?: {
+    readonly enabled?: boolean;
+    /** Inject an engine (tests, alternate deployments). Overrides the loader. */
+    readonly engine?: EmbeddingEngine;
+  };
 }
 
 export interface DecryptionSummary {
@@ -112,10 +131,24 @@ export interface HistoryAnalysisSummary {
   readonly committedVisitCount: number;
   readonly recoveredVisitCount: number;
   readonly findingCount: number;
-  readonly candidateCount: 0;
+  readonly candidateCount: number;
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
   readonly declaredOriginOsConflict: boolean;
+}
+
+/**
+ * Outcome of the local topic classifier. `disabled` and every `unavailable`
+ * reason are first-class recorded states: the History analysis is complete and
+ * queryable regardless, and no classifier output is ever a Finding.
+ */
+export interface TopicCandidateSummary {
+  readonly status: "complete" | "disabled" | "unavailable";
+  readonly reason: TopicClassifierUnavailableReason | null;
+  readonly classifiedUrlCount: number;
+  readonly candidateCount: number;
+  readonly modelId: string | null;
+  readonly modelRevision: string | null;
 }
 
 export interface CookieAnalysisSummary {
@@ -262,6 +295,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly bookmarks: BookmarksAnalysisSummary;
   readonly cache: CacheAnalysisSummary;
   readonly decryption: DecryptionSummary;
+  readonly topicCandidates: TopicCandidateSummary;
 }
 
 interface ManifestIdentity {
@@ -1256,6 +1290,125 @@ async function analyseProfile(options: {
   }
 }
 
+function topicInputsFromArtifact(
+  artifact: HistoryArtifactWrite,
+): TopicCandidateInput[] {
+  const inputs: TopicCandidateInput[] = [];
+  // Classification consumes the already-built distinct-URL summaries. It reads
+  // Findings but never writes them: the summary Findings are identical whether
+  // or not the classifier runs, so disabling classification cannot perturb a
+  // single source artifact row.
+  for (const persisted of artifact.findings) {
+    const finding = persisted.finding;
+    if (finding.findingKind !== "history_most_visited_summary") {
+      continue;
+    }
+    const urlField = finding.fields.url;
+    const titleField = finding.fields.title;
+    const countField = finding.fields.supportingVisitCount;
+    const url =
+      urlField !== undefined && urlField.state === "value"
+        ? String(urlField.value)
+        : null;
+    const title =
+      titleField !== undefined && titleField.state === "value"
+        ? String(titleField.value)
+        : null;
+    const rawCount =
+      countField !== undefined && countField.state === "value"
+        ? Number(countField.value)
+        : 1;
+    inputs.push({
+      url,
+      title,
+      profile: finding.profile,
+      commitState: finding.commitState,
+      provenance: finding.provenance,
+      supportingCount:
+        Number.isSafeInteger(rawCount) && rawCount >= 1 ? rawCount : 1,
+    });
+  }
+  return inputs;
+}
+
+async function classifyHistoryTopics(
+  artifacts: readonly HistoryArtifactWrite[],
+  setting: AnalyseCaseOptions["topicClassification"],
+): Promise<{
+  readonly artifacts: readonly HistoryArtifactWrite[];
+  readonly summary: TopicCandidateSummary;
+}> {
+  const enabled = setting?.enabled ?? true;
+  if (!enabled) {
+    return {
+      artifacts,
+      summary: {
+        status: "disabled",
+        reason: null,
+        classifiedUrlCount: 0,
+        candidateCount: 0,
+        modelId: null,
+        modelRevision: null,
+      },
+    };
+  }
+  const engineOrUnavailable = setting?.engine ?? (await loadTopicEngine());
+  if ("available" in engineOrUnavailable) {
+    return {
+      artifacts,
+      summary: {
+        status: "unavailable",
+        reason: engineOrUnavailable.reason,
+        classifiedUrlCount: 0,
+        candidateCount: 0,
+        modelId: null,
+        modelRevision: null,
+      },
+    };
+  }
+  const engine = engineOrUnavailable;
+  const withCandidates: HistoryArtifactWrite[] = [];
+  let classifiedUrlCount = 0;
+  let candidateCount = 0;
+  for (const artifact of artifacts) {
+    if (artifact.status !== "complete") {
+      withCandidates.push(artifact);
+      continue;
+    }
+    const inputs = topicInputsFromArtifact(artifact);
+    classifiedUrlCount += inputs.length;
+    const result = await classifyTopicCandidates(engine, inputs);
+    if (!Array.isArray(result)) {
+      // An inference failure keeps every Finding intact: return the original
+      // artifacts with no Candidates attached and a typed reason.
+      return {
+        artifacts,
+        summary: {
+          status: "unavailable",
+          reason: result.reason,
+          classifiedUrlCount: 0,
+          candidateCount: 0,
+          modelId: engine.modelId,
+          modelRevision: engine.modelRevision,
+        },
+      };
+    }
+    candidateCount += result.length;
+    withCandidates.push({ ...artifact, candidates: result });
+  }
+  return {
+    artifacts: withCandidates,
+    summary: {
+      status: "complete",
+      reason: null,
+      classifiedUrlCount,
+      candidateCount,
+      modelId: engine.modelId,
+      modelRevision: engine.modelRevision,
+    },
+  };
+}
+
 export async function analyseCase(
   options: AnalyseCaseOptions,
 ): Promise<AnalyseCaseResult> {
@@ -1376,6 +1529,11 @@ export async function analyseCase(
     );
   }
 
+  const classification = await classifyHistoryTopics(
+    artifacts,
+    options.topicClassification,
+  );
+
   await verifyWorkingCopy(caseDirectory);
   const stored = storeHistoryAnalysis({
     caseDirectory,
@@ -1384,7 +1542,7 @@ export async function analyseCase(
     declaredOriginOs,
     invocation: options.invocation ?? ["analyse", "--case", caseDirectory],
     startedAt,
-    artifacts,
+    artifacts: classification.artifacts,
     cookieArtifacts,
     loginDataArtifacts,
     topSitesArtifacts,
@@ -1557,7 +1715,7 @@ export async function analyseCase(
         (count, artifact) => count + artifact.findings.length,
         0,
       ),
-      candidateCount: 0,
+      candidateCount: classification.summary.candidateCount,
       declaredTimezone,
       declaredOriginOs,
       declaredOriginOsConflict:
@@ -1754,5 +1912,6 @@ export async function analyseCase(
       keyMaterialCount: decryption.keyMaterial.length,
       keyMaterialIssueCount: keyMaterialIssues.length,
     },
+    topicCandidates: classification.summary,
   };
 }

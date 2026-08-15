@@ -69,6 +69,34 @@ export {
   type WorkingCopyVerification,
 } from "./verify.js";
 export {
+  classifyTopicCandidates,
+  topicInputText,
+  TOPIC_CANDIDATE_KIND,
+  TOPIC_TAXONOMY,
+  TOPIC_TAXONOMY_SOURCE,
+  UNCLASSIFIED_LABEL_ID,
+  type EmbeddingEngine,
+  type TopicCandidateInput,
+  type TopicClassifierOptions,
+  type TopicClassifierUnavailable,
+  type TopicClassifierUnavailableReason,
+  type TopicLabel,
+} from "./topic-candidates.js";
+export {
+  loadTopicEngine,
+  TOPIC_MODEL_DIR_ENV,
+  TOPIC_MODEL_ID,
+  TOPIC_MODEL_REVISION,
+  type LoadTopicEngineOptions,
+} from "./topic-candidates-onnx.js";
+export {
+  queryTopicCandidates,
+  type TopicCandidateDirection,
+  type TopicCandidatePage,
+  type TopicCandidateQuery,
+  type TopicCandidateSort,
+} from "./topic-candidates-query.js";
+export {
   absentField,
   createCandidate,
   createFinding,
@@ -103,6 +131,7 @@ export {
   type PreferencesAnalysisSummary,
   type BookmarksAnalysisSummary,
   type CacheAnalysisSummary,
+  type TopicCandidateSummary,
   type TopSitesAnalysisSummary,
   type WebDataAnalysisSummary,
 } from "./history.js";
