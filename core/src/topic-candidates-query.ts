@@ -59,8 +59,6 @@ interface CursorPayload {
 interface QueryRow {
   readonly candidate_id: bigint;
   readonly candidate_kind: string;
-  readonly profile_path: string;
-  readonly commit_state: string;
   readonly rank: bigint;
   readonly supporting_count: bigint;
   readonly provenance_json: string;
@@ -349,8 +347,7 @@ export function queryTopicCandidates(
     const sqlDirection = direction === "asc" ? "ASC" : "DESC";
     const rows = database
       .prepare(
-        `SELECT c.candidate_id, c.candidate_kind, c.profile_path,
-                c.commit_state, c.rank, c.supporting_count,
+        `SELECT c.candidate_id, c.candidate_kind, c.rank, c.supporting_count,
                 c.provenance_json, c.fields_json,
                 ${sortExpression} AS cursor_key
            FROM forensic_candidates c

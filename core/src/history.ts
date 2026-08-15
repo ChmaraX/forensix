@@ -53,7 +53,7 @@ import {
   type SourceRowProvenance,
 } from "./forensic-model.js";
 import {
-  classifyTopicCandidates,
+  createTopicClassifier,
   type EmbeddingEngine,
   type TopicCandidateInput,
   type TopicClassifierUnavailableReason,
@@ -1366,7 +1366,23 @@ async function classifyHistoryTopics(
       },
     };
   }
-  const engine = engineOrUnavailable;
+  // Prepare the classifier once: the label anchors depend only on the engine,
+  // so embedding them per artifact would be wasted work. Anchor-embedding
+  // failure surfaces here as a typed unavailability.
+  const prepared = await createTopicClassifier(engineOrUnavailable);
+  if ("available" in prepared) {
+    return {
+      artifacts,
+      summary: {
+        status: "unavailable",
+        reason: prepared.reason,
+        classifiedUrlCount: 0,
+        candidateCount: 0,
+        modelId: engineOrUnavailable.modelId,
+        modelRevision: engineOrUnavailable.modelRevision,
+      },
+    };
+  }
   const withCandidates: HistoryArtifactWrite[] = [];
   let classifiedUrlCount = 0;
   let candidateCount = 0;
@@ -1377,7 +1393,7 @@ async function classifyHistoryTopics(
     }
     const inputs = topicInputsFromArtifact(artifact);
     classifiedUrlCount += inputs.length;
-    const result = await classifyTopicCandidates(engine, inputs);
+    const result = await prepared.classifyBatch(inputs);
     if (!Array.isArray(result)) {
       // An inference failure keeps every Finding intact: return the original
       // artifacts with no Candidates attached and a typed reason.
@@ -1388,8 +1404,8 @@ async function classifyHistoryTopics(
           reason: result.reason,
           classifiedUrlCount: 0,
           candidateCount: 0,
-          modelId: engine.modelId,
-          modelRevision: engine.modelRevision,
+          modelId: prepared.modelId,
+          modelRevision: prepared.modelRevision,
         },
       };
     }
@@ -1403,8 +1419,8 @@ async function classifyHistoryTopics(
       reason: null,
       classifiedUrlCount,
       candidateCount,
-      modelId: engine.modelId,
-      modelRevision: engine.modelRevision,
+      modelId: prepared.modelId,
+      modelRevision: prepared.modelRevision,
     },
   };
 }

@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import type {
@@ -77,10 +76,6 @@ function resolveModelDir(explicit?: string): string | null {
   return dir;
 }
 
-function sha256File(path: string): string {
-  return createHash("sha256").update(readFileSync(path)).digest("hex");
-}
-
 function extractIds(encoded: ReturnType<TokenizerFn>): number[] {
   const ids = encoded.input_ids;
   if (ids === undefined) {
@@ -146,8 +141,6 @@ export async function loadTopicEngine(
       enableCpuMemArena: false,
       enableMemPattern: false,
     });
-    const modelSha256 = sha256File(modelPath);
-    void modelSha256;
 
     const embed = async (text: string): Promise<Float32Array> => {
       const encoded = tokenizer(text, {

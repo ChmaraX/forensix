@@ -80,10 +80,16 @@ const USAGE = `Usage:
                    [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix top-sites --case <case-directory>
-  forensix topic-candidates --case <case-directory> [--label <topic-id>] [--sort rank|supporting|label|profile]
                    [--profile <profile>]... [--search <text>]
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--sort <rank|url|title|profile>]
+                   [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
+  forensix topic-candidates --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--commit-state <committed|wal_resident|journal_resident>]
+                   [--label <topic-id>]
+                   [--sort <rank|supporting|label|profile>]
                    [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix autofill --case <case-directory>

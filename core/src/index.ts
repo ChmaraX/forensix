@@ -70,12 +70,14 @@ export {
 } from "./verify.js";
 export {
   classifyTopicCandidates,
+  createTopicClassifier,
   topicInputText,
   TOPIC_CANDIDATE_KIND,
   TOPIC_TAXONOMY,
   TOPIC_TAXONOMY_SOURCE,
   UNCLASSIFIED_LABEL_ID,
   type EmbeddingEngine,
+  type PreparedTopicClassifier,
   type TopicCandidateInput,
   type TopicClassifierOptions,
   type TopicClassifierUnavailable,
