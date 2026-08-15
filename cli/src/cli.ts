@@ -11,6 +11,7 @@ import {
   ingestSource,
   queryAutofill,
   queryBookmarks,
+  queryCache,
   queryCookies,
   queryCredentials,
   queryDownloads,
@@ -24,6 +25,9 @@ import {
   type BookmarkDirection,
   type BookmarkSort,
   type BookmarkSource,
+  type CacheDirection,
+  type CacheRecordType,
+  type CacheSort,
   type CommitState,
   type CookieDirection,
   type CookieSort,
@@ -88,6 +92,12 @@ const USAGE = `Usage:
                    [--profile <profile>]... [--search <text>]
                    [--commit-state <committed|wal_resident|journal_resident>]
                    [--sort <icon-url|page-url|last-updated|width|profile>]
+                   [--direction <asc|desc>]
+                   [--limit <1-100>] [--after <cursor>] [--json]
+  forensix cache --case <case-directory>
+                   [--profile <profile>]... [--search <text>]
+                   [--record-type <finding|candidate>] [--backend <simple>]
+                   [--sort <key|last-used|size|entry-hash|profile>]
                    [--direction <asc|desc>]
                    [--limit <1-100>] [--after <cursor>] [--json]
   forensix downloads --case <case-directory>
@@ -163,6 +173,8 @@ const VALUE_OPTIONS = new Set([
   "--danger",
   "--type",
   "--source",
+  "--record-type",
+  "--backend",
   "--sort",
   "--direction",
   "--limit",
@@ -777,6 +789,54 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ] as const) as FaviconSort | undefined,
       direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
         | FaviconDirection
+        | undefined,
+      limit: integerOption(parsed, "--limit"),
+      after: optionValue(parsed, "--after"),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return 0;
+  }
+
+  if (parsed.command === "cache") {
+    assertAllowedOptions(
+      parsed,
+      new Set([
+        "--case",
+        "--json",
+        "--profile",
+        "--search",
+        "--record-type",
+        "--backend",
+        "--sort",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+    );
+    if (parsed.positionals.length !== 0) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The cache command accepts no positional values.",
+      );
+    }
+    const result = queryCache({
+      caseDirectory: requiredCasePath(parsed),
+      profiles: optionValues(parsed, "--profile"),
+      search: optionValue(parsed, "--search"),
+      recordType: enumOption(parsed, "--record-type", [
+        "finding",
+        "candidate",
+      ] as const) as CacheRecordType | undefined,
+      backend: optionValue(parsed, "--backend"),
+      sort: enumOption(parsed, "--sort", [
+        "key",
+        "last-used",
+        "size",
+        "entry-hash",
+        "profile",
+      ] as const) as CacheSort | undefined,
+      direction: enumOption(parsed, "--direction", ["asc", "desc"] as const) as
+        | CacheDirection
         | undefined,
       limit: integerOption(parsed, "--limit"),
       after: optionValue(parsed, "--after"),

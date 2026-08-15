@@ -4,6 +4,7 @@ import {
   storeHistoryAnalysis,
   type AnalysisRunExitState,
   type BookmarksArtifactWrite,
+  type CacheArtifactWrite,
   type CookieArtifactWrite,
   type DeclaredOriginOs,
   type DownloadsArtifactWrite,
@@ -16,6 +17,7 @@ import {
   type WebDataArtifactWrite,
 } from "./case-findings.js";
 import { analyseSourceBookmarks } from "./bookmarks.js";
+import { analyseSourceCache } from "./cache.js";
 import { analyseSourceCookies } from "./cookies.js";
 import { analyseDownloadsProfile } from "./downloads.js";
 import { analyseSourceFavicons } from "./favicons.js";
@@ -232,6 +234,17 @@ export interface BookmarksAnalysisSummary {
   readonly declaredTimezone: string;
 }
 
+export interface CacheAnalysisSummary {
+  readonly status: "complete" | "partial";
+  readonly profileCount: number;
+  readonly analysedProfileCount: number;
+  readonly absentProfileCount: number;
+  readonly unavailableProfileCount: number;
+  readonly candidateCount: number;
+  readonly payloadFileCount: number;
+  readonly findingCount: number;
+}
+
 export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly command: "analyse";
   readonly analysisStatus: "ready";
@@ -247,6 +260,7 @@ export interface AnalyseCaseResult extends WorkingCopyVerification {
   readonly downloads: DownloadsAnalysisSummary;
   readonly preferences: PreferencesAnalysisSummary;
   readonly bookmarks: BookmarksAnalysisSummary;
+  readonly cache: CacheAnalysisSummary;
   readonly decryption: DecryptionSummary;
 }
 
@@ -1280,6 +1294,7 @@ export async function analyseCase(
   const downloadsArtifacts: DownloadsArtifactWrite[] = [];
   const metadataArtifacts: MetadataArtifactWrite[] = [];
   const bookmarksArtifacts: BookmarksArtifactWrite[] = [];
+  const cacheArtifacts: CacheArtifactWrite[] = [];
   for (const source of sources) {
     const workingCopyPath = workingCopyAbsolutePath(caseDirectory, source);
     for (const profile of source.profiles) {
@@ -1351,6 +1366,14 @@ export async function analyseCase(
         declaredTimezone,
       })),
     );
+    cacheArtifacts.push(
+      ...(await analyseSourceCache({
+        source,
+        workingCopyPath,
+        caseDirectory,
+        declaredTimezone,
+      })),
+    );
   }
 
   await verifyWorkingCopy(caseDirectory);
@@ -1370,6 +1393,7 @@ export async function analyseCase(
     downloadsArtifacts,
     metadataArtifacts,
     bookmarksArtifacts,
+    cacheArtifacts,
   });
   const singletonLockPresent = sources.some((source) =>
     source.entries.some(
@@ -1458,6 +1482,15 @@ export async function analyseCase(
   const bookmarksUnavailable = bookmarksArtifacts.filter(
     (artifact) => artifact.status === "unavailable",
   );
+  const cacheAnalysed = cacheArtifacts.filter(
+    (artifact) => artifact.status === "complete",
+  );
+  const cacheAbsent = cacheArtifacts.filter(
+    (artifact) => artifact.status === "absent",
+  );
+  const cacheUnavailable = cacheArtifacts.filter(
+    (artifact) => artifact.status === "unavailable",
+  );
   return {
     ...verification,
     command: "analyse",
@@ -1469,7 +1502,8 @@ export async function analyseCase(
       topSitesAnalysed.length +
       webAnalysed.length +
       faviconsAnalysed.length +
-      downloadsAnalysed.length,
+      downloadsAnalysed.length +
+      cacheAnalysed.length,
     runId: stored.runId,
     exitState: stored.runStatus,
     cookies: {
@@ -1692,6 +1726,28 @@ export async function analyseCase(
         0,
       ),
       declaredTimezone,
+    },
+    cache: {
+      status: cacheUnavailable.length === 0 ? "complete" : "partial",
+      profileCount: sources.reduce(
+        (count, source) => count + source.profiles.length,
+        0,
+      ),
+      analysedProfileCount: cacheAnalysed.length,
+      absentProfileCount: cacheAbsent.length,
+      unavailableProfileCount: cacheUnavailable.length,
+      candidateCount: cacheAnalysed.reduce(
+        (count, artifact) => count + artifact.candidateCount,
+        0,
+      ),
+      payloadFileCount: cacheAnalysed.reduce(
+        (count, artifact) => count + artifact.payloadFileCount,
+        0,
+      ),
+      findingCount: cacheAnalysed.reduce(
+        (count, artifact) => count + artifact.findings.length,
+        0,
+      ),
     },
     decryption: {
       enabled: decryption.enabled,

@@ -102,6 +102,7 @@ export {
   type LoginDataAnalysisSummary,
   type PreferencesAnalysisSummary,
   type BookmarksAnalysisSummary,
+  type CacheAnalysisSummary,
   type TopSitesAnalysisSummary,
   type WebDataAnalysisSummary,
 } from "./history.js";
@@ -225,9 +226,29 @@ export {
   type BookmarkSource,
 } from "./bookmarks-query.js";
 export {
+  queryCache,
+  type CacheDirection,
+  type CachePage,
+  type CacheQuery,
+  type CacheRecordType,
+  type CacheSort,
+} from "./cache-query.js";
+export {
+  CACHE_PAYLOAD_DIRECTORY,
+  analyseSourceCache,
+  type CacheAnalysisInput,
+} from "./cache.js";
+export {
+  detectCacheBackend,
+  parseSimpleEntryFile,
+  parseSimpleIndex,
+  type CacheBackend,
+} from "./cache-format.js";
+export {
   type AnalysisRunExitState,
   type BookmarksArtifactWrite,
   type BookmarkSourceFile,
+  type CacheArtifactWrite,
   type DeclaredOriginOs,
 } from "./case-findings.js";
 export { openDatabaseSync, type OpenDatabaseConfig } from "./sqlite-open.js";
