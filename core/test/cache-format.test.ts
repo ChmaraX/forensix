@@ -114,7 +114,7 @@ function buildRealIndex(
 
 describe("Cache backend detection", () => {
   it("distinguishes blockfile, Simple Cache, SQL, and unknown from contents", () => {
-    // AC1: detection reads directory contents, never a Source platform.
+    // Detection reads directory contents, never a Source platform.
     expect(
       detectCacheBackend([
         { relativePath: "index", head: u32(BLOCKFILE_INDEX_MAGIC) },
@@ -179,13 +179,13 @@ describe("Simple Cache entry parsing (exact against recorded format)", () => {
     }
     expect(parsed.keyText).toBe(key);
     expect(parsed.keyLength).toBe(Buffer.from(key).length);
-    // AC2: the header key hash validates against SuperFastHash of the key.
+    // The header key hash validates against SuperFastHash of the key.
     expect(parsed.keyHashValid).toBe(true);
     // The 16-hex entry hash derives from the key exactly as Chromium names it.
     expect(parsed.entryHashFromKey).toBe(entryHashHexFromKey(Buffer.from(key)));
     expect(parsed.stream1.size).toBe(body.length);
     expect(Buffer.from(parsed.stream1.data).equals(body)).toBe(true);
-    // AC2: the stream-1 CRC32 recorded in the EOF validates the body.
+    // The stream-1 CRC32 recorded in the EOF validates the body.
     expect(parsed.stream1.crc32Valid).toBe(true);
     expect(parsed.keySha256).toBe(
       createHash("sha256").update(key).digest("hex"),

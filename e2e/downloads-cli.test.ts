@@ -365,7 +365,7 @@ describe("compiled analyzer CLI Downloads findings", () => {
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
       command: "analyse",
       exitState: "complete",
-      // AC6: Downloads live in History but are their own artifact; History
+      // Downloads live in History but are their own artifact; History
       // visits stay usable alongside a complete Downloads result.
       history: { status: "complete", analysedProfileCount: 2 },
       downloads: {
@@ -378,7 +378,7 @@ describe("compiled analyzer CLI Downloads findings", () => {
       },
     });
 
-    // AC5: bounded, multi-Profile keyset pagination ordered by start time.
+    // Bounded, multi-Profile keyset pagination ordered by start time.
     const firstPage = parseJson<DownloadPage>(
       runCli([
         "downloads",
@@ -399,7 +399,7 @@ describe("compiled analyzer CLI Downloads findings", () => {
 
     const [report, malware] = firstPage.items;
     expect(report).toBeDefined();
-    // AC1 + AC3: exact target path/state; one Field State each; Commit State;
+    // Exact target path/state; one Field State each; Commit State;
     // Provenance resolvable to the exact downloads rowid and chain rows.
     expect(report).toMatchObject({
       recordType: "finding",
@@ -430,7 +430,7 @@ describe("compiled analyzer CLI Downloads findings", () => {
         referrer: { state: "value", value: "https://referrer.example/page" },
       },
     });
-    // AC1: URL-chain relationships preserved, ordered, with per-hop Provenance.
+    // URL-chain relationships preserved, ordered, with per-hop Provenance.
     expect(report?.fields.urlChain).toEqual({
       state: "value",
       value: [
@@ -480,7 +480,7 @@ describe("compiled analyzer CLI Downloads findings", () => {
         rowId: "1:2",
       },
     ]);
-    // AC4: timestamp keeps raw value, Epoch Family (1601-us), and UTC.
+    // Timestamp keeps raw value, Epoch Family (1601-us), and UTC.
     expect(report?.fields.startTime).toEqual({
       state: "value",
       synthetic: false,
@@ -492,7 +492,7 @@ describe("compiled analyzer CLI Downloads findings", () => {
         resolution: "verified_history_schema_version_74",
       },
     });
-    // AC2: the content hash BLOB is rendered as reviewable hex, never base64.
+    // The content hash BLOB is rendered as reviewable hex, never base64.
     expect(report?.fields.contentSha256).toEqual({
       state: "value",
       value: CONTENT_HASH_HEX,
@@ -502,7 +502,7 @@ describe("compiled analyzer CLI Downloads findings", () => {
       value: "32",
     });
 
-    // AC2: decoded danger/interrupt/state on the interrupted download retain
+    // Decoded danger/interrupt/state on the interrupted download retain
     // their raw codes; a never-finished download has an absent end time and an
     // absent (not blank) content hash.
     expect(malware).toMatchObject({

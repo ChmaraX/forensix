@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-// Issue #188 (AC1–AC3): the single offline verification command drives the
+// The single offline verification command drives the
 // compiled analyzer CLI from a recorded Source through ingest -> analyse ->
 // export and returns a structured capability, invariant, fixture, and failure
 // report. This test asserts the report contract and that it passes in-repo.
@@ -42,7 +42,7 @@ describe("offline verification harness", () => {
     expect(report.ok).toBe(true);
     expect(report.failures).toHaveLength(0);
 
-    // AC3: the capability table has only PASS and UNCOVERED, and every
+    // The capability table has only PASS and UNCOVERED, and every
     // UNCOVERED capability is backed by a tested typed refusal (a code).
     expect(report.capabilities.length).toBeGreaterThan(0);
     for (const capability of report.capabilities) {
@@ -58,7 +58,7 @@ describe("offline verification harness", () => {
     );
     expect(uncovered.length).toBeGreaterThanOrEqual(3);
 
-    // AC2: the fixture matrix (ground truth, broken input, negative control)
+    // The fixture matrix (ground truth, broken input, negative control)
     // and every invariant (immutable Source, deterministic rerun, supersede,
     // golden Extract, exact row counts/seeded fields) pass.
     for (const invariant of report.invariants) {

@@ -728,6 +728,17 @@ export async function* ingestSource(
   }
 }
 
+/**
+ * Ingest a Chrome User Data Dir into a Case.
+ *
+ * The generator discovers the Sources under the directory by the selection
+ * policy, copies the Tier 1 files (and Tier 2 when `includeTier2` is set) into a
+ * verified Working Copy, and writes the Case. It never mutates a Source byte.
+ *
+ * It yields `IngestProgress` at each phase — source validated, manifest
+ * complete, Case written — and returns an `IngestResult` with the Source and
+ * Working Copy digests, the per-Source counts, and the Profiles found.
+ */
 export function ingestUserDataDir(
   options: Omit<IngestOptions, "sourceKind">,
 ): AsyncGenerator<IngestProgress, IngestResult> {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ForensiX scale gate (issue #188, AC4).
+// ForensiX scale gate.
 //
 // Drives the compiled analyzer CLI through ingest -> analyse -> export over a
 // seeded History of N visits and asserts the pipeline completes within a finite

@@ -295,7 +295,7 @@ describe("compiled analyzer CLI Cache backends", () => {
 
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
     expect(analysis.status).toBe(0);
-    // AC1/AC2/AC4: Simple Cache produces three entry Findings and two
+    // Simple Cache produces three entry Findings and two
     // Candidates (one doomed, one evicted), with payloads as hashed files.
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
       command: "analyse",
@@ -310,14 +310,14 @@ describe("compiled analyzer CLI Cache backends", () => {
       },
     });
 
-    // AC3: the response body is a separately hashed file named by its SHA-256,
+    // The response body is a separately hashed file named by its SHA-256,
     // referenced by digest and path — never base64-inlined into a row.
     const payloadOnDisk = await readFile(
       join(caseDirectory, "cache-payloads", alphaSha),
     );
     expect(payloadOnDisk.toString("utf8")).toBe("alpha-body-1");
 
-    // AC5: bounded keyset pagination over Findings, ordered by cache key.
+    // Bounded keyset pagination over Findings, ordered by cache key.
     const firstPage = parseJson<CachePage>(
       runCli([
         "cache",
@@ -336,7 +336,7 @@ describe("compiled analyzer CLI Cache backends", () => {
 
     const alpha = firstPage.items[0];
     expect(alpha).toBeDefined();
-    // AC2: entry metadata, key, timestamp, size, and payload reference exact.
+    // Entry metadata, key, timestamp, size, and payload reference exact.
     expect(alpha).toMatchObject({
       recordType: "finding",
       findingKind: "cache_entry",
@@ -361,7 +361,7 @@ describe("compiled analyzer CLI Cache backends", () => {
       state: "value",
       value: { utc: "2024-01-01T00:00:00.000000Z" },
     });
-    // AC2: the index record is cited as supporting Provenance for the entry.
+    // The index record is cited as supporting Provenance for the entry.
     expect(
       (alpha?.provenance.supportingRows ?? []).map((row) => row.table),
     ).toContain("the_real_index");
@@ -386,7 +386,7 @@ describe("compiled analyzer CLI Cache backends", () => {
     );
     expect(new Set(keys).size).toBe(3);
 
-    // AC4: doomed and evicted evidence are Candidates — ranked, with supporting
+    // Doomed and evicted evidence are Candidates — ranked, with supporting
     // count and resolvable Provenance — and are NEVER Findings.
     const candidates = parseJson<CachePage>(
       runCli([
@@ -422,7 +422,7 @@ describe("compiled analyzer CLI Cache backends", () => {
       value: "allocated_deleted_or_doomed",
     });
 
-    // AC2: search matches the cache key.
+    // Search matches the cache key.
     const searched = parseJson<CachePage>(
       runCli(["cache", "--case", caseDirectory, "--search", "bravo", "--json"])
         .stdout,
@@ -495,11 +495,14 @@ describe("compiled analyzer CLI Cache backends", () => {
     ).toBe(0);
 
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
-    // AC5: unsupported backends make the run partial and report explicit
-    // unavailable reasons rather than an empty result.
-    expect(analysis.status).toBe(2);
+    // Unsupported backends report explicit unavailable reasons in the
+    // cache summary rather than an empty result. Cache is a tier-2 artifact
+    // excluded from the Analysis Run exit state, so unsupported backends leave
+    // the run exit-neutral (History/Cookies/Login here are absent, not
+    // unavailable) and the run still exits 0/complete.
+    expect(analysis.status).toBe(0);
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
-      exitState: "partial",
+      exitState: "complete",
       cache: {
         status: "partial",
         analysedProfileCount: 1,
@@ -515,6 +518,54 @@ describe("compiled analyzer CLI Cache backends", () => {
     );
     expect(findings.items).toHaveLength(1);
     expect(findings.items[0]?.profile).toBe("Profile 2");
+  });
+
+  it("keeps cache availability out of the run exit state on a default ingest", async () => {
+    // Regression: every real Chrome profile has a Cache dir, but cache is a
+    // tier-2 artifact not ingested by default. A default (no --include-tier-2)
+    // ingest lists the cache dir in the Manifest without copying its bytes, so
+    // the cache artifact reports `unavailable` (cache_not_in_working_copy).
+    // That availability signal must NOT flip an otherwise-clean run to
+    // partial/failed: the run stays exit 0 / complete.
+    const root = await mkdtemp(join(tmpdir(), "forensix-cache-exit-"));
+    temporaryRoots.push(root);
+    const source = join(root, "source");
+    await mkdir(source, { recursive: true });
+    await writeFile(join(source, "Local State"), "{}\n");
+    // A cache dir present in the Source (as on any real profile) but whose
+    // bytes are tier-2 and therefore not copied on a default ingest.
+    const cacheData = join(source, "Default", "Cache", "Cache_Data");
+    await mkdir(cacheData, { recursive: true });
+    await writeFile(join(cacheData, "index"), Buffer.alloc(16));
+    const cacheKey = "1/0/https://exit.example/app.js";
+    await writeCacheFile(
+      cacheData,
+      `${entryHash(cacheKey)}_0`,
+      buildSimpleEntry(cacheKey, Buffer.from("exit-body")),
+    );
+
+    const caseDirectory = join(root, "CASE-CACHE-EXIT");
+    // Default ingest: no --include-tier-2, so cache bytes are not collected.
+    expect(
+      runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+    ).toBe(0);
+
+    const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
+    // Clean History/Cookies/Login (absent here) leave the run exit-neutral, and
+    // the un-ingested cache must not turn that into a nonzero exit.
+    expect(analysis.status).toBe(0);
+    expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
+      command: "analyse",
+      exitState: "complete",
+      // Cache health is still recorded and reported in the summary — it just
+      // does not participate in the exit-state aggregation.
+      cache: {
+        status: "partial",
+        analysedProfileCount: 0,
+        unavailableProfileCount: 1,
+        findingCount: 0,
+      },
+    });
   });
 
   it("scales to a large Simple Cache with bounded, streamed extraction", async () => {
@@ -568,7 +619,7 @@ describe("compiled analyzer CLI Cache backends", () => {
       cache: { findingCount: count, payloadFileCount: count },
     });
 
-    // AC6: the query is bounded; the whole result set is walked in fixed-size
+    // The query is bounded; the whole result set is walked in fixed-size
     // keyset pages rather than a single unbounded read.
     let cursor: string | null = null;
     let seen = 0;

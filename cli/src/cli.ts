@@ -63,7 +63,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Release-injected build identity (issue #188, AC6). The release workflow
+ * Release-injected build identity. The release workflow
  * writes `build-info.json` next to the compiled CLI with the published version
  * and the exact git SHA it was built from. When present it is appended to the
  * reported version as `<version>+<gitSha>`. Reading it is a local file read

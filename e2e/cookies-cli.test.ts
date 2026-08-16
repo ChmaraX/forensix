@@ -374,7 +374,7 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       },
     });
 
-    // AC6: keyset pagination, multi-Profile, sort by host ascending.
+    // Keyset pagination, multi-Profile, sort by host ascending.
     const first = parseJson<CookiePage>(
       runCli([
         "cookies",
@@ -396,7 +396,7 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       ".beta.example",
     ]);
 
-    // AC2: exact external fields against ground truth.
+    // Exact external fields against ground truth.
     const alpha = first.items[0];
     expect(alpha).toMatchObject({
       recordType: "finding",
@@ -418,7 +418,7 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
         sameSite: { state: "value", value: "lax" },
         sourceScheme: { state: "value", value: "secure" },
         sourcePort: { state: "value", value: "443" },
-        // AC5: platform-conditional timestamp resolved from verified schema.
+        // Platform-conditional timestamp resolved from verified schema.
         creationTime: {
           state: "value",
           value: {
@@ -433,7 +433,7 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       },
     });
 
-    // AC3: encrypted value is unavailable with a typed reason, never blank.
+    // Encrypted value is unavailable with a typed reason, never blank.
     expect(alpha?.fields.value).toEqual({
       state: "unavailable",
       reason: "encrypted_secret_without_key_material",
@@ -482,7 +482,7 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       },
     });
 
-    // AC6: search + host filter + multi-Profile filter.
+    // Search + host filter + multi-Profile filter.
     const filtered = parseJson<CookiePage>(
       runCli([
         "cookies",
@@ -503,7 +503,7 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       value: "id",
     });
 
-    // AC6: broken input rejected.
+    // Broken input rejected.
     const badLimit = runCli([
       "cookies",
       "--case",
@@ -517,7 +517,7 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       code: "INVALID_ARGUMENT",
     });
 
-    // AC6: a stale cursor after re-analysis is rejected.
+    // A stale cursor after re-analysis is rejected.
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
       0,
     );
@@ -540,7 +540,7 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       code: "INVALID_CURSOR",
     });
 
-    // AC1/AC4: the Source bytes are never mutated by analysis.
+    // The Source bytes are never mutated by analysis.
     expect(
       await readFile(join(source, "Default", "Network", "Cookies")),
     ).toEqual(sourceBytes);
@@ -633,7 +633,7 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       state: "unavailable",
       reason: "epoch_requires_declared_origin_os",
     });
-    // AC3: even a legacy plaintext cookie keeps a defined value Field State.
+    // Even a legacy plaintext cookie keeps a defined value Field State.
     expect(withoutOrigin.items[0]?.fields.value).toEqual({
       state: "value",
       value: "legacy-plain",

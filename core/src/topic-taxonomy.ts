@@ -2,10 +2,10 @@
  * The frozen topic taxonomy — audited supervision data, kept apart from the
  * classifier algorithm that consumes it.
  *
- * The `name`, `question`, and `boundary` fields are the ONLY supervision the
- * model-backed classifier receives; they are copied verbatim from the taxonomy
- * proposal (ChmaraX/forensix#137 §3), which was written and frozen BEFORE any
- * fixture was labelled. `unclassified` is a real, mandatory member of the set:
+ * The `name`, `question`, and `boundary` fields are the only supervision the
+ * model-backed classifier receives. They are copied verbatim from the frozen
+ * taxonomy proposal, which was written before any fixture was labelled.
+ * `unclassified` is a real, mandatory member of the set:
  * a forensic classifier must be permitted to say nothing. Any change to these
  * strings must be justified against the proposal, never against measured
  * performance.

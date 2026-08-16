@@ -251,14 +251,14 @@ describe("compiled analyzer CLI Favicons metadata", () => {
       },
     });
 
-    // AC3: each payload is a separately hashed file named by its SHA-256, and
+    // Each payload is a separately hashed file named by its SHA-256, and
     // the row references it by digest and path rather than inlining base64.
     const payloadOnDisk = await readFile(
       join(caseDirectory, "favicon-payloads", alphaSha),
     );
     expect(new Uint8Array(payloadOnDisk)).toEqual(alphaPng);
 
-    // AC5: bounded, multi-Profile keyset pagination ordered by icon URL.
+    // Bounded, multi-Profile keyset pagination ordered by icon URL.
     const firstPage = parseJson<FaviconPage>(
       runCli([
         "favicons",
@@ -279,7 +279,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
 
     const [first] = firstPage.items;
     expect(first).toBeDefined();
-    // AC1 + AC2: icon metadata and page URLs exact against ground truth with
+    // Icon metadata and page URLs exact against ground truth with
     // Field State, resolvable Provenance, and Commit State.
     expect(first).toMatchObject({
       recordType: "finding",
@@ -308,18 +308,18 @@ describe("compiled analyzer CLI Favicons metadata", () => {
         pageAssociationCount: { state: "value", value: "2" },
       },
     });
-    // AC1: every associated page URL is traced from the one payload Finding.
+    // Every associated page URL is traced from the one payload Finding.
     expect(first?.fields.pageUrls).toEqual({
       state: "value",
       value: ["https://alpha.example/", "https://alpha.example/about"],
     });
-    // AC2: the icon and mapping rows are cited as supporting Provenance.
+    // The icon and mapping rows are cited as supporting Provenance.
     const supportingTables = (first?.provenance.supportingRows ?? []).map(
       (row) => row.table,
     );
     expect(supportingTables).toContain("favicons");
     expect(supportingTables).toContain("icon_mapping");
-    // AC2: base::Time internal value decoded to an exact UTC instant.
+    // Base::Time internal value decoded to an exact UTC instant.
     expect(first?.fields.lastUpdated).toMatchObject({
       state: "value",
       value: { utc: "2021-01-01T00:00:00.000000Z" },
@@ -350,7 +350,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
       [...firstPage.items, ...secondPage.items].map((item) => item.profile),
     ).toContain("Profile 1");
 
-    // AC5: search matches icon URL and page URLs.
+    // Search matches icon URL and page URLs.
     const searched = parseJson<FaviconPage>(
       runCli([
         "favicons",
@@ -364,7 +364,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
     expect(searched.items).toHaveLength(1);
     expect(searched.items[0]?.profile).toBe("Profile 1");
 
-    // AC5: multi-Profile selection filter.
+    // Multi-Profile selection filter.
     const filtered = parseJson<FaviconPage>(
       runCli([
         "favicons",
@@ -592,7 +592,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
       favicons: { committedFaviconCount: 1, recoveredFaviconCount: 1 },
     });
 
-    // AC4: committed rows only.
+    // Committed rows only.
     const committed = parseJson<FaviconPage>(
       runCli([
         "favicons",
@@ -615,7 +615,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
       },
     });
 
-    // AC4: sidecar (WAL-resident) associations carry the explicit Commit State
+    // Sidecar (WAL-resident) associations carry the explicit Commit State
     // and the sidecar Manifest Provenance.
     const recovered = parseJson<FaviconPage>(
       runCli([
@@ -673,7 +673,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
     ).toBe(0);
 
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
-    // AC5: an unavailable artifact makes the run partial (exit code 2), while
+    // An unavailable artifact makes the run partial (exit code 2), while
     // produced and absent artifacts stay distinct in the summary counts.
     expect(analysis.status).toBe(2);
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({

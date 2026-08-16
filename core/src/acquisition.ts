@@ -631,6 +631,14 @@ async function acquireDirectory(
   throw new Error("Unreachable acquisition retry state.");
 }
 
+/**
+ * Copy a Chrome User Data Dir into a Working Copy by the selection policy.
+ *
+ * It selects the Tier 1 files (and Tier 2 when `includeTier2` is set), copies
+ * them under `workingCopyRoot`, and records a Manifest entry for each. If the
+ * source root changes mid-scan, it retries a bounded number of times and then
+ * fails with `INGEST_FAILED`. Returns the Manifest entries and the Profiles.
+ */
 export async function acquireUserDataDir(
   sourceRoot: string,
   workingCopyRoot: string,
@@ -645,6 +653,13 @@ export async function acquireUserDataDir(
   );
 }
 
+/**
+ * Copy a single Chrome Profile Dir into a Working Copy by the selection policy.
+ *
+ * Same contract as `acquireUserDataDir`, but the source root is one Profile
+ * directory, not the whole User Data Dir. Returns the Manifest entries and the
+ * Profiles.
+ */
 export async function acquireProfileDir(
   sourceRoot: string,
   workingCopyRoot: string,

@@ -212,7 +212,7 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
       },
     });
 
-    // AC5: bounded, multi-Profile keyset pagination ordered by creation time.
+    // Bounded, multi-Profile keyset pagination ordered by creation time.
     const firstPage = parseJson<AutofillPage>(
       runCli([
         "autofill",
@@ -233,7 +233,7 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
 
     const [email] = firstPage.items;
     expect(email).toBeDefined();
-    // AC1 + AC2: field name/value exact vs ground truth, one Field State each,
+    // Field name/value exact vs ground truth, one Field State each,
     // with resolvable Provenance to the exact autofill rowid.
     expect(email).toMatchObject({
       recordType: "finding",
@@ -253,7 +253,7 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
       },
     });
     expect(email?.provenance.rowId).toMatch(/^[0-9]+$/);
-    // AC4: timestamp keeps raw value, Epoch Family (unix-seconds), and UTC.
+    // Timestamp keeps raw value, Epoch Family (unix-seconds), and UTC.
     expect(email?.fields.dateCreated).toEqual({
       state: "value",
       synthetic: false,

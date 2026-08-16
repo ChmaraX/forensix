@@ -97,7 +97,7 @@ describe("offline OSCrypt decryption engine", () => {
     expect(schemeOf(Buffer.from([0x01, 0x00, 0x00, 0x00]))).toBe("legacy");
   });
 
-  // AC1: with no opt-in the caller never calls the engine; with opt-in but no
+  // With no opt-in the caller never calls the engine; with opt-in but no
   // matching material the row stays unavailable with a distinct typed reason.
   it("returns no_authorized_key_material when nothing matches", () => {
     const outcome = decryptOscryptValue({
@@ -111,7 +111,7 @@ describe("offline OSCrypt decryption engine", () => {
     });
   });
 
-  // AC3: Linux basic, GNOME Keyring, KWallet, and macOS Keychain all resolve to
+  // Linux basic, GNOME Keyring, KWallet, and macOS Keychain all resolve to
   // AES-128-CBC and round-trip from a passphrase within their evidenced bounds.
   it.each([
     ["linux-basic", "v10", "peanuts"],
@@ -157,7 +157,7 @@ describe("offline OSCrypt decryption engine", () => {
     expect(outcome.state).toBe("value");
   });
 
-  // AC3: Windows v10 AES-256-GCM route.
+  // Windows v10 AES-256-GCM route.
   it("decrypts the Windows v10 GCM route", () => {
     const key = randomBytes(32);
     const ciphertext = sealGcm(key, "windows-secret");
@@ -180,7 +180,7 @@ describe("offline OSCrypt decryption engine", () => {
     }
   });
 
-  // AC2: a mixed-version database dispatches each row independently by prefix.
+  // A mixed-version database dispatches each row independently by prefix.
   it("dispatches mixed v10 and v11 rows independently", () => {
     const cbcKey = deriveCbcKey("gnome-keyring", "pw");
     const gcmKey = randomBytes(32);
@@ -210,7 +210,7 @@ describe("offline OSCrypt decryption engine", () => {
     expect(v10.state).toBe("value");
   });
 
-  // AC4: v20 App-Bound is never unwrapped, even with key material present.
+  // V20 App-Bound is never unwrapped, even with key material present.
   it("never unwraps a v20 App-Bound blob", () => {
     const outcome = decryptOscryptValue({
       ciphertext: new Uint8Array(Buffer.from("v20deadbeef", "latin1")),
@@ -229,7 +229,7 @@ describe("offline OSCrypt decryption engine", () => {
     });
   });
 
-  // AC5: wrong credentials, malformed stores, and missing context stay distinct.
+  // Wrong credentials, malformed stores, and missing context stay distinct.
   it("reports a wrong CBC key as decryption_wrong_key", () => {
     const ciphertext = sealCbc(
       deriveCbcKey("gnome-keyring", "right"),

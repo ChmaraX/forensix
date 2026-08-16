@@ -12,11 +12,11 @@ import {
 
 /**
  * The Report is a self-contained, human-readable rendering of a single Extract.
- * It is a strict downstream of the Extract boundary: the generator reads ONLY
- * the files an export (#169) already emitted and NEVER opens the Case. Because
- * every value is copied out of the Extract, two Reports of the same Extract
- * bytes are byte-identical, and any Case-only change that was never re-exported
- * cannot reach the Report.
+ * It sits strictly downstream of the Extract boundary: the generator reads only
+ * the files that an export already emitted, and never opens the Case. Every
+ * value is copied out of the Extract, so two Reports of the same Extract bytes
+ * are byte-identical. A Case-only change that was never re-exported cannot reach
+ * the Report.
  */
 export const REPORT_SCHEMA = "forensix/report/1" as const;
 
@@ -190,10 +190,9 @@ function isSidecar(commitState: string | undefined): boolean {
 
 /**
  * Render a single Field State to HTML. Empty string, absent, and unavailable
- * are the three states AC4 requires to read differently WITHOUT relying on
- * color: each carries a distinct word ("empty string", "absent",
- * "unavailable — <reason>"), so a monochrome or screen-read Report stays
- * unambiguous.
+ * must read differently without relying on color: each carries a distinct word
+ * ("empty string", "absent", "unavailable — <reason>"), so a monochrome or
+ * screen-read Report stays unambiguous.
  */
 function renderFieldValue(value: Json): string {
   if (value === null) {
@@ -710,6 +709,16 @@ Generated solely from the Extract; the Case is never consulted.
 `;
 }
 
+/**
+ * Render an Extract into one self-contained HTML Report.
+ *
+ * The generator reads only the Extract files, never the Case, and copies every
+ * value out of the Extract, so the Report loads no network resource at view
+ * time. It recomputes the derived digest and reports integrity as `verified`
+ * when the Extract is untouched, or `altered` when it is not.
+ *
+ * Returns a `RenderReportResult` with the Report path, digests, and counts.
+ */
 export async function renderReport(
   options: RenderReportOptions,
 ): Promise<RenderReportResult> {

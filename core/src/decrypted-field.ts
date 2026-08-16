@@ -19,8 +19,8 @@ export interface DecryptedSecretField {
 
 /**
  * Resolve one encrypted secret blob strictly within the opt-in gate. This is
- * the single decryption seam shared by the Cookies (#174) and Login Data (#177)
- * parsers so the gate behaves identically for both:
+ * the single decryption seam shared by the Cookies and Login Data parsers, so
+ * the gate behaves identically for both:
  *
  * - Decryption disabled (the default): the secret stays `unavailable` with the
  *   historic `encrypted_secret_without_key_material` reason and no key material

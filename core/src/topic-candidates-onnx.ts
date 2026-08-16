@@ -10,9 +10,9 @@ import type {
  * The settled local ONNX topic engine.
  *
  * The model is `minishlab/potion-base-8M` (Model2Vec / EmbeddingBag), pinned by
- * revision, selected by the classifier bench (ChmaraX/forensix#137): a static
- * embedding with a permissive MIT licence, a ~30 MB footprint, and — decisively
- * for a forensic tool — cross-architecture decision parity. Inference is a single
+ * revision and selected by the classifier bench: a static embedding with a
+ * permissive MIT licence, a ~30 MB footprint, and — decisively for a forensic
+ * tool — cross-architecture decision parity. Inference is a single
  * ONNX pass (`input_ids` + `offsets` -> one L2-normalised vector); topic scores
  * are the cosine similarity of that vector to the frozen label anchors.
  *

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ForensiX offline verification harness (issue #188, AC1–AC3).
+// ForensiX offline verification harness.
 //
 // One offline command drives the *compiled* analyzer CLI from a recorded
 // Source through ingest -> analyse -> export and returns a structured report of
@@ -10,12 +10,12 @@
 // stderr. Exit code is 0 only when every capability, invariant, and fixture
 // check passed.
 //
-// Capability table rule (AC3): a capability is either PASS (supported and
+// Capability table rule: a capability is either PASS (supported and
 // exercised) or UNCOVERED. Every UNCOVERED capability must be backed by a
 // tested typed refusal from the CLI — a structured ForensixError with a code
 // and exit status 1 — never a crash or a silently wrong answer.
 //
-// Golden Extract rule (AC2): each fixture pins the reproducible Extract digest
+// Golden Extract rule: each fixture pins the reproducible Extract digest
 // to a golden file. `FORENSIX_UPDATE_GOLDEN=1` rewrites goldens locally, but is
 // refused when `CI` is set so goldens can never be rewritten inside CI.
 

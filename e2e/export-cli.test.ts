@@ -184,7 +184,7 @@ describe("compiled analyzer CLI canonical Extract export", () => {
     expect(command.status).toBe(0);
     const summary = parseJson<ExportSummary>(command.stdout);
 
-    // AC3: Findings and Candidates are separate collections.
+    // Findings and Candidates are separate collections.
     expect(summary.findingCount).toBeGreaterThan(0);
     expect(summary.candidateCount).toBe(0);
     expect(summary.files).toEqual(
@@ -201,7 +201,7 @@ describe("compiled analyzer CLI canonical Extract export", () => {
 
     const files = await readOut(outDirectory);
 
-    // AC1: versioned JSON header with mandatory Case, Source, tool, examiner,
+    // Versioned JSON header with mandatory Case, Source, tool, examiner,
     // timezone, scope, and Redaction State data.
     const header = JSON.parse(String(files["export_header.json"])) as Record<
       string,
@@ -236,7 +236,7 @@ describe("compiled analyzer CLI canonical Extract export", () => {
     expect(Array.isArray(header.analysisRuns)).toBe(true);
     expect((header.analysisRuns as unknown[]).length).toBe(1);
 
-    // AC4: the Completeness Statement records attempted, produced, absent, and
+    // The Completeness Statement records attempted, produced, absent, and
     // unavailable artifacts and lives in the header, before any result row.
     expect(header.completeness).toMatchObject({
       attempted: 1,
@@ -256,7 +256,7 @@ describe("compiled analyzer CLI canonical Extract export", () => {
       outcome: "produced",
     });
 
-    // AC3: each JSONL Finding row preserves Provenance, Field State, Commit
+    // Each JSONL Finding row preserves Provenance, Field State, Commit
     // State, and timestamp semantics.
     const findingLines = String(files["findings.jsonl"])
       .trim()
@@ -283,19 +283,19 @@ describe("compiled analyzer CLI canonical Extract export", () => {
     });
     expect(visitFields.appId).toMatchObject({ state: "absent" });
 
-    // AC5: no result cell carries a base64 binary payload; binaries would be
+    // No result cell carries a base64 binary payload; binaries would be
     // separate hashed files instead.
     expect(String(files["findings.jsonl"])).not.toContain('"base64"');
     expect(summary.redaction.binaryPayloadCount).toBe(0);
 
-    // AC2: the CSV profile is explicitly lossy and uses record_type first.
+    // The CSV profile is explicitly lossy and uses record_type first.
     const csvHeaderLine = String(files["findings.lossy.csv"])
       .split("\n")[0]
       ?.split(",");
     expect(csvHeaderLine?.[0]).toBe("record_type");
     expect(header.scope).toMatchObject({ csv: { lossy: true } });
 
-    // AC6: the Export Manifest digest is independently reproducible from the
+    // The Export Manifest digest is independently reproducible from the
     // emitted file bytes.
     const manifest = JSON.parse(String(files["export_manifest.json"])) as {
       readonly files: readonly {

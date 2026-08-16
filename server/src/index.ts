@@ -32,7 +32,7 @@ import {
 } from "@forensix/core";
 
 /**
- * Read-only loopback dashboard adapter (issue #171).
+ * Read-only loopback dashboard adapter.
  *
  * The server is a thin adapter over the analyzer core. It contains no forensic
  * logic and performs no Case writes: every route maps request parameters onto a
@@ -399,6 +399,16 @@ function handleRequest(
   });
 }
 
+/**
+ * Start the read-only dashboard server on a loopback port.
+ *
+ * It mints one per-run bearer token and loads the client bundle up front, so a
+ * missing build fails before the socket binds. It binds 127.0.0.1 only; there
+ * is no host option. Every API route opens the Case read-only.
+ *
+ * Returns a `DashboardServer` with the URL, the per-run token, the bound port,
+ * the loopback host, and a `close()` handle.
+ */
 export async function startDashboardServer(
   options: StartDashboardServerOptions,
 ): Promise<DashboardServer> {

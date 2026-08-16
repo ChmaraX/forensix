@@ -1,5 +1,5 @@
 /**
- * Read-only Case dashboard (issue #171), browser entry point.
+ * Read-only Case dashboard, browser entry point.
  *
  * This client contains no forensic logic and performs no Case writes. It only
  * renders what the read-only loopback API returns from the analyzer core. It

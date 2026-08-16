@@ -280,7 +280,7 @@ describe("compiled analyzer CLI Login Data credential metadata", () => {
       },
     });
 
-    // AC5: bounded, multi-Profile keyset pagination ordered by creation time.
+    // Bounded, multi-Profile keyset pagination ordered by creation time.
     const firstPage = parseJson<CredentialPage>(
       runCli([
         "credentials",
@@ -301,7 +301,7 @@ describe("compiled analyzer CLI Login Data credential metadata", () => {
 
     const [alpha] = firstPage.items;
     expect(alpha).toBeDefined();
-    // AC1 + AC2 + AC5: origin, username, timestamp, and Provenance are present
+    // Origin, username, timestamp, and Provenance are present
     // and available independently of any secret decryption.
     expect(alpha).toMatchObject({
       recordType: "finding",
@@ -322,7 +322,7 @@ describe("compiled analyzer CLI Login Data credential metadata", () => {
         timesUsed: { state: "value", value: "4" },
       },
     });
-    // AC4: timestamp keeps raw value, Epoch Family, and UTC instant.
+    // Timestamp keeps raw value, Epoch Family, and UTC instant.
     expect(alpha?.fields.dateCreated).toEqual({
       state: "value",
       synthetic: false,
@@ -334,7 +334,7 @@ describe("compiled analyzer CLI Login Data credential metadata", () => {
         resolution: "verified_login_data_schema_version_43",
       },
     });
-    // AC3: an encrypted secret is unavailable with a typed reason, never blank.
+    // An encrypted secret is unavailable with a typed reason, never blank.
     expect(alpha?.fields.secret).toEqual({
       state: "unavailable",
       reason: "encrypted_secret_without_key_material",

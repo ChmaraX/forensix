@@ -30,7 +30,7 @@ export interface PersistedCandidate {
 }
 
 /**
- * A ranked identity/behavior Candidate (issue #185). Unlike the History-scoped
+ * A ranked identity/behavior Candidate. Unlike the History-scoped
  * `PersistedCandidate` above, these are derived across Web Data, Preferences,
  * and History Findings and carry a category plus a normalized sort key. They
  * are never Findings and never carry a Commit State: they summarize committed
@@ -2029,13 +2029,21 @@ export function storeHistoryAnalysis(
       }
 
       // The SQLite primary stores (History, Cookies, Login Data, Web Data, Top
-      // Sites, Favicons) drive the Analysis Run exit state. The JSON-derived
-      // artifacts —
-      // `Local State`/`Preferences` metadata and the `Bookmarks`/`Bookmarks.bak`
-      // documents — are recorded and independently queryable but deliberately
-      // excluded here: a valid-but-empty or malformed JSON document must not
-      // change the History/Cookies/Login exit-code semantics an operator relies
-      // on. Their health is surfaced separately in the analyse summary.
+      // Sites, Favicons) drive the Analysis Run exit state. Several artifacts
+      // are recorded and independently queryable but deliberately excluded
+      // here so their health cannot change the History/Cookies/Login exit-code
+      // semantics an operator relies on:
+      //   - the JSON-derived `Local State`/`Preferences` metadata and the
+      //     `Bookmarks`/`Bookmarks.bak` documents — a valid-but-empty or
+      //     malformed JSON document must not flip the run exit state; and
+      //   - the `Cache` artifact — a tier-2 store that is not ingested by
+      //     default, so a Manifest that merely lists a cache dir (as every real
+      //     Chrome profile does) reports `unavailable`
+      //     (`cache_not_in_working_copy`) or `cache_backend_unsupported` for
+      //     backends we do not parse. That availability signal must not turn an
+      //     otherwise-clean run into `partial`/`failed`.
+      // The excluded artifacts' health is surfaced separately in the analyse
+      // summary.
       const combinedArtifacts = [
         ...options.artifacts,
         ...cookieArtifacts,
@@ -2044,7 +2052,6 @@ export function storeHistoryAnalysis(
         ...(options.webDataArtifacts ?? []),
         ...(options.faviconArtifacts ?? []),
         ...(options.downloadsArtifacts ?? []),
-        ...(options.cacheArtifacts ?? []),
       ];
       const unavailableCount = combinedArtifacts.filter(
         (artifact) => artifact.status === "unavailable",

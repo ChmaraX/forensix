@@ -175,7 +175,7 @@ describe("compiled analyzer CLI offline OSCrypt decryption", () => {
       runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
     ).toBe(0);
 
-    // AC1: without the opt-in the secret stays unavailable with the historic
+    // Without the opt-in the secret stays unavailable with the historic
     // typed reason, even though the store contains a supported v11 blob.
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
       0,
@@ -195,7 +195,7 @@ describe("compiled analyzer CLI offline OSCrypt decryption", () => {
       reason: "encrypted_secret_without_key_material",
     });
 
-    // AC1: key-material options are rejected without the --decrypt opt-in.
+    // Key-material options are rejected without the --decrypt opt-in.
     const misuse = runCli([
       "analyse",
       "--case",
@@ -235,7 +235,7 @@ describe("compiled analyzer CLI offline OSCrypt decryption", () => {
         "--json",
       ]).stdout,
     ).items;
-    // AC2 + AC3: the v11 GNOME Keyring blob is decrypted to plaintext and cites
+    // The v11 GNOME Keyring blob is decrypted to plaintext and cites
     // its route and key-material record.
     expect(decrypted[0]?.fields.secret).toEqual({
       state: "value",
@@ -250,7 +250,7 @@ describe("compiled analyzer CLI offline OSCrypt decryption", () => {
       value: "op-gnome-default",
     });
 
-    // AC4: the v20 App-Bound secret is never unwrapped, even with opt-in.
+    // The v20 App-Bound secret is never unwrapped, even with opt-in.
     const appBound = parseJson<CredentialPage>(
       runCli([
         "credentials",
@@ -266,7 +266,7 @@ describe("compiled analyzer CLI offline OSCrypt decryption", () => {
       reason: "unsupported_app_bound_v20",
     });
 
-    // AC6: the Analyzer never writes Source bytes.
+    // The Analyzer never writes Source bytes.
     expect(await readFile(loginPath)).toEqual(sourceBytes);
   });
 });
