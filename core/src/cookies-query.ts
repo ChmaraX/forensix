@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { CASE_FILENAME } from "./case.js";
 import { ForensixError } from "./errors.js";
+import { SQLITE_MAX_INTEGER } from "./forensic-time.js";
 import {
   createFinding,
   type CommitState,
@@ -83,8 +84,6 @@ const SORT_EXPRESSIONS: Readonly<Record<CookieSort, string>> = {
   "last-access-time": "COALESCE(f.sort_last_access, '')",
   profile: "f.profile_path",
 };
-
-const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
 
 function queryFingerprint(input: {
   readonly caseId: string;

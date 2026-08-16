@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { CASE_FILENAME } from "./case.js";
 import { ForensixError } from "./errors.js";
+import { SQLITE_MAX_INTEGER, SQLITE_MIN_INTEGER } from "./forensic-time.js";
 import {
   createFinding,
   type CommitState,
@@ -92,9 +93,6 @@ const SORTS: Readonly<Record<FaviconSort, SortDefinition>> = {
   width: { expression: "COALESCE(f.sort_width, -1)", kind: "integer" },
   profile: { expression: "f.profile_path", kind: "text" },
 };
-
-const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
-const SQLITE_MIN_INTEGER = -9_223_372_036_854_775_808n;
 
 function queryFingerprint(input: {
   readonly caseId: string;

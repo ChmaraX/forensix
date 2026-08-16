@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { CASE_FILENAME } from "./case.js";
 import { ForensixError } from "./errors.js";
+import { SQLITE_MAX_INTEGER } from "./forensic-time.js";
 import {
   createFinding,
   type CommitState,
@@ -67,8 +68,6 @@ const SORT_EXPRESSIONS: Readonly<Record<MetadataSort, string>> = {
   type: "f.sort_type",
   profile: "f.sort_profile",
 };
-
-const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
 
 function queryFingerprint(input: {
   readonly caseId: string;

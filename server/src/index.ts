@@ -44,9 +44,9 @@ import {
  *  - binds only to 127.0.0.1 (there is no host-exposure option);
  *  - mints one per-run bearer token that every /api request must present;
  *  - rejects any request whose Origin header is not a loopback origin.
+ *
+ * Tracked as implementation issue #171.
  */
-
-export const SERVER_IMPLEMENTATION_ISSUE = 171;
 
 export interface StartDashboardServerOptions {
   readonly caseDirectory: string;
