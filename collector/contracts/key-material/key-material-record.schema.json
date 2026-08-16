@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://forensix.dev/contracts/key-material-record-v1.schema.json",
+  "$id": "https://github.com/ChmaraX/forensix/contracts/key-material-record-v1.schema.json",
   "title": "ForensiX sealed key-material record v1",
   "type": "object",
   "additionalProperties": false,

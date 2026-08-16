@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://forensix.dev/contracts/manifest-entry-v1.schema.json",
+  "$id": "https://github.com/ChmaraX/forensix/contracts/manifest-entry-v1.schema.json",
   "title": "ForensiX Manifest entry v1",
   "type": "object",
   "additionalProperties": false,
