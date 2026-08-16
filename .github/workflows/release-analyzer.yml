@@ -1,0 +1,94 @@
+name: release-analyzer
+
+# The analyzer publishes on its own SemVer line and tag prefix `analyzer-v*`,
+# independently of the Collector (issue #188, AC5). Each release is gated by the
+# full offline verification, injects the version plus git SHA into the compiled
+# CLI, and ships an npm package tarball with checksums and a build-provenance
+# attestation (AC6). npm publish runs only when an NPM_TOKEN secret is present.
+#
+# This workflow triggers ONLY on a matching tag push. Opening or merging a PR
+# never runs it, so merging this PR publishes nothing. The packaging path is
+# still validated on every PR by the `package-dry-run` job in analyzer.yml.
+on:
+  push:
+    tags:
+      - "analyzer-v*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: release analyzer (npm)
+    runs-on: ubuntu-latest
+    env:
+      # Job-level so the publish step's `if` (evaluated in job context) can see it.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.15.0
+          registry-url: https://registry.npmjs.org
+
+      - name: Resolve version and SHA
+        id: meta
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#analyzer-v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install locked dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Full offline verification gate
+        run: corepack pnpm verify:full
+
+      - name: Inject version + git SHA into the compiled CLI
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          COMMIT: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          printf '{\n  "version": "%s",\n  "gitSha": "%s"\n}\n' "$VERSION" "$COMMIT" \
+            > cli/dist/build-info.json
+          node cli/dist/cli.js --version
+
+      - name: Pack the CLI package
+        run: |
+          set -euo pipefail
+          mkdir -p dist/analyzer
+          corepack pnpm --filter @forensix/cli pack --pack-destination "$PWD/dist/analyzer"
+
+      - name: Generate checksums
+        working-directory: dist/analyzer
+        run: |
+          set -euo pipefail
+          sha256sum *.tgz > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: "dist/analyzer/*.tgz"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Analyzer ${{ steps.meta.outputs.version }}" \
+            --notes "Analyzer ${{ steps.meta.outputs.version }} (${{ steps.meta.outputs.sha }}). npm package tarball with checksums and a provenance attestation." \
+            dist/analyzer/*.tgz dist/analyzer/SHA256SUMS
+
+      - name: Publish to npm
+        if: ${{ env.NPM_TOKEN != '' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: corepack pnpm --filter @forensix/cli publish --no-git-checks --access public

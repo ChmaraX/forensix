@@ -1,0 +1,35 @@
+name: scale-million (manual)
+
+# The million-row scale case is manual pre-release validation, not a required
+# per-PR check (issue #188, AC4). Trigger it before cutting an analyzer release.
+on:
+  workflow_dispatch:
+    inputs:
+      row_count:
+        description: Number of History visits to seed
+        default: "1000000"
+        required: false
+      budget_ms:
+        description: Wall-clock budget for the pipeline in milliseconds
+        default: "1800000"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  scale-million:
+    name: scale (${{ github.event.inputs.row_count }} visits)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.15.0
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install locked dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Million-row scale validation
+        run: corepack pnpm verify:scale "${{ github.event.inputs.row_count }}" "${{ github.event.inputs.budget_ms }}"

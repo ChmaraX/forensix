@@ -11,11 +11,14 @@
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm build && pnpm -r --if-present typecheck && tsc -p tsconfig.contracts.json",
     "lint": "eslint core/src core/test cli/src server/src client/src e2e eslint.config.mjs vitest.config.ts && depcruise core/src cli/src server/src client/src --config .dependency-cruiser.cjs",
-    "format": "prettier --write --ignore-unknown package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.contracts.json eslint.config.mjs vitest.config.ts .dependency-cruiser.cjs commitlint.config.cjs core cli server client contracts e2e",
-    "format:check": "prettier --check --ignore-unknown package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.contracts.json eslint.config.mjs vitest.config.ts .dependency-cruiser.cjs commitlint.config.cjs core cli server client contracts e2e",
+    "format": "prettier --write --ignore-unknown package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.contracts.json eslint.config.mjs vitest.config.ts .dependency-cruiser.cjs commitlint.config.cjs core cli server client contracts e2e scripts",
+    "format:check": "prettier --check --ignore-unknown package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.contracts.json eslint.config.mjs vitest.config.ts .dependency-cruiser.cjs commitlint.config.cjs core cli server client contracts e2e scripts",
     "prepare": "husky",
     "test": "pnpm build && vitest run",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && vitest run"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && vitest run",
+    "verify:offline": "pnpm build && node scripts/offline-verification.mjs",
+    "verify:scale": "pnpm build && node scripts/scale-gate.mjs",
+    "verify:full": "pnpm verify && pnpm verify:offline"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
