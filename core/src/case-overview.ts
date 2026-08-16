@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 
 import { CASE_FILENAME } from "./case.js";
 import { ForensixError } from "./errors.js";
+import { tableExists } from "./sqlite-artifact.js";
 
 /**
  * Read-only Case overview surface. It powers the loopback dashboard's
@@ -90,16 +91,6 @@ function openCase(caseDirectory: string): DatabaseSync {
   const url = pathToFileURL(join(resolve(caseDirectory), CASE_FILENAME));
   url.searchParams.set("immutable", "1");
   return new DatabaseSync(url.href, { readOnly: true, readBigInts: true });
-}
-
-function tableExists(database: DatabaseSync, name: string): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = ?",
-      )
-      .get(name) !== undefined
-  );
 }
 
 function readCaseId(database: DatabaseSync): string {

@@ -9,12 +9,14 @@ import { openDatabaseSync } from "./sqlite-open.js";
 import {
   immutableDatabase,
   snapshotVerifiedFile,
-  type RawHistoryValue,
-  type VerifiedHistoryFile,
-} from "./history-sqlite.js";
+  tableColumns,
+  tableExists,
+  type RawSqliteValue,
+  type VerifiedSqliteFile,
+} from "./sqlite-artifact.js";
 
-export type RawCookieValue = RawHistoryValue;
-export type VerifiedCookieFile = VerifiedHistoryFile;
+export type RawCookieValue = RawSqliteValue;
+export type VerifiedCookieFile = VerifiedSqliteFile;
 
 export interface RawCookie {
   readonly rowId: RawCookieValue;
@@ -78,25 +80,6 @@ const REQUIRED_COOKIE_COLUMNS = [
   "is_httponly",
   "last_access_utc",
 ] as const;
-
-function tableExists(database: DatabaseSync, table: string): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = ? LIMIT 1",
-      )
-      .get(table) !== undefined
-  );
-}
-
-function tableColumns(database: DatabaseSync, table: string): Set<string> {
-  return new Set(
-    database
-      .prepare("SELECT name FROM pragma_table_info(?) ORDER BY cid")
-      .all(table)
-      .map((row) => String(row.name)),
-  );
-}
 
 function readSchema(database: DatabaseSync): CookieSchema {
   for (const table of ["meta", "cookies"]) {

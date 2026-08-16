@@ -8,8 +8,10 @@ import type { CommitState } from "./forensic-model.js";
 import {
   immutableDatabase,
   snapshotVerifiedFile,
-  type VerifiedHistoryFile,
-} from "./history-sqlite.js";
+  tableColumns,
+  tableExists,
+  type VerifiedSqliteFile,
+} from "./sqlite-artifact.js";
 import { openDatabaseSync } from "./sqlite-open.js";
 
 /**
@@ -119,25 +121,6 @@ const REQUIRED_DOWNLOAD_COLUMNS = [
   "start_time",
   "state",
 ] as const;
-
-function tableExists(database: DatabaseSync, table: string): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = ? LIMIT 1",
-      )
-      .get(table) !== undefined
-  );
-}
-
-function tableColumns(database: DatabaseSync, table: string): Set<string> {
-  return new Set(
-    database
-      .prepare("SELECT name FROM pragma_table_info(?) ORDER BY cid")
-      .all(table)
-      .map((row) => String(row.name)),
-  );
-}
 
 function readSchema(database: DatabaseSync): DownloadsSchema {
   if (!tableExists(database, "meta")) {
@@ -333,8 +316,8 @@ function recoveredOnlyRows(
 }
 
 export async function readDownloadsPasses(options: {
-  readonly database: VerifiedHistoryFile;
-  readonly sidecars: readonly VerifiedHistoryFile[];
+  readonly database: VerifiedSqliteFile;
+  readonly sidecars: readonly VerifiedSqliteFile[];
 }): Promise<DownloadsPasses> {
   const temporaryDirectory = await mkdtemp(
     join(tmpdir(), "forensix-downloads-snapshot-"),

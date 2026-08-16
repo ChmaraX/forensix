@@ -9,12 +9,14 @@ import { openDatabaseSync } from "./sqlite-open.js";
 import {
   immutableDatabase,
   snapshotVerifiedFile,
-  type RawHistoryValue,
-  type VerifiedHistoryFile,
-} from "./history-sqlite.js";
+  tableColumns,
+  tableExists,
+  type RawSqliteValue,
+  type VerifiedSqliteFile,
+} from "./sqlite-artifact.js";
 
-export type RawTopSiteValue = RawHistoryValue;
-export type VerifiedTopSiteFile = VerifiedHistoryFile;
+export type RawTopSiteValue = RawSqliteValue;
+export type VerifiedTopSiteFile = VerifiedSqliteFile;
 
 /**
  * One row of the Chromium `top_sites` table, preserved column-by-column exactly
@@ -57,25 +59,6 @@ export interface TopSitePasses {
  * the schema omits it, so a Finding never fabricates a value.
  */
 const REQUIRED_TOP_SITE_COLUMNS = ["url", "url_rank", "title"] as const;
-
-function tableExists(database: DatabaseSync, table: string): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = ? LIMIT 1",
-      )
-      .get(table) !== undefined
-  );
-}
-
-function tableColumns(database: DatabaseSync, table: string): Set<string> {
-  return new Set(
-    database
-      .prepare("SELECT name FROM pragma_table_info(?) ORDER BY cid")
-      .all(table)
-      .map((row) => String(row.name)),
-  );
-}
 
 function readSchema(database: DatabaseSync): TopSiteSchema {
   for (const table of ["meta", "top_sites"]) {

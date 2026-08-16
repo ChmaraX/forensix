@@ -2,11 +2,15 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
 
 import { ForensixError } from "./errors.js";
 import type { CommitState } from "./forensic-model.js";
-import { snapshotVerifiedFile } from "./history-sqlite.js";
+import {
+  immutableDatabase,
+  snapshotVerifiedFile,
+  tableColumns,
+  tableExists,
+} from "./sqlite-artifact.js";
 import { openDatabaseSync } from "./sqlite-open.js";
 
 export type RawLoginValue = null | string | bigint | Uint8Array;
@@ -85,25 +89,6 @@ const REQUIRED_LOGIN_COLUMNS = [
   "password_value",
   "date_created",
 ] as const;
-
-function tableExists(database: DatabaseSync, table: string): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = ? LIMIT 1",
-      )
-      .get(table) !== undefined
-  );
-}
-
-function tableColumns(database: DatabaseSync, table: string): Set<string> {
-  return new Set(
-    database
-      .prepare("SELECT name FROM pragma_table_info(?) ORDER BY cid")
-      .all(table)
-      .map((row) => String(row.name)),
-  );
-}
 
 function readSchema(database: DatabaseSync): LoginSchema {
   for (const table of ["meta", "logins"]) {
@@ -195,15 +180,6 @@ function readPass(database: DatabaseSync): LoginPass {
   const integrityRow = database.prepare("PRAGMA integrity_check(1)").get();
   const integrity = String(integrityRow?.integrity_check ?? "unavailable");
   return { schema, rows, integrity };
-}
-
-function immutableDatabase(path: string): DatabaseSync {
-  const url = pathToFileURL(path);
-  url.searchParams.set("immutable", "1");
-  return openDatabaseSync(url.href, {
-    readOnly: true,
-    readBigInts: true,
-  });
 }
 
 function fingerprint(row: RawLoginRow): string {
