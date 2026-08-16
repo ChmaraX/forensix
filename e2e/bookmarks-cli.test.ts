@@ -223,7 +223,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
     ).toBe(0);
 
-    // AC1: current and backup Bookmarks parsed across all Profiles. Two
+    // Current and backup Bookmarks parsed across all Profiles. Two
     // Profiles, two files each: Default has both, Profile 1 backup is absent.
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
     expect(analysis.status).toBe(0);
@@ -241,7 +241,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       },
     });
 
-    // AC5: default sort is by name ascending across every Profile and file.
+    // Default sort is by name ascending across every Profile and file.
     const all = parseJson<BookmarkPage>(
       runCli(["bookmarks", "--case", caseDirectory, "--json"]).stdout,
     );
@@ -253,7 +253,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       { state: "value", value: "Search" },
     ]);
 
-    // AC2: URL, name, folder ancestry, source file, and timestamps are exact.
+    // URL, name, folder ancestry, source file, and timestamps are exact.
     const docs = all.items.find(
       (row) => (row.fields.name as FieldValue<string>).value === "Docs",
     );
@@ -300,7 +300,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       },
     });
 
-    // AC2: the Chrome "never used" sentinel 0 is absent, not a bogus instant.
+    // The Chrome "never used" sentinel 0 is absent, not a bogus instant.
     const example = all.items.find(
       (row) =>
         (row.fields.name as FieldValue<string>).value === "Example" &&
@@ -312,7 +312,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       value: { utc: "2024-01-17T21:20:01.000000Z" },
     });
 
-    // AC2: a wrong-typed date is unavailable with a typed reason, never blank.
+    // A wrong-typed date is unavailable with a typed reason, never blank.
     const news = all.items.find(
       (row) => (row.fields.name as FieldValue<string>).value === "News",
     );
@@ -327,7 +327,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       synthetic: true,
     });
 
-    // AC3: the primary and backup "Example" records both exist, carry distinct
+    // The primary and backup "Example" records both exist, carry distinct
     // Provenance (different source file), and are never merged into one.
     const backup = all.items.find(
       (row) =>
@@ -357,7 +357,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       backup?.provenance.manifestPath,
     );
 
-    // AC5: source filter isolates primary from backup.
+    // Source filter isolates primary from backup.
     const primaryOnly = parseJson<BookmarkPage>(
       runCli([
         "bookmarks",
@@ -391,7 +391,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       "Default/Bookmarks.bak",
     );
 
-    // AC5: Profile filter narrows to one Profile.
+    // Profile filter narrows to one Profile.
     const profileOne = parseJson<BookmarkPage>(
       runCli([
         "bookmarks",
@@ -408,7 +408,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       value: "Search",
     });
 
-    // AC5: search matches name, URL, and folder path (case-insensitive).
+    // Search matches name, URL, and folder path (case-insensitive).
     const searched = parseJson<BookmarkPage>(
       runCli([
         "bookmarks",
@@ -425,7 +425,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       value: "Docs",
     });
 
-    // AC5: sort by date-added ascending, with keyset pagination and a cursor.
+    // Sort by date-added ascending, with keyset pagination and a cursor.
     const firstPage = parseJson<BookmarkPage>(
       runCli([
         "bookmarks",
@@ -473,7 +473,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       { state: "value", value: "Search" },
     ]);
 
-    // AC5: broken input rejected.
+    // Broken input rejected.
     const badLimit = runCli([
       "bookmarks",
       "--case",
@@ -487,7 +487,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       code: "INVALID_ARGUMENT",
     });
 
-    // AC5: a stale cursor after re-analysis is rejected.
+    // A stale cursor after re-analysis is rejected.
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
       0,
     );
@@ -512,7 +512,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       code: "INVALID_CURSOR",
     });
 
-    // AC1: analysis never mutates the Source bytes.
+    // Analysis never mutates the Source bytes.
     expect(await readFile(join(source, "Default", "Bookmarks"))).toEqual(
       primaryBytes,
     );
@@ -541,7 +541,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
     ).toBe(0);
 
-    // AC4: the malformed primary is unavailable and the missing files are
+    // The malformed primary is unavailable and the missing files are
     // absent. Bookmarks are JSON-derived and do not drive the Analysis Run exit
     // state (like Preferences metadata), so the run stays clean while the
     // bookmarks summary reports its own partial health.
@@ -559,7 +559,7 @@ describe("compiled analyzer CLI Bookmark Finding pipeline", () => {
       },
     });
 
-    // AC4: the defensible Profile 1 bookmark is still queryable.
+    // The defensible Profile 1 bookmark is still queryable.
     const results = parseJson<BookmarkPage>(
       runCli(["bookmarks", "--case", caseDirectory, "--json"]).stdout,
     );

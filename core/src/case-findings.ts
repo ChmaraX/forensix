@@ -30,7 +30,7 @@ export interface PersistedCandidate {
 }
 
 /**
- * A ranked identity/behavior Candidate (issue #185). Unlike the History-scoped
+ * A ranked identity/behavior Candidate. Unlike the History-scoped
  * `PersistedCandidate` above, these are derived across Web Data, Preferences,
  * and History Findings and carry a category plus a normalized sort key. They
  * are never Findings and never carry a Commit State: they summarize committed

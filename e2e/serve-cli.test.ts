@@ -285,7 +285,7 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     ).toBe(0);
 
     const server = await startServer(caseDirectory);
-    // AC1: loopback bind, no host option, per-run token.
+    // Loopback bind, no host option, per-run token.
     expect(server.host).toBe("127.0.0.1");
     expect(server.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
     expect(server.token.length).toBeGreaterThanOrEqual(32);
@@ -294,17 +294,17 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     // The browser page always sends a same-origin loopback Origin; simulate it.
     const auth = { ...authToken, origin: base };
 
-    // AC1: a request without the per-run token is rejected (token gate first).
+    // A request without the per-run token is rejected (token gate first).
     const noToken = await fetch(`${base}/api/history`);
     expect(noToken.status).toBe(401);
 
-    // AC1: a non-loopback Origin is rejected even with a valid token.
+    // A non-loopback Origin is rejected even with a valid token.
     const badOrigin = await fetch(`${base}/api/history`, {
       headers: { ...authToken, origin: "https://evil.example" },
     });
     expect(badOrigin.status).toBe(403);
 
-    // AC1 hardening: a token with an absent Origin and no same-origin Fetch
+    // Hardening: A token with an absent Origin and no same-origin Fetch
     // Metadata proof is rejected — "loopback Origin only", not "or no Origin".
     const absentOrigin = await fetch(`${base}/api/history`, {
       headers: authToken,
@@ -320,7 +320,7 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
       }),
     ).toBe(200);
 
-    // AC1 hardening: a loopback socket but a spoofed (rebinding) Host is
+    // Hardening: A loopback socket but a spoofed (rebinding) Host is
     // rejected by the Host allowlist.
     expect(
       await rawGet(server.port, "/api/history", {
@@ -329,7 +329,7 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
       }),
     ).toBe(403);
 
-    // AC1: a loopback Origin with the token is accepted.
+    // A loopback Origin with the token is accepted.
     const okOrigin = await fetch(`${base}/api/history?limit=10`, {
       headers: auth,
     });
@@ -342,20 +342,20 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     );
     expect(queryToken.status).toBe(401);
 
-    // AC3 + read-only: only GET is answered; writes/methods are refused.
+    // Read-only: Only GET is answered; writes/methods are refused.
     const post = await fetch(`${base}/api/history`, {
       method: "POST",
       headers: auth,
     });
     expect(post.status).toBe(405);
 
-    // AC3: there is no ingest/analyse/export route at all.
+    // There is no ingest/analyse/export route at all.
     for (const route of ["ingest", "analyse", "export"]) {
       const response = await fetch(`${base}/api/${route}`, { headers: auth });
       expect(response.status).toBe(400);
     }
 
-    // AC5: Completeness is available before rows and typed per artifact.
+    // Completeness is available before rows and typed per artifact.
     const completeness = (await (
       await fetch(`${base}/api/completeness`, { headers: auth })
     ).json()) as {
@@ -373,13 +373,13 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     expect(history?.attempted).toBe(2);
     expect(history?.produced).toBe(2);
 
-    // AC4: multi-Profile filter data is exposed.
+    // Multi-Profile filter data is exposed.
     const profiles = (await (
       await fetch(`${base}/api/profiles`, { headers: auth })
     ).json()) as { readonly profiles: readonly string[] };
     expect([...profiles.profiles].sort()).toEqual(["Default", "Profile 1"]);
 
-    // #185: Candidate Completeness comes from the shared completeness route,
+    // Candidate Completeness comes from the shared completeness route,
     // exactly like every other artifact — not embedded in the list response.
     const candidatesStatement = completeness.statements.find(
       (entry) => entry.artifact === "Candidates",
@@ -414,7 +414,7 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
       "alpha.example",
     );
 
-    // AC4: keyset pagination returns bounded pages with a cursor.
+    // Keyset pagination returns bounded pages with a cursor.
     const firstPage = (await (
       await fetch(`${base}/api/history?sort=visit-time&direction=asc&limit=1`, {
         headers: auth,
@@ -436,7 +436,7 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
       firstPage.items[0]?.fields.url,
     );
 
-    // AC4: multi-Profile + search filters compose.
+    // Multi-Profile + search filters compose.
     const filtered = (await (
       await fetch(
         `${base}/api/history?profile=Profile%201&search=beta.example&limit=10`,
@@ -446,7 +446,7 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     expect(filtered.items).toHaveLength(1);
     expect(filtered.items[0]?.profile).toBe("Profile 1");
 
-    // AC5: committed and sidecar rows are separate lists (one Commit State each).
+    // Committed and sidecar rows are separate lists (one Commit State each).
     const committed = (await (
       await fetch(`${base}/api/history?commit-state=committed&limit=100`, {
         headers: auth,
@@ -463,7 +463,7 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     ).json()) as Page;
     expect(walResident.items).toHaveLength(0);
 
-    // AC2: the HTML shell injects the per-run token and loads the client bundle.
+    // The HTML shell injects the per-run token and loads the client bundle.
     const shell = await (await fetch(`${base}/`, { headers: auth })).text();
     expect(shell).toContain("__FORENSIX_TOKEN__");
     expect(shell).toContain('src="/index.js"');

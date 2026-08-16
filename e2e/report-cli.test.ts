@@ -147,17 +147,17 @@ describe("compiled analyzer CLI HTML Report", () => {
     expect(command.status).toBe(0);
     const summary = parseJson<ReportSummary>(command.stdout);
 
-    // AC1: the Report is derived from the Extract, not the Case.
+    // The Report is derived from the Extract, not the Case.
     expect(summary.command).toBe("report");
     expect(summary.extractSchema).toBe("forensix/extract/1");
     expect(summary.findingCount).toBeGreaterThan(0);
-    // AC5 (integrity): an untouched Extract verifies against its Manifest.
+    // Integrity: An untouched Extract verifies against its Manifest.
     expect(summary.integrity).toBe("verified");
     expect(summary.recomputedDigest).toBe(summary.derivedDigest);
 
     const html = await readFile(reportPath, "utf8");
 
-    // AC2: one self-contained HTML file with no runtime network dependency.
+    // One self-contained HTML file with no runtime network dependency.
     expect(html.startsWith("<!doctype html>")).toBe(true);
     expect(html).toContain("<style>");
     expect(html).not.toMatch(/<script\b/i);
@@ -166,7 +166,7 @@ describe("compiled analyzer CLI HTML Report", () => {
     expect(html).not.toMatch(/src\s*=/i);
     expect(html).not.toMatch(/url\(\s*https?:/i);
 
-    // AC3: scope, Redaction State, Completeness Statement, Finding vs Candidate
+    // Scope, Redaction State, Completeness Statement, Finding vs Candidate
     // type, Commit State, Provenance, and timestamp semantics are all present.
     expect(html).toContain("Scope");
     expect(html).toContain("Redaction State");

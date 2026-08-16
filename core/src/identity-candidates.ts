@@ -19,17 +19,17 @@ import {
 export type { CandidateCategory };
 
 /**
- * Identity and behavior Candidate generation (issue #185).
+ * Identity and behavior Candidate generation.
  *
  * A Candidate is nominal, ranked, and carries a supporting count plus resolvable
- * row-level Provenance. A Candidate is NEVER a Finding and NEVER a factual
+ * row-level Provenance. A Candidate is never a Finding and never a factual
  * summary tile: names, countries, phone numbers, addresses, linked devices, and
  * habits only ever appear here, ranked and hedged, never asserted as fact.
  *
  * Every heuristic below consumes Findings that other parsers already wrote for
- * the same Analysis Run — Web Data autofill (#178), Preferences/Local State
- * metadata (#176), and History visits. This pass reads those Findings and emits
- * Candidates; it never mutates, hides, or re-scores any source row.
+ * the same Analysis Run — Web Data autofill, Preferences/Local State metadata,
+ * and History visits. This pass reads those Findings and emits Candidates; it
+ * never mutates, hides, or re-scores any source row.
  *
  * Deterministic, documented behavior for the awkward cases:
  *

@@ -208,7 +208,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
       },
     });
 
-    // AC5: bounded, multi-Profile keyset pagination ordered by rank.
+    // Bounded, multi-Profile keyset pagination ordered by rank.
     const firstPage = parseJson<TopSitePage>(
       runCli([
         "top-sites",
@@ -229,7 +229,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
 
     const [first] = firstPage.items;
     expect(first).toBeDefined();
-    // AC1 + AC2: url, title, rank exact against ground truth with Field State
+    // Url, title, rank exact against ground truth with Field State
     // and resolvable Provenance.
     expect(first).toMatchObject({
       recordType: "finding",
@@ -249,7 +249,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
         urlRank: { state: "value", value: "0" },
       },
     });
-    // AC2: a column absent from schema v5 is an absent Field State, never blank.
+    // A column absent from schema v5 is an absent Field State, never blank.
     expect(first?.fields.redirects).toEqual({ state: "absent" });
 
     const secondPage = parseJson<TopSitePage>(
@@ -302,7 +302,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
       parseJson<Record<string, unknown>>(forgedResult.stderr),
     ).toMatchObject({ code: "INVALID_CURSOR" });
 
-    // AC5: search matches url and title.
+    // Search matches url and title.
     const searched = parseJson<TopSitePage>(
       runCli([
         "top-sites",
@@ -316,7 +316,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
     expect(searched.items).toHaveLength(1);
     expect(searched.items[0]?.profile).toBe("Profile 1");
 
-    // AC5: multi-Profile selection filter.
+    // Multi-Profile selection filter.
     const filtered = parseJson<TopSitePage>(
       runCli([
         "top-sites",
@@ -375,7 +375,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
       topSites: { committedTopSiteCount: 1, recoveredTopSiteCount: 1 },
     });
 
-    // AC3: committed rows only.
+    // Committed rows only.
     const committed = parseJson<TopSitePage>(
       runCli([
         "top-sites",
@@ -393,7 +393,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
       fields: { url: { state: "value", value: "https://committed.example/" } },
     });
 
-    // AC3: sidecar (WAL-resident) rows carry the explicit Commit State and the
+    // Sidecar (WAL-resident) rows carry the explicit Commit State and the
     // sidecar Manifest Provenance.
     const recovered = parseJson<TopSitePage>(
       runCli([
@@ -477,7 +477,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
     ).toBe(0);
 
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
-    // AC4: an unavailable artifact makes the run partial (exit code 2), while
+    // An unavailable artifact makes the run partial (exit code 2), while
     // the produced and absent artifacts stay distinct in the summary counts.
     expect(analysis.status).toBe(2);
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({

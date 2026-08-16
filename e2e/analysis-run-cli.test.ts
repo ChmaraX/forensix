@@ -291,7 +291,7 @@ describe("compiled analyzer CLI Analysis Run identity and supersede", () => {
 
     const state = readCase(caseDirectory);
 
-    // AC1: each Analysis Run records id, start, end, tool version, command
+    // Each Analysis Run records id, start, end, tool version, command
     // line, Source, and exit state.
     expect(state.runs).toHaveLength(2);
     for (const runRow of state.runs) {
@@ -310,7 +310,7 @@ describe("compiled analyzer CLI Analysis Run identity and supersede", () => {
     ]);
     expect(state.runSourceCount).toBe(2);
 
-    // AC2: the rerun supersedes at artifact granularity, every prior row is
+    // The rerun supersedes at artifact granularity, every prior row is
     // retained (lineage), and exactly one row stays active.
     expect(state.artifactResults).toHaveLength(2);
     expect(state.activeResults).toHaveLength(1);
@@ -423,7 +423,7 @@ describe("compiled analyzer CLI Analysis Run identity and supersede", () => {
     await ingestUserDataDir(source, caseDirectory);
 
     const first = runCli(["analyse", "--case", caseDirectory, "--json"]);
-    // AC5: a partial analysis has its own exit code.
+    // A partial analysis has its own exit code.
     expect(first.status).toBe(2);
     const firstResult = parseJson<AnalyseResult>(first.stdout);
     expect(firstResult).toMatchObject({
@@ -447,7 +447,7 @@ describe("compiled analyzer CLI Analysis Run identity and supersede", () => {
     expect(failingFirst?.status).toBe("unavailable");
     expect(failingFirst?.active).toBe(0n);
 
-    // AC4: the healthy artifact's Findings stay queryable despite the failure.
+    // The healthy artifact's Findings stay queryable despite the failure.
     const goodPage = parseJson<HistoryPage>(
       runCli([
         "history",

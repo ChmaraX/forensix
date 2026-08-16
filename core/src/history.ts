@@ -102,11 +102,11 @@ export interface AnalyseCaseOptions {
   /** Recipient X25519 private key (PEM) used to unseal captured key material. */
   readonly recipientKeyPath?: string;
   /**
-   * Local topic classification (issue #184). Enabled by default; the settled
-   * ONNX model runs only when its optional runtime and model directory are
-   * present, and a typed unavailability is recorded otherwise. Disabling it, or
-   * removing the model, leaves every source artifact row byte-for-byte
-   * unchanged — Candidates are additive and live in a separate collection.
+   * Local topic classification. Enabled by default. The settled ONNX model runs
+   * only when its optional runtime and model directory are present; otherwise a
+   * typed unavailability is recorded. Disabling it, or removing the model,
+   * leaves every source artifact row byte-for-byte unchanged. Candidates are
+   * additive and live in a separate collection.
    */
   readonly topicClassification?: {
     readonly enabled?: boolean;
@@ -1276,6 +1276,22 @@ async function analyseProfile(options: {
   }
 }
 
+/**
+ * Run one Analysis Run over a Case and store its Findings and Candidates.
+ *
+ * The pass first verifies the Working Copy, then reads every Source and Profile
+ * and runs each artifact parser (History, Cookies, Login Data, Top Sites, Web
+ * Data, Favicons, Downloads, Preferences, Bookmarks, Cache). It classifies
+ * History topics and derives identity and behavior Candidates from the Findings
+ * it just wrote. It verifies the Working Copy again, then stores the run.
+ *
+ * The pass is offline and never mutates a Source byte. Decryption is opt-in and
+ * disabled by default. When it is enabled, `keyMaterialPath` is required, and
+ * an encrypted value stays `unavailable` with a typed reason whenever key
+ * material is missing or fails.
+ *
+ * Returns the per-artifact summaries, the new `runId`, and the run exit state.
+ */
 export async function analyseCase(
   options: AnalyseCaseOptions,
 ): Promise<AnalyseCaseResult> {

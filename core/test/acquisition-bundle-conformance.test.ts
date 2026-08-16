@@ -8,7 +8,7 @@ import {
   type BundleFile,
 } from "../src/acquisition-bundle.js";
 
-// Issue #188 (AC6): the Acquisition Bundle Digest is a single cross-
+// The Acquisition Bundle Digest is a single cross-
 // implementation contract. The analyzer recomputes it with
 // `acquisitionBundleFilesDigest`; the Collector computes it in
 // `collector/internal/collector/bundle.go`. Both pin the same shared golden

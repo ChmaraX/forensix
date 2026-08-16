@@ -182,7 +182,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
       runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
     ).toBe(0);
 
-    // AC1/AC4: one browser-level artifact plus one artifact per Profile.
+    // One browser-level artifact plus one artifact per Profile.
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
     expect(analysis.status).toBe(0);
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
@@ -196,7 +196,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
       },
     });
 
-    // AC5/AC6: sorted by Profile ascending, "." (browser) sorts first.
+    // Sorted by Profile ascending, "." (browser) sorts first.
     const all = parseJson<MetadataPage>(
       runCli(["metadata", "--case", caseDirectory, "--json"]).stdout,
     );
@@ -206,7 +206,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
       "Profile 1",
     ]);
 
-    // AC2: browser-level values verified against current Local State schema.
+    // Browser-level values verified against current Local State schema.
     const browser = all.items[0];
     expect(browser).toMatchObject({
       findingKind: "browser_metadata",
@@ -229,7 +229,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
       },
     });
 
-    // AC2/AC4: Profile-level values, with avatar and demographics drawn from the
+    // Profile-level values, with avatar and demographics drawn from the
     // browser file's info_cache slice and attributed via a supporting row.
     const defaultProfile = all.items[1];
     expect(defaultProfile).toMatchObject({
@@ -254,7 +254,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
         accountCount: { state: "value", value: "1" },
         accountEmail: { state: "value", value: "ada@example.com" },
         accountLocale: { state: "value", value: "en-US" },
-        // AC1: screen work area derived from the window placement, synthetic.
+        // Screen work area derived from the window placement, synthetic.
         screenWorkArea: {
           state: "value",
           value: "1920x1080",
@@ -268,7 +268,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
       },
     });
 
-    // AC3: malformed and absent inputs are distinct, typed, and never blank.
+    // Malformed and absent inputs are distinct, typed, and never blank.
     const workProfile = all.items[2];
     expect(workProfile?.fields.profileName).toEqual({
       state: "value",
@@ -296,7 +296,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
     });
     expect(workProfile?.fields.gaiaName).toEqual({ state: "absent" });
 
-    // AC6: type filter narrows to a single scope.
+    // Type filter narrows to a single scope.
     const browserOnly = parseJson<MetadataPage>(
       runCli([
         "metadata",
@@ -310,7 +310,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
     expect(browserOnly.items).toHaveLength(1);
     expect(browserOnly.items[0]?.profile).toBe(".");
 
-    // AC6: Profile filter, search, keyset pagination, and cursor rejection.
+    // Profile filter, search, keyset pagination, and cursor rejection.
     const paged = parseJson<MetadataPage>(
       runCli([
         "metadata",
@@ -366,7 +366,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
     expect(searched.items).toHaveLength(1);
     expect(searched.items[0]?.profile).toBe("Default");
 
-    // AC6: broken input rejected.
+    // Broken input rejected.
     const badLimit = runCli([
       "metadata",
       "--case",
@@ -380,7 +380,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
       code: "INVALID_ARGUMENT",
     });
 
-    // AC6: a stale cursor after re-analysis is rejected.
+    // A stale cursor after re-analysis is rejected.
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
       0,
     );
@@ -405,7 +405,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
       code: "INVALID_CURSOR",
     });
 
-    // AC1: analysis never mutates the Source bytes.
+    // Analysis never mutates the Source bytes.
     expect(await readFile(join(source, "Local State"))).toEqual(
       localStateBytes,
     );
@@ -443,7 +443,7 @@ describe("compiled analyzer CLI Metadata Finding pipeline", () => {
       },
     });
 
-    // AC3/AC4: the browser file is unreadable, so a Profile that depends on its
+    // The browser file is unreadable, so a Profile that depends on its
     // info_cache reports those fields as unavailable, never silently absent.
     const results = parseJson<MetadataPage>(
       runCli([

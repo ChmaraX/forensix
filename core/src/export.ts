@@ -749,6 +749,17 @@ function loadCandidateRows(
   return { rows, redactedCount };
 }
 
+/**
+ * Export a Case to an Extract, the stable offline boundary a Report reads.
+ *
+ * The pass reads the requested collections (Findings and Candidates by default)
+ * from the active Analysis Run, applies Redaction, and writes the Extract files
+ * into an empty output directory. A secret stays redacted unless
+ * `includeSecrets` is set. It reads the Case and writes only the Extract; it
+ * never mutates a Case row.
+ *
+ * Returns an `ExportCaseResult` with the Extract paths, digests, and counts.
+ */
 export async function exportCase(
   options: ExportCaseOptions,
 ): Promise<ExportCaseResult> {
