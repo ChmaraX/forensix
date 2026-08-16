@@ -495,11 +495,14 @@ describe("compiled analyzer CLI Cache backends", () => {
     ).toBe(0);
 
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
-    // AC5: unsupported backends make the run partial and report explicit
-    // unavailable reasons rather than an empty result.
-    expect(analysis.status).toBe(2);
+    // AC5: unsupported backends report explicit unavailable reasons in the
+    // cache summary rather than an empty result. Cache is a tier-2 artifact
+    // excluded from the Analysis Run exit state, so unsupported backends leave
+    // the run exit-neutral (History/Cookies/Login here are absent, not
+    // unavailable) and the run still exits 0/complete.
+    expect(analysis.status).toBe(0);
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
-      exitState: "partial",
+      exitState: "complete",
       cache: {
         status: "partial",
         analysedProfileCount: 1,
@@ -515,6 +518,54 @@ describe("compiled analyzer CLI Cache backends", () => {
     );
     expect(findings.items).toHaveLength(1);
     expect(findings.items[0]?.profile).toBe("Profile 2");
+  });
+
+  it("keeps cache availability out of the run exit state on a default ingest", async () => {
+    // Regression: every real Chrome profile has a Cache dir, but cache is a
+    // tier-2 artifact not ingested by default. A default (no --include-tier-2)
+    // ingest lists the cache dir in the Manifest without copying its bytes, so
+    // the cache artifact reports `unavailable` (cache_not_in_working_copy).
+    // That availability signal must NOT flip an otherwise-clean run to
+    // partial/failed: the run stays exit 0 / complete.
+    const root = await mkdtemp(join(tmpdir(), "forensix-cache-exit-"));
+    temporaryRoots.push(root);
+    const source = join(root, "source");
+    await mkdir(source, { recursive: true });
+    await writeFile(join(source, "Local State"), "{}\n");
+    // A cache dir present in the Source (as on any real profile) but whose
+    // bytes are tier-2 and therefore not copied on a default ingest.
+    const cacheData = join(source, "Default", "Cache", "Cache_Data");
+    await mkdir(cacheData, { recursive: true });
+    await writeFile(join(cacheData, "index"), Buffer.alloc(16));
+    const cacheKey = "1/0/https://exit.example/app.js";
+    await writeCacheFile(
+      cacheData,
+      `${entryHash(cacheKey)}_0`,
+      buildSimpleEntry(cacheKey, Buffer.from("exit-body")),
+    );
+
+    const caseDirectory = join(root, "CASE-CACHE-EXIT");
+    // Default ingest: no --include-tier-2, so cache bytes are not collected.
+    expect(
+      runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+    ).toBe(0);
+
+    const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
+    // Clean History/Cookies/Login (absent here) leave the run exit-neutral, and
+    // the un-ingested cache must not turn that into a nonzero exit.
+    expect(analysis.status).toBe(0);
+    expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
+      command: "analyse",
+      exitState: "complete",
+      // Cache health is still recorded and reported in the summary — it just
+      // does not participate in the exit-state aggregation.
+      cache: {
+        status: "partial",
+        analysedProfileCount: 0,
+        unavailableProfileCount: 1,
+        findingCount: 0,
+      },
+    });
   });
 
   it("scales to a large Simple Cache with bounded, streamed extraction", async () => {
