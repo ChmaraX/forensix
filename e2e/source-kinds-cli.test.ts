@@ -12,20 +12,13 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { spawnSync } from "node:child_process";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli, type CliResult } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 
 interface SourceOutput {
   readonly sourceId: string;
@@ -71,21 +64,6 @@ interface IngestOutput {
 
 function sha256(value: Buffer | string): string {
   return createHash("sha256").update(value).digest("hex");
-}
-
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
 }
 
 async function writeFixtureFile(path: string, content: string): Promise<void> {

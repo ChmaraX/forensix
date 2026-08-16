@@ -18,6 +18,10 @@ import {
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import {
+  WINDOWS_EPOCH_OFFSET_MICROS,
+  utcFromUnixMicros,
+} from "./forensic-time.js";
 import type { ForensicTimestamp } from "./history.js";
 import {
   readFaviconPasses,
@@ -34,8 +38,6 @@ import {
  * references the file by digest instead of inlining base64 into a row.
  */
 export const FAVICON_PAYLOAD_DIRECTORY = "favicon-payloads";
-
-const WINDOWS_EPOCH_OFFSET_MICROS = 11_644_473_600_000_000n;
 
 // favicon_base::IconType values as persisted in `favicons.icon_type`.
 const ICON_TYPES = new Map<bigint, string>([
@@ -62,28 +64,6 @@ interface PayloadFile {
 interface BuiltFavicon {
   readonly signature: string;
   readonly persisted: PersistedFaviconFinding;
-}
-
-function floorDivision(value: bigint, divisor: bigint): bigint {
-  const quotient = value / divisor;
-  const remainder = value % divisor;
-  return remainder < 0n ? quotient - 1n : quotient;
-}
-
-function utcFromUnixMicros(unixMicros: bigint): string | null {
-  const seconds = floorDivision(unixMicros, 1_000_000n);
-  const micros = unixMicros - seconds * 1_000_000n;
-  const milliseconds = seconds * 1000n + micros / 1000n;
-  const numericMilliseconds = Number(milliseconds);
-  if (!Number.isSafeInteger(numericMilliseconds)) {
-    return null;
-  }
-  const date = new Date(numericMilliseconds);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  const base = date.toISOString();
-  return `${base.slice(0, -5)}.${micros.toString().padStart(6, "0")}Z`;
 }
 
 /**

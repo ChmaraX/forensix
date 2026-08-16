@@ -1,13 +1,12 @@
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { crc32 } from "node:zlib";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli, writeLocalState } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
 
 const SIMPLE_INITIAL_MAGIC = 0xfcfb6d1ba7725c30n;
@@ -15,12 +14,6 @@ const SIMPLE_FINAL_MAGIC = 0xf4fa6f45970d41d8n;
 const SIMPLE_INDEX_MAGIC = 0x656e74657220796fn;
 const BLOCKFILE_INDEX_MAGIC = 0xc103cac3;
 const WINDOWS_EPOCH_OFFSET_MICROS = 11_644_473_600_000_000n;
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 
 type Field<T> =
   | { readonly state: "value"; readonly value: T; readonly synthetic?: boolean }
@@ -53,21 +46,6 @@ interface CachePage {
   readonly items: readonly CacheRecord[];
   readonly nextCursor: string | null;
   readonly limit: number;
-}
-
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
 }
 
 function u32(value: number): Buffer {
@@ -229,7 +207,7 @@ describe("compiled analyzer CLI Cache backends", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     const cacheData = join(source, "Default", "Cache", "Cache_Data");
     await mkdir(cacheData, { recursive: true });
 
@@ -440,7 +418,7 @@ describe("compiled analyzer CLI Cache backends", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
 
     // Default: a blockfile cache (index magic + data files).
     const blockData = join(source, "Default", "Cache", "Cache_Data");
@@ -531,7 +509,7 @@ describe("compiled analyzer CLI Cache backends", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     // A cache dir present in the Source (as on any real profile) but whose
     // bytes are tier-2 and therefore not copied on a default ingest.
     const cacheData = join(source, "Default", "Cache", "Cache_Data");
@@ -573,7 +551,7 @@ describe("compiled analyzer CLI Cache backends", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     const cacheData = join(source, "Default", "Cache", "Cache_Data");
     await mkdir(cacheData, { recursive: true });
 

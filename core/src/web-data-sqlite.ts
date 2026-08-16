@@ -1,14 +1,17 @@
-import { lstat, mkdtemp, open, rm } from "node:fs/promises";
-import type { FileHandle } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
 
-import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
+import { ForensixError } from "./errors.js";
 import type { CommitState } from "./forensic-model.js";
+import {
+  immutableDatabase,
+  snapshotVerifiedFile,
+  tableColumns,
+  tableExists,
+} from "./sqlite-artifact.js";
 import { openDatabaseSync } from "./sqlite-open.js";
-import { readStableRegularFile } from "./stable-file.js";
 
 export type RawWebDataValue = null | string | bigint | Uint8Array;
 
@@ -74,25 +77,6 @@ export const SUPPORTED_AUTOFILL_COLUMNS = [
 ] as const;
 
 const REQUIRED_AUTOFILL_COLUMNS = ["name", "value"] as const;
-
-function tableExists(database: DatabaseSync, table: string): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = ? LIMIT 1",
-      )
-      .get(table) !== undefined
-  );
-}
-
-function tableColumns(database: DatabaseSync, table: string): Set<string> {
-  return new Set(
-    database
-      .prepare("SELECT name FROM pragma_table_info(?) ORDER BY cid")
-      .all(table)
-      .map((row) => String(row.name)),
-  );
-}
 
 function readSchema(database: DatabaseSync): WebDataSchema {
   for (const table of ["meta", "autofill"]) {
@@ -187,15 +171,6 @@ function readPass(database: DatabaseSync): WebDataPass {
   return { schema, rows, integrity };
 }
 
-function immutableDatabase(path: string): DatabaseSync {
-  const url = pathToFileURL(path);
-  url.searchParams.set("immutable", "1");
-  return openDatabaseSync(url.href, {
-    readOnly: true,
-    readBigInts: true,
-  });
-}
-
 function fingerprint(row: RawAutofillRow): string {
   return JSON.stringify(
     [...row.values.entries()].sort(([left], [right]) =>
@@ -243,73 +218,6 @@ function recoveredOnlyRows(
     }
   }
   return rows;
-}
-
-async function writeAll(destination: FileHandle, chunk: Buffer): Promise<void> {
-  let written = 0;
-  while (written < chunk.length) {
-    const result = await destination.write(
-      chunk,
-      written,
-      chunk.length - written,
-    );
-    written += result.bytesWritten;
-  }
-}
-
-async function snapshotVerifiedFile(
-  source: VerifiedWebDataFile,
-  destinationPath: string,
-): Promise<void> {
-  let stats;
-  try {
-    stats = await lstat(source.path, { bigint: true });
-  } catch {
-    throw new WorkingCopyIntegrityRefusal([
-      { path: source.manifestPath, reason: "entry_missing" },
-    ]);
-  }
-  if (!stats.isFile() || stats.isSymbolicLink()) {
-    throw new WorkingCopyIntegrityRefusal([
-      { path: source.manifestPath, reason: "entry_not_regular_file" },
-    ]);
-  }
-
-  const destination = await open(destinationPath, "wx", 0o600);
-  let result;
-  try {
-    result = await readStableRegularFile(source.path, stats, async (chunk) =>
-      writeAll(destination, chunk),
-    );
-    await destination.sync();
-  } finally {
-    await destination.close();
-  }
-  if (result.status !== "stable") {
-    throw new WorkingCopyIntegrityRefusal([
-      { path: source.manifestPath, reason: "entry_unreadable" },
-    ]);
-  }
-  const issues = [];
-  if (result.size !== source.size) {
-    issues.push({
-      path: source.manifestPath,
-      reason: "entry_size_mismatch" as const,
-      expected: source.size,
-      actual: result.size,
-    });
-  }
-  if (result.sha256 !== source.sha256) {
-    issues.push({
-      path: source.manifestPath,
-      reason: "entry_hash_mismatch" as const,
-      expected: source.sha256,
-      actual: result.sha256,
-    });
-  }
-  if (issues.length > 0) {
-    throw new WorkingCopyIntegrityRefusal(issues);
-  }
 }
 
 export async function readWebDataPasses(options: {

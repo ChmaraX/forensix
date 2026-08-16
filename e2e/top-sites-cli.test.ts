@@ -1,19 +1,12 @@
-import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli, writeLocalState } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 
 type Field<T> =
   | { readonly state: "value"; readonly value: T; readonly synthetic?: boolean }
@@ -47,21 +40,6 @@ interface TopSitePage {
   readonly items: readonly TopSiteFinding[];
   readonly nextCursor: string | null;
   readonly limit: number;
-}
-
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
 }
 
 interface TopSiteRow {
@@ -176,7 +154,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     await createTopSites(join(source, "Default", "Top Sites"), [
       { url: "https://alpha.example/", urlRank: 0n, title: "Alpha" },
       { url: "https://bravo.example/", urlRank: 1n, title: "Bravo" },
@@ -343,7 +321,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "wal-source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     const topSitesPath = join(source, "Default", "Top Sites");
     await createTopSites(topSitesPath, [
       { url: "https://committed.example/", urlRank: 0n, title: "Committed" },
@@ -423,7 +401,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     await createTopSitesV4(join(source, "Default", "Top Sites"), [
       {
         url: "https://legacy.example/",
@@ -458,7 +436,7 @@ describe("compiled analyzer CLI Top Sites metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "gap-source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     // Default: a defensible Top Sites store.
     await createTopSites(join(source, "Default", "Top Sites"), [
       { url: "https://alpha.example/", urlRank: 0n, title: "Alpha" },

@@ -44,9 +44,9 @@ import {
  *  - binds only to 127.0.0.1 (there is no host-exposure option);
  *  - mints one per-run bearer token that every /api request must present;
  *  - rejects any request whose Origin header is not a loopback origin.
+ *
+ * Tracked as implementation issue #171.
  */
-
-export const SERVER_IMPLEMENTATION_ISSUE = 171;
 
 export interface StartDashboardServerOptions {
   readonly caseDirectory: string;
@@ -219,97 +219,127 @@ function integerParameter(
   return Number(value);
 }
 
+/**
+ * The paginated fields every artifact list route shares. Each route spreads
+ * this and adds only its own filters; the sort/direction unions are supplied by
+ * the caller so the per-route query keeps its exact input type. Sort and
+ * direction stay pass-through strings here — the analyzer core validates them
+ * with the same wording the CLI relies on, so the HTTP layer adds no divergent
+ * error path.
+ */
+function listParameters<Sort extends string, Direction extends string>(
+  parameters: URLSearchParams,
+): {
+  readonly profiles: string[];
+  readonly search: string | undefined;
+  readonly sort: Sort | undefined;
+  readonly direction: Direction | undefined;
+  readonly limit: number | undefined;
+  readonly after: string | undefined;
+} {
+  return {
+    profiles: parameters.getAll("profile"),
+    search: firstString(parameters.get("search")),
+    sort: firstString(parameters.get("sort")) as Sort | undefined,
+    direction: firstString(parameters.get("direction")) as
+      | Direction
+      | undefined,
+    limit: integerParameter(parameters, "limit"),
+    after: firstString(parameters.get("after")),
+  };
+}
+
+/**
+ * Declarative dashboard route table. Each entry maps request parameters onto a
+ * single read-only core query; {@link handleApi} owns the dispatch and the
+ * unknown-route error so the routes cannot drift in shape.
+ */
+const API_ROUTES = new Map<
+  string,
+  (parameters: URLSearchParams, caseDirectory: string) => unknown
+>([
+  [
+    "completeness",
+    (_parameters, caseDirectory) => queryCompleteness({ caseDirectory }),
+  ],
+  [
+    "profiles",
+    (_parameters, caseDirectory) => queryProfiles({ caseDirectory }),
+  ],
+  [
+    "history",
+    (parameters, caseDirectory) =>
+      queryHistory({
+        caseDirectory,
+        ...listParameters<HistorySort, HistoryDirection>(parameters),
+        view: firstString(parameters.get("view")) as HistoryView | undefined,
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        transition: firstString(parameters.get("transition")),
+        from: firstString(parameters.get("from")),
+        to: firstString(parameters.get("to")),
+      }),
+  ],
+  [
+    "cookies",
+    (parameters, caseDirectory) =>
+      queryCookies({
+        caseDirectory,
+        ...listParameters<CookieSort, CookieDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        host: firstString(parameters.get("host")),
+        sameSite: firstString(parameters.get("same-site")),
+      }),
+  ],
+  [
+    "credentials",
+    (parameters, caseDirectory) =>
+      queryCredentials({
+        caseDirectory,
+        ...listParameters<CredentialSort, CredentialDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+      }),
+  ],
+  [
+    "top-sites",
+    (parameters, caseDirectory) =>
+      queryTopSites({
+        caseDirectory,
+        ...listParameters<TopSiteSort, TopSiteDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+      }),
+  ],
+  [
+    "candidates",
+    (parameters, caseDirectory) =>
+      queryCandidates({
+        caseDirectory,
+        ...listParameters<CandidateSort, CandidateDirection>(parameters),
+        category: firstString(parameters.get("category")),
+        kind: firstString(parameters.get("kind")),
+      }),
+  ],
+]);
+
 function handleApi(
   route: string,
   parameters: URLSearchParams,
   caseDirectory: string,
 ): unknown {
-  const profiles = parameters.getAll("profile");
-  const commitState = firstString(parameters.get("commit-state")) as
-    | CommitState
-    | undefined;
-  switch (route) {
-    case "completeness":
-      return queryCompleteness({ caseDirectory });
-    case "profiles":
-      return queryProfiles({ caseDirectory });
-    case "history":
-      return queryHistory({
-        caseDirectory,
-        view: firstString(parameters.get("view")) as HistoryView | undefined,
-        profiles,
-        search: firstString(parameters.get("search")),
-        commitState,
-        transition: firstString(parameters.get("transition")),
-        from: firstString(parameters.get("from")),
-        to: firstString(parameters.get("to")),
-        sort: firstString(parameters.get("sort")) as HistorySort | undefined,
-        direction: firstString(parameters.get("direction")) as
-          | HistoryDirection
-          | undefined,
-        limit: integerParameter(parameters, "limit"),
-        after: firstString(parameters.get("after")),
-      });
-    case "cookies":
-      return queryCookies({
-        caseDirectory,
-        profiles,
-        search: firstString(parameters.get("search")),
-        commitState,
-        host: firstString(parameters.get("host")),
-        sameSite: firstString(parameters.get("same-site")),
-        sort: firstString(parameters.get("sort")) as CookieSort | undefined,
-        direction: firstString(parameters.get("direction")) as
-          | CookieDirection
-          | undefined,
-        limit: integerParameter(parameters, "limit"),
-        after: firstString(parameters.get("after")),
-      });
-    case "credentials":
-      return queryCredentials({
-        caseDirectory,
-        profiles,
-        search: firstString(parameters.get("search")),
-        commitState,
-        sort: firstString(parameters.get("sort")) as CredentialSort | undefined,
-        direction: firstString(parameters.get("direction")) as
-          | CredentialDirection
-          | undefined,
-        limit: integerParameter(parameters, "limit"),
-        after: firstString(parameters.get("after")),
-      });
-    case "top-sites":
-      return queryTopSites({
-        caseDirectory,
-        profiles,
-        search: firstString(parameters.get("search")),
-        commitState,
-        sort: firstString(parameters.get("sort")) as TopSiteSort | undefined,
-        direction: firstString(parameters.get("direction")) as
-          | TopSiteDirection
-          | undefined,
-        limit: integerParameter(parameters, "limit"),
-        after: firstString(parameters.get("after")),
-      });
-    case "candidates":
-      return queryCandidates({
-        caseDirectory,
-        profiles,
-        search: firstString(parameters.get("search")),
-        category: firstString(parameters.get("category")),
-        kind: firstString(parameters.get("kind")),
-        sort: firstString(parameters.get("sort")) as CandidateSort | undefined,
-        direction: firstString(parameters.get("direction")) as
-          | CandidateDirection
-          | undefined,
-        limit: integerParameter(parameters, "limit"),
-        after: firstString(parameters.get("after")),
-      });
-    default:
-      throw new ForensixError("INVALID_ARGUMENT", "Unknown dashboard route.", {
-        route,
-      });
+  const handler = API_ROUTES.get(route);
+  if (handler === undefined) {
+    throw new ForensixError("INVALID_ARGUMENT", "Unknown dashboard route.", {
+      route,
+    });
   }
+  return handler(parameters, caseDirectory);
 }
 
 function handleRequest(

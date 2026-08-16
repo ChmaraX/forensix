@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { CASE_FILENAME } from "./case.js";
 import { ForensixError } from "./errors.js";
+import { SQLITE_MAX_INTEGER, SQLITE_MIN_INTEGER } from "./forensic-time.js";
 import {
   createFinding,
   type CommitState,
@@ -106,9 +107,6 @@ const VIEW_SORTS: Readonly<Record<HistoryView, readonly HistorySort[]>> = {
   "most-visited": ["visit-count", "url", "profile"],
   durations: ["duration", "visit-count", "url", "profile"],
 };
-
-const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
-const SQLITE_MIN_INTEGER = -9_223_372_036_854_775_808n;
 
 const DEFAULT_SORT: Readonly<Record<HistoryView, HistorySort>> = {
   visits: "visit-time",

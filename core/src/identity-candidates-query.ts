@@ -1,9 +1,15 @@
-import { createHash } from "node:crypto";
-import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
-
-import { CASE_FILENAME } from "./case.js";
+import {
+  createConditions,
+  decodeRecordJson,
+  normalizeLimit,
+  resolveProfiles,
+  resolveSearch,
+  runFindingQuery,
+  validateEnum,
+  type EngineRow,
+  type FindingQuerySpec,
+  type SortDefinition,
+} from "./finding-query.js";
 import { ForensixError } from "./errors.js";
 import type { CandidateCategory } from "./identity-candidates.js";
 import type { ForensicFields, Provenance } from "./forensic-model.js";
@@ -52,25 +58,6 @@ export interface CandidatePage {
   readonly limit: number;
 }
 
-interface CursorPayload {
-  readonly version: 1;
-  readonly fingerprint: string;
-  readonly key: string;
-  readonly candidateId: string;
-}
-
-interface QueryRow {
-  readonly candidate_id: bigint;
-  readonly candidate_kind: string;
-  readonly category: string;
-  readonly profile_path: string;
-  readonly rank: bigint;
-  readonly supporting_count: bigint;
-  readonly provenance_json: string;
-  readonly fields_json: string;
-  readonly cursor_key: string;
-}
-
 const CANDIDATE_SORTS = [
   "rank",
   "kind",
@@ -81,290 +68,115 @@ const CANDIDATE_SORTS = [
 const CANDIDATE_DIRECTIONS = ["asc", "desc"] as const;
 const CATEGORIES = ["identity", "behavior"] as const;
 
-const SORT_EXPRESSIONS: Readonly<Record<CandidateSort, string>> = {
-  rank: "printf('%020d', c.rank)",
-  kind: "c.candidate_kind",
-  "supporting-count": "printf('%020d', c.supporting_count)",
-  value: "c.sort_value",
-  profile: "c.profile_path",
+const SORT_DEFINITIONS: Readonly<Record<CandidateSort, SortDefinition>> = {
+  rank: { expression: "printf('%020d', f.rank)", kind: "text" },
+  kind: { expression: "f.candidate_kind", kind: "text" },
+  "supporting-count": {
+    expression: "printf('%020d', f.supporting_count)",
+    kind: "text",
+  },
+  value: { expression: "f.sort_value", kind: "text" },
+  profile: { expression: "f.profile_path", kind: "text" },
 };
 
-const SQLITE_MAX_INTEGER = 9_223_372_036_854_775_807n;
-
-function queryFingerprint(input: {
-  readonly caseId: string;
-  readonly activeArtifactResultIds: readonly string[];
-  readonly profiles: readonly string[];
-  readonly category: CandidateCategory | null;
-  readonly kind: string | null;
-  readonly search: string | null;
-  readonly sort: CandidateSort;
-  readonly direction: CandidateDirection;
-}): string {
-  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
-}
-
-function encodeCursor(payload: CursorPayload): string {
-  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
-}
-
-function decodeCursor(
-  value: string,
-  expectedFingerprint: string,
-): CursorPayload {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-  } catch (error) {
-    throw new ForensixError(
-      "INVALID_CURSOR",
-      "Candidates cursor is not valid.",
-      {},
-      { cause: error },
-    );
-  }
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("version" in parsed) ||
-    parsed.version !== 1 ||
-    !("fingerprint" in parsed) ||
-    parsed.fingerprint !== expectedFingerprint ||
-    !("key" in parsed) ||
-    typeof parsed.key !== "string" ||
-    !("candidateId" in parsed) ||
-    typeof parsed.candidateId !== "string" ||
-    !/^[0-9]+$/.test(parsed.candidateId)
-  ) {
-    throw new ForensixError(
-      "INVALID_CURSOR",
-      "Candidates cursor does not belong to this query.",
-    );
-  }
-  return parsed as CursorPayload;
-}
-
-function normalizeLimit(value: number | undefined): number {
-  const limit = value ?? 50;
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      "Candidates --limit must be an integer from 1 through 100.",
-      { limit },
-    );
-  }
-  return limit;
-}
-
-function enumValue<const Values extends readonly string[]>(
-  value: string | undefined,
-  fallback: Values[number],
-  values: Values,
-  name: string,
-): Values[number] {
-  const result = value ?? fallback;
-  if (!values.includes(result)) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      `Candidates ${name} has an unsupported value.`,
-      { value: result, allowed: values },
-    );
-  }
-  return result;
-}
-
-function openCase(caseDirectory: string): DatabaseSync {
-  const url = pathToFileURL(join(resolve(caseDirectory), CASE_FILENAME));
-  url.searchParams.set("immutable", "1");
-  return new DatabaseSync(url.href, { readOnly: true, readBigInts: true });
-}
-
-function schemaExists(database: DatabaseSync): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = 'identity_candidates'",
-      )
-      .get() !== undefined
-  );
-}
-
-function activeAnalysisIdentity(database: DatabaseSync): {
-  readonly caseId: string;
-  readonly artifactResultIds: readonly string[];
-} {
-  const caseRow = database
-    .prepare("SELECT case_id FROM case_info LIMIT 1")
-    .get();
-  if (typeof caseRow?.case_id !== "string") {
-    throw new ForensixError("CASE_INVALID", "Case identity is missing.");
-  }
-  const resultRows = database
-    .prepare(
-      `SELECT artifact_result_id
-         FROM candidate_artifact_results
-        WHERE active = 1
-        ORDER BY artifact_result_id`,
-    )
-    .all();
-  return {
-    caseId: caseRow.case_id,
-    artifactResultIds: resultRows.map((row) => String(row.artifact_result_id)),
-  };
-}
-
-function parseRecord(row: QueryRow): CandidateRecord {
-  let provenance: Provenance;
-  let fields: ForensicFields;
-  try {
-    provenance = JSON.parse(row.provenance_json) as Provenance;
-    fields = JSON.parse(row.fields_json) as ForensicFields;
-  } catch (error) {
-    throw new ForensixError(
-      "CASE_INVALID",
+const CANDIDATE_SPEC: FindingQuerySpec<CandidateQuery, CandidateRecord> = {
+  label: "Candidates",
+  analysisNotFound: "Case has no Candidate analysis. Run analyse first.",
+  schemaTable: "identity_candidates",
+  mainTable: "identity_candidates",
+  resultsTable: "candidate_artifact_results",
+  idColumn: "candidate_id",
+  cursorIdField: "candidateId",
+  selectColumns:
+    "f.candidate_kind, f.category, f.profile_path, f.rank, f.supporting_count",
+  parse: (row: EngineRow): CandidateRecord => {
+    const { provenance, fields } = decodeRecordJson(
+      row,
       "Case contains invalid Candidate JSON.",
-      { candidate_id: row.candidate_id.toString() },
-      { cause: error },
+      "candidate_id",
     );
-  }
-  if (row.category !== "identity" && row.category !== "behavior") {
-    throw new ForensixError(
-      "CASE_INVALID",
-      "Case contains an invalid Candidate category.",
-      { candidate_id: row.candidate_id.toString() },
-    );
-  }
-  return {
-    recordType: "candidate",
-    candidateKind: row.candidate_kind,
-    category: row.category,
-    profile: row.profile_path,
-    rank: Number(row.rank),
-    supportingCount: Number(row.supporting_count),
-    provenance,
-    fields,
-  };
-}
-
-export function queryCandidates(input: CandidateQuery): CandidatePage {
-  const direction = enumValue(
-    input.direction,
-    "asc",
-    CANDIDATE_DIRECTIONS,
-    "--direction",
-  );
-  const sort = enumValue(input.sort, "rank", CANDIDATE_SORTS, "--sort");
-  const category =
-    input.category === undefined
-      ? null
-      : enumValue(input.category, "identity", CATEGORIES, "--category");
-  const kind =
-    input.kind === undefined || input.kind.length === 0 ? null : input.kind;
-  const sortExpression = SORT_EXPRESSIONS[sort];
-  const limit = normalizeLimit(input.limit);
-  const profiles = [...new Set(input.profiles ?? [])].sort();
-  if (profiles.length > 100) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      "Candidates queries accept at most 100 Profile filters.",
-      { profile_count: profiles.length },
-    );
-  }
-  const search = input.search?.toLocaleLowerCase("en-US") ?? null;
-
-  const database = openCase(input.caseDirectory);
-  try {
-    if (!schemaExists(database)) {
+    if (row.category !== "identity" && row.category !== "behavior") {
       throw new ForensixError(
-        "ANALYSIS_NOT_FOUND",
-        "Case has no Candidate analysis. Run analyse first.",
+        "CASE_INVALID",
+        "Case contains an invalid Candidate category.",
+        { candidate_id: row.entity_id.toString() },
       );
     }
-    const identity = activeAnalysisIdentity(database);
-    const fingerprint = queryFingerprint({
-      caseId: identity.caseId,
-      activeArtifactResultIds: identity.artifactResultIds,
-      profiles,
-      category,
-      kind,
-      search,
-      sort,
-      direction,
-    });
-    const cursor =
-      input.after === undefined ? null : decodeCursor(input.after, fingerprint);
+    return {
+      recordType: "candidate",
+      candidateKind: row.candidate_kind as string,
+      category: row.category,
+      profile: row.profile_path as string,
+      rank: Number(row.rank),
+      supportingCount: Number(row.supporting_count),
+      provenance,
+      fields,
+    };
+  },
+  plan: (input) => {
+    const direction = validateEnum(
+      input.direction,
+      "asc",
+      CANDIDATE_DIRECTIONS,
+      "--direction",
+      "Candidates",
+    );
+    const sort = validateEnum(
+      input.sort,
+      "rank",
+      CANDIDATE_SORTS,
+      "--sort",
+      "Candidates",
+    );
+    const category =
+      input.category === undefined
+        ? null
+        : validateEnum(
+            input.category,
+            "identity",
+            CATEGORIES,
+            "--category",
+            "Candidates",
+          );
+    const kind =
+      input.kind === undefined || input.kind.length === 0 ? null : input.kind;
+    const limit = normalizeLimit(input.limit, "Candidates");
+    const profiles = resolveProfiles(input.profiles, "Candidates");
+    const search = resolveSearch(input.search);
 
-    const conditions = ["r.active = 1", "c.record_type = 'candidate'"];
-    const parameters: (string | bigint)[] = [];
-    if (profiles.length > 0) {
-      conditions.push(
-        `c.profile_path IN (${profiles.map(() => "?").join(", ")})`,
-      );
-      parameters.push(...profiles);
-    }
+    const where = createConditions();
+    where.add("f.record_type = 'candidate'");
     if (category !== null) {
-      conditions.push("c.category = ?");
-      parameters.push(category);
+      where.add("f.category = ?", category);
     }
     if (kind !== null) {
-      conditions.push("c.candidate_kind = ?");
-      parameters.push(kind);
+      where.add("f.candidate_kind = ?", kind);
     }
-    if (search !== null) {
-      conditions.push("instr(c.search_text, ?) > 0");
-      parameters.push(search);
-    }
-    if (cursor !== null) {
-      const operator = direction === "asc" ? ">" : "<";
-      conditions.push(
-        `(${sortExpression} ${operator} ? OR ` +
-          `(${sortExpression} = ? AND c.candidate_id ${operator} ?))`,
-      );
-      const candidateId = BigInt(cursor.candidateId);
-      if (candidateId > SQLITE_MAX_INTEGER) {
-        throw new ForensixError(
-          "INVALID_CURSOR",
-          "Candidates cursor contains an invalid sort key.",
-        );
-      }
-      parameters.push(cursor.key, cursor.key, candidateId);
-    }
+    where.addProfiles(profiles);
+    where.addSearch(search);
 
-    parameters.push(BigInt(limit + 1));
-    const sqlDirection = direction === "asc" ? "ASC" : "DESC";
-    const rows = database
-      .prepare(
-        `SELECT c.candidate_id, c.candidate_kind, c.category, c.profile_path,
-                c.rank, c.supporting_count, c.provenance_json, c.fields_json,
-                ${sortExpression} AS cursor_key
-           FROM identity_candidates c
-           JOIN candidate_artifact_results r
-             ON r.artifact_result_id = c.artifact_result_id
-          WHERE ${conditions.join(" AND ")}
-          ORDER BY ${sortExpression} ${sqlDirection},
-                   c.candidate_id ${sqlDirection}
-          LIMIT ?`,
-      )
-      .all(...parameters) as unknown as QueryRow[];
-    const hasNext = rows.length > limit;
-    const pageRows = hasNext ? rows.slice(0, limit) : rows;
-    const last = pageRows.at(-1);
     return {
-      status: "ok",
-      command: "candidates",
-      items: pageRows.map(parseRecord),
-      nextCursor:
-        hasNext && last !== undefined
-          ? encodeCursor({
-              version: 1,
-              fingerprint,
-              key: last.cursor_key.toString(),
-              candidateId: last.candidate_id.toString(),
-            })
-          : null,
+      sort,
+      direction,
       limit,
+      sortDefinition: SORT_DEFINITIONS[sort],
+      conditions: where.conditions,
+      parameters: where.parameters,
+      fingerprint: (identity) => ({
+        caseId: identity.caseId,
+        activeArtifactResultIds: identity.artifactResultIds,
+        profiles,
+        category,
+        kind,
+        search,
+        sort,
+        direction,
+      }),
     };
-  } finally {
-    database.close();
-  }
+  },
+};
+
+export function queryCandidates(input: CandidateQuery): CandidatePage {
+  const { items, nextCursor, limit } = runFindingQuery(CANDIDATE_SPEC, input);
+  return { status: "ok", command: "candidates", items, nextCursor, limit };
 }

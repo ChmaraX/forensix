@@ -9,12 +9,14 @@ import { openDatabaseSync } from "./sqlite-open.js";
 import {
   immutableDatabase,
   snapshotVerifiedFile,
-  type RawHistoryValue,
-  type VerifiedHistoryFile,
-} from "./history-sqlite.js";
+  tableColumns,
+  tableExists,
+  type RawSqliteValue,
+  type VerifiedSqliteFile,
+} from "./sqlite-artifact.js";
 
-export type RawFaviconValue = RawHistoryValue;
-export type VerifiedFaviconFile = VerifiedHistoryFile;
+export type RawFaviconValue = RawSqliteValue;
+export type VerifiedFaviconFile = VerifiedSqliteFile;
 
 /**
  * One `favicon_bitmaps` row: a single stored icon payload at one pixel size,
@@ -86,25 +88,6 @@ const REQUIRED_BITMAP_COLUMNS = [
 ] as const;
 const REQUIRED_FAVICON_COLUMNS = ["url", "icon_type"] as const;
 const REQUIRED_MAPPING_COLUMNS = ["page_url", "icon_id"] as const;
-
-function tableExists(database: DatabaseSync, table: string): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = ? LIMIT 1",
-      )
-      .get(table) !== undefined
-  );
-}
-
-function tableColumns(database: DatabaseSync, table: string): Set<string> {
-  return new Set(
-    database
-      .prepare("SELECT name FROM pragma_table_info(?) ORDER BY cid")
-      .all(table)
-      .map((row) => String(row.name)),
-  );
-}
 
 function readSchema(database: DatabaseSync): FaviconSchema {
   for (const table of ["meta", "favicons", "favicon_bitmaps", "icon_mapping"]) {

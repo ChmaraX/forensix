@@ -1395,16 +1395,197 @@ function insertBookmarkFinding(
   );
 }
 
-export function storeHistoryAnalysis(
-  options: StoreHistoryAnalysisOptions,
+type PreparedStatement = ReturnType<DatabaseSync["prepare"]>;
+
+/**
+ * Normalized, non-optional artifact write set. The public
+ * {@link storeHistoryAnalysis} entrypoint accepts the historical shape with
+ * optional per-family arrays and normalizes it into this structure before
+ * persistence, so the engine never has to branch on `undefined`.
+ */
+interface ArtifactWrites {
+  readonly historyArtifacts: readonly HistoryArtifactWrite[];
+  readonly cookieArtifacts: readonly CookieArtifactWrite[];
+  readonly topSitesArtifacts: readonly TopSitesArtifactWrite[];
+  readonly faviconArtifacts: readonly FaviconArtifactWrite[];
+  readonly loginDataArtifacts: readonly LoginDataArtifactWrite[];
+  readonly webDataArtifacts: readonly WebDataArtifactWrite[];
+  readonly downloadsArtifacts: readonly DownloadsArtifactWrite[];
+  readonly metadataArtifacts: readonly MetadataArtifactWrite[];
+  readonly bookmarksArtifacts: readonly BookmarksArtifactWrite[];
+  readonly cacheArtifacts: readonly CacheArtifactWrite[];
+  readonly candidateArtifacts: readonly CandidateArtifactWrite[];
+}
+
+interface AnalysisRunMetadata {
+  readonly caseDirectory: string;
+  readonly sourceIds: readonly string[];
+  readonly declaredTimezone: string;
+  readonly declaredOriginOs: DeclaredOriginOs | null;
+  readonly invocation: readonly string[];
+  readonly startedAt: string;
+}
+
+/**
+ * A child-record inserter (Findings or Candidates) belonging to one artifact
+ * family. It pairs the exact INSERT text with a row selector and the binder
+ * that maps a persisted row onto its statement parameters.
+ */
+interface ChildPersist<TWrite> {
+  readonly insertSql: string;
+  rows(artifact: TWrite): readonly unknown[];
+  bind(
+    statement: PreparedStatement,
+    artifactResultId: bigint,
+    runId: string,
+    row: unknown,
+  ): void;
+}
+
+/**
+ * Per-family persistence descriptor. It captures the exact INSERT/UPDATE text
+ * and bindings for one artifact family so the generic persist loop can drive
+ * every family without re-cloning the insert-result / insert-rows /
+ * deactivate-previous / activate-current block. The SQL text and the
+ * per-family statement order are preserved verbatim, so the Case DB the loop
+ * produces is byte-for-byte identical to the hand-wired version it replaces.
+ */
+interface ArtifactPersist<
+  TWrite extends { readonly status: "complete" | "absent" | "unavailable" },
+> {
+  readonly artifacts: readonly TWrite[];
+  readonly insertResultSql: string;
+  insertResult(
+    statement: PreparedStatement,
+    runId: string,
+    artifact: TWrite,
+  ): bigint;
+  readonly deactivateSql: string;
+  deactivate(statement: PreparedStatement, artifact: TWrite): void;
+  readonly activateSql: string;
+  readonly children: readonly ChildPersist<TWrite>[];
+}
+
+/**
+ * Build a type-checked child inserter. The generic row type is erased at the
+ * boundary so heterogeneous families can share one descriptor shape while each
+ * binder keeps its precise persisted-row type.
+ */
+function childPersist<TWrite, TRow>(
+  insertSql: string,
+  rows: (artifact: TWrite) => readonly TRow[],
+  bind: (
+    statement: PreparedStatement,
+    artifactResultId: bigint,
+    runId: string,
+    row: TRow,
+  ) => void,
+): ChildPersist<TWrite> {
+  return {
+    insertSql,
+    rows: (artifact) => rows(artifact) as readonly unknown[],
+    bind: (statement, artifactResultId, runId, row) =>
+      bind(statement, artifactResultId, runId, row as TRow),
+  };
+}
+
+/**
+ * Persist one artifact family inside the open transaction. For each artifact it
+ * inserts the result row, fans its Findings and Candidates out to their child
+ * tables in declared order, and — when the artifact is `complete` — deactivates
+ * the previously active result before activating the current one. Statement
+ * preparation does not write, so preparing per family here is equivalent to the
+ * former up-front block; the `run()` order is preserved unchanged.
+ */
+function persistArtifacts<
+  TWrite extends { readonly status: "complete" | "absent" | "unavailable" },
+>(
+  database: DatabaseSync,
+  runId: string,
+  descriptor: ArtifactPersist<TWrite>,
+): void {
+  const insertResult = database.prepare(descriptor.insertResultSql);
+  const deactivate = database.prepare(descriptor.deactivateSql);
+  const activate = database.prepare(descriptor.activateSql);
+  const children = descriptor.children.map((child) => ({
+    child,
+    statement: database.prepare(child.insertSql),
+  }));
+  for (const artifact of descriptor.artifacts) {
+    const artifactResultId = descriptor.insertResult(
+      insertResult,
+      runId,
+      artifact,
+    );
+    for (const { child, statement } of children) {
+      for (const row of child.rows(artifact)) {
+        child.bind(statement, artifactResultId, runId, row);
+      }
+    }
+    if (artifact.status === "complete") {
+      descriptor.deactivate(deactivate, artifact);
+      activate.run(artifactResultId);
+    }
+  }
+}
+
+/**
+ * The result-row columns shared by every SQLite-backed primary store (History,
+ * Cookies, Top Sites, Favicons, Login Data, Web Data, Downloads). Their
+ * `X_artifact_results` inserts bind an identical parameter list, so they share
+ * one result binder.
+ */
+interface SqlitePrimaryWrite {
+  readonly sourceId: string;
+  readonly profile: string;
+  readonly manifestEntryOrdinal: number | null;
+  readonly databasePath: string;
+  readonly schemaVersion: number | null;
+  readonly integrity: string | null;
+  readonly recoveryStatus: "complete" | "unavailable" | "not_applicable";
+  readonly status: "complete" | "absent" | "unavailable";
+  readonly reason: string | null;
+}
+
+function bindSqlitePrimaryResult<T extends SqlitePrimaryWrite>(
+  statement: PreparedStatement,
+  runId: string,
+  artifact: T,
+): bigint {
+  return statement.run(
+    runId,
+    artifact.sourceId,
+    artifact.profile,
+    artifact.manifestEntryOrdinal,
+    artifact.databasePath,
+    artifact.schemaVersion,
+    artifact.integrity,
+    artifact.recoveryStatus,
+    artifact.status,
+    artifact.reason,
+  ).lastInsertRowid as bigint;
+}
+
+function bindSourceProfileDeactivate(
+  statement: PreparedStatement,
+  artifact: { readonly sourceId: string; readonly profile: string },
+): void {
+  statement.run(artifact.sourceId, artifact.profile);
+}
+
+/**
+ * Persist a full analysis run from a normalized, non-optional write set. This
+ * is the engine behind {@link storeHistoryAnalysis}; the families are persisted
+ * in the historical order and with the exact per-table SQL so the Case DB is
+ * byte-for-byte identical to the previous hand-wired transaction.
+ */
+function storeAnalysisWrites(
+  metadata: AnalysisRunMetadata,
+  writes: ArtifactWrites,
 ): StoredHistoryAnalysis {
-  const cookieArtifacts = options.cookieArtifacts ?? [];
-  const metadataArtifacts = options.metadataArtifacts ?? [];
-  const bookmarksArtifacts = options.bookmarksArtifacts ?? [];
-  const candidateArtifacts = options.candidateArtifacts ?? [];
   const runId = randomUUID();
   const database = openDatabaseSync(
-    join(resolve(options.caseDirectory), CASE_FILENAME),
+    join(resolve(metadata.caseDirectory), CASE_FILENAME),
     { readBigInts: true },
   );
   try {
@@ -1420,613 +1601,394 @@ export function storeHistoryAnalysis(
         )
         .run(
           runId,
-          options.startedAt,
+          metadata.startedAt,
           TOOL_VERSION,
-          JSON.stringify(options.invocation),
-          options.declaredTimezone,
-          options.declaredOriginOs,
+          JSON.stringify(metadata.invocation),
+          metadata.declaredTimezone,
+          metadata.declaredOriginOs,
         );
       const insertRunSource = database.prepare(
         "INSERT INTO analysis_run_sources (run_id, source_id) VALUES (?, ?)",
       );
-      for (const sourceId of [...new Set(options.sourceIds)].sort()) {
+      for (const sourceId of [...new Set(metadata.sourceIds)].sort()) {
         insertRunSource.run(runId, sourceId);
       }
 
-      const insertArtifact = database.prepare(
-        `INSERT INTO history_artifact_results
+      // Families are persisted in the historical order below. The persist loop
+      // preserves each family's insert-result / insert-rows / activate order
+      // and the exact SQL text, keeping the produced Case DB byte-identical.
+      persistArtifacts<HistoryArtifactWrite>(database, runId, {
+        artifacts: writes.historyArtifacts,
+        insertResultSql: `INSERT INTO history_artifact_results
            (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
             database_path, schema_version, integrity, recovery_status,
             status, reason, active)
          VALUES (?, ?, ?, 'History', ?, ?, ?, ?, ?, ?, ?, 0)`,
-      );
-      const insertFindingStatement = database.prepare(
-        `INSERT INTO forensic_findings
+        insertResult: bindSqlitePrimaryResult,
+        deactivateSql: `UPDATE history_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'History'
+            AND active = 1`,
+        deactivate: bindSourceProfileDeactivate,
+        activateSql:
+          "UPDATE history_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<HistoryArtifactWrite, PersistedFinding>(
+            `INSERT INTO forensic_findings
            (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
             record_type, finding_kind, profile_path, commit_state,
             provenance_json, fields_json, search_text, sort_time, sort_url,
             sort_duration, sort_count, transition_core)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const insertCandidateStatement = database.prepare(
-        `INSERT INTO forensic_candidates
+            (artifact) => artifact.findings,
+            insertFinding,
+          ),
+          childPersist<HistoryArtifactWrite, PersistedCandidate>(
+            `INSERT INTO forensic_candidates
            (artifact_result_id, run_id, record_type, candidate_kind,
             profile_path, commit_state, rank, supporting_count,
             topic_label, provenance_json, fields_json, search_text)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePrevious = database.prepare(
-        `UPDATE history_artifact_results
-            SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = 'History'
-            AND active = 1`,
-      );
-      const activateCurrent = database.prepare(
-        "UPDATE history_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-      const insertLoginArtifact = database.prepare(
-        `INSERT INTO login_data_artifact_results
-           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
-            database_path, schema_version, integrity, recovery_status,
-            status, reason, active)
-         VALUES (?, ?, ?, 'Login Data', ?, ?, ?, ?, ?, ?, ?, 0)`,
-      );
-      const insertLoginFindingStatement = database.prepare(
-        `INSERT INTO login_data_findings
-           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
-            record_type, finding_kind, profile_path, commit_state,
-            provenance_json, fields_json, search_text, sort_created,
-            sort_last_used, sort_origin, sort_username)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePreviousLogin = database.prepare(
-        `UPDATE login_data_artifact_results
-            SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = 'Login Data'
-            AND active = 1`,
-      );
-      const activateCurrentLogin = database.prepare(
-        "UPDATE login_data_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-      const insertWebDataArtifact = database.prepare(
-        `INSERT INTO web_data_artifact_results
-           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
-            database_path, schema_version, integrity, recovery_status,
-            status, reason, active)
-         VALUES (?, ?, ?, 'Web Data', ?, ?, ?, ?, ?, ?, ?, 0)`,
-      );
-      const insertWebDataFindingStatement = database.prepare(
-        `INSERT INTO web_data_findings
-           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
-            record_type, finding_kind, profile_path, commit_state,
-            provenance_json, fields_json, search_text, sort_created,
-            sort_last_used, sort_name, sort_value)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePreviousWebData = database.prepare(
-        `UPDATE web_data_artifact_results
-            SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = 'Web Data'
-            AND active = 1`,
-      );
-      const activateCurrentWebData = database.prepare(
-        "UPDATE web_data_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-      const insertDownloadsArtifact = database.prepare(
-        `INSERT INTO downloads_artifact_results
-           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
-            database_path, schema_version, integrity, recovery_status,
-            status, reason, active)
-         VALUES (?, ?, ?, 'Downloads', ?, ?, ?, ?, ?, ?, ?, 0)`,
-      );
-      const insertDownloadFindingStatement = database.prepare(
-        `INSERT INTO downloads_findings
-           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
-            record_type, finding_kind, profile_path, commit_state,
-            provenance_json, fields_json, search_text, sort_start, sort_end,
-            sort_target, sort_state, sort_bytes, danger_type)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePreviousDownloads = database.prepare(
-        `UPDATE downloads_artifact_results
-            SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = 'Downloads'
-            AND active = 1`,
-      );
-      const activateCurrentDownloads = database.prepare(
-        "UPDATE downloads_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-      const insertCookieArtifact = database.prepare(
-        `INSERT INTO cookie_artifact_results
+            (artifact) => artifact.candidates ?? [],
+            insertCandidate,
+          ),
+        ],
+      });
+
+      persistArtifacts<CookieArtifactWrite>(database, runId, {
+        artifacts: writes.cookieArtifacts,
+        insertResultSql: `INSERT INTO cookie_artifact_results
            (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
             database_path, schema_version, integrity, recovery_status,
             status, reason, active)
          VALUES (?, ?, ?, 'Cookies', ?, ?, ?, ?, ?, ?, ?, 0)`,
-      );
-      const insertCookieFindingStatement = database.prepare(
-        `INSERT INTO cookie_findings
+        insertResult: bindSqlitePrimaryResult,
+        deactivateSql: `UPDATE cookie_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Cookies'
+            AND active = 1`,
+        deactivate: bindSourceProfileDeactivate,
+        activateSql:
+          "UPDATE cookie_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<CookieArtifactWrite, PersistedCookieFinding>(
+            `INSERT INTO cookie_findings
            (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
             record_type, finding_kind, profile_path, commit_state,
             provenance_json, fields_json, search_text, sort_host, sort_name,
             sort_creation, sort_expires, sort_last_access, host_key, same_site)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePreviousCookie = database.prepare(
-        `UPDATE cookie_artifact_results
-            SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = 'Cookies'
-            AND active = 1`,
-      );
-      const activateCurrentCookie = database.prepare(
-        "UPDATE cookie_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-      const insertTopSiteArtifact = database.prepare(
-        `INSERT INTO top_sites_artifact_results
+            (artifact) => artifact.findings,
+            insertCookieFinding,
+          ),
+        ],
+      });
+
+      persistArtifacts<TopSitesArtifactWrite>(database, runId, {
+        artifacts: writes.topSitesArtifacts,
+        insertResultSql: `INSERT INTO top_sites_artifact_results
            (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
             database_path, schema_version, integrity, recovery_status,
             status, reason, active)
          VALUES (?, ?, ?, 'Top Sites', ?, ?, ?, ?, ?, ?, ?, 0)`,
-      );
-      const insertTopSiteFindingStatement = database.prepare(
-        `INSERT INTO top_sites_findings
+        insertResult: bindSqlitePrimaryResult,
+        deactivateSql: `UPDATE top_sites_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Top Sites'
+            AND active = 1`,
+        deactivate: bindSourceProfileDeactivate,
+        activateSql:
+          "UPDATE top_sites_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<TopSitesArtifactWrite, PersistedTopSiteFinding>(
+            `INSERT INTO top_sites_findings
            (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
             record_type, finding_kind, profile_path, commit_state,
             provenance_json, fields_json, search_text, sort_url, sort_title,
             sort_rank)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePreviousTopSite = database.prepare(
-        `UPDATE top_sites_artifact_results
-            SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = 'Top Sites'
-            AND active = 1`,
-      );
-      const activateCurrentTopSite = database.prepare(
-        "UPDATE top_sites_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-      const insertFaviconArtifact = database.prepare(
-        `INSERT INTO favicon_artifact_results
+            (artifact) => artifact.findings,
+            insertTopSiteFinding,
+          ),
+        ],
+      });
+
+      persistArtifacts<FaviconArtifactWrite>(database, runId, {
+        artifacts: writes.faviconArtifacts,
+        insertResultSql: `INSERT INTO favicon_artifact_results
            (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
             database_path, schema_version, integrity, recovery_status,
             status, reason, active)
          VALUES (?, ?, ?, 'Favicons', ?, ?, ?, ?, ?, ?, ?, 0)`,
-      );
-      const insertFaviconFindingStatement = database.prepare(
-        `INSERT INTO favicon_findings
+        insertResult: bindSqlitePrimaryResult,
+        deactivateSql: `UPDATE favicon_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Favicons'
+            AND active = 1`,
+        deactivate: bindSourceProfileDeactivate,
+        activateSql:
+          "UPDATE favicon_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<FaviconArtifactWrite, PersistedFaviconFinding>(
+            `INSERT INTO favicon_findings
            (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
             record_type, finding_kind, profile_path, commit_state,
             provenance_json, fields_json, search_text, sort_icon_url,
             sort_page_url, sort_last_updated, sort_width)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePreviousFavicon = database.prepare(
-        `UPDATE favicon_artifact_results
+            (artifact) => artifact.findings,
+            insertFaviconFinding,
+          ),
+        ],
+      });
+
+      persistArtifacts<LoginDataArtifactWrite>(database, runId, {
+        artifacts: writes.loginDataArtifacts,
+        insertResultSql: `INSERT INTO login_data_artifact_results
+           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
+            database_path, schema_version, integrity, recovery_status,
+            status, reason, active)
+         VALUES (?, ?, ?, 'Login Data', ?, ?, ?, ?, ?, ?, ?, 0)`,
+        insertResult: bindSqlitePrimaryResult,
+        deactivateSql: `UPDATE login_data_artifact_results
             SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = 'Favicons'
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Login Data'
             AND active = 1`,
-      );
-      const activateCurrentFavicon = database.prepare(
-        "UPDATE favicon_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-      const insertMetadataArtifact = database.prepare(
-        `INSERT INTO preferences_artifact_results
+        deactivate: bindSourceProfileDeactivate,
+        activateSql:
+          "UPDATE login_data_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<LoginDataArtifactWrite, PersistedLoginFinding>(
+            `INSERT INTO login_data_findings
+           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
+            record_type, finding_kind, profile_path, commit_state,
+            provenance_json, fields_json, search_text, sort_created,
+            sort_last_used, sort_origin, sort_username)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (artifact) => artifact.findings,
+            insertLoginFinding,
+          ),
+        ],
+      });
+
+      persistArtifacts<WebDataArtifactWrite>(database, runId, {
+        artifacts: writes.webDataArtifacts,
+        insertResultSql: `INSERT INTO web_data_artifact_results
+           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
+            database_path, schema_version, integrity, recovery_status,
+            status, reason, active)
+         VALUES (?, ?, ?, 'Web Data', ?, ?, ?, ?, ?, ?, ?, 0)`,
+        insertResult: bindSqlitePrimaryResult,
+        deactivateSql: `UPDATE web_data_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Web Data'
+            AND active = 1`,
+        deactivate: bindSourceProfileDeactivate,
+        activateSql:
+          "UPDATE web_data_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<WebDataArtifactWrite, PersistedAutofillFinding>(
+            `INSERT INTO web_data_findings
+           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
+            record_type, finding_kind, profile_path, commit_state,
+            provenance_json, fields_json, search_text, sort_created,
+            sort_last_used, sort_name, sort_value)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (artifact) => artifact.findings,
+            insertAutofillFinding,
+          ),
+        ],
+      });
+
+      persistArtifacts<DownloadsArtifactWrite>(database, runId, {
+        artifacts: writes.downloadsArtifacts,
+        insertResultSql: `INSERT INTO downloads_artifact_results
+           (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
+            database_path, schema_version, integrity, recovery_status,
+            status, reason, active)
+         VALUES (?, ?, ?, 'Downloads', ?, ?, ?, ?, ?, ?, ?, 0)`,
+        insertResult: bindSqlitePrimaryResult,
+        deactivateSql: `UPDATE downloads_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Downloads'
+            AND active = 1`,
+        deactivate: bindSourceProfileDeactivate,
+        activateSql:
+          "UPDATE downloads_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<DownloadsArtifactWrite, PersistedDownloadFinding>(
+            `INSERT INTO downloads_findings
+           (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
+            record_type, finding_kind, profile_path, commit_state,
+            provenance_json, fields_json, search_text, sort_start, sort_end,
+            sort_target, sort_state, sort_bytes, danger_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (artifact) => artifact.findings,
+            insertDownloadFinding,
+          ),
+        ],
+      });
+
+      persistArtifacts<MetadataArtifactWrite>(database, runId, {
+        artifacts: writes.metadataArtifacts,
+        insertResultSql: `INSERT INTO preferences_artifact_results
            (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
             database_path, status, reason, active)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-      );
-      const insertMetadataFindingStatement = database.prepare(
-        `INSERT INTO preferences_findings
+        insertResult: (statement, currentRunId, artifact) =>
+          statement.run(
+            currentRunId,
+            artifact.sourceId,
+            artifact.profile,
+            artifact.artifact,
+            artifact.manifestEntryOrdinal,
+            artifact.databasePath,
+            artifact.status,
+            artifact.reason,
+          ).lastInsertRowid as bigint,
+        deactivateSql: `UPDATE preferences_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = ?
+            AND active = 1`,
+        deactivate: (statement, artifact) => {
+          statement.run(artifact.sourceId, artifact.profile, artifact.artifact);
+        },
+        activateSql:
+          "UPDATE preferences_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<MetadataArtifactWrite, PersistedMetadataFinding>(
+            `INSERT INTO preferences_findings
            (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
             record_type, finding_kind, profile_path, commit_state,
             provenance_json, fields_json, search_text, sort_type, sort_profile)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePreviousMetadata = database.prepare(
-        `UPDATE preferences_artifact_results
-            SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = ?
-            AND active = 1`,
-      );
-      const activateCurrentMetadata = database.prepare(
-        "UPDATE preferences_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-      const insertBookmarkArtifact = database.prepare(
-        `INSERT INTO bookmarks_artifact_results
+            (artifact) => artifact.findings,
+            insertMetadataFinding,
+          ),
+        ],
+      });
+
+      persistArtifacts<BookmarksArtifactWrite>(database, runId, {
+        artifacts: writes.bookmarksArtifacts,
+        insertResultSql: `INSERT INTO bookmarks_artifact_results
            (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
             database_path, status, reason, active)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-      );
-      const insertBookmarkFindingStatement = database.prepare(
-        `INSERT INTO bookmarks_findings
+        insertResult: (statement, currentRunId, artifact) =>
+          statement.run(
+            currentRunId,
+            artifact.sourceId,
+            artifact.profile,
+            artifact.artifact,
+            artifact.manifestEntryOrdinal,
+            artifact.databasePath,
+            artifact.status,
+            artifact.reason,
+          ).lastInsertRowid as bigint,
+        deactivateSql: `UPDATE bookmarks_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = ?
+            AND active = 1`,
+        deactivate: (statement, artifact) => {
+          statement.run(artifact.sourceId, artifact.profile, artifact.artifact);
+        },
+        activateSql:
+          "UPDATE bookmarks_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<BookmarksArtifactWrite, PersistedBookmarkFinding>(
+            `INSERT INTO bookmarks_findings
            (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
             record_type, finding_kind, profile_path, commit_state,
             provenance_json, fields_json, search_text, source_file, sort_name,
             sort_url, sort_date_added, sort_folder)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePreviousBookmark = database.prepare(
-        `UPDATE bookmarks_artifact_results
-            SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = ?
-            AND active = 1`,
-      );
-      const activateCurrentBookmark = database.prepare(
-        "UPDATE bookmarks_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-      const insertCacheArtifact = database.prepare(
-        `INSERT INTO cache_artifact_results
+            (artifact) => artifact.findings,
+            insertBookmarkFinding,
+          ),
+        ],
+      });
+
+      persistArtifacts<CacheArtifactWrite>(database, runId, {
+        artifacts: writes.cacheArtifacts,
+        insertResultSql: `INSERT INTO cache_artifact_results
            (run_id, source_id, profile_path, artifact, manifest_entry_ordinal,
             database_path, backend, status, reason, active)
          VALUES (?, ?, ?, 'Cache', ?, ?, ?, ?, ?, 0)`,
-      );
-      const insertCacheFindingStatement = database.prepare(
-        `INSERT INTO cache_findings
+        insertResult: (statement, currentRunId, artifact) =>
+          statement.run(
+            currentRunId,
+            artifact.sourceId,
+            artifact.profile,
+            artifact.manifestEntryOrdinal,
+            artifact.databasePath,
+            artifact.backend,
+            artifact.status,
+            artifact.reason,
+          ).lastInsertRowid as bigint,
+        deactivateSql: `UPDATE cache_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Cache'
+            AND active = 1`,
+        deactivate: bindSourceProfileDeactivate,
+        activateSql:
+          "UPDATE cache_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<CacheArtifactWrite, PersistedCacheFinding>(
+            `INSERT INTO cache_findings
            (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
             record_type, finding_kind, profile_path, commit_state, backend,
             provenance_json, fields_json, search_text, sort_key, sort_last_used,
             sort_size, sort_entry_hash)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const insertCacheCandidateStatement = database.prepare(
-        `INSERT INTO cache_candidates
+            (artifact) => artifact.findings,
+            insertCacheFinding,
+          ),
+          childPersist<CacheArtifactWrite, PersistedCacheCandidate>(
+            `INSERT INTO cache_candidates
            (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
             record_type, candidate_kind, profile_path, commit_state, backend,
             rank, supporting_count, provenance_json, fields_json, search_text,
             sort_key, sort_last_used)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePreviousCache = database.prepare(
-        `UPDATE cache_artifact_results
-            SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = 'Cache'
-            AND active = 1`,
-      );
-      const activateCurrentCache = database.prepare(
-        "UPDATE cache_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-      const insertCandidateArtifact = database.prepare(
-        `INSERT INTO candidate_artifact_results
+            (artifact) => artifact.candidates,
+            insertCacheCandidate,
+          ),
+        ],
+      });
+
+      persistArtifacts<CandidateArtifactWrite>(database, runId, {
+        artifacts: writes.candidateArtifacts,
+        insertResultSql: `INSERT INTO candidate_artifact_results
            (run_id, source_id, profile_path, artifact, database_path, status,
             reason, active)
          VALUES (?, ?, ?, 'Candidates', 'Candidates', ?, ?, 0)`,
-      );
-      const insertIdentityCandidateStatement = database.prepare(
-        `INSERT INTO identity_candidates
+        insertResult: (statement, currentRunId, artifact) =>
+          statement.run(
+            currentRunId,
+            artifact.sourceId,
+            artifact.profile,
+            artifact.status,
+            artifact.reason,
+          ).lastInsertRowid as bigint,
+        deactivateSql: `UPDATE candidate_artifact_results
+            SET active = 0
+          WHERE source_id = ? AND profile_path = ? AND artifact = 'Candidates'
+            AND active = 1`,
+        deactivate: bindSourceProfileDeactivate,
+        activateSql:
+          "UPDATE candidate_artifact_results SET active = 1 WHERE artifact_result_id = ?",
+        children: [
+          childPersist<CandidateArtifactWrite, PersistedIdentityCandidate>(
+            `INSERT INTO identity_candidates
            (artifact_result_id, run_id, record_type, candidate_kind, category,
             profile_path, rank, supporting_count, provenance_json, fields_json,
             search_text, sort_value)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const deactivatePreviousCandidate = database.prepare(
-        `UPDATE candidate_artifact_results
-            SET active = 0
-          WHERE source_id = ? AND profile_path = ? AND artifact = 'Candidates'
-            AND active = 1`,
-      );
-      const activateCurrentCandidate = database.prepare(
-        "UPDATE candidate_artifact_results SET active = 1 WHERE artifact_result_id = ?",
-      );
-
-      for (const artifact of options.artifacts) {
-        const insertion = insertArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.manifestEntryOrdinal,
-          artifact.databasePath,
-          artifact.schemaVersion,
-          artifact.integrity,
-          artifact.recoveryStatus,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const finding of artifact.findings) {
-          insertFinding(
-            insertFindingStatement,
-            artifactResultId,
-            runId,
-            finding,
-          );
-        }
-        for (const candidate of artifact.candidates ?? []) {
-          insertCandidate(
-            insertCandidateStatement,
-            artifactResultId,
-            runId,
-            candidate,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePrevious.run(artifact.sourceId, artifact.profile);
-          activateCurrent.run(artifactResultId);
-        }
-      }
-
-      for (const artifact of cookieArtifacts) {
-        const insertion = insertCookieArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.manifestEntryOrdinal,
-          artifact.databasePath,
-          artifact.schemaVersion,
-          artifact.integrity,
-          artifact.recoveryStatus,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const finding of artifact.findings) {
-          insertCookieFinding(
-            insertCookieFindingStatement,
-            artifactResultId,
-            runId,
-            finding,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePreviousCookie.run(artifact.sourceId, artifact.profile);
-          activateCurrentCookie.run(artifactResultId);
-        }
-      }
-
-      for (const artifact of options.topSitesArtifacts ?? []) {
-        const insertion = insertTopSiteArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.manifestEntryOrdinal,
-          artifact.databasePath,
-          artifact.schemaVersion,
-          artifact.integrity,
-          artifact.recoveryStatus,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const finding of artifact.findings) {
-          insertTopSiteFinding(
-            insertTopSiteFindingStatement,
-            artifactResultId,
-            runId,
-            finding,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePreviousTopSite.run(artifact.sourceId, artifact.profile);
-          activateCurrentTopSite.run(artifactResultId);
-        }
-      }
-
-      for (const artifact of options.faviconArtifacts ?? []) {
-        const insertion = insertFaviconArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.manifestEntryOrdinal,
-          artifact.databasePath,
-          artifact.schemaVersion,
-          artifact.integrity,
-          artifact.recoveryStatus,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const finding of artifact.findings) {
-          insertFaviconFinding(
-            insertFaviconFindingStatement,
-            artifactResultId,
-            runId,
-            finding,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePreviousFavicon.run(artifact.sourceId, artifact.profile);
-          activateCurrentFavicon.run(artifactResultId);
-        }
-      }
-
-      for (const artifact of options.loginDataArtifacts ?? []) {
-        const insertion = insertLoginArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.manifestEntryOrdinal,
-          artifact.databasePath,
-          artifact.schemaVersion,
-          artifact.integrity,
-          artifact.recoveryStatus,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const finding of artifact.findings) {
-          insertLoginFinding(
-            insertLoginFindingStatement,
-            artifactResultId,
-            runId,
-            finding,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePreviousLogin.run(artifact.sourceId, artifact.profile);
-          activateCurrentLogin.run(artifactResultId);
-        }
-      }
-
-      for (const artifact of options.webDataArtifacts ?? []) {
-        const insertion = insertWebDataArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.manifestEntryOrdinal,
-          artifact.databasePath,
-          artifact.schemaVersion,
-          artifact.integrity,
-          artifact.recoveryStatus,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const finding of artifact.findings) {
-          insertAutofillFinding(
-            insertWebDataFindingStatement,
-            artifactResultId,
-            runId,
-            finding,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePreviousWebData.run(artifact.sourceId, artifact.profile);
-          activateCurrentWebData.run(artifactResultId);
-        }
-      }
-
-      for (const artifact of options.downloadsArtifacts ?? []) {
-        const insertion = insertDownloadsArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.manifestEntryOrdinal,
-          artifact.databasePath,
-          artifact.schemaVersion,
-          artifact.integrity,
-          artifact.recoveryStatus,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const finding of artifact.findings) {
-          insertDownloadFinding(
-            insertDownloadFindingStatement,
-            artifactResultId,
-            runId,
-            finding,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePreviousDownloads.run(artifact.sourceId, artifact.profile);
-          activateCurrentDownloads.run(artifactResultId);
-        }
-      }
-
-      for (const artifact of metadataArtifacts) {
-        const insertion = insertMetadataArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.artifact,
-          artifact.manifestEntryOrdinal,
-          artifact.databasePath,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const finding of artifact.findings) {
-          insertMetadataFinding(
-            insertMetadataFindingStatement,
-            artifactResultId,
-            runId,
-            finding,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePreviousMetadata.run(
-            artifact.sourceId,
-            artifact.profile,
-            artifact.artifact,
-          );
-          activateCurrentMetadata.run(artifactResultId);
-        }
-      }
-
-      for (const artifact of bookmarksArtifacts) {
-        const insertion = insertBookmarkArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.artifact,
-          artifact.manifestEntryOrdinal,
-          artifact.databasePath,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const finding of artifact.findings) {
-          insertBookmarkFinding(
-            insertBookmarkFindingStatement,
-            artifactResultId,
-            runId,
-            finding,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePreviousBookmark.run(
-            artifact.sourceId,
-            artifact.profile,
-            artifact.artifact,
-          );
-          activateCurrentBookmark.run(artifactResultId);
-        }
-      }
-
-      for (const artifact of options.cacheArtifacts ?? []) {
-        const insertion = insertCacheArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.manifestEntryOrdinal,
-          artifact.databasePath,
-          artifact.backend,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const finding of artifact.findings) {
-          insertCacheFinding(
-            insertCacheFindingStatement,
-            artifactResultId,
-            runId,
-            finding,
-          );
-        }
-        for (const candidate of artifact.candidates) {
-          insertCacheCandidate(
-            insertCacheCandidateStatement,
-            artifactResultId,
-            runId,
-            candidate,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePreviousCache.run(artifact.sourceId, artifact.profile);
-          activateCurrentCache.run(artifactResultId);
-        }
-      }
-
-      for (const artifact of candidateArtifacts) {
-        const insertion = insertCandidateArtifact.run(
-          runId,
-          artifact.sourceId,
-          artifact.profile,
-          artifact.status,
-          artifact.reason,
-        );
-        const artifactResultId = insertion.lastInsertRowid as bigint;
-        for (const candidate of artifact.candidates) {
-          insertIdentityCandidate(
-            insertIdentityCandidateStatement,
-            artifactResultId,
-            runId,
-            candidate,
-          );
-        }
-        if (artifact.status === "complete") {
-          deactivatePreviousCandidate.run(artifact.sourceId, artifact.profile);
-          activateCurrentCandidate.run(artifactResultId);
-        }
-      }
+            (artifact) => artifact.candidates,
+            insertIdentityCandidate,
+          ),
+        ],
+      });
 
       // The SQLite primary stores (History, Cookies, Login Data, Web Data, Top
       // Sites, Favicons) drive the Analysis Run exit state. Several artifacts
@@ -2045,13 +2007,13 @@ export function storeHistoryAnalysis(
       // The excluded artifacts' health is surfaced separately in the analyse
       // summary.
       const combinedArtifacts = [
-        ...options.artifacts,
-        ...cookieArtifacts,
-        ...(options.loginDataArtifacts ?? []),
-        ...(options.topSitesArtifacts ?? []),
-        ...(options.webDataArtifacts ?? []),
-        ...(options.faviconArtifacts ?? []),
-        ...(options.downloadsArtifacts ?? []),
+        ...writes.historyArtifacts,
+        ...writes.cookieArtifacts,
+        ...writes.loginDataArtifacts,
+        ...writes.topSitesArtifacts,
+        ...writes.webDataArtifacts,
+        ...writes.faviconArtifacts,
+        ...writes.downloadsArtifacts,
       ];
       const unavailableCount = combinedArtifacts.filter(
         (artifact) => artifact.status === "unavailable",
@@ -2081,4 +2043,39 @@ export function storeHistoryAnalysis(
   } finally {
     database.close();
   }
+}
+
+/**
+ * Persist a full analysis run. This is a thin, backward-compatible wrapper: it
+ * accepts the historical options shape (with optional per-family arrays),
+ * normalizes it into a non-optional {@link ArtifactWrites} set, and delegates
+ * to {@link storeAnalysisWrites}. Existing callers keep compiling unchanged.
+ */
+export function storeHistoryAnalysis(
+  options: StoreHistoryAnalysisOptions,
+): StoredHistoryAnalysis {
+  const writes: ArtifactWrites = {
+    historyArtifacts: options.artifacts,
+    cookieArtifacts: options.cookieArtifacts ?? [],
+    topSitesArtifacts: options.topSitesArtifacts ?? [],
+    faviconArtifacts: options.faviconArtifacts ?? [],
+    loginDataArtifacts: options.loginDataArtifacts ?? [],
+    webDataArtifacts: options.webDataArtifacts ?? [],
+    downloadsArtifacts: options.downloadsArtifacts ?? [],
+    metadataArtifacts: options.metadataArtifacts ?? [],
+    bookmarksArtifacts: options.bookmarksArtifacts ?? [],
+    cacheArtifacts: options.cacheArtifacts ?? [],
+    candidateArtifacts: options.candidateArtifacts ?? [],
+  };
+  return storeAnalysisWrites(
+    {
+      caseDirectory: options.caseDirectory,
+      sourceIds: options.sourceIds,
+      declaredTimezone: options.declaredTimezone,
+      declaredOriginOs: options.declaredOriginOs,
+      invocation: options.invocation,
+      startedAt: options.startedAt,
+    },
+    writes,
+  );
 }

@@ -1,19 +1,12 @@
-import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 
 interface AnalyseResult {
   readonly command: "analyse";
@@ -35,21 +28,6 @@ interface HistoryPage {
   readonly items: readonly {
     readonly provenance: { readonly rowId: string };
   }[];
-}
-
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
 }
 
 async function writeFixtureFile(path: string, content: string): Promise<void> {

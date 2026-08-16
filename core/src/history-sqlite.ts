@@ -1,16 +1,26 @@
-import { lstat, mkdir, mkdtemp, open, rm } from "node:fs/promises";
-import type { FileHandle } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
 
-import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
+import { ForensixError } from "./errors.js";
 import { openDatabaseSync } from "./sqlite-open.js";
 import type { CommitState } from "./forensic-model.js";
-import { readStableRegularFile } from "./stable-file.js";
+import {
+  immutableDatabase,
+  snapshotVerifiedFile,
+  tableColumns,
+  tableExists,
+  type RawSqliteValue,
+  type VerifiedSqliteFile,
+} from "./sqlite-artifact.js";
 
-export type RawHistoryValue = null | string | bigint | Uint8Array;
+// The shared verified-SQLite helpers live in `sqlite-artifact.ts`. These
+// aliases and re-exports preserve this module's historical public surface so
+// existing importers keep working unchanged.
+export { immutableDatabase, snapshotVerifiedFile };
+export type RawHistoryValue = RawSqliteValue;
+export type VerifiedHistoryFile = VerifiedSqliteFile;
 export type HistorySourceTable = "visits" | "urls" | "visit_source";
 
 export interface SidecarSourceRow {
@@ -72,13 +82,6 @@ export interface HistoryPasses {
   readonly recoveryUnavailableReason: string | null;
 }
 
-export interface VerifiedHistoryFile {
-  readonly path: string;
-  readonly manifestPath: string;
-  readonly size: number;
-  readonly sha256: string;
-}
-
 const REQUIRED_VISIT_COLUMNS = [
   "id",
   "url",
@@ -123,25 +126,6 @@ const REQUIRED_URL_COLUMNS = [
   "last_visit_time",
   "hidden",
 ] as const;
-
-function tableExists(database: DatabaseSync, table: string): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = ? LIMIT 1",
-      )
-      .get(table) !== undefined
-  );
-}
-
-function tableColumns(database: DatabaseSync, table: string): Set<string> {
-  return new Set(
-    database
-      .prepare("SELECT name FROM pragma_table_info(?) ORDER BY cid")
-      .all(table)
-      .map((row) => String(row.name)),
-  );
-}
 
 function requireColumns(
   actual: ReadonlySet<string>,
@@ -329,15 +313,6 @@ function readPass(database: DatabaseSync): HistoryPass {
   return { schema, rows, integrity };
 }
 
-export function immutableDatabase(path: string): DatabaseSync {
-  const url = pathToFileURL(path);
-  url.searchParams.set("immutable", "1");
-  return openDatabaseSync(url.href, {
-    readOnly: true,
-    readBigInts: true,
-  });
-}
-
 function fingerprint(values: readonly RawHistoryValue[]): string {
   return JSON.stringify(values, (_key, value: unknown) =>
     typeof value === "bigint" ? `${value.toString()}n` : value,
@@ -438,73 +413,6 @@ function recoveredOnlyRows(
     }
   }
   return rows;
-}
-
-async function writeAll(destination: FileHandle, chunk: Buffer): Promise<void> {
-  let written = 0;
-  while (written < chunk.length) {
-    const result = await destination.write(
-      chunk,
-      written,
-      chunk.length - written,
-    );
-    written += result.bytesWritten;
-  }
-}
-
-export async function snapshotVerifiedFile(
-  source: VerifiedHistoryFile,
-  destinationPath: string,
-): Promise<void> {
-  let stats;
-  try {
-    stats = await lstat(source.path, { bigint: true });
-  } catch {
-    throw new WorkingCopyIntegrityRefusal([
-      { path: source.manifestPath, reason: "entry_missing" },
-    ]);
-  }
-  if (!stats.isFile() || stats.isSymbolicLink()) {
-    throw new WorkingCopyIntegrityRefusal([
-      { path: source.manifestPath, reason: "entry_not_regular_file" },
-    ]);
-  }
-
-  const destination = await open(destinationPath, "wx", 0o600);
-  let result;
-  try {
-    result = await readStableRegularFile(source.path, stats, async (chunk) =>
-      writeAll(destination, chunk),
-    );
-    await destination.sync();
-  } finally {
-    await destination.close();
-  }
-  if (result.status !== "stable") {
-    throw new WorkingCopyIntegrityRefusal([
-      { path: source.manifestPath, reason: "entry_unreadable" },
-    ]);
-  }
-  const issues = [];
-  if (result.size !== source.size) {
-    issues.push({
-      path: source.manifestPath,
-      reason: "entry_size_mismatch" as const,
-      expected: source.size,
-      actual: result.size,
-    });
-  }
-  if (result.sha256 !== source.sha256) {
-    issues.push({
-      path: source.manifestPath,
-      reason: "entry_hash_mismatch" as const,
-      expected: source.sha256,
-      actual: result.sha256,
-    });
-  }
-  if (issues.length > 0) {
-    throw new WorkingCopyIntegrityRefusal(issues);
-  }
 }
 
 /**

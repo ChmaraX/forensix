@@ -1,19 +1,12 @@
-import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli, writeLocalState } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 
 interface FieldValue<T> {
   readonly state: "value";
@@ -103,21 +96,6 @@ interface Cookie {
   readonly hasCrossSiteAncestor?: bigint;
 }
 
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
-}
-
 function prefixed(prefix: string, body: string): Uint8Array {
   return new Uint8Array([...Buffer.from(prefix), ...Buffer.from(body)]);
 }
@@ -196,7 +174,7 @@ async function createModernCookies(
 async function createSource(root: string): Promise<string> {
   const source = join(root, "source");
   await mkdir(source, { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   await createModernCookies(join(source, "Default", "Network", "Cookies"), [
     {
       host: ".alpha.example",
@@ -255,7 +233,7 @@ async function createWalSource(root: string): Promise<{
 }> {
   const source = join(root, "wal-source");
   await mkdir(source, { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   const cookiePath = join(source, "Default", "Network", "Cookies");
   await createModernCookies(cookiePath, [
     {
@@ -302,7 +280,7 @@ async function createWalSource(root: string): Promise<{
 async function createLegacyCookies(root: string): Promise<string> {
   const source = join(root, "legacy-source");
   await mkdir(join(source, "Default"), { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   const database = new DatabaseSync(join(source, "Default", "Cookies"));
   try {
     database.exec(`

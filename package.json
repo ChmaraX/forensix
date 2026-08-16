@@ -10,7 +10,7 @@
   "scripts": {
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm build && pnpm -r --if-present typecheck && tsc -p tsconfig.contracts.json",
-    "lint": "eslint core/src core/test cli/src server/src client/src e2e eslint.config.mjs vitest.config.ts && depcruise core/src cli/src server/src client/src --config .dependency-cruiser.cjs",
+    "lint": "eslint core/src core/test core/scripts cli/src server/src client/src e2e scripts eslint.config.mjs vitest.config.ts && depcruise core/src cli/src server/src client/src --config .dependency-cruiser.cjs",
     "format": "prettier --write --ignore-unknown package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.contracts.json eslint.config.mjs vitest.config.ts .dependency-cruiser.cjs commitlint.config.cjs core cli server client contracts e2e scripts",
     "format:check": "prettier --check --ignore-unknown package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.contracts.json eslint.config.mjs vitest.config.ts .dependency-cruiser.cjs commitlint.config.cjs core cli server client contracts e2e scripts",
     "prepare": "husky",
