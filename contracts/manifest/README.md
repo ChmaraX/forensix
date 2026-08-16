@@ -81,7 +81,7 @@ Keep the line order and the final LF bytes.
 This command reproduces the digest on a POSIX system:
 
 ```sh
-LC_ALL=C grep '"copied":true' manifest.jsonl | sort | sha256sum
+LC_ALL=C grep '"copied":true' manifest.jsonl | LC_ALL=C sort | sha256sum
 ```
 
 Use `shasum -a 256` instead of `sha256sum` on macOS.

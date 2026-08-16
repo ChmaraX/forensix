@@ -2,8 +2,8 @@
 
 The Acquisition Bundle Digest is the single cross-implementation digest for a
 whole Acquisition Bundle. The Collector writes it as `bundle_digest` in
-`bundle_manifest.json`; the analyzer recomputes it independently while
-inspecting a Bundle and refuses a Bundle whose recomputed digest differs.
+`bundle_manifest.json`. The analyzer recomputes it independently when it
+inspects a Bundle, and refuses a Bundle whose recomputed digest differs.
 
 ## Construction
 
