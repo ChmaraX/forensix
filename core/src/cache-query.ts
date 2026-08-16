@@ -1,18 +1,21 @@
-import { createHash } from "node:crypto";
-import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
-
-import { CASE_FILENAME } from "./case.js";
-import { ForensixError } from "./errors.js";
-import { SQLITE_MAX_INTEGER, SQLITE_MIN_INTEGER } from "./forensic-time.js";
+import {
+  assertCommitState,
+  createConditions,
+  decodeRecordJson,
+  normalizeLimit,
+  resolveProfiles,
+  resolveSearch,
+  runFindingQuery,
+  validateEnum,
+  type EngineRow,
+  type FindingQuerySpec,
+  type SortDefinition,
+} from "./finding-query.js";
 import {
   createCandidate,
   createFinding,
   type Candidate,
   type Finding,
-  type ForensicFields,
-  type Provenance,
 } from "./forensic-model.js";
 
 export type CacheDirection = "asc" | "desc";
@@ -40,26 +43,6 @@ export interface CachePage {
   readonly limit: number;
 }
 
-interface CursorPayload {
-  readonly version: 1;
-  readonly fingerprint: string;
-  readonly key: string;
-  readonly rowId: string;
-}
-
-interface QueryRow {
-  readonly row_id: bigint;
-  readonly finding_kind?: string;
-  readonly candidate_kind?: string;
-  readonly profile_path: string;
-  readonly commit_state?: string;
-  readonly rank?: bigint;
-  readonly supporting_count?: bigint;
-  readonly provenance_json: string;
-  readonly fields_json: string;
-  readonly cursor_key: string | bigint;
-}
-
 const CACHE_DIRECTIONS = ["asc", "desc"] as const;
 const CACHE_RECORD_TYPES = ["finding", "candidate"] as const;
 const FINDING_SORTS = [
@@ -72,36 +55,29 @@ const FINDING_SORTS = [
 const CANDIDATE_SORTS = ["key", "last-used", "profile"] as const;
 const CACHE_FINDING_KIND = "cache_entry";
 
-interface SortDefinition {
-  readonly expression: string;
-  readonly kind: "text" | "integer";
-}
-
-const FINDING_SORT_SQL: Readonly<Record<CacheSort, SortDefinition>> = {
-  key: { expression: "COALESCE(c.sort_key, '')", kind: "text" },
-  "last-used": { expression: "COALESCE(c.sort_last_used, '')", kind: "text" },
-  size: { expression: "COALESCE(c.sort_size, -1)", kind: "integer" },
-  "entry-hash": { expression: "c.sort_entry_hash", kind: "text" },
-  profile: { expression: "c.profile_path", kind: "text" },
+const FINDING_SORT_SQL: Readonly<Record<string, SortDefinition>> = {
+  key: { expression: "COALESCE(f.sort_key, '')", kind: "text" },
+  "last-used": { expression: "COALESCE(f.sort_last_used, '')", kind: "text" },
+  size: { expression: "COALESCE(f.sort_size, -1)", kind: "integer" },
+  "entry-hash": { expression: "f.sort_entry_hash", kind: "text" },
+  profile: { expression: "f.profile_path", kind: "text" },
 };
 
-const CANDIDATE_SORT_SQL: Readonly<
-  Record<(typeof CANDIDATE_SORTS)[number], SortDefinition>
-> = {
-  key: { expression: "COALESCE(c.sort_key, '')", kind: "text" },
-  "last-used": { expression: "COALESCE(c.sort_last_used, '')", kind: "text" },
-  profile: { expression: "c.profile_path", kind: "text" },
+const CANDIDATE_SORT_SQL: Readonly<Record<string, SortDefinition>> = {
+  key: { expression: "COALESCE(f.sort_key, '')", kind: "text" },
+  "last-used": { expression: "COALESCE(f.sort_last_used, '')", kind: "text" },
+  profile: { expression: "f.profile_path", kind: "text" },
 };
 
 /**
  * Everything that differs between a Finding query and a Candidate query, keyed
- * by record type and resolved once. Findings and Candidates share the same
- * cache tables' shape but diverge in table, id column, kind filter, sortable
- * columns, and how a row is rehydrated — collecting that here keeps the query
- * body a single code path instead of a cluster of parallel ternaries.
+ * by record type and resolved once. Findings and Candidates share the cache
+ * tables' shape but diverge in table, id column, kind filter, sortable columns,
+ * and how a row is rehydrated — collecting that here keeps the shared engine a
+ * single code path instead of a cluster of parallel ternaries.
  */
 interface RecordTypeConfig {
-  readonly table: string;
+  readonly mainTable: string;
   readonly idColumn: string;
   readonly kindFilter: {
     readonly column: string;
@@ -110,344 +86,153 @@ interface RecordTypeConfig {
   readonly sorts: readonly string[];
   readonly defaultSort: string;
   readonly sortSql: Readonly<Record<string, SortDefinition>>;
-  readonly selectExtra: string;
-  readonly parse: (
-    row: QueryRow,
-    provenance: Provenance,
-    fields: ForensicFields,
-  ) => Finding | Candidate;
+  readonly selectColumns: string;
+  readonly parse: (row: EngineRow) => Finding | Candidate;
 }
+
+const CACHE_INVALID_JSON = "Case contains invalid Cache record JSON.";
 
 const RECORD_TYPE_CONFIG: Readonly<Record<CacheRecordType, RecordTypeConfig>> =
   {
     finding: {
-      table: "cache_findings",
+      mainTable: "cache_findings",
       idColumn: "finding_id",
       kindFilter: { column: "finding_kind", value: CACHE_FINDING_KIND },
       sorts: FINDING_SORTS,
       defaultSort: "key",
       sortSql: FINDING_SORT_SQL,
-      selectExtra:
-        "c.finding_kind AS finding_kind, c.commit_state AS commit_state",
-      parse: (row, provenance, fields) => {
-        if (
-          row.commit_state !== "committed" &&
-          row.commit_state !== "wal_resident" &&
-          row.commit_state !== "journal_resident"
-        ) {
-          throw new ForensixError(
-            "CASE_INVALID",
-            "Case contains an invalid Commit State.",
-            { row_id: row.row_id.toString() },
-          );
-        }
+      selectColumns: "f.profile_path, f.finding_kind, f.commit_state",
+      parse: (row) => {
+        const { provenance, fields } = decodeRecordJson(
+          row,
+          CACHE_INVALID_JSON,
+          "row_id",
+        );
+        const commitState = assertCommitState(
+          row.commit_state,
+          "row_id",
+          row.entity_id.toString(),
+        );
         return createFinding({
           findingKind: row.finding_kind as string,
-          profile: row.profile_path,
-          commitState: row.commit_state,
+          profile: row.profile_path as string,
+          commitState,
           provenance,
           fields,
         });
       },
     },
     candidate: {
-      table: "cache_candidates",
+      mainTable: "cache_candidates",
       idColumn: "candidate_id",
       kindFilter: null,
       sorts: CANDIDATE_SORTS,
       defaultSort: "last-used",
       sortSql: CANDIDATE_SORT_SQL,
-      selectExtra:
-        "c.candidate_kind AS candidate_kind, c.rank AS rank, c.supporting_count AS supporting_count",
-      parse: (row, provenance, fields) =>
-        createCandidate({
+      selectColumns:
+        "f.profile_path, f.candidate_kind, f.rank, f.supporting_count",
+      parse: (row) => {
+        const { provenance, fields } = decodeRecordJson(
+          row,
+          CACHE_INVALID_JSON,
+          "row_id",
+        );
+        return createCandidate({
           candidateKind: row.candidate_kind as string,
           rank: Number(row.rank),
           count: Number(row.supporting_count),
           provenance,
           fields,
-        }),
+        });
+      },
     },
   };
 
-function queryFingerprint(input: Record<string, unknown>): string {
-  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
-}
-
-function encodeCursor(payload: CursorPayload): string {
-  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
-}
-
-function decodeCursor(
-  value: string,
-  expectedFingerprint: string,
-): CursorPayload {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-  } catch (error) {
-    throw new ForensixError(
-      "INVALID_CURSOR",
-      "Cache cursor is not valid.",
-      {},
-      { cause: error },
-    );
-  }
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("version" in parsed) ||
-    parsed.version !== 1 ||
-    !("fingerprint" in parsed) ||
-    parsed.fingerprint !== expectedFingerprint ||
-    !("key" in parsed) ||
-    typeof parsed.key !== "string" ||
-    !("rowId" in parsed) ||
-    typeof parsed.rowId !== "string" ||
-    !/^[0-9]+$/.test(parsed.rowId)
-  ) {
-    throw new ForensixError(
-      "INVALID_CURSOR",
-      "Cache cursor does not belong to this query.",
-    );
-  }
-  return parsed as CursorPayload;
-}
-
-function normalizeLimit(value: number | undefined): number {
-  const limit = value ?? 50;
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      "Cache --limit must be an integer from 1 through 100.",
-      { limit },
-    );
-  }
-  return limit;
-}
-
-function enumValue<const Values extends readonly string[]>(
-  value: string | undefined,
-  fallback: Values[number],
-  values: Values,
-  name: string,
-): Values[number] {
-  const result = value ?? fallback;
-  if (!values.includes(result)) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      `Cache ${name} has an unsupported value.`,
-      { value: result, allowed: values },
-    );
-  }
-  return result;
-}
-
-function openCase(caseDirectory: string): DatabaseSync {
-  const url = pathToFileURL(join(resolve(caseDirectory), CASE_FILENAME));
-  url.searchParams.set("immutable", "1");
-  return new DatabaseSync(url.href, { readOnly: true, readBigInts: true });
-}
-
-function cacheSchemaExists(database: DatabaseSync): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = 'cache_findings'",
-      )
-      .get() !== undefined
-  );
-}
-
-function activeIdentity(database: DatabaseSync): {
-  readonly caseId: string;
-  readonly artifactResultIds: readonly string[];
-} {
-  const caseRow = database
-    .prepare("SELECT case_id FROM case_info LIMIT 1")
-    .get();
-  if (typeof caseRow?.case_id !== "string") {
-    throw new ForensixError("CASE_INVALID", "Case identity is missing.");
-  }
-  const resultRows = database
-    .prepare(
-      `SELECT artifact_result_id
-         FROM cache_artifact_results
-        WHERE active = 1
-        ORDER BY artifact_result_id`,
-    )
-    .all();
+function createCacheSpec(
+  recordType: CacheRecordType,
+): FindingQuerySpec<CacheQuery, Finding | Candidate> {
+  const config = RECORD_TYPE_CONFIG[recordType];
   return {
-    caseId: caseRow.case_id,
-    artifactResultIds: resultRows.map((row) => String(row.artifact_result_id)),
+    label: "Cache",
+    analysisNotFound: "Case has no Cache analysis. Run analyse first.",
+    schemaTable: "cache_findings",
+    mainTable: config.mainTable,
+    resultsTable: "cache_artifact_results",
+    idColumn: config.idColumn,
+    cursorIdField: "rowId",
+    selectColumns: config.selectColumns,
+    parse: config.parse,
+    plan: (input) => {
+      const direction = validateEnum(
+        input.direction,
+        "asc",
+        CACHE_DIRECTIONS,
+        "--direction",
+        "Cache",
+      );
+      const sort = validateEnum(
+        input.sort,
+        config.defaultSort,
+        config.sorts,
+        "--sort",
+        "Cache",
+      );
+      const limit = normalizeLimit(input.limit, "Cache");
+      const profiles = resolveProfiles(input.profiles, "Cache");
+      const search = resolveSearch(input.search);
+      const backend = input.backend ?? null;
+
+      const where = createConditions();
+      where.add("f.record_type = ?", recordType);
+      if (config.kindFilter !== null) {
+        where.add(`f.${config.kindFilter.column} = ?`, config.kindFilter.value);
+      }
+      if (backend !== null) {
+        where.add("f.backend = ?", backend);
+      }
+      where.addProfiles(profiles);
+      where.addSearch(search);
+
+      return {
+        sort,
+        direction,
+        limit,
+        sortDefinition: config.sortSql[sort] as SortDefinition,
+        conditions: where.conditions,
+        parameters: where.parameters,
+        fingerprint: (identity) => ({
+          caseId: identity.caseId,
+          activeArtifactResultIds: identity.artifactResultIds,
+          recordType,
+          profiles,
+          search,
+          backend,
+          sort,
+          direction,
+        }),
+      };
+    },
   };
 }
 
-function parseRecord(
-  row: QueryRow,
-  config: RecordTypeConfig,
-): Finding | Candidate {
-  let provenance: Provenance;
-  let fields: ForensicFields;
-  try {
-    provenance = JSON.parse(row.provenance_json) as Provenance;
-    fields = JSON.parse(row.fields_json) as ForensicFields;
-  } catch (error) {
-    throw new ForensixError(
-      "CASE_INVALID",
-      "Case contains invalid Cache record JSON.",
-      { row_id: row.row_id.toString() },
-      { cause: error },
-    );
-  }
-  return config.parse(row, provenance, fields);
-}
-
 export function queryCache(input: CacheQuery): CachePage {
-  const recordType = enumValue(
+  const recordType = validateEnum(
     input.recordType,
     "finding",
     CACHE_RECORD_TYPES,
     "--record-type",
+    "Cache",
   );
-  const direction = enumValue(
-    input.direction,
-    "asc",
-    CACHE_DIRECTIONS,
-    "--direction",
+  const { items, nextCursor, limit } = runFindingQuery(
+    createCacheSpec(recordType),
+    input,
   );
-  const config = RECORD_TYPE_CONFIG[recordType];
-  const sort = enumValue(
-    input.sort,
-    config.defaultSort,
-    config.sorts,
-    "--sort",
-  );
-  const sortDefinition = config.sortSql[sort] as SortDefinition;
-  const sortExpression = sortDefinition.expression;
-  const limit = normalizeLimit(input.limit);
-  const profiles = [...new Set(input.profiles ?? [])].sort();
-  if (profiles.length > 100) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      "Cache queries accept at most 100 Profile filters.",
-      { profile_count: profiles.length },
-    );
-  }
-  const search = input.search?.toLocaleLowerCase("en-US") ?? null;
-  const backend = input.backend ?? null;
-
-  const { table, idColumn, kindFilter, selectExtra } = config;
-
-  const database = openCase(input.caseDirectory);
-  try {
-    if (!cacheSchemaExists(database)) {
-      throw new ForensixError(
-        "ANALYSIS_NOT_FOUND",
-        "Case has no Cache analysis. Run analyse first.",
-      );
-    }
-    const identity = activeIdentity(database);
-    const fingerprint = queryFingerprint({
-      caseId: identity.caseId,
-      activeArtifactResultIds: identity.artifactResultIds,
-      recordType,
-      profiles,
-      search,
-      backend,
-      sort,
-      direction,
-    });
-    const cursor =
-      input.after === undefined ? null : decodeCursor(input.after, fingerprint);
-
-    const conditions = ["r.active = 1", "c.record_type = ?"];
-    const parameters: (string | bigint)[] = [recordType];
-    if (kindFilter !== null) {
-      conditions.push(`c.${kindFilter.column} = ?`);
-      parameters.push(kindFilter.value);
-    }
-    if (profiles.length > 0) {
-      conditions.push(
-        `c.profile_path IN (${profiles.map(() => "?").join(", ")})`,
-      );
-      parameters.push(...profiles);
-    }
-    if (backend !== null) {
-      conditions.push("c.backend = ?");
-      parameters.push(backend);
-    }
-    if (search !== null) {
-      conditions.push("instr(c.search_text, ?) > 0");
-      parameters.push(search);
-    }
-    if (cursor !== null) {
-      const operator = direction === "asc" ? ">" : "<";
-      conditions.push(
-        `(${sortExpression} ${operator} ? OR ` +
-          `(${sortExpression} = ? AND c.${idColumn} ${operator} ?))`,
-      );
-      const rowId = BigInt(cursor.rowId);
-      const integerCursorKey =
-        sortDefinition.kind === "integer" && /^-?[0-9]+$/.test(cursor.key)
-          ? BigInt(cursor.key)
-          : null;
-      if (
-        rowId > SQLITE_MAX_INTEGER ||
-        (sortDefinition.kind === "integer" &&
-          (integerCursorKey === null ||
-            integerCursorKey < SQLITE_MIN_INTEGER ||
-            integerCursorKey > SQLITE_MAX_INTEGER))
-      ) {
-        throw new ForensixError(
-          "INVALID_CURSOR",
-          "Cache cursor contains an invalid sort key.",
-        );
-      }
-      const cursorKey =
-        sortDefinition.kind === "integer"
-          ? (integerCursorKey as bigint)
-          : cursor.key;
-      parameters.push(cursorKey, cursorKey, rowId);
-    }
-
-    parameters.push(BigInt(limit + 1));
-    const sqlDirection = direction === "asc" ? "ASC" : "DESC";
-    const rows = database
-      .prepare(
-        `SELECT c.${idColumn} AS row_id, c.profile_path,
-                ${selectExtra},
-                c.provenance_json, c.fields_json,
-                ${sortExpression} AS cursor_key
-           FROM ${table} c
-           JOIN cache_artifact_results r
-             ON r.artifact_result_id = c.artifact_result_id
-          WHERE ${conditions.join(" AND ")}
-          ORDER BY ${sortExpression} ${sqlDirection},
-                   c.${idColumn} ${sqlDirection}
-          LIMIT ?`,
-      )
-      .all(...parameters) as unknown as QueryRow[];
-    const hasNext = rows.length > limit;
-    const pageRows = hasNext ? rows.slice(0, limit) : rows;
-    const last = pageRows.at(-1);
-    return {
-      status: "ok",
-      command: "cache",
-      recordType,
-      items: pageRows.map((row) => parseRecord(row, config)),
-      nextCursor:
-        hasNext && last !== undefined
-          ? encodeCursor({
-              version: 1,
-              fingerprint,
-              key: last.cursor_key.toString(),
-              rowId: last.row_id.toString(),
-            })
-          : null,
-      limit,
-    };
-  } finally {
-    database.close();
-  }
+  return {
+    status: "ok",
+    command: "cache",
+    recordType,
+    items,
+    nextCursor,
+    limit,
+  };
 }
