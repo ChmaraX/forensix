@@ -12,8 +12,9 @@ Working rules for agents and contributors in this repository.
 ## Toolchain
 
 - **Node 24.15.0** (see `engines` in `package.json`).
-- pnpm workspace monorepo (`core/`, `cli/`, `server/`, `client/`, `contracts/`,
-  `collector/`, `e2e/`).
+- pnpm workspace with four members: `core/`, `cli/`, `server/`, `client/`.
+- `contracts/`, `collector/`, `e2e/`, and `scripts/` are in the repository but
+  are not pnpm workspace members. The Collector is a separate Go program.
 - Run the full gate before pushing:
 
   ```bash
@@ -56,6 +57,6 @@ When you rename a PR, keep the title conventional so the squash commit is valid.
 
 - The Analyzer and Collector are **separate, offline** programs. Do not couple
   them.
-- Do not change Analyzer behavior or output. Hardening (e.g. the bounded SQLite
+- Do not change Analyzer behavior or output. Hardening (for example, the bounded SQLite
   open retry in `core/src/sqlite-open.ts`) must leave successful results
-  byte-for-byte identical; it only affects the transient-failure path.
+  byte-for-byte identical. It only affects the transient-failure path.

@@ -15,14 +15,19 @@ The canonical files are:
 
 Collector tests read these files directly.
 There is no private Collector copy of the fixtures.
-The tests compare Manifest bytes and both digests exactly, run every language-neutral Selection Policy case, compare the compiled policy with the machine-readable policy, and reject unknown policy fields.
+The tests do these checks:
+
+- compare Manifest bytes and both digests exactly
+- run every language-neutral Selection Policy case
+- compare the compiled policy with the machine-readable policy
+- reject unknown policy fields
 
 ## Boundary decisions
 
 1. Manifest entries and headers contain only canonical fields in canonical order.
 2. Acquisition-only values, such as the absolute Source path and Go `time.Time`, do not enter Manifest JSON.
 3. Chrome-running and Liveness Evidence remain Acquisition Bundle metadata. They are not added to the canonical Manifest header.
-4. Tier 2 opt-in is recorded by `tier_2_included`; `selection_policy_diff` remains empty.
+4. Tier 2 opt-in is recorded by `tier_2_included`. `selection_policy_diff` remains empty.
 5. Paths outside a User Data Dir, including a platform scanner's external cache path, are not folded into that User Data Dir Manifest. The shared contract must define a second Source boundary before the Collector can represent those paths without a policy diff.
 6. Unsupported filesystem Node Types fail collection explicitly instead of being mislabeled as sockets.
 
