@@ -4,3 +4,7 @@ data/
 node_modules/
 **/node_modules/
 **/dist/
+
+# Local research/bench scaffolding (never on v2)
+research/
+tools/
