@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   mkdir,
@@ -9,34 +8,13 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli, writeLocalState } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
-
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
-}
 
 function sha256(data: Buffer): string {
   return createHash("sha256").update(data).digest("hex");
@@ -101,7 +79,7 @@ async function createHistory(path: string): Promise<void> {
 async function ingestAndAnalyse(root: string): Promise<string> {
   const source = join(root, "source");
   await mkdir(source, { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   await createHistory(join(source, "Default", "History"));
   const caseDirectory = join(root, "CASE-EXPORT");
   expect(
@@ -498,7 +476,7 @@ describe("compiled analyzer CLI canonical Extract export", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     await createHistory(join(source, "Default", "History"));
     const caseDirectory = join(root, "CASE-NO-ANALYSIS");
     expect(

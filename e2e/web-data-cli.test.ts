@@ -1,19 +1,12 @@
-import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli, writeLocalState } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 
 type Field<T> =
   | { readonly state: "value"; readonly value: T; readonly synthetic?: boolean }
@@ -55,21 +48,6 @@ interface AutofillPage {
   readonly items: readonly AutofillFinding[];
   readonly nextCursor: string | null;
   readonly limit: number;
-}
-
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
 }
 
 interface AutofillRow {
@@ -133,7 +111,7 @@ async function createWebData(
 async function createSource(root: string): Promise<string> {
   const source = join(root, "source");
   await mkdir(source, { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   await createWebData(join(source, "Default", "Web Data"), [
     // Unix seconds: 1704164645 -> 2024-01-02T03:04:05Z
     {
@@ -340,7 +318,7 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "wal-source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     const webPath = join(source, "Default", "Web Data");
     await createWebData(webPath, [
       {
@@ -427,7 +405,7 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "bad-source");
     await mkdir(join(source, "Default"), { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     // A Web Data database with meta but no autofill table.
     const noTablePath = join(source, "Default", "Web Data");
     const database = new DatabaseSync(noTablePath);

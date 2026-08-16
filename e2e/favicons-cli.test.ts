@@ -1,20 +1,13 @@
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli, writeLocalState } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 
 type Field<T> =
   | { readonly state: "value"; readonly value: T; readonly synthetic?: boolean }
@@ -62,21 +55,6 @@ interface FaviconPage {
   readonly items: readonly FaviconFinding[];
   readonly nextCursor: string | null;
   readonly limit: number;
-}
-
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
 }
 
 const WINDOWS_EPOCH_OFFSET_MICROS = 11_644_473_600_000_000n;
@@ -188,7 +166,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
 
     const alphaPng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x01, 0x02]);
     const bravoPng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0a, 0x0b, 0x0c]);
@@ -391,7 +369,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     const micros = 13_000_000_000_000_000n;
 
     // One icon WITH a cached bitmap, and one known favicon that Chromium
@@ -467,7 +445,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     const micros = 13_000_000_000_000_000n;
 
     const path = join(source, "Default", "Favicons");
@@ -543,7 +521,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "wal-source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     const micros = 13_000_000_000_000_000n;
     const committedIcon = new Uint8Array([0x01, 0x02, 0x03]);
     const walIcon = new Uint8Array([0x04, 0x05, 0x06, 0x07]);
@@ -647,7 +625,7 @@ describe("compiled analyzer CLI Favicons metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "gap-source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     const micros = 13_000_000_000_000_000n;
     // Default: a defensible Favicons store.
     await createFavicons(join(source, "Default", "Favicons"), [

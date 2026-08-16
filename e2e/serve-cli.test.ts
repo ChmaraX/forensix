@@ -1,17 +1,13 @@
-import {
-  spawn,
-  spawnSync,
-  type ChildProcessWithoutNullStreams,
-} from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { compiledCli, runCli, writeLocalState } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
 const runningServers: ChildProcessWithoutNullStreams[] = [];
 
@@ -63,21 +59,6 @@ function rawGet(
     request.on("error", rejectPromise);
     request.end();
   });
-}
-
-function runCli(arguments_: readonly string[]): {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-} {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
 }
 
 async function createHistory(
@@ -172,7 +153,7 @@ async function createHistory(
 async function createSource(root: string): Promise<string> {
   const source = join(root, "source");
   await mkdir(source, { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   await createHistory(join(source, "Default", "History"), [
     {
       id: 1n,

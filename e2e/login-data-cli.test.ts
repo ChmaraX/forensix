@@ -1,19 +1,12 @@
-import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli, writeLocalState } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 
 type Field<T> =
   | { readonly state: "value"; readonly value: T; readonly synthetic?: boolean }
@@ -60,21 +53,6 @@ interface CredentialPage {
   readonly items: readonly CredentialFinding[];
   readonly nextCursor: string | null;
   readonly limit: number;
-}
-
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
 }
 
 interface LoginRow {
@@ -182,7 +160,7 @@ const DPAPI_SECRET = new Uint8Array([0x01, 0x00, 0x00, 0x00, 0xaa, 0xbb]);
 async function createSource(root: string): Promise<string> {
   const source = join(root, "source");
   await mkdir(source, { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   await createLoginData(join(source, "Default", "Login Data"), [
     {
       id: 1n,
@@ -449,7 +427,7 @@ describe("compiled analyzer CLI Login Data credential metadata", () => {
     temporaryRoots.push(root);
     const source = join(root, "wal-source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     const loginPath = join(source, "Default", "Login Data");
     await createLoginData(loginPath, [
       {

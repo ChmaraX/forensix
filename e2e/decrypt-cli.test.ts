@@ -1,20 +1,13 @@
-import { spawnSync } from "node:child_process";
 import { createCipheriv, pbkdf2Sync } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli, writeLocalState } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 
 type Field<T> =
   | { readonly state: "value"; readonly value: T }
@@ -33,21 +26,6 @@ interface CredentialFinding {
 
 interface CredentialPage {
   readonly items: readonly CredentialFinding[];
-}
-
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
 }
 
 const CBC_IV = Buffer.alloc(16, 0x20);
@@ -139,7 +117,7 @@ describe("compiled analyzer CLI offline OSCrypt decryption", () => {
     temporaryRoots.push(root);
     const source = join(root, "source");
     await mkdir(source, { recursive: true });
-    await writeFile(join(source, "Local State"), "{}\n");
+    await writeLocalState(source);
     const loginPath = join(source, "Default", "Login Data");
     await createLoginData(loginPath);
     const sourceBytes = await readFile(loginPath);

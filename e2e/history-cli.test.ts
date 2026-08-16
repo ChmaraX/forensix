@@ -1,21 +1,15 @@
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawn, type ChildProcess } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { once } from "node:events";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const compiledCli = resolve("cli/dist/cli.js");
+import { parseJson, runCli, writeLocalState } from "./lib/harness.js";
 const temporaryRoots: string[] = [];
-
-interface CliResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 
 interface FieldValue<T> {
   readonly state: "value";
@@ -73,21 +67,6 @@ interface HistoryPage {
   readonly items: readonly HistoryFinding[];
   readonly nextCursor: string | null;
   readonly limit: number;
-}
-
-function runCli(arguments_: readonly string[]): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-function parseJson<T>(value: string): T {
-  return JSON.parse(value.trim()) as T;
 }
 
 async function createHistory(
@@ -219,7 +198,7 @@ async function createHistory(
 async function createSource(root: string): Promise<string> {
   const source = join(root, "source");
   await mkdir(source, { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   await createHistory(join(source, "Default", "History"), [
     {
       id: 1n,
@@ -264,7 +243,7 @@ async function createWalSource(root: string): Promise<{
 }> {
   const source = join(root, "wal-source");
   await mkdir(source, { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   const historyPath = join(source, "Default", "History");
   await createHistory(historyPath, [
     {
@@ -367,7 +346,7 @@ async function createHotJournalSource(root: string): Promise<{
 }> {
   const source = join(root, "journal-source");
   await mkdir(source, { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   const rows = Array.from({ length: 300 }, (_, index) => {
     const id = BigInt(index + 1);
     return {
@@ -433,7 +412,7 @@ async function stopHotJournalWriter(writer: ChildProcess): Promise<void> {
 async function createLegacyHistorySource(root: string): Promise<string> {
   const source = join(root, "legacy-source");
   await mkdir(join(source, "Default"), { recursive: true });
-  await writeFile(join(source, "Local State"), "{}\n");
+  await writeLocalState(source);
   const database = new DatabaseSync(join(source, "Default", "History"));
   try {
     database.exec(`
