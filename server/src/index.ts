@@ -10,13 +10,22 @@ import { createRequire } from "node:module";
 
 import {
   ForensixError,
+  queryAutofill,
+  queryBookmarks,
   queryCandidates,
   queryCompleteness,
   queryCookies,
   queryCredentials,
+  queryDownloads,
   queryHistory,
+  queryMetadata,
   queryProfiles,
   queryTopSites,
+  type AutofillDirection,
+  type AutofillSort,
+  type BookmarkDirection,
+  type BookmarkSort,
+  type BookmarkSource,
   type CandidateDirection,
   type CandidateSort,
   type CommitState,
@@ -24,9 +33,14 @@ import {
   type CookieSort,
   type CredentialDirection,
   type CredentialSort,
+  type DownloadDirection,
+  type DownloadSort,
   type HistoryDirection,
   type HistorySort,
   type HistoryView,
+  type MetadataDirection,
+  type MetadataSort,
+  type MetadataType,
   type TopSiteDirection,
   type TopSiteSort,
 } from "@forensix/core";
@@ -324,6 +338,56 @@ const API_ROUTES = new Map<
         ...listParameters<CandidateSort, CandidateDirection>(parameters),
         category: firstString(parameters.get("category")),
         kind: firstString(parameters.get("kind")),
+      }),
+  ],
+  [
+    "metadata",
+    (parameters, caseDirectory) =>
+      queryMetadata({
+        caseDirectory,
+        ...listParameters<MetadataSort, MetadataDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        type: firstString(parameters.get("type")) as MetadataType | undefined,
+      }),
+  ],
+  [
+    "downloads",
+    (parameters, caseDirectory) =>
+      queryDownloads({
+        caseDirectory,
+        ...listParameters<DownloadSort, DownloadDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        state: firstString(parameters.get("state")),
+        dangerType: firstString(parameters.get("danger-type")),
+      }),
+  ],
+  [
+    "bookmarks",
+    (parameters, caseDirectory) =>
+      queryBookmarks({
+        caseDirectory,
+        ...listParameters<BookmarkSort, BookmarkDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        source: firstString(parameters.get("source")) as
+          | BookmarkSource
+          | undefined,
+      }),
+  ],
+  [
+    "autofill",
+    (parameters, caseDirectory) =>
+      queryAutofill({
+        caseDirectory,
+        ...listParameters<AutofillSort, AutofillDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
       }),
   ],
 ]);
