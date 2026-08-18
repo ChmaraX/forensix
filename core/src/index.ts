@@ -167,6 +167,23 @@ export {
   type OverviewArtifact,
 } from "./case-overview.js";
 export {
+  queryTimeline,
+  type TimelineDirection,
+  type TimelinePage,
+  type TimelineQuery,
+} from "./timeline-query.js";
+export {
+  querySiteFindings,
+  querySiteHosts,
+  type SiteArtifactKind,
+  type SiteFinding,
+  type SiteFindingsPage,
+  type SiteFindingsQuery,
+  type SiteHost,
+  type SiteHostPage,
+  type SiteHostQuery,
+} from "./sites-query.js";
+export {
   queryHistory,
   type HistoryDirection,
   type HistoryPage,
