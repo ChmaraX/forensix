@@ -460,6 +460,90 @@ afterEach(async () => {
 });
 
 describe("compiled analyzer CLI History Finding pipeline", () => {
+  it("queries timeline, sites, and completeness through the compiled CLI", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-overview-e2e-"));
+    temporaryRoots.push(root);
+    const source = await createSource(root);
+    const caseDirectory = join(root, "CASE-OVERVIEW");
+
+    expect(
+      runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+    ).toBe(0);
+    expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
+      0,
+    );
+
+    const firstTimeline = parseJson<{
+      readonly command: "timeline";
+      readonly items: readonly { readonly id: string }[];
+      readonly nextCursor: string | null;
+      readonly limit: number;
+    }>(
+      runCli([
+        "timeline",
+        "--case",
+        caseDirectory,
+        "--direction",
+        "asc",
+        "--limit",
+        "2",
+        "--json",
+      ]).stdout,
+    );
+    expect(firstTimeline).toMatchObject({ command: "timeline", limit: 2 });
+    expect(firstTimeline.items).toHaveLength(2);
+    expect(firstTimeline.nextCursor).not.toBeNull();
+
+    const secondTimeline = parseJson<{
+      readonly items: readonly { readonly id: string }[];
+    }>(
+      runCli([
+        "timeline",
+        "--case",
+        caseDirectory,
+        "--direction",
+        "asc",
+        "--limit",
+        "2",
+        "--after",
+        firstTimeline.nextCursor as string,
+        "--json",
+      ]).stdout,
+    );
+    expect(secondTimeline.items).toHaveLength(1);
+
+    const siteFindings = parseJson<{
+      readonly command: "site-findings";
+      readonly items: readonly { readonly artifactKind: string }[];
+    }>(
+      runCli([
+        "site-findings",
+        "--case",
+        caseDirectory,
+        "--host",
+        "alpha.example",
+        "--json",
+      ]).stdout,
+    );
+    expect(siteFindings).toMatchObject({ command: "site-findings" });
+    expect(siteFindings.items).toHaveLength(2);
+    expect(
+      siteFindings.items.every((item) => item.artifactKind === "visits"),
+    ).toBe(true);
+
+    const completeness = parseJson<{
+      readonly command: "completeness";
+      readonly statements: readonly {
+        readonly artifact: string;
+        readonly attempted: number;
+      }[];
+    }>(runCli(["completeness", "--case", caseDirectory, "--json"]).stdout);
+    expect(completeness.command).toBe("completeness");
+    expect(completeness.statements).toContainEqual(
+      expect.objectContaining({ artifact: "History", attempted: 2 }),
+    );
+  });
+
   it("analyses committed History across Profiles and returns bounded keyset pages", async () => {
     const root = await mkdtemp(join(tmpdir(), "forensix-history-e2e-"));
     temporaryRoots.push(root);

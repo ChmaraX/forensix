@@ -1,14 +1,20 @@
 import {
+  ForensixError,
   queryAutofill,
   queryBookmarks,
   queryCache,
   queryCandidates,
+  queryCompleteness,
   queryCookies,
   queryCredentials,
   queryDownloads,
   queryFavicons,
   queryHistory,
   queryMetadata,
+  queryProfiles,
+  querySiteFindings,
+  querySiteHosts,
+  queryTimeline,
   queryTopicCandidates,
   queryTopSites,
 } from "@forensix/core";
@@ -76,6 +82,91 @@ export interface QueryCommandSpec {
  * emission for every entry.
  */
 export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
+  [
+    "timeline",
+    {
+      allowedOptions: new Set([
+        "--case",
+        "--json",
+        "--from",
+        "--to",
+        "--direction",
+        "--limit",
+        "--after",
+      ]),
+      execute: (parsed) =>
+        queryTimeline({
+          caseDirectory: requiredCasePath(parsed),
+          from: optionValue(parsed, "--from"),
+          to: optionValue(parsed, "--to"),
+          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          limit: integerOption(parsed, "--limit"),
+          after: optionValue(parsed, "--after"),
+        }),
+    },
+  ],
+  [
+    "site-hosts",
+    {
+      allowedOptions: new Set([
+        "--case",
+        "--json",
+        "--search",
+        "--limit",
+        "--after",
+      ]),
+      execute: (parsed) =>
+        querySiteHosts({
+          caseDirectory: requiredCasePath(parsed),
+          search: optionValue(parsed, "--search"),
+          limit: integerOption(parsed, "--limit"),
+          after: optionValue(parsed, "--after"),
+        }),
+    },
+  ],
+  [
+    "site-findings",
+    {
+      allowedOptions: new Set([
+        "--case",
+        "--json",
+        "--host",
+        "--limit",
+        "--after",
+      ]),
+      execute: (parsed) => {
+        const host = optionValue(parsed, "--host");
+        if (host === undefined) {
+          throw new ForensixError(
+            "INVALID_ARGUMENT",
+            "Option --host is required.",
+          );
+        }
+        return querySiteFindings({
+          caseDirectory: requiredCasePath(parsed),
+          host,
+          limit: integerOption(parsed, "--limit"),
+          after: optionValue(parsed, "--after"),
+        });
+      },
+    },
+  ],
+  [
+    "completeness",
+    {
+      allowedOptions: new Set(["--case", "--json"]),
+      execute: (parsed) =>
+        queryCompleteness({ caseDirectory: requiredCasePath(parsed) }),
+    },
+  ],
+  [
+    "profiles",
+    {
+      allowedOptions: new Set(["--case", "--json"]),
+      execute: (parsed) =>
+        queryProfiles({ caseDirectory: requiredCasePath(parsed) }),
+    },
+  ],
   [
     "history",
     {
