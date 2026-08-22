@@ -8,3 +8,8 @@ node_modules/
 # Local research/bench scaffolding (never on v2)
 research/
 tools/
+
+# Impeccable design scaffolding (local only, never on v2)
+PRODUCT.md
+DESIGN.md
+.impeccable/

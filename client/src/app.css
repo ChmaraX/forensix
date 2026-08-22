@@ -1,0 +1,366 @@
+@import "tailwindcss";
+
+/*
+ * ForensiX theme — zinc + one blue, light and dark.
+ *
+ * The canon dashboard played straight and quiet: neutral zinc surfaces carry
+ * the structure, exactly one blue marks interaction and brand, and the four
+ * evidence-state hues (emerald produced, red unavailable, amber WAL, violet
+ * journal) are the only other colour on the page. Because nothing else is
+ * tinted, state colour reads loudly — but it is always paired with its state
+ * word, never alone. The blue is vivid in exactly one place, the flat brand
+ * tile; everywhere else it appears as text, a pale wash, or a control fill —
+ * no gradients, no glows, no moving indicators.
+ *
+ * Both modes are defined here as semantic shadcn-style tokens. The resolved
+ * mode is written to `<html data-theme>` by `theme.tsx`; there is no media
+ * query, because the whole surface is JS-rendered and the theme is resolved
+ * before first paint. System font stack only (the server CSP forbids font
+ * files).
+ */
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --background: #f4f4f5;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --muted: #e9e9ec;
+  --muted-foreground: #71717a;
+
+  /* The single interactive hue. Nothing decorative may use it. */
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
+  --accent-border: #bfdbfe;
+
+  /* One inverted tile per screen, for contrast punctuation. */
+  --inverse: #18181b;
+  --inverse-foreground: #fafafa;
+
+  /* The logomark stays a solid block in both modes, unlike the tile. */
+  --mark: #18181b;
+  --mark-foreground: #fafafa;
+
+  --border: #e4e4e7;
+  --ring: #2563eb;
+
+  /* Evidence states. Each hue owns one meaning and never appears without it.
+     WAL shares the amber family with warnings on purpose: both mean "present,
+     but not the committed story", and neither is ever shown without words. */
+  --destructive: #b91c1c;
+  --destructive-wash: #fef2f2;
+  --destructive-border: #fecaca;
+  --warning: #b45309;
+  --warning-wash: #fffbeb;
+  --warning-border: #fde68a;
+  --wal: #b45309;
+  --wal-wash: #fffbeb;
+  --wal-border: #fde68a;
+  --violet: #6d28d9;
+  --violet-wash: #f5f3ff;
+  --violet-border: #ddd6fe;
+  --success: #047857;
+  --success-wash: #ecfdf5;
+  --success-border: #a7f3d0;
+
+  /* Browser surfaces we do not draw ourselves. */
+  --selection: #dbeafe;
+  --scrollbar: #d4d4d8;
+  --scrollbar-hover: #a1a1aa;
+  --edge-shadow: rgb(24 24 27 / 0.16);
+
+  /* The soft world the bar established. Panels read as objects on the ground
+     rather than boxes ruled onto it; controls follow so nothing looks like a
+     leftover from a squarer system. */
+  --radius: 1rem;
+
+  /* The brand blue, kept to one flat block: the logo tile (and the "X" in
+     the wordmark). Solid, no gradient, no glow — every other blue on the
+     page is the quiet accent wash or the deep interactive blue, so the one
+     vivid block stays a mark, not wallpaper. */
+  --accent-strong: #2563eb;
+  --accent-strong-foreground: #ffffff;
+
+  /* The rail is a floating panel, not a flush-bordered strip; it reuses the
+     same edge-shadow tone the table's scroll gutters already use. */
+  --rail-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.04), 0 20px 32px -16px var(--edge-shadow);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+
+  --primary: #60a5fa;
+  --primary-foreground: #09090b;
+  --accent: #17233d;
+  --accent-foreground: #93c5fd;
+  --accent-border: #1e3a5f;
+
+  /* Dark mode lifts the punctuation tile instead of inverting it: a pure-white
+     block glares in the dim rooms this surface is read in. At logomark size it
+     does not, so the mark still inverts. */
+  --inverse: #26262c;
+  --inverse-foreground: #fafafa;
+
+  --mark: #fafafa;
+  --mark-foreground: #09090b;
+
+  --border: #27272a;
+  --ring: #60a5fa;
+
+  --destructive: #f87171;
+  --destructive-wash: #2a1517;
+  --destructive-border: #4c1f22;
+  --warning: #fbbf24;
+  --warning-wash: #2a2011;
+  --warning-border: #4a3714;
+  --wal: #fbbf24;
+  --wal-wash: #2a2011;
+  --wal-border: #4a3714;
+  --violet: #a78bfa;
+  --violet-wash: #1e1a33;
+  --violet-border: #3a3060;
+  --success: #34d399;
+  --success-wash: #0d2620;
+  --success-border: #14483a;
+
+  --selection: #1e3a8a;
+  --scrollbar: #3f3f46;
+  --scrollbar-hover: #52525b;
+  --edge-shadow: rgb(0 0 0 / 0.55);
+
+  /* The same flat brand block on near-black — one step brighter so it reads
+     as the same blue against the dark ground. */
+  --accent-strong: #3b82f6;
+  --accent-strong-foreground: #ffffff;
+
+  --rail-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.3), 0 20px 36px -16px var(--edge-shadow);
+}
+
+@theme inline {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+    monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-border: var(--accent-border);
+  --color-inverse: var(--inverse);
+  --color-inverse-foreground: var(--inverse-foreground);
+  --color-mark: var(--mark);
+  --color-mark-foreground: var(--mark-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-wash: var(--destructive-wash);
+  --color-destructive-border: var(--destructive-border);
+  --color-warning: var(--warning);
+  --color-warning-wash: var(--warning-wash);
+  --color-warning-border: var(--warning-border);
+  --color-wal: var(--wal);
+  --color-wal-wash: var(--wal-wash);
+  --color-wal-border: var(--wal-border);
+  --color-violet: var(--violet);
+  --color-violet-wash: var(--violet-wash);
+  --color-violet-border: var(--violet-border);
+  --color-success: var(--success);
+  --color-success-wash: var(--success-wash);
+  --color-success-border: var(--success-border);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+/* Browser surfaces carry the design too. */
+::selection {
+  background-color: var(--selection);
+  color: var(--foreground);
+}
+
+html {
+  background-color: var(--background);
+  caret-color: var(--primary);
+  scrollbar-color: var(--scrollbar) transparent;
+  /* The shell (rail + content) is horizontally centered with `mx-auto`, so
+     its position depends on the viewport's available width. Without this,
+     a vertical scrollbar appearing or disappearing between a tall page and
+     a short one changes that width and the whole shell visibly shifts
+     sideways on navigation. Reserving the gutter unconditionally keeps the
+     available width — and the shell's centered position — constant
+     regardless of whether any given page needs to scroll. */
+  scrollbar-gutter: stable;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-hover);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body {
+  @apply bg-background font-sans text-[14px] leading-normal text-foreground antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes fx-sheet-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fx-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fx-sheet {
+  animation: fx-sheet-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fx-backdrop {
+  animation: fx-backdrop-in 150ms ease-out;
+}
+
+@keyframes fx-popover-in {
+  from {
+    transform: translateY(-4px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.fx-popover {
+  animation: fx-popover-in 130ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: var(--radix-popover-content-transform-origin);
+}
+
+/* Section tabs scroll sideways on narrow viewports. The bar is short and the
+   active tab is already marked by its underline, so a scrollbar under it would
+   only add a second horizontal rule. */
+.fx-tabs {
+  scrollbar-width: none;
+}
+.fx-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Overview masthead — the one saturated panel in the app. A quiet two-stop
+   dive through the brand blue plus a faint top-corner sheen; the same hue
+   family as `--accent-strong`, so the panel reads as "the surface talking"
+   at full volume, never as an evidence state. */
+:root,
+:root[data-theme="light"] {
+  --hero-grad: linear-gradient(135deg, #2456d3 0%, #1d43b8 52%, #16339b 100%);
+  --hero-sheen: radial-gradient(
+    120% 140% at 88% -20%,
+    rgb(255 255 255 / 0.16),
+    transparent 55%
+  );
+}
+
+:root[data-theme="dark"] {
+  --hero-grad: linear-gradient(135deg, #2f66e8 0%, #1d4ed8 52%, #1a3ba6 100%);
+  --hero-sheen: radial-gradient(
+    120% 140% at 88% -20%,
+    rgb(255 255 255 / 0.12),
+    transparent 55%
+  );
+}
+
+.fx-hero {
+  background-image: var(--hero-sheen), var(--hero-grad);
+}
+
+/* Staggered entrance for the Overview panels: one authored moment, applied
+   once on load, offset per panel via --fx-delay. Collapses to an instant cut
+   under prefers-reduced-motion (duration and delay both zeroed above). */
+@keyframes fx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fx-rise {
+  animation: fx-rise 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--fx-delay, 0ms);
+}
+
+/* Horizontal-scroll affordance for wide evidence tables. */
+.fx-scroll-x {
+  overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--card) 40%, transparent) left / 56px 100%
+      no-repeat local,
+    linear-gradient(to left, var(--card) 40%, transparent) right / 56px 100%
+      no-repeat local,
+    linear-gradient(to right, var(--edge-shadow), transparent) left / 18px 100%
+      no-repeat scroll,
+    linear-gradient(to left, var(--edge-shadow), transparent) right / 18px 100%
+      no-repeat scroll;
+}

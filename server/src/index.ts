@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   createServer,
   type IncomingMessage,
@@ -10,13 +11,30 @@ import { createRequire } from "node:module";
 
 import {
   ForensixError,
+  queryAutofill,
+  queryBookmarks,
+  queryCache,
   queryCandidates,
   queryCompleteness,
   queryCookies,
   queryCredentials,
+  queryDownloads,
+  queryFavicons,
   queryHistory,
+  queryMetadata,
   queryProfiles,
   queryTopSites,
+  queryTopicCandidates,
+  type AutofillDirection,
+  type Finding,
+  type ForensicFields,
+  type AutofillSort,
+  type BookmarkDirection,
+  type BookmarkSort,
+  type BookmarkSource,
+  type CacheDirection,
+  type CacheRecordType,
+  type CacheSort,
   type CandidateDirection,
   type CandidateSort,
   type CommitState,
@@ -24,11 +42,20 @@ import {
   type CookieSort,
   type CredentialDirection,
   type CredentialSort,
+  type DownloadDirection,
+  type DownloadSort,
+  type FaviconDirection,
+  type FaviconSort,
   type HistoryDirection,
   type HistorySort,
   type HistoryView,
+  type MetadataDirection,
+  type MetadataSort,
+  type MetadataType,
   type TopSiteDirection,
   type TopSiteSort,
+  type TopicCandidateDirection,
+  type TopicCandidateSort,
 } from "@forensix/core";
 
 /**
@@ -87,6 +114,28 @@ function htmlShell(token: string): string {
     <script type="module" src="/index.js"></script>
   </head>
   <body>
+    <!--
+      impeccable direction contract (seed 91bc94c0)
+      THESIS: Evidence you can defend. The canon dashboard played straight; it
+      refuses novelty chrome and spends everything on legibility and state truth.
+      OWN-WORLD: Zinc neutrals on faint ground, near-black dark mode; one
+      blue for interaction and brand, vivid only as the flat logo tile,
+      elsewhere a pale accent wash or deep interactive blue; no gradients,
+      no glows, no moving indicators; state hues as law (emerald produced,
+      crimson unavailable, amber WAL, violet journal) always paired with
+      words; system sans; mono evidence values.
+      STORY: An examiner opens a Case, sees completeness before rows, filters
+      evidence, traces any value to manifest-table-rowid, and trusts the surface
+      because it cannot write.
+      FIRST VIEWPORT: Left sidebar (mark, READ-ONLY, artifact nav, state
+      legend); main: artifact header, Completeness Statement, filter toolbar,
+      committed table; row click slides in the provenance panel.
+      FORM: Category canon at Linear/Vercel/Supabase craft; the standing exit,
+      chosen by the user; seed 91bc94c0.
+      FINISH: unreviewed and undocumented is unfinished; this build ends with
+      the finish review, the verdict, DESIGN.md, and every shipping raster
+      carrying its provenance
+    -->
     <noscript>This read-only dashboard needs JavaScript to render Case lists.</noscript>
     <div id="app">Loading read-only Case dashboard…</div>
   </body>
@@ -201,6 +250,154 @@ function firstString(value: string | null): string | undefined {
   return value ?? undefined;
 }
 
+function findingFieldString(
+  fields: ForensicFields,
+  key: string,
+): string | null {
+  const field = fields[key];
+  return field !== undefined &&
+    field.state === "value" &&
+    typeof field.value === "string"
+    ? field.value
+    : null;
+}
+
+function findingFieldStringArray(
+  fields: ForensicFields,
+  key: string,
+): readonly string[] {
+  const field = fields[key];
+  if (field === undefined || field.state !== "value" || !Array.isArray(field.value)) {
+    return [];
+  }
+  return field.value.filter(
+    (entry): entry is string => typeof entry === "string",
+  );
+}
+
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sniffs the image container from its leading bytes. The recovered favicon
+ * payload carries no format field of its own — Chrome writes
+ * `favicon_bitmaps.image_data` as whichever container the site served,
+ * historically almost always PNG but never guaranteed. Unrecognized bytes
+ * fall back to PNG, the overwhelming common case, rather than dropping the
+ * icon entirely.
+ */
+function sniffImageMimeType(bytes: Buffer): string {
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
+    return "image/png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (bytes.length >= 3 && bytes.toString("ascii", 0, 3) === "GIF") {
+    return "image/gif";
+  }
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x00 &&
+    bytes[1] === 0x00 &&
+    bytes[2] === 0x01 &&
+    bytes[3] === 0x00
+  ) {
+    return "image/x-icon";
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes.toString("ascii", 0, 4) === "RIFF" &&
+    bytes.toString("ascii", 8, 12) === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return "image/png";
+}
+
+/**
+ * Best-effort favicon lookup for a set of hosts, read straight from the
+ * Case's own recovered `favicon_bitmaps` payloads and returned as inline
+ * `data:` URIs — the dashboard's CSP (`img-src data:`) admits no other image
+ * source, so this is the only way a recovered icon can render at all; it is
+ * never fetched live. "Best" is the largest recovered bitmap whose page URLs
+ * or icon URL resolve to that host. A host with no recovered favicon maps to
+ * `null`, the dashboard's cue to fall back to its own letter tile — the
+ * absence is real, not a loading state.
+ *
+ * Reads one page of favicons (the route's own cap, 100 rows) rather than
+ * paginating the whole table: enough for every dashboard caller today (a
+ * handful of Overview or Sites-tab hosts at a time). A Case with more than
+ * 100 recovered favicons can miss one for a requested host; that host then
+ * falls back to its letter tile exactly as if none had been recovered,
+ * never a wrong or stale icon.
+ */
+function resolveFaviconDataUris(
+  caseDirectory: string,
+  hosts: readonly string[],
+): Record<string, string | null> {
+  const wanted = new Set(hosts);
+  const best = new Map<string, { width: number; path: string }>();
+  const page = queryFavicons({ caseDirectory, limit: 100 });
+  for (const finding of page.items as readonly Finding[]) {
+    const payloadPath = findingFieldString(finding.fields, "payloadPath");
+    if (payloadPath === null) {
+      continue;
+    }
+    const width = Number(findingFieldString(finding.fields, "width") ?? "0");
+    const candidates = new Set<string>();
+    for (const url of findingFieldStringArray(finding.fields, "pageUrls")) {
+      const host = hostOf(url);
+      if (host !== null) {
+        candidates.add(host);
+      }
+    }
+    const iconUrl = findingFieldString(finding.fields, "iconUrl");
+    if (iconUrl !== null) {
+      const host = hostOf(iconUrl);
+      if (host !== null) {
+        candidates.add(host);
+      }
+    }
+    for (const host of candidates) {
+      if (!wanted.has(host)) {
+        continue;
+      }
+      const current = best.get(host);
+      if (current === undefined || width > current.width) {
+        best.set(host, { width, path: payloadPath });
+      }
+    }
+  }
+  const result: Record<string, string | null> = {};
+  for (const host of hosts) {
+    const record = best.get(host);
+    if (record === undefined) {
+      result[host] = null;
+      continue;
+    }
+    try {
+      const bytes = readFileSync(join(caseDirectory, record.path));
+      result[host] =
+        `data:${sniffImageMimeType(bytes)};base64,${bytes.toString("base64")}`;
+    } catch {
+      result[host] = null;
+    }
+  }
+  return result;
+}
+
 function integerParameter(
   parameters: URLSearchParams,
   name: string,
@@ -254,7 +451,7 @@ function listParameters<Sort extends string, Direction extends string>(
  * single read-only core query; {@link handleApi} owns the dispatch and the
  * unknown-route error so the routes cannot drift in shape.
  */
-const API_ROUTES = new Map<
+export const API_ROUTES = new Map<
   string,
   (parameters: URLSearchParams, caseDirectory: string) => unknown
 >([
@@ -280,6 +477,19 @@ const API_ROUTES = new Map<
         from: firstString(parameters.get("from")),
         to: firstString(parameters.get("to")),
       }),
+  ],
+  // "timeline", "site-hosts", and "site-findings" are not wired up here yet:
+  // core has no `queryTimeline` / `querySiteHosts` / `querySiteFindings` (a
+  // pre-existing gap, not introduced by the Top sites change). The client's
+  // Timeline and Sites pages already call these route names and will show
+  // their normal "could not be loaded" state — an honest gap, not a crash —
+  // until that backend work lands.
+  [
+    "site-favicons",
+    (parameters, caseDirectory) => ({
+      status: "ok",
+      icons: resolveFaviconDataUris(caseDirectory, parameters.getAll("host")),
+    }),
   ],
   [
     "cookies",
@@ -317,6 +527,29 @@ const API_ROUTES = new Map<
       }),
   ],
   [
+    "cache",
+    (parameters, caseDirectory) =>
+      queryCache({
+        caseDirectory,
+        ...listParameters<CacheSort, CacheDirection>(parameters),
+        recordType: firstString(parameters.get("record-type")) as
+          | CacheRecordType
+          | undefined,
+        backend: firstString(parameters.get("backend")),
+      }),
+  ],
+  [
+    "favicons",
+    (parameters, caseDirectory) =>
+      queryFavicons({
+        caseDirectory,
+        ...listParameters<FaviconSort, FaviconDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+      }),
+  ],
+  [
     "candidates",
     (parameters, caseDirectory) =>
       queryCandidates({
@@ -324,6 +557,70 @@ const API_ROUTES = new Map<
         ...listParameters<CandidateSort, CandidateDirection>(parameters),
         category: firstString(parameters.get("category")),
         kind: firstString(parameters.get("kind")),
+      }),
+  ],
+  [
+    "topic-candidates",
+    (parameters, caseDirectory) =>
+      queryTopicCandidates({
+        caseDirectory,
+        ...listParameters<TopicCandidateSort, TopicCandidateDirection>(
+          parameters,
+        ),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        label: firstString(parameters.get("label")),
+      }),
+  ],
+  [
+    "metadata",
+    (parameters, caseDirectory) =>
+      queryMetadata({
+        caseDirectory,
+        ...listParameters<MetadataSort, MetadataDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        type: firstString(parameters.get("type")) as MetadataType | undefined,
+      }),
+  ],
+  [
+    "downloads",
+    (parameters, caseDirectory) =>
+      queryDownloads({
+        caseDirectory,
+        ...listParameters<DownloadSort, DownloadDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        state: firstString(parameters.get("state")),
+        dangerType: firstString(parameters.get("danger-type")),
+      }),
+  ],
+  [
+    "bookmarks",
+    (parameters, caseDirectory) =>
+      queryBookmarks({
+        caseDirectory,
+        ...listParameters<BookmarkSort, BookmarkDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        source: firstString(parameters.get("source")) as
+          | BookmarkSource
+          | undefined,
+      }),
+  ],
+  [
+    "autofill",
+    (parameters, caseDirectory) =>
+      queryAutofill({
+        caseDirectory,
+        ...listParameters<AutofillSort, AutofillDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
       }),
   ],
 ]);
@@ -375,8 +672,11 @@ function handleRequest(
       "cache-control": "no-store",
       "x-content-type-options": "nosniff",
       "x-frame-options": "DENY",
+      // `img-src data:` admits only bytes already inlined in the bundle, which
+      // is how the brand mark ships. It grants no origin, so the surface still
+      // cannot fetch an image — or anything else — off this machine.
       "content-security-policy":
-        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'",
+        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'",
     });
     response.end(htmlShell(token));
     return;
