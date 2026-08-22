@@ -11,6 +11,16 @@ import { tableExists } from "./sqlite-artifact.js";
  * Completeness Statements and Profile filters. It interprets no artifact rows
  * and writes nothing: every function opens the Case immutable and read-only,
  * mirroring the History/Cookies/Login Data/Web Data query contracts.
+ *
+ * The Completeness Statement covers every artifact the analyzer attempts:
+ * History, Cookies, Login Data, Top Sites, Web Data, Favicons, Candidates,
+ * Downloads, Bookmarks, Preferences, and Cache. Preferences pools both the
+ * browser-level `Local State` and Profile-level `Preferences` attempt rows
+ * under one statement, and Bookmarks pools both the primary `Bookmarks` file
+ * and its `Bookmarks.bak` backup, because each results table already scopes
+ * its own artifact sub-kinds through a CHECK constraint. Leaving any attempted
+ * artifact out of this statement would silently under-report Case coverage,
+ * which breaks the rule that absence is data.
  */
 
 export type OverviewArtifact =
@@ -20,7 +30,11 @@ export type OverviewArtifact =
   | "Top Sites"
   | "Web Data"
   | "Favicons"
-  | "Candidates";
+  | "Candidates"
+  | "Downloads"
+  | "Bookmarks"
+  | "Preferences"
+  | "Cache";
 export type CompletenessOutcome = "produced" | "absent" | "unavailable";
 
 export interface CompletenessArtifact {
@@ -85,6 +99,10 @@ const ARTIFACT_TABLES: readonly ArtifactTable[] = [
   { artifact: "Web Data", resultsTable: "web_data_artifact_results" },
   { artifact: "Favicons", resultsTable: "favicon_artifact_results" },
   { artifact: "Candidates", resultsTable: "candidate_artifact_results" },
+  { artifact: "Downloads", resultsTable: "downloads_artifact_results" },
+  { artifact: "Bookmarks", resultsTable: "bookmarks_artifact_results" },
+  { artifact: "Preferences", resultsTable: "preferences_artifact_results" },
+  { artifact: "Cache", resultsTable: "cache_artifact_results" },
 ];
 
 function openCase(caseDirectory: string): DatabaseSync {
