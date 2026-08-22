@@ -158,7 +158,7 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
     key: "candidates",
     label: "Leads",
     description:
-      "Ranked guesses about identity and behavior, derived from the evidence — never established facts.",
+      "Ranked guesses about identity and behavior, derived from the evidence.",
     route: "candidates",
     completenessArtifact: "Candidates",
     sorts: ["rank", "kind", "supporting-count", "value", "profile"],

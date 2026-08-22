@@ -67,9 +67,7 @@ function pick(rand, list) {
 function timestamp(isoUtc) {
   return value({
     utc: isoUtc,
-    raw: String(
-      (new Date(isoUtc).getTime() + 11_644_473_600_000) * 1000,
-    ),
+    raw: String((new Date(isoUtc).getTime() + 11_644_473_600_000) * 1000),
   });
 }
 
@@ -106,21 +104,13 @@ const BANKING_HOSTS = [
   "secure.bankofamerica.com",
   "www.wellsfargo.com",
 ];
-const CRYPTO_HOSTS = [
-  "www.coinbase.com",
-  "www.binance.com",
-  "www.kraken.com",
-];
+const CRYPTO_HOSTS = ["www.coinbase.com", "www.binance.com", "www.kraken.com"];
 const CLOUD_HOSTS = [
   "drive.google.com",
   "www.dropbox.com",
   "onedrive.live.com",
 ];
-const JOB_HOSTS = [
-  "www.linkedin.com",
-  "www.indeed.com",
-  "www.glassdoor.com",
-];
+const JOB_HOSTS = ["www.linkedin.com", "www.indeed.com", "www.glassdoor.com"];
 const VPN_HOSTS = [
   "www.nordvpn.com",
   "www.expressvpn.com",
@@ -132,11 +122,7 @@ const INTERNAL_HOSTS = [
   "sharepoint.northfieldpartners.internal",
   "hr-portal.northfieldpartners.internal",
 ];
-const SOCIAL_HOSTS = [
-  "twitter.com",
-  "www.reddit.com",
-  "www.facebook.com",
-];
+const SOCIAL_HOSTS = ["twitter.com", "www.reddit.com", "www.facebook.com"];
 const NEWS_HOSTS = ["www.bloomberg.com", "www.reuters.com", "www.wsj.com"];
 const SEARCH_HOSTS = ["www.google.com", "www.bing.com", "duckduckgo.com"];
 const REMOTE_ACCESS_HOSTS = [
@@ -166,15 +152,29 @@ const ALL_HOSTS = [
 ];
 
 const PATHS_BY_CATEGORY = {
-  banking: ["/login", "/accounts/transfer", "/statements/2024-03", "/wires/new"],
+  banking: [
+    "/login",
+    "/accounts/transfer",
+    "/statements/2024-03",
+    "/wires/new",
+  ],
   crypto: ["/dashboard", "/trade/BTC-USD", "/withdraw", "/portfolio"],
   cloud: ["/drive/folders/exports", "/s/company-financials", "/download"],
   job: ["/jobs/view/394021", "/in/msandoval-finance", "/company/rivermark"],
   vpn: ["/download", "/account/servers", "/setup/windows"],
-  internal: ["/", "/policies/data-handling", "/finance/wire-approvals", "/hr/offboarding"],
+  internal: [
+    "/",
+    "/policies/data-handling",
+    "/finance/wire-approvals",
+    "/hr/offboarding",
+  ],
   social: ["/", "/messages", "/search?q=resume%20tips"],
   news: ["/markets", "/technology", "/business/deals"],
-  search: ["/search?q=how+to+wire+transfer+internationally", "/search?q=resign+notice+period", "/search?q=usb+data+transfer+speed"],
+  search: [
+    "/search?q=how+to+wire+transfer+internationally",
+    "/search?q=resign+notice+period",
+    "/search?q=usb+data+transfer+speed",
+  ],
   remote: ["/download", "/session/new", "/support"],
   webmail: ["/mail/u/0/#inbox", "/mail/u/0/#sent", "/owa/"],
 };
@@ -239,7 +239,11 @@ function buildHistoryVisits() {
     const visitTimeIso = isoAtSeeded(rand, daysAgo, hour, minute);
     const sidecar = i % 6 === 0 || i % 6 === 1;
     const commitState =
-      i % 6 === 0 ? "wal_resident" : i % 6 === 1 ? "journal_resident" : "committed";
+      i % 6 === 0
+        ? "wal_resident"
+        : i % 6 === 1
+          ? "journal_resident"
+          : "committed";
     const withDuration = i % 3 !== 2;
     const fields = {
       visitId: value(String(visitId)),
@@ -252,23 +256,23 @@ function buildHistoryVisits() {
       lastVisitTime: timestamp(visitTimeIso),
       hidden: value(false),
       visitTime: timestamp(visitTimeIso),
-      fromVisit:
-        i > 0 && i % 4 === 0 ? value(String(visitId - 1)) : absent(),
-      externalReferrerUrl:
-        i % 9 === 0 ? unavailable(reasonFor(i)) : absent(),
+      fromVisit: i > 0 && i % 4 === 0 ? value(String(visitId - 1)) : absent(),
+      externalReferrerUrl: i % 9 === 0 ? unavailable(reasonFor(i)) : absent(),
       transitionRaw: value(String(805306368 + i)),
       transitionCore: value(pick(rand, TRANSITIONS)),
       transitionQualifiers: value(i % 4 === 0 ? ["client_redirect"] : []),
       redirectFromVisitId: absent(),
       redirectToVisitIds: value([]),
-      segmentId: sidecar ? unavailable("row deleted, recovered from WAL without this field") : absent(),
-      visitDuration:
-        withDuration
-          ? value(String(15_000_000 + Math.floor(rand() * 900_000_000)), {
-              synthetic: false,
-            })
-          : absent(),
-      visitSource: i % 7 === 0 ? unavailable("missing_column") : value("SOURCE_BROWSED"),
+      segmentId: sidecar
+        ? unavailable("row deleted, recovered from WAL without this field")
+        : absent(),
+      visitDuration: withDuration
+        ? value(String(15_000_000 + Math.floor(rand() * 900_000_000)), {
+            synthetic: false,
+          })
+        : absent(),
+      visitSource:
+        i % 7 === 0 ? unavailable("missing_column") : value("SOURCE_BROWSED"),
     };
     rows.push({
       recordType: "finding",
@@ -373,27 +377,57 @@ function buildCookies() {
     const host = pick(rand, ALL_HOSTS);
     const daysAgo = Math.floor(rand() * 60);
     const created = isoAtSeeded(rand, daysAgo, Math.floor(rand() * 24), 0);
-    const expires = isoAtSeeded(rand, daysAgo - 365, Math.floor(rand() * 24), 0);
-    const lastAccess = isoAtSeeded(rand, Math.max(0, daysAgo - 3), Math.floor(rand() * 24), 0);
+    const expires = isoAtSeeded(
+      rand,
+      daysAgo - 365,
+      Math.floor(rand() * 24),
+      0,
+    );
+    const lastAccess = isoAtSeeded(
+      rand,
+      Math.max(0, daysAgo - 3),
+      Math.floor(rand() * 24),
+      0,
+    );
     const sidecar = i % 5 === 0;
-    const commitState = sidecar ? (i % 10 === 0 ? "journal_resident" : "wal_resident") : "committed";
+    const commitState = sidecar
+      ? i % 10 === 0
+        ? "journal_resident"
+        : "wal_resident"
+      : "committed";
     const encrypted = i % 3 !== 0;
     const decryptable = encrypted && i % 9 !== 0;
-    const names = ["session_id", "auth_token", "_ga", "csrf_token", "remember_me", "cf_clearance"];
+    const names = [
+      "session_id",
+      "auth_token",
+      "_ga",
+      "csrf_token",
+      "remember_me",
+      "cf_clearance",
+    ];
     rows.push({
       recordType: "finding",
       findingKind: "cookie",
       profile,
       commitState,
-      provenance: provenance("cookies", 700_000 + i, sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE),
+      provenance: provenance(
+        "cookies",
+        700_000 + i,
+        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+      ),
       fields: {
         cookieId: value(String(700_000 + i)),
         hostKey: value(`.${host}`),
         name: value(pick(rand, names)),
         path: value("/"),
-        topFrameSiteKey: i % 6 === 0 ? unavailable("column not present in this Chrome version") : absent(),
+        topFrameSiteKey:
+          i % 6 === 0
+            ? unavailable("column not present in this Chrome version")
+            : absent(),
         value: decryptable
-          ? value(`${Math.random().toString(36).slice(2, 18)}`, { synthetic: false })
+          ? value(`${Math.random().toString(36).slice(2, 18)}`, {
+              synthetic: false,
+            })
           : encrypted
             ? unavailable("value could not be decrypted offline")
             : value(""),
@@ -411,7 +445,9 @@ function buildCookies() {
         creationTime: timestamp(created),
         expiresTime: timestamp(expires),
         lastAccessTime: timestamp(lastAccess),
-        lastUpdateTime: sidecar ? unavailable("row deleted, recovered from WAL without this field") : timestamp(lastAccess),
+        lastUpdateTime: sidecar
+          ? unavailable("row deleted, recovered from WAL without this field")
+          : timestamp(lastAccess),
       },
       _host: host,
       _sortName: pick(rand, names),
@@ -426,16 +462,56 @@ function buildCredentials() {
   const rand = prng(404);
   const rows = [];
   const sites = [
-    { origin: "https://hr-portal.northfieldpartners.internal/login", realm: "https://hr-portal.northfieldpartners.internal/", user: "msandoval" },
-    { origin: "https://intranet.northfieldpartners.internal/login", realm: "https://intranet.northfieldpartners.internal/", user: "msandoval" },
-    { origin: "https://www.coinbase.com/signin", realm: "https://www.coinbase.com/", user: "m.sandoval83@gmail.com" },
-    { origin: "https://www.kraken.com/sign-in", realm: "https://www.kraken.com/", user: "msandoval_fin" },
-    { origin: "https://onlinebanking.chase.com/login", realm: "https://onlinebanking.chase.com/", user: "msandoval1985" },
-    { origin: "https://www.dropbox.com/login", realm: "https://www.dropbox.com/", user: "m.sandoval83@gmail.com" },
-    { origin: "https://account.protonvpn.com/login", realm: "https://account.protonvpn.com/", user: "msandoval_priv" },
-    { origin: "https://mail.protonmail.com/login", realm: "https://mail.protonmail.com/", user: "m.sandoval.priv@protonmail.com" },
-    { origin: "https://www.linkedin.com/login", realm: "https://www.linkedin.com/", user: "m.sandoval83@gmail.com" },
-    { origin: "https://www.teamviewer.com/login", realm: "https://www.teamviewer.com/", user: "msandoval@northfieldpartners.com" },
+    {
+      origin: "https://hr-portal.northfieldpartners.internal/login",
+      realm: "https://hr-portal.northfieldpartners.internal/",
+      user: "msandoval",
+    },
+    {
+      origin: "https://intranet.northfieldpartners.internal/login",
+      realm: "https://intranet.northfieldpartners.internal/",
+      user: "msandoval",
+    },
+    {
+      origin: "https://www.coinbase.com/signin",
+      realm: "https://www.coinbase.com/",
+      user: "m.sandoval83@gmail.com",
+    },
+    {
+      origin: "https://www.kraken.com/sign-in",
+      realm: "https://www.kraken.com/",
+      user: "msandoval_fin",
+    },
+    {
+      origin: "https://onlinebanking.chase.com/login",
+      realm: "https://onlinebanking.chase.com/",
+      user: "msandoval1985",
+    },
+    {
+      origin: "https://www.dropbox.com/login",
+      realm: "https://www.dropbox.com/",
+      user: "m.sandoval83@gmail.com",
+    },
+    {
+      origin: "https://account.protonvpn.com/login",
+      realm: "https://account.protonvpn.com/",
+      user: "msandoval_priv",
+    },
+    {
+      origin: "https://mail.protonmail.com/login",
+      realm: "https://mail.protonmail.com/",
+      user: "m.sandoval.priv@protonmail.com",
+    },
+    {
+      origin: "https://www.linkedin.com/login",
+      realm: "https://www.linkedin.com/",
+      user: "m.sandoval83@gmail.com",
+    },
+    {
+      origin: "https://www.teamviewer.com/login",
+      realm: "https://www.teamviewer.com/",
+      user: "msandoval@northfieldpartners.com",
+    },
   ];
   sites.forEach((site, i) => {
     const daysAgo = 20 + i * 8;
@@ -449,7 +525,11 @@ function buildCredentials() {
       findingKind: "login_credential",
       profile: i % 3 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
       commitState,
-      provenance: provenance("logins", 800_000 + i, sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE),
+      provenance: provenance(
+        "logins",
+        800_000 + i,
+        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+      ),
       fields: {
         credentialId: value(String(800_000 + i)),
         originUrl: value(site.origin),
@@ -467,7 +547,10 @@ function buildCredentials() {
         secretByteLength: value(String(48 + i)),
         dateCreated: timestamp(created),
         dateLastUsed: timestamp(lastUsed),
-        datePasswordModified: i % 5 === 0 ? unavailable("column not present in this Chrome version") : timestamp(created),
+        datePasswordModified:
+          i % 5 === 0
+            ? unavailable("column not present in this Chrome version")
+            : timestamp(created),
         timesUsed: value(String(2 + i)),
         blacklistedByUser: value(false),
         scheme: value("0"),
@@ -509,13 +592,20 @@ function buildTopSites() {
       findingKind: "top_site",
       profile: i % 5 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
       commitState: sidecar ? "wal_resident" : "committed",
-      provenance: provenance("top_sites", 900 + i, sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE),
+      provenance: provenance(
+        "top_sites",
+        900 + i,
+        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+      ),
       fields: {
         topSiteId: value(String(900 + i)),
         url: value(urlFor(rand, host)),
         title: value(titleFor(host)),
         urlRank: value(String(i + 1)),
-        redirects: i % 8 === 0 ? unavailable("column not present in this Chrome version") : value(""),
+        redirects:
+          i % 8 === 0
+            ? unavailable("column not present in this Chrome version")
+            : value(""),
       },
     };
   });
@@ -528,18 +618,66 @@ const DOWNLOAD_STATES = ["complete", "interrupted", "cancelled"];
 function buildDownloads() {
   const rand = prng(606);
   const items = [
-    { name: "Q1_wire_transfer_log.xlsx", host: "onlinebanking.chase.com", mime: "application/vnd.ms-excel" },
-    { name: "client_ledger_export.csv", host: "sharepoint.northfieldpartners.internal", mime: "text/csv" },
-    { name: "resume_msandoval_2024.pdf", host: "www.linkedin.com", mime: "application/pdf" },
-    { name: "coinbase_statement_march.pdf", host: "www.coinbase.com", mime: "application/pdf" },
-    { name: "company_financials_backup.zip", host: "drive.google.com", mime: "application/zip" },
-    { name: "anydesk.exe", host: "www.anydesk.com", mime: "application/x-msdownload" },
-    { name: "vpn_config.ovpn", host: "www.nordvpn.com", mime: "application/octet-stream" },
-    { name: "offer_letter_rivermark.pdf", host: "www.indeed.com", mime: "application/pdf" },
-    { name: "customer_contacts_export.xlsx", host: "intranet.northfieldpartners.internal", mime: "application/vnd.ms-excel" },
-    { name: "usb_transfer_notes.txt", host: "www.google.com", mime: "text/plain" },
-    { name: "kraken_2fa_backup_codes.pdf", host: "www.kraken.com", mime: "application/pdf" },
-    { name: "teamviewer_setup.exe", host: "www.teamviewer.com", mime: "application/x-msdownload" },
+    {
+      name: "Q1_wire_transfer_log.xlsx",
+      host: "onlinebanking.chase.com",
+      mime: "application/vnd.ms-excel",
+    },
+    {
+      name: "client_ledger_export.csv",
+      host: "sharepoint.northfieldpartners.internal",
+      mime: "text/csv",
+    },
+    {
+      name: "resume_msandoval_2024.pdf",
+      host: "www.linkedin.com",
+      mime: "application/pdf",
+    },
+    {
+      name: "coinbase_statement_march.pdf",
+      host: "www.coinbase.com",
+      mime: "application/pdf",
+    },
+    {
+      name: "company_financials_backup.zip",
+      host: "drive.google.com",
+      mime: "application/zip",
+    },
+    {
+      name: "anydesk.exe",
+      host: "www.anydesk.com",
+      mime: "application/x-msdownload",
+    },
+    {
+      name: "vpn_config.ovpn",
+      host: "www.nordvpn.com",
+      mime: "application/octet-stream",
+    },
+    {
+      name: "offer_letter_rivermark.pdf",
+      host: "www.indeed.com",
+      mime: "application/pdf",
+    },
+    {
+      name: "customer_contacts_export.xlsx",
+      host: "intranet.northfieldpartners.internal",
+      mime: "application/vnd.ms-excel",
+    },
+    {
+      name: "usb_transfer_notes.txt",
+      host: "www.google.com",
+      mime: "text/plain",
+    },
+    {
+      name: "kraken_2fa_backup_codes.pdf",
+      host: "www.kraken.com",
+      mime: "application/pdf",
+    },
+    {
+      name: "teamviewer_setup.exe",
+      host: "www.teamviewer.com",
+      mime: "application/x-msdownload",
+    },
   ];
   return items.map((item, i) => {
     const daysAgo = 3 + i * 4;
@@ -553,20 +691,32 @@ function buildDownloads() {
       findingKind: "download",
       profile: i % 4 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
       commitState: sidecar ? "wal_resident" : "committed",
-      provenance: provenance("downloads", 1000 + i, sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE),
+      provenance: provenance(
+        "downloads",
+        1000 + i,
+        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+      ),
       fields: {
         downloadId: value(String(1000 + i)),
         guid: value(`b2a1${i}-${i}c3d-4e5f-${1000 + i}`),
         targetPath: value(`C:\\Users\\msandoval\\Downloads\\${item.name}`),
-        currentPath: state === "complete" ? value(`C:\\Users\\msandoval\\Downloads\\${item.name}`) : absent(),
+        currentPath:
+          state === "complete"
+            ? value(`C:\\Users\\msandoval\\Downloads\\${item.name}`)
+            : absent(),
         startTime: timestamp(start),
         endTime: state === "interrupted" ? absent() : timestamp(end),
         lastAccessTime: timestamp(end),
-        receivedBytes: value(String(state === "interrupted" ? Math.floor(totalBytes / 3) : totalBytes)),
+        receivedBytes: value(
+          String(
+            state === "interrupted" ? Math.floor(totalBytes / 3) : totalBytes,
+          ),
+        ),
         totalBytes: value(String(totalBytes)),
         state: value(state),
         dangerType: value("not_dangerous"),
-        interruptReason: state === "interrupted" ? value("network_failed") : absent(),
+        interruptReason:
+          state === "interrupted" ? value("network_failed") : absent(),
         opened: value(i % 3 === 0),
         transient: value(false),
         referrer: value(`https://${item.host}/`),
@@ -575,11 +725,20 @@ function buildDownloads() {
         httpMethod: value("GET"),
         mimeType: value(item.mime),
         originalMimeType: value(item.mime),
-        etag: i % 4 === 0 ? unavailable("column not present in this Chrome version") : absent(),
+        etag:
+          i % 4 === 0
+            ? unavailable("column not present in this Chrome version")
+            : absent(),
         lastModified: absent(),
-        originalUrl: value(`https://${item.host}/files/${encodeURIComponent(item.name)}`),
-        finalUrl: value(`https://${item.host}/files/${encodeURIComponent(item.name)}`),
-        urlChain: value([`https://${item.host}/files/${encodeURIComponent(item.name)}`]),
+        originalUrl: value(
+          `https://${item.host}/files/${encodeURIComponent(item.name)}`,
+        ),
+        finalUrl: value(
+          `https://${item.host}/files/${encodeURIComponent(item.name)}`,
+        ),
+        urlChain: value([
+          `https://${item.host}/files/${encodeURIComponent(item.name)}`,
+        ]),
         urlChainLength: value("1"),
       },
       _targetPath: `C:\\Users\\msandoval\\Downloads\\${item.name}`,
@@ -593,18 +752,66 @@ function buildDownloads() {
 function buildBookmarks() {
   const rand = prng(707);
   const items = [
-    { name: "Chase Online Banking", url: "https://onlinebanking.chase.com/login", folder: "Bookmarks Bar / Finance" },
-    { name: "Coinbase", url: "https://www.coinbase.com/dashboard", folder: "Bookmarks Bar / Finance" },
-    { name: "Kraken Pro", url: "https://www.kraken.com/dashboard", folder: "Bookmarks Bar / Finance" },
-    { name: "LinkedIn Jobs — Finance Director", url: "https://www.linkedin.com/jobs/view/394021", folder: "Bookmarks Bar / Job Search" },
-    { name: "Indeed — Saved Searches", url: "https://www.indeed.com/jobs?q=finance+director", folder: "Bookmarks Bar / Job Search" },
-    { name: "NordVPN Setup Guide", url: "https://www.nordvpn.com/setup/windows", folder: "Other Bookmarks" },
-    { name: "Company Intranet", url: "https://intranet.northfieldpartners.internal/", folder: "Bookmarks Bar" },
-    { name: "Wire Transfer Policy", url: "https://intranet.northfieldpartners.internal/policies/data-handling", folder: "Bookmarks Bar / Work" },
-    { name: "Personal Gmail", url: "https://mail.google.com/mail/u/0/#inbox", folder: "Other Bookmarks" },
-    { name: "ProtonVPN Account", url: "https://account.protonvpn.com/account", folder: "Other Bookmarks" },
-    { name: "Glassdoor — Company Reviews", url: "https://www.glassdoor.com/", folder: "Bookmarks Bar / Job Search" },
-    { name: "Dropbox — Exports", url: "https://www.dropbox.com/home/exports", folder: "Bookmarks Bar / Work" },
+    {
+      name: "Chase Online Banking",
+      url: "https://onlinebanking.chase.com/login",
+      folder: "Bookmarks Bar / Finance",
+    },
+    {
+      name: "Coinbase",
+      url: "https://www.coinbase.com/dashboard",
+      folder: "Bookmarks Bar / Finance",
+    },
+    {
+      name: "Kraken Pro",
+      url: "https://www.kraken.com/dashboard",
+      folder: "Bookmarks Bar / Finance",
+    },
+    {
+      name: "LinkedIn Jobs — Finance Director",
+      url: "https://www.linkedin.com/jobs/view/394021",
+      folder: "Bookmarks Bar / Job Search",
+    },
+    {
+      name: "Indeed — Saved Searches",
+      url: "https://www.indeed.com/jobs?q=finance+director",
+      folder: "Bookmarks Bar / Job Search",
+    },
+    {
+      name: "NordVPN Setup Guide",
+      url: "https://www.nordvpn.com/setup/windows",
+      folder: "Other Bookmarks",
+    },
+    {
+      name: "Company Intranet",
+      url: "https://intranet.northfieldpartners.internal/",
+      folder: "Bookmarks Bar",
+    },
+    {
+      name: "Wire Transfer Policy",
+      url: "https://intranet.northfieldpartners.internal/policies/data-handling",
+      folder: "Bookmarks Bar / Work",
+    },
+    {
+      name: "Personal Gmail",
+      url: "https://mail.google.com/mail/u/0/#inbox",
+      folder: "Other Bookmarks",
+    },
+    {
+      name: "ProtonVPN Account",
+      url: "https://account.protonvpn.com/account",
+      folder: "Other Bookmarks",
+    },
+    {
+      name: "Glassdoor — Company Reviews",
+      url: "https://www.glassdoor.com/",
+      folder: "Bookmarks Bar / Job Search",
+    },
+    {
+      name: "Dropbox — Exports",
+      url: "https://www.dropbox.com/home/exports",
+      folder: "Bookmarks Bar / Work",
+    },
   ];
   return items.map((item, i) => {
     const daysAgo = 5 + i * 6;
@@ -615,7 +822,11 @@ function buildBookmarks() {
       findingKind: "bookmark",
       profile: i % 3 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
       commitState: "committed",
-      provenance: provenance(source === "backup" ? "Bookmarks.bak" : "Bookmarks", 1100 + i, SOURCE_USER_DATA),
+      provenance: provenance(
+        source === "backup" ? "Bookmarks.bak" : "Bookmarks",
+        1100 + i,
+        SOURCE_USER_DATA,
+      ),
       fields: {
         bookmarkId: value(String(1100 + i)),
         guid: value(`c3d${i}e-4f${i}5-6a7b-8c9d-${1100 + i}0e1f`),
@@ -624,7 +835,9 @@ function buildBookmarks() {
         dateAdded: timestamp(added),
         dateLastUsed: i % 3 === 0 ? timestamp(added) : absent(),
         sourceFile: value(source === "backup" ? "Bookmarks.bak" : "Bookmarks"),
-        rootFolder: value(item.folder.startsWith("Bookmarks Bar") ? "bookmark_bar" : "other"),
+        rootFolder: value(
+          item.folder.startsWith("Bookmarks Bar") ? "bookmark_bar" : "other",
+        ),
         parentFolder: value(item.folder.split(" / ").pop()),
         folderPath: value(item.folder, { synthetic: true }),
       },
@@ -648,7 +861,10 @@ function buildAutofill() {
     { name: "search-query", value: "how to wire transfer internationally" },
     { name: "search-query", value: "resignation letter template finance" },
     { name: "search-query", value: "usb data transfer speed comparison" },
-    { name: "wallet_address", value: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" },
+    {
+      name: "wallet_address",
+      value: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    },
     { name: "EMAIL_ADDRESS", value: "m.sandoval.priv@protonmail.com" },
     { name: "NAME_FIRST", value: "Marcus" },
     { name: "COMPANY_NAME", value: "Rivermark Capital" },
@@ -664,7 +880,11 @@ function buildAutofill() {
       findingKind: "autofill_entry",
       profile: i % 4 === 1 ? PROFILE_SECOND : PROFILE_DEFAULT,
       commitState: sidecar ? "journal_resident" : "committed",
-      provenance: provenance("autofill", 1200 + i, sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE),
+      provenance: provenance(
+        "autofill",
+        1200 + i,
+        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+      ),
       fields: {
         autofillId: value(String(1200 + i)),
         fieldName: value(item.name),
@@ -697,7 +917,11 @@ function buildCache() {
       findingKind: "cache_entry",
       profile: i % 5 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
       commitState: sidecar ? "wal_resident" : "committed",
-      provenance: provenance("simple_cache", `entry-${hash}`, sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE),
+      provenance: provenance(
+        "simple_cache",
+        `entry-${hash}`,
+        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+      ),
       fields: {
         backend: value("simple"),
         entryHash: value(hash),
@@ -707,7 +931,11 @@ function buildCache() {
         keyLength: value(String(30 + Math.floor(rand() * 60))),
         keyHashValid: value(true),
         entryHashMatchesFilename: value(true),
-        keySha256: value(Array.from({ length: 8 }, () => Math.floor(rand() * 16).toString(16)).join("")),
+        keySha256: value(
+          Array.from({ length: 8 }, () =>
+            Math.floor(rand() * 16).toString(16),
+          ).join(""),
+        ),
         version: value("8.0"),
         lastUsed: timestamp(lastUsed),
         entrySizeBytes: value(String(500 + Math.floor(rand() * 900_000))),
@@ -734,18 +962,32 @@ function buildFavicons() {
       findingKind: "favicon",
       profile: i % 5 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
       commitState: sidecar ? "wal_resident" : "committed",
-      provenance: provenance("favicon_bitmaps", 1300 + i, sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE),
+      provenance: provenance(
+        "favicon_bitmaps",
+        1300 + i,
+        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+      ),
       fields: {
         bitmapId: value(String(1300 + i)),
         iconId: value(String(1400 + i)),
-        iconUrl: missing ? unavailable("related row missing from this database") : value(`https://${host}/favicon.ico`),
+        iconUrl: missing
+          ? unavailable("related row missing from this database")
+          : value(`https://${host}/favicon.ico`),
         iconType: value("favicon"),
         width: value(String(pick(rand, [16, 32, 48]))),
         height: value(String(pick(rand, [16, 32, 48]))),
         lastUpdated: timestamp(updated),
         lastRequested: value(""),
-        payloadSha256: missing ? absent() : value(Array.from({ length: 12 }, () => Math.floor(rand() * 16).toString(16)).join("")),
-        payloadBytes: missing ? absent() : value(String(200 + Math.floor(rand() * 4000))),
+        payloadSha256: missing
+          ? absent()
+          : value(
+              Array.from({ length: 12 }, () =>
+                Math.floor(rand() * 16).toString(16),
+              ).join(""),
+            ),
+        payloadBytes: missing
+          ? absent()
+          : value(String(200 + Math.floor(rand() * 4000))),
         pageUrls: value([urlFor(rand, host)]),
       },
     };
@@ -789,7 +1031,9 @@ function buildMetadata() {
       accountFullName: value("Marcus Sandoval"),
       accountGivenName: value("Marcus"),
       accountLocale: value("en-US"),
-      accountHostedDomain: unavailable("column not present in this Chrome version"),
+      accountHostedDomain: unavailable(
+        "column not present in this Chrome version",
+      ),
       workAreaLeft: value("0"),
       workAreaTop: value("0"),
       workAreaRight: value("1920"),
@@ -845,19 +1089,74 @@ function buildMetadata() {
 
 function buildCandidates() {
   const identity = [
-    { kind: "identity_email", value: "m.sandoval83@gmail.com", supportingCount: 14, profile: PROFILE_DEFAULT },
-    { kind: "identity_email", value: "m.sandoval.priv@protonmail.com", supportingCount: 6, profile: PROFILE_SECOND },
-    { kind: "identity_name", value: "Marcus Sandoval", supportingCount: 9, profile: PROFILE_DEFAULT },
-    { kind: "identity_phone", value: "+1 415 555 0142", supportingCount: 3, profile: PROFILE_DEFAULT },
-    { kind: "identity_postal_address", value: "482 Alder Street, San Mateo, CA 94401", supportingCount: 2, profile: PROFILE_DEFAULT },
-    { kind: "identity_country", value: "US", supportingCount: 21, profile: PROFILE_DEFAULT },
+    {
+      kind: "identity_email",
+      value: "m.sandoval83@gmail.com",
+      supportingCount: 14,
+      profile: PROFILE_DEFAULT,
+    },
+    {
+      kind: "identity_email",
+      value: "m.sandoval.priv@protonmail.com",
+      supportingCount: 6,
+      profile: PROFILE_SECOND,
+    },
+    {
+      kind: "identity_name",
+      value: "Marcus Sandoval",
+      supportingCount: 9,
+      profile: PROFILE_DEFAULT,
+    },
+    {
+      kind: "identity_phone",
+      value: "+1 415 555 0142",
+      supportingCount: 3,
+      profile: PROFILE_DEFAULT,
+    },
+    {
+      kind: "identity_postal_address",
+      value: "482 Alder Street, San Mateo, CA 94401",
+      supportingCount: 2,
+      profile: PROFILE_DEFAULT,
+    },
+    {
+      kind: "identity_country",
+      value: "US",
+      supportingCount: 21,
+      profile: PROFILE_DEFAULT,
+    },
   ];
   const behavior = [
-    { kind: "behavior_frequent_host", value: "intranet.northfieldpartners.internal", supportingCount: 41, profile: PROFILE_DEFAULT },
-    { kind: "behavior_frequent_host", value: "www.coinbase.com", supportingCount: 27, profile: PROFILE_DEFAULT },
-    { kind: "behavior_search_query", value: "how to wire transfer internationally", supportingCount: 4, profile: PROFILE_DEFAULT },
-    { kind: "behavior_search_query", value: "resignation letter template finance", supportingCount: 2, profile: PROFILE_DEFAULT },
-    { kind: "behavior_frequent_host", value: "account.protonvpn.com", supportingCount: 11, profile: PROFILE_SECOND },
+    {
+      kind: "behavior_frequent_host",
+      value: "intranet.northfieldpartners.internal",
+      supportingCount: 41,
+      profile: PROFILE_DEFAULT,
+    },
+    {
+      kind: "behavior_frequent_host",
+      value: "www.coinbase.com",
+      supportingCount: 27,
+      profile: PROFILE_DEFAULT,
+    },
+    {
+      kind: "behavior_search_query",
+      value: "how to wire transfer internationally",
+      supportingCount: 4,
+      profile: PROFILE_DEFAULT,
+    },
+    {
+      kind: "behavior_search_query",
+      value: "resignation letter template finance",
+      supportingCount: 2,
+      profile: PROFILE_DEFAULT,
+    },
+    {
+      kind: "behavior_frequent_host",
+      value: "account.protonvpn.com",
+      supportingCount: 11,
+      profile: PROFILE_SECOND,
+    },
   ];
   const rows = [];
   identity.forEach((c, i) => {
@@ -869,7 +1168,11 @@ function buildCandidates() {
       rank: i + 1,
       supportingCount: c.supportingCount,
       provenance: provenance("autofill", 2000 + i),
-      fields: { value: value(c.value) },
+      // Matches core's real field key (core/src/identity-candidates.ts
+      // `candidateFields`) — the design mock previously used a different
+      // key ("value") than the real analyzer output, which the client
+      // silently rendered as "absent" instead of the guess.
+      fields: { candidateValue: value(c.value) },
     });
   });
   behavior.forEach((c, i) => {
@@ -881,7 +1184,7 @@ function buildCandidates() {
       rank: i + 1,
       supportingCount: c.supportingCount,
       provenance: provenance("visits", 2100 + i),
-      fields: { value: value(c.value) },
+      fields: { candidateValue: value(c.value) },
     });
   });
   return rows;
@@ -891,11 +1194,36 @@ function buildCandidates() {
 
 function buildTopicCandidates() {
   const topics = [
-    { label: "cryptocurrency_trading", name: "Cryptocurrency trading", count: 38, url: "https://www.coinbase.com/dashboard" },
-    { label: "active_job_search", name: "Active job search", count: 22, url: "https://www.linkedin.com/jobs/view/394021" },
-    { label: "international_travel_planning", name: "International travel planning", count: 9, url: "https://www.google.com/search?q=flights+to+lisbon" },
-    { label: "personal_finance_management", name: "Personal finance management", count: 17, url: "https://onlinebanking.chase.com/accounts/transfer" },
-    { label: "remote_access_tooling", name: "Remote access tooling", count: 6, url: "https://www.anydesk.com/download" },
+    {
+      label: "cryptocurrency_trading",
+      name: "Cryptocurrency trading",
+      count: 38,
+      url: "https://www.coinbase.com/dashboard",
+    },
+    {
+      label: "active_job_search",
+      name: "Active job search",
+      count: 22,
+      url: "https://www.linkedin.com/jobs/view/394021",
+    },
+    {
+      label: "international_travel_planning",
+      name: "International travel planning",
+      count: 9,
+      url: "https://www.google.com/search?q=flights+to+lisbon",
+    },
+    {
+      label: "personal_finance_management",
+      name: "Personal finance management",
+      count: 17,
+      url: "https://onlinebanking.chase.com/accounts/transfer",
+    },
+    {
+      label: "remote_access_tooling",
+      name: "Remote access tooling",
+      count: 6,
+      url: "https://www.anydesk.com/download",
+    },
   ];
   return topics.map((topic, i) => ({
     recordType: "candidate",
@@ -907,7 +1235,9 @@ function buildTopicCandidates() {
       topicLabel: value(topic.label),
       topicName: value(topic.name),
       specialCategory: absent(),
-      score: value(Math.round((0.94 - i * 0.11) * 100) / 100, { synthetic: true }),
+      score: value(Math.round((0.94 - i * 0.11) * 100) / 100, {
+        synthetic: true,
+      }),
       scoreAxis: value("cosine", { synthetic: true }),
       modelId: value("topic-embed-mini-v2", { synthetic: true }),
       modelRevision: value("2024-02-01", { synthetic: true }),
@@ -937,9 +1267,7 @@ function buildCompleteness() {
     const isAbsent = artifact === "Bookmarks" && false; // reserved, kept produced
     const isUnavailable = artifact === "Cache";
     const perProfile = PROFILES.map((profile, i) => {
-      const outcome = isUnavailable
-        ? "unavailable"
-        : "produced";
+      const outcome = isUnavailable ? "unavailable" : "produced";
       return {
         sourceId: i === 0 ? SOURCE_IMAGE : SOURCE_USER_DATA,
         profile,
@@ -992,7 +1320,12 @@ function buildCompleteness() {
 
 export const caseData = {
   caseId: CASE_ID,
-  profiles: { status: "ok", command: "profiles", caseId: CASE_ID, profiles: PROFILES },
+  profiles: {
+    status: "ok",
+    command: "profiles",
+    caseId: CASE_ID,
+    profiles: PROFILES,
+  },
   completeness: buildCompleteness(),
   history: {
     visits: HISTORY_VISITS,

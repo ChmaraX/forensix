@@ -1,0 +1,1153 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not shipped code.
+
+  Question: what should the "Leads" tab (Candidates artifact page) look like?
+  Three structurally different variants, switchable with the bottom bar or
+  the ← / → keys, or a `?variant=A|B|C` query param.
+
+  Real shape: candidateKind, category (identity/behavior), profile, rank,
+  supportingCount, provenance, and a `value` field — copied verbatim from
+  client/mock/case-data.mjs `buildCandidates()` / `buildTopicCandidates()`,
+  so the ranks, counts and values are the same fixture the rest of the app
+  demos against, not invented numbers.
+
+  Run: open this file directly in a browser. No build step, no server.
+
+  Variants:
+    A — Highlight strip + table (smallest change: 3 KPI tiles above the
+        existing dense table, table untouched)
+    B — Grouped swimlanes (Identity / Behavior / Topics as scannable card
+        rows, dense table demoted behind "View as table")
+    C — Master–detail (ranked list rail + evidence detail panel for the
+        selected Lead; table removed entirely)
+-->
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype — Leads page</title>
+    <style>
+      /* Tokens copied verbatim from client/src/app.css (light mode only —
+         this prototype does not need to answer the dark-mode question). */
+      :root {
+        --background: #f4f4f5;
+        --foreground: #18181b;
+        --card: #ffffff;
+        --card-foreground: #18181b;
+        --muted: #e9e9ec;
+        --muted-foreground: #71717a;
+        --primary: #2563eb;
+        --primary-foreground: #ffffff;
+        --accent: #eff6ff;
+        --accent-foreground: #1d4ed8;
+        --accent-border: #bfdbfe;
+        --border: #e4e4e7;
+        --ring: #2563eb;
+        --edge-shadow: rgb(24 24 27 / 0.16);
+        --radius: 1rem;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+        font-size: 14px;
+      }
+      .shell {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 40px 24px 140px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .harness-note {
+        font-size: 12.5px;
+        color: var(--muted-foreground);
+        max-width: 72ch;
+      }
+      .harness-note code {
+        background: var(--muted);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 11.5px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 2px;
+        letter-spacing: -0.01em;
+      }
+      .subtitle {
+        margin: 0 0 8px;
+        color: var(--muted-foreground);
+        font-size: 13px;
+      }
+      .leads-note {
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--accent);
+        color: var(--accent-foreground);
+        padding: 8px 12px;
+        font-size: 12.5px;
+      }
+      .mono {
+        font-variant-numeric: tabular-nums;
+        font-family:
+          ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .truncate {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ---- shared "Card" primitives, matching client/src/components/ui/card.tsx ---- */
+      .card {
+        display: flex;
+        flex-direction: column;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--card-foreground);
+      }
+      .card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px 8px;
+      }
+      .card-title {
+        font-size: 15px;
+        line-height: 1.15;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        margin: 0;
+      }
+      .card-description {
+        font-size: 12.5px;
+        line-height: 1.35;
+        color: var(--muted-foreground);
+        margin: 2px 0 0;
+      }
+      .card-content {
+        padding: 12px 20px 16px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border-radius: 999px;
+        padding: 2px 9px;
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .badge-identity {
+        background: var(--accent);
+        color: var(--accent-foreground);
+        border: 1px solid var(--accent-border);
+      }
+      .badge-behavior {
+        background: var(--muted);
+        color: var(--foreground);
+        border: 1px solid var(--border);
+      }
+      .badge-topic {
+        background: #f5f3ff;
+        color: #6d28d9;
+        border: 1px solid #ddd6fe;
+      }
+
+      /* ---- dense table, matching client/src/components/data-table.tsx ---- */
+      .fx-scroll-x {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 13px;
+      }
+      thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in srgb, var(--muted) 80%, transparent);
+        padding: 8px 12px;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        color: var(--muted-foreground);
+        text-transform: uppercase;
+      }
+      tbody tr {
+        border-bottom: 1px solid
+          color-mix(in srgb, var(--border) 70%, transparent);
+        cursor: pointer;
+        transition: background-color 100ms;
+      }
+      tbody tr:last-child {
+        border-bottom: none;
+      }
+      tbody tr:hover {
+        background: color-mix(in srgb, var(--accent) 40%, transparent);
+      }
+      td {
+        padding: 8px 12px;
+        white-space: nowrap;
+      }
+      td.value-cell {
+        white-space: normal;
+        max-width: 420px;
+      }
+      .cell-muted {
+        color: var(--muted-foreground);
+      }
+
+      /* ==================== Variant A: highlight strip + table ==================== */
+      .a-strip {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+      @media (max-width: 760px) {
+        .a-strip {
+          grid-template-columns: 1fr;
+        }
+      }
+      .a-tile {
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--card);
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .a-tile-label {
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--muted-foreground);
+      }
+      .a-tile-value {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .a-tile-meta {
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+
+      /* ==================== Variant B: grouped swimlanes ==================== */
+      .b-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .b-group-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+      }
+      .b-group-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .b-group-count {
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+      .b-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        cursor: pointer;
+      }
+      .b-row:hover {
+        border-color: var(--ring);
+        box-shadow: 0 0 0 1px var(--ring);
+      }
+      .b-rank {
+        flex-shrink: 0;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .b-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .b-value {
+        font-size: 13.5px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .b-meta {
+        font-size: 11.5px;
+        color: var(--muted-foreground);
+      }
+      .b-support {
+        flex-shrink: 0;
+        font-size: 12px;
+        padding: 2px 9px;
+        border-radius: 999px;
+        background: var(--muted);
+      }
+      .b-toggle {
+        align-self: flex-start;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--primary);
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px 0;
+      }
+      .b-toggle:hover {
+        text-decoration: underline;
+      }
+
+      /* ==================== Variant C: master-detail ==================== */
+      .c-shell {
+        display: grid;
+        grid-template-columns: minmax(240px, 0.36fr) minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+      @media (max-width: 820px) {
+        .c-shell {
+          grid-template-columns: 1fr;
+        }
+      }
+      .c-rail {
+        max-height: 560px;
+        overflow-y: auto;
+      }
+      .c-tab {
+        display: flex;
+        gap: 4px;
+        padding: 8px 8px 0;
+      }
+      .c-tabbtn {
+        flex: 1;
+        border: none;
+        background: none;
+        border-radius: 8px 8px 0 0;
+        padding: 8px 6px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted-foreground);
+        cursor: pointer;
+      }
+      .c-tabbtn.active {
+        background: var(--muted);
+        color: var(--foreground);
+      }
+      .c-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 14px;
+        border-bottom: 1px solid
+          color-mix(in srgb, var(--border) 70%, transparent);
+        cursor: pointer;
+      }
+      .c-item:hover {
+        background: var(--muted);
+      }
+      .c-item.selected {
+        background: var(--accent);
+      }
+      .c-item-rank {
+        flex-shrink: 0;
+        font-size: 11px;
+        color: var(--muted-foreground);
+        width: 16px;
+        text-align: right;
+      }
+      .c-item-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .c-item-value {
+        font-size: 12.5px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .c-item-meta {
+        font-size: 11px;
+        color: var(--muted-foreground);
+      }
+      .c-detail-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .c-detail-value {
+        font-size: 19px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        margin: 4px 0 0;
+      }
+      .c-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .c-fact {
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        padding: 10px 12px;
+      }
+      .c-fact-label {
+        font-size: 11px;
+        color: var(--muted-foreground);
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }
+      .c-fact-value {
+        font-size: 13.5px;
+        font-weight: 500;
+        margin-top: 3px;
+      }
+      .c-provenance {
+        margin-top: 16px;
+        font-family:
+          ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11.5px;
+        color: var(--muted-foreground);
+        background: var(--muted);
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+
+      /* ==================== Variant D: plain-language table ==================== */
+      /* Same table shape as today, but only 3 columns are ever visible, each
+         with a header tooltip in plain words. Everything technical (Chrome
+         profile, numeric rank, category label, raw source row) lives behind
+         a per-row "Details" toggle instead of its own column. */
+      th[title],
+      td .d-help {
+        cursor: help;
+      }
+      .d-help {
+        display: inline-block;
+        margin-left: 4px;
+        width: 13px;
+        height: 13px;
+        line-height: 13px;
+        text-align: center;
+        border-radius: 999px;
+        background: var(--muted);
+        color: var(--muted-foreground);
+        font-size: 10px;
+        font-style: normal;
+      }
+      .d-toggle {
+        border: none;
+        background: none;
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 0;
+        white-space: nowrap;
+      }
+      .d-toggle:hover {
+        text-decoration: underline;
+      }
+      tr.d-detail-row td {
+        white-space: normal;
+        background: color-mix(in srgb, var(--muted) 55%, transparent);
+        padding: 10px 14px;
+      }
+      .d-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+      }
+      .d-detail-item .d-detail-label {
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        color: var(--muted-foreground);
+      }
+      .d-detail-item .d-detail-value {
+        font-size: 12.5px;
+        margin-top: 2px;
+      }
+
+      /* ---- prototype switcher bar (never ships) ---- */
+      .proto-bar {
+        position: fixed;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--inverse, #18181b);
+        color: #fafafa;
+        border-radius: 999px;
+        padding: 8px 10px 8px 14px;
+        box-shadow: 0 12px 32px var(--edge-shadow);
+        font-size: 12.5px;
+        z-index: 50;
+      }
+      .proto-bar button {
+        border: none;
+        background: rgba(255, 255, 255, 0.12);
+        color: inherit;
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+      }
+      .proto-bar button:hover {
+        background: rgba(255, 255, 255, 0.22);
+      }
+      .proto-label {
+        font-weight: 600;
+        min-width: 190px;
+        text-align: center;
+      }
+      .proto-label .name {
+        font-weight: 400;
+        opacity: 0.75;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div>
+        <h1>What we know about this person</h1>
+      </div>
+      <div id="root"></div>
+    </div>
+
+    <div class="proto-bar" role="group" aria-label="Prototype variant switcher">
+      <button id="prev" type="button" aria-label="Previous variant">
+        &larr;
+      </button>
+      <span class="proto-label" id="label"></span>
+      <button id="next" type="button" aria-label="Next variant">&rarr;</button>
+    </div>
+
+    <script>
+      /* ---------------------------- fixture data ---------------------------- */
+      // Copied verbatim from client/mock/case-data.mjs buildCandidates() /
+      // buildTopicCandidates() — same ranks, counts, and values the rest of
+      // the app demos with the CASE-001 fixture.
+      const IDENTITY = [
+        {
+          kind: "identity_email",
+          value: "m.sandoval83@gmail.com",
+          supportingCount: 14,
+          profile: "Default",
+          rank: 1,
+        },
+        {
+          kind: "identity_email",
+          value: "m.sandoval.priv@protonmail.com",
+          supportingCount: 6,
+          profile: "Profile 2",
+          rank: 2,
+        },
+        {
+          kind: "identity_name",
+          value: "Marcus Sandoval",
+          supportingCount: 9,
+          profile: "Default",
+          rank: 3,
+        },
+        {
+          kind: "identity_phone",
+          value: "+1 415 555 0142",
+          supportingCount: 3,
+          profile: "Default",
+          rank: 4,
+        },
+        {
+          kind: "identity_postal_address",
+          value: "482 Alder Street, San Mateo, CA 94401",
+          supportingCount: 2,
+          profile: "Default",
+          rank: 5,
+        },
+        {
+          kind: "identity_country",
+          value: "US",
+          supportingCount: 21,
+          profile: "Default",
+          rank: 6,
+        },
+      ];
+      const BEHAVIOR = [
+        {
+          kind: "behavior_frequent_host",
+          value: "intranet.northfieldpartners.internal",
+          supportingCount: 41,
+          profile: "Default",
+          rank: 1,
+        },
+        {
+          kind: "behavior_frequent_host",
+          value: "www.coinbase.com",
+          supportingCount: 27,
+          profile: "Default",
+          rank: 2,
+        },
+        {
+          kind: "behavior_search_query",
+          value: "how to wire transfer internationally",
+          supportingCount: 4,
+          profile: "Default",
+          rank: 3,
+        },
+        {
+          kind: "behavior_search_query",
+          value: "resignation letter template finance",
+          supportingCount: 2,
+          profile: "Default",
+          rank: 4,
+        },
+        {
+          kind: "behavior_frequent_host",
+          value: "account.protonvpn.com",
+          supportingCount: 11,
+          profile: "Profile 2",
+          rank: 5,
+        },
+      ];
+      const TOPICS = [
+        {
+          name: "Cryptocurrency trading",
+          count: 38,
+          url: "https://www.coinbase.com/dashboard",
+          rank: 1,
+        },
+        {
+          name: "Active job search",
+          count: 22,
+          url: "https://www.linkedin.com/jobs/view/394021",
+          rank: 2,
+        },
+        {
+          name: "International travel planning",
+          count: 9,
+          url: "https://www.google.com/search?q=flights+to+lisbon",
+          rank: 3,
+        },
+        {
+          name: "Personal finance management",
+          count: 17,
+          url: "https://onlinebanking.chase.com/accounts/transfer",
+          rank: 4,
+        },
+        {
+          name: "Remote access tooling",
+          count: 6,
+          url: "https://www.anydesk.com/download",
+          rank: 5,
+        },
+      ];
+      const ALL = [
+        ...IDENTITY.map((c) => ({ ...c, category: "identity" })),
+        ...BEHAVIOR.map((c) => ({ ...c, category: "behavior" })),
+      ].sort((a, b) => b.supportingCount - a.supportingCount);
+
+      function labelFor(kind) {
+        return kind
+          .replace(/^identity_|^behavior_/, "")
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+      function badgeClass(category) {
+        return category === "identity" ? "badge-identity" : "badge-behavior";
+      }
+      function provenanceText(c, i) {
+        return `autofill · row ${2000 + i}`;
+      }
+
+      const root = document.getElementById("root");
+
+      /* ============================== Variant A ============================== */
+      // Smallest structural change: three read-at-a-glance KPI tiles above
+      // the existing dense table. Table markup/columns are untouched.
+      function renderA() {
+        const wrap = document.createElement("div");
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "column";
+        wrap.style.gap = "16px";
+
+        const strip = document.createElement("div");
+        strip.className = "a-strip";
+        const topIdentity = IDENTITY[0];
+        const topBehavior = BEHAVIOR[0];
+        const topTopic = TOPICS[0];
+        [
+          {
+            label: "Top identity lead",
+            value: topIdentity.value,
+            meta: `${topIdentity.supportingCount} supporting rows · ${labelFor(topIdentity.kind)}`,
+          },
+          {
+            label: "Top behavior lead",
+            value: topBehavior.value,
+            meta: `${topBehavior.supportingCount} supporting rows · ${labelFor(topBehavior.kind)}`,
+          },
+          {
+            label: "Top topic",
+            value: topTopic.name,
+            meta: `${topTopic.count} supporting rows`,
+          },
+        ].forEach((t) => {
+          const tile = document.createElement("div");
+          tile.className = "a-tile";
+          tile.innerHTML = `<span class="a-tile-label">${t.label}</span><span class="a-tile-value truncate">${t.value}</span><span class="a-tile-meta">${t.meta}</span>`;
+          strip.appendChild(tile);
+        });
+        wrap.appendChild(strip);
+
+        wrap.appendChild(buildPlainTable("Full list", ALL));
+        return wrap;
+      }
+
+      // Same plain-language table as Variant D: 3 columns visible (What it
+      // is / Guess / Evidence count), everything technical (profile, rank,
+      // category, raw source row) behind a per-row "Details" toggle.
+      let aExpanded = new Set();
+      function buildPlainTable(title, rows) {
+        const card = document.createElement("div");
+        card.className = "card";
+        const head = document.createElement("div");
+        head.className = "card-header";
+        head.innerHTML = `<h2 class="card-title">${title}</h2><span class="card-description mono">${rows.length} rows</span>`;
+        card.appendChild(head);
+        const content = document.createElement("div");
+        content.className = "card-content fx-scroll-x";
+        const table = document.createElement("table");
+        table.innerHTML = `
+          <thead><tr>
+            <th title="What kind of fact this Lead is about">What it is</th>
+            <th title="The value the analyzer inferred">Guess</th>
+            <th title="How many evidence rows point to this same guess — more rows means a stronger Lead">Evidence count</th>
+            <th></th>
+          </tr></thead>`;
+        const tbody = document.createElement("tbody");
+        rows.forEach((row, i) => {
+          const rowId = `${row.category}-${i}`;
+          const isOpen = aExpanded.has(rowId);
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${labelFor(row.kind)}</td>
+            <td class="value-cell truncate">${row.value}</td>
+            <td class="mono">${row.supportingCount} rows</td>
+            <td><button type="button" class="d-toggle">${isOpen ? "Hide details" : "Details"}</button></td>`;
+          tr.querySelector(".d-toggle").addEventListener("click", () => {
+            if (isOpen) aExpanded.delete(rowId);
+            else aExpanded.add(rowId);
+            render();
+          });
+          tbody.appendChild(tr);
+          if (isOpen) {
+            const detailTr = document.createElement("tr");
+            detailTr.className = "d-detail-row";
+            const td = document.createElement("td");
+            td.colSpan = 4;
+            td.innerHTML = `
+              <div class="d-detail-grid">
+                <div class="d-detail-item"><div class="d-detail-label">Kind of Lead</div><div class="d-detail-value"><span class="badge ${badgeClass(row.category)}">${row.category}</span></div></div>
+                <div class="d-detail-item"><div class="d-detail-label">Chrome profile</div><div class="d-detail-value">${row.profile}</div></div>
+                <div class="d-detail-item"><div class="d-detail-label">Confidence rank</div><div class="d-detail-value">#${row.rank} of ${row.category === "identity" ? IDENTITY.length : BEHAVIOR.length} in this group</div></div>
+                <div class="d-detail-item"><div class="d-detail-label">Found in</div><div class="d-detail-value mono">${provenanceText(row, i)}</div></div>
+              </div>`;
+            detailTr.appendChild(td);
+            tbody.appendChild(detailTr);
+          }
+        });
+        table.appendChild(tbody);
+        content.appendChild(table);
+        card.appendChild(content);
+        return card;
+      }
+
+      function buildTableCard(title, rows) {
+        const card = document.createElement("div");
+        card.className = "card";
+        const head = document.createElement("div");
+        head.className = "card-header";
+        head.innerHTML = `<h2 class="card-title">${title}</h2><span class="card-description mono">${rows.length} rows</span>`;
+        card.appendChild(head);
+        const content = document.createElement("div");
+        content.className = "card-content fx-scroll-x";
+        const table = document.createElement("table");
+        table.innerHTML = `
+          <thead><tr>
+            <th>Type</th><th>Category</th><th>Profile</th><th>Rank</th><th>Supporting</th><th>Source row</th><th>Value</th>
+          </tr></thead>`;
+        const tbody = document.createElement("tbody");
+        rows.forEach((row, i) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${labelFor(row.kind)}</td>
+            <td class="cell-muted"><span class="badge ${badgeClass(row.category)}">${row.category}</span></td>
+            <td class="cell-muted">${row.profile}</td>
+            <td class="mono">#${row.rank}</td>
+            <td class="mono">${row.supportingCount}</td>
+            <td class="cell-muted mono">${provenanceText(row, i)}</td>
+            <td class="value-cell truncate">${row.value}</td>`;
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        content.appendChild(table);
+        card.appendChild(content);
+        return card;
+      }
+
+      /* ============================== Variant B ============================== */
+      // Leads grouped by what they are (Identity / Behavior / Topics) as
+      // scannable card rows — the primary read is "what does this case say
+      // about the subject", not "here is a spreadsheet". The dense table
+      // stays one click away for anyone who wants every column.
+      let bShowTable = false;
+      function renderB() {
+        const wrap = document.createElement("div");
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "column";
+        wrap.style.gap = "20px";
+
+        const note = document.createElement("p");
+        note.className = "leads-note";
+        note.textContent =
+          "Leads are ranked guesses derived from the evidence (with supporting row counts and sources) — they are never established facts.";
+        wrap.appendChild(note);
+
+        wrap.appendChild(
+          buildGroup("Identity", "badge-identity", IDENTITY, (c) =>
+            labelFor(c.kind),
+          ),
+        );
+        wrap.appendChild(
+          buildGroup("Behavior", "badge-behavior", BEHAVIOR, (c) =>
+            labelFor(c.kind),
+          ),
+        );
+        wrap.appendChild(
+          buildGroup("Topics", "badge-topic", TOPICS, () => "Topic"),
+        );
+
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "b-toggle";
+        toggle.textContent = bShowTable
+          ? "Hide dense table"
+          : "View as table \u2192";
+        toggle.addEventListener("click", () => {
+          bShowTable = !bShowTable;
+          render();
+        });
+        wrap.appendChild(toggle);
+
+        if (bShowTable) {
+          wrap.appendChild(buildTableCard("Ranked Leads", ALL));
+        }
+        return wrap;
+      }
+
+      function buildGroup(title, badgeCls, rows, kindLabel) {
+        const group = document.createElement("div");
+        group.className = "b-group";
+        const head = document.createElement("div");
+        head.className = "b-group-head";
+        head.innerHTML = `<span class="b-group-title"><span class="badge ${badgeCls}">${title}</span></span><span class="b-group-count mono">${rows.length} leads</span>`;
+        group.appendChild(head);
+        rows.forEach((row) => {
+          const el = document.createElement("div");
+          el.className = "b-row";
+          const meta = row.profile
+            ? `${kindLabel(row)} \u00b7 ${row.profile}`
+            : kindLabel(row);
+          const support = row.supportingCount ?? row.count;
+          el.innerHTML = `
+            <span class="b-rank mono">${row.rank}</span>
+            <span class="b-body">
+              <span class="b-value truncate">${row.value ?? row.name}</span>
+              <span class="b-meta">${meta}</span>
+            </span>
+            <span class="b-support mono">${support} rows</span>`;
+          group.appendChild(el);
+        });
+        return group;
+      }
+
+      /* ============================== Variant C ============================== */
+      // Master-detail: a ranked list rail (tabbed by category) drives a
+      // detail panel with the Lead's supporting facts and provenance. The
+      // dense table is gone entirely — this variant answers "investigate one
+      // Lead at a time" rather than "scan everything at once".
+      let cTab = "identity";
+      let cSelected = { category: "identity", index: 0 };
+      function rowsForTab(tab) {
+        if (tab === "identity") return IDENTITY;
+        if (tab === "behavior") return BEHAVIOR;
+        return TOPICS;
+      }
+      function renderC() {
+        const wrap = document.createElement("div");
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "column";
+        wrap.style.gap = "16px";
+
+        const note = document.createElement("p");
+        note.className = "leads-note";
+        note.textContent =
+          "Leads are ranked guesses derived from the evidence (with supporting row counts and sources) — they are never established facts.";
+        wrap.appendChild(note);
+
+        const shell = document.createElement("div");
+        shell.className = "c-shell";
+
+        // rail
+        const rail = document.createElement("div");
+        rail.className = "card c-rail";
+        const tabs = document.createElement("div");
+        tabs.className = "c-tab";
+        [
+          ["identity", "Identity"],
+          ["behavior", "Behavior"],
+          ["topic", "Topics"],
+        ].forEach(([key, text]) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "c-tabbtn" + (cTab === key ? " active" : "");
+          b.textContent = text;
+          b.addEventListener("click", () => {
+            cTab = key;
+            cSelected = { category: key, index: 0 };
+            render();
+          });
+          tabs.appendChild(b);
+        });
+        rail.appendChild(tabs);
+
+        const list = document.createElement("div");
+        rowsForTab(cTab).forEach((row, i) => {
+          const item = document.createElement("div");
+          const isSelected =
+            cSelected.category === cTab && cSelected.index === i;
+          item.className = "c-item" + (isSelected ? " selected" : "");
+          item.innerHTML = `
+            <span class="c-item-rank mono">${row.rank}</span>
+            <span class="c-item-body">
+              <span class="c-item-value truncate">${row.value ?? row.name}</span>
+              <span class="c-item-meta">${row.supportingCount ?? row.count} supporting rows</span>
+            </span>`;
+          item.addEventListener("click", () => {
+            cSelected = { category: cTab, index: i };
+            render();
+          });
+          list.appendChild(item);
+        });
+        rail.appendChild(list);
+        shell.appendChild(rail);
+
+        // detail
+        const rows = rowsForTab(cTab);
+        const active =
+          rows[cSelected.category === cTab ? cSelected.index : 0] ?? rows[0];
+        const detail = document.createElement("div");
+        detail.className = "card";
+        const content = document.createElement("div");
+        content.className = "card-content";
+        content.style.padding = "20px";
+        const kindText = active.kind ? labelFor(active.kind) : "Topic";
+        const support = active.supportingCount ?? active.count;
+        content.innerHTML = `
+          <div class="c-detail-head">
+            <div>
+              <span class="badge ${active.category ? badgeClass(active.category) : "badge-topic"}">${kindText}</span>
+              <p class="c-detail-value">${active.value ?? active.name}</p>
+            </div>
+            <span class="mono cell-muted">Rank #${active.rank}</span>
+          </div>
+          <div class="c-detail-grid">
+            <div class="c-fact"><div class="c-fact-label">Supporting rows</div><div class="c-fact-value">${support}</div></div>
+            <div class="c-fact"><div class="c-fact-label">Profile</div><div class="c-fact-value">${active.profile ?? "\u2014"}</div></div>
+          </div>
+          <div class="c-provenance">autofill \u00b7 row ${2000 + (cSelected.index ?? 0)}${active.url ? " \u00b7 " + active.url : ""}</div>`;
+        detail.appendChild(content);
+        shell.appendChild(detail);
+
+        wrap.appendChild(shell);
+        return wrap;
+      }
+
+      /* ============================== Variant D ============================== */
+      let dExpanded = new Set();
+      function renderD() {
+        const wrap = document.createElement("div");
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "column";
+        wrap.style.gap = "16px";
+
+        const note = document.createElement("p");
+        note.className = "leads-note";
+        note.textContent =
+          "Leads are ranked guesses derived from the evidence (with supporting row counts and sources) \u2014 they are never established facts.";
+        wrap.appendChild(note);
+
+        const card = document.createElement("div");
+        card.className = "card";
+        const head = document.createElement("div");
+        head.className = "card-header";
+        head.innerHTML = `<h2 class="card-title">Ranked Leads</h2><span class="card-description mono">${ALL.length} rows</span>`;
+        card.appendChild(head);
+        const content = document.createElement("div");
+        content.className = "card-content fx-scroll-x";
+        const table = document.createElement("table");
+        table.innerHTML = `
+          <thead><tr>
+            <th title="What kind of fact this Lead is about">What it is</th>
+            <th title="The value the analyzer inferred">Guess</th>
+            <th title="How many evidence rows point to this same guess \u2014 more rows means a stronger Lead">Evidence count</th>
+            <th></th>
+          </tr></thead>`;
+        const tbody = document.createElement("tbody");
+        ALL.forEach((row, i) => {
+          const rowId = `${row.category}-${i}`;
+          const isOpen = dExpanded.has(rowId);
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${labelFor(row.kind)}</td>
+            <td class="value-cell truncate">${row.value}</td>
+            <td class="mono">${row.supportingCount} rows</td>
+            <td><button type="button" class="d-toggle">${isOpen ? "Hide details" : "Details"}</button></td>`;
+          tr.querySelector(".d-toggle").addEventListener("click", () => {
+            if (isOpen) dExpanded.delete(rowId);
+            else dExpanded.add(rowId);
+            render();
+          });
+          tbody.appendChild(tr);
+          if (isOpen) {
+            const detailTr = document.createElement("tr");
+            detailTr.className = "d-detail-row";
+            const td = document.createElement("td");
+            td.colSpan = 4;
+            td.innerHTML = `
+              <div class="d-detail-grid">
+                <div class="d-detail-item"><div class="d-detail-label">Kind of Lead</div><div class="d-detail-value"><span class="badge ${badgeClass(row.category)}">${row.category}</span></div></div>
+                <div class="d-detail-item"><div class="d-detail-label">Chrome profile</div><div class="d-detail-value">${row.profile}</div></div>
+                <div class="d-detail-item"><div class="d-detail-label">Confidence rank</div><div class="d-detail-value">#${row.rank} of ${row.category === "identity" ? IDENTITY.length : BEHAVIOR.length} in this group</div></div>
+                <div class="d-detail-item"><div class="d-detail-label">Found in</div><div class="d-detail-value mono">${provenanceText(row, i)}</div></div>
+              </div>`;
+            detailTr.appendChild(td);
+            tbody.appendChild(detailTr);
+          }
+        });
+        table.appendChild(tbody);
+        content.appendChild(table);
+        card.appendChild(content);
+        wrap.appendChild(card);
+        return wrap;
+      }
+
+      /* ---------------------------- variant switcher ---------------------------- */
+      const VARIANTS = {
+        A: { name: "Highlight strip + table", render: renderA },
+        B: { name: "Grouped swimlanes", render: renderB },
+        C: { name: "Master\u2013detail", render: renderC },
+        D: { name: "Plain-language table", render: renderD },
+      };
+      const KEYS = Object.keys(VARIANTS);
+
+      function currentVariant() {
+        const params = new URLSearchParams(location.search);
+        const v = params.get("variant");
+        return KEYS.includes(v) ? v : "A";
+      }
+      function setVariant(key) {
+        const params = new URLSearchParams(location.search);
+        params.set("variant", key);
+        history.replaceState(null, "", "?" + params.toString());
+        render();
+      }
+      function render() {
+        const key = currentVariant();
+        root.innerHTML = "";
+        root.appendChild(VARIANTS[key].render());
+        document.getElementById("label").innerHTML =
+          `${key} <span class="name">\u2014 ${VARIANTS[key].name}</span>`;
+      }
+      document.getElementById("prev").addEventListener("click", () => {
+        const i = KEYS.indexOf(currentVariant());
+        setVariant(KEYS[(i - 1 + KEYS.length) % KEYS.length]);
+      });
+      document.getElementById("next").addEventListener("click", () => {
+        const i = KEYS.indexOf(currentVariant());
+        setVariant(KEYS[(i + 1) % KEYS.length]);
+      });
+      window.addEventListener("keydown", (event) => {
+        const active = document.activeElement;
+        const typing =
+          active &&
+          (active.tagName === "INPUT" ||
+            active.tagName === "TEXTAREA" ||
+            active.isContentEditable);
+        if (typing) return;
+        if (event.key === "ArrowLeft") document.getElementById("prev").click();
+        if (event.key === "ArrowRight") document.getElementById("next").click();
+      });
+      window.addEventListener("popstate", render);
+
+      render();
+    </script>
+  </body>
+</html>

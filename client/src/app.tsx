@@ -38,8 +38,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { callApi, type QueryParameters } from "./api.js";
 import logoMark from "./assets/forensix-logo.png";
 import { ARTIFACTS, SIDECAR_STATES } from "./artifacts.js";
-import { CandidatesTable, FindingsTable } from "./components/data-table.js";
+import {
+  candidateGuessField,
+  CandidatesTable,
+  FindingsTable,
+} from "./components/data-table.js";
 import { CompletenessPanel } from "./components/completeness.js";
+import { MaybeFieldStateText } from "./components/field-state.js";
 import {
   FilterBar,
   filterParameters,
@@ -376,6 +381,64 @@ function FindingList({
   );
 }
 
+/**
+ * Two read-at-a-glance tiles above the Leads filters: the strongest identity
+ * guess and the strongest behavior guess, ranked #1 in their own category.
+ * This fetches its own unfiltered, rank-sorted copy of the Leads list,
+ * independent of whatever the table's own Category/Kind/Search filters are
+ * currently set to — "what's the single strongest guess" should hold
+ * steady even while the table below is being filtered down.
+ */
+function LeadHighlights({ config }: { readonly config: ArtifactConfig }) {
+  const list = usePaginatedList<CandidateRecord | TopicCandidateRecord>(
+    config.route,
+    [
+      ["sort", "rank"],
+      ["direction", "asc"],
+    ],
+  );
+  const topOf = (category: "identity" | "behavior") =>
+    list.rows.find(
+      (row): row is CandidateRecord =>
+        "category" in row && row.category === category && row.rank === 1,
+    );
+  const topIdentity = topOf("identity");
+  const topBehavior = topOf("behavior");
+  const tiles = [
+    topIdentity === undefined
+      ? null
+      : { label: "Top identity guess", lead: topIdentity },
+    topBehavior === undefined
+      ? null
+      : { label: "Top behavior guess", lead: topBehavior },
+  ].filter(
+    (tile): tile is { label: string; lead: CandidateRecord } => tile !== null,
+  );
+  if (list.loading || tiles.length === 0) {
+    return null;
+  }
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {tiles.map((tile) => (
+        <div
+          key={tile.label}
+          className="flex flex-col gap-1 rounded-lg border border-border bg-card px-4 py-3"
+        >
+          <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            {tile.label}
+          </span>
+          <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">
+            <MaybeFieldStateText field={candidateGuessField(tile.lead)} />
+          </span>
+          <span className="text-[12px] text-muted-foreground">
+            {tile.lead.supportingCount} supporting rows
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CandidateList({
   config,
   base,
@@ -624,10 +687,19 @@ function ArtifactPage({
 
   return (
     <div className="flex flex-col gap-4">
-      {config.singleList === true ? <LeadsNote /> : null}
+      {config.singleList === true && config.key !== LEADS_KEY ? (
+        <LeadsNote />
+      ) : null}
 
-      {/* Evidence coverage always renders before any row. */}
-      <CompletenessPanel statement={statement} />
+      {config.key === LEADS_KEY ? (
+        <LeadHighlights config={config} />
+      ) : (
+        // Evidence coverage always renders before any row — except on Leads,
+        // where it read as a second, more confusing completeness widget on
+        // top of the one already on Overview and added nothing an examiner
+        // acts on here.
+        <CompletenessPanel statement={statement} />
+      )}
 
       <FilterBar
         config={config}

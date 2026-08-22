@@ -11,13 +11,7 @@ import type {
   TopicCandidateRecord,
 } from "../types.js";
 import { CommitBadge } from "../terms.js";
-import { Badge } from "./ui/badge.js";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from "./ui/sheet.js";
+import { Sheet, SheetContent, SheetTitle } from "./ui/sheet.js";
 import { FieldStateText } from "./field-state.js";
 
 export type SelectedRow =
@@ -104,24 +98,17 @@ export function RowSheet({
           {selected.kind === "finding" ? (
             <CommitBadge state={selected.row.commitState} />
           ) : (
-            <Badge variant="accent">
-              lead · rank #{selected.row.rank} ·{" "}
+            <span className="text-[12.5px] text-muted-foreground">
+              rank #{selected.row.rank} ·{" "}
               {"supportingCount" in selected.row
                 ? selected.row.supportingCount
                 : selected.row.count}{" "}
               supporting rows
-            </Badge>
+            </span>
           )}
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {selected.kind === "candidate" ? (
-            <SheetDescription className="mb-4 rounded-md border border-border bg-accent/60 px-3 py-2 text-[12.5px] text-accent-foreground">
-              A Lead is a ranked guess with supporting rows — never an
-              established fact.
-            </SheetDescription>
-          ) : null}
-
           <section aria-label="Source" className="mb-5">
             <h3 className="mb-1 text-[13px] font-semibold">
               Where this comes from

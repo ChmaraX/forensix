@@ -8,7 +8,7 @@
  *  - Leads (Candidates) render RANK and SUPPORTING up front and no Commit
  *    State, so a Lead is clearly not a Finding.
  */
-import { Inbox } from "lucide-react";
+import { ChevronRight, Inbox } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "../lib.js";
@@ -46,14 +46,19 @@ export function provenanceText(provenance: Provenance): string {
 function HeaderCell({
   children,
   className,
+  title,
 }: {
   readonly children: ReactNode;
   readonly className?: string;
+  readonly title?: string;
 }) {
   return (
     <th
+      title={title}
       className={cn(
         "sticky top-0 z-10 border-b border-border bg-muted/80 px-3 py-2 text-left text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase backdrop-blur",
+        title !== undefined &&
+          "cursor-help decoration-dotted underline underline-offset-2",
         className,
       )}
     >
@@ -153,6 +158,38 @@ export function FindingsTable({
   );
 }
 
+/**
+ * `candidateKind` is a wire identifier (`identity_email`,
+ * `behavior_frequent_host`, `topic`) meant for filters, not for reading.
+ * The table shows the human phrase instead; the raw kind is still visible
+ * in the row detail Sheet, where an examiner may want to filter by it.
+ */
+function candidateKindLabel(kind: string): string {
+  const withoutPrefix = kind.replace(/^identity_|^behavior_/, "");
+  return withoutPrefix
+    .split("_")
+    .filter((part) => part.length > 0)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+/**
+ * The one field a row is "about": `value` for identity/behavior Leads,
+ * `topicName` (falling back to `topicLabel`) for topic Leads. Every other
+ * field a Lead carries — rank, category, profile, source row, and any
+ * remaining fields — stays reachable through the row's own detail Sheet
+ * instead of adding a column per field; a table that repeats every wire
+ * field reads as a database dump, not an answer to "what does this lead
+ * say".
+ */
+export function candidateGuessField(
+  row: CandidateRecord | TopicCandidateRecord,
+) {
+  return (
+    row.fields.candidateValue ?? row.fields.topicName ?? row.fields.topicLabel
+  );
+}
+
 export function CandidatesTable({
   rows,
   onSelect,
@@ -163,22 +200,17 @@ export function CandidatesTable({
   if (rows.length === 0) {
     return <EmptyRows message="No Leads for this filter." />;
   }
-  const columns = collectColumns(rows);
-  const identityLeads = rows.some((row) => "supportingCount" in row);
   return (
     <div className="fx-scroll-x">
       <table className="w-full text-left text-[13px] tabular-nums">
         <thead>
           <tr>
             <HeaderCell>Type</HeaderCell>
-            {identityLeads ? <HeaderCell>Category</HeaderCell> : null}
-            {identityLeads ? <HeaderCell>Profile</HeaderCell> : null}
-            <HeaderCell>Rank</HeaderCell>
-            <HeaderCell>Supporting</HeaderCell>
-            <HeaderCell>Source row</HeaderCell>
-            {columns.map((column) => (
-              <HeaderCell key={column}>{column}</HeaderCell>
-            ))}
+            <HeaderCell>Guess</HeaderCell>
+            <HeaderCell title="Evidence rows that point to this same guess — more rows means a stronger Lead. Rank, category, profile and source are in the row detail.">
+              Evidence count
+            </HeaderCell>
+            <HeaderCell className="w-9">{null}</HeaderCell>
           </tr>
         </thead>
         <tbody>
@@ -196,33 +228,26 @@ export function CandidatesTable({
                   onSelect(row);
                 }
               }}
-              className={ROW_CLASS}
+              className={cn(ROW_CLASS, "group")}
             >
               <td className="px-3 py-2 font-medium whitespace-nowrap">
-                {row.candidateKind}
+                {candidateKindLabel(row.candidateKind)}
               </td>
-              {"supportingCount" in row ? (
-                <>
-                  <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
-                    {row.category}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
-                    {row.profile}
-                  </td>
-                </>
-              ) : null}
-              <td className="px-3 py-2 font-mono text-[12px] whitespace-nowrap">
-                #{row.rank}
+              <td className="max-w-[420px] px-3 py-2">
+                <MaybeFieldStateText
+                  field={candidateGuessField(row)}
+                  truncate
+                />
               </td>
               <td className="px-3 py-2 font-mono text-[12px] whitespace-nowrap">
                 {"supportingCount" in row ? row.supportingCount : row.count}
               </td>
-              <SourceRowCell provenance={row.provenance} />
-              {columns.map((column) => (
-                <td key={column} className="max-w-[320px] px-3 py-2">
-                  <MaybeFieldStateText field={row.fields[column]} truncate />
-                </td>
-              ))}
+              <td className="px-3 py-2">
+                <ChevronRight
+                  aria-hidden="true"
+                  className="size-3.5 text-muted-foreground/40 transition-colors duration-100 group-hover:text-muted-foreground"
+                />
+              </td>
             </tr>
           ))}
         </tbody>
