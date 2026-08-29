@@ -28,7 +28,6 @@ import {
   ListOrdered,
   Menu,
   Image as SiteImageIcon,
-  Tags,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -52,6 +51,16 @@ import {
   type FilterState,
 } from "./components/filters.js";
 import { RowSheet, type SelectedRow } from "./components/row-sheet.js";
+import {
+  TimelineActivityCard,
+  type DayRange,
+} from "./components/timeline-activity.js";
+import {
+  TimelineRecordsCard,
+  type TimelineDirection,
+} from "./components/timeline-table.js";
+import { TopSitesPage } from "./components/top-sites-page.js";
+import { SitesPage } from "./components/sites-page.js";
 import { Button } from "./components/ui/button.js";
 import {
   Sheet,
@@ -73,9 +82,6 @@ import type {
   CommitState,
   Finding,
   PageOf,
-  SiteArtifactKind,
-  SiteFinding,
-  SiteHost,
   TopicCandidateRecord,
 } from "./types.js";
 
@@ -473,182 +479,41 @@ function CandidateList({
 
 function TimelinePage() {
   const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const list = usePaginatedList<Finding>("timeline", [["direction", "desc"]]);
+  const [range, setRange] = useState<DayRange>({ from: "", to: "" });
+  const [direction, setDirection] = useState<TimelineDirection>("desc");
+  // A selected day range maps to whole-day UTC instants: local dates can read
+  // up to a day wider than the true local bounds, which only ever widens the
+  // window — it can never hide evidence.
+  const parameters = useMemo<QueryParameters>(() => {
+    const result: (readonly [string, string])[] = [["direction", direction]];
+    if (range.from !== "") {
+      result.push(["from", `${range.from}T00:00:00Z`]);
+    }
+    if (range.to !== "") {
+      result.push(["to", `${range.to}T23:59:59.999999Z`]);
+    }
+    return result;
+  }, [range, direction]);
+  const list = usePaginatedList<Finding>("timeline", parameters);
 
   return (
     <div className="flex flex-col gap-4">
+      <TimelineActivityCard range={range} onRangeChange={setRange} />
       {/* This stays one stream: splitting commit states would hide chronology. */}
-      <ListCard title="Chronological records" count={list.rows.length}>
-        {list.error !== null ? (
-          <ErrorRows message={list.error} onRetry={list.retry} />
-        ) : list.loading && list.rows.length === 0 ? (
-          <LoadingRows />
-        ) : (
-          <FindingsTable
-            rows={list.rows}
-            onSelect={(row) => {
-              setSelected({ kind: "finding", row });
-            }}
-          />
-        )}
-        <ListFooter
-          count={list.rows.length}
-          cursor={list.cursor}
-          loading={list.loading}
-          onLoadMore={list.loadMore}
-        />
-      </ListCard>
-      {selected !== null ? (
-        <RowSheet
-          selected={selected}
-          onClose={() => {
-            setSelected(null);
-          }}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-const SITE_LABELS: Readonly<Record<SiteArtifactKind, string>> = {
-  visits: "Visits",
-  cookies: "Cookies",
-  saved_logins: "Saved logins",
-  bookmarks: "Bookmarks",
-  top_sites: "Top sites",
-  form_data: "Form data",
-};
-
-function SitesPage({
-  initialHost,
-}: {
-  /** Preselects a host on mount — the Overview's Top sites card jumps here
-   *  with the row's own host instead of landing on an empty selection. */
-  readonly initialHost?: string | null;
-}) {
-  const [search, setSearch] = useState("");
-  const [host, setHost] = useState<string | null>(initialHost ?? null);
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const hosts = usePaginatedList<SiteHost>(
-    "site-hosts",
-    search.length === 0 ? [] : [["search", search]],
-  );
-  const findings = usePaginatedList<SiteFinding>(
-    "site-findings",
-    host === null ? [["host", ""]] : [["host", host]],
-    host !== null,
-  );
-  const grouped = useMemo(() => {
-    const result = new Map<SiteArtifactKind, SiteFinding[]>();
-    for (const finding of findings.rows) {
-      const group = result.get(finding.artifactKind) ?? [];
-      group.push(finding);
-      result.set(finding.artifactKind, group);
-    }
-    return result;
-  }, [findings.rows]);
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(220px,0.34fr)_minmax(0,1fr)]">
-      <ListCard title="Observed hosts" count={hosts.rows.length}>
-        <div className="border-b border-border p-3">
-          <input
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-            }}
-            placeholder="Search hosts"
-            aria-label="Search observed hosts"
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-[13px] outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-        {hosts.error !== null ? (
-          <ErrorRows message={hosts.error} onRetry={hosts.retry} />
-        ) : hosts.loading && hosts.rows.length === 0 ? (
-          <LoadingRows />
-        ) : (
-          <div className="flex flex-col p-2">
-            {hosts.rows.map((item) => (
-              <button
-                key={item.host}
-                type="button"
-                onClick={() => {
-                  setHost(item.host);
-                }}
-                className={cn(
-                  "flex cursor-pointer flex-col rounded-md px-3 py-2 text-left hover:bg-muted",
-                  host === item.host && "bg-muted",
-                )}
-              >
-                <span className="font-mono text-[12.5px]">{item.host}</span>
-                <span className="text-[11.5px] text-muted-foreground">
-                  {Object.entries(item.counts)
-                    .filter(([, count]) => count > 0)
-                    .map(
-                      ([kind, count]) =>
-                        `${SITE_LABELS[kind as SiteArtifactKind]} ${count}`,
-                    )
-                    .join(" · ")}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-        <ListFooter
-          count={hosts.rows.length}
-          cursor={hosts.cursor}
-          loading={hosts.loading}
-          onLoadMore={hosts.loadMore}
-        />
-      </ListCard>
-      <div className="flex flex-col gap-4">
-        {host === null ? (
-          <div className="rounded-lg border border-dashed border-border px-4 py-8 text-[13px] text-muted-foreground">
-            Select a recorded host to view its evidence.
-          </div>
-        ) : findings.error !== null ? (
-          <ErrorRows message={findings.error} onRetry={findings.retry} />
-        ) : findings.loading && findings.rows.length === 0 ? (
-          <LoadingRows />
-        ) : (
-          <>
-            {(
-              [
-                "visits",
-                "cookies",
-                "saved_logins",
-                "bookmarks",
-                "top_sites",
-                "form_data",
-              ] as const
-            ).map((kind) => {
-              const rows = grouped.get(kind) ?? [];
-              return rows.length === 0 ? null : (
-                <ListCard
-                  key={kind}
-                  title={SITE_LABELS[kind]}
-                  count={rows.length}
-                >
-                  <FindingsTable
-                    rows={rows}
-                    onSelect={(row) => {
-                      setSelected({ kind: "finding", row });
-                    }}
-                  />
-                </ListCard>
-              );
-            })}
-          </>
-        )}
-        {host !== null ? (
-          <ListFooter
-            count={findings.rows.length}
-            cursor={findings.cursor}
-            loading={findings.loading}
-            onLoadMore={findings.loadMore}
-          />
-        ) : null}
-      </div>
+      <TimelineRecordsCard
+        rows={list.rows}
+        loading={list.loading}
+        error={list.error}
+        cursor={list.cursor}
+        onLoadMore={list.loadMore}
+        onRetry={list.retry}
+        onSelect={(row) => {
+          setSelected({ kind: "finding", row });
+        }}
+        direction={direction}
+        onDirectionChange={setDirection}
+        rangeActive={range.from !== "" || range.to !== ""}
+      />
       {selected !== null ? (
         <RowSheet
           selected={selected}
@@ -796,10 +661,6 @@ interface NavTarget {
 const LEADS_KEY = "candidates";
 
 const LEADS_CONFIG = ARTIFACTS.find((config) => config.key === LEADS_KEY);
-const TOPIC_LEADS_KEY = "topic-candidates";
-const TOPIC_LEADS_CONFIG = ARTIFACTS.find(
-  (config) => config.key === TOPIC_LEADS_KEY,
-);
 
 interface NavGroup {
   readonly label: string;
@@ -823,7 +684,6 @@ interface NavGroup {
 const NAV_ICONS: Record<string, LucideIcon> = {
   overview: LayoutDashboard,
   candidates: Lightbulb,
-  "topic-candidates": Tags,
   timeline: ListOrdered,
   sites: Globe,
   history: HistoryIcon,
@@ -886,16 +746,6 @@ const NAV_GROUPS: readonly NavGroup[] = [
               label: LEADS_CONFIG.label,
               config: LEADS_CONFIG,
               icon: NAV_ICONS[LEADS_KEY] ?? Lightbulb,
-            },
-          ]),
-      ...(TOPIC_LEADS_CONFIG === undefined
-        ? []
-        : [
-            {
-              key: TOPIC_LEADS_KEY,
-              label: TOPIC_LEADS_CONFIG.label,
-              config: TOPIC_LEADS_CONFIG,
-              icon: NAV_ICONS[TOPIC_LEADS_KEY] ?? Tags,
             },
           ]),
     ],
@@ -1253,6 +1103,11 @@ export function App() {
                   <ErrorRows message={error} onRetry={retry} />
                 ) : context === null ? (
                   <LoadingRows />
+                ) : active.config.key === "top-sites" ? (
+                  <TopSitesPage
+                    config={active.config}
+                    completeness={context.completeness}
+                  />
                 ) : (
                   <ArtifactPage
                     config={active.config}

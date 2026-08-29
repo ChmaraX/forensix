@@ -14,9 +14,16 @@ import {
   queryAutofill,
   queryBookmarks,
   queryCache,
+  queryCandidates,
+  queryCompleteness,
+  queryCookies,
+  queryCredentials,
+  queryDownloads,
+  queryFavicons,
   queryHistory,
   queryMetadata,
   queryProfiles,
+  queryTimeline,
   queryTopSites,
   queryTopicCandidates,
   type AutofillDirection,
@@ -29,12 +36,24 @@ import {
   type CacheDirection,
   type CacheRecordType,
   type CacheSort,
+  type CandidateDirection,
+  type CandidateSort,
+  type CommitState,
+  type CookieDirection,
+  type CookieSort,
+  type CredentialDirection,
+  type CredentialSort,
+  type DownloadDirection,
+  type DownloadSort,
+  type FaviconDirection,
+  type FaviconSort,
   type HistoryDirection,
   type HistorySort,
   type HistoryView,
   type MetadataDirection,
   type MetadataSort,
   type MetadataType,
+  type TimelineDirection,
   type TopSiteDirection,
   type TopSiteSort,
   type TopicCandidateDirection,
@@ -461,12 +480,23 @@ export const API_ROUTES = new Map<
         to: firstString(parameters.get("to")),
       }),
   ],
-  // "timeline", "site-hosts", and "site-findings" are not wired up here yet:
-  // core has no `queryTimeline` / `querySiteHosts` / `querySiteFindings` (a
-  // pre-existing gap, not introduced by the Top sites change). The client's
-  // Timeline and Sites pages already call these route names and will show
-  // their normal "could not be loaded" state — an honest gap, not a crash —
-  // until that backend work lands.
+  [
+    "timeline",
+    (parameters, caseDirectory) =>
+      queryTimeline({
+        caseDirectory,
+        limit: integerParameter(parameters, "limit"),
+        after: firstString(parameters.get("after")),
+        from: firstString(parameters.get("from")),
+        to: firstString(parameters.get("to")),
+        direction: firstString(parameters.get("direction")) as
+          | TimelineDirection
+          | undefined,
+      }),
+  ],
+  // "site-hosts" and "site-findings" are not wired up here yet: the client's
+  // Sites page will show its normal "could not be loaded" state — an honest
+  // gap, not a crash — until that backend work lands.
   [
     "site-favicons",
     (parameters, caseDirectory) => ({

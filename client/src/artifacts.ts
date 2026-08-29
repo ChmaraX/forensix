@@ -173,23 +173,4 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
       { parameter: "kind", label: "Kind", placeholder: "any" },
     ],
   },
-  {
-    key: "topic-candidates",
-    label: "Topic leads",
-    description:
-      "Ranked topic hypotheses derived from browser evidence — never established facts.",
-    route: "topic-candidates",
-    completenessArtifact: "History",
-    sorts: ["rank", "supporting", "label", "profile"],
-    directions: ["asc", "desc"],
-    singleList: true,
-    extras: [
-      { parameter: "label", label: "Label", placeholder: "any" },
-      {
-        parameter: "commit-state",
-        label: "Commit state",
-        options: ["", "committed", "wal_resident", "journal_resident"],
-      },
-    ],
-  },
 ];

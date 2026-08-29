@@ -256,10 +256,12 @@ export function TopicCategorizationCard({ state }: { readonly state: TopicState 
   const [sheetOpen, setSheetOpen] = useState(false);
   return (
     <Card className="fx-rise col-span-12 sm:col-span-6" style={RISE_DELAY}>
+      {/* No linkLabel: the button it drew was never wired to onClick, and
+          the Topic leads tab it named has been removed — a label
+          pointing nowhere is worse than no label. */}
       <PanelHeaderMini
         title="Topic categorization"
         description="Share of classified URLs, by topic."
-        linkLabel={state === "complete" ? "Topic leads" : undefined}
       />
       {/* flex-1 + justify-center: Top sites (its grid row partner) has six
           rows and naturally stretches taller, so this card's shorter donut

@@ -31,9 +31,13 @@ picked up without restarting `npm run mock`.
   (sets `window.__FORENSIX_TOKEN__`, loads `/index.js` as a module).
 - `GET /index.js` — the built client bundle.
 - `GET /api/<route>` for every route the real server exposes: `completeness`,
-  `profiles`, `history`, `site-favicons`, `cookies`, `credentials`,
-  `top-sites`, `cache`, `favicons`, `candidates`, `topic-candidates`,
-  `metadata`, `downloads`, `bookmarks`, `autofill`.
+  `profiles`, `history`, `timeline`, `site-favicons`, `cookies`,
+  `credentials`, `top-sites`, `cache`, `favicons`, `candidates`,
+  `topic-candidates`, `metadata`, `downloads`, `bookmarks`, `autofill`.
+
+`timeline` merges history visits, downloads, cookie creation, and autofill
+last-used rows by timestamp, newest first — mirroring core's
+`queryTimeline`. `site-hosts`/`site-findings` are not wired up yet.
 
 The fixture data lives in `case-data.mjs`: one hand-authored case
 (`CASE-2024-0417`, an insider-threat/financial-fraud scenario), two Chrome

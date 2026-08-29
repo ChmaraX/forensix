@@ -104,10 +104,130 @@ const historyView = (view) => {
   return findingRows(caseData.history.visits); // "visits" and default
 };
 
+/** Extracts the ISO timestamp a Finding sorts the Timeline by, per
+ *  `findingKind` — mirrors core's `queryTimeline` branch selection
+ *  (history visits, downloads, cookie creation, autofill last-used). */
+const TIMELINE_SORT_FIELD = {
+  history_visit: "visitTime",
+  download: "startTime",
+  cookie: "creationTime",
+  autofill_entry: "dateLastUsed",
+};
+
+function timelineSortKey(row) {
+  const fieldName = TIMELINE_SORT_FIELD[row.findingKind];
+  const field = fieldName === undefined ? undefined : row.fields[fieldName];
+  return field?.state === "value" ? field.value.utc : null;
+}
+
+function timelineRows() {
+  const rows = [
+    ...caseData.history.visits,
+    ...caseData.downloads,
+    ...caseData.cookies,
+    ...caseData.autofill,
+  ].filter((row) => timelineSortKey(row) !== null);
+  rows.sort((a, b) => (timelineSortKey(a) < timelineSortKey(b) ? 1 : -1)); // desc, newest first
+  return findingRows(rows);
+}
+
+/* ------------------------------ sites routes ------------------------------ */
+
+/** `"value"`-state string field, or null. */
+function textField(row, field) {
+  const value = row.fields[field];
+  return value?.state === "value" &&
+    typeof value.value === "string" &&
+    value.value !== ""
+    ? value.value
+    : null;
+}
+
+/** Normalized host key: URL host or cookie host key, lowercased, without
+ *  leading dots or `www.` — so `.gmail.com` cookies and `www.gmail.com`
+ *  visits group under one host, mirroring what the future real route will
+ *  do. */
+function hostKeyOf(raw) {
+  if (raw === null) return null;
+  let host = raw;
+  if (host.includes("://")) {
+    try {
+      host = new URL(host).host;
+    } catch {
+      return null;
+    }
+  }
+  host = host.toLowerCase().replace(/^\.+/, "").replace(/^www\./, "");
+  return host === "" ? null : host;
+}
+
+/** Each site artifact kind: its fixture rows and the field carrying a host. */
+const SITE_SOURCES = [
+  ["visits", () => caseData.history.visits, (row) => textField(row, "url")],
+  ["cookies", () => caseData.cookies, (row) => textField(row, "hostKey")],
+  [
+    "saved_logins",
+    () => caseData.credentials,
+    (row) => textField(row, "originUrl") ?? textField(row, "signonRealm"),
+  ],
+  ["bookmarks", () => caseData.bookmarks, (row) => textField(row, "url")],
+  ["top_sites", () => caseData.topSites, (row) => textField(row, "url")],
+];
+
+const EMPTY_SITE_COUNTS = {
+  visits: 0,
+  cookies: 0,
+  saved_logins: 0,
+  bookmarks: 0,
+  top_sites: 0,
+  form_data: 0,
+};
+
+function siteHosts(params) {
+  const search = (params.get("search") ?? "").toLowerCase();
+  const byHost = new Map();
+  for (const [kind, rowsOf, hostOf] of SITE_SOURCES) {
+    for (const row of rowsOf()) {
+      const host = hostKeyOf(hostOf(row));
+      if (host === null) continue;
+      const counts = byHost.get(host) ?? { ...EMPTY_SITE_COUNTS };
+      counts[kind] += 1;
+      byHost.set(host, counts);
+    }
+  }
+  const items = [...byHost.entries()]
+    .filter(([host]) => search === "" || host.includes(search))
+    .map(([host, counts]) => ({ host, counts }))
+    .sort(
+      (a, b) =>
+        Object.values(b.counts).reduce((s, n) => s + n, 0) -
+        Object.values(a.counts).reduce((s, n) => s + n, 0),
+    );
+  return { status: "ok", items, nextCursor: null, limit: items.length };
+}
+
+function siteFindings(params) {
+  const host = hostKeyOf(params.get("host"));
+  const items = [];
+  if (host !== null) {
+    for (const [kind, rowsOf, hostOf] of SITE_SOURCES) {
+      for (const row of rowsOf()) {
+        if (hostKeyOf(hostOf(row)) === host) {
+          items.push({ ...findingRows([row])[0], artifactKind: kind });
+        }
+      }
+    }
+  }
+  return { status: "ok", items, nextCursor: null, limit: items.length || 1 };
+}
+
 const ROUTES = {
+  "site-hosts": (params) => siteHosts(params),
+  "site-findings": (params) => siteFindings(params),
   completeness: () => caseData.completeness,
   profiles: () => caseData.profiles,
   history: (params) => pageOf(historyView(params.get("view")), params),
+  timeline: (params) => pageOf(timelineRows(), params),
   "site-favicons": () => ({ status: "ok", icons: {} }),
   cookies: (params) => pageOf(findingRows(caseData.cookies), params),
   credentials: (params) => pageOf(findingRows(caseData.credentials), params),
