@@ -16,6 +16,8 @@
  */
 import {
   Archive,
+  ArrowDown,
+  ArrowUp,
   FileArchive,
   FileAudio,
   FileCode2,
@@ -23,14 +25,17 @@ import {
   FileText,
   FileVideo,
   Search,
+  Sheet,
   Terminal,
+  X,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
   CartesianGrid,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -74,12 +79,14 @@ function useDownloads(route: string) {
   const [rows, setRows] = useState<readonly Finding[] | null>(null);
   const [complete, setComplete] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pages, setPages] = useState(0);
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setRows(null);
     setError(null);
+    setPages(0);
     (async () => {
       const collected: Finding[] = [];
       let after: string | null = null;
@@ -99,6 +106,9 @@ function useDownloads(route: string) {
         );
         collected.push(...result.items);
         after = result.nextCursor;
+        if (!cancelled) {
+          setPages(page + 1);
+        }
         if (after === null) {
           ran = false;
           break;
@@ -127,7 +137,7 @@ function useDownloads(route: string) {
     setNonce((value) => value + 1);
   }, []);
 
-  return { rows, complete, error, retry };
+  return { rows, complete, error, pages, retry };
 }
 
 /* ------------------------------- formatting ------------------------------- */
@@ -210,7 +220,7 @@ const KIND_META: Readonly<
   executable: { label: "Executable", icon: Terminal },
   archive: { label: "Archive", icon: FileArchive },
   document: { label: "Document", icon: FileText },
-  spreadsheet: { label: "Spreadsheet", icon: FileText },
+  spreadsheet: { label: "Spreadsheet", icon: Sheet },
   image: { label: "Image", icon: FileImage },
   audio: { label: "Audio", icon: FileAudio },
   video: { label: "Video", icon: FileVideo },
@@ -354,6 +364,21 @@ function kindOf(mime: string | null, name: string | null): FileKind {
 
 /* ----------------------------- derived model ------------------------------ */
 
+/** ISO `YYYY-MM-DD`, or `""` when that bound is unset. Same shape the Timeline
+ *  and History activity charts use to focus their tables. */
+interface DayRange {
+  readonly from: string;
+  readonly to: string;
+}
+
+/** Which column the table sorts by. */
+type SortKey = "type" | "file" | "size" | "source" | "started" | "state";
+
+interface SortState {
+  readonly key: SortKey;
+  readonly dir: "asc" | "desc";
+}
+
 interface DownloadRow {
   readonly finding: Finding;
   readonly name: string | null;
@@ -411,6 +436,25 @@ function isUnfinished(state: string | null): boolean {
   );
 }
 
+/** Orders two rows by one column, ascending; the caller flips for descending.
+ *  Nulls sort last in ascending order (an absent size or time is not "zero"). */
+function compareRows(a: DownloadRow, b: DownloadRow, key: SortKey): number {
+  switch (key) {
+    case "type":
+      return KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind);
+    case "file":
+      return (a.name ?? "\uffff").localeCompare(b.name ?? "\uffff", "en-US");
+    case "size":
+      return (a.bytes ?? -1) - (b.bytes ?? -1);
+    case "source":
+      return (a.host ?? "\uffff").localeCompare(b.host ?? "\uffff", "en-US");
+    case "started":
+      return (a.startUtc ?? "").localeCompare(b.startUtc ?? "");
+    case "state":
+      return stateLabel(a.state).localeCompare(stateLabel(b.state), "en-US");
+  }
+}
+
 /* -------------------------------- widgets --------------------------------- */
 
 function StatTile({
@@ -447,11 +491,13 @@ function SectionCard({
   title,
   description,
   count,
+  action,
   children,
 }: {
   readonly title: string;
   readonly description?: string;
   readonly count?: number;
+  readonly action?: React.ReactNode;
   readonly children: React.ReactNode;
 }) {
   return (
@@ -468,6 +514,9 @@ function SectionCard({
             {description}
           </p>
         )}
+        {action === undefined ? null : (
+          <div className="ml-auto flex items-center">{action}</div>
+        )}
       </header>
       {children}
     </section>
@@ -480,9 +529,51 @@ function SectionCard({
  * area as the Overview's browsing chart. Days with no downloads are filled
  * with zero so the axis is continuous calendar time, never compressed.
  */
-function VolumeChart({ rows }: { readonly rows: readonly DownloadRow[] }) {
+function VolumeChart({
+  rows,
+  range,
+  onRangeChange,
+}: {
+  readonly rows: readonly DownloadRow[];
+  readonly range: DayRange;
+  readonly onRangeChange: (range: DayRange) => void;
+}) {
   const tokens = useChartTokens();
   const reduced = usePrefersReducedMotion();
+  const [dragStart, setDragStart] = useState<string | null>(null);
+  const [dragCurrent, setDragCurrent] = useState<string | null>(null);
+
+  const hasRange = range.from !== "" || range.to !== "";
+  const dragging = dragStart !== null;
+
+  // While dragging the highlight follows the pointer; once committed it is the
+  // page's own range. Bounds are kept sorted so a right-to-left drag reads the
+  // same as a left-to-right one — identical to the Timeline activity card.
+  const highlight = useMemo(() => {
+    if (dragStart !== null && dragCurrent !== null) {
+      return dragStart <= dragCurrent
+        ? { from: dragStart, to: dragCurrent }
+        : { from: dragCurrent, to: dragStart };
+    }
+    if (dragStart !== null) {
+      return { from: dragStart, to: dragStart };
+    }
+    return hasRange ? range : null;
+  }, [dragStart, dragCurrent, hasRange, range]);
+
+  const commitDrag = useCallback(() => {
+    if (dragStart === null) {
+      return;
+    }
+    const end = dragCurrent ?? dragStart;
+    onRangeChange(
+      dragStart <= end
+        ? { from: dragStart, to: end }
+        : { from: end, to: dragStart },
+    );
+    setDragStart(null);
+    setDragCurrent(null);
+  }, [dragStart, dragCurrent, onRangeChange]);
 
   const days = useMemo(() => {
     const byDate = new Map<string, { bytes: number; count: number }>();
@@ -531,13 +622,29 @@ function VolumeChart({ rows }: { readonly rows: readonly DownloadRow[] }) {
 
   return (
     <div
-      className="h-[190px] w-full px-2 py-3"
-      aria-label="Bytes downloaded per day"
+      className={cn(
+        "h-[190px] w-full px-2 py-3",
+        dragging && "cursor-crosshair select-none",
+      )}
+      aria-label="Bytes downloaded per day. Drag across the chart to focus the table below."
     >
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={days}
           margin={{ top: 8, right: 10, bottom: 0, left: 0 }}
+          onMouseDown={(state) => {
+            if (typeof state?.activeLabel === "string") {
+              setDragStart(state.activeLabel);
+              setDragCurrent(state.activeLabel);
+            }
+          }}
+          onMouseMove={(state) => {
+            if (dragStart !== null && typeof state?.activeLabel === "string") {
+              setDragCurrent(state.activeLabel);
+            }
+          }}
+          onMouseUp={commitDrag}
+          onMouseLeave={commitDrag}
         >
           <defs>
             <linearGradient id="fxDownloadsFill" x1="0" y1="0" x2="0" y2="1">
@@ -610,6 +717,16 @@ function VolumeChart({ rows }: { readonly rows: readonly DownloadRow[] }) {
               );
             }}
           />
+          {highlight !== null && highlight.from !== highlight.to ? (
+            <ReferenceArea
+              x1={highlight.from}
+              x2={highlight.to}
+              fill={tokens["--primary"]}
+              fillOpacity={0.08}
+              stroke={tokens["--primary"]}
+              strokeOpacity={0.25}
+            />
+          ) : null}
           <Area
             type="monotone"
             dataKey="bytes"
@@ -661,7 +778,10 @@ function KindBreakdown({
     });
   }, [rows]);
 
-  const peak = Math.max(...kinds.map((entry) => entry.count), 1);
+  // Bars are sized by bytes, not count: the whole page reads download volume
+  // (the over-time chart and the source ranking are both bytes), so one 2 GB
+  // executable must not shrink to the width of a single favicon.
+  const peak = Math.max(...kinds.map((entry) => entry.bytes), 1);
 
   if (kinds.length === 0) {
     return <EmptyRows message="No downloads to classify." />;
@@ -673,7 +793,7 @@ function KindBreakdown({
         const meta = KIND_META[entry.kind];
         const Icon = meta.icon;
         const active = activeKind === entry.kind;
-        const share = Math.round((entry.count / peak) * 100);
+        const share = Math.max(2, Math.round((entry.bytes / peak) * 100));
         return (
           <li key={entry.kind}>
             <button
@@ -711,7 +831,7 @@ function KindBreakdown({
                   <span
                     className={cn(
                       "block h-full rounded-full transition-[width] duration-500",
-                      entry.count === peak ? "bg-primary" : "bg-primary/45",
+                      entry.bytes === peak ? "bg-primary" : "bg-primary/45",
                     )}
                     style={{ width: `${String(share)}%` }}
                   />
@@ -869,11 +989,25 @@ function DownloadState({ state }: { readonly state: string | null }) {
   );
 }
 
+const TABLE_COLUMNS: readonly { readonly label: string; readonly key: SortKey }[] =
+  [
+    { label: "Type", key: "type" },
+    { label: "File", key: "file" },
+    { label: "Size", key: "size" },
+    { label: "Source", key: "source" },
+    { label: "Started", key: "started" },
+    { label: "State", key: "state" },
+  ];
+
 function DownloadsTable({
   rows,
+  sort,
+  onSort,
   onSelect,
 }: {
   readonly rows: readonly DownloadRow[];
+  readonly sort: SortState;
+  readonly onSort: (key: SortKey) => void;
   readonly onSelect: (finding: Finding) => void;
 }) {
   return (
@@ -881,16 +1015,43 @@ function DownloadsTable({
       <table className="w-full text-left text-[13px]">
         <thead>
           <tr>
-            {["Type", "File", "Size", "Source", "Started", "State"].map(
-              (label) => (
+            {TABLE_COLUMNS.map(({ label, key }) => {
+              const active = sort.key === key;
+              const Arrow = sort.dir === "asc" ? ArrowUp : ArrowDown;
+              return (
                 <th
-                  key={label}
-                  className="sticky top-0 z-10 border-b border-border bg-muted/80 px-3 py-2 text-left text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase backdrop-blur"
+                  key={key}
+                  aria-sort={
+                    active
+                      ? sort.dir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                  className="sticky top-0 z-10 border-b border-border bg-muted/80 p-0 text-left text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase backdrop-blur"
                 >
-                  {label}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSort(key);
+                    }}
+                    className={cn(
+                      "flex w-full cursor-pointer items-center gap-1 px-3 py-2 uppercase transition-colors duration-150 hover:text-foreground",
+                      active && "text-foreground",
+                    )}
+                  >
+                    {label}
+                    <Arrow
+                      aria-hidden="true"
+                      className={cn(
+                        "size-3 shrink-0",
+                        active ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                  </button>
                 </th>
-              ),
-            )}
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -971,10 +1132,59 @@ export function DownloadsPage({
 }: {
   readonly config: ArtifactConfig;
 }) {
-  const { rows, complete, error, retry } = useDownloads(config.route);
+  const { rows, complete, error, pages, retry } = useDownloads(config.route);
+  const reduced = usePrefersReducedMotion();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<FileKind | null>(null);
+  const [range, setRange] = useState<DayRange>({ from: "", to: "" });
+  const [sort, setSort] = useState<SortState>({ key: "started", dir: "desc" });
+
+  // Clicking a file kind (or picking a day range) narrows the table that sits
+  // below the fold on a tall monitor; without this the table would change
+  // silently. A brief ring pulse plus a scroll-into-view draws the eye down.
+  const tableRef = useRef<HTMLDivElement | null>(null);
+  const [pulse, setPulse] = useState(0);
+  const [pulsing, setPulsing] = useState(false);
+  useEffect(() => {
+    if (pulse === 0) {
+      return;
+    }
+    setPulsing(true);
+    tableRef.current?.scrollIntoView({
+      behavior: reduced ? "auto" : "smooth",
+      block: "nearest",
+    });
+    const timer = setTimeout(() => {
+      setPulsing(false);
+    }, 650);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [pulse, reduced]);
+  const focusTable = useCallback(() => {
+    setPulse((value) => value + 1);
+  }, []);
+
+  const onKind = useCallback(
+    (kind: FileKind | null) => {
+      setKindFilter(kind);
+      if (kind !== null) {
+        focusTable();
+      }
+    },
+    [focusTable],
+  );
+
+  const onSort = useCallback((key: SortKey) => {
+    setSort((current) =>
+      current.key === key
+        ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: key === "file" || key === "type" ? "asc" : "desc" },
+    );
+  }, []);
+
+  const hasRange = range.from !== "" || range.to !== "";
 
   const model = useMemo(() => (rows ?? []).map(toRow), [rows]);
 
@@ -1018,9 +1228,19 @@ export function DownloadsPage({
 
   const visible = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("en-US");
-    return model.filter((row) => {
+    const rowsInScope = model.filter((row) => {
       if (kindFilter !== null && row.kind !== kindFilter) {
         return false;
+      }
+      if (hasRange) {
+        const day = row.startUtc?.slice(0, 10) ?? null;
+        if (
+          day === null ||
+          (range.from !== "" && day < range.from) ||
+          (range.to !== "" && day > range.to)
+        ) {
+          return false;
+        }
       }
       if (query === "") {
         return true;
@@ -1030,7 +1250,11 @@ export function DownloadsPage({
         .toLocaleLowerCase("en-US");
       return haystack.includes(query);
     });
-  }, [model, search, kindFilter]);
+    return [...rowsInScope].sort((left, right) => {
+      const order = compareRows(left, right, sort.key);
+      return sort.dir === "asc" ? order : -order;
+    });
+  }, [model, search, kindFilter, hasRange, range, sort]);
 
   const filtered = visible.length !== model.length;
 
@@ -1065,6 +1289,16 @@ export function DownloadsPage({
         </div>
       ) : rows === null ? (
         <div className="flex flex-col gap-3" aria-label="Loading downloads">
+          <p
+            className="text-[12.5px] text-muted-foreground tabular-nums"
+            aria-live="polite"
+          >
+            {pages === 0
+              ? "Reading downloads…"
+              : `Reading downloads… ${pages.toLocaleString("en-US")} page${
+                  pages === 1 ? "" : "s"
+                } loaded`}
+          </p>
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <Skeleton className="h-[104px] rounded-xl" />
             <Skeleton className="h-[104px] rounded-xl" />
@@ -1122,12 +1356,30 @@ export function DownloadsPage({
             />
           </div>
 
-          {/* Volume over time — the hero, full width. */}
+          {/* Volume over time — the hero, full width. Drag across it to focus
+              the table below on a date range, the same gesture the Timeline
+              and History activity charts use. */}
           <SectionCard
             title="Downloads over time"
-            description="Bytes transferred per recorded day."
+            description="Bytes per recorded day. Drag to focus the table."
+            action={
+              hasRange ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRange({ from: "", to: "" });
+                  }}
+                  className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 text-[12px] font-medium text-foreground/80 transition-colors duration-150 hover:text-foreground"
+                >
+                  {range.from === "" ? "…" : formatTick(range.from)} —{" "}
+                  {range.to === "" ? "…" : formatTick(range.to)}
+                  <X aria-hidden="true" className="size-3" />
+                  <span className="sr-only">Clear the date range</span>
+                </button>
+              ) : null
+            }
           >
-            <VolumeChart rows={model} />
+            <VolumeChart rows={model} range={range} onRangeChange={setRange} />
           </SectionCard>
 
           {/* File kinds + sources — the two lenses an examiner scans a
@@ -1141,7 +1393,7 @@ export function DownloadsPage({
               <KindBreakdown
                 rows={model}
                 activeKind={kindFilter}
-                onKind={setKindFilter}
+                onKind={onKind}
               />
             </SectionCard>
             <SectionCard title="Top sources" description="By total bytes.">
@@ -1150,7 +1402,14 @@ export function DownloadsPage({
           </div>
 
           {/* The raw rows. */}
-          <SectionCard title="All downloads" count={model.length}>
+          <div
+            ref={tableRef}
+            className={cn(
+              "scroll-mt-4 rounded-lg transition-shadow duration-300",
+              pulsing && "ring-2 ring-primary/60",
+            )}
+          >
+          <SectionCard title="All downloads" count={visible.length}>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/70 px-4 py-2.5">
               {kindFilter !== null ? (
                 <button
@@ -1163,6 +1422,20 @@ export function DownloadsPage({
                   {KIND_META[kindFilter].label}
                   <span aria-hidden="true">×</span>
                   <span className="sr-only">Clear the file-kind filter</span>
+                </button>
+              ) : null}
+              {hasRange ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRange({ from: "", to: "" });
+                  }}
+                  className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 text-[12px] font-medium text-foreground/80 transition-colors duration-150 hover:text-foreground"
+                >
+                  {range.from === "" ? "…" : formatTick(range.from)} —{" "}
+                  {range.to === "" ? "…" : formatTick(range.to)}
+                  <X aria-hidden="true" className="size-3" />
+                  <span className="sr-only">Clear the date range</span>
                 </button>
               ) : null}
               <label className="relative ml-auto">
@@ -1186,12 +1459,17 @@ export function DownloadsPage({
               <EmptyRows
                 message={
                   filtered
-                    ? "No loaded downloads match this filter."
+                    ? "No loaded downloads match these filters."
                     : "No downloads in this Case."
                 }
               />
             ) : (
-              <DownloadsTable rows={visible} onSelect={select} />
+              <DownloadsTable
+                rows={visible}
+                sort={sort}
+                onSort={onSort}
+                onSelect={select}
+              />
             )}
 
             <div className="flex items-center gap-3 border-t border-border/70 px-4 py-2.5">
@@ -1205,6 +1483,7 @@ export function DownloadsPage({
               </p>
             </div>
           </SectionCard>
+          </div>
         </>
       )}
 
