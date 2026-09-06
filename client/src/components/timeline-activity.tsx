@@ -25,6 +25,7 @@ import { cn } from "../lib.js";
 import { useActivityDays } from "./activity-data.js";
 import { useChartTokens, usePrefersReducedMotion } from "./charts.js";
 import { DateRangePicker } from "./date-range-picker.js";
+import { StatTile } from "./stat-tile.js";
 import { Skeleton } from "./ui/misc.js";
 
 export interface DayRange {
@@ -60,32 +61,6 @@ function formatTick(date: string): string {
     month: "short",
     timeZone: "UTC",
   });
-}
-
-function StatBlock({
-  label,
-  value,
-  detail,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly detail?: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-        {label}
-      </span>
-      <span className="text-[17px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
-        {value}
-      </span>
-      {detail === undefined ? null : (
-        <span className="truncate text-[11.5px] text-muted-foreground">
-          {detail}
-        </span>
-      )}
-    </div>
-  );
 }
 
 /**
@@ -165,80 +140,69 @@ export function TimelineActivityCard({
     return { visits, active, busiest };
   }, [days, inHighlight]);
 
+  const busiestNote =
+    stats?.busiest === null || stats?.busiest === undefined
+      ? undefined
+      : `${stats.busiest.count.toLocaleString("en-US")} page visit${
+          stats.busiest.count === 1 ? "" : "s"
+        }`;
+
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-3">
-        <div className="flex min-w-0 flex-col">
-          <h2 className="text-[13px] font-semibold">Activity</h2>
-          <p className="text-[12px] text-muted-foreground">
-            Recorded page visits per day. Drag across the chart to focus the
-            table below.
-          </p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          {days !== null && days.length > 0 ? (
-            <DateRangePicker
-              from={range.from}
-              to={range.to}
-              min={days[0]?.date ?? null}
-              max={days[days.length - 1]?.date ?? null}
-              triggerLabel="All recorded days"
-              formatDate={formatDay}
-              onChange={onRangeChange}
-            />
-          ) : null}
-        </div>
-      </header>
+    <div className="flex flex-col">
+      <section className="overflow-hidden rounded-lg border border-border bg-card">
+        <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-3">
+          <div className="flex min-w-0 flex-col">
+            <h2 className="text-[16px] font-semibold tracking-[-0.01em]">
+              Activity
+            </h2>
+            <p className="text-[12px] text-muted-foreground">
+              Recorded page visits per day. Drag across the chart to focus the
+              table below.
+            </p>
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {hasRange ? (
+              <button
+                type="button"
+                onClick={clear}
+                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 text-[12px] font-medium text-foreground/80 transition-colors duration-150 hover:text-foreground"
+              >
+                {range.from === "" ? "…" : formatTick(range.from)} —{" "}
+                {range.to === "" ? "…" : formatTick(range.to)}
+                <X aria-hidden="true" className="size-3" />
+                <span className="sr-only">Clear the date range</span>
+              </button>
+            ) : null}
+            {days !== null && days.length > 0 ? (
+              <DateRangePicker
+                from={range.from}
+                to={range.to}
+                min={days[0]?.date ?? null}
+                max={days[days.length - 1]?.date ?? null}
+                triggerLabel="All recorded days"
+                formatDate={formatDay}
+                onChange={onRangeChange}
+                className="h-8 rounded-md"
+              />
+            ) : null}
+          </div>
+        </header>
 
-      <div className="flex flex-col gap-3 px-4 py-3">
-        {error !== null ? (
-          <p className="py-6 text-center text-[13px] text-muted-foreground">
-            The activity chart could not be loaded: {error}
-          </p>
-        ) : days === null ? (
-          <Skeleton className="h-[168px] w-full" />
-        ) : days.length === 0 ? (
-          <p className="py-6 text-center text-[13px] text-muted-foreground">
-            No dated visits to draw.
-          </p>
-        ) : (
-          <>
-            <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
-              {stats === null ? null : (
-                <>
-                  <StatBlock
-                    label={hasRange ? "Visits in range" : "Recorded visits"}
-                    value={stats.visits.toLocaleString("en-US")}
-                  />
-                  <StatBlock
-                    label="Active days"
-                    value={stats.active.toLocaleString("en-US")}
-                  />
-                  {stats.busiest === null ? null : (
-                    <StatBlock
-                      label="Busiest day"
-                      value={stats.busiest.count.toLocaleString("en-US")}
-                      detail={formatDay(stats.busiest.date)}
-                    />
-                  )}
-                </>
-              )}
-              {hasRange ? (
-                <button
-                  type="button"
-                  onClick={clear}
-                  className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1.5 self-center rounded-full border border-border bg-muted px-2.5 text-[12px] font-medium text-foreground/80 transition-colors duration-150 hover:text-foreground"
-                >
-                  {range.from === "" ? "…" : formatTick(range.from)} —{" "}
-                  {range.to === "" ? "…" : formatTick(range.to)}
-                  <X aria-hidden="true" className="size-3" />
-                  <span className="sr-only">Clear the date range</span>
-                </button>
-              ) : null}
-            </div>
-
+        {/* Extra bottom padding is the ledge the figure tiles sit on. */}
+        <div className="px-2 pt-3 pb-16">
+          {error !== null ? (
+            <p className="py-10 text-center text-[13px] text-muted-foreground">
+              The activity chart could not be loaded: {error}
+            </p>
+          ) : days === null ? (
+            <Skeleton className="mx-2 h-[220px] w-[calc(100%-1rem)]" />
+          ) : days.length === 0 ? (
+            <p className="py-10 text-center text-[13px] text-muted-foreground">
+              No dated visits to draw.
+            </p>
+          ) : (
             <div
-              className={cn("h-[150px] w-full", dragging && "cursor-crosshair")}
+              className={cn("h-[220px] w-full", dragging && "cursor-crosshair")}
               aria-label="Recorded page visits per day"
             >
               <ResponsiveContainer width="100%" height="100%">
@@ -336,9 +300,32 @@ export function TimelineActivityCard({
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </>
-        )}
-      </div>
-    </section>
+          )}
+        </div>
+      </section>
+
+      {days !== null && days.length > 0 && stats !== null ? (
+        <div className="relative z-10 -mt-10 grid grid-cols-2 gap-3 px-3 sm:grid-cols-3 sm:px-4">
+          <StatTile
+            label={hasRange ? "Visits in range" : "Recorded visits"}
+            delay={0}
+            value={stats.visits.toLocaleString("en-US")}
+          />
+          <StatTile
+            label="Active days"
+            delay={1}
+            value={stats.active.toLocaleString("en-US")}
+          />
+          <StatTile
+            label="Busiest day"
+            delay={2}
+            value={
+              stats.busiest === null ? "—" : formatDay(stats.busiest.date)
+            }
+            note={busiestNote}
+          />
+        </div>
+      ) : null}
+    </div>
   );
 }
