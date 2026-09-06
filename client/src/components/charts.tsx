@@ -14,8 +14,6 @@
  */
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -24,9 +22,12 @@ import {
   RadialBar,
   RadialBarChart,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
+  ZAxis,
 } from "recharts";
 
 export interface DayCount {
@@ -177,38 +178,39 @@ function tooltipEntry(payload: unknown): Record<string, unknown> | null {
 }
 
 /**
- * Visits per recorded day. The area is the hero of the Overview: it is the one
- * series that shows the shape of a session rather than a single figure.
+ * Visits per recorded day, as discrete bars — the one activity chart shared
+ * by Overview and History so the same dataset never reads two different ways
+ * in the same app. Each day is one recorded bucket, not a sample on a
+ * continuous curve: bars are the honest reading here, an interpolated area
+ * would imply a continuity between days the evidence doesn't contain. The
+ * busiest day is held at full strength; every other day sits at reduced
+ * opacity, so the peak reads at a glance without a second legend.
  */
-export function ActivityArea({
+export function ActivityBars({
   days,
   tokens,
+  selectedDate = null,
+  onSelectDay,
 }: {
   readonly days: readonly DayCount[];
   readonly tokens: ChartTokens;
+  /** The one day currently filtered to, if any — drawn with an outline
+   *  distinct from the busiest-day fill so "selected" and "peak" never read
+   *  as the same signal. */
+  readonly selectedDate?: string | null;
+  /** Present only where a click can act on it (e.g. History); omitted, the
+   *  chart stays the plain read-only reading it always was (e.g. Overview). */
+  readonly onSelectDay?: (date: string) => void;
 }) {
   const reduced = usePrefersReducedMotion();
   if (days.length === 0) {
     return <EmptyChart>No dated visits to draw.</EmptyChart>;
   }
   const rows = days.map((day) => ({ ...day, label: formatDay(day.date) }));
+  const peak = rows.reduce((max, row) => Math.max(max, row.count), 0);
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <defs>
-          <linearGradient id="fxActivityFill" x1="0" y1="0" x2="0" y2="1">
-            <stop
-              offset="0%"
-              stopColor={tokens["--primary"]}
-              stopOpacity={0.3}
-            />
-            <stop
-              offset="100%"
-              stopColor={tokens["--primary"]}
-              stopOpacity={0}
-            />
-          </linearGradient>
-        </defs>
+      <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <CartesianGrid
           vertical={false}
           stroke={tokens["--border"]}
@@ -229,7 +231,7 @@ export function ActivityArea({
           tick={{ fill: tokens["--muted-foreground"], fontSize: 11 }}
         />
         <Tooltip
-          cursor={{ stroke: tokens["--border"], strokeWidth: 1 }}
+          cursor={{ fill: tokens["--muted"], opacity: 0.5 }}
           content={({ payload }) => {
             const row = tooltipEntry(payload);
             return row === null ? null : (
@@ -242,22 +244,36 @@ export function ActivityArea({
             );
           }}
         />
-        <Area
-          type="monotone"
+        <Bar
           dataKey="count"
-          stroke={tokens["--primary"]}
-          strokeWidth={2}
-          fill="url(#fxActivityFill)"
+          radius={[3, 3, 0, 0]}
           isAnimationActive={!reduced}
-          animationDuration={650}
-          activeDot={{
-            r: 4,
-            fill: tokens["--primary"],
-            stroke: tokens["--card"],
-            strokeWidth: 2,
-          }}
-        />
-      </AreaChart>
+          animationDuration={600}
+          minPointSize={2}
+        >
+          {rows.map((row) => (
+            <Cell
+              key={row.date}
+              fill={tokens["--primary"]}
+              fillOpacity={peak > 0 && row.count === peak ? 1 : 0.55}
+              stroke={
+                row.date === selectedDate ? tokens["--foreground"] : undefined
+              }
+              strokeWidth={row.date === selectedDate ? 1.5 : 0}
+              onClick={
+                onSelectDay === undefined
+                  ? undefined
+                  : () => {
+                      onSelectDay(row.date);
+                    }
+              }
+              style={{
+                cursor: onSelectDay === undefined ? undefined : "pointer",
+              }}
+            />
+          ))}
+        </Bar>
+      </BarChart>
     </ResponsiveContainer>
   );
 }
@@ -395,5 +411,130 @@ export function CoverageDial({
         </span>
       </div>
     </div>
+  );
+}
+
+/** One credential plotted on the saved-login age chart: age since created
+ *  (x, days) against dormancy since last used (y, days). Both are derived
+ *  from recorded timestamps — never invented; a credential with no recorded
+ *  last-use is dropped from the plot, not placed at zero. */
+export interface CredentialAgePoint {
+  readonly site: string;
+  readonly username: string;
+  /** Whole days between the recorded creation instant and now. */
+  readonly ageDays: number;
+  /** Whole days between the recorded last-use instant and now. */
+  readonly idleDays: number;
+  /** Recorded `timesUsed`, sizing the dot; `null` when the column was absent. */
+  readonly timesUsed: number | null;
+  /** True when the row was recovered from a sidecar, not committed storage. */
+  readonly recovered: boolean;
+}
+
+/**
+ * Saved-login age scatter. Each dot is one credential: how long ago Chrome
+ * first stored it (x) against how long since it was last used (y). Dots near
+ * the diagonal were saved and then left; dots low on the y-axis are recently
+ * used regardless of age. Every coordinate is read straight off the recorded
+ * `dateCreated` / `dateLastUsed` instants — the chart derives distances in
+ * days, it does not model or predict anything the evidence does not contain.
+ */
+export function CredentialAgeScatter({
+  points,
+  tokens,
+}: {
+  readonly points: readonly CredentialAgePoint[];
+  readonly tokens: ChartTokens;
+}) {
+  const reduced = usePrefersReducedMotion();
+  if (points.length === 0) {
+    return <EmptyChart>No dated logins to plot.</EmptyChart>;
+  }
+  const committed = points.filter((point) => !point.recovered);
+  const recovered = points.filter((point) => point.recovered);
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <ScatterChart margin={{ top: 10, right: 12, bottom: 20, left: 4 }}>
+        <CartesianGrid stroke={tokens["--border"]} strokeDasharray="3 3" />
+        <XAxis
+          type="number"
+          dataKey="ageDays"
+          name="Age"
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(value: number) => `${String(value)}d`}
+          tick={{ fill: tokens["--muted-foreground"], fontSize: 11 }}
+          label={{
+            value: "Days since first saved",
+            position: "bottom",
+            offset: 4,
+            fill: tokens["--muted-foreground"],
+            fontSize: 11,
+          }}
+        />
+        <YAxis
+          type="number"
+          dataKey="idleDays"
+          name="Idle"
+          width={44}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(value: number) => `${String(value)}d`}
+          tick={{ fill: tokens["--muted-foreground"], fontSize: 11 }}
+          label={{
+            value: "Days idle",
+            angle: -90,
+            position: "insideLeft",
+            fill: tokens["--muted-foreground"],
+            fontSize: 11,
+          }}
+        />
+        <ZAxis type="number" dataKey="timesUsed" range={[40, 320]} name="Uses" />
+        <Tooltip
+          cursor={{ stroke: tokens["--border"], strokeWidth: 1 }}
+          content={({ payload }) => {
+            const row = tooltipEntry(payload);
+            if (row === null) {
+              return null;
+            }
+            const uses = row["timesUsed"];
+            return (
+              <div
+                className="rounded-md border px-3 py-2 text-[12px] shadow-md"
+                style={{
+                  backgroundColor: tokens["--card"],
+                  borderColor: tokens["--border"],
+                  color: tokens["--foreground"],
+                }}
+              >
+                <p className="font-medium">{String(row["site"])}</p>
+                <p style={{ color: tokens["--muted-foreground"] }}>
+                  {String(row["username"])}
+                </p>
+                <p className="tabular-nums" style={{ color: tokens["--muted-foreground"] }}>
+                  saved {String(row["ageDays"])}d ago · idle {String(row["idleDays"])}d
+                  {typeof uses === "number" ? ` · used ${String(uses)}×` : ""}
+                </p>
+              </div>
+            );
+          }}
+        />
+        <Scatter
+          data={committed}
+          fill={tokens["--primary"]}
+          fillOpacity={0.75}
+          isAnimationActive={!reduced}
+          animationDuration={650}
+        />
+        <Scatter
+          data={recovered}
+          fill={tokens["--muted-foreground"]}
+          fillOpacity={0.55}
+          shape="diamond"
+          isAnimationActive={!reduced}
+          animationDuration={650}
+        />
+      </ScatterChart>
+    </ResponsiveContainer>
   );
 }

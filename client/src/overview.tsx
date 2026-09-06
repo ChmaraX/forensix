@@ -13,17 +13,18 @@
  * the surface's own commentary rather than as an evidence outcome.
  */
 import { ArrowUpRight, FileDown, Fingerprint, UserRound } from "lucide-react";
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { callApi } from "./api.js";
 import {
-  ActivityArea,
+  bucketsToDays,
+  bucketsToHourTotals,
+  fetchActivityBuckets,
+  fillGaps,
+  type ActivityBucket,
+} from "./components/activity-data.js";
+import {
+  ActivityBars,
   formatHour,
   HourBars,
   useChartTokens,
@@ -32,6 +33,7 @@ import {
 } from "./components/charts.js";
 import { DateRangePicker } from "./components/date-range-picker.js";
 import { MaybeFieldStateText } from "./components/field-state.js";
+import { riseDelay, StatTile as HighlightTile } from "./components/stat-tile.js";
 import {
   Card,
   CardContent,
@@ -88,10 +90,11 @@ function fieldTimestampUtc(field: FieldState | undefined): string | null {
 }
 
 interface OverviewData {
-  readonly activity: readonly Finding[];
+  readonly activity: readonly ActivityBucket[];
   /** True when every activity row for this Case was read, not just the first
-   *  `ACTIVITY_PAGE_CAP` pages. When `false` the charts below cover less than
-   *  the full recorded span, and the screen must say so. */
+   *  page cap (`fetchActivityBuckets`'s `ACTIVITY_PAGE_CAP`). When `false`
+   *  the charts below cover less than the full recorded span, and the screen
+   *  must say so. */
   readonly activityComplete: boolean;
   /** The Case's true first and last recorded visit, read directly from the
    *  `visits` view (one row each way) rather than derived from the — possibly
@@ -117,54 +120,6 @@ interface OverviewData {
    *  recovered `favicon_bitmaps` payloads. A host with no recovered favicon
    *  maps to `null`; the card falls back to its own letter tile for it. */
   readonly favicons: ReadonlyMap<string, string | null>;
-}
-
-/**
- * Upper bound on `activity` pages read for the Overview charts. A Finding is
- * one row per Profile per local date-and-hour, so a single Profile at full
- * hourly density needs about one row per active hour: a year of daily browsing
- * (about 350 active days x up to 24 hours) fits in roughly 8,400 rows, or 84
- * pages at the route's 100-row page size. 150 pages (15,000 rows) covers that
- * with headroom for several Profiles in one Case, while still bounding a
- * pathological Case to a fixed, short number of requests instead of reading
- * without limit.
- */
-const ACTIVITY_PAGE_CAP = 150;
-
-/**
- * Reads the `activity` view up to `ACTIVITY_PAGE_CAP` pages. Reports whether
- * the read was complete (the cursor ran out) or was cut off by the cap, so the
- * caller can show a truncation notice instead of silently under-reporting.
- */
-async function fetchActivity(): Promise<{
-  readonly rows: readonly Finding[];
-  readonly complete: boolean;
-}> {
-  const rows: Finding[] = [];
-  let after: string | null = null;
-  let complete = false;
-  for (let page = 0; page < ACTIVITY_PAGE_CAP; page += 1) {
-    const parameters: (readonly [string, string])[] = [
-      ["view", "activity"],
-      ["sort", "local-time"],
-      ["direction", "asc"],
-      ["limit", "100"],
-    ];
-    if (after !== null) {
-      parameters.push(["after", after]);
-    }
-    const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
-      "history",
-      parameters,
-    );
-    rows.push(...result.items);
-    after = result.nextCursor;
-    if (after === null) {
-      complete = true;
-      break;
-    }
-  }
-  return { rows, complete };
 }
 
 /**
@@ -221,7 +176,7 @@ async function fetchFavicons(
 
 async function loadOverview(): Promise<OverviewData> {
   const [
-    { rows: activity, complete: activityComplete },
+    { buckets: activity, complete: activityComplete },
     recordedSpan,
     mostVisitedPage,
     completeness,
@@ -229,7 +184,7 @@ async function loadOverview(): Promise<OverviewData> {
     metadataPage,
     downloadsPage,
   ] = await Promise.all([
-    fetchActivity(),
+    fetchActivityBuckets(),
     fetchRecordedSpan(),
     callApi<PageOf<Finding>>("history", [
       ["view", "most-visited"],
@@ -402,11 +357,6 @@ function PanelHeader({
   );
 }
 
-/** Per-panel entrance offset for the `fx-rise` stagger, 70ms a step. */
-function riseDelay(step: number): CSSProperties {
-  return { "--fx-delay": `${String(step * 70)}ms` } as CSSProperties;
-}
-
 /**
  * Eases a figure from 0 to its true value on mount and whenever the value
  * changes (a range edit re-runs it, so the masthead visibly re-counts).
@@ -506,55 +456,6 @@ function HourSpark({ hours }: { readonly hours: readonly number[] }) {
           }}
         />
       ))}
-    </div>
-  );
-}
-
-/**
- * One panel in the highlight strip: a plain-language reading of one number the
- * analyzer already produced (the busiest day, the busiest hour, the most
- * visited site, the longest gap). This is the one place on the page that uses
- * the blue wash as decoration rather than as a control, never an
- * evidence-state hue. Tiles lift a step on hover; the lift is the whole
- * reaction, so a scanning pointer never reflows the strip.
- */
-function HighlightTile({
-  label,
-  value,
-  note,
-  delay,
-  children,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly note: string;
-  readonly delay: number;
-  readonly children?: ReactNode;
-}) {
-  return (
-    <div
-      className="fx-rise relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-[0_16px_32px_-18px_var(--edge-shadow)]"
-      style={riseDelay(delay)}
-    >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-accent/70 to-transparent"
-      />
-      <div className="relative flex h-full flex-col gap-2">
-        <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-          {label}
-        </span>
-        <p className="truncate text-[22px] font-semibold tracking-[-0.02em]">
-          {value}
-        </p>
-        {children}
-        <p
-          className="mt-auto truncate text-[12px] text-muted-foreground"
-          title={note}
-        >
-          {note}
-        </p>
-      </div>
     </div>
   );
 }
@@ -726,10 +627,7 @@ export function OverviewPage({
   // built from `activity` must say so instead of silently covering less than
   // what the header promises.
   const chartsCover = useMemo(() => {
-    const dates = (data?.activity ?? [])
-      .map((row) => fieldString(row.fields.localDate))
-      .filter((date): date is string => date !== null)
-      .sort();
+    const dates = (data?.activity ?? []).map((bucket) => bucket.date).sort();
     return {
       first: dates[0] ?? null,
       last: dates[dates.length - 1] ?? null,
@@ -738,41 +636,28 @@ export function OverviewPage({
 
   const truncated = data !== null && !data.activityComplete;
 
+  // Sparse per-day totals restricted to the picked range — "active days"
+  // below (`windowed.days.length`) and `quietGap` both depend on this array
+  // never being gap-filled: a continuous run of every calendar day would
+  // always read as zero active-day gaps, silently hiding real quiet stretches.
+  // `chartDays` (below) is the gap-filled reading, used only by the chart.
   const windowed = useMemo(() => {
-    const byDate = new Map<string, number>();
-    const hourTotals = Array.from({ length: 24 }, () => 0);
-    let totalVisits = 0;
-    for (const row of data?.activity ?? []) {
-      const date = fieldString(row.fields.localDate);
-      const hour = fieldString(row.fields.localHour);
-      const count = Number(fieldString(row.fields.supportingVisitCount) ?? "0");
-      if (date === null || Number.isNaN(count)) {
-        continue;
-      }
-      if (rangeFrom !== "" && date < rangeFrom) {
-        continue;
-      }
-      if (rangeTo !== "" && date > rangeTo) {
-        continue;
-      }
-      totalVisits += count;
-      byDate.set(date, (byDate.get(date) ?? 0) + count);
-      if (hour !== null) {
-        const index = Number(hour);
-        if (Number.isInteger(index) && index >= 0 && index < 24) {
-          hourTotals[index] = (hourTotals[index] ?? 0) + count;
-        }
-      }
-    }
-    const days: DayCount[] = [...byDate.entries()]
-      .map(([date, count]) => ({ date, count }))
-      .sort((left, right) => left.date.localeCompare(right.date));
+    const range = { from: rangeFrom, to: rangeTo };
+    const buckets = data?.activity ?? [];
+    const days = bucketsToDays(buckets, range);
+    const hourTotals = bucketsToHourTotals(buckets, range);
+    const totalVisits = days.reduce((sum, day) => sum + day.count, 0);
     const busiest = days.reduce<DayCount | null>(
       (best, day) => (best === null || day.count > best.count ? day : best),
       null,
     );
     return { days, hourTotals, totalVisits, busiest };
   }, [data, rangeFrom, rangeTo]);
+
+  // The same days, continuous: zero-count bars fill the gaps between them so
+  // the chart's x-axis is real calendar time — the same shared reading
+  // History's and Timeline's identical "page visits per day" charts draw.
+  const chartDays = useMemo(() => fillGaps(windowed.days), [windowed.days]);
 
   // The longest stretch of consecutive days with no recorded visits between
   // two active days — a derived reading of the same `days` set the activity
@@ -1090,7 +975,7 @@ export function OverviewPage({
               of a fixed figure that left a dead band under the plot. */}
           <CardContent className="relative min-h-[240px] flex-1 p-0">
             <div className="absolute inset-0 pt-2 pr-4 pb-3 pl-3">
-              <ActivityArea days={windowed.days} tokens={tokens} />
+              <ActivityBars days={chartDays} tokens={tokens} />
             </div>
           </CardContent>
         </Card>

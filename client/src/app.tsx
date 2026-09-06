@@ -60,6 +60,15 @@ import {
   type TimelineDirection,
 } from "./components/timeline-table.js";
 import { TopSitesPage } from "./components/top-sites-page.js";
+import { HistoryPage } from "./components/history-page.js";
+import { DownloadsPage } from "./components/downloads-page.js";
+import { BookmarksPage } from "./components/bookmarks-page.js";
+import { AutofillPage } from "./components/autofill-page.js";
+import { CookiesPage } from "./components/cookies-page.js";
+import { FaviconsPage } from "./components/favicons-page.js";
+import { MetadataPage } from "./components/metadata-page.js";
+import { CachePage } from "./components/cache-page.js";
+import { CredentialsPage } from "./components/credentials-page.js";
 import { SitesPage } from "./components/sites-page.js";
 import { Button } from "./components/ui/button.js";
 import {
@@ -1103,11 +1112,26 @@ export function App() {
                   <ErrorRows message={error} onRetry={retry} />
                 ) : context === null ? (
                   <LoadingRows />
+                ) : active.config.key === "history" ? (
+                  <HistoryPage profiles={context.profiles} />
                 ) : active.config.key === "top-sites" ? (
-                  <TopSitesPage
-                    config={active.config}
-                    completeness={context.completeness}
-                  />
+                  <TopSitesPage config={active.config} />
+                ) : active.config.key === "downloads" ? (
+                  <DownloadsPage config={active.config} />
+                ) : active.config.key === "bookmarks" ? (
+                  <BookmarksPage config={active.config} />
+                ) : active.config.key === "cookies" ? (
+                  <CookiesPage config={active.config} />
+                ) : active.config.key === "favicons" ? (
+                  <FaviconsPage config={active.config} />
+                ) : active.config.key === "metadata" ? (
+                  <MetadataPage config={active.config} />
+                ) : active.config.key === "autofill" ? (
+                  <AutofillPage config={active.config} />
+                ) : active.config.key === "credentials" ? (
+                  <CredentialsPage config={active.config} />
+                ) : active.config.key === "cache" ? (
+                  <CachePage config={active.config} />
                 ) : (
                   <ArtifactPage
                     config={active.config}

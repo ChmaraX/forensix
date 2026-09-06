@@ -6,7 +6,7 @@
  * what the OS date picker would allow — and the trigger, not a separate
  * button, doubles as the clear affordance once a range is set.
  */
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DayPicker, type DateRange } from "react-day-picker";
 
@@ -53,7 +53,8 @@ const CALENDAR_CLASS_NAMES = {
   months: "flex flex-col gap-4 sm:flex-row sm:gap-6",
   month: "flex flex-col gap-3",
   month_caption: "flex items-center justify-center px-8 pt-1",
-  caption_label: "text-[13px] font-semibold tracking-[-0.01em]",
+  caption_label:
+    "inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[13px] font-semibold tracking-[-0.01em]",
   nav: "flex items-center justify-between",
   button_previous:
     "absolute left-1 top-1 inline-flex size-10 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30 sm:size-8",
@@ -75,6 +76,15 @@ const CALENDAR_CLASS_NAMES = {
   range_end: "[&_button]:bg-primary [&_button]:text-primary-foreground",
   range_middle: "bg-accent [&_button]:rounded-none [&_button]:hover:bg-accent",
   selected: "[&_button]:bg-primary [&_button]:text-primary-foreground",
+  // Month + year quick-jump: a Case spanning years would otherwise need one
+  // chevron click per month to reach an old date. The dropdown's real
+  // `<select>` sits invisible over the visible caption label (react-day-
+  // picker's own composition, see its `Dropdown` component) so it stays a
+  // native, keyboard- and screen-reader-usable control despite reading as
+  // plain text.
+  dropdowns: "flex items-center justify-center gap-1",
+  dropdown_root: "relative inline-flex items-center rounded-md transition-colors duration-150 hover:bg-muted",
+  dropdown: "absolute inset-0 z-10 cursor-pointer opacity-0",
 } as const;
 
 function CalendarChevron({
@@ -84,7 +94,12 @@ function CalendarChevron({
   readonly className?: string;
   readonly orientation?: "up" | "down" | "left" | "right";
 }) {
-  const Icon = orientation === "right" ? ChevronRight : ChevronLeft;
+  const Icon =
+    orientation === "right"
+      ? ChevronRight
+      : orientation === "down"
+        ? ChevronDown
+        : ChevronLeft;
   return <Icon aria-hidden="true" className={cn("size-4", className)} />;
 }
 
@@ -166,6 +181,7 @@ export function DateRangePicker({
         <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] overflow-x-auto">
           <DayPicker
             mode="range"
+            captionLayout="dropdown"
             numberOfMonths={numberOfMonths}
             defaultMonth={maxDate}
             startMonth={minDate}

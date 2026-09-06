@@ -1,28 +1,42 @@
 /**
  * The Top sites page.
  *
- * Chrome's own most-visited ranking, shown as a ranking rather than as a
- * generic evidence dump: a leaderboard card per Browser Profile on top
- * (rank, site, host — Chrome's recorded order, nothing re-ranked), and a
- * curated table below with the fields an examiner reads first. Every wire
- * field a row carries stays reachable through the row detail sheet.
+ * Chrome's own most-visited ranking, read as a ranking rather than a generic
+ * evidence dump. Chrome records one ordered list per Browser Profile
+ * (`urlRank` 1..N, its own placement — nothing this page re-ranks), and the
+ * page reads that ordering back four ways before the raw table:
  *
- * Presentation rules kept: the Completeness Statement renders before any
- * row; states are worded, never color alone; ranks are Chrome's recorded
- * `urlRank` values — never bars or scores the evidence does not contain.
+ *  1. A small stat strip — ranked sites, distinct hosts, Profiles covered,
+ *     and how many rows were recovered from sidecars rather than committed.
+ *  2. A leaderboard card per Profile — Chrome's recorded top placements.
+ *  3. A "top of the list" composition read — which registrable domains hold
+ *     the highest-ranked slots, and how the ranking splits between committed
+ *     and recovered (sidecar) rows.
+ *  4. The full ranked table, searchable and profile-filterable.
+ *
+ * Presentation rules kept: the Completeness Statement renders before any row;
+ * states are worded, never colour alone; ranks are Chrome's recorded `urlRank`
+ * values — never scores or bars the evidence does not contain. The one bar in
+ * the composition read is a share of *counts this page tallied* (how many of
+ * the loaded rows fall in a domain / a commit state), labelled as such — never
+ * a fabricated ranking of the sites themselves.
  */
-import { Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Globe, Layers, ListOrdered, Search, Users } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { callApi } from "../api.js";
 import { cn } from "../lib.js";
 import type {
   ArtifactConfig,
-  CaseCompleteness,
   Finding,
   PageOf,
 } from "../types.js";
-import { CompletenessPanel } from "./completeness.js";
 import { EmptyRows } from "./data-table.js";
 import {
   fieldInteger as fieldRank,
@@ -109,6 +123,129 @@ function useTopSites(route: string) {
   return { rows, cursor, loading, error, loadMore, retry };
 }
 
+/**
+ * The registrable-ish domain of a host: the last two labels ("mail.google.com"
+ * → "google.com"), or the host itself when it has fewer than two dots. This is
+ * a display grouping for the composition read, not a PSL-accurate eTLD+1 — it
+ * only ever groups rows the page already loaded, never changes a recorded
+ * value, and every row keeps its exact host in the table and detail sheet.
+ */
+function registrableDomain(host: string | null): string | null {
+  if (host === null) {
+    return null;
+  }
+  const clean = host.replace(/^www\./, "");
+  const labels = clean.split(".").filter((label) => label.length > 0);
+  if (labels.length <= 2) {
+    return clean;
+  }
+  return labels.slice(-2).join(".");
+}
+
+interface TopSitesStats {
+  readonly rankedCount: number;
+  readonly hostCount: number;
+  readonly profileCount: number;
+  readonly recoveredCount: number;
+}
+
+/** Distinct-host, per-profile, and commit-state tallies of the loaded rows. */
+function summarize(rows: readonly Finding[]): TopSitesStats {
+  const hosts = new Set<string>();
+  const profiles = new Set<string>();
+  let recovered = 0;
+  for (const row of rows) {
+    const host = hostOf(fieldText(row.fields.url));
+    if (host !== null) {
+      hosts.add(host.replace(/^www\./, ""));
+    }
+    profiles.add(row.profile);
+    if (row.commitState !== "committed") {
+      recovered += 1;
+    }
+  }
+  return {
+    rankedCount: rows.length,
+    hostCount: hosts.size,
+    profileCount: profiles.size,
+    recoveredCount: recovered,
+  };
+}
+
+/**
+ * One figure in the stat strip: a small caps label over a large thin numeral,
+ * the same type contrast the Overview masthead uses, framed as a plain count
+ * the page tallied rather than an evidence outcome. Purely a reading of the
+ * loaded rows — no new query, nothing invented.
+ */
+function StatFigure({
+  icon,
+  label,
+  value,
+  note,
+}: {
+  readonly icon: ReactNode;
+  readonly label: string;
+  readonly value: string;
+  readonly note: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3.5">
+      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        {icon}
+      </span>
+      <span className="text-[26px] leading-none font-light tracking-[-0.02em] tabular-nums">
+        {value}
+      </span>
+      <span className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+        {label}
+      </span>
+      <span className="truncate text-[12px] text-muted-foreground" title={note}>
+        {note}
+      </span>
+    </div>
+  );
+}
+
+function StatStrip({ stats }: { readonly stats: TopSitesStats }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <StatFigure
+        icon={<ListOrdered aria-hidden="true" className="size-4" />}
+        label="Ranked sites"
+        value={stats.rankedCount.toLocaleString("en-US")}
+        note="rows loaded so far"
+      />
+      <StatFigure
+        icon={<Globe aria-hidden="true" className="size-4" />}
+        label="Distinct hosts"
+        value={stats.hostCount.toLocaleString("en-US")}
+        note="unique sites in the list"
+      />
+      <StatFigure
+        icon={<Users aria-hidden="true" className="size-4" />}
+        label="Profiles"
+        value={stats.profileCount.toLocaleString("en-US")}
+        note={
+          stats.profileCount === 1
+            ? "one browser profile"
+            : "browser profiles ranked"
+        }
+      />
+      <StatFigure
+        icon={<Layers aria-hidden="true" className="size-4" />}
+        label="Recovered"
+        value={stats.recoveredCount.toLocaleString("en-US")}
+        note={
+          stats.recoveredCount === 0
+            ? "all rows committed"
+            : "rows from WAL / journal"
+        }
+      />
+    </div>
+  );
+}
+
 /** How many leaderboard rows each Profile card shows before "and N more". */
 const BOARD_LIMIT = 5;
 
@@ -142,12 +279,7 @@ function Leaderboard({
     return null;
   }
   return (
-    <div
-      className={cn(
-        "grid gap-4",
-        byProfile.length > 1 && "md:grid-cols-2",
-      )}
-    >
+    <div className={cn("grid gap-4", byProfile.length > 1 && "md:grid-cols-2")}>
       {byProfile.map(([profile, group]) => (
         <section
           key={profile}
@@ -210,26 +342,291 @@ function Leaderboard({
   );
 }
 
+interface DomainShare {
+  readonly domain: string;
+  readonly count: number;
+  /** The best (lowest) `urlRank` any row in this domain holds, or null when
+   *  none of its rows carry a recorded rank. */
+  readonly bestRank: number | null;
+}
+
+/** How many top-N slots each registrable domain holds and its best placement. */
+function domainShares(rows: readonly Finding[], topN: number): DomainShare[] {
+  const ranked = rows
+    .map((row) => ({
+      row,
+      rank: fieldRank(row.fields.urlRank),
+      domain: registrableDomain(hostOf(fieldText(row.fields.url))),
+    }))
+    .filter(
+      (entry): entry is { row: Finding; rank: number; domain: string } =>
+        entry.rank !== null && entry.domain !== null,
+    )
+    .sort((left, right) => left.rank - right.rank)
+    .slice(0, topN);
+
+  const byDomain = new Map<string, { count: number; bestRank: number }>();
+  for (const entry of ranked) {
+    const existing = byDomain.get(entry.domain);
+    if (existing === undefined) {
+      byDomain.set(entry.domain, { count: 1, bestRank: entry.rank });
+    } else {
+      existing.count += 1;
+      existing.bestRank = Math.min(existing.bestRank, entry.rank);
+    }
+  }
+  return [...byDomain.entries()]
+    .map(([domain, value]) => ({
+      domain,
+      count: value.count,
+      bestRank: value.bestRank,
+    }))
+    .sort((left, right) => right.count - left.count || left.bestRank - right.bestRank);
+}
+
+/** How many domains the composition read lists before folding the rest into
+ *  an "and N more" line, and how many top-ranked rows it considers. */
+const DOMAIN_ROWS = 7;
+const COMPOSITION_TOP_N = 30;
+
+/**
+ * Composition read — two honest tallies of *which* rows sit at the top of
+ * Chrome's list, drawn as share bars rather than as re-ranked sites:
+ *
+ *  - "Domains at the top": of the highest-ranked `COMPOSITION_TOP_N` rows,
+ *    how many slots each registrable domain holds. A site that appears under
+ *    several subdomains (mail. / drive. / docs.google.com) reads as one
+ *    domain here, which is exactly the concentration an examiner is looking
+ *    for. Every bar is a count of loaded rows, labelled "N slots".
+ *  - "Where the ranking came from": how the loaded rows split between
+ *    committed and recovered (WAL / journal) Commit State — a forensically
+ *    load-bearing figure, since a ranking rebuilt largely from sidecars is a
+ *    different kind of evidence than one read straight from the committed
+ *    database.
+ *
+ * Neither bar invents a score. Both restate counts the page already has, and
+ * every state hue keeps its word.
+ */
+function CompositionCard({ rows }: { readonly rows: readonly Finding[] }) {
+  const shares = useMemo(
+    () => domainShares(rows, COMPOSITION_TOP_N),
+    [rows],
+  );
+  const shown = shares.slice(0, DOMAIN_ROWS);
+  const remainder = shares.slice(DOMAIN_ROWS);
+  const remainderCount = remainder.reduce((sum, share) => sum + share.count, 0);
+  const peak = Math.max(...shares.map((share) => share.count), 1);
+  const consideredCount = Math.min(rows.length, COMPOSITION_TOP_N);
+
+  const commitSplit = useMemo(() => {
+    let committed = 0;
+    let wal = 0;
+    let journal = 0;
+    for (const row of rows) {
+      if (row.commitState === "committed") {
+        committed += 1;
+      } else if (row.commitState === "wal_resident") {
+        wal += 1;
+      } else {
+        journal += 1;
+      }
+    }
+    return { committed, wal, journal, total: rows.length };
+  }, [rows]);
+
+  return (
+    <div className="grid grid-cols-12 gap-4">
+      <section className="col-span-12 overflow-hidden rounded-lg border border-border bg-card lg:col-span-7">
+        <header className="flex flex-col gap-0.5 border-b border-border px-4 py-2.5">
+          <h2 className="text-[13px] font-semibold">Domains at the top</h2>
+          <p className="text-[12px] text-muted-foreground">
+            Of the {consideredCount} highest-ranked rows, how many slots each
+            site's domain holds.
+          </p>
+        </header>
+        {shown.length === 0 ? (
+          <p className="px-4 py-6 text-[13px] text-muted-foreground">
+            No ranked rows with a readable host to group.
+          </p>
+        ) : (
+          <ol className="flex flex-col gap-1 p-3">
+            {shown.map((share) => {
+              const width = Math.round((share.count / peak) * 100);
+              return (
+                <li
+                  key={share.domain}
+                  className="grid grid-cols-[minmax(0,150px)_1fr_auto] items-center gap-3 rounded-md px-1.5 py-1.5"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <SiteAvatar host={share.domain} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[12.5px] font-medium">
+                        {share.domain}
+                      </span>
+                      {share.bestRank !== null ? (
+                        <span className="block truncate text-[11px] text-muted-foreground tabular-nums">
+                          best rank #{share.bestRank}
+                        </span>
+                      ) : null}
+                    </span>
+                  </span>
+                  <span className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                    <span
+                      className={cn(
+                        "block h-full rounded-full transition-[width] duration-500",
+                        share.count === peak ? "bg-primary" : "bg-primary/45",
+                      )}
+                      style={{ width: `${String(width)}%` }}
+                    />
+                  </span>
+                  <span className="font-mono text-[12px] whitespace-nowrap text-muted-foreground tabular-nums">
+                    {share.count} slot{share.count === 1 ? "" : "s"}
+                  </span>
+                </li>
+              );
+            })}
+            {remainderCount > 0 ? (
+              <li className="px-1.5 pt-1 text-[12px] text-muted-foreground">
+                and {remainder.length} more domain
+                {remainder.length === 1 ? "" : "s"} sharing {remainderCount}{" "}
+                slot{remainderCount === 1 ? "" : "s"}
+              </li>
+            ) : null}
+          </ol>
+        )}
+      </section>
+
+      <section className="col-span-12 overflow-hidden rounded-lg border border-border bg-card lg:col-span-5">
+        <header className="flex flex-col gap-0.5 border-b border-border px-4 py-2.5">
+          <h2 className="text-[13px] font-semibold">Where the ranking came from</h2>
+          <p className="text-[12px] text-muted-foreground">
+            How the loaded rows split between the committed database and
+            recovered sidecars.
+          </p>
+        </header>
+        <div className="flex flex-col gap-4 p-4">
+          {commitSplit.total === 0 ? (
+            <p className="text-[13px] text-muted-foreground">
+              No rows loaded to split.
+            </p>
+          ) : (
+            <>
+              <div
+                aria-hidden="true"
+                className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
+              >
+                {commitSplit.committed > 0 ? (
+                  <span
+                    className="h-full bg-muted-foreground/45"
+                    style={{
+                      width: `${String((commitSplit.committed / commitSplit.total) * 100)}%`,
+                    }}
+                  />
+                ) : null}
+                {commitSplit.wal > 0 ? (
+                  <span
+                    className="h-full bg-wal"
+                    style={{
+                      width: `${String((commitSplit.wal / commitSplit.total) * 100)}%`,
+                    }}
+                  />
+                ) : null}
+                {commitSplit.journal > 0 ? (
+                  <span
+                    className="h-full bg-violet"
+                    style={{
+                      width: `${String((commitSplit.journal / commitSplit.total) * 100)}%`,
+                    }}
+                  />
+                ) : null}
+              </div>
+              <dl className="flex flex-col gap-2.5">
+                <CommitLegendRow
+                  dotClass="bg-muted-foreground/50"
+                  label="Committed"
+                  hint="read from the saved database"
+                  count={commitSplit.committed}
+                  total={commitSplit.total}
+                />
+                <CommitLegendRow
+                  dotClass="bg-wal"
+                  label="WAL-resident"
+                  hint="recovered from the write-ahead log"
+                  count={commitSplit.wal}
+                  total={commitSplit.total}
+                  toneClass="text-wal"
+                />
+                <CommitLegendRow
+                  dotClass="bg-violet"
+                  label="Journal-resident"
+                  hint="recovered from the rollback journal"
+                  count={commitSplit.journal}
+                  total={commitSplit.total}
+                  toneClass="text-violet"
+                />
+              </dl>
+            </>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CommitLegendRow({
+  dotClass,
+  label,
+  hint,
+  count,
+  total,
+  toneClass,
+}: {
+  readonly dotClass: string;
+  readonly label: string;
+  readonly hint: string;
+  readonly count: number;
+  readonly total: number;
+  readonly toneClass?: string;
+}) {
+  const percent = total === 0 ? 0 : Math.round((count / total) * 100);
+  return (
+    <div className="flex items-center gap-2.5">
+      <span
+        aria-hidden="true"
+        className={cn("size-2 shrink-0 rounded-full", dotClass)}
+      />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className={cn("text-[12.5px] font-medium", toneClass)}>
+          {label}
+        </span>
+        <span className="truncate text-[11.5px] text-muted-foreground">
+          {hint}
+        </span>
+      </span>
+      <span className="text-right font-mono text-[12px] tabular-nums">
+        <span className="font-medium">{count.toLocaleString("en-US")}</span>
+        <span className="ml-1.5 text-muted-foreground">{percent}%</span>
+      </span>
+    </div>
+  );
+}
+
 export function TopSitesPage({
   config,
-  completeness,
 }: {
   readonly config: ArtifactConfig;
-  readonly completeness: CaseCompleteness;
 }) {
   const list = useTopSites(config.route);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
   const [profileFilter, setProfileFilter] = useState<string | null>(null);
 
-  const statement = completeness.statements.find(
-    (entry) => entry.artifact === config.completenessArtifact,
-  );
-
   const profiles = useMemo(
     () => [...new Set(list.rows.map((row) => row.profile))].sort(),
     [list.rows],
   );
+
+  const stats = useMemo(() => summarize(list.rows), [list.rows]);
 
   const visible = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("en-US");
@@ -258,7 +655,6 @@ export function TopSitesPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <CompletenessPanel statement={statement} />
 
       {list.error !== null ? (
         <div
@@ -276,13 +672,27 @@ export function TopSitesPage({
           </Button>
         </div>
       ) : list.loading && list.rows.length === 0 ? (
-        <div className="flex flex-col gap-2" aria-label="Loading rows">
-          <Skeleton className="h-[220px] w-full" />
-          <Skeleton className="h-[280px] w-full" />
+        <div className="flex flex-col gap-3" aria-label="Loading rows">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <Skeleton className="h-[118px] rounded-lg" />
+            <Skeleton className="h-[118px] rounded-lg" />
+            <Skeleton className="h-[118px] rounded-lg" />
+            <Skeleton className="h-[118px] rounded-lg" />
+          </div>
+          <Skeleton className="h-[220px] w-full rounded-lg" />
+          <Skeleton className="h-[280px] w-full rounded-lg" />
         </div>
+      ) : list.rows.length === 0 ? (
+        <section className="overflow-hidden rounded-lg border border-border bg-card">
+          <EmptyRows message="No Top sites rows in this Case." />
+        </section>
       ) : (
         <>
+          <StatStrip stats={stats} />
+
           <Leaderboard rows={list.rows} onSelect={select} />
+
+          <CompositionCard rows={list.rows} />
 
           <section className="overflow-hidden rounded-lg border border-border bg-card">
             <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2.5">

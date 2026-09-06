@@ -9,7 +9,7 @@
  * with no smoothing and no projection past the recorded span.
  */
 import { X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -21,9 +21,8 @@ import {
   YAxis,
 } from "recharts";
 
-import { callApi } from "../api.js";
 import { cn } from "../lib.js";
-import type { FieldState, Finding, PageOf } from "../types.js";
+import { useActivityDays } from "./activity-data.js";
 import { useChartTokens, usePrefersReducedMotion } from "./charts.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { Skeleton } from "./ui/misc.js";
@@ -34,113 +33,9 @@ export interface DayRange {
   readonly to: string;
 }
 
-interface ActivityDay {
-  readonly date: string;
-  readonly count: number;
-}
-
-function fieldString(field: FieldState | undefined): string | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  return typeof field.value === "string" ? field.value : null;
-}
-
-/** Same bounded read the Overview uses; see its `ACTIVITY_PAGE_CAP` note. */
-const ACTIVITY_PAGE_CAP = 150;
-
-/** Above this many days, gap-filling would draw more bars than pixels. */
-const GAP_FILL_LIMIT = 550;
-
-function useActivityDays() {
-  const [days, setDays] = useState<readonly ActivityDay[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const rows: Finding[] = [];
-      let after: string | null = null;
-      for (let page = 0; page < ACTIVITY_PAGE_CAP; page += 1) {
-        const parameters: (readonly [string, string])[] = [
-          ["view", "activity"],
-          ["sort", "local-time"],
-          ["direction", "asc"],
-          ["limit", "100"],
-        ];
-        if (after !== null) {
-          parameters.push(["after", after]);
-        }
-        const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
-          "history",
-          parameters,
-        );
-        rows.push(...result.items);
-        after = result.nextCursor;
-        if (after === null) {
-          break;
-        }
-      }
-      if (cancelled) {
-        return;
-      }
-      const byDate = new Map<string, number>();
-      for (const row of rows) {
-        const date = fieldString(row.fields.localDate);
-        const count = Number(
-          fieldString(row.fields.supportingVisitCount) ?? "0",
-        );
-        if (date === null || Number.isNaN(count)) {
-          continue;
-        }
-        byDate.set(date, (byDate.get(date) ?? 0) + count);
-      }
-      const recorded = [...byDate.entries()]
-        .map(([date, count]) => ({ date, count }))
-        .sort((left, right) => left.date.localeCompare(right.date));
-      setDays(fillGaps(recorded));
-    })().catch((requestError: unknown) => {
-      if (!cancelled) {
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return { days, error };
-}
-
-/**
- * Zero-count days between the first and last recorded day, so the x-axis is
- * continuous time and a drag maps 1:1 to calendar days. Skipped when the span
- * is so long the extra bars would cost more than the continuity is worth.
- */
-function fillGaps(recorded: readonly ActivityDay[]): readonly ActivityDay[] {
-  const first = recorded[0];
-  const last = recorded[recorded.length - 1];
-  if (first === undefined || last === undefined) {
-    return recorded;
-  }
-  const start = new Date(`${first.date}T00:00:00Z`).getTime();
-  const end = new Date(`${last.date}T00:00:00Z`).getTime();
-  const span = Math.round((end - start) / 86_400_000) + 1;
-  if (span <= recorded.length || span > GAP_FILL_LIMIT) {
-    return recorded;
-  }
-  const byDate = new Map(recorded.map((day) => [day.date, day.count]));
-  return Array.from({ length: span }, (_, index) => {
-    const date = new Date(start + index * 86_400_000)
-      .toISOString()
-      .slice(0, 10);
-    return { date, count: byDate.get(date) ?? 0 };
-  });
-}
+/** Same shape as `charts.js`'s `DayCount` — aliased here so the rest of this
+ *  file (written before the two were unified) doesn't need a rename. */
+type ActivityDay = import("./charts.js").DayCount;
 
 function formatDay(date: string): string {
   const parsed = new Date(`${date}T00:00:00Z`);
