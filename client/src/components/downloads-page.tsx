@@ -11,7 +11,7 @@
  * Presentation rules kept (see app.tsx's header): the Completeness Statement
  * renders before any row; download states are worded, never colour alone; a
  * field without a recorded value reads as the word "absent"; TYPE — here the
- * file-kind column — leads the table. This page is read-only: it starts no
+ * file-kind column — comes first in the table. This page is read-only: it starts no
  * ingest, reruns no analysis, and writes nothing back to the Case.
  */
 import {
@@ -32,9 +32,10 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Area,
-  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
   ReferenceArea,
   ResponsiveContainer,
   Tooltip,
@@ -61,6 +62,7 @@ import {
   SiteAvatar,
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Button } from "./ui/button.js";
 import { Skeleton } from "./ui/misc.js";
 
@@ -457,36 +459,6 @@ function compareRows(a: DownloadRow, b: DownloadRow, key: SortKey): number {
 
 /* -------------------------------- widgets --------------------------------- */
 
-function StatTile({
-  label,
-  value,
-  note,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly note: string;
-}) {
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-[0_16px_32px_-18px_var(--edge-shadow)]">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-accent/70 to-transparent"
-      />
-      <div className="relative flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-          {label}
-        </span>
-        <p className="truncate text-[22px] font-semibold tracking-[-0.02em] tabular-nums">
-          {value}
-        </p>
-        <p className="truncate text-[12px] text-muted-foreground" title={note}>
-          {note}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function SectionCard({
   title,
   description,
@@ -524,10 +496,10 @@ function SectionCard({
 }
 
 /**
- * Downloads over time. An area of bytes transferred per recorded day — the
- * shape of when data actually left the machine, drawn with the same primary
- * area as the Overview's browsing chart. Days with no downloads are filled
- * with zero so the axis is continuous calendar time, never compressed.
+ * Downloads over time. Bars show bytes transferred per recorded day — a
+ * discrete reading of when data actually left the machine. Days with no
+ * downloads are filled with zero so the axis is continuous calendar time,
+ * never compressed.
  */
 function VolumeChart({
   rows,
@@ -629,7 +601,7 @@ function VolumeChart({
       aria-label="Bytes downloaded per day. Drag across the chart to focus the table below."
     >
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
+        <BarChart
           data={days}
           margin={{ top: 8, right: 10, bottom: 0, left: 0 }}
           onMouseDown={(state) => {
@@ -646,20 +618,6 @@ function VolumeChart({
           onMouseUp={commitDrag}
           onMouseLeave={commitDrag}
         >
-          <defs>
-            <linearGradient id="fxDownloadsFill" x1="0" y1="0" x2="0" y2="1">
-              <stop
-                offset="0%"
-                stopColor={tokens["--primary"]}
-                stopOpacity={0.3}
-              />
-              <stop
-                offset="100%"
-                stopColor={tokens["--primary"]}
-                stopOpacity={0}
-              />
-            </linearGradient>
-          </defs>
           <CartesianGrid
             vertical={false}
             stroke={tokens["--border"]}
@@ -727,22 +685,27 @@ function VolumeChart({
               strokeOpacity={0.25}
             />
           ) : null}
-          <Area
-            type="monotone"
+          <Bar
             dataKey="bytes"
-            stroke={tokens["--primary"]}
-            strokeWidth={2}
-            fill="url(#fxDownloadsFill)"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={18}
             isAnimationActive={!reduced}
-            animationDuration={650}
-            activeDot={{
-              r: 4,
-              fill: tokens["--primary"],
-              stroke: tokens["--card"],
-              strokeWidth: 2,
-            }}
-          />
-        </AreaChart>
+            animationDuration={500}
+          >
+            {days.map((day) => {
+              const selected =
+                highlight === null ||
+                (day.date >= highlight.from && day.date <= highlight.to);
+              return (
+                <Cell
+                  key={day.date}
+                  fill={tokens["--primary"]}
+                  fillOpacity={selected ? 0.9 : 0.2}
+                />
+              );
+            })}
+          </Bar>
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
@@ -1325,37 +1288,6 @@ export function DownloadsPage({
             </div>
           ) : null}
 
-          {/* Summary — a plain reading of the set: how many files, how much
-              data left the machine, from how many sources, and how many
-              transfers did not finish. Every figure is a count of fields the
-              rows already carry, never an inference. */}
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <StatTile
-              label="Files downloaded"
-              value={summary.total.toLocaleString("en-US")}
-              note={spanLabel}
-            />
-            <StatTile
-              label="Data transferred"
-              value={formatBytes(summary.bytes)}
-              note={
-                summary.sized === summary.total
-                  ? "recorded total size"
-                  : `across ${summary.sized.toLocaleString("en-US")} sized rows`
-              }
-            />
-            <StatTile
-              label="Source hosts"
-              value={summary.hosts.toLocaleString("en-US")}
-              note="distinct download origins"
-            />
-            <StatTile
-              label="Did not finish"
-              value={summary.unfinished.toLocaleString("en-US")}
-              note="interrupted or cancelled"
-            />
-          </div>
-
           {/* Volume over time — the hero, full width. Drag across it to focus
               the table below on a date range, the same gesture the Timeline
               and History activity charts use. */}
@@ -1381,6 +1313,36 @@ export function DownloadsPage({
           >
             <VolumeChart rows={model} range={range} onRangeChange={setRange} />
           </SectionCard>
+
+          <MetricBand
+            variant="accent"
+            className="relative z-10 -mt-6 grid-cols-2 px-3 sm:grid-cols-4 sm:px-4"
+          >
+            <MetricBandItem
+              label="Files downloaded"
+              value={summary.total.toLocaleString("en-US")}
+              detail={spanLabel}
+            />
+            <MetricBandItem
+              label="Data transferred"
+              value={formatBytes(summary.bytes)}
+              detail={
+                summary.sized === summary.total
+                  ? "recorded total size"
+                  : `across ${summary.sized.toLocaleString("en-US")} sized rows`
+              }
+            />
+            <MetricBandItem
+              label="Source hosts"
+              value={summary.hosts.toLocaleString("en-US")}
+              detail="distinct download origins"
+            />
+            <MetricBandItem
+              label="Did not finish"
+              value={summary.unfinished.toLocaleString("en-US")}
+              detail="interrupted or cancelled"
+            />
+          </MetricBand>
 
           {/* File kinds + sources — the two lenses an examiner scans a
               downloads set through, side by side. Clicking a file kind

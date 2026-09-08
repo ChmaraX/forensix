@@ -14,6 +14,7 @@
     "build": "node scripts/build.mjs",
     "dev": "node scripts/dev.mjs",
     "mock": "node mock/server.mjs",
+    "mock:dev": "node scripts/mock-dev.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

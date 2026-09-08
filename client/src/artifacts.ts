@@ -154,23 +154,4 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
       },
     ],
   },
-  {
-    key: "candidates",
-    label: "Leads",
-    description:
-      "Ranked guesses about identity and behavior, derived from the evidence.",
-    route: "candidates",
-    completenessArtifact: "Candidates",
-    sorts: ["rank", "kind", "supporting-count", "value", "profile"],
-    directions: ["asc", "desc"],
-    singleList: true,
-    extras: [
-      {
-        parameter: "category",
-        label: "Category",
-        options: ["", "identity", "behavior"],
-      },
-      { parameter: "kind", label: "Kind", placeholder: "any" },
-    ],
-  },
 ];

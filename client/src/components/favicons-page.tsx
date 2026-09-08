@@ -16,10 +16,10 @@
  *
  * Presentation rules kept: the Completeness Statement renders before any row;
  * a row without its own recorded value reads as the word "absent" or
- * "unavailable", never color alone; states are worded; nothing here is a
- * Candidate/Leads inference dressed as a factual tile.
+ * "unavailable", never color alone; states are worded; nothing here is
+ * presented as an inference.
  */
-import { HardDrive, Image as ImageIcon, Layers, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bar,
@@ -56,6 +56,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Button } from "./ui/button.js";
 import { Skeleton } from "./ui/misc.js";
 
@@ -232,23 +233,16 @@ function SummaryTiles({ rows }: { readonly rows: readonly Finding[] }) {
     };
   }, [rows]);
 
-  const tiles: readonly {
-    readonly label: string;
-    readonly value: string;
-    readonly detail: string;
-    readonly icon: typeof ImageIcon;
-  }[] = [
+  const tiles = [
     {
       label: "Cached icons",
       value: stats.icons.toLocaleString("en-US"),
       detail: "site icons stored",
-      icon: ImageIcon,
     },
     {
       label: "Distinct hosts",
       value: stats.hosts.toLocaleString("en-US"),
       detail: "hosts with a cached icon",
-      icon: Layers,
     },
     {
       label: "Unique bitmaps",
@@ -257,7 +251,6 @@ function SummaryTiles({ rows }: { readonly rows: readonly Finding[] }) {
         stats.distinctBitmaps < stats.icons
           ? `${String(stats.icons - stats.distinctBitmaps)} share an image`
           : "no reused images",
-      icon: Layers,
     },
     {
       label: "Stored size",
@@ -266,33 +259,20 @@ function SummaryTiles({ rows }: { readonly rows: readonly Finding[] }) {
         stats.sizedRows === 0
           ? "no recorded byte sizes"
           : `across ${String(stats.sizedRows)} icon${stats.sizedRows === 1 ? "" : "s"}`,
-      icon: HardDrive,
     },
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {tiles.map((tile) => {
-        const Icon = tile.icon;
-        return (
-          <div
-            key={tile.label}
-            className="flex flex-col gap-1 rounded-lg border border-border bg-card px-4 py-3.5"
-          >
-            <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-              <Icon aria-hidden="true" className="size-3.5" />
-              {tile.label}
-            </span>
-            <span className="text-[24px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
-              {tile.value}
-            </span>
-            <span className="truncate text-[12px] text-muted-foreground">
-              {tile.detail}
-            </span>
-          </div>
-        );
-      })}
-    </div>
+    <MetricBand className="grid-cols-2 lg:grid-cols-4">
+      {tiles.map((tile) => (
+        <MetricBandItem
+          key={tile.label}
+          label={tile.label}
+          value={tile.value}
+          detail={tile.detail}
+        />
+      ))}
+    </MetricBand>
   );
 }
 

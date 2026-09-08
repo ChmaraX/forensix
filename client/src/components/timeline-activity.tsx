@@ -25,7 +25,7 @@ import { cn } from "../lib.js";
 import { useActivityDays } from "./activity-data.js";
 import { useChartTokens, usePrefersReducedMotion } from "./charts.js";
 import { DateRangePicker } from "./date-range-picker.js";
-import { StatTile } from "./stat-tile.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Skeleton } from "./ui/misc.js";
 
 export interface DayRange {
@@ -305,26 +305,27 @@ export function TimelineActivityCard({
       </section>
 
       {days !== null && days.length > 0 && stats !== null ? (
-        <div className="relative z-10 -mt-10 grid grid-cols-2 gap-3 px-3 sm:grid-cols-3 sm:px-4">
-          <StatTile
+        <MetricBand
+          variant="accent"
+          className="relative z-10 -mt-10 grid-cols-2 px-3 sm:grid-cols-3 sm:px-4"
+        >
+          <MetricBandItem
             label={hasRange ? "Visits in range" : "Recorded visits"}
-            delay={0}
             value={stats.visits.toLocaleString("en-US")}
           />
-          <StatTile
+          <MetricBandItem
             label="Active days"
-            delay={1}
             value={stats.active.toLocaleString("en-US")}
           />
-          <StatTile
+          <MetricBandItem
             label="Busiest day"
-            delay={2}
             value={
               stats.busiest === null ? "—" : formatDay(stats.busiest.date)
             }
-            note={busiestNote}
+            valueClassName="text-[24px]"
+            detail={busiestNote}
           />
-        </div>
+        </MetricBand>
       ) : null}
     </div>
   );

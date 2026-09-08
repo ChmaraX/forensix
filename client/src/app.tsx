@@ -11,7 +11,6 @@
  *  - TYPE is always the first column;
  *  - value / (empty) / absent / unavailable are distinct words, never color
  *    alone;
- *  - Candidates ("Leads") are never shown as factual summary tiles.
  */
 import {
   Bookmark,
@@ -24,7 +23,6 @@ import {
   History as HistoryIcon,
   KeyRound,
   LayoutDashboard,
-  Lightbulb,
   ListOrdered,
   Menu,
   Image as SiteImageIcon,
@@ -37,13 +35,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { callApi, type QueryParameters } from "./api.js";
 import logoMark from "./assets/forensix-logo.png";
 import { ARTIFACTS, SIDECAR_STATES } from "./artifacts.js";
-import {
-  candidateGuessField,
-  CandidatesTable,
-  FindingsTable,
-} from "./components/data-table.js";
+import { FindingsTable } from "./components/data-table.js";
 import { CompletenessPanel } from "./components/completeness.js";
-import { MaybeFieldStateText } from "./components/field-state.js";
 import {
   FilterBar,
   filterParameters,
@@ -81,17 +74,15 @@ import { Skeleton } from "./components/ui/misc.js";
 import { Term, TooltipProvider } from "./components/ui/tooltip.js";
 import { cn } from "./lib.js";
 import { OverviewPage } from "./overview.js";
-import { COMMIT_META, LeadsNote } from "./terms.js";
+import { COMMIT_META } from "./terms.js";
 import { ThemeToggle } from "./theme.js";
 import type {
   ArtifactConfig,
-  CandidateRecord,
   CaseCompleteness,
   CaseProfiles,
   CommitState,
   Finding,
   PageOf,
-  TopicCandidateRecord,
 } from "./types.js";
 
 /**
@@ -396,96 +387,6 @@ function FindingList({
   );
 }
 
-/**
- * Two read-at-a-glance tiles above the Leads filters: the strongest identity
- * guess and the strongest behavior guess, ranked #1 in their own category.
- * This fetches its own unfiltered, rank-sorted copy of the Leads list,
- * independent of whatever the table's own Category/Kind/Search filters are
- * currently set to — "what's the single strongest guess" should hold
- * steady even while the table below is being filtered down.
- */
-function LeadHighlights({ config }: { readonly config: ArtifactConfig }) {
-  const list = usePaginatedList<CandidateRecord | TopicCandidateRecord>(
-    config.route,
-    [
-      ["sort", "rank"],
-      ["direction", "asc"],
-    ],
-  );
-  const topOf = (category: "identity" | "behavior") =>
-    list.rows.find(
-      (row): row is CandidateRecord =>
-        "category" in row && row.category === category && row.rank === 1,
-    );
-  const topIdentity = topOf("identity");
-  const topBehavior = topOf("behavior");
-  const tiles = [
-    topIdentity === undefined
-      ? null
-      : { label: "Top identity guess", lead: topIdentity },
-    topBehavior === undefined
-      ? null
-      : { label: "Top behavior guess", lead: topBehavior },
-  ].filter(
-    (tile): tile is { label: string; lead: CandidateRecord } => tile !== null,
-  );
-  if (list.loading || tiles.length === 0) {
-    return null;
-  }
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {tiles.map((tile) => (
-        <div
-          key={tile.label}
-          className="flex flex-col gap-1 rounded-lg border border-border bg-card px-4 py-3"
-        >
-          <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            {tile.label}
-          </span>
-          <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">
-            <MaybeFieldStateText field={candidateGuessField(tile.lead)} />
-          </span>
-          <span className="text-[12px] text-muted-foreground">
-            {tile.lead.supportingCount} supporting rows
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CandidateList({
-  config,
-  base,
-  onSelect,
-}: {
-  readonly config: ArtifactConfig;
-  readonly base: QueryParameters;
-  readonly onSelect: (row: CandidateRecord | TopicCandidateRecord) => void;
-}) {
-  const list = usePaginatedList<CandidateRecord | TopicCandidateRecord>(
-    config.route,
-    base,
-  );
-  return (
-    <ListCard title={`Ranked ${config.label}`} count={list.rows.length}>
-      {list.error !== null ? (
-        <ErrorRows message={list.error} onRetry={list.retry} />
-      ) : list.loading && list.rows.length === 0 ? (
-        <LoadingRows />
-      ) : (
-        <CandidatesTable rows={list.rows} onSelect={onSelect} />
-      )}
-      <ListFooter
-        count={list.rows.length}
-        cursor={list.cursor}
-        loading={list.loading}
-        onLoadMore={list.loadMore}
-      />
-    </ListCard>
-  );
-}
-
 function TimelinePage() {
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [range, setRange] = useState<DayRange>({ from: "", to: "" });
@@ -561,19 +462,7 @@ function ArtifactPage({
 
   return (
     <div className="flex flex-col gap-4">
-      {config.singleList === true && config.key !== LEADS_KEY ? (
-        <LeadsNote />
-      ) : null}
-
-      {config.key === LEADS_KEY ? (
-        <LeadHighlights config={config} />
-      ) : (
-        // Evidence coverage always renders before any row — except on Leads,
-        // where it read as a second, more confusing completeness widget on
-        // top of the one already on Overview and added nothing an examiner
-        // acts on here.
-        <CompletenessPanel statement={statement} />
-      )}
+      <CompletenessPanel statement={statement} />
 
       <FilterBar
         config={config}
@@ -582,15 +471,7 @@ function ArtifactPage({
         onChange={setFilters}
       />
 
-      {config.singleList === true ? (
-        <CandidateList
-          config={config}
-          base={base}
-          onSelect={(row) => {
-            setSelected({ kind: "candidate", row });
-          }}
-        />
-      ) : config.combinedFindingList === true ? (
+      {config.combinedFindingList === true ? (
         <FindingList
           config={config}
           base={base}
@@ -662,15 +543,6 @@ interface NavTarget {
   readonly sites?: boolean;
 }
 
-/**
- * Leads is a Candidates artifact page, but it is not evidence: it is what the
- * analyzer inferred *from* the evidence. It is therefore grouped with Overview,
- * away from the raw tables it was derived from.
- */
-const LEADS_KEY = "candidates";
-
-const LEADS_CONFIG = ARTIFACTS.find((config) => config.key === LEADS_KEY);
-
 interface NavGroup {
   readonly label: string;
   readonly targets: readonly NavTarget[];
@@ -692,7 +564,6 @@ interface NavGroup {
  */
 const NAV_ICONS: Record<string, LucideIcon> = {
   overview: LayoutDashboard,
-  candidates: Lightbulb,
   timeline: ListOrdered,
   sites: Globe,
   history: HistoryIcon,
@@ -747,16 +618,6 @@ const NAV_GROUPS: readonly NavGroup[] = [
         config: null,
         icon: LayoutDashboard,
       },
-      ...(LEADS_CONFIG === undefined
-        ? []
-        : [
-            {
-              key: LEADS_KEY,
-              label: LEADS_CONFIG.label,
-              config: LEADS_CONFIG,
-              icon: NAV_ICONS[LEADS_KEY] ?? Lightbulb,
-            },
-          ]),
     ],
   },
   {
@@ -1049,8 +910,7 @@ export function App() {
             >
               <SheetTitle className="sr-only">Case sections</SheetTitle>
               <SheetDescription className="sr-only">
-                Move between the Case overview, the analyzer leads, and each
-                evidence table.
+                Move between the Case overview and each evidence table.
               </SheetDescription>
               <RailBody activeKey={active.key} onSelect={selectAndClose} />
             </SheetContent>

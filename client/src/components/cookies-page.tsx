@@ -38,6 +38,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Button } from "./ui/button.js";
 import { Skeleton } from "./ui/misc.js";
 
@@ -372,101 +373,49 @@ function formatLifespan(days: number | null): string | null {
 
 /* -------------------------------- widgets --------------------------------- */
 
-/**
- * One headline posture figure: a large count, the share it represents worded
- * beneath, and a slim proportion bar. `emphasis` marks the one figure whose
- * high value is a finding worth the eye (sealed values), not a reassurance.
- */
-function PostureTile({
-  label,
-  count,
-  total,
-  note,
-  icon,
-  emphasis = false,
-}: {
-  readonly label: string;
-  readonly count: number;
-  readonly total: number;
-  readonly note: string;
-  readonly icon?: React.ReactNode;
-  readonly emphasis?: boolean;
-}) {
-  const percent = total === 0 ? 0 : Math.round((count / total) * 100);
-  return (
-    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-          {label}
-        </span>
-      </div>
-      <div className="flex items-baseline gap-2">
-        <span className="text-[26px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
-          {total === 0 ? "—" : `${String(percent)}%`}
-        </span>
-        <span className="text-[12.5px] text-muted-foreground tabular-nums">
-          {count.toLocaleString("en-US")} of {total.toLocaleString("en-US")}
-        </span>
-      </div>
-      <span className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <span
-          className={cn(
-            "block h-full rounded-full transition-[width] duration-500",
-            emphasis ? "bg-destructive" : "bg-primary",
-          )}
-          style={{ width: `${String(percent)}%` }}
-        />
-      </span>
-      <span className="text-[12px] text-muted-foreground">{note}</span>
-    </div>
-  );
-}
-
 /** The four posture figures across the top of the page. */
 function PostureStrip({ summary }: { readonly summary: PostureSummary }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <div className="flex flex-col justify-center gap-1 rounded-xl border border-border bg-card p-4">
-        <span className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-          Cookies loaded
-        </span>
-        <span className="text-[26px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
-          {summary.total.toLocaleString("en-US")}
-        </span>
-        <span className="text-[12px] text-muted-foreground">
-          Rows read for the charts below
-        </span>
-      </div>
-      <PostureTile
+    <MetricBand className="grid-cols-2 xl:grid-cols-4">
+      <MetricBandItem
+        label="Cookies loaded"
+        value={summary.total.toLocaleString("en-US")}
+        detail="Rows read for the charts below"
+      />
+      <MetricBandItem
         label="Secure"
-        count={summary.secure}
-        total={summary.total}
-        note="Sent only over HTTPS"
-        icon={
-          <ShieldCheck
-            aria-hidden="true"
-            className="size-3.5 text-muted-foreground"
-          />
+        value={
+          summary.total === 0
+            ? "—"
+            : `${String(Math.round((summary.secure / summary.total) * 100))}%`
         }
+        detail={`${summary.secure.toLocaleString("en-US")} of ${summary.total.toLocaleString("en-US")} · Sent only over HTTPS`}
+        icon={<ShieldCheck aria-hidden="true" className="size-3.5" />}
+        progress={{ value: summary.secure, max: summary.total, tone: "success" }}
       />
-      <PostureTile
+      <MetricBandItem
         label="HttpOnly"
-        count={summary.httpOnly}
-        total={summary.total}
-        note="Hidden from page scripts"
-      />
-      <PostureTile
-        label="Value sealed"
-        count={summary.sealed}
-        total={summary.total}
-        note="Encrypted, unreadable offline"
-        emphasis
-        icon={
-          <Lock aria-hidden="true" className="size-3.5 text-muted-foreground" />
+        value={
+          summary.total === 0
+            ? "—"
+            : `${String(Math.round((summary.httpOnly / summary.total) * 100))}%`
         }
+        detail={`${summary.httpOnly.toLocaleString("en-US")} of ${summary.total.toLocaleString("en-US")} · Hidden from page scripts`}
+        progress={{ value: summary.httpOnly, max: summary.total }}
       />
-    </div>
+      <MetricBandItem
+        label="Value sealed"
+        value={
+          summary.total === 0
+            ? "—"
+            : `${String(Math.round((summary.sealed / summary.total) * 100))}%`
+        }
+        detail={`${summary.sealed.toLocaleString("en-US")} of ${summary.total.toLocaleString("en-US")} · Encrypted, unreadable offline`}
+        icon={<Lock aria-hidden="true" className="size-3.5" />}
+        tone="destructive"
+        progress={{ value: summary.sealed, max: summary.total, tone: "destructive" }}
+      />
+    </MetricBand>
   );
 }
 

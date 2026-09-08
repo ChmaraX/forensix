@@ -21,13 +21,12 @@
  * the loaded rows fall in a domain / a commit state), labelled as such — never
  * a fabricated ranking of the sites themselves.
  */
-import { Globe, Layers, ListOrdered, Search, Users } from "lucide-react";
+import { Search } from "lucide-react";
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
-  type ReactNode,
 } from "react";
 
 import { callApi } from "../api.js";
@@ -46,6 +45,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Button } from "./ui/button.js";
 import { Skeleton } from "./ui/misc.js";
 
@@ -172,77 +172,39 @@ function summarize(rows: readonly Finding[]): TopSitesStats {
   };
 }
 
-/**
- * One figure in the stat strip: a small caps label over a large thin numeral,
- * the same type contrast the Overview masthead uses, framed as a plain count
- * the page tallied rather than an evidence outcome. Purely a reading of the
- * loaded rows — no new query, nothing invented.
- */
-function StatFigure({
-  icon,
-  label,
-  value,
-  note,
-}: {
-  readonly icon: ReactNode;
-  readonly label: string;
-  readonly value: string;
-  readonly note: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3.5">
-      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        {icon}
-      </span>
-      <span className="text-[26px] leading-none font-light tracking-[-0.02em] tabular-nums">
-        {value}
-      </span>
-      <span className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-        {label}
-      </span>
-      <span className="truncate text-[12px] text-muted-foreground" title={note}>
-        {note}
-      </span>
-    </div>
-  );
-}
-
 function StatStrip({ stats }: { readonly stats: TopSitesStats }) {
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-      <StatFigure
-        icon={<ListOrdered aria-hidden="true" className="size-4" />}
+    <MetricBand className="grid-cols-2 xl:grid-cols-4">
+      <MetricBandItem
         label="Ranked sites"
         value={stats.rankedCount.toLocaleString("en-US")}
-        note="rows loaded so far"
+        detail="rows loaded so far"
       />
-      <StatFigure
-        icon={<Globe aria-hidden="true" className="size-4" />}
+      <MetricBandItem
         label="Distinct hosts"
         value={stats.hostCount.toLocaleString("en-US")}
-        note="unique sites in the list"
+        detail="unique sites in the list"
       />
-      <StatFigure
-        icon={<Users aria-hidden="true" className="size-4" />}
+      <MetricBandItem
         label="Profiles"
         value={stats.profileCount.toLocaleString("en-US")}
-        note={
+        detail={
           stats.profileCount === 1
             ? "one browser profile"
             : "browser profiles ranked"
         }
       />
-      <StatFigure
-        icon={<Layers aria-hidden="true" className="size-4" />}
+      <MetricBandItem
         label="Recovered"
         value={stats.recoveredCount.toLocaleString("en-US")}
-        note={
+        detail={
           stats.recoveredCount === 0
             ? "all rows committed"
             : "rows from WAL / journal"
         }
+        tone={stats.recoveredCount === 0 ? "neutral" : "warning"}
       />
-    </div>
+    </MetricBand>
   );
 }
 

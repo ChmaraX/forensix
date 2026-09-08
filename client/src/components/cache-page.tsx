@@ -57,6 +57,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Button } from "./ui/button.js";
 import { Skeleton } from "./ui/misc.js";
 
@@ -232,31 +233,6 @@ function keyHost(row: Finding): string | null {
 
 /* --------------------------------- widgets -------------------------------- */
 
-function SummaryStat({
-  label,
-  value,
-  note,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly note?: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <span className="text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-        {label}
-      </span>
-      <span className="text-[22px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
-        {value}
-      </span>
-      {note === undefined ? null : (
-        <span className="truncate text-[11.5px] text-muted-foreground">
-          {note}
-        </span>
-      )}
-    </div>
-  );
-}
 
 /**
  * The summary strip: four derived readings of the loaded set. Every figure is
@@ -293,37 +269,38 @@ function CacheSummary({ rows }: { readonly rows: readonly Finding[] }) {
       : Math.round((summary.verified / rows.length) * 100);
 
   return (
-    <section className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-lg border border-border bg-card px-5 py-4 sm:grid-cols-4">
-      <SummaryStat
+    <MetricBand className="grid-cols-2 sm:grid-cols-4">
+      <MetricBandItem
         label="Entries loaded"
         value={rows.length.toLocaleString("en-US")}
       />
-      <SummaryStat
+      <MetricBandItem
         label="Cached on disk"
         value={
           summary.sizedEntries === 0 ? "—" : formatBytes(summary.totalBytes)
         }
-        note={
+        detail={
           summary.sizedEntries === 0
             ? "no recorded sizes"
             : `across ${summary.sizedEntries.toLocaleString("en-US")} sized ${summary.sizedEntries === 1 ? "entry" : "entries"}`
         }
       />
-      <SummaryStat
+      <MetricBandItem
         label="Integrity verified"
         value={rows.length === 0 ? "—" : `${String(verifiedShare)}%`}
-        note={
+        detail={
           rows.length === 0
             ? undefined
             : `${summary.verified.toLocaleString("en-US")} of ${rows.length.toLocaleString("en-US")} entries`
         }
+        progress={{ value: summary.verified, max: rows.length, tone: "success" }}
       />
-      <SummaryStat
+      <MetricBandItem
         label="Distinct hosts"
         value={summary.hosts.toLocaleString("en-US")}
-        note="with a readable key"
+        detail="with a readable key"
       />
-    </section>
+    </MetricBand>
   );
 }
 

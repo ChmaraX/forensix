@@ -91,12 +91,3 @@ export function CoverageTerm({ children }: { readonly children: ReactNode }) {
     </Term>
   );
 }
-
-export function LeadsNote() {
-  return (
-    <p className="rounded-md border border-border bg-accent/60 px-3 py-2 text-[12.5px] text-accent-foreground">
-      Leads are ranked guesses derived from the evidence (with supporting row
-      counts and sources) — they are never established facts.
-    </p>
-  );
-}

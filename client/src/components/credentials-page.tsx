@@ -45,6 +45,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Button } from "./ui/button.js";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card.js";
 import { Skeleton } from "./ui/misc.js";
@@ -218,29 +219,6 @@ function summarize(rows: readonly Finding[]): CredentialSummary {
 
 /* -------------------------------- widgets --------------------------------- */
 
-function StatTile({
-  label,
-  value,
-  note,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly note: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3.5">
-      <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-        {label}
-      </span>
-      <span className="text-[26px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
-        {value}
-      </span>
-      <span className="mt-0.5 truncate text-[12px] text-muted-foreground">
-        {note}
-      </span>
-    </div>
-  );
-}
 
 /**
  * Reused identities — the same stored username across more than one site.
@@ -412,28 +390,29 @@ export function CredentialsPage({
               rows, never inference. Passwords stay out of it: the tile speaks
               to how many logins exist and their identity spread, never their
               contents. */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile
+          <MetricBand className="grid-cols-2 sm:grid-cols-4">
+            <MetricBandItem
               label="Saved logins"
               value={summary.total.toLocaleString("en-US")}
-              note={summary.total === 1 ? "stored entry" : "stored entries"}
+              detail={summary.total === 1 ? "stored entry" : "stored entries"}
             />
-            <StatTile
+            <MetricBandItem
               label="Distinct sites"
               value={summary.sites.toLocaleString("en-US")}
-              note="hosts with a saved login"
+              detail="hosts with a saved login"
             />
-            <StatTile
+            <MetricBandItem
               label="Distinct usernames"
               value={summary.identities.toLocaleString("en-US")}
-              note="unique stored identities"
+              detail="unique stored identities"
             />
-            <StatTile
+            <MetricBandItem
               label="Recovered"
               value={summary.recovered.toLocaleString("en-US")}
-              note="from WAL / journal sidecars"
+              detail="from WAL / journal sidecars"
+              tone="warning"
             />
-          </div>
+          </MetricBand>
 
           <div className="grid grid-cols-12 gap-4">
             {/* Login age scatter — the one widget that reads the set as a

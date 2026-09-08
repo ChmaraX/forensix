@@ -48,7 +48,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
-import { StatTile } from "./stat-tile.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Button } from "./ui/button.js";
 import { Chip, Input, Labeled, SelectNative, Skeleton } from "./ui/misc.js";
 
@@ -368,29 +368,29 @@ function ActivityHero({
         </div>
       </section>
 
-      <div className="relative z-10 -mt-10 grid grid-cols-2 gap-3 px-3 sm:grid-cols-4 sm:px-4">
-        <StatTile
+      <MetricBand
+        variant="accent"
+        className="relative z-10 -mt-10 grid-cols-2 px-3 sm:grid-cols-4 sm:px-4"
+      >
+        <MetricBandItem
           label="Recorded visits"
-          delay={0}
           value={loading ? "—" : figures.totalVisits.toLocaleString("en-US")}
         />
-        <StatTile
+        <MetricBandItem
           label="Active days"
-          delay={1}
           value={loading ? "—" : figures.activeDays.toLocaleString("en-US")}
         />
-        <StatTile
+        <MetricBandItem
           label="Recorded span"
-          delay={2}
           value={loading ? "—" : spanLabel}
+          valueClassName="text-[24px]"
         />
-        <StatTile
+        <MetricBandItem
           label="Distinct sites"
-          delay={3}
           value={figures.distinctHosts.toLocaleString("en-US")}
-          note="in loaded visits"
+          detail="in loaded visits"
         />
-      </div>
+      </MetricBand>
     </div>
   );
 }

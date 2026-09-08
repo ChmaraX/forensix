@@ -351,6 +351,41 @@ body {
   animation-delay: var(--fx-delay, 0ms);
 }
 
+/* Shared metric bands keep the numbers in one surface rather than four
+   unrelated cards. The border is the separator; the page owns the grid. */
+.metric-band-item + .metric-band-item {
+  border-left: 1px solid var(--border);
+}
+
+.metric-band-accent .metric-band-item + .metric-band-item {
+  border-color: rgb(255 255 255 / 0.2);
+}
+
+.metric-band-accent .metric-band-label,
+.metric-band-accent .metric-band-status,
+.metric-band-accent .metric-band-detail,
+.metric-band-accent .metric-band-progress-label {
+  color: rgb(255 255 255 / 0.72);
+}
+
+.metric-band-accent .metric-band-value {
+  color: #ffffff;
+}
+
+@media (max-width: 639px) {
+  .metric-band-item:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .metric-band-item:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+
+  .metric-band-accent .metric-band-item:nth-child(n + 3) {
+    border-top-color: rgb(255 255 255 / 0.2);
+  }
+}
+
 /* Horizontal-scroll affordance for wide evidence tables. */
 .fx-scroll-x {
   overflow-x: auto;

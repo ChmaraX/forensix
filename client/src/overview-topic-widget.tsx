@@ -192,7 +192,7 @@ function EnableModelSheet({
           Enable topic categorization
         </SheetTitle>
         <SheetDescription className="mt-1.5 text-[13px] text-muted-foreground">
-          Topic leads run entirely on-device: a small (~30 MB) local
+          Topic categorization runs entirely on-device: a small (~30 MB) local
           classifier, no network calls, no evidence leaves this machine.
         </SheetDescription>
         <ol className="mt-5 flex flex-col gap-3">
@@ -256,9 +256,8 @@ export function TopicCategorizationCard({ state }: { readonly state: TopicState 
   const [sheetOpen, setSheetOpen] = useState(false);
   return (
     <Card className="fx-rise col-span-12 sm:col-span-6" style={RISE_DELAY}>
-      {/* No linkLabel: the button it drew was never wired to onClick, and
-          the Topic leads tab it named has been removed — a label
-          pointing nowhere is worse than no label. */}
+      {/* No linkLabel: the button it drew was never wired to onClick, so a
+          label pointing nowhere is worse than no label. */}
       <PanelHeaderMini
         title="Topic categorization"
         description="Share of classified URLs, by topic."

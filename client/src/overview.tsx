@@ -1157,8 +1157,7 @@ export function OverviewPage({
           </CardContent>
         </Card>
 
-        {/* Recent downloads — paired with Time of day now that Leads is
-            gone; two even halves instead of a leftover third-width card. */}
+        {/* Recent downloads — paired with Time of day as two even halves. */}
         <Card
           className="fx-rise col-span-12 sm:col-span-6"
           style={riseDelay(10)}

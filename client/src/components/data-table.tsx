@@ -5,19 +5,15 @@
  *  - TYPE is always the first column;
  *  - a field missing from a row renders as the word "absent";
  *  - Commit State is a worded badge with a plain-language tooltip;
- *  - Leads (Candidates) render RANK and SUPPORTING up front and no Commit
- *    State, so a Lead is clearly not a Finding.
  */
-import { ChevronRight, Inbox } from "lucide-react";
+import { Inbox } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "../lib.js";
 import { CommitBadge } from "../terms.js";
 import type {
-  CandidateRecord,
   Finding,
   Provenance,
-  TopicCandidateRecord,
 } from "../types.js";
 import { MaybeFieldStateText } from "./field-state.js";
 
@@ -150,104 +146,6 @@ export function FindingsTable({
                   <MaybeFieldStateText field={row.fields[column]} truncate />
                 </td>
               ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/**
- * `candidateKind` is a wire identifier (`identity_email`,
- * `behavior_frequent_host`, `topic`) meant for filters, not for reading.
- * The table shows the human phrase instead; the raw kind is still visible
- * in the row detail Sheet, where an examiner may want to filter by it.
- */
-function candidateKindLabel(kind: string): string {
-  const withoutPrefix = kind.replace(/^identity_|^behavior_/, "");
-  return withoutPrefix
-    .split("_")
-    .filter((part) => part.length > 0)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-/**
- * The one field a row is "about": `value` for identity/behavior Leads,
- * `topicName` (falling back to `topicLabel`) for topic Leads. Every other
- * field a Lead carries — rank, category, profile, source row, and any
- * remaining fields — stays reachable through the row's own detail Sheet
- * instead of adding a column per field; a table that repeats every wire
- * field reads as a database dump, not an answer to "what does this lead
- * say".
- */
-export function candidateGuessField(
-  row: CandidateRecord | TopicCandidateRecord,
-) {
-  return (
-    row.fields.candidateValue ?? row.fields.topicName ?? row.fields.topicLabel
-  );
-}
-
-export function CandidatesTable({
-  rows,
-  onSelect,
-}: {
-  readonly rows: readonly (CandidateRecord | TopicCandidateRecord)[];
-  readonly onSelect: (row: CandidateRecord | TopicCandidateRecord) => void;
-}) {
-  if (rows.length === 0) {
-    return <EmptyRows message="No Leads for this filter." />;
-  }
-  return (
-    <div className="fx-scroll-x">
-      <table className="w-full text-left text-[13px] tabular-nums">
-        <thead>
-          <tr>
-            <HeaderCell>Type</HeaderCell>
-            <HeaderCell>Guess</HeaderCell>
-            <HeaderCell title="Evidence rows that point to this same guess — more rows means a stronger Lead. Rank, category, profile and source are in the row detail.">
-              Evidence count
-            </HeaderCell>
-            <HeaderCell className="w-9">{null}</HeaderCell>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr
-              key={index}
-              tabIndex={0}
-              aria-label={`Open ${row.candidateKind} lead detail`}
-              onClick={() => {
-                onSelect(row);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelect(row);
-                }
-              }}
-              className={cn(ROW_CLASS, "group")}
-            >
-              <td className="px-3 py-2 font-medium whitespace-nowrap">
-                {candidateKindLabel(row.candidateKind)}
-              </td>
-              <td className="max-w-[420px] px-3 py-2">
-                <MaybeFieldStateText
-                  field={candidateGuessField(row)}
-                  truncate
-                />
-              </td>
-              <td className="px-3 py-2 font-mono text-[12px] whitespace-nowrap">
-                {"supportingCount" in row ? row.supportingCount : row.count}
-              </td>
-              <td className="px-3 py-2">
-                <ChevronRight
-                  aria-hidden="true"
-                  className="size-3.5 text-muted-foreground/40 transition-colors duration-100 group-hover:text-muted-foreground"
-                />
-              </td>
             </tr>
           ))}
         </tbody>

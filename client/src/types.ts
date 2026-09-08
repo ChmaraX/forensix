@@ -32,27 +32,6 @@ export interface Finding {
   readonly fields: Readonly<Record<string, FieldState>>;
 }
 
-export interface CandidateRecord {
-  readonly recordType: "candidate";
-  readonly candidateKind: string;
-  readonly category: "identity" | "behavior";
-  readonly profile: string;
-  readonly rank: number;
-  readonly supportingCount: number;
-  readonly provenance: Provenance;
-  readonly fields: Readonly<Record<string, FieldState>>;
-}
-
-/** A ranked topic hypothesis. Unlike identity/behavior Leads, it has no category or profile projection. */
-export interface TopicCandidateRecord {
-  readonly recordType: "candidate";
-  readonly candidateKind: string;
-  readonly rank: number;
-  readonly count: number;
-  readonly provenance: Provenance;
-  readonly fields: Readonly<Record<string, FieldState>>;
-}
-
 export interface PageOf<Row> {
   readonly status: "ok";
   readonly items: readonly Row[];
@@ -124,11 +103,6 @@ export interface ArtifactConfig {
   readonly extras: readonly ExtraFilter[];
   /** Direction options; the first is the default. Defaults to desc-then-asc. */
   readonly directions?: readonly string[];
-  /**
-   * A single ranked list with no Commit State duality (Candidates), instead of
-   * the committed + sidecar pair every Finding artifact renders.
-   */
-  readonly singleList?: boolean;
   /** Cache records arrive with their Commit State already mixed; the query cannot filter it. */
   readonly combinedFindingList?: boolean;
 }

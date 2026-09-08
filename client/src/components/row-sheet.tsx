@@ -5,21 +5,12 @@
 import { Copy } from "lucide-react";
 import { useState } from "react";
 
-import type {
-  CandidateRecord,
-  Finding,
-  TopicCandidateRecord,
-} from "../types.js";
+import type { Finding } from "../types.js";
 import { CommitBadge } from "../terms.js";
 import { Sheet, SheetContent, SheetTitle } from "./ui/sheet.js";
 import { FieldStateText } from "./field-state.js";
 
-export type SelectedRow =
-  | { readonly kind: "finding"; readonly row: Finding }
-  | {
-      readonly kind: "candidate";
-      readonly row: CandidateRecord | TopicCandidateRecord;
-    };
+export type SelectedRow = { readonly kind: "finding"; readonly row: Finding };
 
 function ProvenanceLine({
   label,
@@ -78,10 +69,7 @@ export function RowSheet({
   readonly onClose: () => void;
 }) {
   const { row } = selected;
-  const title =
-    selected.kind === "finding"
-      ? selected.row.findingKind
-      : selected.row.candidateKind;
+  const title = selected.row.findingKind;
 
   return (
     <Sheet
@@ -95,17 +83,7 @@ export function RowSheet({
       <SheetContent aria-describedby={undefined}>
         <header className="flex items-center gap-2.5 border-b border-border px-5 py-4 pr-12">
           <SheetTitle className="text-[15px] font-semibold">{title}</SheetTitle>
-          {selected.kind === "finding" ? (
-            <CommitBadge state={selected.row.commitState} />
-          ) : (
-            <span className="text-[12.5px] text-muted-foreground">
-              rank #{selected.row.rank} ·{" "}
-              {"supportingCount" in selected.row
-                ? selected.row.supportingCount
-                : selected.row.count}{" "}
-              supporting rows
-            </span>
-          )}
+          <CommitBadge state={selected.row.commitState} />
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -131,14 +109,6 @@ export function RowSheet({
                     Profile
                   </span>
                   <p className="text-[13px]">{row.profile}</p>
-                </div>
-              ) : null}
-              {selected.kind === "candidate" && "category" in selected.row ? (
-                <div>
-                  <span className="text-[11px] tracking-wide text-muted-foreground uppercase">
-                    Category
-                  </span>
-                  <p className="text-[13px]">{selected.row.category}</p>
                 </div>
               ) : null}
             </div>

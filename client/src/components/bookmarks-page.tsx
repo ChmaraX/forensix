@@ -57,6 +57,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Button } from "./ui/button.js";
 import { Skeleton } from "./ui/misc.js";
 
@@ -209,31 +210,6 @@ function isBackupSource(source: string | null): boolean {
 
 /* -------------------------------- widgets --------------------------------- */
 
-function FigureBlock({
-  label,
-  value,
-  detail,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly detail?: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <span className="text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-        {label}
-      </span>
-      <span className="text-[22px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
-        {value}
-      </span>
-      {detail === undefined ? null : (
-        <span className="truncate text-[11.5px] text-muted-foreground">
-          {detail}
-        </span>
-      )}
-    </div>
-  );
-}
 
 function SectionCard({
   title,
@@ -997,27 +973,26 @@ export function BookmarksPage({
           {/* Figure strip — the collection at a glance, in the Overview's
               calm masthead-readout voice. Every figure is a direct read of
               the rows below, never a new query or an invented number. */}
-          <section className="rounded-lg border border-border bg-card px-5 py-4">
-            <div className="flex flex-wrap items-start gap-x-10 gap-y-4">
-              <FigureBlock
-                label="Saved pages"
-                value={summary.total.toLocaleString("en-US")}
-              />
-              <FigureBlock
-                label="Folders used"
-                value={summary.folders.toLocaleString("en-US")}
-              />
-              <FigureBlock
-                label="Distinct sites"
-                value={summary.hosts.toLocaleString("en-US")}
-              />
-              <FigureBlock
-                label="From backup"
-                value={summary.backup.toLocaleString("en-US")}
-                detail="recovered from Bookmarks.bak"
-              />
-            </div>
-          </section>
+          <MetricBand className="grid-cols-2 lg:grid-cols-4">
+            <MetricBandItem
+              label="Saved pages"
+              value={summary.total.toLocaleString("en-US")}
+            />
+            <MetricBandItem
+              label="Folders used"
+              value={summary.folders.toLocaleString("en-US")}
+            />
+            <MetricBandItem
+              label="Distinct sites"
+              value={summary.hosts.toLocaleString("en-US")}
+            />
+            <MetricBandItem
+              label="From backup"
+              value={summary.backup.toLocaleString("en-US")}
+              detail="recovered from Bookmarks.bak"
+              tone="warning"
+            />
+          </MetricBand>
 
           {/* Folder map + save cadence — the two readings that turn a flat
               list into the curated collection it is: the structure the person

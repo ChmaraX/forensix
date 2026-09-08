@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype — ForensiX metric panels v2</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #09090b;
+        --panel: #18181b;
+        --panel-raised: #1e1e23;
+        --ink: #fafafa;
+        --ink-soft: #d4d4d8;
+        --muted: #a1a1aa;
+        --faint: #71717a;
+        --line: #303037;
+        --line-soft: #25252b;
+        --blue: #60a5fa;
+        --blue-wash: #17233d;
+        --blue-line: #284e7b;
+        --green: #34d399;
+        --amber: #fbbf24;
+        --red: #f87171;
+        --violet: #a78bfa;
+        --shadow: 0 18px 44px rgb(0 0 0 / .24);
+      }
+      :root[data-theme="light"] {
+        color-scheme: light;
+        --bg: #f4f4f5;
+        --panel: #ffffff;
+        --panel-raised: #fafafa;
+        --ink: #18181b;
+        --ink-soft: #3f3f46;
+        --muted: #71717a;
+        --faint: #a1a1aa;
+        --line: #e4e4e7;
+        --line-soft: #f0f0f2;
+        --blue: #2563eb;
+        --blue-wash: #eff6ff;
+        --blue-line: #bfdbfe;
+        --green: #047857;
+        --amber: #b45309;
+        --red: #b91c1c;
+        --violet: #6d28d9;
+        --shadow: 0 18px 44px rgb(24 24 27 / .12);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-width: 320px;
+        padding: 0 24px 110px;
+        background: var(--bg);
+        color: var(--ink);
+        font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      button { font: inherit; }
+      button:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+      .app { max-width: 1240px; margin: 0 auto; }
+      .appbar { display: flex; align-items: center; justify-content: space-between; min-height: 76px; border-bottom: 1px solid var(--line-soft); }
+      .brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 650; letter-spacing: -.02em; }
+      .brand-mark { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--blue); color: white; font-size: 13px; font-weight: 800; }
+      .app-actions { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+      .scope { border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; color: var(--ink-soft); background: var(--panel); }
+      .theme { border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--panel); }
+      .theme button { border: 0; border-radius: 999px; padding: 5px 8px; color: var(--muted); background: transparent; cursor: pointer; }
+      .theme button[aria-pressed="true"] { color: var(--blue); background: var(--blue-wash); }
+      .page-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 34px 0 24px; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1; letter-spacing: -.045em; }
+      .description { margin-top: 9px; max-width: 62ch; color: var(--muted); font-size: 13px; }
+      .page-head .prototype-note { max-width: 34ch; color: var(--faint); text-align: right; font-size: 11px; }
+      .variant { display: none; }
+      .variant.active { display: block; animation: enter 220ms cubic-bezier(.16, 1, .3, 1); }
+      @keyframes enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+      @media (prefers-reduced-motion: reduce) { .variant.active { animation: none; } }
+      .variant-title { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
+      .variant-title h2 { font-size: 13px; letter-spacing: -.01em; }
+      .variant-title p { color: var(--muted); font-size: 12px; }
+      .surface { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+      .label { color: var(--muted); font-size: 10px; font-weight: 650; letter-spacing: .11em; line-height: 1.1; text-transform: uppercase; }
+      .value { font-variant-numeric: tabular-nums; letter-spacing: -.045em; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .muted { color: var(--muted); }
+      .faint { color: var(--faint); }
+      .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+      .dot.good { background: var(--green); }
+      .dot.warn { background: var(--amber); }
+      .dot.bad { background: var(--red); }
+      .section { margin-top: 28px; }
+      .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin-bottom: 10px; }
+      .section-head h3 { font-size: 12px; font-weight: 600; }
+      .section-head span { color: var(--faint); font-size: 11px; }
+
+      /* A: one shared metric surface. */
+      .metric-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
+      .metric-block { min-height: 142px; padding: 18px 20px 17px; border-right: 1px solid var(--line-soft); }
+      .metric-block:last-child { border-right: 0; }
+      .metric-block .value { display: block; margin-top: 15px; font-size: 31px; font-weight: 650; line-height: .92; }
+      .metric-block .qualifier { display: block; margin-top: 13px; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .metric-block .qualifier strong { color: var(--ink-soft); font-weight: 500; }
+      .metric-block .bar { height: 3px; margin-top: 15px; overflow: hidden; border-radius: 3px; background: var(--line-soft); }
+      .metric-block .bar span { display: block; height: 100%; width: 68%; border-radius: inherit; background: var(--blue); }
+      .metric-block .bar.good span { width: 100%; background: var(--green); }
+      .metric-block .bar.warn span { width: 11%; background: var(--amber); }
+      .metric-block .bar.empty span { width: 0; }
+      .metric-block .state { display: flex; align-items: center; gap: 7px; margin-top: 15px; color: var(--muted); font-size: 11px; }
+      .a-lower { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(240px, .85fr); gap: 12px; }
+
+      /* B: one hero metric and supporting data. */
+      .hero-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, .8fr); gap: 12px; }
+      .hero { min-height: 322px; padding: 22px 22px 16px; display: flex; flex-direction: column; }
+      .hero-top { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
+      .hero-top .value { margin-top: 14px; font-size: clamp(54px, 8vw, 88px); font-weight: 650; line-height: .82; }
+      .hero-top .qualifier { margin-top: 14px; color: var(--muted); font-size: 12px; }
+      .hero-chart { flex: 1; min-height: 150px; margin-top: 20px; }
+      .hero-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+      .hero-footer { display: flex; justify-content: space-between; gap: 20px; padding-top: 12px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 11px; }
+      .hero-footer strong { color: var(--ink-soft); font-weight: 500; }
+      .support-stack { display: grid; grid-template-rows: repeat(3, 1fr); gap: 12px; }
+      .support { min-height: 99px; padding: 17px 18px; display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; align-items: end; }
+      .support .value { align-self: center; grid-row: 1 / span 2; font-size: 31px; font-weight: 650; }
+      .support .qualifier { color: var(--muted); font-size: 11px; }
+      .support .trend { grid-column: 1; color: var(--green); font-size: 11px; }
+      .support .trend.neutral { color: var(--muted); }
+      .breakdown { padding: 17px 18px; }
+      .breakdown-row { display: grid; grid-template-columns: 112px 1fr auto; align-items: center; gap: 12px; margin-top: 13px; color: var(--muted); font-size: 11px; }
+      .breakdown-row:first-of-type { margin-top: 17px; }
+      .track { height: 6px; overflow: hidden; border-radius: 6px; background: var(--line-soft); }
+      .track span { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+      .track.good span { background: var(--green); }
+      .track.warn span { background: var(--amber); }
+      .breakdown-row strong { color: var(--ink-soft); font-weight: 500; }
+
+      /* C: evidence-first shared strip with explicit state words. */
+      .evidence-strip { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr; overflow: hidden; }
+      .evidence-cell { min-height: 122px; padding: 17px 18px; border-right: 1px solid var(--line-soft); }
+      .evidence-cell:last-child { border-right: 0; }
+      .evidence-cell .value { display: block; margin-top: 12px; font-size: 30px; font-weight: 650; line-height: .9; }
+      .evidence-cell .detail { display: flex; align-items: center; gap: 7px; margin-top: 14px; color: var(--muted); font-size: 11px; }
+      .evidence-cell .detail strong { color: var(--ink-soft); font-weight: 500; }
+      .coverage-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr); gap: 12px; }
+      .coverage { padding: 20px; }
+      .coverage-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+      .coverage-heading .value { font-size: 42px; font-weight: 650; line-height: .9; }
+      .coverage-heading .muted { max-width: 24ch; text-align: right; font-size: 12px; }
+      .coverage-bar { display: flex; height: 9px; margin-top: 24px; overflow: hidden; border-radius: 9px; background: var(--line-soft); }
+      .coverage-bar span:nth-child(1) { width: 72%; background: var(--green); }
+      .coverage-bar span:nth-child(2) { width: 18%; background: var(--amber); }
+      .coverage-bar span:nth-child(3) { width: 10%; background: var(--violet); }
+      .coverage-legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 13px; color: var(--muted); font-size: 11px; }
+      .coverage-legend div { display: flex; align-items: center; gap: 7px; }
+      .coverage-legend strong { color: var(--ink-soft); font-weight: 500; }
+      .state-list { padding: 18px; }
+      .state-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); color: var(--muted); font-size: 11px; }
+      .state-row:last-child { border-bottom: 0; }
+      .state-name { display: flex; align-items: center; gap: 8px; }
+      .state-row strong { color: var(--ink-soft); font-weight: 500; }
+      .c-table { overflow: hidden; }
+      .c-table-head, .c-table-row { display: grid; grid-template-columns: 1fr 120px 120px; gap: 16px; align-items: center; padding: 12px 16px; }
+      .c-table-head { border-bottom: 1px solid var(--line-soft); color: var(--muted); font-size: 10px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; }
+      .c-table-row { border-bottom: 1px solid var(--line-soft); color: var(--ink-soft); font-size: 12px; }
+      .c-table-row:last-child { border-bottom: 0; }
+      .c-table-row .mono { color: var(--muted); font-size: 11px; }
+      .badge { display: inline-flex; align-items: center; gap: 6px; width: fit-content; border: 1px solid var(--line); border-radius: 999px; padding: 3px 7px; color: var(--muted); font-size: 10px; }
+      .badge.good { border-color: color-mix(in srgb, var(--green) 35%, var(--line)); color: var(--green); }
+      .badge.warn { border-color: color-mix(in srgb, var(--amber) 35%, var(--line)); color: var(--amber); }
+      .badge.violet { border-color: color-mix(in srgb, var(--violet) 35%, var(--line)); color: var(--violet); }
+
+      .prototype-switcher { position: fixed; z-index: 5; right: 50%; bottom: 17px; display: flex; align-items: center; gap: 8px; transform: translateX(50%); border: 1px solid var(--line); border-radius: 999px; padding: 5px; background: color-mix(in srgb, var(--panel) 95%, transparent); box-shadow: var(--shadow); backdrop-filter: blur(14px); }
+      .prototype-switcher button { width: 31px; height: 31px; border: 0; border-radius: 50%; background: transparent; color: var(--ink-soft); cursor: pointer; }
+      .prototype-switcher button:hover { background: var(--blue-wash); color: var(--blue); }
+      .current { min-width: 205px; padding: 0 9px; text-align: center; }
+      .current strong { display: block; font-size: 11px; }
+      .current span { display: block; color: var(--muted); font-size: 10px; }
+      @media (max-width: 850px) {
+        body { padding: 0 16px 105px; }
+        .page-head { display: block; }
+        .page-head .prototype-note { margin-top: 12px; text-align: left; }
+        .metric-band, .evidence-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .metric-block:nth-child(2), .evidence-cell:nth-child(2) { border-right: 0; }
+        .metric-block:nth-child(-n + 2), .evidence-cell:nth-child(-n + 2) { border-bottom: 1px solid var(--line-soft); }
+        .hero-layout, .coverage-layout, .a-lower { grid-template-columns: 1fr; }
+        .support-stack { grid-template-rows: none; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .support { min-height: 120px; display: block; }
+        .support .value { display: block; margin-top: 15px; }
+        .support .trend { margin-top: 11px; }
+      }
+      @media (max-width: 560px) {
+        .appbar { min-height: 64px; }
+        .app-actions .scope { display: none; }
+        .page-head { padding: 28px 0 20px; }
+        .variant-title { display: block; }
+        .variant-title p { margin-top: 5px; }
+        .metric-band, .evidence-strip { grid-template-columns: 1fr 1fr; }
+        .metric-block, .evidence-cell { min-height: 120px; padding: 15px 14px; }
+        .metric-block .value, .evidence-cell .value { font-size: 26px; }
+        .metric-block .qualifier { font-size: 11px; }
+        .support-stack { grid-template-columns: 1fr; }
+        .support { min-height: 92px; display: grid; }
+        .support .value { display: block; margin-top: 0; }
+        .c-table-head, .c-table-row { grid-template-columns: 1fr 86px; }
+        .c-table-head span:nth-child(3), .c-table-row span:nth-child(3) { display: none; }
+        .coverage-heading { display: block; }
+        .coverage-heading .muted { margin-top: 10px; text-align: left; }
+        .coverage-legend { grid-template-columns: 1fr; }
+        .current { min-width: 0; flex: 1; }
+        .prototype-switcher { width: calc(100vw - 28px); justify-content: space-between; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="appbar">
+        <div class="brand"><span class="brand-mark">X</span><span>ForensiX</span></div>
+        <div class="app-actions"><span class="scope">Case · browser-profile-01</span><div class="theme"><button type="button" data-theme-choice="light" aria-pressed="false">Light</button><button type="button" data-theme-choice="dark" aria-pressed="true">Dark</button></div></div>
+      </header>
+
+      <header class="page-head">
+        <div><h1>Overview</h1><p class="description">A read-only summary of what the analyzer found, how complete it is, and where to investigate next.</p></div>
+        <p class="prototype-note">v2 prototype · three dashboard compositions · use ← → or the control below</p>
+      </header>
+
+      <section class="variant active" data-variant="a">
+        <div class="variant-title"><h2>A — Metric blocks</h2><p>One quiet shared surface for the first scan.</p></div>
+        <div class="surface metric-band">
+          <div class="metric-block"><div class="label">Recorded visits</div><strong class="value">34</strong><span class="qualifier">25 active days</span><div class="state"><span class="dot good"></span>available</div></div>
+          <div class="metric-block"><div class="label">Files downloaded</div><strong class="value">12</strong><span class="qualifier"><strong>284 MB</strong> total size</span><div class="state"><span class="dot good"></span>available</div></div>
+          <div class="metric-block"><div class="label">Recovered rows</div><strong class="value">3</strong><span class="qualifier">WAL / rollback journal</span><div class="state"><span class="dot warn"></span>sidecar data</div></div>
+          <div class="metric-block"><div class="label">Value sealed</div><strong class="value">0%</strong><span class="qualifier">0 of 28 cookie values</span><div class="bar empty"><span></span></div></div>
+        </div>
+        <div class="section">
+          <div class="section-head"><h3>Activity window</h3><span>1 Mar 2024 – 14 Apr 2024</span></div>
+          <div class="surface a-lower">
+            <div class="hero-chart" style="height:190px; padding:18px 20px 10px"><svg viewBox="0 0 760 180" preserveAspectRatio="none" aria-label="Visit activity over time"><path d="M0 157 L46 152 L92 160 L138 128 L184 143 L230 106 L276 116 L322 70 L368 92 L414 52 L460 62 L506 83 L552 34 L598 47 L644 28 L690 61 L760 18" fill="none" stroke="var(--blue)" stroke-width="3" vector-effect="non-scaling-stroke"/><path d="M0 157 L46 152 L92 160 L138 128 L184 143 L230 106 L276 116 L322 70 L368 92 L414 52 L460 62 L506 83 L552 34 L598 47 L644 28 L690 61 L760 18 L760 180 L0 180 Z" fill="var(--blue)" opacity=".08"/><line x1="0" y1="179" x2="760" y2="179" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/></svg></div>
+            <div class="breakdown" style="border-left:1px solid var(--line-soft)"><div class="label">Fast read</div><div class="breakdown-row"><span>Visits</span><div class="track"><span style="width:68%"></span></div><strong>34</strong></div><div class="breakdown-row"><span>Active days</span><div class="track"><span style="width:51%"></span></div><strong>25</strong></div><div class="breakdown-row"><span>Quiet stretch</span><div class="track warn"><span></span></div><strong>5 days</strong></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="variant" data-variant="b">
+        <div class="variant-title"><h2>B — Featured metric</h2><p>One answer gets the visual lead; the rest support it.</p></div>
+        <div class="hero-layout">
+          <article class="surface hero"><div class="hero-top"><div><div class="label">Recorded visits</div><div class="value">34</div><p class="qualifier">25 active days · 1 Mar 2024 – 14 Apr 2024</p></div><span class="badge good"><span class="dot good"></span>available</span></div><div class="hero-chart"><svg viewBox="0 0 760 180" preserveAspectRatio="none" aria-label="Visit activity over time"><defs><linearGradient id="hero-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--blue)" stop-opacity=".22"/><stop offset="1" stop-color="var(--blue)" stop-opacity="0"/></linearGradient></defs><path d="M0 157 L46 152 L92 160 L138 128 L184 143 L230 106 L276 116 L322 70 L368 92 L414 52 L460 62 L506 83 L552 34 L598 47 L644 28 L690 61 L760 18 L760 180 L0 180 Z" fill="url(#hero-fill)"/><path d="M0 157 L46 152 L92 160 L138 128 L184 143 L230 106 L276 116 L322 70 L368 92 L414 52 L460 62 L506 83 L552 34 L598 47 L644 28 L690 61 L760 18" fill="none" stroke="var(--blue)" stroke-width="3" vector-effect="non-scaling-stroke"/><line x1="0" y1="179" x2="760" y2="179" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/></svg></div><div class="hero-footer"><span>Highest activity <strong>12 Mar</strong></span><span>Quietest stretch <strong>5 days</strong></span></div></article>
+          <div class="support-stack">
+            <article class="surface support"><div class="label">Active days</div><strong class="value">25</strong><span class="qualifier">days with visits</span><span class="trend neutral">of 45 days in range</span></article>
+            <article class="surface support"><div class="label">Most visited site</div><strong class="value" style="font-size:25px">reddit.com</strong><span class="qualifier">10 recorded visits</span><span class="trend neutral">top host</span></article>
+            <article class="surface support"><div class="label">Recovered rows</div><strong class="value">3</strong><span class="qualifier">temporary-file evidence</span><span class="trend" style="color:var(--amber)">sidecar data</span></article>
+          </div>
+        </div>
+        <div class="section"><div class="section-head"><h3>Where the activity came from</h3><span>Top recorded hosts</span></div><div class="surface breakdown" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px"><div><div class="label">reddit.com</div><div class="breakdown-row" style="grid-template-columns:1fr auto"><div class="track"><span style="width:100%"></span></div><strong>10</strong></div></div><div><div class="label">google.com</div><div class="breakdown-row" style="grid-template-columns:1fr auto"><div class="track"><span style="width:70%"></span></div><strong>7</strong></div></div><div><div class="label">youtube.com</div><div class="breakdown-row" style="grid-template-columns:1fr auto"><div class="track"><span style="width:40%"></span></div><strong>4</strong></div></div></div></div>
+      </section>
+
+      <section class="variant" data-variant="c">
+        <div class="variant-title"><h2>C — Evidence strip</h2><p>Counts, coverage, and recovery are explicit before the tables begin.</p></div>
+        <div class="surface evidence-strip">
+          <div class="evidence-cell"><div class="label">Evidence rows</div><strong class="value">49</strong><div class="detail"><span class="dot good"></span><strong>46 saved</strong> · 3 recovered</div></div>
+          <div class="evidence-cell"><div class="label">Profiles</div><strong class="value">2</strong><div class="detail"><span class="dot"></span>browser profiles ranked</div></div>
+          <div class="evidence-cell"><div class="label">Sources</div><strong class="value">4</strong><div class="detail"><span class="dot good"></span>readable inputs</div></div>
+          <div class="evidence-cell"><div class="label">Unavailable</div><strong class="value">1</strong><div class="detail"><span class="dot bad"></span>with typed reason</div></div>
+        </div>
+        <div class="section coverage-layout">
+          <article class="surface coverage"><div class="coverage-heading"><div><div class="label">Case coverage</div><strong class="value">9 / 10</strong></div><p class="muted">Nine requested artifacts produced readable output. One needs review.</p></div><div class="coverage-bar"><span></span><span></span><span></span></div><div class="coverage-legend"><div><span class="dot good"></span><strong>7 produced</strong></div><div><span class="dot warn"></span><strong>2 recovered</strong></div><div><span class="dot" style="background:var(--violet)"></span><strong>1 partial</strong></div></div></article>
+          <article class="surface state-list"><div class="label" style="margin-bottom:5px">Read state</div><div class="state-row"><span class="state-name"><span class="dot good"></span>Saved records</span><strong>46</strong></div><div class="state-row"><span class="state-name"><span class="dot warn"></span>Recovered records</span><strong>3</strong></div><div class="state-row"><span class="state-name"><span class="dot bad"></span>Unavailable inputs</span><strong>1</strong></div></article>
+        </div>
+        <div class="section"><div class="section-head"><h3>Recent evidence</h3><span>source row · commit state</span></div><div class="surface c-table"><div class="c-table-head"><span>Artifact</span><span>Rows</span><span>State</span></div><div class="c-table-row"><span>History</span><span class="mono">34</span><span><span class="badge good"><span class="dot good"></span>saved</span></span></div><div class="c-table-row"><span>Cookies</span><span class="mono">28</span><span><span class="badge good"><span class="dot good"></span>saved</span></span></div><div class="c-table-row"><span>Downloads</span><span class="mono">12</span><span><span class="badge warn"><span class="dot warn"></span>3 recovered</span></span></div></div></div>
+      </section>
+    </main>
+
+    <nav class="prototype-switcher" aria-label="Prototype directions"><button type="button" data-direction="prev" aria-label="Previous direction">←</button><div class="current"><strong id="variant-name">A — Metric blocks</strong><span id="variant-counter">1 / 3 · use ← → to compare</span></div><button type="button" data-direction="next" aria-label="Next direction">→</button></nav>
+    <script>
+      const variants = [["a", "A — Metric blocks"], ["b", "B — Featured metric"], ["c", "C — Evidence strip"]];
+      const panels = [...document.querySelectorAll("[data-variant]")];
+      const name = document.querySelector("#variant-name");
+      const counter = document.querySelector("#variant-counter");
+      const root = document.documentElement;
+      function setTheme(theme) {
+        root.dataset.theme = theme;
+        document.querySelectorAll("[data-theme-choice]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.themeChoice === theme)));
+      }
+      function setVariant(key, updateUrl = true) {
+        const index = Math.max(0, variants.findIndex(([id]) => id === key));
+        const [id, title] = variants[index];
+        panels.forEach((panel) => panel.classList.toggle("active", panel.dataset.variant === id));
+        name.textContent = title;
+        counter.textContent = `${index + 1} / ${variants.length} · use ← → to compare`;
+        if (updateUrl) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("variant", id);
+          window.history.replaceState({}, "", url);
+        }
+      }
+      function cycle(direction) {
+        const current = variants.findIndex(([id]) => id === new URLSearchParams(window.location.search).get("variant"));
+        const next = direction === "next" ? current + 1 : current - 1;
+        setVariant(variants[(next + variants.length) % variants.length][0]);
+      }
+      document.querySelectorAll("[data-theme-choice]").forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.themeChoice)));
+      document.querySelectorAll("[data-direction]").forEach((button) => button.addEventListener("click", () => cycle(button.dataset.direction)));
+      window.addEventListener("keydown", (event) => {
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
+        if (event.key === "ArrowLeft") cycle("prev");
+        if (event.key === "ArrowRight") cycle("next");
+      });
+      setVariant(new URLSearchParams(window.location.search).get("variant") || "a", false);
+    </script>
+  </body>
+</html>

@@ -50,6 +50,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Button } from "./ui/button.js";
 import { Skeleton } from "./ui/misc.js";
 import {
@@ -370,37 +371,12 @@ function useDerived(rows: readonly Finding[]): Derived {
   }, [rows]);
 }
 
-/** One figure in the summary strip: a small caps label over a large numeral,
- *  with a plain-language note. Read straight off the derived counts. */
-function StatTile({
-  label,
-  value,
-  note,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly note: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card px-4 py-3.5">
-      <span className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-        {label}
-      </span>
-      <span className="text-[24px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
-        {value}
-      </span>
-      <span className="truncate text-[12px] text-muted-foreground" title={note}>
-        {note}
-      </span>
-    </div>
-  );
-}
 
 /**
  * The category breakdown: one stacked bar showing each class's share of the
  * whole set, then a legend that doubles as the exact counts. This is the
  * page's headline read — "what kinds of personal data does this browser hold"
- * — so it leads. The bar is a proportion of counts the rows carry, never a
+ * — so it ranks first. The bar is a proportion of counts the rows carry, never a
  * score or a projection.
  */
 function CategoryBreakdown({
@@ -761,38 +737,39 @@ export function AutofillPage({
               is Identity + Contact + Address + Payment: entries that carry
               directly identifying or financial data, as opposed to search
               text. Every figure is a count the rows already carry. */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile
+          <MetricBand className="grid-cols-2 sm:grid-cols-4">
+            <MetricBandItem
               label="Saved entries"
               value={derived.total.toLocaleString("en-US")}
-              note={
+              detail={
                 list.complete ? "across all profiles" : "first pages loaded"
               }
             />
-            <StatTile
+            <MetricBandItem
               label="Field types"
               value={derived.distinctTypes.toLocaleString("en-US")}
-              note={derived.distinctTypes === 1 ? "distinct type" : "distinct types"}
+              detail={derived.distinctTypes === 1 ? "distinct type" : "distinct types"}
             />
-            <StatTile
+            <MetricBandItem
               label="Sensitive"
               value={`${String(sensitiveShare)}%`}
-              note={`${derived.sensitive.toLocaleString("en-US")} identity, contact, address or payment`}
+              detail={`${derived.sensitive.toLocaleString("en-US")} identity, contact, address or payment`}
+              progress={{ value: derived.sensitive, max: derived.total, tone: "warning", label: `${String(sensitiveShare)}% of saved entries` }}
             />
-            <StatTile
+            <MetricBandItem
               label="Most reused"
               value={
                 derived.topReused === null
                   ? "—"
                   : derived.topReused.timesUsed.toLocaleString("en-US")
               }
-              note={
+              detail={
                 derived.topReused === null
                   ? "no recorded fills"
                   : (derived.topReused.value ?? "(empty)")
               }
             />
-          </div>
+          </MetricBand>
 
           <CategoryBreakdown
             categories={derived.categories}

@@ -323,7 +323,7 @@ const TIME_CELL = (field: string): KindColumn["cell"] =>
   };
 
 /**
- * The columns each kind leads with. Chosen for reading, not completeness:
+ * The first column for each kind. Chosen for reading, not completeness:
  * the host itself is already fixed by the selection, so cells carry what
  * distinguishes rows within the host.
  */
@@ -498,6 +498,28 @@ function KindTable({
 
 /* ------------------------------- host detail ------------------------------- */
 
+function SiteHeroMetric({
+  label,
+  value,
+  detail,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly detail: string;
+}) {
+  return (
+    <div className="flex min-w-[110px] flex-col">
+      <dt className="text-[10px] font-semibold tracking-[0.11em] text-blue-100/80 uppercase">
+        {label}
+      </dt>
+      <dd className="mt-2 text-[28px] leading-none font-semibold tracking-[-0.04em] tabular-nums">
+        {value}
+      </dd>
+      <span className="mt-1.5 text-[11.5px] text-blue-100/80">{detail}</span>
+    </div>
+  );
+}
+
 function HostDetail({
   host,
   hostMeta,
@@ -533,65 +555,90 @@ function HostDetail({
   const presentKinds = KIND_META.filter(
     (meta) => (grouped.get(meta.kind) ?? []).length > 0,
   );
+  const recoveredCount = findings.rows.filter(
+    (row) => row.commitState !== "committed",
+  ).length;
+  const recordedRows = hostMeta === undefined ? findings.rows.length : totalOf(hostMeta);
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <section className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="flex flex-wrap items-center gap-4 px-5 py-6">
-          <SiteAvatar host={host} size="xl" />
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <h2 className="truncate font-mono text-[20px] font-semibold tracking-[-0.01em]">
-              {host}
-            </h2>
-            <p className="text-[12.5px] text-muted-foreground">
-              {hostMeta === undefined
-                ? "Recorded evidence for this host"
-                : `${String(totalOf(hostMeta))} recorded rows across ${String(
-                    KIND_META.filter((meta) => hostMeta.counts[meta.kind] > 0)
-                      .length,
-                  )} evidence kinds`}
-            </p>
-          </div>
-          {presentKinds.length > 1 ? (
-            <div className="ml-auto flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                aria-pressed={kindFilter === null}
-                onClick={() => {
-                  setKindFilter(null);
-                }}
-                className={cn(
-                  "inline-flex h-7 cursor-pointer items-center rounded-full border px-2.5 text-[12px] font-medium transition-colors duration-150",
-                  kindFilter === null
-                    ? "border-accent-border bg-accent text-accent-foreground"
-                    : "border-border bg-card text-muted-foreground hover:text-foreground",
-                )}
-              >
-                All
-              </button>
-              {presentKinds.map((meta) => (
+      <section className="fx-hero relative overflow-hidden rounded-2xl text-white">
+        <div className="relative flex flex-col gap-6 px-5 pt-5 pb-7 sm:px-6 sm:pt-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+            <div className="flex min-w-0 items-start gap-3.5">
+              <span className="mt-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/12 ring-1 ring-white/20">
+                <SiteAvatar host={host} size="md" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold tracking-[0.12em] text-blue-100/80 uppercase">
+                  Observed host
+                </p>
+                <h2 className="mt-1 truncate font-mono text-[21px] font-semibold tracking-[-0.02em]">
+                  {host}
+                </h2>
+                <p className="mt-1 text-[12px] text-blue-100/80">
+                  Recorded evidence grouped by artifact kind.
+                </p>
+              </div>
+            </div>
+            {presentKinds.length > 1 ? (
+              <div className="flex flex-wrap items-center gap-1.5 lg:max-w-[58%] lg:justify-end">
                 <button
-                  key={meta.kind}
                   type="button"
-                  aria-pressed={kindFilter === meta.kind}
+                  aria-pressed={kindFilter === null}
                   onClick={() => {
-                    setKindFilter(kindFilter === meta.kind ? null : meta.kind);
+                    setKindFilter(null);
                   }}
                   className={cn(
-                    "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-colors duration-150",
-                    kindFilter === meta.kind
-                      ? "border-accent-border bg-accent text-accent-foreground"
-                      : "border-border bg-card text-muted-foreground hover:text-foreground",
+                    "inline-flex h-7 cursor-pointer items-center rounded-full border px-2.5 text-[12px] font-medium transition-colors duration-150",
+                    kindFilter === null
+                      ? "border-white bg-white text-blue-700"
+                      : "border-white/20 bg-black/10 text-white/80 hover:bg-white/10 hover:text-white",
                   )}
                 >
-                  {meta.label}
-                  <span className="tabular-nums opacity-70">
-                    {(grouped.get(meta.kind) ?? []).length}
-                  </span>
+                  All
                 </button>
-              ))}
-            </div>
-          ) : null}
+                {presentKinds.map((meta) => (
+                  <button
+                    key={meta.kind}
+                    type="button"
+                    aria-pressed={kindFilter === meta.kind}
+                    onClick={() => {
+                      setKindFilter(kindFilter === meta.kind ? null : meta.kind);
+                    }}
+                    className={cn(
+                      "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-colors duration-150",
+                      kindFilter === meta.kind
+                        ? "border-white bg-white text-blue-700"
+                        : "border-white/20 bg-black/10 text-white/80 hover:bg-white/10 hover:text-white",
+                    )}
+                  >
+                    {meta.label}
+                    <span className="tabular-nums opacity-70">
+                      {(grouped.get(meta.kind) ?? []).length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <dl className="flex flex-wrap gap-x-9 gap-y-5">
+            <SiteHeroMetric
+              label="Recorded rows"
+              value={recordedRows.toLocaleString("en-US")}
+              detail="across this host"
+            />
+            <SiteHeroMetric
+              label="Evidence kinds"
+              value={String(presentKinds.length)}
+              detail="recorded artifact types"
+            />
+            <SiteHeroMetric
+              label="Recovered"
+              value={recoveredCount.toLocaleString("en-US")}
+              detail="from WAL or journal"
+            />
+          </dl>
         </div>
       </section>
 
