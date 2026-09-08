@@ -36,6 +36,7 @@ import { callApi } from "../api.js";
 import type { FieldState, Finding, PageOf } from "../types.js";
 import { bucketsToDays, fillGaps, useActivityBuckets } from "./activity-data.js";
 import { ActivityBars, type DayCount, useChartTokens } from "./charts.js";
+import { ChartSection } from "./chart-section.js";
 import { EmptyRows } from "./data-table.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import {
@@ -331,22 +332,22 @@ function ActivityHero({
 
   return (
     <div className="flex flex-col">
-      <section className="overflow-hidden rounded-lg border border-border bg-card">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <h2 className="text-[16px] font-semibold tracking-[-0.01em]">
-            Browsing activity
-          </h2>
+      <ChartSection
+        title="Browsing activity"
+        description="Recorded page visits per day. Choose a range or select a bar."
+        action={
           <DateRangePicker
             from={range.from}
             to={range.to}
             min={rangeMin}
             max={rangeMax}
-            triggerLabel="Whole recorded span"
+            triggerLabel="All recorded days"
             formatDate={formatDayShort}
             onChange={onRangeChange}
             className="h-8 rounded-md"
           />
-        </header>
+        }
+      >
         {/* Extra bottom padding is the ledge the figure tiles sit on. */}
         <div className="px-2 pt-3 pb-16">
           {error !== null ? (
@@ -362,11 +363,13 @@ function ActivityHero({
                 tokens={tokens}
                 selectedDate={selectedDate}
                 onSelectDay={onSelectDay}
+                range={range}
+                onRangeChange={onRangeChange}
               />
             </div>
           )}
         </div>
-      </section>
+      </ChartSection>
 
       <MetricBand
         variant="accent"

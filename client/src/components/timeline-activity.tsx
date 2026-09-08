@@ -24,6 +24,7 @@ import {
 import { cn } from "../lib.js";
 import { useActivityDays } from "./activity-data.js";
 import { useChartTokens, usePrefersReducedMotion } from "./charts.js";
+import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Skeleton } from "./ui/misc.js";
@@ -149,18 +150,11 @@ export function TimelineActivityCard({
 
   return (
     <div className="flex flex-col">
-      <section className="overflow-hidden rounded-lg border border-border bg-card">
-        <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-3">
-          <div className="flex min-w-0 flex-col">
-            <h2 className="text-[16px] font-semibold tracking-[-0.01em]">
-              Activity
-            </h2>
-            <p className="text-[12px] text-muted-foreground">
-              Recorded page visits per day. Drag across the chart to focus the
-              table below.
-            </p>
-          </div>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+      <ChartSection
+        title="Activity"
+        description="Recorded page visits per day. Choose a range or drag across the chart."
+        action={
+          <div className="flex flex-wrap items-center gap-2">
             {hasRange ? (
               <button
                 type="button"
@@ -186,7 +180,8 @@ export function TimelineActivityCard({
               />
             ) : null}
           </div>
-        </header>
+        }
+      >
 
         {/* Extra bottom padding is the ledge the figure tiles sit on. */}
         <div className="px-2 pt-3 pb-16">
@@ -302,7 +297,7 @@ export function TimelineActivityCard({
             </div>
           )}
         </div>
-      </section>
+      </ChartSection>
 
       {days !== null && days.length > 0 && stats !== null ? (
         <MetricBand

@@ -12,12 +12,13 @@
  * changes, so charts follow light and dark without components branching on the
  * mode themselves.
  */
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  ReferenceArea,
   PolarAngleAxis,
   RadialBar,
   RadialBarChart,
@@ -191,6 +192,8 @@ export function ActivityBars({
   tokens,
   selectedDate = null,
   onSelectDay,
+  range,
+  onRangeChange,
 }: {
   readonly days: readonly DayCount[];
   readonly tokens: ChartTokens;
@@ -201,8 +204,45 @@ export function ActivityBars({
   /** Present only where a click can act on it (e.g. History); omitted, the
    *  chart stays the plain read-only reading it always was (e.g. Overview). */
   readonly onSelectDay?: (date: string) => void;
+  readonly range?: { readonly from: string; readonly to: string };
+  readonly onRangeChange?: (range: { from: string; to: string }) => void;
 }) {
   const reduced = usePrefersReducedMotion();
+  const [dragStart, setDragStart] = useState<string | null>(null);
+  const [dragCurrent, setDragCurrent] = useState<string | null>(null);
+  const highlight = useMemo(() => {
+    if (dragStart !== null && dragCurrent !== null) {
+      return dragStart <= dragCurrent
+        ? { from: dragStart, to: dragCurrent }
+        : { from: dragCurrent, to: dragStart };
+    }
+    if (range !== undefined && (range.from !== "" || range.to !== "")) {
+      return {
+        from: range.from === "" ? range.to : range.from,
+        to: range.to === "" ? range.from : range.to,
+      };
+    }
+    return null;
+  }, [dragCurrent, dragStart, range]);
+  const commitDrag = () => {
+    if (
+      dragStart === null ||
+      dragCurrent === null ||
+      dragStart === dragCurrent ||
+      onRangeChange === undefined
+    ) {
+      setDragStart(null);
+      setDragCurrent(null);
+      return;
+    }
+    onRangeChange(
+      dragStart <= dragCurrent
+        ? { from: dragStart, to: dragCurrent }
+        : { from: dragCurrent, to: dragStart },
+    );
+    setDragStart(null);
+    setDragCurrent(null);
+  };
   if (days.length === 0) {
     return <EmptyChart>No dated visits to draw.</EmptyChart>;
   }
@@ -210,7 +250,32 @@ export function ActivityBars({
   const peak = rows.reduce((max, row) => Math.max(max, row.count), 0);
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+      <BarChart
+        data={rows}
+        margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+        onMouseDown={(state) => {
+          if (
+            onRangeChange !== undefined &&
+            typeof state?.activeLabel === "string"
+          ) {
+            const row = rows.find((entry) => entry.label === state.activeLabel);
+            if (row !== undefined) {
+              setDragStart(row.date);
+              setDragCurrent(row.date);
+            }
+          }
+        }}
+        onMouseMove={(state) => {
+          if (dragStart !== null && typeof state?.activeLabel === "string") {
+            const row = rows.find((entry) => entry.label === state.activeLabel);
+            if (row !== undefined) {
+              setDragCurrent(row.date);
+            }
+          }
+        }}
+        onMouseUp={commitDrag}
+        onMouseLeave={commitDrag}
+      >
         <CartesianGrid
           vertical={false}
           stroke={tokens["--border"]}
@@ -244,6 +309,16 @@ export function ActivityBars({
             );
           }}
         />
+        {highlight !== null && highlight.from !== highlight.to ? (
+          <ReferenceArea
+            x1={formatDay(highlight.from)}
+            x2={formatDay(highlight.to)}
+            fill={tokens["--primary"]}
+            fillOpacity={0.08}
+            stroke={tokens["--primary"]}
+            strokeOpacity={0.25}
+          />
+        ) : null}
         <Bar
           dataKey="count"
           radius={[3, 3, 0, 0]}
@@ -251,11 +326,17 @@ export function ActivityBars({
           animationDuration={600}
           minPointSize={2}
         >
-          {rows.map((row) => (
+          {rows.map((row) => {
+            const inRange =
+              highlight === null ||
+              (row.date >= highlight.from && row.date <= highlight.to);
+            return (
             <Cell
               key={row.date}
               fill={tokens["--primary"]}
-              fillOpacity={peak > 0 && row.count === peak ? 1 : 0.55}
+              fillOpacity={
+                inRange ? (peak > 0 && row.count === peak ? 1 : 0.55) : 0.2
+              }
               stroke={
                 row.date === selectedDate ? tokens["--foreground"] : undefined
               }
@@ -268,10 +349,14 @@ export function ActivityBars({
                     }
               }
               style={{
-                cursor: onSelectDay === undefined ? undefined : "pointer",
+                cursor:
+                  onSelectDay === undefined && onRangeChange === undefined
+                    ? undefined
+                    : "pointer",
               }}
             />
-          ))}
+            );
+          })}
         </Bar>
       </BarChart>
     </ResponsiveContainer>

@@ -51,7 +51,9 @@ import type {
   PageOf,
 } from "../types.js";
 import { useChartTokens, usePrefersReducedMotion } from "./charts.js";
+import { ChartSection } from "./chart-section.js";
 import { EmptyRows } from "./data-table.js";
+import { DateRangePicker } from "./date-range-picker.js";
 import {
   AbsentWord,
   fieldInteger,
@@ -1291,28 +1293,39 @@ export function DownloadsPage({
           {/* Volume over time — the hero, full width. Drag across it to focus
               the table below on a date range, the same gesture the Timeline
               and History activity charts use. */}
-          <SectionCard
+          <ChartSection
             title="Downloads over time"
-            description="Bytes per recorded day. Drag to focus the table."
+            description="Bytes transferred per day. Choose a range or drag across the bars."
             action={
-              hasRange ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRange({ from: "", to: "" });
-                  }}
-                  className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 text-[12px] font-medium text-foreground/80 transition-colors duration-150 hover:text-foreground"
-                >
-                  {range.from === "" ? "…" : formatTick(range.from)} —{" "}
-                  {range.to === "" ? "…" : formatTick(range.to)}
-                  <X aria-hidden="true" className="size-3" />
-                  <span className="sr-only">Clear the date range</span>
-                </button>
-              ) : null
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <DateRangePicker
+                  from={range.from}
+                  to={range.to}
+                  min={summary.firstUtc?.slice(0, 10) ?? null}
+                  max={summary.lastUtc?.slice(0, 10) ?? null}
+                  triggerLabel="All recorded days"
+                  formatDate={formatDay}
+                  onChange={setRange}
+                  className="h-8"
+                />
+                {hasRange ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRange({ from: "", to: "" });
+                    }}
+                    className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 text-[12px] font-medium text-foreground/80 transition-colors duration-150 hover:text-foreground"
+                  >
+                    Clear
+                    <X aria-hidden="true" className="size-3" />
+                    <span className="sr-only">Clear the date range</span>
+                  </button>
+                ) : null}
+              </div>
             }
           >
             <VolumeChart rows={model} range={range} onRangeChange={setRange} />
-          </SectionCard>
+          </ChartSection>
 
           <MetricBand
             variant="accent"
