@@ -61,7 +61,13 @@ import {
   useCommitStateLists,
   type PaginatedList,
 } from "../use-commit-state-lists.js";
-import { bucketsToDays, fillGaps } from "./activity-data.js";
+import {
+  bucketsToDays,
+  fillGaps,
+  useActivity,
+  visitTotal,
+  type SplitActivity,
+} from "./activity-data.js";
 import { ActivityBars, useChartTokens } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
 import { CompletenessPanel } from "./completeness.js";
@@ -76,15 +82,13 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import { ErrorRows, ListBlock, RevealSwap } from "./list-states.js";
 import {
-  useSplitActivity,
-  visitTotal,
-  type SplitActivity,
-} from "./history-activity-data.js";
-import { figure, type Read } from "./history-figures.js";
-import { ListBlock, RevealSwap } from "./history-list-block.js";
-import { ErrorRows } from "./list-states.js";
-import { MetricBand, MetricBandItem } from "./metric-band.js";
+  figure,
+  MetricBand,
+  MetricBandItem,
+  type Read,
+} from "./metric-band.js";
 import {
   CHART_HEIGHT,
   CommitStateSplit,
@@ -104,7 +108,7 @@ const VISITS_PAGE_LIMIT = 100;
 /** The filters the visit lists and their queries both read — every one of
  *  them a real server-side parameter `queryHistory` already accepts, not a
  *  client-side narrowing of an already-loaded page. */
-export interface VisitFilters {
+interface VisitFilters {
   readonly search: string;
   readonly sort: string;
   readonly direction: "asc" | "desc";
@@ -114,7 +118,7 @@ export interface VisitFilters {
   readonly profiles: readonly string[];
 }
 
-export const DEFAULT_VISIT_FILTERS: VisitFilters = {
+const DEFAULT_VISIT_FILTERS: VisitFilters = {
   search: "",
   sort: "visit-time",
   direction: "desc",
@@ -663,37 +667,27 @@ function VisitList({
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
 }) {
-  const noun = recovered ? "recovered visits" : "saved visits";
   return (
     <ListBlock
       list={list}
-      loadingLabel={`Loading ${noun}`}
+      noun={
+        recovered
+          ? { one: "recovered visit", many: "recovered visits" }
+          : { one: "saved visit", many: "saved visits" }
+      }
       skeletonRows={recovered ? 3 : 8}
-      errorTitle={`The ${noun} could not be loaded.`}
+      filtered={filtersActive}
+      filteredMessage={`No ${recovered ? "recovered" : "saved"} visits match these filters.`}
+      onClearFilters={onClearFilters}
       empty={
-        filtersActive ? (
-          <EmptyRows
-            message={`No ${noun} match these filters.`}
-            action={
-              <Button
-                variant="tertiary"
-                size="compact"
-                onClick={onClearFilters}
-              >
-                Clear filters
-              </Button>
-            }
-          />
-        ) : (
-          <EmptyRows
-            title={recovered ? "No recovered visits" : "No saved visits"}
-            message={
-              recovered
-                ? "Neither the write-ahead log nor the rollback journal holds a visit row."
-                : "The History database holds no committed visit rows."
-            }
-          />
-        )
+        <EmptyRows
+          title={recovered ? "No recovered visits" : "No saved visits"}
+          message={
+            recovered
+              ? "Neither the write-ahead log nor the rollback journal holds a visit row."
+              : "The History database holds no committed visit rows."
+          }
+        />
       }
     >
       <VisitTable rows={list.rows} onSelect={onSelect} />
@@ -718,7 +712,7 @@ export function HistoryPage({
    *  nothing to filter there. */
   readonly profiles?: readonly string[];
 }) {
-  const { activity, error: activityError, retry } = useSplitActivity();
+  const { activity, error: activityError, retry } = useActivity();
   const [filters, setFilters] = useState<VisitFilters>(DEFAULT_VISIT_FILTERS);
   const parameters = useMemo(() => visitParameters(filters), [filters]);
   const visits = useCommitStateLists<Finding>("history", parameters);

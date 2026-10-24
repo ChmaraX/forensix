@@ -1,15 +1,4 @@
-import type { ArtifactConfig, CommitState } from "./types.js";
-
-export const SIDECAR_STATES: readonly CommitState[] = [
-  "wal_resident",
-  "journal_resident",
-];
-
-export const COMMIT_LABELS: Readonly<Record<CommitState, string>> = {
-  committed: "committed",
-  wal_resident: "WAL-resident",
-  journal_resident: "journal-resident",
-};
+import type { ArtifactConfig } from "./types.js";
 
 export const ARTIFACTS: readonly ArtifactConfig[] = [
   {

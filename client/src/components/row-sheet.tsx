@@ -22,6 +22,7 @@ import type { FieldState, Finding } from "../types.js";
 import { CommitBadge } from "../terms.js";
 import { Button } from "@/components/ui/button";
 import { InputCopy } from "@/components/ui/input-copy";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   Sheet,
   SheetBody,
@@ -33,9 +34,84 @@ import {
 import { fontWeights } from "@/lib/font-weight";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
-import { FieldStateText } from "./field-state.js";
+import { AbsentWord, FieldStateText } from "./field-state.js";
+import { fieldText } from "./finding-fields.js";
+import { isPaymentField, PAYMENT_SECRET_FIELDS } from "./form-data.js";
 
 export type SelectedRow = { readonly kind: "finding"; readonly row: Finding };
+
+/** Fields that hold a cookie's session secret. */
+export const COOKIE_SECRET_FIELDS: readonly string[] = ["value"];
+
+/**
+ * The secret fields of one row, for `RowSheet redactedFields` and table
+ * cells: a cookie's value, and a Payment form entry's value. Every other
+ * row has none.
+ */
+export function secretFieldsOf(row: Finding): readonly string[] {
+  if (row.findingKind === "cookie") {
+    return COOKIE_SECRET_FIELDS;
+  }
+  if (
+    row.findingKind === "autofill_entry" &&
+    isPaymentField(fieldText(row.fields.fieldName))
+  ) {
+    return PAYMENT_SECRET_FIELDS;
+  }
+  return [];
+}
+
+/** "value hidden": a recorded secret withheld until "Show values" is on.
+ *  No own tab stop: the row is the focus target and its sheet the reveal. */
+export function HiddenValue() {
+  const size = useSize();
+  return (
+    <Tooltip content="Turn on Show values, or open the row, to read it.">
+      <span
+        className={cn(
+          size.type.body,
+          "flex cursor-help items-center gap-1.5 whitespace-nowrap text-muted-foreground",
+        )}
+      >
+        <EyeOff
+          aria-hidden="true"
+          size={size.icon}
+          strokeWidth={1.5}
+          className="shrink-0"
+        />
+        value hidden
+      </span>
+    </Tooltip>
+  );
+}
+
+/**
+ * A secret field in a table cell: a recorded, non-empty value reads "value
+ * hidden" until `reveal`; "(empty)", "absent" and "unavailable" show as
+ * they are, since none of them carries a secret.
+ */
+export function SecretValueCell({
+  field,
+  reveal,
+  className,
+}: {
+  readonly field: FieldState | undefined;
+  readonly reveal: boolean;
+  readonly className?: string;
+}) {
+  if (field?.state === "value" && field.value !== "" && !reveal) {
+    return <HiddenValue />;
+  }
+  return (
+    <span className={cn("block min-w-0", className)}>
+      {field === undefined ? (
+        <AbsentWord />
+      ) : (
+        <FieldStateText field={field} truncate />
+      )}
+    </span>
+  );
+}
 
 function SectionTitle({ children }: { readonly children: ReactNode }) {
   const size = useSize();
@@ -112,7 +188,12 @@ function RedactedValue({ field }: { readonly field: FieldState }) {
             "inline-flex items-center gap-1.5 text-muted-foreground",
           )}
         >
-          <EyeOff aria-hidden="true" className="size-3.5 shrink-0" />
+          <EyeOff
+            aria-hidden="true"
+            size={size.icon}
+            strokeWidth={1.5}
+            className="shrink-0"
+          />
           value hidden
         </span>
       )}

@@ -12,6 +12,8 @@
  *   wal (recovered — unsaved)     → amber
  *   journal (recovered — overwritten) → violet
  *   warning           → amber     absent / empty / committed → gray
+ *   neutral           → a hollow ring: a plain label that is no evidence
+ *                       state ("Complete", "Primary", "Backup")
  */
 import type { ComponentProps, ReactNode } from "react";
 
@@ -26,22 +28,23 @@ export type EvidenceState =
   | "committed"
   | "wal"
   | "journal"
-  | "warning";
+  | "warning"
+  | "neutral";
 
-export const EVIDENCE_BADGE_COLOR: Readonly<Record<EvidenceState, BadgeColor>> =
-  {
-    produced: "green",
-    unavailable: "red",
-    absent: "gray",
-    empty: "gray",
-    committed: "gray",
-    wal: "amber",
-    journal: "violet",
-    warning: "amber",
-  };
+const EVIDENCE_BADGE_COLOR: Readonly<Record<EvidenceState, BadgeColor>> = {
+  produced: "green",
+  unavailable: "red",
+  absent: "gray",
+  empty: "gray",
+  committed: "gray",
+  wal: "amber",
+  journal: "violet",
+  warning: "amber",
+  neutral: "gray",
+};
 
 /** Tailwind background class for a bare state dot (theme tokens). */
-export const EVIDENCE_DOT_CLASS: Readonly<Record<EvidenceState, string>> = {
+const EVIDENCE_DOT_CLASS: Readonly<Record<EvidenceState, string>> = {
   produced: "bg-success",
   unavailable: "bg-destructive",
   absent: "bg-muted-foreground",
@@ -50,9 +53,10 @@ export const EVIDENCE_DOT_CLASS: Readonly<Record<EvidenceState, string>> = {
   wal: "bg-wal",
   journal: "bg-violet",
   warning: "bg-warning",
+  neutral: "shadow-[inset_0_0_0_1px_var(--muted-foreground)]",
 };
 
-export interface EvidenceBadgeProps extends Omit<
+interface EvidenceBadgeProps extends Omit<
   ComponentProps<typeof Badge>,
   "color" | "children"
 > {

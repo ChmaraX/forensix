@@ -24,12 +24,11 @@
  * get their own figure and their own marks on the scatter.
  */
 import { KeyRound, Lock, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { Panel } from "@/components/panel";
 import { Badge } from "@/components/ui/badge";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -83,7 +82,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
-import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
+import { ListBlock } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 import {
@@ -109,26 +108,6 @@ const CREDENTIAL_PARAMETERS: QueryParameters = [
  *  page: 6,000 credentials is well past any realistic Chrome profile, while
  *  still bounding the request count. */
 const CREDENTIAL_ROW_CAP = 6000;
-
-/**
- * Follows a list's cursor until it runs out (or the cap is hit), one page
- * after another, so the figures describe the whole set. Returns whether the
- * list is fully read.
- */
-function useDrained(list: PaginatedList<Finding>): boolean {
-  const { loading, error, cursor, rows, loadMore } = list;
-  useEffect(() => {
-    if (
-      !loading &&
-      error === null &&
-      cursor !== null &&
-      rows.length < CREDENTIAL_ROW_CAP
-    ) {
-      loadMore();
-    }
-  }, [loading, error, cursor, rows.length, loadMore]);
-  return !loading && (cursor === null || rows.length >= CREDENTIAL_ROW_CAP);
-}
 
 /* --------------------------- derived readings ----------------------------- */
 
@@ -450,68 +429,26 @@ function CredentialList({
   readonly onSelect: (row: Finding) => void;
   readonly onClearSearch: () => void;
 }) {
-  const rows = list.rows;
-  const firstLoad = list.loading && rows.length === 0;
-  if (list.error !== null && rows.length === 0) {
-    return (
-      <ErrorRows
-        title={`The ${noun} logins could not be loaded.`}
-        message={list.error}
-        onRetry={list.retry}
-      />
-    );
-  }
-  const filtered = visible.length !== rows.length;
   return (
-    <>
-      <div className="reveal-swap">
-        <LoadingRows rows={3} label={`Loading ${noun} logins`} />
-        {firstLoad ? null : visible.length === 0 ? (
-          <EmptyRows
-            message={
-              filtered
-                ? `No ${noun} logins match this search.`
-                : noun === "saved"
-                  ? "No saved logins in this Case."
-                  : "No logins were recovered from WAL or journal sidecars."
-            }
-            action={
-              filtered ? (
-                <Button
-                  variant="tertiary"
-                  size="compact"
-                  onClick={onClearSearch}
-                >
-                  Clear filters
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <CredentialTable rows={visible} onSelect={onSelect} />
-        )}
-      </div>
-      {list.error !== null ? (
-        <ErrorRows
-          title={`More ${noun} logins could not be loaded.`}
-          message={list.error}
-          onRetry={list.cursor === null ? list.retry : list.loadMore}
-        />
-      ) : null}
-      {firstLoad ? null : (
-        <ListFooter
-          count={visible.length}
-          cursor={list.cursor}
-          loading={list.loading}
-          onLoadMore={list.loadMore}
-          summary={
-            filtered
-              ? `${visible.length.toLocaleString("en-US")} of ${plural(rows.length, `${noun} login`, `${noun} logins`)} shown`
-              : `${plural(rows.length, `${noun} login`, `${noun} logins`)} shown`
+    <ListBlock
+      list={list}
+      noun={{ one: `${noun} login`, many: `${noun} logins` }}
+      shown={visible.length}
+      filteredMessage={`No ${noun} logins match this search.`}
+      onClearFilters={onClearSearch}
+      skeletonRows={3}
+      empty={
+        <EmptyRows
+          message={
+            noun === "saved"
+              ? "No saved logins in this Case."
+              : "No logins were recovered from WAL or journal sidecars."
           }
         />
-      )}
-    </>
+      }
+    >
+      <CredentialTable rows={visible} onSelect={onSelect} />
+    </ListBlock>
   );
 }
 
@@ -544,9 +481,12 @@ export function CredentialsPage({
   const lists = useCommitStateLists<Finding>(
     config.route,
     CREDENTIAL_PARAMETERS,
+    {
+      drain: CREDENTIAL_ROW_CAP,
+    },
   );
-  const savedDone = useDrained(lists.saved);
-  const recoveredDone = useDrained(lists.recovered);
+  const savedDone = lists.drained.saved;
+  const recoveredDone = lists.drained.recovered;
   const tokens = useChartTokens();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [view, setView] = useState<CommitView>("saved");

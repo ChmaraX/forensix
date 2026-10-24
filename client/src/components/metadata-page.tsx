@@ -98,7 +98,7 @@ import { EvidenceBadge, type EvidenceState } from "./evidence.js";
 import { MaybeFieldStateText } from "./field-state.js";
 import { fieldBool, fieldString, StateWord } from "./finding-fields.js";
 import { FilterField, FilterTextField } from "./filters.js";
-import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
+import { ListBlock } from "./list-states.js";
 import {
   CommitStateSplit,
   type CommitView,
@@ -114,29 +114,6 @@ const METADATA_PARAMETERS: QueryParameters = [
   ["sort", "type"],
   ["direction", "asc"],
 ];
-
-/** Retry only what failed: a failed first read starts that list over; a
- *  failed "Load more" asks for the same page again and keeps every row
- *  already loaded. */
-function retryFailedPage<Row>(list: PaginatedList<Row>) {
-  if (list.error === null) {
-    return;
-  }
-  if (list.rows.length > 0 && list.cursor !== null) {
-    list.loadMore();
-  } else {
-    list.retry();
-  }
-}
-
-function retryList<Row>(list: PaginatedList<Row> | RecoveredList<Row>) {
-  if ("wal" in list) {
-    retryFailedPage(list.wal);
-    retryFailedPage(list.journal);
-  } else {
-    retryFailedPage(list);
-  }
-}
 
 /** Whether a media query matches, kept in step with the viewport. */
 function useMediaQuery(query: string): boolean {
@@ -673,65 +650,31 @@ function FieldsList({
   readonly focus: string;
   readonly onSelect: (row: Finding) => void;
 }) {
-  const rows = list.rows;
-  const firstLoad = list.loading && rows.length === 0;
-  const retry = () => {
-    retryList(list);
-  };
-  if (list.error !== null && rows.length === 0) {
-    return (
-      <ErrorRows
-        title={`The ${noun} metadata rows could not be loaded.`}
-        message={list.error}
-        onRetry={retry}
-      />
-    );
-  }
-  const shown = rows.flatMap((row, index) => {
+  const shown = list.rows.flatMap((row, index) => {
     const key = rowKey(row, index);
     return focus === ALL_ROWS || focus === key ? [{ key, row }] : [];
   });
   return (
-    <>
-      <div className="reveal-swap">
-        <LoadingRows label={`Loading ${noun} metadata rows`} />
-        {firstLoad ? null : rows.length === 0 ? (
-          <EmptyRows
-            message={
-              noun === "saved"
-                ? "No saved Metadata rows in this Case."
-                : "No Metadata rows were recovered from WAL or journal sidecars."
-            }
-          />
-        ) : (
-          <div className="reveal-items flex flex-col">
-            {shown.map(({ key, row }) => (
-              <RowFields key={key} row={row} onSelect={onSelect} />
-            ))}
-          </div>
-        )}
-      </div>
-      {list.error !== null ? (
-        <ErrorRows
-          title={`More ${noun} metadata rows could not be loaded.`}
-          message={list.error}
-          onRetry={retry}
-        />
-      ) : null}
-      {firstLoad ? null : (
-        <ListFooter
-          count={shown.length}
-          cursor={list.cursor}
-          loading={list.loading}
-          onLoadMore={list.loadMore}
-          summary={
-            shown.length === rows.length
-              ? `${plural(rows.length, `${noun} row`, `${noun} rows`)} shown`
-              : `${shown.length.toLocaleString("en-US")} of ${plural(rows.length, `loaded ${noun} row`, `loaded ${noun} rows`)} shown`
+    <ListBlock
+      list={list}
+      noun={{ one: `${noun} metadata row`, many: `${noun} metadata rows` }}
+      shown={shown.length}
+      empty={
+        <EmptyRows
+          message={
+            noun === "saved"
+              ? "No saved Metadata rows in this Case."
+              : "No Metadata rows were recovered from WAL or journal sidecars."
           }
         />
-      )}
-    </>
+      }
+    >
+      <div className="reveal-items flex flex-col">
+        {shown.map(({ key, row }) => (
+          <RowFields key={key} row={row} onSelect={onSelect} />
+        ))}
+      </div>
+    </ListBlock>
   );
 }
 

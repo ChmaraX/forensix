@@ -5,10 +5,7 @@
  */
 import { callApi } from "@/api";
 import { formatDay } from "@/components/page-kit";
-import {
-  fetchActivityBuckets,
-  type ActivityBucket,
-} from "@/components/activity-data";
+import { fetchActivity, type ActivityBucket } from "@/components/activity-data";
 import type {
   CaseCompleteness,
   CaseProfiles,
@@ -54,9 +51,13 @@ export interface TopSite {
 }
 
 export interface OverviewData {
+  /** Saved (committed) activity buckets: every figure and chart counts these. */
   readonly activity: readonly ActivityBucket[];
+  /** Recovered (WAL / journal) activity buckets, named beside the saved
+   *  figures, never summed in. */
+  readonly recoveredActivity: readonly ActivityBucket[];
   /** True when every activity row for this Case was read, not just the first
-   *  page cap (`fetchActivityBuckets`'s `ACTIVITY_PAGE_CAP`). When `false`
+   *  page cap (`ACTIVITY_PAGE_CAP`). When `false`
    *  the charts below cover less than the full recorded span, and the screen
    *  must say so. */
   readonly activityComplete: boolean;
@@ -145,7 +146,7 @@ async function fetchFavicons(
 
 export async function loadOverview(): Promise<OverviewData> {
   const [
-    { buckets: activity, complete: activityComplete },
+    { saved: activity, recovered, complete: activityComplete },
     recordedSpan,
     mostVisitedPage,
     completeness,
@@ -153,7 +154,7 @@ export async function loadOverview(): Promise<OverviewData> {
     metadataPage,
     downloadsPage,
   ] = await Promise.all([
-    fetchActivityBuckets(),
+    fetchActivity(),
     fetchRecordedSpan(),
     callApi<PageOf<Finding>>("history", [
       ["view", "most-visited"],
@@ -195,6 +196,7 @@ export async function loadOverview(): Promise<OverviewData> {
 
   return {
     activity,
+    recoveredActivity: recovered,
     activityComplete,
     recordedSpan,
     mostVisited,

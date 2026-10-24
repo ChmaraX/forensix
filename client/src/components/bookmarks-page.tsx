@@ -40,7 +40,7 @@ import {
   Search,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Panel } from "@/components/panel";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
@@ -90,7 +90,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
-import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
+import { ListBlock } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 import {
@@ -114,23 +114,6 @@ const BOOKMARK_PARAMETERS: QueryParameters = [
 /** Above this many rows per list the read stops; the page then says the
  *  figures are partial. */
 const BOOKMARK_ROW_CAP = 15_000;
-
-/** Follows a list's cursor until it runs out or the cap is hit. Returns
- *  whether the read has settled. */
-function useDrained(list: PaginatedList<Finding>): boolean {
-  const { loading, error, cursor, rows, loadMore } = list;
-  useEffect(() => {
-    if (
-      !loading &&
-      error === null &&
-      cursor !== null &&
-      rows.length < BOOKMARK_ROW_CAP
-    ) {
-      loadMore();
-    }
-  }, [loading, error, cursor, rows.length, loadMore]);
-  return !loading && (cursor === null || rows.length >= BOOKMARK_ROW_CAP);
-}
 
 /* ----------------------------- derived model ------------------------------ */
 
@@ -779,9 +762,9 @@ function SiteRow({
 /* --------------------------------- table ---------------------------------- */
 
 /**
- * The source file as a plain word: the live `Bookmarks` file is the quiet
- * default ("Primary"); a row read from the `.bak` copy reads "Backup" in the
- * foreground beside a neutral dot — a source, not a Commit State, so it never
+ * The source file as a word beside a neutral dot: the live `Bookmarks` file
+ * is the quiet default ("Primary"); a row read from the `.bak` copy reads
+ * "Backup" in the foreground — a source, not a Commit State, so it never
  * borrows the sidecar hues. A missing source reads its own state word.
  */
 function SourceWord({ row }: { readonly row: BookmarkRow }) {
@@ -797,7 +780,7 @@ function SourceWord({ row }: { readonly row: BookmarkRow }) {
       )}
       title={row.source}
     >
-      {backup ? <EvidenceDot state="committed" /> : null}
+      <EvidenceDot state="neutral" />
       {backup ? "Backup" : "Primary"}
     </span>
   );
@@ -927,69 +910,26 @@ function BookmarkList({
   readonly onSelect: (finding: Finding) => void;
   readonly onClearFilters: () => void;
 }) {
-  const firstLoad = list.loading && rows.length === 0;
-  if (list.error !== null && rows.length === 0) {
-    return (
-      <ErrorRows
-        title={`The ${noun} bookmarks could not be loaded.`}
-        message={list.error}
-        onRetry={list.retry}
-      />
-    );
-  }
-  const filtered = visible.length !== rows.length;
-  const word = (count: number) =>
-    plural(count, `${noun} bookmark`, `${noun} bookmarks`);
   return (
-    <>
-      <div className="reveal-swap">
-        <LoadingRows rows={3} label={`Loading ${noun} bookmarks`} />
-        {firstLoad ? null : visible.length === 0 ? (
-          <EmptyRows
-            message={
-              filtered
-                ? `No ${noun} bookmarks match these filters.`
-                : noun === "saved"
-                  ? "No saved bookmarks in this Case."
-                  : "No bookmarks were recovered from WAL or journal sidecars."
-            }
-            action={
-              filtered ? (
-                <Button
-                  variant="tertiary"
-                  size="compact"
-                  onClick={onClearFilters}
-                >
-                  Clear filters
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <BookmarksTable rows={visible} onSelect={onSelect} />
-        )}
-      </div>
-      {list.error !== null ? (
-        <ErrorRows
-          title={`More ${noun} bookmarks could not be loaded.`}
-          message={list.error}
-          onRetry={list.cursor === null ? list.retry : list.loadMore}
-        />
-      ) : null}
-      {firstLoad ? null : (
-        <ListFooter
-          count={visible.length}
-          cursor={list.cursor}
-          loading={list.loading}
-          onLoadMore={list.loadMore}
-          summary={
-            filtered
-              ? `${visible.length.toLocaleString("en-US")} of ${word(rows.length)} shown`
-              : `${word(rows.length)} shown`
+    <ListBlock
+      list={list}
+      noun={{ one: `${noun} bookmark`, many: `${noun} bookmarks` }}
+      shown={visible.length}
+      filtered={visible.length !== rows.length}
+      onClearFilters={onClearFilters}
+      skeletonRows={3}
+      empty={
+        <EmptyRows
+          message={
+            noun === "saved"
+              ? "No saved bookmarks in this Case."
+              : "No bookmarks were recovered from WAL or journal sidecars."
           }
         />
-      )}
-    </>
+      }
+    >
+      <BookmarksTable rows={visible} onSelect={onSelect} />
+    </ListBlock>
   );
 }
 
@@ -1025,9 +965,14 @@ export function BookmarksPage({
   readonly config: ArtifactConfig;
   readonly completeness: CaseCompleteness;
 }) {
-  const lists = useCommitStateLists<Finding>(config.route, BOOKMARK_PARAMETERS);
-  const savedDone = useDrained(lists.saved);
-  useDrained(lists.recovered);
+  const lists = useCommitStateLists<Finding>(
+    config.route,
+    BOOKMARK_PARAMETERS,
+    {
+      drain: BOOKMARK_ROW_CAP,
+    },
+  );
+  const savedDone = lists.drained.saved;
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [view, setView] = useState<CommitView>("saved");
   const [search, setSearch] = useState("");

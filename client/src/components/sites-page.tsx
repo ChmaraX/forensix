@@ -81,7 +81,12 @@ import { FieldCell, SiteAvatar, StateWord } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
 import { ErrorRows, LoadingRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import {
+  RowSheet,
+  SecretValueCell,
+  secretFieldsOf,
+  type SelectedRow,
+} from "./row-sheet.js";
 
 /**
  * Reading order, labels, and icons for the six site artifact kinds. Order is
@@ -395,7 +400,16 @@ const KIND_COLUMNS: Readonly<Record<SiteArtifactKind, readonly KindColumn[]>> =
     ],
     form_data: [
       textColumn("Field", "fieldName", { lead: true }),
-      textColumn("Value", "fieldValue"),
+      {
+        label: "Value",
+        // A Payment value stays hidden here; the row sheet reveals it.
+        cell: (row) => (
+          <SecretValueCell
+            field={row.fields.fieldValue}
+            reveal={!secretFieldsOf(row).includes("fieldValue")}
+          />
+        ),
+      },
       timeColumn("Last used", "dateLastUsed"),
     ],
   };
@@ -501,7 +515,7 @@ function KindPanel({
         <div className="flex items-center gap-3">
           <IconTile icon={meta.icon} />
           {/* Under the host's h2: a third-level heading. */}
-          <PanelTitle id={titleId} role="heading" aria-level={3}>
+          <PanelTitle id={titleId} as="h3">
             {meta.label}
           </PanelTitle>
           <Count>
@@ -514,6 +528,7 @@ function KindPanel({
       </PanelHeader>
       <CommitStateSplit
         variant="stacked"
+        headingAs="h4"
         savedCount={saved.length}
         recoveredCount={recovered.length}
         saved={
@@ -797,6 +812,7 @@ export function SitesPage({
         <RowSheet
           selected={selected}
           title={sheetTitle(selected.row)}
+          redactedFields={secretFieldsOf(selected.row)}
           onClose={() => {
             setSelected(null);
           }}

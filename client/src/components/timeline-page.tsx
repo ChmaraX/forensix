@@ -11,7 +11,7 @@ import type { QueryParameters } from "../api.js";
 import type { CaseCompleteness, Finding } from "../types.js";
 import { usePaginatedList } from "../use-paginated-list.js";
 import { CompletenessPanel, TIMELINE_COVERAGE } from "./completeness.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { RowSheet, secretFieldsOf, type SelectedRow } from "./row-sheet.js";
 import { TimelineActivityCard, type DayRange } from "./timeline-activity.js";
 import {
   TimelineRecordsCard,
@@ -70,6 +70,7 @@ export function TimelinePage({
         <RowSheet
           selected={selected}
           title={timelineEventLabel(selected.row.findingKind)}
+          redactedFields={secretFieldsOf(selected.row)}
           onClose={() => {
             setSelected(null);
           }}

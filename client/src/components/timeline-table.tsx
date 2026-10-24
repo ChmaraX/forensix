@@ -12,8 +12,8 @@
  * saved and recovered (WAL / journal) events in two lists (forensic rule 4)
  * — the timeline route has no Commit State filter, so the loaded stream is
  * split with `splitByCommit`, and each list stays in time order; in its
- * toolbar, event-type chips (pressing the active chip clears it) and
- * Newest/Oldest first as FF Tabs; FF Table with one fluid hover highlight
+ * toolbar, an event-type Select ("All types" or one kind, with loaded
+ * counts) and Newest/Oldest first as FF Tabs; FF Table with one fluid hover highlight
  * over the rows (each row opens the sheet); the shared loading, error,
  * empty and footer chrome.
  *
@@ -33,8 +33,12 @@ import {
 import { useMemo, useState } from "react";
 
 import type { Finding } from "../types.js";
-import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/misc";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -43,12 +47,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { FieldCell, StateWord } from "./finding-fields.js";
-import { ListBlock, type ListSource } from "./history-list-block.js";
+import { FilterField } from "./filters.js";
+import { SecretValueCell, secretFieldsOf } from "./row-sheet.js";
+import { ListBlock, type ListSource } from "./list-states.js";
 import {
   CommitStateSplit,
   Count,
@@ -115,7 +122,7 @@ export function timelineEventLabel(kind: string): string {
   return EVENT_META[kind]?.label ?? kind;
 }
 
-/** Chip order: the four known kinds. */
+/** Event-type filter order: the four known kinds. */
 const FILTER_KINDS = [
   "history_visit",
   "download",
@@ -154,7 +161,13 @@ function hasValue(row: Finding, name: string): boolean {
 /** The field the row is about, large, with its context below. The primary
  *  field falls back to the secondary one only when it holds no recorded
  *  value; when neither does, the primary field's own state word shows. */
-function DetailsCell({ row }: { readonly row: Finding }) {
+function DetailsCell({
+  row,
+  reveal,
+}: {
+  readonly row: Finding;
+  readonly reveal: boolean;
+}) {
   const size = useSize();
   const meta = EVENT_META[row.findingKind];
   if (meta === undefined) {
@@ -164,6 +177,8 @@ function DetailsCell({ row }: { readonly row: Finding }) {
       </TableCell>
     );
   }
+  const secrets = secretFieldsOf(row);
+  const hidden = (name: string) => !reveal && secrets.includes(name);
   const primaryRecorded = hasValue(row, meta.primary);
   const headline =
     primaryRecorded || !hasValue(row, meta.secondary)
@@ -172,18 +187,29 @@ function DetailsCell({ row }: { readonly row: Finding }) {
   return (
     <TableCell className="max-w-[460px]">
       <span className="flex min-w-0 flex-col">
-        <FieldCell
-          field={row.fields[headline]}
-          format={asText}
-          className="text-foreground"
-        />
-        {primaryRecorded ? (
+        {hidden(headline) ? (
+          <SecretValueCell field={row.fields[headline]} reveal={false} />
+        ) : (
+          <FieldCell
+            field={row.fields[headline]}
+            format={asText}
+            className="text-foreground"
+          />
+        )}
+        {!primaryRecorded ? null : hidden(meta.secondary) ? (
+          <span className={size.type.caption}>
+            <SecretValueCell
+              field={row.fields[meta.secondary]}
+              reveal={false}
+            />
+          </span>
+        ) : (
           <FieldCell
             field={row.fields[meta.secondary]}
             format={asText}
             className={cn(size.type.caption, "font-mono text-muted-foreground")}
           />
-        ) : null}
+        )}
       </span>
     </TableCell>
   );
@@ -191,9 +217,11 @@ function DetailsCell({ row }: { readonly row: Finding }) {
 
 function RecordTable({
   rows,
+  reveal,
   onSelect,
 }: {
   readonly rows: readonly Finding[];
+  readonly reveal: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
   return (
@@ -233,7 +261,7 @@ function RecordTable({
                     }
                   />
                 </TableCell>
-                <DetailsCell row={row} />
+                <DetailsCell row={row} reveal={reveal} />
                 <TableCell className="whitespace-nowrap">
                   <StateWord state={row.commitState} />
                 </TableCell>
@@ -246,9 +274,12 @@ function RecordTable({
   );
 }
 
-/** Event-type chips: one pressed at most; pressing it again shows every
- *  type. Counts are of the loaded rows in the list on show. */
-function KindChips({
+/** Select can't hold an empty value; this stands for "every event type". */
+const ALL_KINDS = "\u0000all";
+
+/** The event-type filter (one type, or all of them), as an FF Select.
+ *  Each type carries the count of loaded rows in the list on show. */
+function KindSelect({
   counts,
   active,
   onChange,
@@ -257,26 +288,28 @@ function KindChips({
   readonly active: string | null;
   readonly onChange: (kind: string | null) => void;
 }) {
-  const size = useSize();
   return (
-    <div
-      role="group"
-      aria-label="Event type"
-      className={cn("flex flex-wrap items-center", size.gap)}
-    >
-      {FILTER_KINDS.map((kind) => (
-        <Chip
-          key={kind}
-          active={active === kind}
-          onClick={() => {
-            onChange(active === kind ? null : kind);
-          }}
-        >
-          {EVENT_META[kind]?.label ?? kind}{" "}
-          <Count>{counts.get(kind) ?? 0}</Count>
-        </Chip>
-      ))}
-    </div>
+    <FilterField label="Event type" htmlFor="timeline-event-type">
+      <Select
+        value={active ?? ALL_KINDS}
+        onValueChange={(value) => {
+          onChange(value === ALL_KINDS ? null : value);
+        }}
+      >
+        <SelectTrigger id="timeline-event-type" className="min-w-[156px]" />
+        <SelectContent>
+          <SelectItem index={0} value={ALL_KINDS}>
+            All types
+          </SelectItem>
+          {FILTER_KINDS.map((kind, index) => (
+            <SelectItem key={kind} index={index + 1} value={kind}>
+              {EVENT_META[kind]?.label ?? kind}{" "}
+              <Count>{counts.get(kind) ?? 0}</Count>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FilterField>
   );
 }
 
@@ -291,7 +324,7 @@ function countKinds(rows: readonly Finding[]): Map<string, number> {
 /**
  * The panel. The timeline route has no Commit State or kind parameter, so
  * the loaded stream is split into saved and recovered events on the client
- * and the event-type chips narrow the list on show; the footer states how
+ * and the event-type filter narrows the list on show; the footer states how
  * many of the loaded events are shown, and "Load more" keeps fetching the
  * whole stream underneath. Direction is a real query parameter and is owned
  * by the page.
@@ -323,6 +356,16 @@ export function TimelineRecordsCard({
 }) {
   const [kindFilter, setKindFilter] = useState<string | null>(null);
   const [view, setView] = useState<CommitView>("saved");
+  const [reveal, setReveal] = useState(false);
+  // "Show values" appears once a loaded row holds a secret (a Payment form
+  // value); Payment values stay hidden until it is on.
+  const anySecret = useMemo(
+    () =>
+      rows.some(
+        (row) => row.findingKind !== "cookie" && secretFieldsOf(row).length > 0,
+      ),
+    [rows],
+  );
 
   const split = useMemo(() => splitByCommit(rows), [rows]);
   const inView = view === "saved" ? split.saved : split.recovered;
@@ -344,47 +387,40 @@ export function TimelineRecordsCard({
         ? part
         : part.filter((row) => row.findingKind === kindFilter);
     const noun = recovered ? "recovered events" : "saved events";
-    const filtered = kindFilter !== null || rangeActive;
+    const more = cursor === null ? "" : " Load more to read further.";
     return (
       <ListBlock
         list={source}
+        noun={
+          recovered
+            ? { one: "recovered event", many: "recovered events" }
+            : { one: "saved event", many: "saved events" }
+        }
         shown={visible.length}
+        filtered={kindFilter !== null || rangeActive}
+        filteredMessage={`No loaded ${noun} match ${
+          kindFilter === null ? "the selected days" : "this event type"
+        }.${more}`}
+        onClearFilters={() => {
+          setKindFilter(null);
+          onClearRange();
+        }}
         loadingLabel="Loading events"
         skeletonRows={recovered ? 3 : 8}
         errorTitle="The timeline could not be loaded."
         summary={`${visible.length.toLocaleString("en-US")} ${noun} shown of ${rows.length.toLocaleString("en-US")} loaded`}
         empty={
-          filtered ? (
-            <EmptyRows
-              message={`No loaded ${noun} match ${
-                kindFilter === null ? "the selected days" : "this event type"
-              }.${cursor === null ? "" : " Load more to read further."}`}
-              action={
-                <Button
-                  variant="tertiary"
-                  size="compact"
-                  onClick={() => {
-                    setKindFilter(null);
-                    onClearRange();
-                  }}
-                >
-                  Clear filters
-                </Button>
-              }
-            />
-          ) : (
-            <EmptyRows
-              title={recovered ? "No recovered events" : "No saved events"}
-              message={
-                recovered
-                  ? `No loaded event came from a write-ahead log or rollback journal.${cursor === null ? "" : " Load more to read further."}`
-                  : `No loaded event came from a saved database.${cursor === null ? "" : " Load more to read further."}`
-              }
-            />
-          )
+          <EmptyRows
+            title={recovered ? "No recovered events" : "No saved events"}
+            message={
+              recovered
+                ? `No loaded event came from a write-ahead log or rollback journal.${more}`
+                : `No loaded event came from a saved database.${more}`
+            }
+          />
         }
       >
-        <RecordTable rows={visible} onSelect={onSelect} />
+        <RecordTable rows={visible} reveal={reveal} onSelect={onSelect} />
       </ListBlock>
     );
   };
@@ -409,7 +445,17 @@ export function TimelineRecordsCard({
         recoveredMore={cursor !== null}
         toolbar={
           <>
-            <KindChips
+            {anySecret ? (
+              <Switch
+                label="Show values"
+                checked={reveal}
+                onToggle={() => {
+                  setReveal((value) => !value);
+                }}
+                className="mr-2"
+              />
+            ) : null}
+            <KindSelect
               counts={counts}
               active={kindFilter}
               onChange={setKindFilter}

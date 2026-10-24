@@ -41,9 +41,6 @@ import {
   BarChart,
   CartesianGrid,
   ReferenceArea,
-  PolarAngleAxis,
-  RadialBar,
-  RadialBarChart,
   Rectangle,
   ResponsiveContainer,
   Scatter,
@@ -87,7 +84,7 @@ const TOKENS = [
   "--violet",
 ] as const;
 
-export type ChartToken = (typeof TOKENS)[number];
+type ChartToken = (typeof TOKENS)[number];
 export type ChartTokens = Readonly<Record<ChartToken, string>>;
 
 function readTokens(): ChartTokens {
@@ -141,10 +138,10 @@ export function usePrefersReducedMotion(): boolean {
 /* ───────────────────────── Shared FF chart parts ───────────────────────── */
 
 /** The font Recharts writes into its SVG text: the app's Inter. */
-export const CHART_FONT_FAMILY = "Inter, system-ui, sans-serif";
+const CHART_FONT_FAMILY = "Inter, system-ui, sans-serif";
 
 /** Axis tick style: caption size (12px), muted, Inter. Pass to `tick`. */
-export function chartTick(tokens: ChartTokens): {
+function chartTick(tokens: ChartTokens): {
   readonly fill: string;
   readonly fontSize: number;
   readonly fontFamily: string;
@@ -300,7 +297,7 @@ export function ChartTooltipNote({
   );
 }
 
-export interface ChartLegendItem {
+interface ChartLegendItem {
   /** The word the colour stands for. Required: colour never stands alone. */
   readonly label: ReactNode;
   /** Resolved series colour (from `useChartTokens`). */
@@ -315,7 +312,7 @@ export interface ChartLegendItem {
  * Chart legend: each series mark beside its word, caption size. Evidence
  * series pass `state` so the dot matches every other state mark in the app.
  */
-export function ChartLegend({
+function ChartLegend({
   items,
   className,
 }: {
@@ -517,8 +514,17 @@ export function tooltipEntry(payload: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function visitsUnit(count: number): string {
-  return count === 1 ? "page visit" : "page visits";
+/** A count's unit, singular and plural (e.g. `{ one: "entry", many:
+ *  "entries" }`). */
+interface ChartUnit {
+  readonly one: string;
+  readonly many: string;
+}
+
+const VISITS_UNIT: ChartUnit = { one: "page visit", many: "page visits" };
+
+function unitFor(count: number, unit: ChartUnit): string {
+  return count === 1 ? unit.one : unit.many;
 }
 
 /* ─────────────────────────────── Charts ─────────────────────────────── */
@@ -539,7 +545,7 @@ export function ActivityBars({
   onSelectDay,
   range,
   onRangeChange,
-  unit = "page visits",
+  unit = VISITS_UNIT,
 }: {
   readonly days: readonly DayCount[];
   readonly tokens: ChartTokens;
@@ -552,9 +558,8 @@ export function ActivityBars({
   readonly onSelectDay?: (date: string) => void;
   readonly range?: { readonly from: string; readonly to: string };
   readonly onRangeChange?: (range: { from: string; to: string }) => void;
-  /** Optional: the plural unit the tooltip prints after the count.
-   *  Defaults to "page visits" (singular "page visit" for 1). */
-  readonly unit?: string;
+  /** The unit the tooltip prints after the count. @default page visit(s) */
+  readonly unit?: ChartUnit;
 }) {
   const reduced = usePrefersReducedMotion();
   const [dragStart, setDragStart] = useState<string | null>(null);
@@ -567,13 +572,17 @@ export function ActivityBars({
         : { from: dragCurrent, to: dragStart };
     }
     if (range !== undefined && (range.from !== "" || range.to !== "")) {
+      // An unset bound is open-ended, as the lists filter: it runs to the
+      // chart's first or last day.
+      const first = days[0]?.date ?? "";
+      const last = days[days.length - 1]?.date ?? "";
       return {
-        from: range.from === "" ? range.to : range.from,
-        to: range.to === "" ? range.from : range.to,
+        from: range.from === "" || range.from < first ? first : range.from,
+        to: range.to === "" || range.to > last ? last : range.to,
       };
     }
     return null;
-  }, [dragCurrent, dragStart, range]);
+  }, [dragCurrent, dragStart, range, days]);
   const commitDrag = () => {
     if (
       dragStart === null ||
@@ -688,7 +697,7 @@ export function ActivityBars({
               <ChartTooltipCard label={formatDayLong(String(row["date"]))}>
                 <ChartTooltipValue
                   value={formatCount(count)}
-                  unit={unit === "page visits" ? visitsUnit(count) : unit}
+                  unit={unitFor(count, unit)}
                 />
                 {row["date"] === selectedDate ? (
                   <ChartTooltipNote>Selected day</ChartTooltipNote>
@@ -699,7 +708,7 @@ export function ActivityBars({
             );
           }}
         />
-        {highlight !== null && highlight.from !== highlight.to ? (
+        {highlight !== null && highlight.from < highlight.to ? (
           <ReferenceArea
             x1={highlight.from}
             x2={highlight.to}
@@ -805,7 +814,7 @@ export function HourBars({
               >
                 <ChartTooltipValue
                   value={formatCount(count)}
-                  unit={visitsUnit(count)}
+                  unit={unitFor(count, VISITS_UNIT)}
                 />
                 {count === peak ? (
                   <ChartTooltipNote>Busiest hour</ChartTooltipNote>
@@ -833,74 +842,6 @@ export function HourBars({
         />
       </BarChart>
     </ResponsiveContainer>
-  );
-}
-
-/**
- * The share of attempted artifacts the analyzer could actually read. The dial
- * is a ratio of two counts the Completeness Statement already reports; the
- * figures stay printed beside it, because a ring alone is not a statement.
- */
-export function CoverageDial({
-  produced,
-  attempted,
-  tokens,
-}: {
-  readonly produced: number;
-  readonly attempted: number;
-  readonly tokens: ChartTokens;
-}) {
-  const reduced = usePrefersReducedMotion();
-  if (attempted === 0) {
-    return <ChartEmpty>Nothing analyzed yet.</ChartEmpty>;
-  }
-  const percent = Math.round((produced / attempted) * 100);
-  return (
-    <div className="relative h-full w-full">
-      <ResponsiveContainer
-        width="100%"
-        height="100%"
-        className={CHART_FOCUS_CLASS}
-      >
-        <RadialBarChart
-          data={[{ name: "readable", value: percent }]}
-          innerRadius="76%"
-          outerRadius="100%"
-          startAngle={90}
-          endAngle={-270}
-        >
-          <PolarAngleAxis
-            type="number"
-            domain={[0, 100]}
-            angleAxisId={0}
-            tick={false}
-          />
-          <RadialBar
-            dataKey="value"
-            cornerRadius={999}
-            background={{ fill: tokens["--active"] }}
-            fill={tokens["--primary"]}
-            {...chartAnimation(reduced)}
-          />
-        </RadialBarChart>
-      </ResponsiveContainer>
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <span
-          className={cn(typeClass("title"), "text-foreground tabular-nums")}
-          style={{ fontVariationSettings: fontWeights.semibold }}
-        >
-          {percent}%
-        </span>
-        <span
-          className={cn(
-            typeClass("caption"),
-            "text-muted-foreground tabular-nums",
-          )}
-        >
-          {produced} of {attempted} readable
-        </span>
-      </div>
-    </div>
   );
 }
 

@@ -30,7 +30,6 @@ import { ImageOff, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Panel, PanelContent } from "@/components/panel";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import {
   Table,
@@ -64,7 +63,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
-import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
+import { ListBlock } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import {
   CommitStateSplit,
@@ -83,31 +82,6 @@ const FAVICON_PARAMETERS: QueryParameters = [
   ["sort", "last-updated"],
   ["direction", "desc"],
 ];
-
-/* ------------------------------- data loading ------------------------------ */
-
-/** Retry only what failed: a failed first read starts that list over; a
- *  failed "Load more" asks for the same page again and keeps every row
- *  already loaded. */
-function retryFailedPage<Row>(list: PaginatedList<Row>) {
-  if (list.error === null) {
-    return;
-  }
-  if (list.rows.length > 0 && list.cursor !== null) {
-    list.loadMore();
-  } else {
-    list.retry();
-  }
-}
-
-function retryList<Row>(list: PaginatedList<Row> | RecoveredList<Row>) {
-  if ("wal" in list) {
-    retryFailedPage(list.wal);
-    retryFailedPage(list.journal);
-  } else {
-    retryFailedPage(list);
-  }
-}
 
 /* ------------------------------- field reads ------------------------------- */
 
@@ -539,75 +513,28 @@ function IconList({
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
 }) {
-  const rows = list.rows;
-  const firstLoad = list.loading && rows.length === 0;
-  const retry = () => {
-    retryList(list);
-  };
-  if (list.error !== null && rows.length === 0) {
-    return (
-      <ErrorRows
-        title={`The ${noun} icons could not be loaded.`}
-        message={list.error}
-        onRetry={retry}
-      />
-    );
-  }
-  const filtered = visible.length !== rows.length;
   return (
-    <>
-      <div className="reveal-swap">
-        <LoadingRows label={`Loading ${noun} icons`} />
-        {firstLoad ? null : visible.length === 0 ? (
-          <EmptyRows
-            message={
-              filtered
-                ? `No loaded ${noun} icons match these filters.`
-                : noun === "saved"
-                  ? "No saved Favicons rows in this Case."
-                  : "No icons were recovered from WAL or journal sidecars."
-            }
-            action={
-              filtered ? (
-                <Button
-                  variant="tertiary"
-                  size="compact"
-                  onClick={onClearFilters}
-                >
-                  Clear filters
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <IconsTable
-            rows={visible}
-            showState={noun === "recovered"}
-            onSelect={onSelect}
-          />
-        )}
-      </div>
-      {list.error !== null ? (
-        <ErrorRows
-          title={`More ${noun} icons could not be loaded.`}
-          message={list.error}
-          onRetry={retry}
-        />
-      ) : null}
-      {firstLoad ? null : (
-        <ListFooter
-          count={visible.length}
-          cursor={list.cursor}
-          loading={list.loading}
-          onLoadMore={list.loadMore}
-          summary={
-            filtered
-              ? `${visible.length.toLocaleString("en-US")} of ${plural(rows.length, `loaded ${noun} icon`, `loaded ${noun} icons`)} shown`
-              : `${plural(rows.length, `${noun} icon`, `${noun} icons`)} shown`
+    <ListBlock
+      list={list}
+      noun={{ one: `${noun} icon`, many: `${noun} icons` }}
+      shown={visible.length}
+      onClearFilters={onClearFilters}
+      empty={
+        <EmptyRows
+          message={
+            noun === "saved"
+              ? "No saved Favicons rows in this Case."
+              : "No icons were recovered from WAL or journal sidecars."
           }
         />
-      )}
-    </>
+      }
+    >
+      <IconsTable
+        rows={visible}
+        showState={noun === "recovered"}
+        onSelect={onSelect}
+      />
+    </ListBlock>
   );
 }
 

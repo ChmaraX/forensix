@@ -24,13 +24,12 @@
  * the table counts the loaded **saved** cookies only, and says so. No control
  * here writes, re-runs, or mutates anything — the page only reads rows back.
  */
-import { Cookie, EyeOff, Lock, Search, ShieldCheck } from "lucide-react";
+import { Cookie, Lock, Search, ShieldCheck } from "lucide-react";
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Panel } from "@/components/panel";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -41,13 +40,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tooltip } from "@/components/ui/tooltip";
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
 } from "@/hooks/use-fluid-hover";
 import { useShape } from "@/lib/shape-context";
-import { typeClass, useSize } from "@/lib/size-context";
+import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
@@ -65,9 +63,7 @@ import { ChartEmpty, useChartTokens } from "./charts.js";
 import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
-import { FieldStateText } from "./field-state.js";
 import {
-  AbsentWord,
   FieldCell,
   fieldBool,
   fieldText,
@@ -76,9 +72,14 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
-import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
+import { ListBlock } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import {
+  COOKIE_SECRET_FIELDS,
+  RowSheet,
+  SecretValueCell,
+  type SelectedRow,
+} from "./row-sheet.js";
 import {
   CommitStateSplit,
   MeterList,
@@ -617,49 +618,6 @@ function FlagCell({ field }: { readonly field: FieldState | undefined }) {
   return on ? <span className="text-foreground">Yes</span> : <span>No</span>;
 }
 
-/**
- * The cookie value, redacted by default. The four states stay four words:
- * a recorded value reads "value hidden" (the value exists, and is withheld
- * here) until "Show values" is on; "(empty)", "absent", and "unavailable"
- * with its reason are shown as they are, since none of them carries a secret.
- * No own tab stop: the row is the focus target and its sheet the reveal.
- */
-function CookieValueCell({
-  field,
-  reveal,
-}: {
-  readonly field: FieldState | undefined;
-  readonly reveal: boolean;
-}) {
-  const size = useSize();
-  if (field === undefined) {
-    return <AbsentWord />;
-  }
-  if (field.state === "value" && field.value !== "" && !reveal) {
-    return (
-      <Tooltip content="A value was recorded. Turn on Show values, or open the row, to read it.">
-        <span className="flex cursor-help items-center gap-1.5 whitespace-nowrap">
-          <EyeOff
-            aria-hidden="true"
-            size={size.icon}
-            strokeWidth={1.5}
-            className="shrink-0"
-          />
-          value hidden
-        </span>
-      </Tooltip>
-    );
-  }
-  return (
-    <span className="block max-w-[220px]">
-      <FieldStateText field={field} truncate />
-    </span>
-  );
-}
-
-/** Fields the row sheet keeps hidden until revealed (session secrets). */
-const COOKIE_SECRET_FIELDS: readonly string[] = ["value"];
-
 const TABLE_COLUMNS = [
   "Host",
   "Cookie",
@@ -745,9 +703,10 @@ function CookieTable({
                 )}
               </TableCell>
               <TableCell>
-                <CookieValueCell
+                <SecretValueCell
                   field={row.finding.fields.value}
                   reveal={reveal}
+                  className="max-w-[220px]"
                 />
               </TableCell>
               <TableCell>
@@ -818,67 +777,26 @@ function CookieList({
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
 }) {
-  const firstLoad = list.loading && rows.length === 0;
-  if (list.error !== null && rows.length === 0) {
-    return (
-      <ErrorRows
-        title={`The ${noun} cookies could not be loaded.`}
-        message={list.error}
-        onRetry={list.retry}
-      />
-    );
-  }
-  const filtered = visible.length !== rows.length;
   return (
-    <>
-      <div className="reveal-swap">
-        <LoadingRows rows={3} label={`Loading ${noun} cookies`} />
-        {firstLoad ? null : visible.length === 0 ? (
-          <EmptyRows
-            message={
-              filtered
-                ? `No loaded ${noun} cookies match these filters.`
-                : noun === "saved"
-                  ? "No saved cookie rows in this Case."
-                  : "No cookie rows were recovered from WAL or journal sidecars."
-            }
-            action={
-              filtered ? (
-                <Button
-                  variant="tertiary"
-                  size="compact"
-                  onClick={onClearFilters}
-                >
-                  Clear filters
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <CookieTable rows={visible} reveal={reveal} onSelect={onSelect} />
-        )}
-      </div>
-      {list.error !== null ? (
-        <ErrorRows
-          title={`More ${noun} cookies could not be loaded.`}
-          message={list.error}
-          onRetry={list.cursor === null ? list.retry : list.loadMore}
-        />
-      ) : null}
-      {firstLoad ? null : (
-        <ListFooter
-          count={visible.length}
-          cursor={list.cursor}
-          loading={list.loading}
-          onLoadMore={list.loadMore}
-          summary={
-            filtered
-              ? `${visible.length.toLocaleString("en-US")} of ${plural(rows.length, `loaded ${noun} cookie`, `loaded ${noun} cookies`)} shown`
-              : `${plural(rows.length, `${noun} cookie`, `${noun} cookies`)} shown`
+    <ListBlock
+      list={list}
+      noun={{ one: `${noun} cookie`, many: `${noun} cookies` }}
+      shown={visible.length}
+      filtered={visible.length !== rows.length}
+      onClearFilters={onClearFilters}
+      skeletonRows={3}
+      empty={
+        <EmptyRows
+          message={
+            noun === "saved"
+              ? "No saved cookie rows in this Case."
+              : "No cookie rows were recovered from WAL or journal sidecars."
           }
         />
-      )}
-    </>
+      }
+    >
+      <CookieTable rows={visible} reveal={reveal} onSelect={onSelect} />
+    </ListBlock>
   );
 }
 

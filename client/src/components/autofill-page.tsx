@@ -34,10 +34,9 @@
  * (empty) / absent / unavailable render as their own words. No control here
  * can start or rerun ingest, analysis, or export.
  */
-import { ClipboardList, EyeOff, Search } from "lucide-react";
+import { ClipboardList, Search } from "lucide-react";
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -55,7 +54,6 @@ import {
 
 import { Panel } from "@/components/panel";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -80,14 +78,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tooltip } from "@/components/ui/tooltip";
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
 } from "@/hooks/use-fluid-hover";
 import { fontWeights } from "@/lib/font-weight";
 import { useShape } from "@/lib/shape-context";
-import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
+import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
@@ -137,9 +134,17 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField } from "./filters.js";
-import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
+import {
+  categoryOf,
+  FORM_DATA_CATEGORIES,
+  isPaymentField,
+  PAYMENT_KEY,
+  PAYMENT_SECRET_FIELDS,
+  type FormDataCategory,
+} from "./form-data.js";
+import { ListBlock } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { HiddenValue, RowSheet, type SelectedRow } from "./row-sheet.js";
 
 /* ------------------------------ data reading ------------------------------ */
 
@@ -153,106 +158,6 @@ const AUTOFILL_PARAMETERS: QueryParameters = [
  *  derived reads above the table are only honest if they cover the whole
  *  set, so every page is read rather than the first screen. */
 const AUTOFILL_ROW_CAP = 6000;
-
-/** Follows a list's cursor until it runs out or the cap is hit. Returns
- *  whether the read has settled. */
-function useDrained(list: PaginatedList<Finding>): boolean {
-  const { loading, error, cursor, rows, loadMore } = list;
-  useEffect(() => {
-    if (
-      !loading &&
-      error === null &&
-      cursor !== null &&
-      rows.length < AUTOFILL_ROW_CAP
-    ) {
-      loadMore();
-    }
-  }, [loading, error, cursor, rows.length, loadMore]);
-  return !loading && (cursor === null || rows.length >= AUTOFILL_ROW_CAP);
-}
-
-/* ------------------------------- categories ------------------------------- */
-
-/**
- * The plain-language classes an examiner reasons in, each with the fixed
- * rule that assigns a Chrome field name to it. The rule is pattern-on-name
- * only — the field name Chrome recorded fully decides the class, so the
- * grouping is a restatement of the evidence, not a guess about the value.
- * `matches` is tried in order and the first hit wins: Payment goes first so
- * a name that also reads as an address or a name (`wallet_address`,
- * `card_holder_name`) is always treated as the secret it is; the broad
- * "Searches" and "Other" buckets sit last.
- *
- * Chrome's own autofill field names are SCREAMING_SNAKE_CASE (NAME_FULL,
- * ADDRESS_HOME_ZIP, CREDIT_CARD_NUMBER); free-text form fields the person
- * typed into keep their raw HTML `name`/`id` (search-query, q, email). Both
- * are matched case-insensitively, and a short token (`name`, `tel`, `q`)
- * only counts between separators — `_` and `-` included, which `\b` would
- * treat as part of the word (so NAME_FULL is Identity, not Other).
- */
-interface Category {
-  readonly key: string;
-  readonly label: string;
-  readonly hint: string;
-  readonly matches: (name: string) => boolean;
-}
-
-/** The `Other` bucket, and the fixed rule's guaranteed fallback. */
-const OTHER_CATEGORY: Category = {
-  key: "other",
-  label: "Other",
-  hint: "Everything Chrome did not label as the above",
-  matches: () => true,
-};
-
-const PAYMENT_KEY = "payment";
-
-const CATEGORIES: readonly Category[] = [
-  {
-    key: PAYMENT_KEY,
-    label: "Payment",
-    hint: "Card, bank and wallet fields — hidden by default",
-    matches: (name) =>
-      /card|credit|cvc|cvv|wallet|iban|account_number/.test(name),
-  },
-  {
-    key: "identity",
-    label: "Identity",
-    hint: "Names and who the person is",
-    matches: (name) =>
-      /(?<![a-z0-9])name(?![a-z0-9])|company|first|last|middle/.test(name),
-  },
-  {
-    key: "contact",
-    label: "Contact",
-    hint: "E-mail and phone",
-    matches: (name) =>
-      /email|e_mail|phone|tel(?![a-z0-9])|mobile|fax/.test(name),
-  },
-  {
-    key: "address",
-    label: "Address",
-    hint: "Postal and location fields",
-    matches: (name) =>
-      /address|street|city|state|zip|postal|country|province|region/.test(name),
-  },
-  {
-    key: "searches",
-    label: "Searches",
-    hint: "Free text typed into search and query boxes",
-    matches: (name) =>
-      /search|query|(?<![a-z0-9])q(?![a-z0-9])|find|lookup|keyword/.test(name),
-  },
-  OTHER_CATEGORY,
-];
-
-/** The class of one Chrome field name, resolved once by the fixed rule above. */
-function categoryOf(fieldName: string | null): Category {
-  const name = (fieldName ?? "").toLowerCase();
-  return (
-    CATEGORIES.find((category) => category.matches(name)) ?? OTHER_CATEGORY
-  );
-}
 
 /**
  * A field type read back for display: Chrome's SCREAMING_SNAKE_CASE names are
@@ -320,7 +225,7 @@ interface Entry {
   /** The recorded non-empty value, or null (see `row.fields.fieldValue`). */
   readonly value: string | null;
   readonly type: string | null;
-  readonly category: Category;
+  readonly category: FormDataCategory;
   readonly timesUsed: number;
 }
 
@@ -341,7 +246,7 @@ interface Derived {
   readonly sensitive: number;
   readonly hasPayment: boolean;
   readonly categories: readonly {
-    readonly category: Category;
+    readonly category: FormDataCategory;
     readonly count: number;
   }[];
   /** Saved entries by recorded fill count, most first. */
@@ -383,7 +288,7 @@ function derive(entries: readonly Entry[]): Derived {
     distinctTypes: distinct.size,
     sensitive,
     hasPayment: (counts.get(PAYMENT_KEY) ?? 0) > 0,
-    categories: CATEGORIES.map((category) => ({
+    categories: FORM_DATA_CATEGORIES.map((category) => ({
       category,
       count: counts.get(category.key) ?? 0,
     })).filter((entry) => entry.count > 0),
@@ -701,29 +606,6 @@ function CreationArea({
 
 /* ---------------------------------- table --------------------------------- */
 
-/** "value hidden": a recorded Payment value withheld until Show values. */
-function HiddenValue() {
-  const size = useSize();
-  return (
-    <Tooltip content="A Payment value was recorded. Turn on Show values, or open the row, to read it.">
-      <span
-        className={cn(
-          size.type.body,
-          "flex cursor-help items-center gap-1.5 whitespace-nowrap text-muted-foreground",
-        )}
-      >
-        <EyeOff
-          aria-hidden="true"
-          size={size.icon}
-          strokeWidth={1.5}
-          className="shrink-0"
-        />
-        value hidden
-      </span>
-    </Tooltip>
-  );
-}
-
 const COLUMNS = [
   "Type",
   "Value",
@@ -836,69 +718,26 @@ function EntryList({
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
 }) {
-  const firstLoad = list.loading && entries.length === 0;
-  if (list.error !== null && entries.length === 0) {
-    return (
-      <ErrorRows
-        title={`The ${noun} form entries could not be loaded.`}
-        message={list.error}
-        onRetry={list.retry}
-      />
-    );
-  }
-  const filtered = visible.length !== entries.length;
-  const word = (count: number) =>
-    plural(count, `${noun} entry`, `${noun} entries`);
   return (
-    <>
-      <div className="reveal-swap">
-        <LoadingRows rows={3} label={`Loading ${noun} form entries`} />
-        {firstLoad ? null : visible.length === 0 ? (
-          <EmptyRows
-            message={
-              filtered
-                ? `No ${noun} entries match these filters.`
-                : noun === "saved"
-                  ? "No saved Form data rows in this Case."
-                  : "No form entries were recovered from WAL or journal sidecars."
-            }
-            action={
-              filtered ? (
-                <Button
-                  variant="tertiary"
-                  size="compact"
-                  onClick={onClearFilters}
-                >
-                  Clear filters
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <EntryTable entries={visible} reveal={reveal} onSelect={onSelect} />
-        )}
-      </div>
-      {list.error !== null ? (
-        <ErrorRows
-          title={`More ${noun} form entries could not be loaded.`}
-          message={list.error}
-          onRetry={list.cursor === null ? list.retry : list.loadMore}
-        />
-      ) : null}
-      {firstLoad ? null : (
-        <ListFooter
-          count={visible.length}
-          cursor={list.cursor}
-          loading={list.loading}
-          onLoadMore={list.loadMore}
-          summary={
-            filtered
-              ? `${visible.length.toLocaleString("en-US")} of ${word(entries.length)} shown`
-              : `${word(entries.length)} shown`
+    <ListBlock
+      list={list}
+      noun={{ one: `${noun} form entry`, many: `${noun} form entries` }}
+      shown={visible.length}
+      filtered={visible.length !== entries.length}
+      onClearFilters={onClearFilters}
+      skeletonRows={3}
+      empty={
+        <EmptyRows
+          message={
+            noun === "saved"
+              ? "No saved Form data rows in this Case."
+              : "No form entries were recovered from WAL or journal sidecars."
           }
         />
-      )}
-    </>
+      }
+    >
+      <EntryTable entries={visible} reveal={reveal} onSelect={onSelect} />
+    </ListBlock>
   );
 }
 
@@ -922,12 +761,6 @@ function AutofillSkeleton() {
 
 const ALL_CATEGORIES = "__all__";
 
-/** Fields that hold a Payment entry's secret (the value and its folded copy). */
-const PAYMENT_SECRET_FIELDS: readonly string[] = [
-  "fieldValue",
-  "fieldValueLower",
-];
-
 /* ---------------------------------- page ---------------------------------- */
 
 export function AutofillPage({
@@ -937,9 +770,14 @@ export function AutofillPage({
   readonly config: ArtifactConfig;
   readonly completeness: CaseCompleteness;
 }) {
-  const lists = useCommitStateLists<Finding>(config.route, AUTOFILL_PARAMETERS);
-  const savedDone = useDrained(lists.saved);
-  useDrained(lists.recovered);
+  const lists = useCommitStateLists<Finding>(
+    config.route,
+    AUTOFILL_PARAMETERS,
+    {
+      drain: AUTOFILL_ROW_CAP,
+    },
+  );
+  const savedDone = lists.drained.saved;
   const tokens = useChartTokens();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [view, setView] = useState<CommitView>("saved");
@@ -964,7 +802,7 @@ export function AutofillPage({
     const keys = new Set(
       [...saved, ...recovered].map((entry) => entry.category.key),
     );
-    return CATEGORIES.filter((category) => keys.has(category.key));
+    return FORM_DATA_CATEGORIES.filter((category) => keys.has(category.key));
   }, [saved, recovered]);
 
   const narrow = useCallback(
@@ -1031,7 +869,7 @@ export function AutofillPage({
 
   const selectedIsPayment =
     selected !== null &&
-    categoryOf(fieldText(selected.row.fields.fieldName)).key === PAYMENT_KEY;
+    isPaymentField(fieldText(selected.row.fields.fieldName));
 
   return (
     <div className="flex flex-col gap-5">

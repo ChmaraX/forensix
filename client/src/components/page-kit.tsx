@@ -35,6 +35,7 @@ import {
   PanelDescription,
   PanelHeader,
   PanelTitle,
+  type HeadingTag,
 } from "@/components/panel";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { fontWeights } from "@/lib/font-weight";
@@ -241,62 +242,6 @@ export function WeightLabel({
 /* --------------------------------- layout ---------------------------------- */
 
 /**
- * A section title above a block of panels: the title role in semibold, its
- * count beside it, an optional muted description below, and controls (a
- * toolbar) trailing on the right, wrapping under on narrow screens.
- */
-export function SectionHeading({
-  title,
-  count,
-  description,
-  icon: Icon,
-  children,
-  className,
-}: {
-  readonly title: ReactNode;
-  readonly count?: ReactNode;
-  readonly description?: ReactNode;
-  readonly icon?: LucideIcon;
-  readonly children?: ReactNode;
-  readonly className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex flex-wrap items-end justify-between gap-x-6 gap-y-3",
-        className,
-      )}
-    >
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <div className="flex items-center gap-2">
-          {Icon === undefined ? null : (
-            <Icon
-              aria-hidden="true"
-              size={16}
-              strokeWidth={1.5}
-              className="shrink-0 text-muted-foreground"
-            />
-          )}
-          <h2
-            className={cn(typeClass("title"), "text-foreground")}
-            style={{ fontVariationSettings: fontWeights.semibold }}
-          >
-            {title}
-          </h2>
-          {count === undefined ? null : <Count>{count}</Count>}
-        </div>
-        {description === undefined ? null : (
-          <div className={cn(typeClass("body"), "text-muted-foreground")}>
-            {description}
-          </div>
-        )}
-      </div>
-      {children === undefined ? null : children}
-    </div>
-  );
-}
-
-/**
  * A framed section: a Panel whose header carries the title (subtitle role),
  * an optional count beside it, an optional description under it, and an
  * optional trailing `aside` (a badge, a Tabs switch, an action). With `id`
@@ -305,6 +250,7 @@ export function SectionHeading({
 export function SectionPanel({
   id,
   title,
+  headingAs,
   description,
   count,
   aside,
@@ -313,6 +259,8 @@ export function SectionPanel({
 }: {
   readonly id?: string;
   readonly title: ReactNode;
+  /** The title's heading element. @default "h2" */
+  readonly headingAs?: HeadingTag;
   readonly description?: ReactNode;
   readonly count?: ReactNode;
   readonly aside?: ReactNode;
@@ -328,7 +276,9 @@ export function SectionPanel({
       <PanelHeader className="flex-nowrap items-center">
         <div className="flex min-w-0 flex-col gap-0.5">
           <div className="flex items-baseline gap-2">
-            <PanelTitle id={id}>{title}</PanelTitle>
+            <PanelTitle id={id} as={headingAs}>
+              {title}
+            </PanelTitle>
             {count === undefined ? null : <Count>{count}</Count>}
           </div>
           {description === undefined ? null : (
@@ -350,6 +300,7 @@ export function IconTile({
   readonly icon: LucideIcon;
   readonly className?: string;
 }) {
+  const size = useSize();
   return (
     <span
       aria-hidden="true"
@@ -358,7 +309,11 @@ export function IconTile({
         className,
       )}
     >
-      <Icon size={16} strokeWidth={1.5} className="text-muted-foreground" />
+      <Icon
+        size={size.icon}
+        strokeWidth={1.5}
+        className="text-muted-foreground"
+      />
     </span>
   );
 }
@@ -613,7 +568,7 @@ function countLabel(word: string, count: number | null, more: boolean) {
  * "Saved N" · "Recovered N". N is the loaded row count; `+` follows it while
  * the server has more (`more`). `null` hides the count (still loading).
  */
-export function CommitStateTabs({
+function CommitStateTabs({
   value,
   onValueChange,
   saved,
@@ -700,6 +655,9 @@ export function CommitStateSplit(
           readonly variant: "stacked";
           /** Replaces the sub-heading's caption. */
           readonly recoveredDescription?: ReactNode;
+          /** The "Recovered" sub-heading's element, one below the
+           *  enclosing panel's title. @default "h3" */
+          readonly headingAs?: HeadingTag;
         }
     ),
 ) {
@@ -762,11 +720,13 @@ function StackedSplit({
   recoveredCount,
   recoveredMore = false,
   recoveredDescription,
+  headingAs: Heading = "h3",
   saved,
   recovered,
   className,
 }: CommitStateSplitCounts & {
   readonly recoveredDescription?: ReactNode;
+  readonly headingAs?: HeadingTag;
 }) {
   const size = useSize();
   return (
@@ -781,12 +741,12 @@ function StackedSplit({
               strokeWidth={1.5}
               className="text-muted-foreground"
             />
-            <h3
+            <Heading
               className={cn(typeClass("body"), "text-foreground")}
               style={{ fontVariationSettings: fontWeights.semibold }}
             >
               Recovered
-            </h3>
+            </Heading>
             <Count>
               {recoveredCount.toLocaleString("en-US")}
               {recoveredMore ? "+" : ""}

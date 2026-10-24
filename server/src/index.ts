@@ -117,26 +117,11 @@ function htmlShell(token: string): string {
   </head>
   <body>
     <!--
-      impeccable direction contract (seed 91bc94c0)
-      THESIS: Evidence you can defend. The canon dashboard played straight; it
-      refuses novelty chrome and spends everything on legibility and state truth.
-      OWN-WORLD: Zinc neutrals on faint ground, near-black dark mode; one
-      blue for interaction and brand, vivid only as the flat logo tile,
-      elsewhere a pale accent wash or deep interactive blue; no gradients,
-      no glows, no moving indicators; state hues as law (emerald produced,
-      crimson unavailable, amber WAL, violet journal) always paired with
-      words; system sans; mono evidence values.
-      STORY: An examiner opens a Case, sees completeness before rows, filters
-      evidence, traces any value to manifest-table-rowid, and trusts the surface
-      because it cannot write.
-      FIRST VIEWPORT: Left sidebar (mark, READ-ONLY, artifact nav, state
-      legend); main: artifact header, Completeness Statement, filter toolbar,
-      committed table; row click slides in the provenance panel.
-      FORM: Category canon at Linear/Vercel/Supabase craft; the standing exit,
-      chosen by the user; seed 91bc94c0.
-      FINISH: unreviewed and undocumented is unfinished; this build ends with
-      the finish review, the verdict, DESIGN.md, and every shipping raster
-      carrying its provenance
+      Design: Fluid Functionalism (fluidfunctionalism.com) - neutral surface
+      ladder, Inter (bundled), six type roles, spring motion. Hues mean
+      evidence state only (produced, unavailable, WAL, journal) and always
+      sit beside their word; saved and recovered rows are separate lists.
+      Read-only. Guide: client/FLUID.md.
     -->
     <noscript>This read-only dashboard needs JavaScript to render Case lists.</noscript>
     <div id="app">Loading read-only Case dashboard…</div>

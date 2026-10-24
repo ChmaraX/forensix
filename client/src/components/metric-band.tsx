@@ -21,26 +21,36 @@
  * So a tinted tile is `tone="warning" status="recovered"` — the dot repeats
  * the word, it never replaces it.
  *
+ * Below `sm` (a phone) an item's label, status word and detail wrap instead
+ * of truncating, and the status drops under the label when both don't fit.
+ *
+ * A figure that is not (yet) a number: `figure(read, show)` renders a
+ * `PendingFigure` skeleton while its read is in flight and an
+ * `UnavailableFigure` ("unavailable" with its dot) when it failed — never a
+ * "0" or a dash standing in for a fact.
+ *
  * Forensic rule: tiles show recorded facts only — never a Candidate value.
  */
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
+import { EvidenceDot } from "@/components/evidence";
+import { Skeleton } from "@/components/ui/misc";
 import { Elevated } from "@/lib/elevated";
 import { fontWeights } from "@/lib/font-weight";
 import { useShape } from "@/lib/shape-context";
-import { useSize } from "@/lib/size-context";
+import { typeClass, useSize } from "@/lib/size-context";
 import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 
-export type MetricBandTone =
+type MetricBandTone =
   | "neutral"
   | "success"
   | "warning"
   | "destructive"
   | "violet";
 
-export interface MetricBandProgress {
+interface MetricBandProgress {
   readonly value: number;
   readonly max: number;
   readonly tone?: MetricBandTone;
@@ -119,7 +129,7 @@ export function MetricBandItem({
 
   return (
     <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3 shadow-[-1px_0_0_0_var(--border),0_-1px_0_0_var(--border)] sm:px-5 sm:py-3.5">
-      <div className="flex min-w-0 items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center justify-between gap-x-3 max-sm:flex-wrap">
         <span
           className={cn(
             size.type.caption,
@@ -127,7 +137,7 @@ export function MetricBandItem({
           )}
         >
           {icon}
-          <span className="truncate">{label}</span>
+          <span className="truncate max-sm:whitespace-normal">{label}</span>
         </span>
         {status === undefined ? null : (
           <span
@@ -194,7 +204,10 @@ export function MetricBandItem({
       )}
       {detail === undefined ? null : (
         <span
-          className={cn(size.type.caption, "truncate text-muted-foreground")}
+          className={cn(
+            size.type.caption,
+            "truncate text-muted-foreground max-sm:whitespace-normal",
+          )}
           title={typeof detail === "string" ? detail : undefined}
         >
           {detail}
@@ -202,4 +215,48 @@ export function MetricBandItem({
       )}
     </div>
   );
+}
+
+/** A figure whose read failed: the state word with its dot, never a zero. */
+export function UnavailableFigure() {
+  return (
+    <span
+      className={cn(
+        typeClass("body"),
+        "inline-flex items-center gap-1.5 text-foreground",
+      )}
+    >
+      <EvidenceDot state="unavailable" />
+      unavailable
+    </span>
+  );
+}
+
+/** A figure still being read: a skeleton the height of the title line. */
+export function PendingFigure() {
+  return (
+    <span role="status" aria-label="Loading" className="flex h-7 items-center">
+      <Skeleton className="h-4 w-16" />
+    </span>
+  );
+}
+
+/** One read behind a figure. */
+export type Read<T> =
+  | { readonly state: "loading" }
+  | { readonly state: "failed" }
+  | { readonly state: "ready"; readonly value: T };
+
+/** The figure for a read: pending, unavailable, or `show(value)`. */
+export function figure<T>(
+  read: Read<T>,
+  show: (value: T) => ReactNode,
+): ReactNode {
+  if (read.state === "loading") {
+    return <PendingFigure />;
+  }
+  if (read.state === "failed") {
+    return <UnavailableFigure />;
+  }
+  return show(read.value);
 }

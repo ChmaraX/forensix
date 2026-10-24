@@ -1,8 +1,9 @@
 /**
  * One keyset-paginated list over a read-only API route.
  *
- * Moved out of app.tsx unchanged so page modules can share it without
- * importing the shell.
+ * `retry` re-reads only what failed: after a failed "Load more" it asks for
+ * the same page again and keeps the loaded rows; after a failed first read
+ * (or with no error) it starts the list over.
  */
 import { useCallback, useEffect, useState } from "react";
 
@@ -83,9 +84,18 @@ export function usePaginatedList<Row>(
       });
   }, [route, parametersKey, cursor, enabled]);
 
+  // Retry only what failed. A failed "Load more" keeps its cursor and the
+  // rows already shown, so asking for that page again keeps every loaded row;
+  // anything else (a failed first read, or a plain reload) starts the list
+  // over.
+  const failedPage = error !== null && rows.length > 0 && cursor !== null;
   const retry = useCallback(() => {
+    if (failedPage) {
+      loadMore();
+      return;
+    }
     setReloadNonce((nonce) => nonce + 1);
-  }, []);
+  }, [failedPage, loadMore]);
 
   return { rows, cursor, loading, error, loadMore, retry };
 }

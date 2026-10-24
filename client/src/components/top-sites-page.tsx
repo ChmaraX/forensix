@@ -34,7 +34,6 @@ import { useCallback, useMemo, useState } from "react";
 import { EvidenceDot, type EvidenceState } from "@/components/evidence";
 import { Panel, PanelFooter } from "@/components/panel";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -79,10 +78,13 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterTextField, ProfilePicker } from "./filters.js";
-import { PendingFigure, UnavailableFigure } from "./history-figures.js";
-import { ListBlock, RevealSwap } from "./history-list-block.js";
-import { ErrorRows } from "./list-states.js";
-import { MetricBand, MetricBandItem } from "./metric-band.js";
+import { ErrorRows, ListBlock, RevealSwap } from "./list-states.js";
+import {
+  MetricBand,
+  MetricBandItem,
+  PendingFigure,
+  UnavailableFigure,
+} from "./metric-band.js";
 import {
   CARD_TITLE_CLEAR,
   CommitStateSplit,
@@ -704,43 +706,27 @@ function RankedList({
     () => list.rows.filter(matches),
     [list.rows, matches],
   );
-  const noun = recovered ? "recovered rows" : "saved rows";
   return (
     <ListBlock
       list={list}
-      shown={visible.length}
-      loadingLabel={`Loading ${noun}`}
-      skeletonRows={recovered ? 3 : 8}
-      errorTitle={`The ${noun} could not be loaded.`}
-      summary={
-        filtered
-          ? `${visible.length.toLocaleString("en-US")} of ${list.rows.length.toLocaleString("en-US")} loaded ${noun} shown`
-          : undefined
+      noun={
+        recovered
+          ? { one: "recovered row", many: "recovered rows" }
+          : { one: "saved row", many: "saved rows" }
       }
+      shown={visible.length}
+      filtered={filtered}
+      onClearFilters={onClearFilters}
+      skeletonRows={recovered ? 3 : 8}
       empty={
-        filtered ? (
-          <EmptyRows
-            message={`No loaded ${noun} match these filters.`}
-            action={
-              <Button
-                variant="tertiary"
-                size="compact"
-                onClick={onClearFilters}
-              >
-                Clear filters
-              </Button>
-            }
-          />
-        ) : (
-          <EmptyRows
-            title={recovered ? "No recovered rows" : "No saved rows"}
-            message={
-              recovered
-                ? "Neither the write-ahead log nor the rollback journal holds a Top sites row."
-                : "The Top Sites database holds no committed rows."
-            }
-          />
-        )
+        <EmptyRows
+          title={recovered ? "No recovered rows" : "No saved rows"}
+          message={
+            recovered
+              ? "Neither the write-ahead log nor the rollback journal holds a Top sites row."
+              : "The Top Sites database holds no committed rows."
+          }
+        />
       }
     >
       <RankedTable rows={visible} onSelect={onSelect} />

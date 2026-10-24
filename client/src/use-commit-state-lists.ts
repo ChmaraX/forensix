@@ -15,7 +15,7 @@
  * this hook; Cache splits its mixed page with `splitByCommit` (page-kit), and
  * the Timeline stays one chronological stream on purpose.
  */
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import type { QueryParameters } from "./api.js";
 import type { CommitState } from "./types.js";
@@ -38,11 +38,36 @@ export interface RecoveredList<Row> extends PaginatedList<Row> {
   readonly journal: PaginatedList<Row>;
 }
 
-export interface CommitStateLists<Row> {
+interface CommitStateLists<Row> {
   /** `commit-state=committed`. */
   readonly saved: PaginatedList<Row>;
   /** `commit-state=wal_resident`, then `commit-state=journal_resident`. */
   readonly recovered: RecoveredList<Row>;
+  /** Each list has settled with no page left to read (or, with `drain`, at
+   *  its cap). A failed read is not drained. */
+  readonly drained: { readonly saved: boolean; readonly recovered: boolean };
+}
+
+/**
+ * With a cap, follow the list's cursor one page after another until it runs
+ * out, the cap is reached, or a read fails (Retry resumes it). Returns
+ * whether the list has settled with nothing more to follow.
+ */
+function useDrain<Row>(list: PaginatedList<Row>, cap: number | null): boolean {
+  const { loading, error, cursor, rows, loadMore } = list;
+  const capped = cap !== null && rows.length >= cap;
+  useEffect(() => {
+    if (
+      cap !== null &&
+      !capped &&
+      !loading &&
+      error === null &&
+      cursor !== null
+    ) {
+      loadMore();
+    }
+  }, [cap, capped, loading, error, cursor, loadMore]);
+  return !loading && error === null && (cursor === null || capped);
 }
 
 function withCommitState(
@@ -61,9 +86,14 @@ export function useCommitStateLists<Row>(
   options: {
     /** False skips every read (same as `usePaginatedList`'s `enabled`). */
     readonly enabled?: boolean;
+    /** Read every page, up to this many rows per read (saved, WAL,
+     *  journal), so figures describe the whole set rather than the first
+     *  page. `drained` reports when each list has settled. */
+    readonly drain?: number;
   } = {},
 ): CommitStateLists<Row> {
   const enabled = options.enabled ?? true;
+  const cap = options.drain ?? null;
   // Keyed by value, like usePaginatedList: callers may pass a fresh array
   // on every render.
   const key = JSON.stringify(parameters);
@@ -83,6 +113,9 @@ export function useCommitStateLists<Row>(
   const saved = usePaginatedList<Row>(route, savedParameters, enabled);
   const wal = usePaginatedList<Row>(route, walParameters, enabled);
   const journal = usePaginatedList<Row>(route, journalParameters, enabled);
+  const savedDrained = useDrain(saved, cap);
+  const walDrained = useDrain(wal, cap);
+  const journalDrained = useDrain(journal, cap);
 
   const recoveredRows = useMemo(
     () => [...wal.rows, ...journal.rows],
@@ -101,6 +134,9 @@ export function useCommitStateLists<Row>(
       journalLoadMore();
     }
   }, [walCursor, journalCursor, walLoadMore, journalLoadMore]);
+  // Each read's own `retry` re-reads only its failed page (a failed "Load
+  // more" keeps the loaded rows), so the joined list retries just the
+  // half that failed.
   const walError = wal.error;
   const journalError = journal.error;
   const walRetry = wal.retry;
@@ -126,5 +162,6 @@ export function useCommitStateLists<Row>(
       wal,
       journal,
     },
+    drained: { saved: savedDrained, recovered: walDrained && journalDrained },
   };
 }

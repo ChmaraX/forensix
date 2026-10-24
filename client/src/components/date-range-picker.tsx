@@ -119,7 +119,7 @@ function spanDays(from: string, to: string): number {
 
 /** One quick range in the picker's preset rail. `from`/`to` are ISO dates;
  *  both `""` means the full recorded span (the cleared range). */
-export interface DateRangePreset {
+interface DateRangePreset {
   readonly label: string;
   readonly from: string;
   readonly to: string;
@@ -131,7 +131,7 @@ export interface DateRangePreset {
  * not reach today), plus the full span. A preset as long as the span itself is
  * left out.
  */
-export function spanPresets(
+function spanPresets(
   min: string | null,
   max: string | null,
 ): readonly DateRangePreset[] {

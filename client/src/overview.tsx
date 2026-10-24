@@ -19,11 +19,10 @@
  * links, one fluid hover highlight on the Top sites list, and `reveal-swap`
  * for the load.
  *
- * Saved and recovered rows: the Top sites and Recent downloads reads ask for
- * saved rows only (`commit-state=committed`), and say so. The activity read
- * (`fetchActivityBuckets`, shared with History and Timeline) has no
- * Commit State filter yet, so every figure and chart drawn from it says it
- * counts saved and recovered visits together.
+ * Saved and recovered rows: every figure and chart counts saved rows only
+ * (Top sites and Recent downloads read `commit-state=committed`; the shared
+ * activity read keeps recovered rows apart). Recovered visits are named
+ * beside the visit figure, never summed in — as on History and Timeline.
  */
 import { useEffect, useId, useMemo, useState } from "react";
 
@@ -226,11 +225,15 @@ function OverviewContent({
     const days = bucketsToDays(data.activity, range);
     const hourTotals = bucketsToHourTotals(data.activity, range);
     const totalVisits = days.reduce((sum, day) => sum + day.count, 0);
+    const recoveredVisits = bucketsToDays(data.recoveredActivity, range).reduce(
+      (sum, day) => sum + day.count,
+      0,
+    );
     const busiest = days.reduce<DayCount | null>(
       (best, day) => (best === null || day.count > best.count ? day : best),
       null,
     );
-    return { days, hourTotals, totalVisits, busiest };
+    return { days, hourTotals, totalVisits, recoveredVisits, busiest };
   }, [data, rangeFrom, rangeTo]);
 
   // The same days, continuous: zero-count bars fill the gaps between them so
@@ -306,8 +309,7 @@ function OverviewContent({
   // The figures: each a plain reading of a number the page already computed
   // above, never a new query. A Case (or range) with nothing of that shape
   // says so in words, muted, rather than hiding the reading. Everything read
-  // from `activity` counts saved and recovered visits together (see the
-  // module note), and the figures say so.
+  // from `activity` counts saved visits only (see the module note).
   const topSite = data.mostVisited[0] ?? null;
   const peakHour = windowed.hourTotals.reduce<{
     hour: number;
@@ -319,11 +321,18 @@ function OverviewContent({
         : best,
     null,
   );
-  const visitScope = truncated
-    ? "Saved and recovered, loaded days"
-    : rangeActive
-      ? "Saved and recovered, in range"
-      : "Saved and recovered visits";
+  const visitScope = [
+    truncated
+      ? "Saved, loaded days"
+      : rangeActive
+        ? "Saved, in range"
+        : "Saved",
+    windowed.recoveredVisits > 0
+      ? `${windowed.recoveredVisits.toLocaleString("en-US")} recovered not counted`
+      : null,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
   const figures: readonly CaseFigure[] = [
     {
       key: "visits",
@@ -480,7 +489,7 @@ function OverviewContent({
         {/* Activity — the page's main chart. */}
         <ChartSection
           title="Browsing activity"
-          description="Page visits per day, saved and recovered together."
+          description="Saved page visits per day."
           action={<JumpLink label="History" onOpen={open("history")} />}
           footer={truncationNote}
           className="col-span-12 lg:col-span-8"
@@ -574,7 +583,7 @@ function OverviewContent({
             with. */}
         <ChartSection
           title="Time of day"
-          description="Page visits by local hour, saved and recovered together."
+          description="Saved page visits by local hour."
           action={<JumpLink label="Timeline" onOpen={open("timeline")} />}
           footer={truncationNote}
           className="col-span-12 md:col-span-6"

@@ -36,13 +36,13 @@ hand). The installed source has the final say: `src/components/ui/*`,
 
 ## What is installed
 
-| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                 |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                          |
-| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                  |
-| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                          |
-| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                           |
-| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Input, SelectNative, Chip, Labeled, Kbd, Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/charts.tsx` + `chart-section.tsx` |
+| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                         |
+| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                 |
+| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                         |
+| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                          |
+| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/charts.tsx` + `chart-section.tsx` |
 
 ## The shell (do not restyle it per page)
 
@@ -72,8 +72,8 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
 
 | Dashboard need                                                                    | Use                                                                                                                                                                                                                                                                                                 |
 | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Framed section (stat band, chart, table card)                                     | `SectionPanel` from page-kit (or the raw `Panel`, `PanelHeader`, `PanelTitle`, `PanelDescription`, `PanelContent`, `PanelFooter` from `@/components/panel` when it doesn't fit)                                                                                                                     |
-| Chart panel                                                                       | `ChartSection` (+ `ChartToggle` in its `action`, `footer` for a legend or note)                                                                                                                                                                                                                     |
+| Framed section (stat band, chart, table card)                                     | `SectionPanel` from page-kit (or the raw `Panel`, `PanelHeader`, `PanelTitle`, `PanelDescription`, `PanelContent`, `PanelFooter` from `@/components/panel` when it doesn't fit). Heading level: `PanelTitle as="h3"` / `SectionPanel headingAs`, never `role="heading"`                             |
+| Chart panel                                                                       | `ChartSection` (`action` for a control, `footer` for a note)                                                                                                                                                                                                                                        |
 | Saved vs recovered rows                                                           | `useCommitStateLists` + `CommitStateSplit` (see "Saved and recovered rows")                                                                                                                                                                                                                         |
 | Clickable card grid or list (e.g. Top sites tiles)                                | FF `CardGroup` + `Card` (`columns` > 1 gives 2-D fluid hover). Its cards are transparent on purpose, so put the group inside a Panel if it needs a frame                                                                                                                                            |
 | Evidence table                                                                    | FF `Table`, `TableHeader`, `TableBody`, `TableRow index={i}` (body rows only), `TableHead`, `TableCell`. Rows sit on the 36px ladder, or 28px with `size="compact"`. **TYPE is the first column.** For wide tables, use `scroll-fade-x` on the scroller                                             |
@@ -82,9 +82,9 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
 | Single-choice filter (sort, transition, profile)                                  | FF `Select` (`SelectTrigger`, `SelectContent`, `SelectItem index value`). `size="compact"` in filter bars                                                                                                                                                                                           |
 | Searchable, multi-pick, or create filter                                          | FF `Combobox`                                                                                                                                                                                                                                                                                       |
 | Text search field                                                                 | FF `InputGroup` + `InputField` (with `labelHidden` and the `search` icon for a toolbar search). `misc.Input` is only for legacy forms                                                                                                                                                               |
-| Segmented control (2–4 mutually exclusive views, e.g. newest/oldest, bytes/count) | FF `Tabs` + `TabsList` + `TabItem` (`size="compact"` in a toolbar); `ChartToggle` for a chart's view; `CommitStateTabs` for saved/recovered                                                                                                                                                         |
+| Segmented control (2–4 mutually exclusive views, e.g. newest/oldest, bytes/count) | FF `Tabs` + `TabsList` + `TabItem` (`size="compact"` in a toolbar); `CommitStateSplit` for saved/recovered                                                                                                                                                                                          |
 | Tab navigation inside a page (e.g. per-profile sections)                          | FF `TabsSubtle` + `TabsSubtleItem`                                                                                                                                                                                                                                                                  |
-| Multi-select toggles (event types, profiles)                                      | FF `CheckboxGroup` in a popover or panel, or `misc.Chip` for a short inline row                                                                                                                                                                                                                     |
+| Multi-select toggles (event types, profiles)                                      | FF `CheckboxGroup` in a popover or panel (`ProfilePicker`); a one-of filter (event type) is an FF `Select` with an "All" item                                                                                                                                                                       |
 | Actions menu or "more"                                                            | FF `DropdownMenu`, `DropdownTrigger`, `DropdownContent`, `MenuItem`                                                                                                                                                                                                                                 |
 | Anchored panel (date range calendar, etc.)                                        | `Popover`, `PopoverTrigger`, `PopoverContent` from `@/components/ui/popover` (`flush` drops the 4px padding)                                                                                                                                                                                        |
 | Copy a hash, path, or URL                                                         | FF `InputCopy`                                                                                                                                                                                                                                                                                      |
@@ -93,11 +93,11 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
 | Jump-to / ⌘K                                                                      | FF `CommandMenuDialog`                                                                                                                                                                                                                                                                              |
 | Buttons                                                                           | FF `Button`: `primary` for the one main action, `secondary` for ordinary actions, `tertiary` for bordered or quiet actions ("Load more"), `ghost` for icon and toolbar buttons. Sizes: default 36px, `compact` 28px, `icon` / `icon-compact`. Use the `loading` prop rather than swapping the label |
 | Evidence-state chip                                                               | `EvidenceBadge state="produced \| unavailable \| absent \| empty \| committed \| wal \| journal \| warning"` with the **state word as its children**                                                                                                                                                |
-| State word in a cell or text                                                      | `EvidenceDot state=…` + the word on `text-foreground` or `text-muted-foreground`. Existing helpers: `StateWord`, `CommitBadge`, `AbsentWord`                                                                                                                                                        |
+| State word in a cell or text                                                      | `EvidenceDot state=…` + the word on `text-foreground` or `text-muted-foreground` (`state="neutral"`, a hollow ring, for plain labels such as Complete / Primary / Backup). Existing helpers: `StateWord`, `CommitBadge`, `AbsentWord`                                                               |
 | A field's value in a cell                                                         | `FieldCell field=…` (finding-fields) or `TimeCell field=…` (page-kit) — never `fieldText(...) ?? "absent"`, which turns (empty) and unavailable into "absent"                                                                                                                                       |
 | Unavailable, error, or warning state                                              | FF `Banner` (`status="error" \| "warning" \| "info"`, `contrast="high"` inline). It must include `BannerTitle` + `BannerDescription` with the reason. For a failed read with Retry, use `ErrorRows` from `list-states`                                                                              |
 | Term that needs explaining                                                        | `Term label=… technical="Technical: …"` from `@/components/term`. For a custom trigger, use `TermTooltip` + `TermExplanation`. Use FF `Tooltip content=…` for short labels                                                                                                                          |
-| Loading rows                                                                      | `LoadingRows` or `Skeleton` (see Loading below)                                                                                                                                                                                                                                                     |
+| Loading rows                                                                      | `ListBlock` for a whole list body; else `LoadingRows` or `Skeleton` (see Loading below)                                                                                                                                                                                                             |
 | Keyboard caps                                                                     | `Kbd` from `ui/misc`                                                                                                                                                                                                                                                                                |
 | Rendered prose or markdown                                                        | `.typeset` on the container                                                                                                                                                                                                                                                                         |
 
@@ -120,7 +120,7 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
   Use `semibold` for headings and selected items and `bold` only for display.
   **No `font-medium`, `font-semibold`, or `font-bold` classes.** For text that
   gets heavier when selected or active, use the ghost-span pattern
-  (`misc.Chip` is an example).
+  (`WeightLabel` in page-kit is an example).
 - **Color:** `text-foreground` and `text-muted-foreground` only (use
   `text-background` on an inverted fill). Red is allowed only for an error
   message. Never use an opacity step (`text-muted-foreground/60`). State hues
@@ -196,18 +196,17 @@ Shared chart parts (`components/charts.tsx`, `components/chart-section.tsx`)
 - `ChartSection({ title, description, action?, footer?, className, children })`:
   the chart's Panel (`role="region"`, labelled by its title); `action` sits
   in a compact SizeProvider on the right; `footer` is a `PanelFooter`.
-- `ChartToggle({ options: {value,label}[], value, onChange, label })`: the
-  chart view switch (FF Tabs), placed in `action`.
 - Props helpers, spread onto Recharts: `chartAxis(tokens)` (no axis line or
-  tick marks, caption ticks), `chartTick(tokens)`, `chartGrid(tokens)` (one
+  tick marks, caption ticks), `chartGrid(tokens)` (one
   horizontal hairline grid), `chartAnimation(reduced)` (spring.slow's
   duration, off under reduced motion), `chartTooltipMotion(reduced)`.
-- Tooltip and legend: `ChartTooltipCard` + `ChartTooltipValue` +
-  `ChartTooltipNote`; `ChartLegend({ items: {label, color?, state?, shape?}[] })`.
+- Tooltip: `ChartTooltipCard` + `ChartTooltipValue` + `ChartTooltipNote`.
 - Bars: `FluidBandCursor`, `FluidBar`, `activeIndexOf`, `CHART_FOCUS_CLASS`.
-- Ready charts: `ActivityBars` (visits per day — the one chart for that
-  dataset, with `onSelectDay` / `range` + `onRangeChange` / `unit`),
-  `HourBars`, `CoverageDial` (title-role figure), `CredentialAgeScatter`
+- Ready charts: `ActivityBars` (count per day — visits on Overview,
+  History and Timeline, last-used entries on Cache; `onSelectDay` /
+  `range` + `onRangeChange`, a range with one bound set lights the
+  open-ended span as the lists filter it; `unit={{ one, many }}`),
+  `HourBars`, `CredentialAgeScatter`
   (recovered points as diamonds on `--wal`, or `--violet` with
   `sidecar: "journal"`). Empty: `ChartEmpty`.
 - Day labels: `formatDay` ("4 Mar 2024") and `formatDayTick` ("4 Mar") and
@@ -221,8 +220,8 @@ Shared chart parts (`components/charts.tsx`, `components/chart-section.tsx`)
 3. **value / (empty) / absent / unavailable** are distinct words, never color
    alone. A Badge or dot only repeats the word.
 4. **Sidecar rows** (WAL / rollback journal) are a **separate list** from
-   committed rows. Never merge them into one table. The Timeline is the one
-   chronological stream, and each row carries its state word.
+   committed rows. Never merge them into one table — the Timeline too splits
+   its loaded stream into Saved and Recovered tabs, each in time order.
 5. **No Candidate value on a tile.** Stat tiles show recorded facts only.
 6. Read-only: no control may start ingest, analysis, or export.
 
@@ -296,30 +295,33 @@ second before reading it. Popups and the drawer animate, so allow about
 Shared presentation parts. Import from `./page-kit.js` (or
 `@/components/page-kit`) instead of writing a local copy.
 
-| Export                                                                               | Use                                                                                                                                                                                                                                                                                                                   |
-| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `formatBytes(n)`                                                                     | "1.4 MB" / "812 KB" / "312 B" (base-1024, one decimal below 100)                                                                                                                                                                                                                                                      |
-| `plural(n, one, many)`                                                               | "1 visit" / "1,204 visits"                                                                                                                                                                                                                                                                                            |
-| `formatDay(yyyy-mm-dd)`, `formatDayTick(…)`                                          | "4 Mar 2024", "4 Mar" (UTC)                                                                                                                                                                                                                                                                                           |
-| `CHART_HEIGHT`                                                                       | `h-[220px]`, the over-time chart and its skeleton                                                                                                                                                                                                                                                                     |
-| `TimeText({ field?, utc?, inheritType?, className? })`, `TimeCell({ field?, utc? })` | A timestamp "9 Dec 2024 14:32:07" (time muted, UTC title). Pass the FieldState as `field` so non-values keep their word; `TimeCell` inherits the table cell's type                                                                                                                                                    |
-| `Count({ children })`                                                                | A count beside a title: caption, muted, tabular; numbers are grouped                                                                                                                                                                                                                                                  |
-| `WeightLabel({ text, active })`                                                      | Semibold-when-active without reflow (ghost span), truncating                                                                                                                                                                                                                                                          |
-| `SectionHeading({ title, count?, description?, icon?, children? })`                  | A title-role heading above a group of panels. No margin: the page gap sets the rhythm                                                                                                                                                                                                                                 |
-| `SectionPanel({ id?, title, description?, count?, aside?, className?, children })`   | A Panel with `PanelHeader` (title, Count, description) and a trailing `aside`; `role="region"` + `aria-labelledby` when `id` is given                                                                                                                                                                                 |
-| `Toolbar({ start?, children?, placement? })`                                         | The list toolbar in one compact SizeProvider. `placement="panel"` (default): under the list's `PanelHeader`, `px-4 pt-1 pb-3`, `start` (CommitStateTabs) left, `children` pushed right (FilterField + Select, ProfilePicker, `FilterTextField` last). `placement="inline"`: unpadded row for another container's slot |
-| `IconTile({ icon })`                                                                 | 32px tinted tile with a muted icon                                                                                                                                                                                                                                                                                    |
-| `MeterList({ rows: MeterRow[], tokens, labelWidth? })`                               | Ranked horizontal bars: `--primary`, peak 1 / others 0.45, sliding on `spring.slow` (transform only)                                                                                                                                                                                                                  |
-| `ShareBar({ fraction, peak?, className? })`                                          | One share-of-peak pill, same grammar as MeterList (translateX)                                                                                                                                                                                                                                                        |
-| `CARD_TITLE_CLEAR`                                                                   | Class for an FF CardTitle that must stay on one line                                                                                                                                                                                                                                                                  |
-| `CommitStateTabs`, `CommitStateSplit`, `CommitView`, `splitByCommit`                 | Saved / recovered (below)                                                                                                                                                                                                                                                                                             |
+| Export                                                                                         | Use                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `formatBytes(n)`                                                                               | "1.4 MB" / "812 KB" / "312 B" (base-1024, one decimal below 100)                                                                                                                                                                                                                                                                 |
+| `plural(n, one, many)`                                                                         | "1 visit" / "1,204 visits"                                                                                                                                                                                                                                                                                                       |
+| `formatDay(yyyy-mm-dd)`, `formatDayTick(…)`                                                    | "4 Mar 2024", "4 Mar" (UTC)                                                                                                                                                                                                                                                                                                      |
+| `CHART_HEIGHT`                                                                                 | `h-[220px]`, the over-time chart and its skeleton                                                                                                                                                                                                                                                                                |
+| `TimeText({ field?, utc?, inheritType?, className? })`, `TimeCell({ field?, utc? })`           | A timestamp "9 Dec 2024 14:32:07" (time muted, UTC title). Pass the FieldState as `field` so non-values keep their word; `TimeCell` inherits the table cell's type                                                                                                                                                               |
+| `Count({ children })`                                                                          | A count beside a title: caption, muted, tabular; numbers are grouped                                                                                                                                                                                                                                                             |
+| `WeightLabel({ text, active })`                                                                | Semibold-when-active without reflow (ghost span), truncating                                                                                                                                                                                                                                                                     |
+| `SectionPanel({ id?, title, headingAs?, description?, count?, aside?, className?, children })` | A Panel with `PanelHeader` (title, Count, description) and a trailing `aside`; `role="region"` + `aria-labelledby` when `id` is given                                                                                                                                                                                            |
+| `Toolbar({ start?, children?, placement? })`                                                   | The list toolbar in one compact SizeProvider. `placement="panel"` (default): under the list's `PanelHeader`, `px-4 pt-1 pb-3`, `start` (the saved/recovered switch) left, `children` pushed right (FilterField + Select, ProfilePicker, `FilterTextField` last). `placement="inline"`: unpadded row for another container's slot |
+| `IconTile({ icon })`                                                                           | 32px tinted tile with a muted icon                                                                                                                                                                                                                                                                                               |
+| `MeterList({ rows: MeterRow[], tokens, labelWidth? })`                                         | Ranked horizontal bars: `--primary`, peak 1 / others 0.45, sliding on `spring.slow` (transform only)                                                                                                                                                                                                                             |
+| `ShareBar({ fraction, peak?, className? })`                                                    | One share-of-peak pill, same grammar as MeterList (translateX)                                                                                                                                                                                                                                                                   |
+| `CARD_TITLE_CLEAR`                                                                             | Class for an FF CardTitle that must stay on one line                                                                                                                                                                                                                                                                             |
+| `CommitStateSplit`, `CommitView`, `splitByCommit`                                              | Saved / recovered (below)                                                                                                                                                                                                                                                                                                        |
 
 Also shared: `FieldCell({ field, format?, truncate? })`, `fieldString`,
 `fieldBool`, `fieldText`, `fieldUtc`, `fieldInteger`, `AbsentWord`,
 `StateWord({ state, focusable? })`, `SiteAvatar` (finding-fields);
 `FilterField`, `FilterTextField({ …, commit? })`, `ProfilePicker`
 (filters); `EmptyRows`, `activateOnKey`, `ROW_FOCUS_CLASS` (data-table);
-`LoadingRows({ rows?, label? })`, `ErrorRows`, `ListFooter` (list-states).
+`ListBlock`, `RevealSwap`, `LoadingRows({ rows?, label? })`, `ErrorRows`,
+`ListFooter` (list-states); `figure`, `PendingFigure`, `UnavailableFigure`
+(metric-band); `useActivity`, `visitTotal`, `bucketsToDays`, `fillGaps`
+(activity-data); `categoryOf`, `isPaymentField` (form-data);
+`secretFieldsOf`, `SecretValueCell`, `HiddenValue` (row-sheet).
 The readers (`fieldText` …) return `null` for absent, (empty) and
 unavailable alike — use them to compute, and `FieldCell` / `TimeCell` to
 show.
@@ -354,12 +356,21 @@ const [view, setView] = useState<CommitView>("saved");
 </SectionPanel>
 ```
 
-- `useCommitStateLists<Row>(route, parameters, { enabled? })` returns
-  `{ saved, recovered }`, each a `PaginatedList` (`rows`, `cursor`,
-  `loading`, `error`, `loadMore`, `retry` — feed straight into `ListFooter`
-  and `ErrorRows`). `recovered.rows` is the WAL list then the journal list
-  (never interleaved); `recovered.loadMore` drains WAL first;
-  `recovered.wal` / `recovered.journal` are the two underlying reads.
+- `useCommitStateLists<Row>(route, parameters, { enabled?, drain? })`
+  returns `{ saved, recovered, drained }`, each list a `PaginatedList`
+  (`rows`, `cursor`, `loading`, `error`, `loadMore`, `retry`).
+  `recovered.rows` is the WAL list then the journal list (never
+  interleaved); `recovered.loadMore` drains WAL first; `recovered.wal` /
+  `recovered.journal` are the two underlying reads.
+- `retry` re-reads only what failed (`usePaginatedList`): after a failed
+  "Load more" it asks for that page again and keeps the loaded rows; the
+  recovered list retries only its failed half.
+- `drain: <row cap>` follows every page (per read) so figures cover the
+  whole set; `drained.saved` / `drained.recovered` say when each settled.
+- `ListBlock({ list, noun: { one, many }, shown?, filtered?, onClearFilters?, empty, children })`
+  (list-states) is the body of one list: skeleton → rows (`RevealSwap`),
+  failed first read, empty or filtered-empty ("Clear filters"), load-more
+  error, `ListFooter`. Pass it as `saved` / `recovered`.
 - `CommitStateSplit` `variant="tabs"` (default) is for every full artifact
   table: the FF Tabs switch "Saved N" · "Recovered N" (`+` while more pages
   stand) on the left of a `Toolbar`, `toolbar` controls on the right, a
@@ -367,26 +378,37 @@ const [view, setView] = useState<CommitView>("saved");
   uncontrolled (`defaultValue`).
 - `variant="stacked"` only for a small embedded table (the Sites
   drill-down): the saved list, then — only when there are recovered rows —
-  a "Recovered N · from the write-ahead log or rollback journal" sub-heading
-  and the recovered list.
-- `CommitStateTabs({ value, onValueChange, saved, recovered, savedMore?, recoveredMore?, label? })`
-  is the bare switch, for a page that lays out its own toolbar.
+  a "Recovered N" sub-heading (`headingAs`, default `h3`) and the
+  recovered list.
 - Figures that count rows (tiles, leaderboards, charts) count the saved list
   unless they are explicitly about recovered rows; never sum the two into
   one figure without saying so.
 - Cache's route cannot filter by Commit State, so Cache splits its loaded
   page with `splitByCommit(rows)` → `{ saved, recovered }` and still shows
-  two lists. The Timeline stays one chronological stream; each row carries
-  its state word.
+  two lists. The Timeline route can't either: it splits its loaded stream
+  the same way into Saved / Recovered tabs, each still in time order.
+- Activity (visits per day / hour): `useActivity()` / `fetchActivity()`
+  (activity-data) return `{ saved, recovered, complete }` buckets; charts
+  and figures draw `saved`, and recovered visits are named beside them
+  ("N recovered not counted"), never summed in.
 
 ## Secrets: hidden by default
 
 Values that are secrets (cookie values, Payment-category form data) read
 "value hidden" in tables until a page-level "Show values" `Switch` is on,
 and in the row sheet until revealed there:
-`<RowSheet selected={…} onClose={…} redactedFields={["value"]} />`. Each
-named field that holds a recorded, non-empty value opens hidden with a
+`<RowSheet selected={…} onClose={…} redactedFields={secretFieldsOf(row)} />`.
+Each named field that holds a recorded, non-empty value opens hidden with a
 Reveal / Hide button; (empty), absent and unavailable still show as words.
+
+- `form-data.ts`: the Form data category rule (`categoryOf`,
+  `FORM_DATA_CATEGORIES`, Payment first) and `isPaymentField(name)`.
+- `row-sheet.tsx`: `secretFieldsOf(row)` (a cookie's `value`, a Payment
+  entry's `fieldValue` / `fieldValueLower`), `SecretValueCell({ field,
+reveal })` and `HiddenValue` for table cells.
+- Form data, Cookies and the Timeline (once a Payment row is loaded) carry
+  the "Show values" Switch; the Sites drill-down hides Payment values with
+  the sheet as the reveal.
 
 ## MetricBand tone
 
@@ -394,31 +416,35 @@ Reveal / Hide button; (empty), absent and unavailable still show as words.
 `status` word, a state dot. It never shows on its own: without `status`
 or `progress`, `tone` draws nothing. Write `tone="warning" status="recovered"`.
 
+A figure that is not yet a number: `figure(read, show)` with a
+`Read<T>` (`loading` → `PendingFigure` skeleton, `failed` →
+`UnavailableFigure` "unavailable" + dot) — never a "0" or a dash. Below
+`sm` the label, status word and detail wrap instead of truncating.
+
 ## Canonical patterns (one winner per repeated need)
 
-| Need                            | Use                                                                                                                                                                                                                                            | Not                                                                       |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Section with a header           | page-kit `SectionPanel` (`PanelHeader` + `PanelTitle` subtitle + `PanelDescription` body + caption `Count` + `aside`, `role="region"`, `aria-labelledby`)                                                                                      | local SectionPanel / WidgetPanel / hand-built `<h2>` headers              |
-| Heading above a group of panels | page-kit `SectionHeading`, no `mt-*`                                                                                                                                                                                                           | –                                                                         |
-| Chart panel                     | `ChartSection` (+ `footer`), body `px-2 pt-2 pb-3`, Recharts via the charts.tsx helpers                                                                                                                                                        | hand-built chart Panels, own tooltips, hand durations                     |
-| Visits per day                  | `ActivityBars` everywhere                                                                                                                                                                                                                      | a copied `BarChart`                                                       |
-| Figure strip                    | `MetricBand grid-cols-2 lg:grid-cols-4`, title-role figures, `detail` on every item                                                                                                                                                            | hand-built `<dl>` strips, `display`-size figures, `xl:`/`sm:` breakpoints |
-| Toolbar                         | page-kit `Toolbar` under the list's `PanelHeader` (compact, `px-4 pt-1 pb-3`): `CommitStateTabs` left, then `ml-auto` filters (`FilterField` + `Select`, `ProfilePicker`), `FilterTextField` (`w-60`) last                                     | filter chips in the header action, toolbars inside `SectionHeading`       |
-| Search                          | `FilterTextField`: `commit="change"` for client-side filters, default Enter/blur for server queries                                                                                                                                            | raw `InputGroup`                                                          |
-| Profile filter                  | `ProfilePicker` (multi-pick)                                                                                                                                                                                                                   | `TabsSubtle` per profile                                                  |
-| Table                           | FF `Table` in `scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent`; `TableRow index tabIndex aria-label` + `ROW_FOCUS_CLASS`; `reveal-items` on the body only inside `reveal-swap`; first column header "Type" | `px-2` row insets                                                         |
-| Table footer                    | `ListFooter`                                                                                                                                                                                                                                   | hand-built footers                                                        |
-| Commit State mark               | `StateWord` in cells (no own tab stop in a focusable row), `CommitBadge` in the sheet header                                                                                                                                                   | hand-rolled dots                                                          |
-| Other state marks               | `EvidenceDot` + word, hue matching the word (warning for expired / failed, neutral for complete / backup)                                                                                                                                      | a state hue borrowed for a different meaning                              |
-| Non-state labels                | plain `Badge`, no dot                                                                                                                                                                                                                          | grey-dot Badges                                                           |
-| Ranked bars                     | page-kit `MeterList` / `ShareBar`                                                                                                                                                                                                              | `bg-foreground opacity-*` bars                                            |
-| Clickable list                  | FF `CardGroup` for entities, or `useFluidHover` + `h-9` button rows + `WeightLabel` + `bg-active` when selected                                                                                                                                | `py-2` / `py-2.5` / `h-8` rows                                            |
-| Empty                           | `EmptyRows` (icon + title + message when the page is empty; message + tertiary "Clear filters" when filtered); `ChartEmpty` in charts                                                                                                          | plain `<p>` empties                                                       |
-| Error                           | `ErrorRows` (title ends with "."), also for load-more                                                                                                                                                                                          | captions in `text-destructive`                                            |
-| Loading                         | `reveal-swap` with a skeleton the size of the real block (`LoadingRows` for tables), `role="status"` + `aria-label`                                                                                                                            | ternary swaps, `aria-hidden` skeletons                                    |
-| Page root                       | `flex flex-col gap-5`; grids `gap-4`                                                                                                                                                                                                           | `gap-4` / `gap-6` roots                                                   |
-| Row sheet title                 | the recorded name, else a kind noun ("Cookie", "Download")                                                                                                                                                                                     | invented words                                                            |
-| Values that can't be shown      | words ("absent", "unavailable", "not recorded"), never "—"                                                                                                                                                                                     | dashes                                                                    |
+| Need                       | Use                                                                                                                                                                                                                                            | Not                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Section with a header      | page-kit `SectionPanel` (`PanelHeader` + `PanelTitle` subtitle + `PanelDescription` body + caption `Count` + `aside`, `role="region"`, `aria-labelledby`)                                                                                      | local SectionPanel / WidgetPanel / hand-built `<h2>` headers              |
+| Chart panel                | `ChartSection` (+ `footer`), body `px-2 pt-2 pb-3`, Recharts via the charts.tsx helpers                                                                                                                                                        | hand-built chart Panels, own tooltips, hand durations                     |
+| Visits per day             | `ActivityBars` everywhere                                                                                                                                                                                                                      | a copied `BarChart`                                                       |
+| Figure strip               | `MetricBand grid-cols-2 lg:grid-cols-4`, title-role figures, `detail` on every item                                                                                                                                                            | hand-built `<dl>` strips, `display`-size figures, `xl:`/`sm:` breakpoints |
+| Toolbar                    | page-kit `Toolbar` under the list's `PanelHeader` (compact, `px-4 pt-1 pb-3`): the saved/recovered switch left, then `ml-auto` filters (`FilterField` + `Select`, `ProfilePicker`), `FilterTextField` (`w-60`) last                            | filter chips in the header action                                         |
+| Search                     | `FilterTextField`: `commit="change"` for client-side filters, default Enter/blur for server queries                                                                                                                                            | raw `InputGroup`                                                          |
+| Profile filter             | `ProfilePicker` (multi-pick)                                                                                                                                                                                                                   | `TabsSubtle` per profile                                                  |
+| Table                      | FF `Table` in `scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent`; `TableRow index tabIndex aria-label` + `ROW_FOCUS_CLASS`; `reveal-items` on the body only inside `reveal-swap`; first column header "Type" | `px-2` row insets                                                         |
+| List body + footer         | `ListBlock` (its `ListFooter`)                                                                                                                                                                                                                 | hand-built footers                                                        |
+| Commit State mark          | `StateWord` in cells (no own tab stop in a focusable row), `CommitBadge` in the sheet header                                                                                                                                                   | hand-rolled dots                                                          |
+| Other state marks          | `EvidenceDot` + word, hue matching the word (warning for expired / failed, neutral for complete / backup)                                                                                                                                      | a state hue borrowed for a different meaning                              |
+| Non-state labels           | plain `Badge`, no dot                                                                                                                                                                                                                          | grey-dot Badges                                                           |
+| Ranked bars                | page-kit `MeterList` / `ShareBar`                                                                                                                                                                                                              | `bg-foreground opacity-*` bars                                            |
+| Clickable list             | FF `CardGroup` for entities, or `useFluidHover` + `h-9` button rows + `WeightLabel` + `bg-active` when selected                                                                                                                                | `py-2` / `py-2.5` / `h-8` rows                                            |
+| Empty                      | `EmptyRows` (icon + title + message when the page is empty; message + tertiary "Clear filters" when filtered); `ChartEmpty` in charts                                                                                                          | plain `<p>` empties                                                       |
+| Error                      | `ErrorRows` (title ends with "."), also for load-more                                                                                                                                                                                          | captions in `text-destructive`                                            |
+| Loading                    | `reveal-swap` with a skeleton the size of the real block (`LoadingRows` for tables), `role="status"` + `aria-label`                                                                                                                            | ternary swaps, `aria-hidden` skeletons                                    |
+| Page root                  | `flex flex-col gap-5`; grids `gap-4`                                                                                                                                                                                                           | `gap-4` / `gap-6` roots                                                   |
+| Row sheet title            | the recorded name, else a kind noun ("Cookie", "Download")                                                                                                                                                                                     | invented words                                                            |
+| Values that can't be shown | words ("absent", "unavailable", "not recorded"), never "—"                                                                                                                                                                                     | dashes                                                                    |
 
 ## Legacy CSS (removed)
 
@@ -430,9 +456,10 @@ gone, and so are the legacy classes `.fx-hero`, `.fx-rise`,
 (`primary-foreground`, `accent-border`, `inverse`, `edge-shadow`, and the
 `bg-primary` / `text-primary` utility aliases). `--primary` stays as the
 main chart series token, read through `useChartTokens` (or
-`var(--primary)` in a style). `ui/misc.tsx`'s `Input`, `SelectNative` and
-`Chip` remain for legacy forms; prefer FF `InputGroup`, `Select`, and
-`CheckboxGroup` / `TabsSubtle`.
+`var(--primary)` in a style). `ui/misc.tsx` keeps only `Skeleton`; its
+legacy `Input`, `SelectNative`, `Chip`, `Labeled` and `Kbd` are gone (use FF
+`InputGroup`, `Select`, `CheckboxGroup`). `ChartToggle`, `ChartLegend`
+(now internal), `CoverageDial` and `SectionHeading` were removed as unused.
 
 The per-page `*-wash` and `*-border` evidence tokens (`bg-wal-wash`,
 `border-destructive-border`, …) remain valid. They are derived from the state

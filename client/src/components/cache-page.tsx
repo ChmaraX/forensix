@@ -37,16 +37,6 @@
  */
 import { Database, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  type BarShapeProps,
-} from "recharts";
 
 import { Panel, PanelContent, PanelFooter } from "@/components/panel";
 import { Badge } from "@/components/ui/badge";
@@ -78,7 +68,6 @@ import {
   CommitStateSplit,
   type CommitView,
   formatBytes,
-  formatDayTick,
   MeterList,
   type MeterRow,
   plural,
@@ -86,23 +75,13 @@ import {
   splitByCommit,
   TimeCell,
 } from "./page-kit.js";
+import { fillGaps } from "./activity-data.js";
 import {
-  activeIndexOf,
-  CHART_FOCUS_CLASS,
-  chartAnimation,
-  chartAxis,
-  chartGrid,
-  chartTooltipMotion,
+  ActivityBars,
   ChartEmpty,
-  ChartTooltipCard,
-  ChartTooltipNote,
-  ChartTooltipValue,
-  FluidBandCursor,
-  FluidBar,
-  tooltipEntry,
   useChartTokens,
-  usePrefersReducedMotion,
   type ChartTokens,
+  type DayCount,
 } from "./charts.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { EvidenceDot, type EvidenceState } from "./evidence.js";
@@ -252,20 +231,6 @@ function keyHost(row: Finding): string | null {
   return hostOf(fieldText(row.fields.key));
 }
 
-function formatDay(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 /* --------------------------------- widgets -------------------------------- */
 
 /**
@@ -358,18 +323,11 @@ function CacheSummary({
   );
 }
 
-interface DayCount {
-  readonly date: string;
-  readonly count: number;
-}
-
 /**
- * "Last used over time" — a per-day bar chart of the entries' `lastUsed`
- * instants. This is the cache's own activity shape: when cached content was
- * last read back, which an examiner reads alongside (not instead of) the
- * browsing Timeline. Days with no last-used entry between two active days are
- * filled with zero so the axis is continuous calendar time; entries whose
- * `lastUsed` is absent simply do not land on any bar.
+ * "Last used over time" — saved entries per day of their `lastUsed` instant,
+ * on the shared `ActivityBars` (gap-filled, continuous calendar time).
+ * Entries whose `lastUsed` is absent land on no bar and are counted in the
+ * footer.
  */
 function LastUsedPanel({
   rows,
@@ -378,8 +336,6 @@ function LastUsedPanel({
   readonly rows: readonly Finding[];
   readonly tokens: ChartTokens;
 }) {
-  const reduced = usePrefersReducedMotion();
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const { days, undated } = useMemo(() => {
     const byDate = new Map<string, number>();
     let missing = 0;
@@ -395,32 +351,8 @@ function LastUsedPanel({
     const recorded = [...byDate.entries()]
       .map(([date, count]): DayCount => ({ date, count }))
       .sort((left, right) => left.date.localeCompare(right.date));
-    const first = recorded[0];
-    const last = recorded[recorded.length - 1];
-    if (first === undefined || last === undefined) {
-      return { days: recorded, undated: missing };
-    }
-    const start = new Date(`${first.date}T00:00:00Z`).getTime();
-    const end = new Date(`${last.date}T00:00:00Z`).getTime();
-    const span = Math.round((end - start) / 86_400_000) + 1;
-    // Cap gap-filling so a wide-but-sparse span never draws more bars than
-    // pixels; past the cap the recorded days stand on their own.
-    if (span <= recorded.length || span > 400) {
-      return { days: recorded, undated: missing };
-    }
-    const filled = new Map(recorded.map((day) => [day.date, day.count]));
-    return {
-      days: Array.from({ length: span }, (_, index): DayCount => {
-        const date = new Date(start + index * 86_400_000)
-          .toISOString()
-          .slice(0, 10);
-        return { date, count: filled.get(date) ?? 0 };
-      }),
-      undated: missing,
-    };
+    return { days: fillGaps(recorded), undated: missing };
   }, [rows]);
-
-  const peak = days.reduce((max, day) => Math.max(max, day.count), 0);
 
   return (
     <ChartSection
@@ -430,8 +362,8 @@ function LastUsedPanel({
       footer={
         undated > 0 ? (
           <p className={cn(typeClass("caption"), "text-muted-foreground")}>
-            {plural(undated, "entry", "entries")} with no recorded last-used
-            time not shown.
+            {plural(undated, "entry", "entries")} with no last-used time not
+            shown.
           </p>
         ) : undefined
       }
@@ -441,85 +373,15 @@ function LastUsedPanel({
           {days.length === 0 ? (
             <ChartEmpty>No saved entries carry a last-used time.</ChartEmpty>
           ) : (
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-              className={CHART_FOCUS_CLASS}
-            >
-              <BarChart
-                data={days as DayCount[]}
-                margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-                onMouseMove={(state) => {
-                  setHoverIndex(activeIndexOf(state));
-                }}
-                onMouseLeave={() => {
-                  setHoverIndex(null);
-                }}
-              >
-                <CartesianGrid {...chartGrid(tokens)} />
-                <XAxis
-                  dataKey="date"
-                  {...chartAxis(tokens)}
-                  minTickGap={40}
-                  tickFormatter={formatDayTick}
-                />
-                <YAxis
-                  width={32}
-                  {...chartAxis(tokens)}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  {...chartTooltipMotion(reduced)}
-                  cursor={<FluidBandCursor fill={tokens["--hover"]} />}
-                  content={({ payload }) => {
-                    const row = tooltipEntry(payload);
-                    if (row === null) {
-                      return null;
-                    }
-                    const count = Number(row["count"]);
-                    return (
-                      <ChartTooltipCard label={formatDay(String(row["date"]))}>
-                        <ChartTooltipValue
-                          value={count.toLocaleString("en-US")}
-                          unit={count === 1 ? "cache entry" : "cache entries"}
-                        />
-                        {peak > 0 && count === peak ? (
-                          <ChartTooltipNote>Busiest day</ChartTooltipNote>
-                        ) : null}
-                      </ChartTooltipCard>
-                    );
-                  }}
-                />
-                <Bar
-                  dataKey="count"
-                  radius={[3, 3, 0, 0]}
-                  {...chartAnimation(reduced)}
-                  minPointSize={1}
-                  fill={tokens["--primary"]}
-                  shape={(props: BarShapeProps) => {
-                    const day = days[props.originalDataIndex];
-                    return (
-                      <FluidBar
-                        {...props}
-                        fill={tokens["--primary"]}
-                        opacity={
-                          day !== undefined && peak > 0 && day.count === peak
-                            ? 1
-                            : 0.55
-                        }
-                        hovered={props.originalDataIndex === hoverIndex}
-                      />
-                    );
-                  }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            <ActivityBars days={days} tokens={tokens} unit={CACHE_ENTRY_UNIT} />
           )}
         </div>
       </div>
     </ChartSection>
   );
 }
+
+const CACHE_ENTRY_UNIT = { one: "cache entry", many: "cache entries" };
 
 /** How many host rows the footprint list shows before "and N more". */
 const FOOTPRINT_LIMIT = 8;

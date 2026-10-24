@@ -1,15 +1,14 @@
 /**
- * Shared `history` `view=activity` reads.
+ * The shared `history` `view=activity` read (Overview, History, Timeline):
+ * one fetch loop, one gap-fill algorithm, used everywhere this data appears.
  *
- * Overview, History, and Timeline all draw a "page visits per day" chart
- * from the exact same underlying evidence. Before this module existed each
- * page re-implemented its own paginated fetch, and only Timeline's chart
- * gap-filled zero-visit days — Overview's and History's charts silently
- * skipped them instead of drawing a zero bar, so the same evidence read as
- * three subtly different shapes depending which page you were on. One fetch
- * loop, one gap-fill algorithm, used everywhere this data appears.
+ * Saved and recovered stay apart (forensic rule 4). Core writes one activity
+ * row per Profile, Commit State, local date and hour, so the read keeps each
+ * row's Commit State and hands back two bucket sets: `saved` (committed rows
+ * — what every chart and figure counts) and `recovered` (WAL + journal rows
+ * — named beside them, never summed in).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { callApi } from "../api.js";
 import type { FieldState, Finding, PageOf } from "../types.js";
@@ -48,19 +47,27 @@ function fieldString(field: FieldState | undefined): string | null {
 export const ACTIVITY_PAGE_CAP = 150;
 
 /** Above this many days, gap-filling would draw more bars than pixels. */
-export const GAP_FILL_LIMIT = 550;
+const GAP_FILL_LIMIT = 550;
+
+/** The activity read, kept apart by Commit State. */
+export interface SplitActivity {
+  /** Buckets read from committed activity rows. */
+  readonly saved: readonly ActivityBucket[];
+  /** Buckets read from WAL- and journal-resident activity rows. */
+  readonly recovered: readonly ActivityBucket[];
+  /** False when the page cap stopped the read before the cursor ran out. */
+  readonly complete: boolean;
+}
 
 /**
  * Reads every `history` `view=activity` row up to `ACTIVITY_PAGE_CAP` pages,
- * parsed into `{date, hour, count}` buckets. Reports whether the read was
- * complete (the cursor ran out) or was cut off by the cap, so the caller can
- * show a truncation notice instead of silently under-reporting.
+ * parsed into `{date, hour, count}` buckets and split by Commit State.
+ * Reports whether the read was complete (the cursor ran out) or was cut off
+ * by the cap, so the caller can say so instead of silently under-reporting.
  */
-export async function fetchActivityBuckets(): Promise<{
-  readonly buckets: readonly ActivityBucket[];
-  readonly complete: boolean;
-}> {
-  const buckets: ActivityBucket[] = [];
+export async function fetchActivity(): Promise<SplitActivity> {
+  const saved: ActivityBucket[] = [];
+  const recovered: ActivityBucket[] = [];
   let after: string | null = null;
   let complete = false;
   for (let page = 0; page < ACTIVITY_PAGE_CAP; page += 1) {
@@ -80,13 +87,15 @@ export async function fetchActivityBuckets(): Promise<{
     for (const row of result.items) {
       const date = fieldString(row.fields.localDate);
       const hour = Number(fieldString(row.fields.localHour) ?? "");
-      const count = Number(
-        fieldString(row.fields.supportingVisitCount) ?? "0",
-      );
+      const count = Number(fieldString(row.fields.supportingVisitCount) ?? "0");
       if (date === null || !Number.isInteger(hour) || Number.isNaN(count)) {
         continue;
       }
-      buckets.push({ date, hour, count });
+      (row.commitState === "committed" ? saved : recovered).push({
+        date,
+        hour,
+        count,
+      });
     }
     after = result.nextCursor;
     if (after === null) {
@@ -94,48 +103,54 @@ export async function fetchActivityBuckets(): Promise<{
       break;
     }
   }
-  return { buckets, complete };
+  return { saved, recovered, complete };
 }
 
-/** React hook wrapping `fetchActivityBuckets`, cancelled on unmount. Buckets
- *  stay `null` while the first read is in flight. */
-export function useActivityBuckets(): {
-  readonly buckets: readonly ActivityBucket[] | null;
-  readonly complete: boolean;
+/** `fetchActivity` as a hook. `activity` stays `null` while the read is in
+ *  flight and after a failure (`error` set); `retry` reads again. */
+export function useActivity(): {
+  readonly activity: SplitActivity | null;
   readonly error: string | null;
+  readonly retry: () => void;
 } {
-  const [buckets, setBuckets] = useState<readonly ActivityBucket[] | null>(
-    null,
-  );
-  const [complete, setComplete] = useState(true);
+  const [activity, setActivity] = useState<SplitActivity | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    fetchActivityBuckets()
+    setActivity(null);
+    setError(null);
+    fetchActivity()
       .then((result) => {
-        if (cancelled) {
-          return;
+        if (!cancelled) {
+          setActivity(result);
         }
-        setBuckets(result.buckets);
-        setComplete(result.complete);
       })
       .catch((requestError: unknown) => {
-        if (cancelled) {
-          return;
+        if (!cancelled) {
+          setError(
+            requestError instanceof Error
+              ? requestError.message
+              : "Request failed.",
+          );
         }
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
       });
     return () => {
       cancelled = true;
     };
+  }, [nonce]);
+
+  const retry = useCallback(() => {
+    setNonce((value) => value + 1);
   }, []);
 
-  return { buckets, complete, error };
+  return { activity, error, retry };
+}
+
+/** Total visits across a bucket set. */
+export function visitTotal(buckets: readonly ActivityBucket[]): number {
+  return buckets.reduce((sum, bucket) => sum + bucket.count, 0);
 }
 
 function inRange(
@@ -217,22 +232,4 @@ export function fillGaps(days: readonly DayCount[]): readonly DayCount[] {
       .slice(0, 10);
     return { date, count: byDate.get(date) ?? 0 };
   });
-}
-
-/**
- * Gap-filled per-day totals in one call — fetch, aggregate, fill — the exact
- * shape a chart-only consumer needs (Timeline). Kept as one hook so that
- * page's own code stays an import away from this module rather than
- * reimplementing the composition.
- */
-export function useActivityDays(): {
-  readonly days: readonly DayCount[] | null;
-  readonly error: string | null;
-} {
-  const { buckets, error } = useActivityBuckets();
-  const days = useMemo(
-    () => (buckets === null ? null : fillGaps(bucketsToDays(buckets))),
-    [buckets],
-  );
-  return { days, error };
 }

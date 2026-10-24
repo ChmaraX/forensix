@@ -56,14 +56,21 @@ export function PanelHeader({
   );
 }
 
+/** A heading element level for a panel title (`h2` under the page title). */
+export type HeadingTag = "h2" | "h3" | "h4" | "h5";
+
 export function PanelTitle({
+  as: Heading = "h2",
   className,
   style,
   ...props
-}: HTMLAttributes<HTMLHeadingElement>) {
+}: HTMLAttributes<HTMLHeadingElement> & {
+  /** The heading element. @default "h2" */
+  readonly as?: HeadingTag;
+}) {
   const compact = useSizeVariant() === "compact";
   return (
-    <h2
+    <Heading
       className={cn(
         typeClass("subtitle", compact ? "compact" : "default"),
         "text-foreground",

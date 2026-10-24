@@ -53,7 +53,7 @@ import {
 } from "recharts";
 
 import { EvidenceDot } from "@/components/evidence";
-import { Panel, PanelFooter } from "@/components/panel";
+import { PanelFooter } from "@/components/panel";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import {
@@ -117,8 +117,7 @@ import {
 } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
 import { CompletenessPanel } from "./completeness.js";
-import { RevealSwap } from "./history-list-block.js";
-import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
+import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 import {
@@ -927,9 +926,9 @@ function SourceHosts({ rows }: { readonly rows: readonly DownloadRow[] }) {
 /* --------------------------------- table ---------------------------------- */
 
 /**
- * The download state in words. "Complete" sits muted, without a dot (the
- * ordinary outcome); the two unfinished states read in the foreground with
- * the warning hue on the dot — the word is always present, never colour
+ * The download state in words. "Complete" sits muted beside a neutral dot
+ * (the ordinary outcome); the two unfinished states read in the foreground
+ * with the warning hue on the dot — the word is always present, never colour
  * alone. A value outside the known set passes through verbatim, and a state
  * Chrome did not record keeps its field's own word.
  */
@@ -948,12 +947,7 @@ function DownloadState({ field }: { readonly field: FieldState | undefined }) {
         unfinished ? "text-foreground" : "text-muted-foreground",
       )}
     >
-      {unfinished ? (
-        <EvidenceDot state="warning" />
-      ) : (
-        // Keeps the word in line with the dotted ones; not a mark.
-        <span aria-hidden="true" className="size-1.5 shrink-0" />
-      )}
+      <EvidenceDot state={unfinished ? "warning" : "neutral"} />
       {stateLabel(state)}
     </span>
   );
@@ -1170,7 +1164,6 @@ function DownloadsLoading({ pages }: { readonly pages: number }) {
 function DownloadList({
   read,
   rows,
-  total,
   recovered,
   filtered,
   sort,
@@ -1184,7 +1177,6 @@ function DownloadList({
     readonly retry: () => void;
   };
   readonly rows: readonly DownloadRow[];
-  readonly total: number;
   readonly recovered: boolean;
   readonly filtered: boolean;
   readonly sort: SortState;
@@ -1192,73 +1184,43 @@ function DownloadList({
   readonly onSelect: (finding: Finding) => void;
   readonly onClearFilters: () => void;
 }) {
-  const noun = recovered ? "recovered downloads" : "saved downloads";
-  if (read.error !== null) {
-    return (
-      <ErrorRows
-        title={`The ${noun} could not be loaded.`}
-        message={read.error}
-        onRetry={read.retry}
-      />
-    );
-  }
   return (
-    <>
-      <RevealSwap
-        loading={read.rows === null}
-        skeleton={
-          <LoadingRows rows={recovered ? 3 : 8} label={`Loading ${noun}`} />
-        }
-      >
-        {rows.length === 0 ? (
-          <div>
-            {filtered ? (
-              <EmptyRows
-                message={`No ${noun} match these filters.`}
-                action={
-                  <Button
-                    variant="tertiary"
-                    size="compact"
-                    onClick={onClearFilters}
-                  >
-                    Clear filters
-                  </Button>
-                }
-              />
-            ) : (
-              <EmptyRows
-                title={
-                  recovered ? "No recovered downloads" : "No saved downloads"
-                }
-                message={
-                  recovered
-                    ? "Neither the write-ahead log nor the rollback journal holds a download row."
-                    : "The History database holds no committed download rows."
-                }
-              />
-            )}
-          </div>
-        ) : (
-          <DownloadsTable
-            rows={rows}
-            sort={sort}
-            onSort={onSort}
-            onSelect={onSelect}
-          />
-        )}
-      </RevealSwap>
-      <ListFooter
-        count={total}
-        cursor={null}
-        loading={false}
-        onLoadMore={() => undefined}
-        summary={
-          filtered
-            ? `${rows.length.toLocaleString("en-US")} of ${plural(total, noun.replace("downloads", "download"), noun)} shown`
-            : `${plural(total, noun.replace("downloads", "download"), noun)} shown`
-        }
+    <ListBlock
+      list={{
+        rows: read.rows ?? [],
+        cursor: null,
+        loading: read.rows === null && read.error === null,
+        error: read.error,
+        loadMore: () => undefined,
+        retry: read.retry,
+      }}
+      noun={
+        recovered
+          ? { one: "recovered download", many: "recovered downloads" }
+          : { one: "saved download", many: "saved downloads" }
+      }
+      shown={rows.length}
+      filtered={filtered}
+      onClearFilters={onClearFilters}
+      skeletonRows={recovered ? 3 : 8}
+      empty={
+        <EmptyRows
+          title={recovered ? "No recovered downloads" : "No saved downloads"}
+          message={
+            recovered
+              ? "Neither the write-ahead log nor the rollback journal holds a download row."
+              : "The History database holds no committed download rows."
+          }
+        />
+      }
+    >
+      <DownloadsTable
+        rows={rows}
+        sort={sort}
+        onSort={onSort}
+        onSelect={onSelect}
       />
-    </>
+    </ListBlock>
   );
 }
 
@@ -1455,16 +1417,9 @@ export function DownloadsPage({
         artifacts={[config.completenessArtifact]}
       />
 
-      {/* The overview reads the saved downloads only. */}
-      {savedRead.error !== null ? (
-        <Panel>
-          <ErrorRows
-            title="The saved downloads could not be loaded."
-            message={savedRead.error}
-            onRetry={savedRead.retry}
-          />
-        </Panel>
-      ) : (
+      {/* The overview reads the saved downloads only; when that read
+          failed it steps aside and the Saved tab carries the error. */}
+      {savedRead.error !== null ? null : (
         <RevealSwap
           loading={savedRead.rows === null}
           skeleton={<DownloadsLoading pages={savedRead.pages} />}
@@ -1625,7 +1580,6 @@ export function DownloadsPage({
               <DownloadList
                 read={savedRead}
                 rows={visibleSaved}
-                total={model.length}
                 recovered={false}
                 filtered={filtered}
                 sort={sort}
@@ -1638,7 +1592,6 @@ export function DownloadsPage({
               <DownloadList
                 read={recoveredRead}
                 rows={visibleRecovered}
-                total={recoveredModel.length}
                 recovered
                 filtered={filtered}
                 sort={sort}

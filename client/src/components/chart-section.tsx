@@ -4,11 +4,6 @@
  * controls on the right. Controls sit in a compact `SizeProvider`, the size
  * step FF uses for toolbars, so a range picker, a segmented toggle, and a
  * button placed there all share the 28px ladder without per-control props.
- *
- * `ChartToggle` is the segmented control for 2–4 mutually exclusive chart
- * views (bytes / count, day / week, saved / recovered): FF `Tabs`, so the
- * active pill travels on `spring.moderate` and labels change weight without
- * shifting.
  */
 import { useId, type ReactNode } from "react";
 
@@ -19,7 +14,6 @@ import {
   PanelHeader,
   PanelTitle,
 } from "@/components/panel";
-import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { SizeProvider, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
@@ -74,43 +68,5 @@ function ChartActions({ children }: { readonly children: ReactNode }) {
     <div className={cn("ml-auto flex shrink-0 items-center", size.gap)}>
       {children}
     </div>
-  );
-}
-
-export interface ChartToggleOption {
-  readonly value: string;
-  readonly label: string;
-}
-
-/**
- * Segmented control for a chart's view (FF `Tabs`). Follows the surrounding
- * size: compact inside a `ChartSection` action, default elsewhere.
- */
-export function ChartToggle({
-  options,
-  value,
-  onChange,
-  label,
-  className,
-}: {
-  readonly options: readonly ChartToggleOption[];
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  /** Accessible name of the control, e.g. "Chart measure". */
-  readonly label: string;
-  readonly className?: string;
-}) {
-  return (
-    <Tabs value={value} onValueChange={onChange} className={className}>
-      <TabsList aria-label={label}>
-        {options.map((option) => (
-          <TabItem
-            key={option.value}
-            value={option.value}
-            label={option.label}
-          />
-        ))}
-      </TabsList>
-    </Tabs>
   );
 }

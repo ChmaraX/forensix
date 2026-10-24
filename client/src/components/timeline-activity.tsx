@@ -19,15 +19,22 @@ import { useCallback, useMemo } from "react";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { bucketsToDays, fillGaps } from "./activity-data.js";
+import {
+  bucketsToDays,
+  fillGaps,
+  useActivity,
+  visitTotal,
+} from "./activity-data.js";
 import { ActivityBars, type DayCount, useChartTokens } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
-import { figure, type Read } from "./history-figures.js";
-import { useSplitActivity, visitTotal } from "./history-activity-data.js";
-import { RevealSwap } from "./history-list-block.js";
-import { ErrorRows } from "./list-states.js";
-import { MetricBand, MetricBandItem } from "./metric-band.js";
+import { ErrorRows, RevealSwap } from "./list-states.js";
+import {
+  figure,
+  MetricBand,
+  MetricBandItem,
+  type Read,
+} from "./metric-band.js";
 import { Skeleton } from "./ui/misc.js";
 import { CHART_HEIGHT, formatDay, plural } from "./page-kit.js";
 
@@ -65,7 +72,7 @@ export function TimelineActivityCard({
 }) {
   const tokens = useChartTokens();
   const size = useSize();
-  const { activity, error, retry } = useSplitActivity();
+  const { activity, error, retry } = useActivity();
   const hasRange = range.from !== "" || range.to !== "";
 
   // Saved days, gap-filled so the x-axis is real calendar time.
