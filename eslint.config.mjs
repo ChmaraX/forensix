@@ -26,6 +26,25 @@ export default [
     },
   },
   {
+    // Fluid Functionalism registry code, installed by the shadcn CLI
+    // (client/components.json) and kept byte-faithful so a later
+    // `shadcn add --overwrite` needs no re-patching. It still gets every bug
+    // rule; only two upstream style choices are waived, and its inline
+    // directives (which name the upstream's Next.js lint plugin) are ignored.
+    files: [
+      "client/src/components/ui/**",
+      "client/src/components/sidebar-app/**",
+      "client/src/components/fluid-hover-highlight.tsx",
+      "client/src/hooks/**",
+      "client/src/lib/**",
+    ],
+    linterOptions: { noInlineConfig: true },
+    rules: {
+      "@typescript-eslint/no-invalid-void-type": "off",
+      "@typescript-eslint/no-dynamic-delete": "off",
+    },
+  },
+  {
     files: ["core/src/**/*.ts"],
     rules: {
       "no-restricted-syntax": [

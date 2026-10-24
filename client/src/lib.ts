@@ -1,9 +1,9 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
-}
+/**
+ * App-level helpers. `cn` is Fluid Functionalism's (src/lib/utils.ts), whose
+ * tailwind-merge knows the type-scale role classes; it is re-exported here so
+ * existing `../lib.js` imports keep resolving to the one implementation.
+ */
+export { cn } from "./lib/utils.js";
 
 /** Render an arbitrary field value as text; time objects show their UTC form. */
 export function formatValue(value: unknown): string {

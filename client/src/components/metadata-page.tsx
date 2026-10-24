@@ -54,7 +54,7 @@ import type {
 import { EmptyRows } from "./data-table.js";
 import { MaybeFieldStateText } from "./field-state.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
-import { Button } from "./ui/button.js";
+import { Button } from "./compat/button.js";
 import { Skeleton } from "./ui/misc.js";
 
 /** One type-sorted read across every Metadata row, paginated by the route. */

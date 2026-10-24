@@ -50,7 +50,7 @@ import {
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { Button } from "./ui/button.js";
+import { Button } from "./compat/button.js";
 import { Chip, Input, Labeled, SelectNative, Skeleton } from "./ui/misc.js";
 
 /* ------------------------------- data reads ------------------------------- */

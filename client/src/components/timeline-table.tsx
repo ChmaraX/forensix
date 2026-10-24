@@ -32,7 +32,7 @@ import {
   formatInstant,
   StateWord,
 } from "./finding-fields.js";
-import { Button } from "./ui/button.js";
+import { Button } from "./compat/button.js";
 import { Skeleton } from "./ui/misc.js";
 
 export type TimelineDirection = "asc" | "desc";

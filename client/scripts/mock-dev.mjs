@@ -6,12 +6,15 @@
  * reloads the open page after each rebuild.
  *
  * Usage:
- *   npm run mock:dev -- --port 7799
+ *   npm run mock:dev -- --port 7799 [--outdir <dir>]
+ *
+ * `--outdir` (or FORENSIX_CLIENT_OUTDIR) builds into, and serves from, a
+ * directory other than dist/, so watchers on different ports don't collide.
  */
 import { spawn } from "node:child_process";
 import {
   closeSync,
-  existsSync,
+  mkdirSync,
   openSync,
   readFileSync,
   unlinkSync,
@@ -21,7 +24,7 @@ import {
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildClient } from "./bundle.mjs";
+import { buildClient, resolveOutDir } from "./bundle.mjs";
 
 const clientRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDirectory = join(clientRoot, "src");
@@ -33,7 +36,10 @@ function option(name, fallback) {
 }
 
 const port = option("port", "7799");
-const lockPath = join(clientRoot, ".mock-dev.lock");
+const outDir = resolveOutDir(option("outdir", undefined));
+// One watcher per output directory: the lock lives with the bundle it guards.
+mkdirSync(outDir, { recursive: true });
+const lockPath = join(outDir, ".mock-dev.lock");
 let lockFd = null;
 
 function acquireLock() {
@@ -53,7 +59,10 @@ function acquireLock() {
         `another mock-dev watcher is already running (pid ${String(owner)})`,
       );
     } catch (ownerError) {
-      if (ownerError instanceof Error && ownerError.message.includes("already running")) {
+      if (
+        ownerError instanceof Error &&
+        ownerError.message.includes("already running")
+      ) {
         throw ownerError;
       }
       unlinkSync(lockPath);
@@ -92,10 +101,11 @@ function stopServer() {
 }
 
 function startServer() {
-  const child = spawn(process.execPath, [mockServer, "--port", String(port)], {
-    cwd: clientRoot,
-    stdio: "inherit",
-  });
+  const child = spawn(
+    process.execPath,
+    [mockServer, "--port", String(port), "--bundle", join(outDir, "index.js")],
+    { cwd: clientRoot, stdio: "inherit" },
+  );
   server = child;
   child.on("error", (error) => {
     console.error(`[forensix mock-dev] mock server failed: ${error.message}`);
@@ -121,7 +131,7 @@ async function rebuild(reason) {
   rebuilding = true;
   const started = Date.now();
   try {
-    await buildClient({ dev: true });
+    await buildClient({ dev: true, outDir });
     console.log(
       `[forensix mock-dev] rebuilt in ${String(Date.now() - started)}ms (${reason})`,
     );

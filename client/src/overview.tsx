@@ -40,7 +40,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "./components/ui/card.js";
+} from "./components/compat/card.js";
 import { Skeleton } from "./components/ui/misc.js";
 import { cn } from "./lib.js";
 import type {

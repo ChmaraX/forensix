@@ -43,7 +43,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
-import { Button } from "./ui/button.js";
+import { Button } from "./compat/button.js";
 import { Skeleton } from "./ui/misc.js";
 
 /**

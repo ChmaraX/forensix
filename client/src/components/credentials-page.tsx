@@ -46,8 +46,8 @@ import {
 } from "./finding-fields.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { Button } from "./ui/button.js";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card.js";
+import { Button } from "./compat/button.js";
+import { Card, CardContent, CardHeader, CardTitle } from "./compat/card.js";
 import { Skeleton } from "./ui/misc.js";
 
 /* ------------------------------ data loading ------------------------------ */

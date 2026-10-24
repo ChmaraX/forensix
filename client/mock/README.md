@@ -25,10 +25,26 @@ The mock server reads `dist/index.js` fresh on every request, so re-running
 `npm run build` (or `node scripts/dev.mjs`'s watcher output, copied over) is
 picked up without restarting `npm run mock`.
 
+### Several builds side by side
+
+To keep parallel builds from overwriting each other, give each one its own
+output directory and port:
+
+```
+export FORENSIX_CLIENT_OUTDIR=/tmp/my-build   # or: node scripts/build.mjs --outdir /tmp/my-build
+node scripts/build.mjs
+node mock/server.mjs --port 7812              # serves $FORENSIX_CLIENT_OUTDIR/index.js
+node mock/server.mjs --port 7813 --bundle /tmp/other-build/index.js
+node scripts/mock-dev.mjs --port 7814 --outdir /tmp/watch-build   # watch mode
+```
+
+The defaults are unchanged: `dist/index.js` and port 7799.
+
 ## What it serves
 
 - `GET /` — an HTML shell equivalent to the real server's `htmlShell()`
-  (sets `window.__FORENSIX_TOKEN__`, loads `/index.js` as a module).
+  (sets `window.__FORENSIX_TOKEN__`, loads `/index.js` as a module), with the
+  real server's Content-Security-Policy header.
 - `GET /index.js` — the built client bundle.
 - `GET /api/<route>` for every route the real server exposes: `completeness`,
   `profiles`, `history`, `timeline`, `site-favicons`, `cookies`,

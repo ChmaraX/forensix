@@ -612,7 +612,13 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
       expect(unauthorized.status).toBe(401);
     }
 
-    const shell = await (await fetch(`${base}/`, { headers: auth })).text();
+    const shellResponse = await fetch(`${base}/`, { headers: auth });
+    // The typeface ships inside the bundle as a data: URI; the policy admits
+    // exactly that and no font origin.
+    expect(shellResponse.headers.get("content-security-policy")).toBe(
+      "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'self'",
+    );
+    const shell = await shellResponse.text();
     expect(shell).toContain("__FORENSIX_TOKEN__");
     expect(shell).toContain('src="/index.js"');
     const bundle = await (

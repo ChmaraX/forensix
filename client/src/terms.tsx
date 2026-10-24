@@ -9,20 +9,16 @@
 import type { ReactNode } from "react";
 
 import type { CommitState } from "./types.js";
-import { Badge } from "./components/ui/badge.js";
-import {
-  Term,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "./components/ui/tooltip.js";
+import { EvidenceBadge, type EvidenceState } from "./components/evidence.js";
+import { Term, TermExplanation, TermTooltip } from "./components/term.js";
 
 export const COMMIT_META: Readonly<
   Record<
     CommitState,
     {
       readonly label: string;
-      readonly badge: "secondary" | "wal" | "violet";
+      /** Evidence state drawn for this Commit State (see evidence.tsx). */
+      readonly badge: Extract<EvidenceState, "committed" | "wal" | "journal">;
       readonly plain: string;
       readonly technical: string;
     }
@@ -30,7 +26,7 @@ export const COMMIT_META: Readonly<
 > = {
   committed: {
     label: "saved",
-    badge: "secondary",
+    badge: "committed",
     plain: "Normal data, fully saved in Chrome's database.",
     technical: "Commit State: committed",
   },
@@ -43,7 +39,7 @@ export const COMMIT_META: Readonly<
   },
   journal_resident: {
     label: "recovered — overwritten",
-    badge: "violet",
+    badge: "journal",
     plain:
       "Found in Chrome's rollback journal: data from an interrupted write — often rows that were being deleted or replaced. Recovered by the analyzer.",
     technical: "Commit State: journal_resident (rollback journal)",
@@ -53,41 +49,53 @@ export const COMMIT_META: Readonly<
 export function CommitBadge({ state }: { readonly state: CommitState }) {
   const meta = COMMIT_META[state];
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge variant={meta.badge} className="cursor-help">
-          {meta.label}
-        </Badge>
-      </TooltipTrigger>
-      <TooltipContent>
-        {meta.plain}
-        <span className="mt-1 block font-mono text-[11px] opacity-70">
-          {meta.technical}
-        </span>
-      </TooltipContent>
-    </Tooltip>
+    <TermTooltip
+      content={
+        <TermExplanation technical={meta.technical}>
+          {meta.plain}
+        </TermExplanation>
+      }
+    >
+      <EvidenceBadge state={meta.badge} tabIndex={0} className="cursor-help">
+        {meta.label}
+      </EvidenceBadge>
+    </TermTooltip>
   );
 }
 
+/**
+ * Completeness outcomes. The word is the state; `className` colors it with
+ * the outcome's theme token (legacy pages) and `evidence` names the FF Badge
+ * / dot to use instead (see evidence.tsx).
+ */
 export const OUTCOME_META = {
-  produced: { label: "available", className: "text-success font-medium" },
-  absent: { label: "not present", className: "text-muted-foreground italic" },
+  produced: {
+    label: "available",
+    className: "text-success font-medium",
+    evidence: "produced",
+  },
+  absent: {
+    label: "not present",
+    className: "text-muted-foreground italic",
+    evidence: "absent",
+  },
   unavailable: {
     label: "unreadable",
     className: "text-destructive font-medium",
+    evidence: "unavailable",
   },
-} as const;
+} as const satisfies Record<
+  string,
+  { label: string; className: string; evidence: EvidenceState }
+>;
 
 export function CoverageTerm({ children }: { readonly children: ReactNode }) {
   return (
-    <Term label={children}>
+    <Term label={children} technical="Technical: Completeness Statement">
       What the analyzer attempted to read from this Case, and what it got:
       available (parsed fine), not present (the file does not exist), or
       unreadable (exists but could not be parsed — with the reason). Missing
       evidence is shown, never hidden.
-      <span className="mt-1 block font-mono text-[11px] opacity-70">
-        Technical: Completeness Statement
-      </span>
     </Term>
   );
 }

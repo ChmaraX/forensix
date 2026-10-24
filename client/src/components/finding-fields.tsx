@@ -4,9 +4,11 @@
  * reads as `null` and renders as the word "absent" at the call site.
  */
 import { cn } from "../lib.js";
+import { typeClass } from "@/lib/size-context";
 import { COMMIT_META } from "../terms.js";
 import type { CommitState, FieldState } from "../types.js";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip.js";
+import { EvidenceDot } from "./evidence.js";
+import { TermExplanation, TermTooltip } from "./term.js";
 
 /** `"value"`-state non-empty string, or null. */
 export function fieldText(field: FieldState | undefined): string | null {
@@ -108,45 +110,32 @@ export function SiteAvatar({
 }
 
 /**
- * Commit State as a quiet dot-and-word instead of a filled pill: "saved" is
- * the boring default and sits muted; the two recovered states keep their own
- * hue on the dot and the word, with the existing plain-language tooltip.
+ * Commit State as a quiet dot-and-word instead of a filled pill. The word
+ * stays on the two text colors (muted for the boring "saved" default,
+ * foreground for the recovered states); the hue rides the dot alone, with
+ * the plain-language tooltip.
  */
 export function StateWord({ state }: { readonly state: CommitState }) {
   const meta = COMMIT_META[state];
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          className={cn(
-            "inline-flex cursor-help items-center gap-1.5 text-[12px] whitespace-nowrap",
-            state === "committed"
-              ? "text-muted-foreground"
-              : state === "wal_resident"
-                ? "font-medium text-wal"
-                : "font-medium text-violet",
-          )}
-        >
-          <span
-            aria-hidden="true"
-            className={cn(
-              "size-1.5 rounded-full",
-              state === "committed"
-                ? "bg-muted-foreground/50"
-                : state === "wal_resident"
-                  ? "bg-wal"
-                  : "bg-violet",
-            )}
-          />
-          {meta.label}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>
-        {meta.plain}
-        <span className="mt-1 block font-mono text-[11px] opacity-70">
-          {meta.technical}
-        </span>
-      </TooltipContent>
-    </Tooltip>
+    <TermTooltip
+      content={
+        <TermExplanation technical={meta.technical}>
+          {meta.plain}
+        </TermExplanation>
+      }
+    >
+      <span
+        tabIndex={0}
+        className={cn(
+          "inline-flex cursor-help items-center gap-1.5 whitespace-nowrap",
+          typeClass("caption"),
+          state === "committed" ? "text-muted-foreground" : "text-foreground",
+        )}
+      >
+        <EvidenceDot state={meta.badge} />
+        {meta.label}
+      </span>
+    </TermTooltip>
   );
 }

@@ -16,26 +16,49 @@
  * against; it is not enough to test filtering/sorting/pagination behavior.
  *
  * Usage:
- *   node mock/server.mjs [--port 7799]
+ *   node mock/server.mjs [--port 7799] [--bundle <path/to/index.js>]
+ *
+ * The bundle defaults to `client/dist/index.js`. `--bundle`, or the
+ * FORENSIX_CLIENT_BUNDLE / FORENSIX_CLIENT_OUTDIR environment variables, point
+ * it at a bundle built elsewhere, so several mock servers (one per port) can
+ * each serve their own build.
  */
 import { createServer } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { caseData } from "./case-data.mjs";
 
 const mockRoot = dirname(fileURLToPath(import.meta.url));
 const clientRoot = join(mockRoot, "..");
-const distIndexJs = join(clientRoot, "dist", "index.js");
 
 const HOST = "127.0.0.1";
 const MOCK_TOKEN = "mock-token-design-only";
+
+// Mirrors the real server's policy (server/src/index.ts), so a design that
+// needs anything the shipped dashboard cannot load fails here first.
+const CONTENT_SECURITY_POLICY =
+  "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'self'";
 
 function option(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
   return index === -1 ? fallback : process.argv[index + 1];
 }
+
+function bundlePath() {
+  const explicit = option("bundle", process.env.FORENSIX_CLIENT_BUNDLE);
+  if (explicit !== undefined && explicit !== "") {
+    return resolve(explicit);
+  }
+  const outDir = process.env.FORENSIX_CLIENT_OUTDIR;
+  if (outDir !== undefined && outDir !== "") {
+    return join(resolve(outDir), "index.js");
+  }
+  return join(clientRoot, "dist", "index.js");
+}
+
+const distIndexJs = bundlePath();
 
 const port = Number(option("port", "7799"));
 
@@ -73,7 +96,12 @@ function pageOf(items, params) {
     Number.isInteger(requested) && requested > 0
       ? Math.min(requested, items.length)
       : items.length;
-  return { status: "ok", items: items.slice(0, limit), nextCursor: null, limit };
+  return {
+    status: "ok",
+    items: items.slice(0, limit),
+    nextCursor: null,
+    limit,
+  };
 }
 
 function findingRows(rows) {
@@ -88,7 +116,14 @@ function findingRows(rows) {
       commitState,
       provenance,
       fields,
-    }) => ({ recordType, findingKind, profile, commitState, provenance, fields }),
+    }) => ({
+      recordType,
+      findingKind,
+      profile,
+      commitState,
+      provenance,
+      fields,
+    }),
   );
 }
 
@@ -157,7 +192,10 @@ function hostKeyOf(raw) {
       return null;
     }
   }
-  host = host.toLowerCase().replace(/^\.+/, "").replace(/^www\./, "");
+  host = host
+    .toLowerCase()
+    .replace(/^\.+/, "")
+    .replace(/^www\./, "");
   return host === "" ? null : host;
 }
 
@@ -267,6 +305,7 @@ const server = createServer((request, response) => {
   const path = requestUrl.pathname;
 
   if (path === "/" || path === "/index.html") {
+    response.setHeader("content-security-policy", CONTENT_SECURITY_POLICY);
     sendText(response, 200, "text/html; charset=utf-8", htmlShell());
     return;
   }
@@ -277,7 +316,7 @@ const server = createServer((request, response) => {
         response,
         500,
         "text/plain; charset=utf-8",
-        "client/dist/index.js is missing. Run `npm run build` in client/ first.",
+        `${distIndexJs} is missing. Run \`npm run build\` in client/ first.`,
       );
       return;
     }
@@ -319,9 +358,10 @@ server.listen(port, HOST, () => {
   const url = `http://${HOST}:${port}/`;
   console.log(`[forensix mock] design-only Case "${caseData.caseId}"`);
   console.log(`[forensix mock] ready → ${url}`);
+  console.log(`[forensix mock] bundle: ${distIndexJs}`);
   if (!existsSync(distIndexJs)) {
     console.log(
-      "[forensix mock] note: client/dist/index.js not built yet — run `npm run build` first.",
+      `[forensix mock] note: ${distIndexJs} not built yet — run \`npm run build\` first.`,
     );
   }
 });

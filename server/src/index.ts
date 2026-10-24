@@ -688,8 +688,10 @@ function handleRequest(
       // `img-src data:` admits only bytes already inlined in the bundle, which
       // is how the brand mark ships. It grants no origin, so the surface still
       // cannot fetch an image — or anything else — off this machine.
+      // `font-src data:` is the same rule for the one typeface: Inter is
+      // embedded in the bundle's stylesheet as a data: URI, never fetched.
       "content-security-policy":
-        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'",
+        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'self'",
     });
     response.end(htmlShell(token));
     return;

@@ -7,9 +7,9 @@
  * while the preference is "system", and exposes a three-state control.
  */
 import { Monitor, Moon, Sun } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { cn } from "./lib.js";
+import { TabItem, Tabs, TabsList } from "./components/ui/tabs.js";
 
 export type ThemePreference = "light" | "dark" | "system";
 
@@ -17,11 +17,16 @@ const STORAGE_KEY = "forensix.theme";
 const PREFERENCES: readonly ThemePreference[] = ["light", "system", "dark"];
 
 const ICONS = { light: Sun, system: Monitor, dark: Moon } as const;
-const LABELS = {
+const LABELS = { light: "Light", system: "System", dark: "Dark" } as const;
+const DESCRIPTIONS = {
   light: "Light theme",
   system: "Match system theme",
   dark: "Dark theme",
 } as const;
+
+function isPreference(value: string): value is ThemePreference {
+  return value === "light" || value === "dark" || value === "system";
+}
 
 function darkMediaQuery(): MediaQueryList {
   return globalThis.matchMedia("(prefers-color-scheme: dark)");
@@ -58,24 +63,48 @@ function applyPreference(preference: ThemePreference): void {
   document.documentElement.dataset["theme"] = resolved;
 }
 
+/** How long `html.transitioning` stays on: app.css tweens colors for 180ms. */
+const CROSS_FADE_MS = 200;
+
+/**
+ * Applies a theme the user just picked with FF's cross-fade: colors tween
+ * instead of snapping (a color fade, so it stays under reduced motion too).
+ */
+function applyWithCrossFade(preference: ThemePreference): () => void {
+  const root = document.documentElement;
+  root.classList.add("transitioning");
+  applyPreference(preference);
+  const id = setTimeout(() => {
+    root.classList.remove("transitioning");
+  }, CROSS_FADE_MS);
+  return () => {
+    clearTimeout(id);
+    root.classList.remove("transitioning");
+  };
+}
+
 /** Applies the stored theme before first paint. Call once, before render. */
 export function initTheme(): void {
   applyPreference(readPreference());
 }
 
 /**
- * The active segment carries the quiet accent wash — the same treatment as
- * the active nav row — as a plain colour swap, no sliding pill, no spring.
- * On a read-only evidence surface the controls sit still; the one vivid
- * brand block on screen is the logo tile, and this control defers to it.
+ * Three-way theme control on FF's segmented Tabs: the active pill slides
+ * between Light / System / Dark on `spring.moderate`, labels change weight
+ * without shifting, and the whole control sits on the compact ladder step.
  */
 export function ThemeToggle({ className }: { readonly className?: string }) {
   const [preference, setPreference] = useState<ThemePreference>(readPreference);
+  // The first effect run only re-applies what initTheme() already painted;
+  // later runs are user picks and cross-fade.
+  const picked = useRef(false);
 
   useEffect(() => {
-    applyPreference(preference);
+    const cancelFade = picked.current
+      ? applyWithCrossFade(preference)
+      : (applyPreference(preference), undefined);
     if (preference !== "system") {
-      return;
+      return cancelFade;
     }
     const media = darkMediaQuery();
     const onChange = () => {
@@ -83,49 +112,39 @@ export function ThemeToggle({ className }: { readonly className?: string }) {
     };
     media.addEventListener("change", onChange);
     return () => {
+      cancelFade?.();
       media.removeEventListener("change", onChange);
     };
   }, [preference]);
 
-  const choose = useCallback((next: ThemePreference) => {
+  const choose = useCallback((next: string) => {
+    if (!isPreference(next)) {
+      return;
+    }
+    picked.current = true;
     setPreference(next);
     writePreference(next);
   }, []);
 
   return (
-    <div
-      role="radiogroup"
-      aria-label="Theme"
-      className={cn(
-        "inline-flex items-center gap-0.5 rounded-full border border-border bg-card p-0.5",
-        className,
-      )}
+    <Tabs
+      size="compact"
+      value={preference}
+      onValueChange={choose}
+      className={className}
     >
-      {PREFERENCES.map((option) => {
-        const Icon = ICONS[option];
-        const active = preference === option;
-        return (
-          <button
+      <TabsList aria-label="Theme" className="w-full">
+        {PREFERENCES.map((option) => (
+          <TabItem
             key={option}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            title={LABELS[option]}
-            aria-label={LABELS[option]}
-            onClick={() => {
-              choose(option);
-            }}
-            className={cn(
-              "flex size-9 cursor-pointer items-center justify-center rounded-full transition-colors duration-150",
-              active
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            <Icon aria-hidden="true" className="size-3.5" />
-          </button>
-        );
-      })}
-    </div>
+            value={option}
+            icon={ICONS[option]}
+            label={LABELS[option]}
+            title={DESCRIPTIONS[option]}
+            className="flex-1 justify-center"
+          />
+        ))}
+      </TabsList>
+    </Tabs>
   );
 }

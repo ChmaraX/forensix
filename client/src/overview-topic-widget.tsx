@@ -25,7 +25,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "./components/ui/card.js";
+} from "./components/compat/card.js";
 import {
   Sheet,
   SheetContent,
