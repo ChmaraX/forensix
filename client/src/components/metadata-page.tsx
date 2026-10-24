@@ -1,28 +1,25 @@
 /**
  * The Browser profile page.
  *
- * Metadata is not a stream of events, so this page does not draw a timeline.
- * It reads the two things the Metadata artifact actually carries and frames
- * each as what an examiner asks of it:
+ * Metadata is not a stream of events, so this page draws no timeline. It
+ * reads what the Metadata artifact carries, each framed as what an examiner
+ * asks of it:
  *
  *  - the one browser-level Finding (Local State) — the environment: which
- *    Chrome, which locale region, how many profiles — read as an environment
- *    panel;
+ *    Chrome, how many profiles, which was last used, which variations
+ *    region — read as the page's figure strip;
  *  - the encryption posture the whole Case inherits, read straight off the
- *    two OS-crypt key-presence booleans and stated in the terms that decide
- *    whether encrypted evidence can be read at all;
+ *    two OS-crypt key-presence booleans, each a worded state;
  *  - one profile-level Finding per Profile (Preferences + info_cache) — the
- *    account behind each profile — read as a grid of FF cards (fluid hover),
- *    each carrying two derived, plain-language badges: how the profile last
- *    shut down (clean exit vs crash) and whether it is a signed-in account or
- *    a default local profile.
+ *    account behind each profile — as a grid of FF cards (fluid hover), each
+ *    with two plain-language badges: how the profile last shut down and
+ *    whether it is a signed-in account or a local profile.
  *
- * Every derived badge is a reading of a value the row already carries, never
- * a new fact: an absent or unavailable source field collapses its badge to
- * the same worded state the field list shows, so a conclusion is never
- * asserted past the evidence. The environment, the encryption posture and
- * the profile cards read the saved rows only. "All recorded fields" keeps
- * every curated field of every row verbatim, stacked one row after another
+ * Every derived badge is a reading of a value the row already carries,
+ * never a new fact: an absent or unavailable source field collapses its
+ * badge to the same worded state the field list shows. The strip, the
+ * posture and the cards read the saved rows only. "All recorded fields"
+ * keeps every curated field of every row verbatim, one row after another
  * (or one row picked from the toolbar), with saved rows and rows recovered
  * from the WAL / rollback journal as separate server reads behind the
  * Saved / Recovered switch; the detail sheet keeps every wire field and its
@@ -32,33 +29,9 @@
  * distinct words, never colour alone; saved and recovered rows are never
  * mixed; nothing here is inference presented as a factual summary tile.
  */
-import {
-  Chrome,
-  Globe2,
-  KeyRound,
-  Lock,
-  Search,
-  ShieldCheck,
-  Unlock,
-  UserRound,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  Panel,
-  PanelContent,
-  PanelDescription,
-  PanelHeader,
-  PanelTitle,
-} from "@/components/panel";
+import { Panel } from "@/components/panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,6 +49,12 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
+import {
+  BrowserIcon,
+  SearchIcon,
+  UserIcon,
+  type AppIcon,
+} from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
@@ -88,19 +67,24 @@ import {
   useCommitStateLists,
 } from "../use-commit-state-lists.js";
 import { EmptyRows } from "./data-table.js";
-import { EvidenceBadge, type EvidenceState } from "./evidence.js";
+import { EvidenceBadge, EvidenceDot, type EvidenceState } from "./evidence.js";
 import { MaybeFieldStateText } from "./field-state.js";
-import { fieldBool, fieldString, StateWord } from "./finding-fields.js";
+import {
+  fieldBool,
+  fieldString,
+  profileLabel,
+  StateWord,
+} from "./finding-fields.js";
 import { FilterField, FilterTextField } from "./filters.js";
-import { ListBlock } from "./list-states.js";
+import { ListBlock, RevealSwap } from "./list-states.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import {
   CommitStateSplit,
   type CommitView,
-  IconTile,
-  plural,
   SectionPanel,
   Toolbar,
 } from "./page-kit.js";
+import { Term } from "./term.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
 /** Browser row first, then profiles; each Commit State is its own read. */
@@ -129,11 +113,6 @@ function useMediaQuery(query: string): boolean {
 }
 
 /* ------------------------- Field readers (never invent) ------------------- */
-
-/** A stable, human label for a profile directory key (`.` is the sole profile). */
-function profileLabel(profile: string): string {
-  return profile === "." ? "Default profile" : profile;
-}
 
 /** The best human name a row carries: full name, profile name, then its key. */
 function rowHeadline(row: Finding): string {
@@ -206,28 +185,18 @@ function ReadingBadge({ reading }: { readonly reading: Reading }) {
 
 /* ------------------------------ Shared pieces ----------------------------- */
 
-/** A label over a value: the key/value pair every panel here is made of. */
+/** A label over a value: the key/value pair a profile card is made of. */
 function Fact({
-  icon: Icon,
   label,
   field,
 }: {
-  readonly icon?: LucideIcon;
   readonly label: string;
   readonly field: FieldState | undefined;
 }) {
   const size = useSize();
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <dt
-        className={cn(
-          size.type.caption,
-          "flex items-center gap-1.5 text-muted-foreground",
-        )}
-      >
-        {Icon === undefined ? null : (
-          <Icon aria-hidden="true" size={size.icon} strokeWidth={1.5} />
-        )}
+      <dt className={cn(size.type.caption, "text-muted-foreground")}>
         {label}
       </dt>
       <dd className="min-w-0 text-foreground">
@@ -237,89 +206,43 @@ function Fact({
   );
 }
 
-/** A Panel whose header carries an IconTile beside its title and
- *  description; a labelled region. */
-function IconPanel({
-  id,
-  icon,
-  title,
-  description,
-  children,
-}: {
-  readonly id: string;
-  readonly icon: LucideIcon;
-  readonly title: string;
-  readonly description: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <Panel role="region" aria-labelledby={id} className="h-full">
-      <PanelHeader>
-        <div className="flex min-w-0 items-center gap-3">
-          <IconTile icon={icon} />
-          <div className="flex min-w-0 flex-col">
-            <PanelTitle id={id} className="truncate">
-              {title}
-            </PanelTitle>
-            <PanelDescription>{description}</PanelDescription>
-          </div>
-        </div>
-      </PanelHeader>
-      {children}
-    </Panel>
+/** A recorded value as a strip figure; any other state keeps its own word. */
+function FieldFigure({ field }: { readonly field: FieldState | undefined }) {
+  const text = fieldString(field);
+  return text === null ? (
+    <MaybeFieldStateText field={field} truncate />
+  ) : (
+    <span title={text}>{text}</span>
   );
 }
 
-/* --------------------------- Environment panel ---------------------------- */
+/* ---------------------------- Environment strip --------------------------- */
 
 /**
- * The environment — the saved browser-level Metadata Finding, framed as the
- * machine context every profile below sits inside.
+ * The environment — the saved browser-level Metadata Finding (Local State)
+ * as the page's one figure strip: the machine context every profile below
+ * sits inside.
  */
-function EnvironmentPanel({ browser }: { readonly browser: Finding | null }) {
-  const chromeVersion =
-    browser === null ? null : fieldString(browser.fields.chromeVersion);
+function EnvironmentStrip({ browser }: { readonly browser: Finding }) {
   return (
-    <IconPanel
-      id="metadata-environment"
-      icon={Chrome}
-      title={
-        chromeVersion === null ? "Chrome browser" : `Chrome ${chromeVersion}`
-      }
-      description="Environment recorded in Local State"
-    >
-      <PanelContent className="pt-3">
-        {browser === null ? (
-          <EmptyRows
-            className="py-6"
-            message="No saved browser-level metadata in this Case."
-          />
-        ) : (
-          <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
-            <Fact
-              icon={Users}
-              label="Profiles on device"
-              field={browser.fields.profileCount}
-            />
-            <Fact
-              icon={UserRound}
-              label="Last used profile"
-              field={browser.fields.lastUsedProfile}
-            />
-            <Fact
-              icon={Globe2}
-              label="Variations region"
-              field={browser.fields.variationsCountry}
-            />
-            <Fact
-              icon={Chrome}
-              label="Chrome version"
-              field={browser.fields.chromeVersion}
-            />
-          </dl>
-        )}
-      </PanelContent>
-    </IconPanel>
+    <MetricBand className="grid-cols-2 lg:grid-cols-4">
+      <MetricBandItem
+        label="Chrome version"
+        value={<FieldFigure field={browser.fields.chromeVersion} />}
+      />
+      <MetricBandItem
+        label="Profiles on device"
+        value={<FieldFigure field={browser.fields.profileCount} />}
+      />
+      <MetricBandItem
+        label="Last used profile"
+        value={<FieldFigure field={browser.fields.lastUsedProfile} />}
+      />
+      <MetricBandItem
+        label="Variations region"
+        value={<FieldFigure field={browser.fields.variationsCountry} />}
+      />
+    </MetricBand>
   );
 }
 
@@ -327,9 +250,9 @@ function EnvironmentPanel({ browser }: { readonly browser: Finding | null }) {
 
 /**
  * One key-presence reading. A recorded `true` means the key material is on
- * disk (evidence can be decrypted with the OS keyring); `false` means it is
- * not; an absent/unavailable source field keeps its own worded state and no
- * yes/no is claimed.
+ * disk; `false` means it is not; an absent/unavailable source field keeps
+ * its own worded state and no yes/no is claimed. What the key protects is
+ * the label's tooltip.
  */
 function KeyState({
   label,
@@ -344,38 +267,40 @@ function KeyState({
   const reading: {
     readonly word: string;
     readonly state: EvidenceState;
-    readonly icon: LucideIcon;
   } | null =
     present === true
-      ? { word: "present", state: "produced", icon: Lock }
+      ? { word: "present", state: "produced" }
       : present === false
-        ? { word: "not present", state: "warning", icon: Unlock }
+        ? { word: "not present", state: "warning" }
         : null;
   return (
-    <li className="flex items-center gap-3 py-3">
-      <IconTile icon={reading?.icon ?? KeyRound} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <p className={cn(typeClass("body"), "text-foreground")}>{label}</p>
-        <p className={cn(typeClass("caption"), "text-muted-foreground")}>
-          {detail}
-        </p>
-      </div>
-      <div className="shrink-0">
+    <li
+      className={cn(
+        typeClass("body"),
+        "flex min-h-11 items-center justify-between gap-3 py-2",
+      )}
+    >
+      <span className="min-w-0 text-foreground">
+        <Term label={label}>{detail}</Term>
+      </span>
+      <span className="shrink-0">
         {reading === null ? (
           <MaybeFieldStateText field={field} />
         ) : (
-          <EvidenceBadge state={reading.state}>{reading.word}</EvidenceBadge>
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground">
+            <EvidenceDot state={reading.state} />
+            {reading.word}
+          </span>
         )}
-      </div>
+      </span>
     </li>
   );
 }
 
 /**
- * The encryption posture — the two OS-crypt key-presence booleans read as
- * what they decide: whether the analyzer's host can decrypt this Case's
- * cookies, passwords, and payment data at all. Still worded, never a
- * colour-only verdict.
+ * The encryption posture — the two OS-crypt key-presence booleans, each a
+ * worded state. What the pair decides (whether this Case's cookies,
+ * passwords and payment data can be decrypted) is the title's tooltip.
  */
 function EncryptionPanel({ browser }: { readonly browser: Finding }) {
   const standard = fieldBool(browser.fields.osCryptKeyPresent);
@@ -389,27 +314,24 @@ function EncryptionPanel({ browser }: { readonly browser: Finding }) {
         ? "No standard key on disk: encrypted values will not decrypt from this evidence."
         : "Key presence could not be read from Local State.";
   return (
-    <IconPanel
+    <SectionPanel
       id="metadata-encryption"
-      icon={ShieldCheck}
-      title="Encryption posture"
-      description={summary}
+      title={<Term label="Encryption posture">{summary}</Term>}
+      className="min-w-0"
     >
-      <PanelContent className="pt-1 pb-1">
-        <ul className="flex flex-col divide-y divide-border">
-          <KeyState
-            label="Standard OS-crypt key"
-            detail="Protects cookies, saved logins, and autofill values."
-            field={browser.fields.osCryptKeyPresent}
-          />
-          <KeyState
-            label="App-bound encryption key"
-            detail="Newer, app-scoped key for the most sensitive values."
-            field={browser.fields.osCryptAppBoundKeyPresent}
-          />
-        </ul>
-      </PanelContent>
-    </IconPanel>
+      <ul className="flex flex-col divide-y divide-border px-4 pb-2">
+        <KeyState
+          label="Standard OS-crypt key"
+          detail="Protects cookies, saved logins, and autofill values."
+          field={browser.fields.osCryptKeyPresent}
+        />
+        <KeyState
+          label="App-bound encryption key"
+          detail="Newer, app-scoped key for the most sensitive values."
+          field={browser.fields.osCryptAppBoundKeyPresent}
+        />
+      </ul>
+    </SectionPanel>
   );
 }
 
@@ -462,7 +384,7 @@ function ProfileCard({
             <span
               className={cn(
                 typeClass("caption"),
-                "truncate font-mono text-muted-foreground",
+                "truncate text-muted-foreground",
               )}
             >
               {profileLabel(row.profile)}
@@ -480,9 +402,13 @@ function ProfileCard({
       ) : null}
       <CardContent className="pt-4">
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <Fact label="Account e-mail" field={row.fields.accountEmail} />
-          <Fact label="Locale" field={row.fields.accountLocale} />
+          {/* The e-mail gets the card's full width so an address is read
+              whole, not cut. */}
+          <div className="col-span-2 min-w-0">
+            <Fact label="Account e-mail" field={row.fields.accountEmail} />
+          </div>
           <Fact label="Profile name" field={row.fields.profileName} />
+          <Fact label="Locale" field={row.fields.accountLocale} />
           <Fact
             label="Created by version"
             field={row.fields.createdByVersion}
@@ -557,7 +483,8 @@ function RowFields({
   const unlisted = Object.keys(row.fields).filter(
     (key) => !LISTED_KEYS.has(key),
   ).length;
-  const Icon = row.findingKind === "browser_metadata" ? Chrome : UserRound;
+  const browserRow = row.findingKind === "browser_metadata";
+  const Icon: AppIcon = browserRow ? BrowserIcon : UserIcon;
   return (
     <section
       aria-label={`Recorded fields of ${rowHeadline(row)}`}
@@ -577,8 +504,7 @@ function RowFields({
           {rowHeadline(row)}
         </h3>
         <span className={cn(typeClass("caption"), "text-muted-foreground")}>
-          {row.findingKind === "browser_metadata" ? "Browser" : "Profile"} ·{" "}
-          <span className="font-mono">{profileLabel(row.profile)}</span>
+          {browserRow ? "Browser" : profileLabel(row.profile)}
         </span>
         {row.commitState === "committed" ? null : (
           <StateWord state={row.commitState} />
@@ -610,14 +536,19 @@ function RowFields({
         ))}
       </dl>
       {unlisted > 0 ? (
-        <p
-          className={cn(
-            typeClass("caption"),
-            "px-4 pt-2 text-muted-foreground",
-          )}
-        >
-          {plural(unlisted, "more field", "more fields")} in the row detail.
-        </p>
+        <div className="px-4 pt-1.5">
+          <Button
+            variant="ghost"
+            size="compact"
+            className="-ml-2 text-muted-foreground"
+            aria-label={`Open the row detail: ${String(unlisted)} more ${unlisted === 1 ? "field" : "fields"}`}
+            onClick={() => {
+              onSelect(row);
+            }}
+          >
+            {`+${String(unlisted)} ${unlisted === 1 ? "field" : "fields"}`}
+          </Button>
+        </div>
       ) : null}
     </section>
   );
@@ -709,7 +640,7 @@ function RowPicker({
   );
 }
 
-/** Stands in for the environment and encryption panels and the profile
+/** Stands in for the figure strip, the encryption posture and the profile
  *  grid while the first saved page loads, at their size. */
 function FiguresSkeleton() {
   return (
@@ -718,11 +649,11 @@ function FiguresSkeleton() {
       role="status"
       aria-label="Loading browser profile metadata"
     >
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-[188px] w-full rounded-xl" />
-        <Skeleton className="h-[188px] w-full rounded-xl" />
+      <Skeleton className="h-[148px] w-full rounded-xl lg:h-[74px]" />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Skeleton className="h-[150px] w-full rounded-xl" />
+        <Skeleton className="h-[260px] w-full rounded-xl lg:col-span-2" />
       </div>
-      <Skeleton className="h-[260px] w-full rounded-xl" />
     </div>
   );
 }
@@ -736,7 +667,6 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
   const [view, setView] = useState<CommitView>("saved");
   const [focus, setFocus] = useState<string>(ALL_ROWS);
   const wide = useMediaQuery("(min-width: 768px)");
-  const extraWide = useMediaQuery("(min-width: 1280px)");
 
   const savedRows = lists.saved.rows;
   const recoveredRows = lists.recovered.rows;
@@ -770,10 +700,7 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
   }, [profiles, search]);
 
   const profilesFiltered = visibleProfiles.length !== profiles.length;
-  const columns = Math.max(
-    1,
-    Math.min(visibleProfiles.length, extraWide ? 3 : wide ? 2 : 1),
-  );
+  const columns = Math.max(1, Math.min(visibleProfiles.length, wide ? 2 : 1));
 
   const select = useCallback((row: Finding) => {
     setSelected({ kind: "finding", row });
@@ -807,7 +734,7 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
       {pageEmpty ? (
         <Panel>
           <EmptyRows
-            icon={UserRound}
+            icon={UserIcon}
             title="No browser profile metadata"
             message="No Metadata rows in this Case, saved or recovered."
           />
@@ -815,26 +742,15 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
       ) : (
         <>
           {showFigures ? (
-            <div className="reveal-swap">
-              <FiguresSkeleton />
-              {savedFirst ? null : (
-                <div className="flex flex-col gap-5">
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div
-                      className={cn(
-                        "flex min-w-0 flex-col",
-                        browser === null && "lg:col-span-2",
-                      )}
-                    >
-                      <EnvironmentPanel browser={browser} />
-                    </div>
-                    {browser === null ? null : (
-                      <div className="flex min-w-0 flex-col">
-                        <EncryptionPanel browser={browser} />
-                      </div>
-                    )}
-                  </div>
-
+            <RevealSwap loading={savedFirst} skeleton={<FiguresSkeleton />}>
+              <div className="flex flex-col gap-5">
+                {browser === null ? null : (
+                  <EnvironmentStrip browser={browser} />
+                )}
+                <div className="grid items-start gap-4 lg:grid-cols-3">
+                  {browser === null ? null : (
+                    <EncryptionPanel browser={browser} />
+                  )}
                   <SectionPanel
                     id="metadata-profiles"
                     title="Profiles"
@@ -843,14 +759,17 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
                         ? `${String(visibleProfiles.length)} of ${String(profiles.length)}`
                         : profiles.length
                     }
-                    description="Saved profile rows. Recovered rows are listed under All recorded fields."
+                    className={cn(
+                      "min-w-0",
+                      browser === null ? "lg:col-span-3" : "lg:col-span-2",
+                    )}
                   >
                     {profiles.length > 3 ? (
                       <Toolbar>
                         <FilterTextField
                           commit="change"
                           label="Search loaded profiles"
-                          icon={Search}
+                          icon={SearchIcon}
                           placeholder="Search profile or account"
                           value={search}
                           onCommit={setSearch}
@@ -893,15 +812,11 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
                     )}
                   </SectionPanel>
                 </div>
-              )}
-            </div>
+              </div>
+            </RevealSwap>
           ) : null}
 
-          <SectionPanel
-            id="metadata-fields"
-            title="All recorded fields"
-            description="Each Metadata row's examiner-first fields, verbatim, one row after another. Every wire field and its source row are in the row detail."
-          >
+          <SectionPanel id="metadata-fields" title="All recorded fields">
             <CommitStateSplit
               value={view}
               onValueChange={(next) => {

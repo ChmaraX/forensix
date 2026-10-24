@@ -3,131 +3,51 @@
  *
  * Chrome's autofill store is the one evidence set that holds what the person
  * *typed* — names, e-mails, addresses, payment names, and free-text search
- * queries they let the browser remember. So this page is built around the two
- * questions an examiner asks of it first: what kinds of personal data does
- * this browser hold, and which entries did the person actually reuse.
- *
- * Three derived reads sit above the raw table, each computed only from fields
- * the saved rows already carry — never a new query, never an invented figure:
- *
- *  - a category breakdown that groups Chrome's raw field names (EMAIL_ADDRESS,
- *    ADDRESS_HOME_ZIP, search-query, …) into the plain-language classes an
- *    examiner reasons in (Payment, Identity, Contact, Address, Searches,
- *    Other). The mapping is a fixed rule stated below, not a guess: the field
- *    name Chrome recorded fully determines the class. Each class doubles as a
- *    filter for the lists;
- *  - a reuse leaderboard, ranked by the browser's own `timesUsed` count — the
- *    values the person filled most often;
- *  - a creation-over-time area, one point per week, drawn only across weeks
- *    the evidence actually spans.
+ * queries they let the browser remember. Two figures sit above the table:
+ * how many entries were saved, and how many of them carry directly
+ * identifying or financial data. The table's category chips group Chrome's
+ * raw field names (EMAIL_ADDRESS, ADDRESS_HOME_ZIP, search-query, …) into the
+ * classes an examiner reasons in (Payment, Identity, Contact, Address,
+ * Searches, Other) by the fixed rule in `form-data.ts` — a restatement of
+ * the recorded name, never a guess about the value.
  *
  * Payment-category values (card, CVC, IBAN, wallet, account fields) are
- * secrets: they read "value hidden" everywhere — table, leaderboard, tile,
- * accessible names — until the page's "Show values" switch is on, are left
- * out of the search text while hidden, and stay hidden in the row sheet
- * behind its own Reveal control.
+ * secrets: they read "value hidden" in the table until the page's "Show
+ * values" switch is on, are left out of the search text while hidden, and
+ * stay hidden in the row sheet behind its own Reveal.
  *
- * Presentation rules kept: TYPE (the field type) is the first table column;
- * saved entries and entries recovered from WAL / journal sidecars are
- * separate server reads and separate lists (the Saved / Recovered switch),
- * never sorted together, and every figure counts saved entries only;
- * (empty) / absent / unavailable render as their own words. No control here
- * can start or rerun ingest, analysis, or export.
+ * TYPE (the field type) is the first table column. Saved entries and entries
+ * recovered from WAL / journal sidecars are separate server reads and
+ * separate lists (the Saved / Recovered tabs); the figures count saved
+ * entries only. No control here can start or rerun ingest, analysis, or
+ * export.
  */
-import { ClipboardList, Search } from "lucide-react";
-import {
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip as ChartTooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { useCallback, useMemo, useState } from "react";
 
 import { Panel } from "@/components/panel";
-import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
-import {
-  Card,
-  CardDescription,
-  CardFooter,
-  CardGroup,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  useFluidHover,
-  useRegisterFluidHoverItem,
-} from "@/hooks/use-fluid-hover";
-import { fontWeights } from "@/lib/font-weight";
-import { useShape } from "@/lib/shape-context";
-import { SizeProvider, typeClass } from "@/lib/size-context";
-import { cn } from "@/lib/utils";
+import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle";
+import { Tooltip } from "@/components/ui/tooltip";
+import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
 
 import type { QueryParameters } from "../api.js";
-import type { ArtifactConfig, FieldState, Finding } from "../types.js";
+import type { ArtifactConfig, Finding } from "../types.js";
 import {
   useCommitStateLists,
   type PaginatedList,
 } from "../use-commit-state-lists.js";
-import { ChartSection } from "./chart-section.js";
+import { EmptyRows } from "./data-table.js";
 import {
-  CHART_FOCUS_CLASS,
-  chartAnimation,
-  chartAxis,
-  chartGrid,
-  ChartEmpty,
-  ChartTooltipCard,
-  ChartTooltipValue,
-  chartTooltipMotion,
-  tooltipEntry,
-  useChartTokens,
-  usePrefersReducedMotion,
-  type ChartTokens,
-} from "./charts.js";
-import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
-import {
-  CARD_TITLE_CLEAR,
   CommitStateSplit,
-  Count,
-  formatDayTick,
-  plural,
+  ResponsiveRows,
   SectionPanel,
-  ShareBar,
   TimeCell,
   type CommitView,
+  type RowColumn,
 } from "./page-kit.js";
-import {
-  FieldCell,
-  fieldInteger,
-  fieldText,
-  fieldUtc,
-  StateWord,
-} from "./finding-fields.js";
-import { FilterField, FilterTextField } from "./filters.js";
+import { FieldCell, fieldText, StateWord } from "./finding-fields.js";
+import { FilterTextField } from "./filters.js";
 import {
   categoryOf,
   FORM_DATA_CATEGORIES,
@@ -136,9 +56,10 @@ import {
   PAYMENT_SECRET_FIELDS,
   type FormDataCategory,
 } from "./form-data.js";
-import { ListBlock } from "./list-states.js";
+import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { HiddenValue, RowSheet, type SelectedRow } from "./row-sheet.js";
+import { Term } from "./term.js";
 
 /* ------------------------------ data reading ------------------------------ */
 
@@ -149,8 +70,8 @@ const AUTOFILL_PARAMETERS: QueryParameters = [
 ];
 
 /** Rows read per list before the page stops following the cursor. The
- *  derived reads above the table are only honest if they cover the whole
- *  set, so every page is read rather than the first screen. */
+ *  figures above the table are only honest if they cover the whole set, so
+ *  every page is read rather than the first screen. */
 const AUTOFILL_ROW_CAP = 6000;
 
 /**
@@ -177,39 +98,10 @@ function readableFieldType(fieldName: string | null): string | null {
     .join(" ");
 }
 
-/** A field as one word for an accessible name or a caption: the value, or
- *  "(empty)" / "absent" / "unavailable" — never a blank. */
-function fieldWord(field: FieldState | undefined): string {
-  if (field === undefined || field.state === "absent") {
-    return "absent";
-  }
-  if (field.state === "unavailable") {
-    return "unavailable";
-  }
-  if (field.value === "" || field.value === null) {
-    return "(empty)";
-  }
-  return typeof field.value === "string" ? field.value : String(field.value);
-}
-
 /** True for a Payment entry that carries a recorded, non-empty value — the
  *  secret the page withholds until "Show values" is on. */
 function holdsSecret(entry: Entry): boolean {
   return entry.category.key === PAYMENT_KEY && entry.value !== null;
-}
-
-/** The ISO Monday of the UTC week a timestamp falls in, as `YYYY-MM-DD`. */
-function weekKey(utc: string): string | null {
-  const parsed = new Date(utc);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-  const day = parsed.getUTCDay();
-  const mondayOffset = (day + 6) % 7;
-  const monday = new Date(parsed);
-  monday.setUTCDate(parsed.getUTCDate() - mondayOffset);
-  monday.setUTCHours(0, 0, 0, 0);
-  return monday.toISOString().slice(0, 10);
 }
 
 /* ------------------------------ derived reads ----------------------------- */
@@ -220,7 +112,6 @@ interface Entry {
   readonly value: string | null;
   readonly type: string | null;
   readonly category: FormDataCategory;
-  readonly timesUsed: number;
 }
 
 function toEntry(row: Finding): Entry {
@@ -230,468 +121,91 @@ function toEntry(row: Finding): Entry {
     value: fieldText(row.fields.fieldValue),
     type: readableFieldType(type),
     category: categoryOf(type),
-    timesUsed: fieldInteger(row.fields.timesUsed) ?? 0,
   };
 }
 
-interface Derived {
-  readonly total: number;
-  readonly distinctTypes: number;
-  readonly sensitive: number;
-  readonly hasPayment: boolean;
-  readonly categories: readonly {
-    readonly category: FormDataCategory;
-    readonly count: number;
-  }[];
-  /** Saved entries by recorded fill count, most first. */
-  readonly ranked: readonly Entry[];
-  readonly weeks: readonly { readonly week: string; readonly count: number }[];
-}
-
-/** Every read the page shows above the table, from the saved entries.
- *  Identity + Contact + Address + Payment is the "sensitive" tally: the
- *  entries that carry directly identifying or financial data, as opposed to
- *  search text. */
-function derive(entries: readonly Entry[]): Derived {
-  const counts = new Map<string, number>();
-  const distinct = new Set<string>();
-  let sensitive = 0;
-  for (const entry of entries) {
-    const key = entry.category.key;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-    const name = fieldText(entry.row.fields.fieldName);
-    if (name !== null) {
-      distinct.add(name);
-    }
-    if (key !== "searches" && key !== "other") {
-      sensitive += 1;
-    }
-  }
-
-  const weekCounts = new Map<string, number>();
-  for (const entry of entries) {
-    const created = fieldUtc(entry.row.fields.dateCreated);
-    const key = created === null ? null : weekKey(created);
-    if (key !== null) {
-      weekCounts.set(key, (weekCounts.get(key) ?? 0) + 1);
-    }
-  }
-
-  return {
-    total: entries.length,
-    distinctTypes: distinct.size,
-    sensitive,
-    hasPayment: (counts.get(PAYMENT_KEY) ?? 0) > 0,
-    categories: FORM_DATA_CATEGORIES.map((category) => ({
-      category,
-      count: counts.get(category.key) ?? 0,
-    })).filter((entry) => entry.count > 0),
-    ranked: [...entries]
-      .filter((entry) => entry.timesUsed > 0)
-      .sort((left, right) => right.timesUsed - left.timesUsed),
-    weeks: [...weekCounts.entries()]
-      .map(([week, count]) => ({ week, count }))
-      .sort((left, right) => left.week.localeCompare(right.week)),
-  };
-}
-
-/* --------------------------------- widgets -------------------------------- */
-
-const WIDE = "(min-width: 1024px)";
-const MEDIUM = "(min-width: 640px)";
-
-function subscribeColumns(onChange: () => void): () => void {
-  const wide = globalThis.matchMedia(WIDE);
-  const medium = globalThis.matchMedia(MEDIUM);
-  wide.addEventListener("change", onChange);
-  medium.addEventListener("change", onChange);
-  return () => {
-    wide.removeEventListener("change", onChange);
-    medium.removeEventListener("change", onChange);
-  };
-}
-
-function readColumns(): number {
-  if (globalThis.matchMedia(WIDE).matches) {
-    return 3;
-  }
-  return globalThis.matchMedia(MEDIUM).matches ? 2 : 1;
-}
-
-/**
- * The category breakdown: each class as an FF Card — its name, what it
- * covers, its count and share of the saved entries. Picking a class narrows
- * both lists to it (a second pick clears). Counts the rows carry, never a
- * score or a projection; the class name is the label, no hue stands in.
- */
-function CategoryBreakdown({
-  categories,
-  total,
-  activeKey,
-  onPick,
-}: {
-  readonly categories: Derived["categories"];
-  readonly total: number;
-  readonly activeKey: string | null;
-  readonly onPick: (key: string) => void;
-}) {
-  const columns = useSyncExternalStore(subscribeColumns, readColumns);
-  if (total === 0 || categories.length === 0) {
-    return null;
-  }
-  return (
-    <SectionPanel
-      id="autofill-categories"
-      title="Saved data by category"
-      description="Chrome's field types in the saved entries, grouped into what they describe. Pick one to narrow the lists."
-    >
-      <div className="p-1">
-        <SizeProvider size="compact">
-          <CardGroup orientation="inline" columns={columns}>
-            {categories.map((entry) => (
-              <Card
-                key={entry.category.key}
-                label={`Narrow the lists to ${entry.category.label}`}
-                selected={activeKey === entry.category.key}
-                onClick={() => {
-                  onPick(entry.category.key);
-                }}
-              >
-                <CardHeader className="min-w-0">
-                  <CardTitle className={CARD_TITLE_CLEAR}>
-                    {entry.category.label}
-                  </CardTitle>
-                  <CardDescription
-                    className={cn(typeClass("caption"), "truncate")}
-                    title={entry.category.hint}
-                  >
-                    {entry.category.hint}
-                  </CardDescription>
-                </CardHeader>
-                <CardFooter className="pointer-events-none flex-col items-end gap-0">
-                  <span
-                    className={cn(
-                      typeClass("body"),
-                      "text-foreground tabular-nums",
-                    )}
-                    style={{ fontVariationSettings: fontWeights.semibold }}
-                  >
-                    {entry.count.toLocaleString("en-US")}
-                  </span>
-                  <Count>{`${String(Math.round((entry.count / total) * 100))}%`}</Count>
-                </CardFooter>
-              </Card>
-            ))}
-          </CardGroup>
-        </SizeProvider>
-      </div>
-    </SectionPanel>
-  );
-}
-
-const REUSE_LIMIT = 6;
-
-/**
- * The reuse leaderboard: the saved entries with the highest recorded
- * `timesUsed`, i.e. the values the person filled most often. Each row opens
- * its full record. An entry with no recorded use count sits out of this list
- * entirely rather than being ranked at zero.
- */
-function ReuseLeaderboard({
-  ranked,
-  reveal,
-  onSelect,
-}: {
-  readonly ranked: readonly Entry[];
-  readonly reveal: boolean;
-  readonly onSelect: (row: Finding) => void;
-}) {
-  const top = ranked.slice(0, REUSE_LIMIT);
-  const peak = top[0]?.timesUsed ?? 0;
-  const listRef = useRef<HTMLDivElement>(null);
-  const hover = useFluidHover(listRef, { axis: "y" });
-  const shape = useShape();
-  const hidesAny = !reveal && top.some(holdsSecret);
-  return (
-    <SectionPanel
-      id="autofill-reuse"
-      className="h-full"
-      title="Most-used entries"
-      description={
-        hidesAny
-          ? "Saved entries by recorded fills. Payment values stay hidden until Show values is on."
-          : "Saved entries by how many times Chrome recorded the value being filled."
-      }
-    >
-      {top.length === 0 ? (
-        <ChartEmpty>No saved entry carries a recorded fill count.</ChartEmpty>
-      ) : (
-        <div ref={listRef} {...hover.handlers} className="relative px-1 pb-1">
-          <FluidHoverHighlight hover={hover} className={shape.item} />
-          <ol className="flex flex-col">
-            {top.map((entry, index) => (
-              <ReuseRow
-                key={`${entry.category.key}-${String(index)}`}
-                index={index}
-                registerItem={hover.registerItem}
-                entry={entry}
-                hidden={!reveal && holdsSecret(entry)}
-                peak={peak}
-                onOpen={() => {
-                  onSelect(entry.row);
-                }}
-              />
-            ))}
-          </ol>
-        </div>
-      )}
-    </SectionPanel>
-  );
-}
-
-function ReuseRow({
-  index,
-  registerItem,
-  entry,
-  hidden,
-  peak,
-  onOpen,
-}: {
-  readonly index: number;
-  readonly registerItem: (index: number, element: HTMLElement | null) => void;
-  readonly entry: Entry;
-  readonly hidden: boolean;
-  readonly peak: number;
-  readonly onOpen: () => void;
-}) {
-  const ref = useRef<HTMLButtonElement>(null);
-  const shape = useShape();
-  useRegisterFluidHoverItem(registerItem, index, ref);
-  const spoken = hidden
-    ? `${entry.category.label} value hidden`
-    : fieldWord(entry.row.fields.fieldValue);
-  return (
-    <li>
-      <button
-        ref={ref}
-        type="button"
-        onClick={onOpen}
-        aria-label={`Open ${spoken}, ${entry.category.label}, filled ${plural(entry.timesUsed, "time", "times")}`}
-        className={cn(
-          "relative grid h-9 w-full cursor-pointer grid-cols-[1rem_minmax(0,1fr)_4.5rem_auto] items-center gap-3 px-3 text-left outline-none focus-visible:ring-1 focus-visible:ring-focus-ring",
-          shape.item,
-        )}
-      >
-        <span
-          className={cn(
-            typeClass("caption"),
-            "text-center text-muted-foreground tabular-nums",
-          )}
-        >
-          {index + 1}
-        </span>
-        <span className="min-w-0 text-foreground">
-          {hidden ? (
-            <HiddenValue />
-          ) : (
-            <FieldCell field={entry.row.fields.fieldValue} />
-          )}
-        </span>
-        <ShareBar fraction={peak === 0 ? 0 : entry.timesUsed / peak} />
-        <span className="flex shrink-0 items-baseline gap-1">
-          <span
-            className={cn(typeClass("body"), "text-foreground tabular-nums")}
-            style={{ fontVariationSettings: fontWeights.semibold }}
-          >
-            {entry.timesUsed.toLocaleString("en-US")}
-          </span>
-          <span className={cn(typeClass("caption"), "text-muted-foreground")}>
-            {entry.timesUsed === 1 ? "fill" : "fills"}
-          </span>
-        </span>
-      </button>
-    </li>
-  );
-}
-
-/**
- * Saved entries per week, drawn only across the weeks the evidence spans. The
- * `dateCreated` a Chrome autofill row carries is when the value was first
- * saved, so this reads as "when did this browser start remembering things" —
- * a first-seen shape, not a usage trend.
- */
-function CreationArea({
-  weeks,
-  tokens,
-}: {
-  readonly weeks: Derived["weeks"];
-  readonly tokens: ChartTokens;
-}) {
-  const reduced = usePrefersReducedMotion();
-  if (weeks.length === 0) {
-    return <ChartEmpty>No dated saved entries to draw.</ChartEmpty>;
-  }
-  const rows = weeks.map((entry) => ({
-    ...entry,
-    label: formatDayTick(entry.week),
-  }));
-  return (
-    <ResponsiveContainer
-      width="100%"
-      height="100%"
-      className={CHART_FOCUS_CLASS}
-    >
-      <AreaChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <defs>
-          <linearGradient id="fxAutofillFill" x1="0" y1="0" x2="0" y2="1">
-            <stop
-              offset="0%"
-              stopColor={tokens["--primary"]}
-              stopOpacity={0.24}
-            />
-            <stop
-              offset="100%"
-              stopColor={tokens["--primary"]}
-              stopOpacity={0}
-            />
-          </linearGradient>
-        </defs>
-        <CartesianGrid {...chartGrid(tokens)} />
-        <XAxis dataKey="label" minTickGap={40} {...chartAxis(tokens)} />
-        <YAxis width={30} allowDecimals={false} {...chartAxis(tokens)} />
-        <ChartTooltip
-          {...chartTooltipMotion(reduced)}
-          cursor={{ stroke: tokens["--border"], strokeWidth: 1 }}
-          content={({ payload }) => {
-            const datum = tooltipEntry(payload);
-            if (datum === null) {
-              return null;
-            }
-            const count = Number(datum["count"]);
-            return (
-              <ChartTooltipCard label={`Week of ${String(datum["label"])}`}>
-                <ChartTooltipValue
-                  value={count.toLocaleString("en-US")}
-                  unit={count === 1 ? "entry saved" : "entries saved"}
-                  color={tokens["--primary"]}
-                />
-              </ChartTooltipCard>
-            );
-          }}
-        />
-        <Area
-          type="monotone"
-          dataKey="count"
-          stroke={tokens["--primary"]}
-          strokeWidth={1.5}
-          fill="url(#fxAutofillFill)"
-          {...chartAnimation(reduced)}
-          activeDot={{
-            r: 3.5,
-            fill: tokens["--primary"],
-            stroke: tokens["--background"],
-            strokeWidth: 2,
-          }}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
-  );
+/** Identity + Contact + Address + Payment: the entries that carry directly
+ *  identifying or financial data, as opposed to search text. */
+function sensitiveCount(entries: readonly Entry[]): number {
+  return entries.filter(
+    (entry) =>
+      entry.category.key !== "searches" && entry.category.key !== "other",
+  ).length;
 }
 
 /* ---------------------------------- table --------------------------------- */
 
-const COLUMNS = [
-  "Type",
-  "Value",
-  "Category",
-  "Fills",
-  "Last used",
-  "State",
-] as const;
-
 /**
- * The raw rows, with the fields an examiner reads first. TYPE (the field
- * type) is the first column; the full untranslated Chrome name and every
- * other wire field stay reachable in the row detail sheet.
+ * The table's columns. TYPE (the field type) is first; the full
+ * untranslated Chrome name and every other wire field stay in the row
+ * sheet. State only shows in the Recovered tab. Below `sm` a row stacks:
+ * type and state, the value, then category, fills and last use.
  */
-function EntryTable({
-  entries,
-  reveal,
-  onSelect,
-}: {
-  readonly entries: readonly Entry[];
-  readonly reveal: boolean;
-  readonly onSelect: (row: Finding) => void;
-}) {
-  return (
-    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
-      <Table className="min-w-[900px]">
-        <TableHeader>
-          <TableRow>
-            {COLUMNS.map((label) => (
-              <TableHead key={label} className="whitespace-nowrap">
-                {label}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody className="reveal-items">
-          {entries.map((entry, index) => (
-            <TableRow
-              key={index}
-              index={index}
-              tabIndex={0}
-              aria-label={`Open ${entry.category.label} form entry ${entry.type ?? "of a type not recorded"}`}
-              onClick={() => {
-                onSelect(entry.row);
-              }}
-              onKeyDown={(event) => {
-                activateOnKey(event, () => {
-                  onSelect(entry.row);
-                });
-              }}
-              className={ROW_FOCUS_CLASS}
-            >
-              <TableCell className="max-w-[220px]">
-                {entry.type === null ? (
-                  <FieldCell field={entry.row.fields.fieldName} />
-                ) : (
-                  <span
-                    className="block truncate text-foreground"
-                    title={entry.type}
-                  >
-                    {entry.type}
-                  </span>
-                )}
-              </TableCell>
-              <TableCell className="max-w-[340px]">
-                {!reveal && holdsSecret(entry) ? (
-                  <HiddenValue />
-                ) : (
-                  <FieldCell field={entry.row.fields.fieldValue} />
-                )}
-              </TableCell>
-              <TableCell className="whitespace-nowrap">
-                {entry.category.label}
-              </TableCell>
-              <TableCell className="tabular-nums">
-                <FieldCell
-                  field={entry.row.fields.timesUsed}
-                  format={(value) => Number(value).toLocaleString("en-US")}
-                />
-              </TableCell>
-              <TableCell>
-                <TimeCell field={entry.row.fields.dateLastUsed} />
-              </TableCell>
-              <TableCell>
-                <StateWord state={entry.row.commitState} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
+function entryColumns(
+  reveal: boolean,
+  recovered: boolean,
+): readonly RowColumn<Entry>[] {
+  const columns: RowColumn<Entry>[] = [
+    {
+      key: "type",
+      header: "Type",
+      className: "max-w-[220px]",
+      stack: "lead",
+      cell: (entry) =>
+        entry.type === null ? (
+          <FieldCell field={entry.row.fields.fieldName} />
+        ) : (
+          <span className="block truncate" title={entry.type}>
+            {entry.type}
+          </span>
+        ),
+    },
+    {
+      key: "value",
+      header: "Value",
+      className: "max-w-[340px] text-foreground",
+      stack: "title",
+      cell: (entry) =>
+        !reveal && holdsSecret(entry) ? (
+          <HiddenValue />
+        ) : (
+          <FieldCell field={entry.row.fields.fieldValue} />
+        ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      className: "whitespace-nowrap",
+      cell: (entry) => entry.category.label,
+    },
+    {
+      key: "fills",
+      header: "Fills",
+      className: "tabular-nums",
+      labelled: true,
+      cell: (entry) => (
+        <FieldCell
+          field={entry.row.fields.timesUsed}
+          format={(value) => Number(value).toLocaleString("en-US")}
+        />
+      ),
+    },
+    {
+      key: "lastUsed",
+      header: "Last used",
+      className: "whitespace-nowrap",
+      cell: (entry) => <TimeCell field={entry.row.fields.dateLastUsed} />,
+    },
+  ];
+  if (recovered) {
+    columns.push({
+      key: "state",
+      header: "State",
+      stack: "aside",
+      cell: (entry) => <StateWord state={entry.row.commitState} />,
+    });
+  }
+  return columns;
 }
 
 /** One list (saved or recovered) with its loading, error, empty and footer. */
@@ -712,6 +226,10 @@ function EntryList({
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
 }) {
+  const columns = useMemo(
+    () => entryColumns(reveal, noun === "recovered"),
+    [reveal, noun],
+  );
   return (
     <ListBlock
       list={list}
@@ -730,30 +248,86 @@ function EntryList({
         />
       }
     >
-      <EntryTable entries={visible} reveal={reveal} onSelect={onSelect} />
+      <ResponsiveRows
+        rows={visible}
+        columns={columns}
+        rowKey={(entry, index) => `${entry.row.commitState}-${String(index)}`}
+        rowLabel={(entry) =>
+          `Open ${entry.category.label} form entry ${entry.type ?? "of a type not recorded"}`
+        }
+        onSelect={(entry) => {
+          onSelect(entry.row);
+        }}
+        tableClassName={noun === "saved" ? "min-w-[800px]" : "min-w-[900px]"}
+      />
     </ListBlock>
   );
 }
 
-/** Placeholder at the size of the strip, the breakdown, and the chart row. */
-function AutofillSkeleton() {
+/**
+ * The category chips: "All N", then each class with entries in the open tab
+ * and its count there. One pick narrows the list; "All" clears.
+ * Neutral — the class name is the label, no hue stands in.
+ */
+function CategoryChips({
+  categories,
+  entries,
+  active,
+  onPick,
+}: {
+  readonly categories: readonly FormDataCategory[];
+  readonly entries: readonly Entry[];
+  readonly active: string | null;
+  readonly onPick: (key: string | null) => void;
+}) {
+  const counts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const entry of entries) {
+      map.set(entry.category.key, (map.get(entry.category.key) ?? 0) + 1);
+    }
+    return map;
+  }, [entries]);
+  // A class with no entry in the open tab sits out, unless it is the pick.
+  const shown = categories.filter(
+    (category) =>
+      (counts.get(category.key) ?? 0) > 0 || category.key === active,
+  );
+  const selected =
+    active === null
+      ? 0
+      : shown.findIndex((category) => category.key === active) + 1;
   return (
-    <div
-      className="flex flex-col gap-5"
-      role="status"
-      aria-label="Loading form data figures"
-    >
-      <Skeleton className="h-[170px] w-full rounded-xl lg:h-[98px]" />
-      <Skeleton className="h-[190px] w-full rounded-xl" />
-      <div className="grid grid-cols-12 gap-4">
-        <Skeleton className="col-span-12 h-[320px] rounded-xl lg:col-span-7" />
-        <Skeleton className="col-span-12 h-[300px] rounded-xl lg:col-span-5" />
-      </div>
+    // A phone scrolls the chips sideways rather than clipping them.
+    <div className="scroll-fade-x max-w-full overflow-x-auto max-sm:w-full">
+      <TabsSubtle
+        idPrefix="autofill-category"
+        aria-label="Narrow by category"
+        selectedIndex={Math.max(0, selected)}
+        onSelect={(index) => {
+          onPick(index === 0 ? null : (shown[index - 1]?.key ?? null));
+        }}
+      >
+        <TabsSubtleItem index={0} label={`All ${String(entries.length)}`} />
+        {shown.map((category, index) => (
+          <TabsSubtleItem
+            key={category.key}
+            index={index + 1}
+            label={`${category.label} ${String(counts.get(category.key) ?? 0)}`}
+          />
+        ))}
+      </TabsSubtle>
     </div>
   );
 }
 
-const ALL_CATEGORIES = "__all__";
+/** Placeholder at the size of the figure strip. */
+function AutofillSkeleton() {
+  return (
+    <div role="status" aria-label="Loading form data figures">
+      <Skeleton className="h-[76px] w-full rounded-xl" />
+    </div>
+  );
+}
 
 /* ---------------------------------- page ---------------------------------- */
 
@@ -766,7 +340,6 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
     },
   );
   const savedDone = lists.drained.saved;
-  const tokens = useChartTokens();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [view, setView] = useState<CommitView>("saved");
   const [search, setSearch] = useState("");
@@ -781,7 +354,7 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
     () => lists.recovered.rows.map(toEntry),
     [lists.recovered.rows],
   );
-  const derived = useMemo(() => derive(saved), [saved]);
+  const sensitive = useMemo(() => sensitiveCount(saved), [saved]);
   const anyPayment = useMemo(
     () => [...saved, ...recovered].some(holdsSecret),
     [saved, recovered],
@@ -824,10 +397,6 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
     setSelected({ kind: "finding", row });
   }, []);
 
-  const pickCategory = useCallback((key: string) => {
-    setCategoryFilter((current) => (current === key ? null : key));
-  }, []);
-
   const clearFilters = useCallback(() => {
     setSearch("");
     setCategoryFilter(null);
@@ -849,11 +418,7 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
   const capped = lists.saved.cursor !== null && savedDone;
 
   const sensitiveShare =
-    derived.total === 0
-      ? 0
-      : Math.round((derived.sensitive / derived.total) * 100);
-  const top = derived.ranked[0] ?? null;
-  const topHidden = top !== null && !reveal && holdsSecret(top);
+    saved.length === 0 ? 0 : Math.round((sensitive / saved.length) * 100);
 
   const selectedIsPayment =
     selected !== null &&
@@ -864,7 +429,7 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
       {pageEmpty ? (
         <Panel>
           <EmptyRows
-            icon={ClipboardList}
+            icon={ARTIFACT_ICONS.autofill}
             title="No form data"
             message="No Form data rows in this Case, saved or recovered."
           />
@@ -872,95 +437,31 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
       ) : (
         <>
           {showFigures ? (
-            <div className="reveal-swap">
-              <AutofillSkeleton />
-              {figuresReady ? (
-                <div className="flex flex-col gap-5">
-                  {/* Summary strip — four plain readings of the saved
-                      entries. "Sensitive" is Identity + Contact + Address +
-                      Payment: entries that carry directly identifying or
-                      financial data, as opposed to search text. */}
-                  <MetricBand className="grid-cols-2 lg:grid-cols-4">
-                    <MetricBandItem
-                      label="Saved entries"
-                      value={`${derived.total.toLocaleString("en-US")}${capped ? "+" : ""}`}
-                      detail={
-                        capped
-                          ? "first pages read; recovered listed apart"
-                          : "all profiles; recovered listed apart"
-                      }
-                    />
-                    <MetricBandItem
-                      label="Field types"
-                      value={derived.distinctTypes.toLocaleString("en-US")}
-                      detail={
-                        derived.distinctTypes === 1
-                          ? "distinct type"
-                          : "distinct types"
-                      }
-                    />
-                    <MetricBandItem
-                      label="Sensitive"
-                      value={`${String(sensitiveShare)}%`}
-                      detail={`${derived.sensitive.toLocaleString("en-US")} identity, contact, address or payment`}
-                      progress={{
-                        value: derived.sensitive,
-                        max: derived.total,
-                      }}
-                    />
-                    <MetricBandItem
-                      label="Most reused"
-                      value={
-                        top === null
-                          ? "none"
-                          : plural(top.timesUsed, "fill", "fills")
-                      }
-                      detail={
-                        top === null
-                          ? "no recorded fill counts"
-                          : topHidden
-                            ? `${top.category.label} value hidden`
-                            : fieldWord(top.row.fields.fieldValue)
-                      }
-                    />
-                  </MetricBand>
-
-                  <CategoryBreakdown
-                    categories={derived.categories}
-                    total={derived.total}
-                    activeKey={categoryFilter}
-                    onPick={pickCategory}
-                  />
-
-                  <div className="grid grid-cols-12 gap-4">
-                    <ChartSection
-                      className="col-span-12 lg:col-span-7"
-                      title="First saved over time"
-                      description="When each saved entry was first remembered, per week."
+            <RevealSwap loading={!figuresReady} skeleton={<AutofillSkeleton />}>
+              <MetricBand className="grid-cols-2">
+                <MetricBandItem
+                  label="Saved entries"
+                  value={`${saved.length.toLocaleString("en-US")}${capped ? "+" : ""}`}
+                />
+                <MetricBandItem
+                  label={
+                    <Term label="Sensitive">
+                      Identity, contact, address or payment entries.
+                    </Term>
+                  }
+                  value={
+                    <Tooltip
+                      content={`${sensitive.toLocaleString("en-US")} of ${saved.length.toLocaleString("en-US")} saved entries`}
                     >
-                      <div className="h-[260px] px-2 pt-2 pb-3">
-                        <CreationArea weeks={derived.weeks} tokens={tokens} />
-                      </div>
-                    </ChartSection>
-
-                    <div className="col-span-12 lg:col-span-5">
-                      <ReuseLeaderboard
-                        ranked={derived.ranked}
-                        reveal={reveal}
-                        onSelect={select}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+                      <span className="cursor-default">{`${String(sensitiveShare)}%`}</span>
+                    </Tooltip>
+                  }
+                />
+              </MetricBand>
+            </RevealSwap>
           ) : null}
 
-          <SectionPanel
-            id="autofill-list"
-            title="All form entries"
-            description="Saved entries and entries recovered from WAL or journal sidecars are separate lists."
-          >
+          <SectionPanel id="autofill-list" title="All form entries">
             <CommitStateSplit
               value={view}
               onValueChange={setView}
@@ -980,6 +481,14 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
               recoveredMore={lists.recovered.cursor !== null}
               toolbar={
                 <>
+                  {listedCategories.length > 1 ? (
+                    <CategoryChips
+                      categories={listedCategories}
+                      entries={view === "saved" ? saved : recovered}
+                      active={categoryFilter}
+                      onPick={setCategoryFilter}
+                    />
+                  ) : null}
                   {anyPayment ? (
                     <Switch
                       label="Show values"
@@ -987,42 +496,14 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
                       onToggle={() => {
                         setReveal((value) => !value);
                       }}
-                      className="mr-2"
+                      className="sm:mx-2"
                     />
-                  ) : null}
-                  {listedCategories.length > 1 ? (
-                    <FilterField label="Category" htmlFor="autofill-category">
-                      <Select
-                        value={categoryFilter ?? ALL_CATEGORIES}
-                        onValueChange={(next) => {
-                          setCategoryFilter(
-                            next === ALL_CATEGORIES ? null : next,
-                          );
-                        }}
-                      >
-                        <SelectTrigger id="autofill-category" />
-                        <SelectContent>
-                          <SelectItem index={0} value={ALL_CATEGORIES}>
-                            All categories
-                          </SelectItem>
-                          {listedCategories.map((category, index) => (
-                            <SelectItem
-                              key={category.key}
-                              index={index + 1}
-                              value={category.key}
-                            >
-                              {category.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FilterField>
                   ) : null}
                   <FilterTextField
                     commit="change"
                     label="Search loaded form entries"
                     placeholder="Search value or type"
-                    icon={Search}
+                    icon={SearchIcon}
                     value={search}
                     onCommit={setSearch}
                   />

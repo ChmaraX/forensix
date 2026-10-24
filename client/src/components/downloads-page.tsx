@@ -8,35 +8,24 @@
  * (`totalBytes`, `startTime`, `mimeType`, `state`, `originalUrl`); nothing is
  * smoothed, projected, or ranked by a score the rows do not contain.
  *
- * Layout, top-down, as FF Panels: Evidence coverage → a MetricBand of
- * recorded figures → bytes per day (Recharts on the shared chart helpers:
- * fluid band cursor, FluidBar, FF tooltip card; drag across it to focus the
- * table on a range) → file kinds (an FF CardGroup: one fluid hover highlight,
- * a picked kind holds the selected fill) beside the top sources → the
- * sortable table on FF's Table.
+ * Layout, top-down, as FF Panels: a MetricBand of recorded figures (label
+ * and value; the span's dates are the one data line) → bytes per day (the
+ * one series style: ink bars, the peak — or a picked day — at full strength;
+ * drag across it to focus the lists on a range; a "Saved only" tag names
+ * the recovered downloads it leaves out) beside the file kinds (an FF
+ * CardGroup: one fluid hover highlight, a picked kind holds the selected
+ * fill and focuses the lists) → the lists, sorted from the toolbar (Sort +
+ * direction, as on History) and drawn by `ResponsiveRows` (a table from
+ * `sm`, stacked cards below).
  *
  * Presentation rules kept (see app.tsx's header): the Completeness Statement
- * renders before any row; download states are worded, never colour alone; a
- * field without a recorded value reads as the word "absent"; TYPE — here the
- * file-kind column — comes first in the table. This page is read-only: it
+ * (the shell's indicator) sits by the title, before any row; download
+ * outcomes are worded, never colour alone; a field without a recorded value
+ * reads as its own state word; TYPE — here the file-kind column — comes
+ * first in the table; the Commit State word appears in the Recovered list
+ * only (every saved row would say "saved"). This page is read-only: it
  * starts no ingest, reruns no analysis, and writes nothing back to the Case.
  */
-import {
-  Archive,
-  ArrowDown,
-  ArrowUp,
-  FileArchive,
-  FileAudio,
-  FileCode2,
-  FileImage,
-  FileText,
-  FileVideo,
-  Search,
-  Sheet,
-  Terminal,
-  X,
-  type LucideIcon,
-} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -53,7 +42,6 @@ import {
 } from "recharts";
 
 import { EvidenceDot } from "@/components/evidence";
-import { PanelFooter } from "@/components/panel";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,14 +54,21 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { fontWeights } from "@/lib/font-weight";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import { Tooltip as FluidTooltip } from "@/components/ui/tooltip";
+import {
+  CloseIcon,
+  DownloadedFileIcon,
+  FILE_KIND_ICONS,
+  SearchIcon,
+  SortNewestIcon,
+  SortOldestIcon,
+  type AppIcon,
+} from "@/lib/app-icons";
 import { SizeProvider, useSize } from "@/lib/size-context";
 import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
@@ -97,14 +92,16 @@ import {
   chartTooltipMotion,
   ChartTooltipNote,
   ChartTooltipValue,
+  chartRange,
   FluidBandCursor,
-  FluidBar,
+  SeriesBar,
+  seriesColor,
   tooltipEntry,
   useChartTokens,
   usePrefersReducedMotion,
 } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
-import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
+import { EmptyRows } from "./data-table.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import {
   FieldCell,
@@ -113,8 +110,10 @@ import {
   fieldUtc,
   hostOf,
   SiteAvatar,
+  StateWord,
 } from "./finding-fields.js";
-import { FilterTextField } from "./filters.js";
+import { FilterField, FilterTextField } from "./filters.js";
+import { formatDaySpan, SavedOnlyTag } from "./history-chart-parts.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
@@ -122,7 +121,7 @@ import {
   CARD_TITLE_CLEAR,
   CHART_HEIGHT,
   CommitStateSplit,
-  MeterList,
+  ResponsiveRows,
   SectionPanel,
   ShareBar,
   TimeCell,
@@ -131,6 +130,7 @@ import {
   formatDayTick,
   plural,
   type CommitView,
+  type RowColumn,
 } from "./page-kit.js";
 
 /* --------------------------------- reads ---------------------------------- */
@@ -268,17 +268,17 @@ type FileKind =
   | "other";
 
 const KIND_META: Readonly<
-  Record<FileKind, { readonly label: string; readonly icon: LucideIcon }>
+  Record<FileKind, { readonly label: string; readonly icon: AppIcon }>
 > = {
-  executable: { label: "Executable", icon: Terminal },
-  archive: { label: "Archive", icon: FileArchive },
-  document: { label: "Document", icon: FileText },
-  spreadsheet: { label: "Spreadsheet", icon: Sheet },
-  image: { label: "Image", icon: FileImage },
-  audio: { label: "Audio", icon: FileAudio },
-  video: { label: "Video", icon: FileVideo },
-  code: { label: "Code / config", icon: FileCode2 },
-  other: { label: "Other", icon: Archive },
+  executable: { label: "Executable", icon: FILE_KIND_ICONS.executable },
+  archive: { label: "Archive", icon: FILE_KIND_ICONS.archive },
+  document: { label: "Document", icon: FILE_KIND_ICONS.text },
+  spreadsheet: { label: "Spreadsheet", icon: FILE_KIND_ICONS.sheet },
+  image: { label: "Image", icon: FILE_KIND_ICONS.image },
+  audio: { label: "Audio", icon: FILE_KIND_ICONS.audio },
+  video: { label: "Video", icon: FILE_KIND_ICONS.video },
+  code: { label: "Code / config", icon: FILE_KIND_ICONS.code },
+  other: { label: "Other", icon: DownloadedFileIcon },
 };
 
 /** Order the file-kind breakdown lists its rows — investigative first. */
@@ -424,8 +424,40 @@ interface DayRange {
   readonly to: string;
 }
 
-/** Which column the table sorts by. */
-type SortKey = "type" | "file" | "size" | "source" | "started" | "state";
+/** What the lists sort by. */
+type SortKey = "started" | "type" | "file" | "size" | "source" | "outcome";
+
+/** Toolbar order and wording of the sort keys. */
+const SORT_KEYS: readonly SortKey[] = [
+  "started",
+  "type",
+  "file",
+  "size",
+  "source",
+  "outcome",
+];
+
+const SORT_LABELS: Readonly<Record<SortKey, string>> = {
+  started: "Started",
+  type: "Type",
+  file: "File",
+  size: "Size",
+  source: "Source",
+  outcome: "Outcome",
+};
+
+/** What the direction toggle says, per key ("newest first", not
+ *  "descending"). */
+const DIRECTION_WORDS: Readonly<
+  Record<SortKey, { readonly desc: string; readonly asc: string }>
+> = {
+  started: { desc: "newest first", asc: "oldest first" },
+  type: { desc: "reverse kind order", asc: "kind order" },
+  file: { desc: "Z to A", asc: "A to Z" },
+  size: { desc: "largest first", asc: "smallest first" },
+  source: { desc: "Z to A", asc: "A to Z" },
+  outcome: { desc: "Z to A", asc: "A to Z" },
+};
 
 interface SortState {
   readonly key: SortKey;
@@ -502,7 +534,7 @@ function compareRows(a: DownloadRow, b: DownloadRow, key: SortKey): number {
       return (a.host ?? "\uffff").localeCompare(b.host ?? "\uffff", "en-US");
     case "started":
       return (a.startUtc ?? "").localeCompare(b.startUtc ?? "");
-    case "state":
+    case "outcome":
       return (a.state === null ? "\uffff" : stateLabel(a.state)).localeCompare(
         b.state === null ? "\uffff" : stateLabel(b.state),
         "en-US",
@@ -521,8 +553,11 @@ interface VolumeDay {
 /**
  * Downloads over time. Bars show bytes transferred per recorded day — a
  * discrete reading of when data actually left the machine. Days with no
- * downloads are filled with zero so the axis is continuous calendar time,
- * never compressed. Drag across the bars (or click one) to focus the table.
+ * downloads are filled with zero (drawn as nothing) so the axis is
+ * continuous calendar time, never compressed. Drag across the bars (or
+ * click one) to focus the lists. The one series style: ink bars at rest,
+ * one emphasis — the picked day, else the busiest — and the rest dimmed
+ * outside a picked range.
  */
 function VolumeChart({
   rows,
@@ -629,17 +664,17 @@ function VolumeChart({
     const index = activeIndexOf(state);
     return index === null ? null : (days[index]?.date ?? null);
   };
-  // The busiest day holds full strength, the rest sit lower; days outside
-  // the focused range fade right back — the same reading as Activity bars.
-  const strengthOf = (day: VolumeDay) => {
-    if (
-      highlight !== null &&
-      (day.date < highlight.from || day.date > highlight.to)
-    ) {
-      return 0.2;
-    }
-    return peak > 0 && day.bytes === peak ? 1 : 0.55;
-  };
+  // One emphasis: the picked day when the range is one drawn day, else the
+  // busiest; days outside the focused range dim — as ActivityBars reads.
+  const picked =
+    range.from !== "" && range.from === range.to ? range.from : null;
+  const pickedShown =
+    picked !== null && days.some((day) => day.date === picked);
+  const emphasisOf = (day: VolumeDay) =>
+    pickedShown ? day.date === picked : peak > 0 && day.bytes === peak;
+  const dimmedOf = (day: VolumeDay) =>
+    highlight !== null &&
+    (day.date < highlight.from || day.date > highlight.to);
   // The shaded band, clamped to the drawn days (an open bound runs to the
   // chart's edge).
   const firstDay = days[0]?.date ?? "";
@@ -722,8 +757,7 @@ function VolumeChart({
                     unit="downloaded"
                   />
                   <ChartTooltipNote>
-                    {count.toLocaleString("en-US")} file
-                    {count === 1 ? "" : "s"}
+                    {plural(count, "file", "files")}
                     {peak > 0 && bytes === peak ? " · busiest day" : ""}
                   </ChartTooltipNote>
                 </ChartTooltipCard>
@@ -734,24 +768,22 @@ function VolumeChart({
             <ReferenceArea
               x1={band.from}
               x2={band.to}
-              fill={tokens["--primary"]}
-              fillOpacity={0.07}
-              strokeOpacity={0}
-              radius={6}
+              {...chartRange(tokens)}
             />
           ) : null}
           <Bar
             dataKey="bytes"
             radius={[3, 3, 0, 0]}
             {...chartAnimation(reduced)}
-            fill={tokens["--primary"]}
+            fill={seriesColor(tokens)}
             shape={(props: BarShapeProps) => {
               const day = days[props.originalDataIndex];
               return (
-                <FluidBar
+                <SeriesBar
                   {...props}
-                  fill={tokens["--primary"]}
-                  opacity={day === undefined ? 0.55 : strengthOf(day)}
+                  tokens={tokens}
+                  emphasis={day !== undefined && emphasisOf(day)}
+                  dimmed={day !== undefined && dimmedOf(day)}
                   hovered={props.originalDataIndex === hoverIndex}
                 />
               );
@@ -796,7 +828,7 @@ function KindBreakdown({
   }, [rows]);
 
   // Bars are sized by bytes, not count: the whole page reads download volume
-  // (the over-time chart and the source ranking are both bytes), so one 2 GB
+  // (the over-time chart is bytes too), so one 2 GB
   // executable must not shrink to the width of a single favicon.
   const peak = Math.max(...kinds.map((entry) => entry.bytes), 1);
 
@@ -854,73 +886,6 @@ function KindBreakdown({
   );
 }
 
-/** How many source hosts the sources card lists before "and N more". */
-const SOURCE_LIMIT = 6;
-
-/**
- * Where the files came from. Hosts ranked by total bytes pulled from each,
- * with the file count beside the size — the "which site did this machine pull
- * the most data from" question the flat table cannot answer at a glance. Not
- * clickable, so no hover: a highlight would promise a click with nowhere to
- * land.
- */
-function SourceHosts({ rows }: { readonly rows: readonly DownloadRow[] }) {
-  const size = useSize();
-  const tokens = useChartTokens();
-  const hosts = useMemo(() => {
-    const map = new Map<string, { count: number; bytes: number }>();
-    for (const row of rows) {
-      if (row.host === null) {
-        continue;
-      }
-      const entry = map.get(row.host) ?? { count: 0, bytes: 0 };
-      entry.count += 1;
-      entry.bytes += row.bytes ?? 0;
-      map.set(row.host, entry);
-    }
-    return [...map.entries()]
-      .map(([host, entry]) => ({ host, ...entry }))
-      .sort((left, right) => right.bytes - left.bytes);
-  }, [rows]);
-
-  if (hosts.length === 0) {
-    return <EmptyRows message="No source host recorded on these downloads." />;
-  }
-  const more = hosts.length - SOURCE_LIMIT;
-
-  return (
-    <>
-      <MeterList
-        className="px-4 pt-1 pb-3"
-        labelWidth="clamp(6rem, 32%, 12rem)"
-        tokens={tokens}
-        rows={hosts.slice(0, SOURCE_LIMIT).map((entry) => ({
-          key: entry.host,
-          label: (
-            <>
-              <SiteAvatar host={entry.host} />
-              <span className="truncate" title={entry.host}>
-                {entry.host}
-              </span>
-            </>
-          ),
-          value: entry.bytes,
-          display: `${formatBytes(entry.bytes)} · ${plural(entry.count, "file", "files")}`,
-          title: `${entry.bytes.toLocaleString("en-US")} bytes`,
-        }))}
-      />
-      {more > 0 ? (
-        <PanelFooter>
-          <p className={cn(size.type.caption, "text-muted-foreground")}>
-            and {plural(more, "more source host", "more source hosts")} in the
-            table below
-          </p>
-        </PanelFooter>
-      ) : null}
-    </>
-  );
-}
-
 /* --------------------------------- table ---------------------------------- */
 
 /**
@@ -951,176 +916,185 @@ function DownloadState({ field }: { readonly field: FieldState | undefined }) {
   );
 }
 
-const TABLE_COLUMNS: readonly {
-  readonly label: string;
-  readonly key: SortKey;
-}[] = [
-  { label: "Type", key: "type" },
-  { label: "File", key: "file" },
-  { label: "Size", key: "size" },
-  { label: "Source", key: "source" },
-  { label: "Started", key: "started" },
-  { label: "State", key: "state" },
-];
-
-/** A sortable column header: the label is the button; the active column
- *  reads in the foreground with its direction arrow, the rest stay muted. */
-function SortHead({
-  label,
-  active,
-  dir,
-  onSort,
+/** The source: the host with its avatar when the URL parses, the raw URL
+ *  (monospace) when it does not, and the URL field's state word when none
+ *  was recorded. */
+function Source({
+  row,
+  avatar,
 }: {
-  readonly label: string;
-  readonly active: boolean;
-  readonly dir: "asc" | "desc";
-  readonly onSort: () => void;
+  readonly row: DownloadRow;
+  readonly avatar: boolean;
 }) {
-  const size = useSize();
-  const Arrow = dir === "asc" ? ArrowUp : ArrowDown;
+  if (row.host === null) {
+    return row.sourceUrl === null ? (
+      <FieldCell field={row.finding.fields.originalUrl} />
+    ) : (
+      <span className="block truncate font-mono" title={row.sourceUrl}>
+        {row.sourceUrl}
+      </span>
+    );
+  }
   return (
-    <TableHead
-      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
-      className="whitespace-nowrap"
-    >
-      <button
-        type="button"
-        onClick={onSort}
-        className={cn(
-          "-mx-1 inline-flex cursor-pointer items-center gap-1 rounded-md px-1 outline-none transition-colors duration-80 hover:text-foreground focus-visible:ring-1 focus-visible:ring-focus-ring",
-          active ? "text-foreground" : "text-muted-foreground",
-        )}
-        style={{ fontVariationSettings: fontWeights.semibold }}
-      >
-        {label}
-        <Arrow
-          aria-hidden="true"
-          size={size.icon}
-          strokeWidth={2}
-          className={cn("shrink-0", !active && "invisible")}
-        />
-      </button>
-    </TableHead>
+    <span className="flex min-w-0 items-center gap-2.5">
+      {avatar ? <SiteAvatar host={row.host} /> : null}
+      <span className="truncate" title={row.sourceUrl ?? row.host}>
+        {row.host}
+      </span>
+    </span>
   );
 }
 
-function DownloadsTable({
-  rows,
+/** The download lists' columns, and where each sits in the stacked card on
+ *  a phone: Type and the outcome (saved) or the State word (recovered) on
+ *  the first line, the file as the title, size · source · start under it. */
+function downloadColumns(
+  recovered: boolean,
+): readonly RowColumn<DownloadRow>[] {
+  const columns: RowColumn<DownloadRow>[] = [
+    {
+      key: "type",
+      header: "Type",
+      className: "whitespace-nowrap",
+      stack: "lead",
+      cell: (row) => <FileKindLabel kind={row.kind} />,
+      stackedCell: (row) => KIND_META[row.kind].label,
+    },
+    {
+      key: "file",
+      header: "File",
+      className: "max-w-[300px]",
+      stack: "title",
+      cell: (row) =>
+        row.name === null ? (
+          <FieldCell field={row.finding.fields.targetPath} />
+        ) : (
+          <span
+            className="block truncate text-foreground"
+            title={row.path ?? row.name}
+          >
+            {row.name}
+          </span>
+        ),
+    },
+    {
+      key: "size",
+      header: "Size",
+      className: "whitespace-nowrap tabular-nums",
+      cell: (row) =>
+        row.bytes === null ? (
+          <FieldCell field={row.finding.fields.totalBytes} />
+        ) : (
+          <span title={`${row.bytes.toLocaleString("en-US")} bytes`}>
+            {formatBytes(row.bytes)}
+          </span>
+        ),
+    },
+    {
+      key: "source",
+      header: "Source",
+      className: "max-w-[240px]",
+      cell: (row) => <Source row={row} avatar />,
+      stackedCell: (row) => <Source row={row} avatar={false} />,
+    },
+    {
+      key: "started",
+      header: "Started",
+      className: "whitespace-nowrap",
+      cell: (row) => <TimeCell field={row.finding.fields.startTime} />,
+    },
+    {
+      key: "outcome",
+      header: "Outcome",
+      className: "whitespace-nowrap",
+      stack: recovered ? "meta" : "aside",
+      cell: (row) => <DownloadState field={row.finding.fields.state} />,
+    },
+  ];
+  if (recovered) {
+    columns.push({
+      key: "state",
+      header: "State",
+      className: "whitespace-nowrap",
+      stack: "aside",
+      cell: (row) => <StateWord state={row.finding.commitState} />,
+    });
+  }
+  return columns;
+}
+
+const SAVED_COLUMNS = downloadColumns(false);
+const RECOVERED_COLUMNS = downloadColumns(true);
+
+/** The file kind, worded, with its icon. */
+function FileKindLabel({ kind }: { readonly kind: FileKind }) {
+  const size = useSize();
+  const meta = KIND_META[kind];
+  const Icon = meta.icon;
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Icon
+        aria-hidden="true"
+        size={size.icon}
+        strokeWidth={1.5}
+        className="shrink-0"
+      />
+      {meta.label}
+    </span>
+  );
+}
+
+/** Sort and direction for both lists, as on History: an FF Select and a
+ *  direction toggle whose tooltip says the order in words. */
+function SortControls({
   sort,
   onSort,
-  onSelect,
 }: {
-  readonly rows: readonly DownloadRow[];
   readonly sort: SortState;
-  readonly onSort: (key: SortKey) => void;
-  readonly onSelect: (finding: Finding) => void;
+  readonly onSort: (sort: SortState) => void;
 }) {
-  const size = useSize();
+  const descending = sort.dir === "desc";
+  const words = DIRECTION_WORDS[sort.key];
+  const DirectionIcon = descending ? SortNewestIcon : SortOldestIcon;
+  const flip = `Sorted ${descending ? words.desc : words.asc}. Switch to ${
+    descending ? words.asc : words.desc
+  }`;
   return (
-    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
-      <Table className="min-w-[860px]">
-        <TableHeader>
-          <TableRow>
-            {TABLE_COLUMNS.map(({ label, key }) => (
-              <SortHead
-                key={key}
-                label={label}
-                active={sort.key === key}
-                dir={sort.dir}
-                onSort={() => {
-                  onSort(key);
-                }}
-              />
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody className="reveal-items">
-          {rows.map((row, index) => {
-            const meta = KIND_META[row.kind];
-            const Icon = meta.icon;
-            const open = () => {
-              onSelect(row.finding);
-            };
-            return (
-              <TableRow
-                key={index}
-                index={index}
-                tabIndex={0}
-                aria-label={`Open download row detail: ${row.name ?? "download"}`}
-                onClick={open}
-                onKeyDown={(event) => {
-                  activateOnKey(event, open);
-                }}
-                className={ROW_FOCUS_CLASS}
-              >
-                <TableCell className="whitespace-nowrap">
-                  <span className="inline-flex items-center gap-2">
-                    <Icon
-                      aria-hidden="true"
-                      size={size.icon}
-                      strokeWidth={1.5}
-                      className="shrink-0"
-                    />
-                    {meta.label}
-                  </span>
-                </TableCell>
-                <TableCell className="max-w-[300px]">
-                  {row.name === null ? (
-                    <FieldCell field={row.finding.fields.targetPath} />
-                  ) : (
-                    <span
-                      className="block truncate text-foreground"
-                      title={row.path ?? row.name}
-                    >
-                      {row.name}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="whitespace-nowrap tabular-nums">
-                  {row.bytes === null ? (
-                    <FieldCell field={row.finding.fields.totalBytes} />
-                  ) : (
-                    <span title={`${row.bytes.toLocaleString("en-US")} bytes`}>
-                      {formatBytes(row.bytes)}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="max-w-[240px]">
-                  {row.host === null ? (
-                    row.sourceUrl === null ? (
-                      <FieldCell field={row.finding.fields.originalUrl} />
-                    ) : (
-                      <span
-                        className="block truncate font-mono"
-                        title={row.sourceUrl}
-                      >
-                        {row.sourceUrl}
-                      </span>
-                    )
-                  ) : (
-                    <span className="flex min-w-0 items-center gap-2.5">
-                      <SiteAvatar host={row.host} />
-                      <span
-                        className="truncate"
-                        title={row.sourceUrl ?? row.host}
-                      >
-                        {row.host}
-                      </span>
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="whitespace-nowrap">
-                  <TimeCell field={row.finding.fields.startTime} />
-                </TableCell>
-                <TableCell>
-                  <DownloadState field={row.finding.fields.state} />
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+    <FilterField label="Sort" htmlFor="downloads-sort">
+      <Select
+        value={sort.key}
+        onValueChange={(value) => {
+          const key = SORT_KEYS.find((candidate) => candidate === value);
+          if (key !== undefined) {
+            onSort({
+              key,
+              dir: key === "file" || key === "type" ? "asc" : "desc",
+            });
+          }
+        }}
+      >
+        <SelectTrigger id="downloads-sort" className="min-w-[120px]" />
+        <SelectContent>
+          {SORT_KEYS.map((key, index) => (
+            <SelectItem key={key} index={index} value={key}>
+              {SORT_LABELS[key]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <FluidTooltip content={flip}>
+        <Button
+          variant="ghost"
+          size="icon-compact"
+          aria-label={flip}
+          onClick={() => {
+            onSort({ key: sort.key, dir: descending ? "asc" : "desc" });
+          }}
+        >
+          <DirectionIcon />
+        </Button>
+      </FluidTooltip>
+    </FilterField>
   );
 }
 
@@ -1144,11 +1118,10 @@ function DownloadsLoading({ pages }: { readonly pages: number }) {
           ? "Reading saved downloads…"
           : `Reading saved downloads… ${plural(pages, "page", "pages")} loaded`}
       </p>
-      <Skeleton className="h-[86px] rounded-xl" />
-      <Skeleton className="h-[318px] rounded-xl" />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Skeleton className="h-[340px] rounded-xl" />
-        <Skeleton className="h-[340px] rounded-xl" />
+      <Skeleton className="h-[78px] rounded-xl" />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Skeleton className="h-[300px] rounded-xl lg:col-span-2" />
+        <Skeleton className="h-[300px] rounded-xl" />
       </div>
     </div>
   );
@@ -1157,15 +1130,13 @@ function DownloadsLoading({ pages }: { readonly pages: number }) {
 /* ---------------------------------- lists --------------------------------- */
 
 /** One of the two download lists (Saved or Recovered): its first read
- *  swapped in over a skeleton, a failed read with Retry, the table or its
+ *  swapped in over a skeleton, a failed read with Retry, the rows or their
  *  empty state, and the footer. Rows are already narrowed and sorted. */
 function DownloadList({
   read,
   rows,
   recovered,
   filtered,
-  sort,
-  onSort,
   onSelect,
   onClearFilters,
 }: {
@@ -1177,8 +1148,6 @@ function DownloadList({
   readonly rows: readonly DownloadRow[];
   readonly recovered: boolean;
   readonly filtered: boolean;
-  readonly sort: SortState;
-  readonly onSort: (key: SortKey) => void;
   readonly onSelect: (finding: Finding) => void;
   readonly onClearFilters: () => void;
 }) {
@@ -1212,11 +1181,17 @@ function DownloadList({
         />
       }
     >
-      <DownloadsTable
+      <ResponsiveRows
         rows={rows}
-        sort={sort}
-        onSort={onSort}
-        onSelect={onSelect}
+        columns={recovered ? RECOVERED_COLUMNS : SAVED_COLUMNS}
+        rowKey={(row, index) => `${row.finding.commitState}-${String(index)}`}
+        rowLabel={(row) =>
+          `Open download row detail: ${row.name ?? "download"}`
+        }
+        onSelect={(row) => {
+          onSelect(row.finding);
+        }}
+        tableClassName="min-w-[860px]"
       />
     </ListBlock>
   );
@@ -1268,14 +1243,6 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
     },
     [focusTable],
   );
-
-  const onSort = useCallback((key: SortKey) => {
-    setSort((current) =>
-      current.key === key
-        ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: key === "file" || key === "type" ? "asc" : "desc" },
-    );
-  }, []);
 
   const hasRange = range.from !== "" || range.to !== "";
 
@@ -1377,10 +1344,11 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
 
   const spanLabel =
     summary.firstUtc === null || summary.lastUtc === null
-      ? "no dated saved downloads"
-      : summary.firstUtc.slice(0, 10) === summary.lastUtc.slice(0, 10)
-        ? formatDay(summary.firstUtc.slice(0, 10))
-        : `${formatDay(summary.firstUtc.slice(0, 10))} to ${formatDay(summary.lastUtc.slice(0, 10))}`;
+      ? undefined
+      : formatDaySpan(
+          summary.firstUtc.slice(0, 10),
+          summary.lastUtc.slice(0, 10),
+        );
 
   // The date picker spans every dated download, saved or recovered: its
   // range filters both lists.
@@ -1434,76 +1402,61 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
                 value={formatBytes(summary.bytes)}
                 detail={
                   summary.sized === summary.total
-                    ? "recorded total size"
+                    ? undefined
                     : `across ${plural(summary.sized, "sized row", "sized rows")}`
                 }
               />
               <MetricBandItem
                 label="Source hosts"
                 value={summary.hosts.toLocaleString("en-US")}
-                detail="distinct download origins"
               />
               <MetricBandItem
                 label="Did not finish"
                 value={summary.unfinished.toLocaleString("en-US")}
-                detail="interrupted or cancelled"
               />
             </MetricBand>
 
-            {/* Volume over time. Drag across it (or pick a range) to focus
-                  the lists below, the same gesture the Timeline and History
-                  activity charts use. The picker carries its own clear. */}
-            <ChartSection
-              title="Downloads over time"
-              description="Bytes of saved downloads per day. Choose a range or drag across the bars."
-              action={
-                <DateRangePicker
-                  from={range.from}
-                  to={range.to}
-                  min={pickerSpan.min}
-                  max={pickerSpan.max}
-                  triggerLabel="All recorded days"
-                  formatDate={formatDay}
-                  onChange={setRange}
-                  presets
-                />
-              }
-              footer={
-                recoveredTotal === null || recoveredTotal === 0 ? undefined : (
-                  <RecoveredNote count={recoveredTotal} />
-                )
-              }
-            >
-              <div className="px-2 pt-2 pb-3">
-                <VolumeChart
-                  rows={model}
-                  range={range}
-                  onRangeChange={setRange}
-                />
-              </div>
-            </ChartSection>
-
-            {/* File kinds + sources — the two lenses an examiner scans a
-                  downloads set through, side by side. Picking a file kind
-                  focuses the lists below on it. */}
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-              <SectionPanel
-                id="downloads-kinds-title"
-                title="By file kind"
-                description="Saved downloads. Pick a kind to focus the table."
+            {/* Volume over time beside the file kinds. Dragging across the
+                bars (or picking a range) and picking a kind both focus the
+                lists below; the picker carries its own clear. */}
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+              <ChartSection
+                title="Downloads over time"
+                description=""
+                className="lg:col-span-2"
+                action={
+                  <>
+                    <SavedOnlyTag
+                      recovered={recoveredTotal ?? 0}
+                      unit={{ one: "download", many: "downloads" }}
+                    />
+                    <DateRangePicker
+                      from={range.from}
+                      to={range.to}
+                      min={pickerSpan.min}
+                      max={pickerSpan.max}
+                      triggerLabel="All recorded days"
+                      formatDate={formatDay}
+                      onChange={setRange}
+                      presets
+                    />
+                  </>
+                }
               >
+                <div className="px-2 pt-2 pb-3">
+                  <VolumeChart
+                    rows={model}
+                    range={range}
+                    onRangeChange={setRange}
+                  />
+                </div>
+              </ChartSection>
+              <SectionPanel id="downloads-kinds-title" title="By file kind">
                 <KindBreakdown
                   rows={model}
                   activeKind={kindFilter}
                   onKind={onKind}
                 />
-              </SectionPanel>
-              <SectionPanel
-                id="downloads-sources-title"
-                title="Top sources"
-                description="Saved downloads, by total bytes."
-              >
-                <SourceHosts rows={model} />
               </SectionPanel>
             </div>
           </div>
@@ -1512,11 +1465,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
 
       {/* The raw rows, saved and recovered as separate reads. */}
       <div ref={tableRef} className="relative scroll-mt-4">
-        <SectionPanel
-          id="downloads-all-title"
-          title="All downloads"
-          description="Every recorded download. File kind, dates and search narrow both lists."
-        >
+        <SectionPanel id="downloads-all-title" title="All downloads">
           <CommitStateSplit
             value={view}
             onValueChange={setView}
@@ -1530,7 +1479,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
                 {kindFilter !== null ? (
                   <Button
                     variant="tertiary"
-                    trailingIcon={X}
+                    trailingIcon={CloseIcon}
                     aria-label={`File kind: ${KIND_META[kindFilter].label}. Clear the file-kind filter`}
                     onClick={() => {
                       setKindFilter(null);
@@ -1542,7 +1491,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
                 {hasRange ? (
                   <Button
                     variant="tertiary"
-                    trailingIcon={X}
+                    trailingIcon={CloseIcon}
                     aria-label="Clear the date range"
                     onClick={() => {
                       setRange({ from: "", to: "" });
@@ -1552,11 +1501,12 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
                     {range.to === "" ? "end" : formatDayTick(range.to)}
                   </Button>
                 ) : null}
+                <SortControls sort={sort} onSort={setSort} />
                 <FilterTextField
                   id="downloads-search"
                   commit="change"
                   label="Search loaded downloads"
-                  icon={Search}
+                  icon={SearchIcon}
                   value={search}
                   placeholder="Search file, path, or source…"
                   onCommit={setSearch}
@@ -1569,8 +1519,6 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
                 rows={visibleSaved}
                 recovered={false}
                 filtered={filtered}
-                sort={sort}
-                onSort={onSort}
                 onSelect={select}
                 onClearFilters={clearAll}
               />
@@ -1581,8 +1529,6 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
                 rows={visibleRecovered}
                 recovered
                 filtered={filtered}
-                sort={sort}
-                onSort={onSort}
                 onSelect={select}
                 onClearFilters={clearAll}
               />
@@ -1619,15 +1565,5 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
         />
       ) : null}
     </div>
-  );
-}
-
-function RecoveredNote({ count }: { readonly count: number }) {
-  const size = useSize();
-  return (
-    <p className={cn(size.type.caption, "text-muted-foreground")}>
-      {plural(count, "recovered download is", "recovered downloads are")} not
-      counted here; they are listed under Recovered below.
-    </p>
   );
 }

@@ -4,15 +4,9 @@
  * value: every figure is a recorded field or a count of recorded rows.
  */
 import { callApi } from "@/api";
-import { formatDay } from "@/components/page-kit";
+import { formatDay, formatDayTick } from "@/components/page-kit";
 import { fetchActivity, type ActivityBucket } from "@/components/activity-data";
-import type {
-  CaseCompleteness,
-  CaseProfiles,
-  FieldState,
-  Finding,
-  PageOf,
-} from "@/types";
+import type { CaseProfiles, FieldState, Finding, PageOf } from "@/types";
 
 export function fieldString(field: FieldState | undefined): string | null {
   if (field === undefined || field.state !== "value") {
@@ -72,10 +66,9 @@ export interface OverviewData {
   };
   readonly mostVisited: readonly TopSite[];
   readonly profiles: readonly string[];
-  readonly completeness: CaseCompleteness;
   readonly metadata: readonly Finding[];
   readonly downloads: readonly Finding[];
-  /** Recovered favicon for each Top sites host, as an inline `data:` URI —
+  /** Recovered favicon for each Most visited sites host, as an inline `data:` URI —
    *  the dashboard's CSP admits no other image source, so a favicon is never
    *  fetched live off this machine, only read back from the Case's own
    *  recovered `favicon_bitmaps` payloads. A host with no recovered favicon
@@ -149,7 +142,6 @@ export async function loadOverview(): Promise<OverviewData> {
     { saved: activity, recovered, complete: activityComplete },
     recordedSpan,
     mostVisitedPage,
-    completeness,
     caseProfiles,
     metadataPage,
     downloadsPage,
@@ -165,7 +157,6 @@ export async function loadOverview(): Promise<OverviewData> {
       ["direction", "desc"],
       ["limit", "6"],
     ]),
-    callApi<CaseCompleteness>("completeness", []),
     callApi<CaseProfiles>("profiles", []),
     callApi<PageOf<Finding>>("metadata", [
       ["sort", "type"],
@@ -201,7 +192,6 @@ export async function loadOverview(): Promise<OverviewData> {
     recordedSpan,
     mostVisited,
     profiles: caseProfiles.profiles,
-    completeness,
     metadata: metadataPage.items,
     favicons,
     downloads: downloadsPage.items,
@@ -230,6 +220,35 @@ export function formatSpan(
   return first === last
     ? formatDay(first)
     : `${formatDay(first)} — ${formatDay(last)}`;
+}
+
+/** A `YYYY-MM-DD` day moved by `days` (UTC calendar arithmetic). */
+export function shiftDay(date: string, days: number): string {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
+/** A short day range: "6 Apr", "6–10 Apr", "28 Mar – 2 Apr", or with years
+ *  when the two days fall in different years ("28 Dec 2023 – 2 Jan 2024"). */
+export function formatDayRange(from: string, to: string): string {
+  if (from === to) {
+    return formatDayTick(from);
+  }
+  const [fromYear, fromMonth] = from.split("-");
+  const [toYear, toMonth] = to.split("-");
+  if (fromYear !== toYear) {
+    return `${formatDay(from)} – ${formatDay(to)}`;
+  }
+  if (fromMonth !== toMonth) {
+    return `${formatDayTick(from)} – ${formatDayTick(to)}`;
+  }
+  const [toDay, ...toRest] = formatDayTick(to).split(" ");
+  const fromDay = formatDayTick(from).split(" ")[0] ?? from;
+  return `${fromDay}–${toDay ?? ""} ${toRest.join(" ")}`.trim();
 }
 
 /** The last path segment of a target-path Field's recorded value — the plain

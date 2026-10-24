@@ -1,46 +1,26 @@
 /**
  * The Favicons page.
  *
- * Chrome stores one bitmap per site icon it has seen, keyed by an icon URL and
- * carrying the pages that reference it. Read as a generic evidence dump this is
- * a wall of hashes; read as what it *is* — the browser's own visual index of
- * every host it has rendered — it answers three forensic questions a table
- * alone buries: which hosts left a cached icon at all, at what fidelity the
- * browser held them, and when each icon was last refreshed (a visit proxy that
- * survives even when History does not).
+ * Chrome stores one bitmap per site icon it has seen, keyed by an icon URL
+ * and carrying the pages that reference it — the browser's own visual index
+ * of the hosts it rendered. One figure strip (saved icons, unique bitmaps,
+ * stored size — plain counts of the loaded saved rows) sits above the
+ * "Cached icons" panel, whose Saved / Recovered switch (CommitStateSplit)
+ * shows one `ResponsiveRows` list at a time (a table from `sm` up, stacked
+ * rows below), with the profile picker and a live search on its toolbar.
  *
- * The summary band, the resolution breakdown, and the freshness bands are all
- * counts read straight off the loaded saved rows — nothing is inferred, no
- * axis is projected past the last recorded icon, and every wire field stays
- * reachable through the row detail sheet.
- *
- * Drawn with Fluid Functionalism: page-kit SectionPanels for each section,
- * meter lists for the two distributions, and one "Cached icons" panel whose
- * Saved / Recovered switch (CommitStateSplit) shows one FF Table at a time,
- * with the profile picker and a live search on the same toolbar.
- *
- * Presentation rules kept: a cell without its own recorded value reads as the
- * word "(empty)", "absent" or "unavailable", never colour alone; saved rows
- * and rows recovered from the WAL / rollback journal are separate server
- * reads (`useCommitStateLists`) and separate lists, never sorted together;
- * the figures count saved rows only; nothing here is presented as an
- * inference.
+ * Presentation rules kept: a cell without its own recorded value reads as
+ * the word "(empty)", "absent" or "unavailable", never colour alone; saved
+ * rows and rows recovered from the WAL / rollback journal are separate
+ * server reads (`useCommitStateLists`) and separate lists, never sorted
+ * together; the figures count saved rows only; nothing is inferred.
  */
-import { ImageOff, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
-import { Panel, PanelContent } from "@/components/panel";
+import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { typeClass } from "@/lib/size-context";
-import { cn } from "@/lib/utils";
+import { MissingImageIcon, SearchIcon } from "@/lib/app-icons";
+import { SizeProvider } from "@/lib/size-context";
 
 import type { QueryParameters } from "../api.js";
 import type { ArtifactConfig, Finding } from "../types.js";
@@ -49,28 +29,24 @@ import {
   type RecoveredList,
   useCommitStateLists,
 } from "../use-commit-state-lists.js";
-import { useChartTokens } from "./charts.js";
-import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
+import { EmptyRows } from "./data-table.js";
 import {
-  AbsentWord,
   FieldCell,
   fieldInteger,
   fieldText,
-  fieldUtc,
   hostOf,
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
-import { ListBlock } from "./list-states.js";
+import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import {
   CommitStateSplit,
   type CommitView,
   formatBytes,
-  MeterList,
-  type MeterRow,
-  plural,
+  ResponsiveRows,
+  type RowColumn,
   SectionPanel,
   TimeCell,
 } from "./page-kit.js";
@@ -116,16 +92,6 @@ function resolutionLabel(row: Finding): string | null {
   return `${String(width)}×${String(height)}`;
 }
 
-/** The larger stored edge of a favicon, used to bucket resolutions. */
-function faviconEdge(row: Finding): number | null {
-  const width = fieldInteger(row.fields.width);
-  const height = fieldInteger(row.fields.height);
-  if (width === null && height === null) {
-    return null;
-  }
-  return Math.max(width ?? 0, height ?? 0);
-}
-
 function faviconBytes(row: Finding): number | null {
   return fieldInteger(row.fields.payloadBytes);
 }
@@ -133,33 +99,24 @@ function faviconBytes(row: Finding): number | null {
 /* --------------------------------- widgets --------------------------------- */
 
 /**
- * The read-at-a-glance summary of the saved icons: how many there are, how
- * many distinct hosts they cover, how many distinct stored bitmaps there
- * truly are (identical hashes across hosts are the browser reusing one
- * image), and the total on-disk footprint. Every figure is a plain count of
- * the loaded saved rows; recovered rows are named apart, never added in.
+ * The figure strip: how many saved icons, how many distinct stored bitmaps
+ * (identical hashes are the browser reusing one image), and their on-disk
+ * size. Plain counts of the loaded saved rows; recovered rows are never
+ * added in.
  */
 function SummaryBand({
   rows,
-  recovered,
   more,
 }: {
   readonly rows: readonly Finding[];
-  /** Loaded recovered rows (`null` while that read is in flight). */
-  readonly recovered: number | null;
   /** More saved rows stand on the server. */
   readonly more: boolean;
 }) {
   const stats = useMemo(() => {
-    const hosts = new Set<string>();
     const hashes = new Set<string>();
     let totalBytes = 0;
     let sizedRows = 0;
     for (const row of rows) {
-      const host = faviconHost(row);
-      if (host !== null) {
-        hosts.add(host);
-      }
       const hash = fieldText(row.fields.payloadSha256);
       if (hash !== null) {
         hashes.add(hash);
@@ -170,224 +127,61 @@ function SummaryBand({
         sizedRows += 1;
       }
     }
-    return {
-      icons: rows.length,
-      hosts: hosts.size,
-      distinctBitmaps: hashes.size,
-      totalBytes,
-      sizedRows,
-    };
+    return { distinctBitmaps: hashes.size, totalBytes, sizedRows };
   }, [rows]);
 
   return (
-    <MetricBand className="grid-cols-2 lg:grid-cols-4">
+    <MetricBand className="grid-cols-3">
       <MetricBandItem
         label="Saved icons"
-        value={`${stats.icons.toLocaleString("en-US")}${more ? "+" : ""}`}
-        detail={
-          recovered === null || recovered === 0
-            ? "site icons in the database"
-            : `${plural(recovered, "recovered icon", "recovered icons")} listed apart`
-        }
-      />
-      <MetricBandItem
-        label="Distinct hosts"
-        value={stats.hosts.toLocaleString("en-US")}
-        detail="hosts with a saved icon"
+        value={`${rows.length.toLocaleString("en-US")}${more ? "+" : ""}`}
       />
       <MetricBandItem
         label="Unique bitmaps"
         value={stats.distinctBitmaps.toLocaleString("en-US")}
-        detail={
-          stats.distinctBitmaps < stats.icons
-            ? `${String(stats.icons - stats.distinctBitmaps)} share or lack a hash`
-            : "no reused images"
-        }
       />
       <MetricBandItem
         label="Stored size"
         value={
           stats.sizedRows === 0 ? "not recorded" : formatBytes(stats.totalBytes)
         }
-        detail={
-          stats.sizedRows === 0
-            ? "no recorded byte sizes"
-            : `across ${plural(stats.sizedRows, "icon", "icons")}`
-        }
       />
     </MetricBand>
   );
 }
 
-/** A caption under a distribution: how many rows it could not place. */
-function LeftOutNote({ children }: { readonly children: string }) {
-  return (
-    <p className={cn(typeClass("caption"), "mt-2 text-muted-foreground")}>
-      {children}
-    </p>
-  );
-}
-
-/**
- * Saved icons grouped by the largest edge Chrome stored them at. Favicon
- * fidelity is evidence in its own right: a site the browser rendered at 48px
- * was pinned, tabbed, or bookmarked, where a bare 16px icon was only ever a
- * list entry.
- */
-function ResolutionPanel({ rows }: { readonly rows: readonly Finding[] }) {
-  const tokens = useChartTokens();
-  const { meters, absentCount } = useMemo(() => {
-    const byEdge = new Map<number, number>();
-    let missing = 0;
-    for (const row of rows) {
-      const edge = faviconEdge(row);
-      if (edge === null || edge === 0) {
-        missing += 1;
-        continue;
-      }
-      byEdge.set(edge, (byEdge.get(edge) ?? 0) + 1);
-    }
-    const ordered: MeterRow[] = [...byEdge.entries()]
-      .sort(([left], [right]) => left - right)
-      .map(([edge, count]) => ({
-        key: String(edge),
-        label: `${String(edge)}×${String(edge)} px`,
-        value: count,
-        display: count.toLocaleString("en-US"),
-        title: plural(count, "icon", "icons"),
-      }));
-    return { meters: ordered, absentCount: missing };
-  }, [rows]);
-
-  return (
-    <SectionPanel
-      id="favicons-resolution"
-      title="Stored resolution"
-      description="Saved icons by their largest stored edge. Higher fidelity marks a more prominent site."
-      className="h-full"
-    >
-      <PanelContent className="pt-2">
-        {meters.length === 0 ? (
-          <EmptyRows
-            className="py-8"
-            message="No saved icons carry a recorded resolution."
-          />
-        ) : (
-          <MeterList rows={meters} tokens={tokens} labelWidth="7rem" />
-        )}
-        {absentCount > 0 ? (
-          <LeftOutNote>
-            {`${plural(absentCount, "icon", "icons")} with no recorded resolution not shown.`}
-          </LeftOutNote>
-        ) : null}
-      </PanelContent>
-    </SectionPanel>
-  );
-}
-
-/** Fixed, evidence-derived age bands. The last band is open-ended, so every
- *  dated icon lands in exactly one. */
-const FRESHNESS_BANDS: readonly {
-  readonly key: string;
-  readonly label: string;
-  readonly maxDays: number;
-}[] = [
-  { key: "7d", label: "Within 7 days", maxDays: 7 },
-  { key: "30d", label: "8 to 30 days", maxDays: 30 },
-  { key: "90d", label: "31 to 90 days", maxDays: 90 },
-  { key: "older", label: "Over 90 days", maxDays: Infinity },
-];
-
-/**
- * When each saved icon was last refreshed, bucketed by age. A favicon's
- * `lastUpdated` is written when the browser last re-fetched the icon, so this
- * is a coarse recency signal for the site itself — one that survives even when
- * the visit was cleared from History. Bands are fixed, never a smoothed trend.
- */
-function FreshnessPanel({ rows }: { readonly rows: readonly Finding[] }) {
-  const tokens = useChartTokens();
-  const { meters, absentCount, dated } = useMemo(() => {
-    const counts = new Map<string, number>();
-    const now = Date.now();
-    let missing = 0;
-    for (const row of rows) {
-      const utc = fieldUtc(row.fields.lastUpdated);
-      const parsed = utc === null ? Number.NaN : new Date(utc).getTime();
-      if (Number.isNaN(parsed)) {
-        missing += 1;
-        continue;
-      }
-      const ageDays = (now - parsed) / 86_400_000;
-      const band = FRESHNESS_BANDS.find((entry) => ageDays <= entry.maxDays);
-      if (band !== undefined) {
-        counts.set(band.key, (counts.get(band.key) ?? 0) + 1);
-      }
-    }
-    const ordered: MeterRow[] = FRESHNESS_BANDS.map((band) => {
-      const count = counts.get(band.key) ?? 0;
-      return {
-        key: band.key,
-        label: band.label,
-        value: count,
-        display: count.toLocaleString("en-US"),
-        title: plural(count, "icon", "icons"),
-      };
-    });
-    return {
-      meters: ordered,
-      absentCount: missing,
-      dated: rows.length - missing,
-    };
-  }, [rows]);
-
-  return (
-    <SectionPanel
-      id="favicons-freshness"
-      title="Icon freshness"
-      description="How long ago each saved icon was last refreshed. A coarse recency signal for the site, independent of History."
-      className="h-full"
-    >
-      <PanelContent className="pt-2">
-        {dated === 0 ? (
-          <EmptyRows
-            className="py-8"
-            message="No saved icons carry a recorded update time."
-          />
-        ) : (
-          <MeterList rows={meters} tokens={tokens} labelWidth="7rem" />
-        )}
-        {absentCount > 0 ? (
-          <LeftOutNote>
-            {`${plural(absentCount, "icon", "icons")} with no recorded update time not shown.`}
-          </LeftOutNote>
-        ) : null}
-      </PanelContent>
-    </SectionPanel>
-  );
-}
-
 /* ---------------------------------- table ---------------------------------- */
 
-/** The site column: the icon's host, else the icon URL's own state word
- *  (unavailable, absent, (empty)); a recorded URL with no host reads
- *  "absent". */
-function HostCell({ row }: { readonly row: Finding }) {
+/**
+ * The site: the icon's host over its icon URL (mono, muted, a step
+ * smaller). The URL line keeps its own state word, so an unavailable icon
+ * URL still reads "unavailable" under the host its page URL names; with no
+ * host at all, the icon URL (or its word) stands alone.
+ */
+function SiteCell({
+  row,
+  avatar = true,
+}: {
+  readonly row: Finding;
+  readonly avatar?: boolean;
+}) {
   const host = faviconHost(row);
-  if (host === null) {
-    const iconUrl = row.fields.iconUrl;
-    return iconUrl === undefined ||
-      (iconUrl.state === "value" && iconUrl.value !== "") ? (
-      <AbsentWord />
-    ) : (
-      <FieldCell field={iconUrl} />
-    );
-  }
+  const iconUrl = <FieldCell field={row.fields.iconUrl} mono />;
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      <SiteAvatar host={host} />
-      <span className="truncate" title={host}>
-        {host}
-      </span>
+      {avatar ? <SiteAvatar host={host} /> : null}
+      {host === null ? (
+        <span className="min-w-0 flex-1">{iconUrl}</span>
+      ) : (
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-foreground" title={host}>
+            {host}
+          </span>
+          <SizeProvider size="compact">
+            <span className="min-w-0 text-muted-foreground">{iconUrl}</span>
+          </SizeProvider>
+        </span>
+      )}
     </span>
   );
 }
@@ -405,92 +199,98 @@ function ResolutionCell({ row }: { readonly row: Finding }) {
   return <FieldCell field={missing} />;
 }
 
-/**
- * One list of icons. The saved list and the recovered list share columns;
- * only the recovered list carries the State column, since its rows differ in
- * which sidecar they came from (WAL or rollback journal).
- */
+const SITE_COLUMN: RowColumn<Finding> = {
+  key: "site",
+  header: "Site",
+  className: "max-w-[420px] min-w-[240px]",
+  stack: "title",
+  cell: (row) => <SiteCell row={row} />,
+  stackedCell: (row) => <SiteCell row={row} avatar={false} />,
+};
+
+const RESOLUTION_COLUMN: RowColumn<Finding> = {
+  key: "resolution",
+  header: "Resolution",
+  className: "whitespace-nowrap",
+  cell: (row) => <ResolutionCell row={row} />,
+};
+
+const SIZE_COLUMN: RowColumn<Finding> = {
+  key: "size",
+  header: "Size",
+  className: "text-right whitespace-nowrap",
+  cell: (row) => {
+    const bytes = faviconBytes(row);
+    return bytes === null ? (
+      <FieldCell field={row.fields.payloadBytes} />
+    ) : (
+      <span title={`${bytes.toLocaleString("en-US")} bytes`}>
+        {formatBytes(bytes)}
+      </span>
+    );
+  },
+};
+
+const UPDATED_COLUMN: RowColumn<Finding> = {
+  key: "updated",
+  header: "Last updated",
+  className: "whitespace-nowrap",
+  stack: "lead",
+  cell: (row) => <TimeCell field={row.fields.lastUpdated} />,
+};
+
+const PROFILE_COLUMN: RowColumn<Finding> = {
+  key: "profile",
+  header: "Profile",
+  className: "whitespace-nowrap",
+  cell: (row) => row.profile,
+};
+
+/** Saved icons carry no State column (every row is saved). */
+const SAVED_COLUMNS: readonly RowColumn<Finding>[] = [
+  SITE_COLUMN,
+  RESOLUTION_COLUMN,
+  SIZE_COLUMN,
+  UPDATED_COLUMN,
+  PROFILE_COLUMN,
+];
+
+/** Recovered icons add the State word: which sidecar, and whether the row
+ *  was unsaved or overwritten. */
+const RECOVERED_COLUMNS: readonly RowColumn<Finding>[] = [
+  ...SAVED_COLUMNS,
+  {
+    key: "state",
+    header: "State",
+    stack: "aside",
+    cell: (row) => <StateWord state={row.commitState} />,
+  },
+];
+
 function IconsTable({
   rows,
-  showState,
+  recovered,
   onSelect,
 }: {
   readonly rows: readonly Finding[];
-  readonly showState: boolean;
+  readonly recovered: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
   return (
-    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
-      <Table className="tabular-nums">
-        <TableHeader>
-          <TableRow>
-            <TableHead className="whitespace-nowrap">Site</TableHead>
-            <TableHead className="whitespace-nowrap">Icon URL</TableHead>
-            <TableHead className="whitespace-nowrap">Resolution</TableHead>
-            <TableHead className="whitespace-nowrap text-right">Size</TableHead>
-            <TableHead className="whitespace-nowrap">Last updated</TableHead>
-            <TableHead className="whitespace-nowrap">Profile</TableHead>
-            {showState ? (
-              <TableHead className="whitespace-nowrap">State</TableHead>
-            ) : null}
-          </TableRow>
-        </TableHeader>
-        <TableBody className="reveal-items">
-          {rows.map((row, index) => {
-            const host = faviconHost(row);
-            const bytes = faviconBytes(row);
-            const open = () => {
-              onSelect(row);
-            };
-            return (
-              <TableRow
-                // A WAL and a journal copy of one bitmap share its id, so the
-                // Commit State (and the position) keep the key unique.
-                key={`${row.commitState}:${row.profile}:${fieldText(row.fields.bitmapId) ?? ""}:${String(index)}`}
-                index={index}
-                tabIndex={0}
-                aria-label={`Open favicon row detail for ${host ?? "a host not recorded"}`}
-                onClick={open}
-                onKeyDown={(event) => {
-                  activateOnKey(event, open);
-                }}
-                className={ROW_FOCUS_CLASS}
-              >
-                <TableCell className="max-w-[260px] text-foreground">
-                  <HostCell row={row} />
-                </TableCell>
-                <TableCell className="max-w-[320px]">
-                  <FieldCell field={row.fields.iconUrl} />
-                </TableCell>
-                <TableCell className="whitespace-nowrap">
-                  <ResolutionCell row={row} />
-                </TableCell>
-                <TableCell className="text-right whitespace-nowrap">
-                  {bytes === null ? (
-                    <FieldCell field={row.fields.payloadBytes} />
-                  ) : (
-                    <span title={`${bytes.toLocaleString("en-US")} bytes`}>
-                      {formatBytes(bytes)}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <TimeCell field={row.fields.lastUpdated} />
-                </TableCell>
-                <TableCell className="whitespace-nowrap">
-                  {row.profile}
-                </TableCell>
-                {showState ? (
-                  <TableCell>
-                    <StateWord state={row.commitState} />
-                  </TableCell>
-                ) : null}
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+    <ResponsiveRows
+      rows={rows}
+      columns={recovered ? RECOVERED_COLUMNS : SAVED_COLUMNS}
+      // A WAL and a journal copy of one bitmap share its id, so the Commit
+      // State (and the position) keep the key unique.
+      rowKey={(row, index) =>
+        `${row.commitState}:${row.profile}:${fieldText(row.fields.bitmapId) ?? ""}:${String(index)}`
+      }
+      rowLabel={(row) =>
+        `Open favicon row detail for ${faviconHost(row) ?? "a host not recorded"}`
+      }
+      onSelect={onSelect}
+      tableClassName="tabular-nums"
+    />
   );
 }
 
@@ -530,7 +330,7 @@ function IconList({
     >
       <IconsTable
         rows={visible}
-        showState={noun === "recovered"}
+        recovered={noun === "recovered"}
         onSelect={onSelect}
       />
     </ListBlock>
@@ -539,20 +339,12 @@ function IconList({
 
 /* --------------------------------- loading --------------------------------- */
 
-/** Stands in for the summary band and the two distributions while the first
- *  saved page loads, at their size. */
+/** Stands in for the figure strip while the first saved page loads, at its
+ *  size. */
 function FiguresSkeleton() {
   return (
-    <div
-      className="flex flex-col gap-5"
-      role="status"
-      aria-label="Loading favicon figures"
-    >
-      <Skeleton className="h-[78px] w-full rounded-xl" />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-[248px] w-full rounded-xl" />
-        <Skeleton className="h-[248px] w-full rounded-xl" />
-      </div>
+    <div role="status" aria-label="Loading favicon figures">
+      <Skeleton className="h-[74px] w-full rounded-xl" />
     </div>
   );
 }
@@ -632,7 +424,7 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
       {pageEmpty ? (
         <Panel>
           <EmptyRows
-            icon={ImageOff}
+            icon={MissingImageIcon}
             title="No cached icons"
             message="No Favicons rows in this Case, saved or recovered."
           />
@@ -640,29 +432,15 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
       ) : (
         <>
           {showFigures ? (
-            <div className="reveal-swap">
-              <FiguresSkeleton />
-              {savedFirst ? null : (
-                <div className="flex flex-col gap-5">
-                  <SummaryBand
-                    rows={savedRows}
-                    recovered={recoveredFirst ? null : recoveredRows.length}
-                    more={lists.saved.cursor !== null}
-                  />
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <ResolutionPanel rows={savedRows} />
-                    <FreshnessPanel rows={savedRows} />
-                  </div>
-                </div>
-              )}
-            </div>
+            <RevealSwap loading={savedFirst} skeleton={<FiguresSkeleton />}>
+              <SummaryBand
+                rows={savedRows}
+                more={lists.saved.cursor !== null}
+              />
+            </RevealSwap>
           ) : null}
 
-          <SectionPanel
-            id="favicons-list"
-            title="Cached icons"
-            description="Saved icons and icons recovered from the WAL or rollback journal are separate lists."
-          >
+          <SectionPanel id="favicons-list" title="Cached icons">
             <CommitStateSplit
               value={view}
               onValueChange={setView}
@@ -696,7 +474,7 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
                   <FilterTextField
                     commit="change"
                     label="Search loaded favicons"
-                    icon={Search}
+                    icon={SearchIcon}
                     placeholder="Search host or icon URL"
                     value={search}
                     onCommit={setSearch}

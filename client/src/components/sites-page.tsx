@@ -5,37 +5,23 @@
  * observed host on the left, ordered by how much recorded evidence it
  * carries, as an FF card list (one fluid hover highlight, the selected host
  * holding the selection fill); on the right the selected host's records,
- * grouped per artifact kind — each group an FF Table with the columns an
- * examiner reads first, not a union of every wire field. Every technical
- * field stays reachable through the row detail sheet.
+ * grouped per artifact kind — each group a compact list of three or four
+ * columns an examiner reads first (title over URL, cookie over path,
+ * username over realm), not a union of every wire field. Every technical
+ * field stays reachable through the row detail sheet. Below `md` the two
+ * are one screen at a time: the host list, then the host with a way back.
  *
  * Presentation rules kept: hosts and counts are grouped records, never
  * inference; states are worded, never colour alone; a field without its own
  * recorded value shows its own word ("(empty)", "absent", "unavailable");
  * within each kind, rows recovered from the WAL / rollback journal are a
- * separate list from saved rows (the stacked CommitStateSplit), never sorted
- * in, and the host's figures count saved and recovered rows apart.
+ * separate list from saved rows (the stacked CommitStateSplit, State column
+ * only there), never sorted in.
  */
-import {
-  Bookmark,
-  ClipboardList,
-  Cookie,
-  Globe,
-  KeyRound,
-  Search,
-  TrendingUp,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Panel, PanelHeader, PanelTitle } from "@/components/panel";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -45,21 +31,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle";
+import {
+  ARTIFACT_ICONS,
+  ChevronLeftIcon,
+  SearchIcon,
+  type AppIcon,
+} from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
 import type {
+  FieldState,
   Finding,
   PageOf,
   SiteArtifactKind,
@@ -71,14 +56,16 @@ import {
   CommitStateSplit,
   Count,
   IconTile,
+  plural,
+  ResponsiveRows,
+  type RowColumn,
   splitByCommit,
   TimeCell,
 } from "./page-kit.js";
-import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
+import { EmptyRows } from "./data-table.js";
 import { FieldCell, SiteAvatar, StateWord } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
 import { ErrorRows, LoadingRows } from "./list-states.js";
-import { MetricBand, MetricBandItem } from "./metric-band.js";
 import {
   RowSheet,
   SecretValueCell,
@@ -87,20 +74,59 @@ import {
 } from "./row-sheet.js";
 
 /**
- * Reading order, labels, and icons for the six site artifact kinds. Order is
- * investigative: activity first, then stored identity data.
+ * Reading order, labels, nouns, and icons for the six site artifact kinds.
+ * Order is investigative: activity first, then stored identity data.
  */
 const KIND_META: readonly {
   readonly kind: SiteArtifactKind;
   readonly label: string;
-  readonly icon: LucideIcon;
+  /** The row noun for a count ("1 visit", "2 visits"). */
+  readonly one: string;
+  readonly many: string;
+  readonly icon: AppIcon;
 }[] = [
-  { kind: "visits", label: "Visits", icon: Globe },
-  { kind: "cookies", label: "Cookies", icon: Cookie },
-  { kind: "saved_logins", label: "Saved logins", icon: KeyRound },
-  { kind: "bookmarks", label: "Bookmarks", icon: Bookmark },
-  { kind: "top_sites", label: "Top sites", icon: TrendingUp },
-  { kind: "form_data", label: "Form data", icon: ClipboardList },
+  {
+    kind: "visits",
+    label: "Visits",
+    one: "visit",
+    many: "visits",
+    icon: ARTIFACT_ICONS.history,
+  },
+  {
+    kind: "cookies",
+    label: "Cookies",
+    one: "cookie",
+    many: "cookies",
+    icon: ARTIFACT_ICONS.cookies,
+  },
+  {
+    kind: "saved_logins",
+    label: "Saved logins",
+    one: "saved login",
+    many: "saved logins",
+    icon: ARTIFACT_ICONS.credentials,
+  },
+  {
+    kind: "bookmarks",
+    label: "Bookmarks",
+    one: "bookmark",
+    many: "bookmarks",
+    icon: ARTIFACT_ICONS.bookmarks,
+  },
+  {
+    kind: "top_sites",
+    label: "Top sites",
+    one: "top site",
+    many: "top sites",
+    icon: ARTIFACT_ICONS["top-sites"],
+  },
+  {
+    kind: "form_data",
+    label: "Form data",
+    one: "form entry",
+    many: "form entries",
+    icon: ARTIFACT_ICONS.autofill,
+  },
 ];
 
 const KIND_LABELS: Readonly<Record<SiteArtifactKind, string>> =
@@ -188,10 +214,7 @@ function useSiteList<Row>(
 /** "4 visits · 1 cookie" — the kinds a host carries, in reading order. */
 function hostSummary(host: SiteHost): string {
   return KIND_META.filter((meta) => host.counts[meta.kind] > 0)
-    .map(
-      (meta) =>
-        `${String(host.counts[meta.kind])} ${meta.label.toLocaleLowerCase("en-US")}`,
-    )
+    .map((meta) => plural(host.counts[meta.kind], meta.one, meta.many))
     .join(" · ");
 }
 
@@ -230,6 +253,7 @@ function HostList({
   onSearch,
   selected,
   onSelect,
+  className,
 }: {
   readonly hosts: readonly SiteHost[];
   readonly loading: boolean;
@@ -239,12 +263,13 @@ function HostList({
   readonly onSearch: (value: string) => void;
   readonly selected: string | null;
   readonly onSelect: (host: string) => void;
+  readonly className?: string;
 }) {
   return (
     <Panel
       role="region"
       aria-labelledby="sites-hosts-title"
-      className="overflow-clip md:sticky md:top-16"
+      className={cn("overflow-clip md:sticky md:top-16", className)}
     >
       <PanelHeader className="items-center pb-3">
         <div className="flex items-center gap-2">
@@ -256,7 +281,7 @@ function HostList({
         <div className="border-b border-border px-3 pb-3">
           <FilterTextField
             label="Search observed hosts"
-            icon={Search}
+            icon={SearchIcon}
             placeholder="Search hosts…"
             value={search}
             onCommit={onSearch}
@@ -281,7 +306,7 @@ function HostList({
           }
         />
       ) : (
-        <div className="scroll-fade max-h-[45dvh] overflow-y-auto p-1 md:max-h-[calc(100dvh-13rem)]">
+        <div className="scroll-fade p-1 md:max-h-[calc(100dvh-13rem)] md:overflow-y-auto">
           <SizeProvider size="compact">
             <CardGroup orientation="inline">
               {hosts.map((item) => (
@@ -319,87 +344,136 @@ function HostList({
 
 /* ------------------------- per-kind curated tables ------------------------- */
 
-/** One curated column of a per-kind table. */
-interface KindColumn {
-  readonly label: string;
-  /** Right-align numeric columns. */
-  readonly numeric?: boolean;
-  /** The column the row reads by (foreground, not muted). */
-  readonly lead?: boolean;
-  readonly cell: (row: SiteFinding) => ReactNode;
+/**
+ * Two recorded fields in one cell: the one a row reads by (a title, a
+ * cookie name, a username) over the one that locates it (a URL, a path, a
+ * realm), muted and a step smaller. Each keeps its own state word, so a
+ * missing title reads "absent" above its URL instead of being papered over.
+ */
+function StackedCell({
+  primary,
+  secondary,
+  prose = false,
+}: {
+  readonly primary: FieldState | undefined;
+  readonly secondary: FieldState | undefined;
+  /** The primary value is prose (a title, a bookmark name): never mono. */
+  readonly prose?: boolean;
+}) {
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="min-w-0 text-foreground">
+        <FieldCell field={primary} mono={prose ? false : "auto"} />
+      </span>
+      <SizeProvider size="compact">
+        <span className="min-w-0 text-muted-foreground">
+          <FieldCell field={secondary} mono />
+        </span>
+      </SizeProvider>
+    </span>
+  );
 }
 
-const timeColumn = (label: string, field: string): KindColumn => ({
-  label,
+type KindColumn = RowColumn<SiteFinding>;
+
+const timeColumn = (
+  key: string,
+  header: string,
+  field: string,
+  stack: "lead" | "meta" = "meta",
+): KindColumn => ({
+  key,
+  header,
+  className: "whitespace-nowrap",
+  stack,
+  labelled: stack === "meta",
   cell: (row) => <TimeCell field={row.fields[field]} />,
 });
 
-const textColumn = (
-  label: string,
-  field: string,
-  options: { readonly lead?: boolean; readonly prose?: boolean } = {},
+const stackedColumn = (
+  header: string,
+  primary: string,
+  secondary: string,
+  prose = false,
 ): KindColumn => ({
-  label,
-  lead: options.lead,
-  // Raw values (URLs, names, paths) stay mono; prose (titles, folders) reads
-  // in the body face. Every other state keeps its own word either way.
+  key: "main",
+  header,
+  className: "max-w-[420px] min-w-[220px]",
+  stack: "title",
   cell: (row) => (
-    <FieldCell
-      field={row.fields[field]}
-      format={options.prose === true ? (value) => String(value) : undefined}
+    <StackedCell
+      primary={row.fields[primary]}
+      secondary={row.fields[secondary]}
+      prose={prose}
     />
   ),
 });
 
 /**
- * The columns for each kind. Chosen for reading, not completeness: the host
- * itself is already fixed by the selection, so cells carry what distinguishes
- * rows within the host. Each field keeps its own column, so a missing title
- * reads "absent" in its own cell instead of being papered over by the URL.
+ * Three or four columns per kind, chosen for reading, not completeness: the
+ * host is already fixed by the selection, so cells carry what tells rows
+ * apart within it. Below `sm` the time (or rank) leads each stacked row.
  */
 const KIND_COLUMNS: Readonly<Record<SiteArtifactKind, readonly KindColumn[]>> =
   {
     visits: [
-      timeColumn("Time", "visitTime"),
-      textColumn("Title", "title", { lead: true, prose: true }),
-      textColumn("URL", "url"),
+      timeColumn("time", "Time", "visitTime", "lead"),
+      stackedColumn("Page", "title", "url", true),
     ],
     cookies: [
-      textColumn("Cookie", "name", { lead: true }),
-      textColumn("Path", "path"),
-      timeColumn("Created", "creationTime"),
-      timeColumn("Expires", "expiresTime"),
+      stackedColumn("Cookie", "name", "path"),
+      timeColumn("created", "Created", "creationTime", "lead"),
+      timeColumn("expires", "Expires", "expiresTime"),
     ],
     saved_logins: [
-      textColumn("Username", "usernameValue", { lead: true }),
-      textColumn("Sign-on realm", "signonRealm"),
-      timeColumn("Created", "dateCreated"),
-      timeColumn("Last used", "dateLastUsed"),
+      stackedColumn("Username", "usernameValue", "signonRealm"),
+      timeColumn("created", "Created", "dateCreated"),
+      timeColumn("last-used", "Last used", "dateLastUsed", "lead"),
     ],
     bookmarks: [
-      textColumn("Bookmark", "name", { lead: true, prose: true }),
-      textColumn("URL", "url"),
-      textColumn("Folder", "folderPath", { prose: true }),
-      timeColumn("Added", "dateAdded"),
+      stackedColumn("Bookmark", "name", "url", true),
+      {
+        key: "folder",
+        header: "Folder",
+        className: "max-w-[220px]",
+        cell: (row) => <FieldCell field={row.fields.folderPath} mono={false} />,
+      },
+      timeColumn("added", "Added", "dateAdded", "lead"),
     ],
     top_sites: [
       {
-        label: "Rank",
-        numeric: true,
+        key: "rank",
+        header: "Rank",
+        className: "w-16 text-right tabular-nums",
+        stack: "lead",
         cell: (row) => (
           <FieldCell
             field={row.fields.urlRank}
             format={(value) => String(value)}
           />
         ),
+        stackedCell: (row) => (
+          <FieldCell
+            field={row.fields.urlRank}
+            format={(value) => `Rank ${String(value)}`}
+          />
+        ),
       },
-      textColumn("Title", "title", { lead: true, prose: true }),
-      textColumn("URL", "url"),
+      stackedColumn("Site", "title", "url", true),
     ],
     form_data: [
-      textColumn("Field", "fieldName", { lead: true }),
       {
-        label: "Value",
+        key: "field",
+        header: "Field",
+        className: "max-w-[220px] text-foreground",
+        stack: "title",
+        cell: (row) => <FieldCell field={row.fields.fieldName} />,
+      },
+      {
+        key: "value",
+        header: "Value",
+        className: "max-w-[300px]",
+        labelled: true,
         // A Payment value stays hidden here; the row sheet reveals it.
         cell: (row) => (
           <SecretValueCell
@@ -408,87 +482,53 @@ const KIND_COLUMNS: Readonly<Record<SiteArtifactKind, readonly KindColumn[]>> =
           />
         ),
       },
-      timeColumn("Last used", "dateLastUsed"),
+      timeColumn("last-used", "Last used", "dateLastUsed", "lead"),
     ],
   };
+
+const PROFILE_COLUMN: KindColumn = {
+  key: "profile",
+  header: "Profile",
+  className: "whitespace-nowrap",
+  cell: (row) => row.profile,
+};
+
+const STATE_COLUMN: KindColumn = {
+  key: "state",
+  header: "State",
+  stack: "aside",
+  cell: (row) => <StateWord state={row.commitState} />,
+};
 
 function KindTable({
   kind,
   rows,
-  showState,
+  recovered,
+  showProfile,
   onSelect,
 }: {
   readonly kind: SiteArtifactKind;
   readonly rows: readonly SiteFinding[];
-  readonly showState: boolean;
+  /** The recovered list: adds the State column. */
+  readonly recovered: boolean;
+  /** The host's rows span more than one profile: adds the Profile column. */
+  readonly showProfile: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
-  const columns = KIND_COLUMNS[kind];
+  const columns = [
+    ...KIND_COLUMNS[kind],
+    ...(showProfile ? [PROFILE_COLUMN] : []),
+    ...(recovered ? [STATE_COLUMN] : []),
+  ];
   return (
-    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
-      <Table className="tabular-nums">
-        <TableHeader>
-          <TableRow>
-            {columns.map((column) => (
-              <TableHead
-                key={column.label}
-                className={cn(
-                  "whitespace-nowrap",
-                  column.numeric === true && "text-right",
-                )}
-              >
-                {column.label}
-              </TableHead>
-            ))}
-            <TableHead className="whitespace-nowrap">Profile</TableHead>
-            {showState ? (
-              <TableHead className="whitespace-nowrap">State</TableHead>
-            ) : null}
-          </TableRow>
-        </TableHeader>
-        <TableBody className="reveal-items">
-          {rows.map((row, index) => {
-            const open = () => {
-              onSelect(row);
-            };
-            return (
-              <TableRow
-                key={index}
-                index={index}
-                tabIndex={0}
-                aria-label={`Open ${KIND_LABELS[kind]} row detail`}
-                onClick={open}
-                onKeyDown={(event) => {
-                  activateOnKey(event, open);
-                }}
-                className={ROW_FOCUS_CLASS}
-              >
-                {columns.map((column) => (
-                  <TableCell
-                    key={column.label}
-                    className={cn(
-                      "max-w-[300px]",
-                      column.lead === true && "text-foreground",
-                      column.numeric === true && "w-16 text-right",
-                    )}
-                  >
-                    {column.cell(row)}
-                  </TableCell>
-                ))}
-                <TableCell className="whitespace-nowrap">
-                  {row.profile}
-                </TableCell>
-                {showState ? (
-                  <TableCell>
-                    <StateWord state={row.commitState} />
-                  </TableCell>
-                ) : null}
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+    <ResponsiveRows
+      rows={rows}
+      columns={columns}
+      rowKey={(row, index) => `${row.commitState}:${String(index)}`}
+      rowLabel={() => `Open ${KIND_LABELS[kind]} row detail`}
+      onSelect={onSelect}
+      tableClassName="tabular-nums"
+    />
   );
 }
 
@@ -499,10 +539,12 @@ function KindTable({
 function KindPanel({
   meta,
   rows,
+  showProfile,
   onSelect,
 }: {
   readonly meta: (typeof KIND_META)[number];
   readonly rows: readonly SiteFinding[];
+  readonly showProfile: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
   const { saved, recovered } = splitByCommit(rows);
@@ -516,17 +558,15 @@ function KindPanel({
           <PanelTitle id={titleId} as="h3">
             {meta.label}
           </PanelTitle>
-          <Count>
-            {`${saved.length.toLocaleString("en-US")} saved`}
-            {recovered.length === 0
-              ? ""
-              : ` · ${recovered.length.toLocaleString("en-US")} recovered`}
-          </Count>
+          <Count>{saved.length}</Count>
         </div>
       </PanelHeader>
       <CommitStateSplit
         variant="stacked"
         headingAs="h4"
+        // Each recovered row's State word (and its tooltip) names the
+        // sidecar, so the sub-heading carries no caption.
+        recoveredDescription=""
         savedCount={saved.length}
         recoveredCount={recovered.length}
         saved={
@@ -534,7 +574,8 @@ function KindPanel({
             <KindTable
               kind={meta.kind}
               rows={saved}
-              showState={false}
+              recovered={false}
+              showProfile={showProfile}
               onSelect={onSelect}
             />
           ) : (
@@ -548,7 +589,8 @@ function KindPanel({
           <KindTable
             kind={meta.kind}
             rows={recovered}
-            showState
+            recovered
+            showProfile={showProfile}
             onSelect={onSelect}
           />
         }
@@ -575,9 +617,13 @@ function DetailSkeleton() {
 function HostDetail({
   host,
   onSelect,
+  onBack,
 }: {
   readonly host: string;
   readonly onSelect: (row: Finding) => void;
+  /** Back to the host list (below `md`, where the two are one screen at a
+   *  time). */
+  readonly onBack: () => void;
 }) {
   const findings = useSiteList<SiteFinding>(
     "site-findings",
@@ -605,10 +651,6 @@ function HostDetail({
   const presentKinds = KIND_META.filter(
     (meta) => (grouped.get(meta.kind) ?? []).length > 0,
   );
-  const recoveredCount = findings.rows.filter(
-    (row) => row.commitState !== "committed",
-  ).length;
-  const savedCount = findings.rows.length - recoveredCount;
   const profileCount = new Set(findings.rows.map((row) => row.profile)).size;
   const ready = !(findings.loading && findings.rows.length === 0);
 
@@ -621,58 +663,32 @@ function HostDetail({
     <div className="flex min-w-0 flex-col gap-5">
       <section
         aria-labelledby="sites-host-title"
-        className="flex min-w-0 flex-col gap-4"
+        className="flex min-w-0 flex-col gap-3"
       >
+        <SizeProvider size="compact">
+          <Button
+            variant="ghost"
+            leadingIcon={ChevronLeftIcon}
+            onClick={onBack}
+            className="self-start md:hidden"
+          >
+            All hosts
+          </Button>
+        </SizeProvider>
         <div className="flex min-w-0 items-center gap-4 px-1">
           <SiteAvatar host={host} size="lg" />
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <h2
-              id="sites-host-title"
-              className={cn(
-                typeClass("title"),
-                "truncate font-mono text-foreground",
-              )}
-              style={{ fontVariationSettings: fontWeights.semibold }}
-              title={host}
-            >
-              {host}
-            </h2>
-            <p className={cn(typeClass("body"), "text-muted-foreground")}>
-              Recorded evidence for this host, grouped by artifact kind.
-            </p>
-          </div>
+          <h2
+            id="sites-host-title"
+            className={cn(
+              typeClass("title"),
+              "min-w-0 truncate text-foreground",
+            )}
+            style={{ fontVariationSettings: fontWeights.semibold }}
+            title={host}
+          >
+            {host}
+          </h2>
         </div>
-        {findings.error !== null ? null : (
-          <div className="reveal-swap">
-            <div role="status" aria-label="Loading host figures">
-              <Skeleton className="h-[148px] w-full rounded-xl lg:h-[74px]" />
-            </div>
-            {ready ? (
-              <MetricBand className="grid-cols-2 lg:grid-cols-4">
-                <MetricBandItem
-                  label="Saved rows"
-                  value={savedCount.toLocaleString("en-US")}
-                  detail="committed rows"
-                />
-                <MetricBandItem
-                  label="Recovered rows"
-                  value={recoveredCount.toLocaleString("en-US")}
-                  detail="from WAL or journal"
-                />
-                <MetricBandItem
-                  label="Evidence kinds"
-                  value={presentKinds.length.toLocaleString("en-US")}
-                  detail="recorded artifact types"
-                />
-                <MetricBandItem
-                  label="Profiles"
-                  value={profileCount.toLocaleString("en-US")}
-                  detail="with rows for this host"
-                />
-              </MetricBand>
-            ) : null}
-          </div>
-        )}
       </section>
 
       {findings.error !== null ? (
@@ -728,6 +744,7 @@ function HostDetail({
                     key={meta.kind}
                     meta={meta}
                     rows={grouped.get(meta.kind) ?? []}
+                    showProfile={profileCount > 1}
                     onSelect={onSelect}
                   />
                 ))}
@@ -740,6 +757,11 @@ function HostDetail({
 }
 
 /* ---------------------------------- page ---------------------------------- */
+
+/** Below `md`: the host list and the detail are one screen at a time. */
+function narrowScreen(): boolean {
+  return globalThis.matchMedia("(max-width: 767px)").matches;
+}
 
 export function SitesPage({
   initialHost,
@@ -762,15 +784,18 @@ export function SitesPage({
     setSelected({ kind: "finding", row });
   }, []);
 
-  // On a narrow screen the detail sits below the host list, so picking a
-  // host brings its evidence into view instead of leaving it off-screen.
+  // Below `md` the list and the detail are one screen at a time: picking a
+  // host swaps the list for its evidence, from the top.
   const pickHost = useCallback((next: string) => {
     setHost(next);
-    if (globalThis.matchMedia("(max-width: 767px)").matches) {
+    if (narrowScreen()) {
       requestAnimationFrame(() => {
         detailRef.current?.scrollIntoView({ block: "start" });
       });
     }
+  }, []);
+  const backToHosts = useCallback(() => {
+    setHost(null);
   }, []);
 
   return (
@@ -784,18 +809,23 @@ export function SitesPage({
         onSearch={setSearch}
         selected={host}
         onSelect={pickHost}
+        className={host === null ? undefined : "max-md:hidden"}
       />
       <div ref={detailRef} className="min-w-0 scroll-mt-16">
         {host === null ? (
-          <Panel>
+          <Panel className="max-md:hidden">
             <EmptyRows
-              icon={Globe}
-              title="No host selected"
-              message="Select a recorded host to view its evidence."
+              icon={ARTIFACT_ICONS.sites}
+              message="Select a host to view its evidence."
             />
           </Panel>
         ) : (
-          <HostDetail key={host} host={host} onSelect={select} />
+          <HostDetail
+            key={host}
+            host={host}
+            onSelect={select}
+            onBack={backToHosts}
+          />
         )}
       </div>
       {selected !== null ? (

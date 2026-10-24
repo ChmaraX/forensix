@@ -1,50 +1,31 @@
 /**
  * The Cookies page.
  *
- * Cookies read as a security-and-scope posture, not a generic evidence dump.
- * Chrome stores far more per cookie than a name and a value: whether the row
- * is transport-restricted (`isSecure`), script-hidden (`isHttpOnly`), how it
- * behaves cross-site (`sameSite`), and — the one figure an examiner reaches
- * for first here — whether its value could actually be read offline or is
- * still sealed behind OS encryption. The widgets above the table restate
- * exactly those recorded flags as proportions, plus one honest interpolation:
- * a cookie's lifespan, computed from its own `creationTime` and `expiresTime`.
+ * Cookies read as a security-and-scope posture: the four figures restate the
+ * recorded flags of the saved rows (`isSecure`, `isHttpOnly`, and whether the
+ * value is still sealed behind OS encryption), and the one widget,
+ * Persistence, is the single honest interpolation — each cookie's lifespan,
+ * from its own `creationTime` to its own `expiresTime`.
  *
  * Cookie values are session secrets, so the table keeps them **hidden by
- * default**: a recorded value reads as the words "value hidden" until the
- * examiner turns on "Show values"; the row detail sheet keeps it hidden too,
- * behind its own Reveal control (`redactedFields`). A value that could not
- * be decrypted offline reads "unavailable" with its reason, an empty one
- * "(empty)", a missing one "absent" — four distinct words, never a colour
- * alone.
+ * default**: a recorded value reads "value hidden" until the examiner turns
+ * on "Show values"; the row sheet keeps it hidden too, behind its own Reveal
+ * (`redactedFields`). A value that could not be decrypted offline reads
+ * "unavailable" with its reason, an empty one "(empty)", a missing one
+ * "absent" — distinct words, never a colour alone.
  *
- * Saved rows and rows recovered from WAL / journal sidecars are read as
- * separate server queries (`useCommitStateLists`) and shown as separate lists
- * (the Saved / Recovered switch), never sorted together. Every figure above
- * the table counts the loaded **saved** cookies only, and says so. No control
- * here writes, re-runs, or mutates anything — the page only reads rows back.
+ * Saved rows and rows recovered from WAL / journal sidecars are separate
+ * server reads (`useCommitStateLists`) and separate lists (the Saved /
+ * Recovered tabs). Every figure counts the loaded saved cookies only. The
+ * page only reads rows back.
  */
-import { Cookie, Lock, Search, ShieldCheck } from "lucide-react";
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import { Panel } from "@/components/panel";
-import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  useFluidHover,
-  useRegisterFluidHoverItem,
-} from "@/hooks/use-fluid-hover";
-import { useShape } from "@/lib/shape-context";
+import { Tooltip } from "@/components/ui/tooltip";
+import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
 import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +36,7 @@ import {
   type PaginatedList,
 } from "../use-commit-state-lists.js";
 import { ChartEmpty, useChartTokens } from "./charts.js";
-import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
+import { EmptyRows } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
   FieldCell,
@@ -66,7 +47,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
-import { ListBlock } from "./list-states.js";
+import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import {
   COOKIE_SECRET_FIELDS,
@@ -78,13 +59,13 @@ import {
   CommitStateSplit,
   MeterList,
   plural,
+  ResponsiveRows,
   SectionPanel,
-  ShareBar,
   TimeCell,
-  WeightLabel,
   type CommitView,
-  type MeterRow,
+  type RowColumn,
 } from "./page-kit.js";
+import { Term } from "./term.js";
 
 /* ------------------------------ data reading ------------------------------ */
 
@@ -95,11 +76,10 @@ const COOKIE_PARAMETERS: QueryParameters = [
 ];
 
 /**
- * One cookie row reduced to just the fields the widgets and the curated table
- * read, computed once so the charts and the table share a single pass. Every
- * property mirrors a recorded flag; `lifespanDays` is the one derived figure —
- * the whole-day distance from `creationTime` to `expiresTime`, and only when
- * both are present, so it is never invented for a row that lacks either bound.
+ * One cookie row reduced to the fields the figures and the table read,
+ * computed once. Every property mirrors a recorded flag; `lifespanDays` is
+ * the one derived figure — the whole-day distance from `creationTime` to
+ * `expiresTime`, only when both are present.
  */
 interface CookieRow {
   readonly finding: Finding;
@@ -159,8 +139,8 @@ interface PostureSummary {
 /**
  * The four headline figures. Each numerator counts only rows that carry the
  * recorded flag as `true` (or, for `sealed`, whose value came back
- * unavailable): a cookie whose `isSecure` field is absent is never silently
- * counted as insecure, it simply is not in the numerator.
+ * unavailable): a cookie whose `isSecure` field is absent is never counted
+ * as insecure, it simply is not in the numerator.
  */
 function summarize(rows: readonly CookieRow[]): PostureSummary {
   let secure = 0;
@@ -180,14 +160,6 @@ function summarize(rows: readonly CookieRow[]): PostureSummary {
   return { total: rows.length, secure, httpOnly, sealed };
 }
 
-/** SameSite reading order: most permissive to most locked-down, then unknown. */
-const SAME_SITE_ORDER = [
-  "no_restriction",
-  "lax",
-  "strict",
-  "unspecified",
-] as const;
-
 const SAME_SITE_LABEL: Readonly<Record<string, string>> = {
   no_restriction: "None",
   lax: "Lax",
@@ -195,49 +167,18 @@ const SAME_SITE_LABEL: Readonly<Record<string, string>> = {
   unspecified: "Unspecified",
 };
 
+/** What each recorded SameSite policy means, for the column's tooltips. */
 const SAME_SITE_HINT: Readonly<Record<string, string>> = {
-  no_restriction: "Sent on every cross-site request",
-  lax: "Sent on top-level navigations only",
-  strict: "Never sent cross-site",
-  unspecified: "No policy set; the browser default applies",
+  no_restriction: "Sent on every cross-site request.",
+  lax: "Sent on top-level navigations only.",
+  strict: "Never sent cross-site.",
+  unspecified: "No policy set; the browser default applies.",
 };
-
-interface SameSiteSlice {
-  readonly key: string;
-  readonly label: string;
-  readonly count: number;
-}
-
-function sameSiteSlices(rows: readonly CookieRow[]): {
-  readonly slices: readonly SameSiteSlice[];
-  readonly known: number;
-} {
-  const counts = new Map<string, number>();
-  let known = 0;
-  for (const row of rows) {
-    if (row.sameSite === null) {
-      continue;
-    }
-    known += 1;
-    counts.set(row.sameSite, (counts.get(row.sameSite) ?? 0) + 1);
-  }
-  const ordered: readonly string[] = SAME_SITE_ORDER;
-  const extra = [...counts.keys()].filter((key) => !ordered.includes(key));
-  const slices = [...ordered, ...extra.sort()]
-    .filter((key) => (counts.get(key) ?? 0) > 0)
-    .map((key) => ({
-      key,
-      label: SAME_SITE_LABEL[key] ?? key,
-      count: counts.get(key) ?? 0,
-    }));
-  return { slices, known };
-}
 
 /**
  * Lifespan buckets, derived from each cookie's own creation-to-expiry span.
- * A negative span means the cookie's recorded expiry is already in its past —
- * expired at capture — which is itself evidence, so it gets its own bucket
- * rather than being folded into "session".
+ * A negative span means the recorded expiry is already in its past — expired
+ * at capture — which is itself evidence, so it gets its own bucket.
  */
 const LIFESPAN_BUCKETS = [
   { key: "expired", label: "Expired", test: (days: number) => days < 0 },
@@ -281,36 +222,6 @@ function lifespanBuckets(rows: readonly CookieRow[]): {
   };
 }
 
-interface HostTally {
-  readonly host: string;
-  readonly count: number;
-}
-
-/** The busiest cookie hosts, most cookies first, capped for the leaderboard. */
-function topHosts(
-  rows: readonly CookieRow[],
-  limit: number,
-): {
-  readonly hosts: readonly HostTally[];
-  readonly distinct: number;
-} {
-  const counts = new Map<string, number>();
-  for (const row of rows) {
-    if (row.host === null) {
-      continue;
-    }
-    counts.set(row.host, (counts.get(row.host) ?? 0) + 1);
-  }
-  const hosts = [...counts.entries()]
-    .map(([host, count]) => ({ host, count }))
-    .sort((left, right) =>
-      right.count === left.count
-        ? left.host.localeCompare(right.host)
-        : right.count - left.count,
-    );
-  return { hosts: hosts.slice(0, limit), distinct: counts.size };
-}
-
 /** "3 years" / "12 days" / "session" style label for a lifespan in days. */
 function formatLifespan(days: number): string {
   if (days <= 1) {
@@ -334,12 +245,18 @@ function percent(part: number, whole: number): string {
 
 /* ------------------------------ page sections ----------------------------- */
 
-/** A quiet sentence under a widget — what the figures above leave out. */
-function Footnote({ children }: { readonly children: ReactNode }) {
+/** A tile's figure, with its exact "N of M" in a tooltip. */
+function ShareFigure({
+  value,
+  detail,
+}: {
+  readonly value: string;
+  readonly detail: string;
+}) {
   return (
-    <p className={cn(typeClass("caption"), "px-4 pb-4 text-muted-foreground")}>
-      {children}
-    </p>
+    <Tooltip content={detail}>
+      <span className="cursor-default">{value}</span>
+    </Tooltip>
   );
 }
 
@@ -351,118 +268,62 @@ function PostureStrip({
   readonly summary: PostureSummary;
   readonly more: boolean;
 }) {
-  const of = (part: number) =>
-    `${part.toLocaleString("en-US")} of ${summary.total.toLocaleString("en-US")}`;
+  const of = (part: number, what: string) =>
+    `${part.toLocaleString("en-US")} of ${plural(summary.total, "saved cookie", "saved cookies")} ${what}`;
   return (
     <MetricBand className="grid-cols-2 lg:grid-cols-4">
       <MetricBandItem
-        label="Saved cookies loaded"
+        label="Saved cookies"
         value={`${summary.total.toLocaleString("en-US")}${more ? "+" : ""}`}
-        detail="saved rows; recovered listed apart"
       />
       <MetricBandItem
-        label="Secure"
-        value={percent(summary.secure, summary.total)}
-        detail={`${of(summary.secure)} · Sent only over HTTPS`}
-        icon={<ShieldCheck aria-hidden="true" />}
-        progress={{ value: summary.secure, max: summary.total }}
+        label={<Term label="Secure">Sent only over HTTPS.</Term>}
+        value={
+          <ShareFigure
+            value={percent(summary.secure, summary.total)}
+            detail={of(summary.secure, "marked Secure")}
+          />
+        }
       />
       <MetricBandItem
-        label="HttpOnly"
-        value={percent(summary.httpOnly, summary.total)}
-        detail={`${of(summary.httpOnly)} · Hidden from page scripts`}
-        progress={{ value: summary.httpOnly, max: summary.total }}
+        label={<Term label="HttpOnly">Hidden from page scripts.</Term>}
+        value={
+          <ShareFigure
+            value={percent(summary.httpOnly, summary.total)}
+            detail={of(summary.httpOnly, "marked HttpOnly")}
+          />
+        }
       />
       <MetricBandItem
-        label="Sealed"
-        value={percent(summary.sealed, summary.total)}
-        detail={`${of(summary.sealed)} · Encrypted, unreadable offline`}
-        icon={<Lock aria-hidden="true" />}
-        tone="destructive"
-        status="unavailable"
-        progress={{
-          value: summary.sealed,
-          max: summary.total,
-          tone: "destructive",
-        }}
+        label={
+          <Term label="Sealed">
+            Value encrypted with the operating system's key, so it cannot be
+            read offline.
+          </Term>
+        }
+        value={
+          <ShareFigure
+            value={percent(summary.sealed, summary.total)}
+            detail={of(summary.sealed, "with a sealed value")}
+          />
+        }
       />
     </MetricBand>
   );
 }
 
 /**
- * The SameSite exposure list: the cross-site behaviour Chrome recorded for
- * each saved cookie, most permissive first, as ranked bars. Every row carries
- * the policy word, what it means, the count and the share, so no reading
- * depends on a hue. Cookies without a recorded SameSite are named under the
- * list as an explicit figure, never dropped.
- */
-function SameSiteCard({ rows }: { readonly rows: readonly CookieRow[] }) {
-  const tokens = useChartTokens();
-  const { slices, known } = useMemo(() => sameSiteSlices(rows), [rows]);
-  const unknown = rows.length - known;
-  const meterRows: readonly MeterRow[] = slices.map((slice) => ({
-    key: slice.key,
-    label: <span className="truncate">{slice.label}</span>,
-    value: slice.count,
-    display: `${slice.count.toLocaleString("en-US")} · ${String(Math.round((slice.count / known) * 100))}%`,
-    title: SAME_SITE_HINT[slice.key],
-  }));
-  return (
-    <SectionPanel
-      id="cookies-samesite"
-      className="h-full"
-      title="Cross-site behaviour"
-      description="Each saved cookie's recorded SameSite policy."
-    >
-      {known === 0 ? (
-        <ChartEmpty>
-          No saved cookie carries a recorded SameSite policy.
-        </ChartEmpty>
-      ) : (
-        <div className="flex flex-col gap-1 px-4 pt-1 pb-3">
-          <MeterList rows={meterRows} tokens={tokens} labelWidth="6rem" />
-          <ul
-            className={cn(typeClass("caption"), "text-muted-foreground")}
-            aria-label="What each policy means"
-          >
-            {slices.map((slice) => (
-              <li key={slice.key} className="truncate">
-                <span className="text-foreground">{slice.label}</span>:{" "}
-                {SAME_SITE_HINT[slice.key] ?? "Policy recorded as is"}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {unknown > 0 ? (
-        <Footnote>
-          {plural(unknown, "saved cookie", "saved cookies")} with no recorded
-          SameSite policy.
-        </Footnote>
-      ) : null}
-    </SectionPanel>
-  );
-}
-
-/**
- * The lifespan list: how long each saved cookie was set to live, from its
- * own creation-to-expiry span, as ranked bars on fixed buckets. Every bar
- * carries its count as a number, and the expired bucket keeps its word.
- * Cookies missing a creation or expiry bound are reported as an explicit
- * "no dated span" figure below the bars.
+ * Persistence: how long each saved cookie was set to live, from its own
+ * creation-to-expiry span, as ranked bars on fixed buckets. A zero bucket
+ * draws no bar. Cookies missing a creation or expiry bound are named as a
+ * figure under the bars, never dropped.
  */
 function LifespanCard({ rows }: { readonly rows: readonly CookieRow[] }) {
   const tokens = useChartTokens();
   const { buckets, dated } = useMemo(() => lifespanBuckets(rows), [rows]);
   const undated = rows.length - dated;
   return (
-    <SectionPanel
-      id="cookies-lifespan"
-      className="h-full"
-      title="Persistence"
-      description="How long each saved cookie was set to live."
-    >
+    <SectionPanel id="cookies-lifespan" title="Persistence">
       {dated === 0 ? (
         <ChartEmpty>
           No saved cookie carries both a creation and an expiry time.
@@ -482,122 +343,16 @@ function LifespanCard({ rows }: { readonly rows: readonly CookieRow[] }) {
         </div>
       )}
       {undated > 0 ? (
-        <Footnote>
-          {plural(undated, "saved cookie", "saved cookies")} with no dated span.
-        </Footnote>
-      ) : null}
-    </SectionPanel>
-  );
-}
-
-/**
- * The busiest saved-cookie hosts. Each row narrows both lists to that host (a
- * second click clears it), so the list is a real set of choices and takes
- * FF's fluid hover; the bar is the host's count against the busiest host.
- */
-function HostBoardCard({
-  rows,
-  activeHost,
-  onPick,
-}: {
-  readonly rows: readonly CookieRow[];
-  readonly activeHost: string | null;
-  readonly onPick: (host: string) => void;
-}) {
-  const { hosts, distinct } = useMemo(() => topHosts(rows, 6), [rows]);
-  const peak = hosts[0]?.count ?? 0;
-  const listRef = useRef<HTMLDivElement>(null);
-  const hover = useFluidHover(listRef, { axis: "y" });
-  const shape = useShape();
-  return (
-    <SectionPanel
-      id="cookies-hosts"
-      className="h-full"
-      title="Cookies by host"
-      description="Saved cookies per host. Pick one to narrow the lists."
-      aside={
-        <Badge size="compact" className="tabular-nums">
-          {plural(distinct, "host", "hosts")}
-        </Badge>
-      }
-    >
-      {hosts.length === 0 ? (
-        <ChartEmpty>No saved cookie carries a recorded host.</ChartEmpty>
-      ) : (
-        <div ref={listRef} {...hover.handlers} className="relative px-1 pb-1">
-          <FluidHoverHighlight hover={hover} className={shape.item} />
-          <ul className="flex flex-col">
-            {hosts.map((entry, index) => (
-              <HostBoardRow
-                key={entry.host}
-                index={index}
-                registerItem={hover.registerItem}
-                entry={entry}
-                peak={peak}
-                active={activeHost === entry.host}
-                onPick={onPick}
-              />
-            ))}
-          </ul>
-        </div>
-      )}
-    </SectionPanel>
-  );
-}
-
-function HostBoardRow({
-  index,
-  registerItem,
-  entry,
-  peak,
-  active,
-  onPick,
-}: {
-  readonly index: number;
-  readonly registerItem: (index: number, element: HTMLElement | null) => void;
-  readonly entry: HostTally;
-  readonly peak: number;
-  readonly active: boolean;
-  readonly onPick: (host: string) => void;
-}) {
-  const ref = useRef<HTMLButtonElement>(null);
-  const shape = useShape();
-  useRegisterFluidHoverItem(registerItem, index, ref);
-  return (
-    <li>
-      <button
-        ref={ref}
-        type="button"
-        aria-pressed={active}
-        aria-label={`${entry.host}, ${plural(entry.count, "saved cookie", "saved cookies")}`}
-        onClick={() => {
-          onPick(entry.host);
-        }}
-        className={cn(
-          "relative grid h-9 w-full cursor-pointer grid-cols-[minmax(0,1fr)_5rem_2rem] items-center gap-3 px-3 text-left outline-none transition-colors duration-80 focus-visible:ring-1 focus-visible:ring-focus-ring",
-          shape.item,
-          active && "bg-active",
-        )}
-      >
-        <span className="flex min-w-0 items-center gap-2.5">
-          <SiteAvatar host={entry.host} />
-          <WeightLabel
-            text={entry.host}
-            active={active}
-            className={cn(typeClass("body"), "text-foreground")}
-          />
-        </span>
-        <ShareBar fraction={peak === 0 ? 0 : entry.count / peak} />
-        <span
+        <p
           className={cn(
-            typeClass("body"),
-            "text-right text-muted-foreground tabular-nums",
+            typeClass("caption"),
+            "px-4 pb-4 text-muted-foreground",
           )}
         >
-          {entry.count.toLocaleString("en-US")}
-        </span>
-      </button>
-    </li>
+          {plural(undated, "saved cookie", "saved cookies")} with no dated span.
+        </p>
+      ) : null}
+    </SectionPanel>
   );
 }
 
@@ -612,147 +367,174 @@ function FlagCell({ field }: { readonly field: FieldState | undefined }) {
   return on ? <span className="text-foreground">Yes</span> : <span>No</span>;
 }
 
-const TABLE_COLUMNS = [
-  "Host",
-  "Cookie",
-  "Value",
-  "Secure",
-  "HttpOnly",
-  "SameSite",
-  "Lifespan",
-  "Created",
-  "State",
-] as const;
+/** The recorded SameSite policy as a word, its meaning in a tooltip. */
+function SameSiteCell({ field }: { readonly field: FieldState | undefined }) {
+  const key = fieldText(field);
+  if (key === null) {
+    return <FieldCell field={field} />;
+  }
+  const label = SAME_SITE_LABEL[key] ?? key;
+  const hint = SAME_SITE_HINT[key];
+  return hint === undefined ? (
+    <span>{label}</span>
+  ) : (
+    <Tooltip content={hint}>
+      <span className="cursor-help">{label}</span>
+    </Tooltip>
+  );
+}
 
-function CookieTable({
-  rows,
-  reveal,
-  onSelect,
+function LifespanCell({ row }: { readonly row: CookieRow }) {
+  if (row.lifespanDays === null) {
+    return (
+      <FieldCell
+        field={
+          fieldUtc(row.finding.fields.creationTime) === null
+            ? row.finding.fields.creationTime
+            : row.finding.fields.expiresTime
+        }
+      />
+    );
+  }
+  if (row.lifespanDays < 0) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-foreground">
+        <EvidenceDot state="warning" />
+        expired
+      </span>
+    );
+  }
+  return <>{formatLifespan(row.lifespanDays)}</>;
+}
+
+function HostCell({
+  row,
+  avatar,
 }: {
-  readonly rows: readonly CookieRow[];
-  readonly reveal: boolean;
-  readonly onSelect: (row: Finding) => void;
-}) {
+  readonly row: CookieRow;
+  readonly avatar: boolean;
+}): ReactNode {
+  if (row.host === null) {
+    return <FieldCell field={row.finding.fields.hostKey} />;
+  }
   return (
-    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
-      <Table className="min-w-[1080px]">
-        <TableHeader>
-          <TableRow>
-            {TABLE_COLUMNS.map((label) => (
-              <TableHead key={label} className="whitespace-nowrap">
-                {label}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody className="reveal-items">
-          {rows.map((row, index) => (
-            <TableRow
-              key={index}
-              index={index}
-              tabIndex={0}
-              aria-label={`Open cookie ${row.name ?? "with no recorded name"} on ${row.host ?? "a host not recorded"}`}
-              onClick={() => {
-                onSelect(row.finding);
-              }}
-              onKeyDown={(event) => {
-                activateOnKey(event, () => {
-                  onSelect(row.finding);
-                });
-              }}
-              className={ROW_FOCUS_CLASS}
-            >
-              <TableCell className="max-w-[240px]">
-                {row.host === null ? (
-                  <FieldCell field={row.finding.fields.hostKey} />
-                ) : (
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <SiteAvatar host={row.host} />
-                    <span className="truncate text-foreground" title={row.host}>
-                      {row.host}
-                    </span>
-                  </span>
-                )}
-              </TableCell>
-              <TableCell className="max-w-[220px]">
-                {row.name === null ? (
-                  <FieldCell field={row.finding.fields.name} />
-                ) : (
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate font-mono" title={row.name}>
-                      {row.name}
-                    </span>
-                    {row.path === null || row.path === "/" ? null : (
-                      <span
-                        className={cn(
-                          typeClass("caption"),
-                          "truncate font-mono text-muted-foreground",
-                        )}
-                        title={row.path}
-                      >
-                        {row.path}
-                      </span>
-                    )}
-                  </span>
-                )}
-              </TableCell>
-              <TableCell>
-                <SecretValueCell
-                  field={row.finding.fields.value}
-                  reveal={reveal}
-                  className="max-w-[220px]"
-                />
-              </TableCell>
-              <TableCell>
-                <FlagCell field={row.finding.fields.isSecure} />
-              </TableCell>
-              <TableCell>
-                <FlagCell field={row.finding.fields.isHttpOnly} />
-              </TableCell>
-              <TableCell className="whitespace-nowrap">
-                <FieldCell
-                  field={row.finding.fields.sameSite}
-                  format={(value) =>
-                    SAME_SITE_LABEL[String(value)] ?? String(value)
-                  }
-                />
-              </TableCell>
-              <TableCell className="whitespace-nowrap tabular-nums">
-                {row.lifespanDays === null ? (
-                  <FieldCell
-                    field={
-                      fieldUtc(row.finding.fields.creationTime) === null
-                        ? row.finding.fields.creationTime
-                        : row.finding.fields.expiresTime
-                    }
-                  />
-                ) : row.lifespanDays < 0 ? (
-                  <span className="inline-flex items-center gap-1.5 text-foreground">
-                    <EvidenceDot state="warning" />
-                    expired
-                  </span>
-                ) : (
-                  formatLifespan(row.lifespanDays)
-                )}
-              </TableCell>
-              <TableCell>
-                <TimeCell field={row.finding.fields.creationTime} />
-              </TableCell>
-              <TableCell>
-                <StateWord state={row.finding.commitState} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <span className="flex min-w-0 items-center gap-2.5">
+      {avatar ? <SiteAvatar host={row.host} /> : null}
+      <span className="truncate text-foreground" title={row.host}>
+        {row.host}
+      </span>
+    </span>
+  );
+}
+
+/** The cookie's name (a key, so mono) over its path when that isn't "/". */
+function NameCell({ row }: { readonly row: CookieRow }) {
+  if (row.name === null) {
+    return <FieldCell field={row.finding.fields.name} />;
+  }
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate font-mono" title={row.name}>
+        {row.name}
+      </span>
+      {row.path === null || row.path === "/" ? null : (
+        <span
+          className={cn(
+            typeClass("caption"),
+            "truncate font-mono text-muted-foreground",
+          )}
+          title={row.path}
+        >
+          {row.path}
+        </span>
+      )}
+    </span>
   );
 }
 
 /**
+ * The table's columns. The State column only shows in the Recovered tab —
+ * every saved row would read "saved". Below `sm` a row stacks: host and
+ * state on the first line, the cookie name, then value, lifespan and time.
+ */
+function cookieColumns(
+  reveal: boolean,
+  recovered: boolean,
+): readonly RowColumn<CookieRow>[] {
+  const columns: RowColumn<CookieRow>[] = [
+    {
+      key: "host",
+      header: "Host",
+      className: "max-w-[180px]",
+      stack: "lead",
+      cell: (row) => <HostCell row={row} avatar />,
+      stackedCell: (row) => <HostCell row={row} avatar={false} />,
+    },
+    {
+      key: "name",
+      header: "Cookie",
+      className: "max-w-[180px]",
+      stack: "title",
+      cell: (row) => <NameCell row={row} />,
+    },
+    {
+      key: "value",
+      header: "Value",
+      cell: (row) => (
+        <SecretValueCell
+          field={row.finding.fields.value}
+          reveal={reveal}
+          className="max-w-[180px]"
+        />
+      ),
+    },
+    {
+      key: "secure",
+      header: "Secure",
+      stack: "hidden",
+      cell: (row) => <FlagCell field={row.finding.fields.isSecure} />,
+    },
+    {
+      key: "httpOnly",
+      header: "HttpOnly",
+      stack: "hidden",
+      cell: (row) => <FlagCell field={row.finding.fields.isHttpOnly} />,
+    },
+    {
+      key: "sameSite",
+      header: "SameSite",
+      className: "whitespace-nowrap",
+      stack: "hidden",
+      cell: (row) => <SameSiteCell field={row.finding.fields.sameSite} />,
+    },
+    {
+      key: "lifespan",
+      header: "Lifespan",
+      className: "whitespace-nowrap tabular-nums",
+      cell: (row) => <LifespanCell row={row} />,
+    },
+    {
+      key: "created",
+      header: "Created",
+      className: "whitespace-nowrap",
+      cell: (row) => <TimeCell field={row.finding.fields.creationTime} />,
+    },
+  ];
+  if (recovered) {
+    columns.push({
+      key: "state",
+      header: "State",
+      stack: "aside",
+      cell: (row) => <StateWord state={row.finding.commitState} />,
+    });
+  }
+  return columns;
+}
+
+/**
  * One list (saved or recovered): its loading rows, its read error, its empty
- * state, the table, a load-more failure, and the "N shown / Load more"
- * footer. Each list keeps its own pagination.
+ * state, the table, a load-more failure, and the footer. Each list keeps its
+ * own pagination.
  */
 function CookieList({
   list,
@@ -771,6 +553,10 @@ function CookieList({
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
 }) {
+  const columns = useMemo(
+    () => cookieColumns(reveal, noun === "recovered"),
+    [reveal, noun],
+  );
   return (
     <ListBlock
       list={list}
@@ -789,12 +575,25 @@ function CookieList({
         />
       }
     >
-      <CookieTable rows={visible} reveal={reveal} onSelect={onSelect} />
+      <ResponsiveRows
+        rows={visible}
+        columns={columns}
+        rowKey={(row, index) => `${row.finding.commitState}-${String(index)}`}
+        rowLabel={(row) =>
+          `Open cookie ${row.name ?? "with no recorded name"} on ${row.host ?? "a host not recorded"}`
+        }
+        onSelect={(row) => {
+          onSelect(row.finding);
+        }}
+        tableClassName={
+          noun === "recovered" ? "min-w-[1040px]" : "min-w-[900px]"
+        }
+      />
     </ListBlock>
   );
 }
 
-/** Placeholder at the size of the figure strip and the three widgets. */
+/** Placeholder at the size of the figure strip and Persistence. */
 function CookiesSkeleton() {
   return (
     <div
@@ -802,12 +601,8 @@ function CookiesSkeleton() {
       role="status"
       aria-label="Loading cookie figures"
     >
-      <Skeleton className="h-[180px] w-full rounded-xl lg:h-[98px]" />
-      <div className="grid grid-cols-12 gap-4">
-        <Skeleton className="col-span-12 h-[290px] rounded-xl lg:col-span-4" />
-        <Skeleton className="col-span-12 h-[290px] rounded-xl lg:col-span-4" />
-        <Skeleton className="col-span-12 h-[290px] rounded-xl lg:col-span-4" />
-      </div>
+      <Skeleton className="h-[150px] w-full rounded-xl lg:h-[76px]" />
+      <Skeleton className="h-[290px] w-full rounded-xl" />
     </div>
   );
 }
@@ -874,10 +669,6 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
     setSelected({ kind: "finding", row });
   }, []);
 
-  const pickHost = useCallback((host: string) => {
-    setSearch((current) => (current === host ? "" : host));
-  }, []);
-
   const clearFilters = useCallback(() => {
     setSearch("");
     setProfileFilter([]);
@@ -902,7 +693,7 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
       {pageEmpty ? (
         <Panel>
           <EmptyRows
-            icon={Cookie}
+            icon={ARTIFACT_ICONS.cookies}
             title="No cookies"
             message="No Cookies rows in this Case, saved or recovered."
           />
@@ -910,39 +701,18 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
       ) : (
         <>
           {showFigures ? (
-            <div className="reveal-swap">
-              <CookiesSkeleton />
-              {savedFirst ? null : (
-                <div className="flex flex-col gap-5">
-                  <PostureStrip
-                    summary={summary}
-                    more={lists.saved.cursor !== null}
-                  />
-                  <div className="grid grid-cols-12 gap-4">
-                    <div className="col-span-12 lg:col-span-4">
-                      <SameSiteCard rows={savedRows} />
-                    </div>
-                    <div className="col-span-12 lg:col-span-4">
-                      <LifespanCard rows={savedRows} />
-                    </div>
-                    <div className="col-span-12 lg:col-span-4">
-                      <HostBoardCard
-                        rows={savedRows}
-                        activeHost={search === "" ? null : search}
-                        onPick={pickHost}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <RevealSwap loading={savedFirst} skeleton={<CookiesSkeleton />}>
+              <div className="flex flex-col gap-5">
+                <PostureStrip
+                  summary={summary}
+                  more={lists.saved.cursor !== null}
+                />
+                <LifespanCard rows={savedRows} />
+              </div>
+            </RevealSwap>
           ) : null}
 
-          <SectionPanel
-            id="cookies-list"
-            title="All cookies"
-            description="Saved rows and rows recovered from WAL or journal sidecars are separate lists."
-          >
+          <SectionPanel id="cookies-list" title="All cookies">
             <CommitStateSplit
               value={view}
               onValueChange={setView}
@@ -985,7 +755,7 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
                     commit="change"
                     label="Search loaded cookies"
                     placeholder="Search host or name"
-                    icon={Search}
+                    icon={SearchIcon}
                     value={search}
                     onCommit={setSearch}
                   />

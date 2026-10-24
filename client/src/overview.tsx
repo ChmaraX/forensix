@@ -1,28 +1,25 @@
 /**
  * Overview — the Case at a glance.
  *
- * The page answers an examiner's first two questions before anything else:
- * whose browser is this (the subject fields, read from Metadata Findings) and
- * what does the evidence cover (the "Readable" figure, read from the
- * Completeness Statement). Every other panel — activity, downloads, top
- * sites — is derived analyzer output. Nothing here is invented: a Metadata
- * value renders through the same Field State text every list page uses, so
- * `absent` and `unavailable` stay visibly distinct from a value. The
- * highlights band reads straight off `activity` and `most-visited` — recorded
- * facts only; the one Candidate-backed panel (Topic categorization) is
- * labelled as ranked Candidates and never feeds a figure or a highlight.
+ * The page answers an examiner's first question before anything else: whose
+ * browser is this (the subject fields, read from Metadata Findings). Every
+ * other panel — activity, time of day, most visited sites, downloads — is
+ * derived analyzer output. Nothing here is invented: a Metadata value renders
+ * through the same Field State text every list page uses, so `absent` and
+ * `unavailable` stay visibly distinct from a value. The one Candidate-backed
+ * panel (Topic categorization) is labelled Candidate and never feeds a
+ * figure.
  *
  * Presentation is Fluid Functionalism throughout: an unframed masthead on
  * the page substrate (the shell renders no page header here), one
- * `MetricBand` of figures, `ChartSection` for the two charts and
- * `SectionPanel` for every other section, FF ghost buttons for the jump
- * links, one fluid hover highlight on the Top sites list, and `reveal-swap`
- * for the load.
+ * `MetricBand` of four figures, `ChartSection` for the two charts and
+ * `SectionPanel` for the rest, FF ghost buttons for the jump links, and
+ * `reveal-swap` for the load.
  *
  * Saved and recovered rows: every figure and chart counts saved rows only
- * (Top sites and Recent downloads read `commit-state=committed`; the shared
- * activity read keeps recovered rows apart). Recovered visits are named
- * beside the visit figure, never summed in — as on History and Timeline.
+ * (Most visited sites and Recent downloads read `commit-state=committed`; the
+ * shared activity read keeps recovered rows apart). The two charts carry a
+ * "Saved only" tag naming how many recovered visits they leave out.
  */
 import { useEffect, useId, useMemo, useState } from "react";
 
@@ -31,42 +28,32 @@ import {
   bucketsToHourTotals,
   fillGaps,
 } from "@/components/activity-data";
-import {
-  ActivityBars,
-  formatHour,
-  HourBars,
-  useChartTokens,
-  type DayCount,
-} from "@/components/charts";
+import { ActivityBars, HourBars, useChartTokens } from "@/components/charts";
 import { ChartSection } from "@/components/chart-section";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { ErrorRows } from "@/components/list-states";
-import { SectionPanel } from "@/components/page-kit";
-import { Term } from "@/components/term";
+import { plural, SectionPanel } from "@/components/page-kit";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 
-// The "Topic categorization" Overview widget: donut + ranked legend, with a
-// locked preview and an "enable the model" Sheet when the local classifier
-// isn't available. See overview-topic-widget.tsx for the still-mock-data note.
-import {
-  TopicCategorizationCard as TopicWidget,
-  type TopicState,
-} from "./overview-topic-widget.js";
+// Topic categorization: a one-line "unavailable" state with an "enable the
+// model" Sheet, until the topic-status route exists.
+import { TopicCategorizationLine } from "./overview-topic-widget.js";
 import {
   fieldString,
   formatDay,
+  formatDayRange,
   formatSpan,
   loadOverview,
-  domainOf,
+  shiftDay,
   type OverviewData,
 } from "./overview/data";
 import {
   CaseFigures,
   DownloadsList,
-  HourSpark,
   JumpLink,
   LoadingOverview,
   Masthead,
+  SavedOnlyTag,
   SubjectList,
   TopSitesList,
   type CaseFigure,
@@ -76,8 +63,8 @@ export function OverviewPage({
   onOpen,
 }: {
   /** Opens a nav section by key — the per-panel jump links in panel headers,
-   *  and the Top sites row click, which passes a second argument: the host
-   *  to preselect once the Sites tab is open. */
+   *  and the Most visited sites row click, which passes a second argument:
+   *  the host to preselect once the Sites tab is open. */
   readonly onOpen?: (key: string, param?: string) => void;
 }) {
   const [data, setData] = useState<OverviewData | null>(null);
@@ -161,22 +148,6 @@ function OverviewContent({
   const [rangeFrom, setRangeFrom] = useState("");
   const [rangeTo, setRangeTo] = useState("");
 
-  // TODO: replace with the real `topic-status` route once it exists (see
-  // topic-candidates-onnx.ts's TopicClassifierUnavailableReason). Hardcoded
-  // to "unavailable" — the honest default until the model-status API lands —
-  // rather than claiming the classifier ran when nothing backs that yet.
-  const topicState: TopicState = "unavailable";
-
-  const coverage = useMemo(() => {
-    let attempted = 0;
-    let produced = 0;
-    for (const statement of data.completeness.statements) {
-      attempted += statement.attempted;
-      produced += statement.produced;
-    }
-    return { attempted, produced };
-  }, [data]);
-
   // The true recorded span, read directly from the Case (not from the
   // possibly-truncated `activity` set). `recordedSpan` carries UTC instants;
   // a plain UTC calendar-date slice can read up to a day later than the true
@@ -229,22 +200,19 @@ function OverviewContent({
       (sum, day) => sum + day.count,
       0,
     );
-    const busiest = days.reduce<DayCount | null>(
-      (best, day) => (best === null || day.count > best.count ? day : best),
-      null,
-    );
-    return { days, hourTotals, totalVisits, recoveredVisits, busiest };
+    return { days, hourTotals, totalVisits, recoveredVisits };
   }, [data, rangeFrom, rangeTo]);
 
-  // The same days, continuous: zero-count bars fill the gaps between them so
+  // The same days, continuous: zero-count days fill the gaps between them so
   // the chart's x-axis is real calendar time — the same shared reading
-  // History's and Timeline's identical "page visits per day" charts draw.
+  // History's and Timeline's "page visits per day" charts draw.
   const chartDays = useMemo(() => fillGaps(windowed.days), [windowed.days]);
 
   // The longest stretch of consecutive days with no recorded visits between
   // two active days — a derived reading of the same `days` set the activity
-  // chart draws, never a new query. `null` when fewer than two active days
-  // exist or no day-long gap does.
+  // chart draws, never a new query. `from` / `to` are the quiet days
+  // themselves (the day after one active day to the day before the next).
+  // `null` when fewer than two active days exist or no day-long gap does.
   const quietGap = useMemo(() => {
     let best: { days: number; from: string; to: string } | null = null;
     for (let index = 1; index < windowed.days.length; index += 1) {
@@ -260,7 +228,11 @@ function OverviewContent({
             86_400_000,
         ) - 1;
       if (gap > 0 && (best === null || gap > best.days)) {
-        best = { days: gap, from: previous.date, to: next.date };
+        best = {
+          days: gap,
+          from: shiftDay(previous.date, 1),
+          to: shiftDay(next.date, -1),
+        };
       }
     }
     return best;
@@ -280,15 +252,15 @@ function OverviewContent({
   const spanLabel = formatSpan(fullSpan.first, fullSpan.last);
   const chartsCoverLabel =
     formatSpan(chartsCover.first, chartsCover.last) ?? "no dated activity";
-  const rangeActive = rangeFrom !== "" || rangeTo !== "";
   const subjectName =
     fieldString(profileMetadata?.fields.accountFullName) ??
     fieldString(profileMetadata?.fields.accountEmail) ??
     fieldString(profileMetadata?.fields.profileName);
 
-  // The masthead's one-line descriptor under the subject name: the recorded
-  // e-mail (unless it already is the headline) and the Chrome build — values
-  // only, never invented; a missing value is simply not a segment.
+  // The masthead's identity line under the subject name: the recorded e-mail
+  // (unless it already is the headline) and the Chrome build — values only,
+  // never invented; a missing value is simply not a segment. The Subject
+  // panel leaves these two out rather than repeat them.
   const accountEmail = fieldString(profileMetadata?.fields.accountEmail);
   const chromeVersion = fieldString(browserMetadata?.fields.chromeVersion);
   const heroMeta = [
@@ -298,124 +270,23 @@ function OverviewContent({
     .filter((segment): segment is string => segment !== null)
     .join("  ·  ");
 
-  // Only worth a line when a range is narrowing the page — the full span
-  // already reads verbatim in the picker.
-  const rangeNote = rangeActive
-    ? windowed.busiest === null
-      ? "No activity in the selected range."
-      : `${String(windowed.days.length)} active day${windowed.days.length === 1 ? "" : "s"} in range, of a recorded span of ${spanLabel ?? "no dated activity"}.`
-    : null;
-
   // The figures: each a plain reading of a number the page already computed
-  // above, never a new query. A Case (or range) with nothing of that shape
-  // says so in words, muted, rather than hiding the reading. Everything read
-  // from `activity` counts saved visits only (see the module note).
-  const topSite = data.mostVisited[0] ?? null;
-  const peakHour = windowed.hourTotals.reduce<{
-    hour: number;
-    count: number;
-  } | null>(
-    (best, count, hour) =>
-      count > 0 && (best === null || count > best.count)
-        ? { hour, count }
-        : best,
-    null,
-  );
-  const visitScope = [
-    truncated
-      ? "Saved, loaded days"
-      : rangeActive
-        ? "Saved, in range"
-        : "Saved",
-    windowed.recoveredVisits > 0
-      ? `${windowed.recoveredVisits.toLocaleString("en-US")} recovered not counted`
-      : null,
-  ]
-    .filter((part) => part !== null)
-    .join(" · ");
+  // above, never a new query, and no caption — a sub-line appears only when
+  // it is itself data (the quiet stretch's dates). A Case (or range) with
+  // nothing of that shape says so in words, muted, rather than hiding the
+  // reading. Everything read from `activity` counts saved visits only.
   const figures: readonly CaseFigure[] = [
     {
       key: "visits",
       label: "Page visits",
       value: windowed.totalVisits,
       recorded: true,
-      detail: visitScope,
     },
     {
       key: "active-days",
       label: "Active days",
       value: windowed.days.length,
       recorded: true,
-      detail: "Days with at least one visit",
-    },
-    {
-      key: "readable",
-      // Derived from the Completeness Statement alone: produced over
-      // attempted, summed across every artifact the analyzer attempted.
-      label: (
-        <Term
-          label="Readable"
-          technical="Completeness Statement: produced / attempted"
-        >
-          Share of this Case&apos;s artifacts the analyzer could read, from the
-          Completeness Statement. Each artifact page lists what was and was not
-          read.
-        </Term>
-      ),
-      value:
-        coverage.attempted === 0
-          ? "Not analyzed"
-          : `${String(Math.round((coverage.produced / coverage.attempted) * 100))}%`,
-      recorded: coverage.attempted > 0,
-      detail:
-        coverage.attempted === 0
-          ? "Completeness Statement: none attempted"
-          : `Completeness Statement: ${String(coverage.produced)} of ${String(coverage.attempted)} read`,
-    },
-    {
-      key: "profiles",
-      label: data.profiles.length === 1 ? "Profile" : "Profiles",
-      value: data.profiles.length,
-      recorded: true,
-      detail:
-        data.profiles.length === 0
-          ? "No profiles recorded"
-          : data.profiles.join(", "),
-    },
-    {
-      key: "busiest-day",
-      label: "Busiest day",
-      recorded: windowed.busiest !== null,
-      value:
-        windowed.busiest === null
-          ? "No dated activity"
-          : formatDay(windowed.busiest.date),
-      detail:
-        windowed.busiest === null
-          ? "No page visits recorded in range"
-          : `${windowed.busiest.count.toLocaleString("en-US")} page visits`,
-    },
-    {
-      key: "busiest-hour",
-      label: "Busiest hour",
-      recorded: peakHour !== null,
-      value:
-        peakHour === null ? "No timed activity" : formatHour(peakHour.hour),
-      detail:
-        peakHour === null
-          ? "No hourly data recorded"
-          : `${peakHour.count.toLocaleString("en-US")} page visits, local time`,
-      aside: <HourSpark hours={windowed.hourTotals} />,
-    },
-    {
-      key: "top-site",
-      label: "Most visited site",
-      recorded: topSite !== null,
-      value: topSite === null ? "No visited sites" : domainOf(topSite.url),
-      detail:
-        topSite === null
-          ? "No saved site visits recorded"
-          : `${topSite.count.toLocaleString("en-US")} saved visits`,
     },
     {
       key: "quiet",
@@ -426,13 +297,19 @@ function OverviewContent({
           ? windowed.days.length === 0
             ? "No dated activity"
             : "No quiet days"
-          : `${String(quietGap.days)} day${quietGap.days === 1 ? "" : "s"}`,
+          : plural(quietGap.days, "day", "days"),
       detail:
         quietGap === null
-          ? windowed.days.length === 0
-            ? "No page visits recorded in range"
-            : "No day-long gaps inside the active span"
-          : `Between ${formatDay(quietGap.from)} and ${formatDay(quietGap.to)}`,
+          ? undefined
+          : formatDayRange(quietGap.from, quietGap.to),
+    },
+    {
+      key: "profiles",
+      label: data.profiles.length === 1 ? "Profile" : "Profiles",
+      value: data.profiles.length,
+      recorded: true,
+      valueTooltip:
+        data.profiles.length === 0 ? undefined : data.profiles.join(", "),
     },
   ];
 
@@ -442,6 +319,15 @@ function OverviewContent({
       : () => {
           onOpen(key);
         };
+
+  // Both charts plot saved visits only; the tag says how many recovered
+  // visits they leave out, and is absent when there are none.
+  const savedOnly =
+    windowed.recoveredVisits > 0 ? (
+      <SavedOnlyTag
+        note={`${plural(windowed.recoveredVisits, "recovered visit", "recovered visits")} not drawn`}
+      />
+    ) : null;
 
   // The activity read stopped at its page cap: both charts drawn from it say
   // so in their footer instead of silently covering less than the span.
@@ -462,9 +348,9 @@ function OverviewContent({
       <Masthead
         subjectName={subjectName}
         meta={heroMeta}
-        rangeNote={rangeNote}
         picker={
           <DateRangePicker
+            size="compact"
             from={rangeFrom}
             to={rangeTo}
             min={fullSpan.first}
@@ -489,8 +375,13 @@ function OverviewContent({
         {/* Activity — the page's main chart. */}
         <ChartSection
           title="Browsing activity"
-          description="Saved page visits per day."
-          action={<JumpLink label="History" onOpen={open("history")} />}
+          description=""
+          action={
+            <>
+              {savedOnly}
+              <JumpLink label="History" onOpen={open("history")} />
+            </>
+          }
           footer={truncationNote}
           className="col-span-12 lg:col-span-8"
         >
@@ -505,21 +396,16 @@ function OverviewContent({
           </div>
         </ChartSection>
 
-        {/* Subject — the full identity readout, beside the activity it
-            belongs next to. */}
+        {/* Subject — the identity readout, beside the activity it belongs
+            next to. E-mail and Chrome version already read in the masthead. */}
         <SectionPanel
           id={subjectId}
           title="Subject"
-          description="Read from Preferences and Local State."
           aside={<JumpLink label="Metadata" onOpen={open("metadata")} />}
           className="col-span-12 lg:col-span-4"
         >
           <SubjectList
             fields={[
-              {
-                label: "Account e-mail",
-                field: profileMetadata?.fields.accountEmail,
-              },
               {
                 label: "Account name",
                 field: profileMetadata?.fields.accountFullName,
@@ -541,10 +427,6 @@ function OverviewContent({
                 field: browserMetadata?.fields.variationsCountry,
               },
               {
-                label: "Chrome version",
-                field: browserMetadata?.fields.chromeVersion,
-              },
-              {
                 label: "Screen work area",
                 field: profileMetadata?.fields.screenWorkArea,
               },
@@ -552,13 +434,31 @@ function OverviewContent({
           />
         </SectionPanel>
 
-        {/* Top sites + Topic categorization — a matched pair right under
-            Activity/Subject. */}
+        <ChartSection
+          title="Time of day"
+          description=""
+          action={
+            <>
+              {savedOnly}
+              <JumpLink label="Timeline" onOpen={open("timeline")} />
+            </>
+          }
+          footer={truncationNote}
+          className="col-span-12 md:col-span-6"
+        >
+          <div className="relative min-h-[220px] flex-1">
+            <div className="absolute inset-0 px-2 pt-2 pb-3">
+              <HourBars hours={windowed.hourTotals} tokens={tokens} />
+            </div>
+          </div>
+        </ChartSection>
+
+        {/* Ranked by this Case's saved History visits — not Chrome's own
+            Top sites ranking — so it opens History. */}
         <SectionPanel
           id={topSitesId}
-          title="Top sites"
-          description="By saved visits."
-          aside={<JumpLink label="Top sites" onOpen={open("top-sites")} />}
+          title="Most visited sites"
+          aside={<JumpLink label="History" onOpen={open("history")} />}
           className="col-span-12 md:col-span-6"
         >
           <TopSitesList
@@ -574,37 +474,18 @@ function OverviewContent({
           />
         </SectionPanel>
 
-        {/* TODO: still backed by mock data — wire to the real
-            topic-candidates / topic-status routes once they exist. */}
-        <TopicWidget state={topicState} className="col-span-12 md:col-span-6" />
-
-        {/* Time of day. Coverage lives in the "Readable" figure here, and in
-            full as the Evidence coverage panel every artifact page opens
-            with. */}
-        <ChartSection
-          title="Time of day"
-          description="Saved page visits by local hour."
-          action={<JumpLink label="Timeline" onOpen={open("timeline")} />}
-          footer={truncationNote}
-          className="col-span-12 md:col-span-6"
-        >
-          <div className="relative min-h-[220px] flex-1">
-            <div className="absolute inset-0 px-2 pt-2 pb-3">
-              <HourBars hours={windowed.hourTotals} tokens={tokens} />
-            </div>
-          </div>
-        </ChartSection>
-
-        {/* Recent downloads — paired with Time of day as two even halves. */}
         <SectionPanel
           id={downloadsId}
           title="Recent downloads"
-          description="Saved downloads: target file and source, newest first."
           aside={<JumpLink label="Downloads" onOpen={open("downloads")} />}
-          className="col-span-12 md:col-span-6"
+          className="col-span-12"
         >
           <DownloadsList downloads={data.downloads} />
         </SectionPanel>
+
+        {/* TODO: wire to the real topic-candidates / topic-status routes
+            once they exist; until then the panel states it is unavailable. */}
+        <TopicCategorizationLine className="col-span-12" />
       </div>
     </div>
   );

@@ -4,35 +4,38 @@
  * Chrome's recorded page visits, read as browsing *behavior* rather than a
  * generic evidence dump. The page is a column of FF Panels, read top-down:
  *
- *  1. Evidence coverage — the Completeness Statement, before any row.
- *  2. Four headline figures (saved visits, active days, recorded span,
- *     distinct sites) in one MetricBand: direct reads of what the analyzer
+ *  1. Four headline figures (saved visits, active days, recorded span,
+ *     distinct sites) in one MetricBand: label and value, no caption; the
+ *     span's dates are its one data line. Direct reads of what the analyzer
  *     produced — never a smoothed trend, a projection, or an invented figure.
- *     They count saved (committed) visits; recovered visits are named beside
- *     them, never summed in. While a read is in flight a figure is a
- *     skeleton; when its read failed it reads "unavailable", never "0".
- *  3. An activity-over-time bar chart (saved visits per local day) — the
+ *     They count saved (committed) visits; recovered visits are the
+ *     Recovered tab's count, never summed in. While a read is in flight a
+ *     figure is a skeleton; when its read failed it reads "unavailable",
+ *     never "0".
+ *  2. An activity-over-time bar chart (saved visits per local day) — the
  *     shared `ActivityBars`, so the same dataset never reads two different
- *     shapes. Clicking a bar pins the visit table (and the date-range
- *     control in the chart's own header) to that one day; clicking it again
- *     clears back to the whole recorded span.
- *  4. The raw visit table, on FF's Table, as two server reads kept apart
+ *     shapes; a "Saved only" tag names the recovered visits it leaves out.
+ *     Clicking a bar pins the visit table (and the date-range control in
+ *     the chart's own header) to that one day; clicking it again clears
+ *     back to the whole recorded span.
+ *  3. The raw visit table, as two server reads kept apart
  *     (forensic rule 4): "Saved" (committed rows) and "Recovered" (WAL then
  *     journal rows), switched with `CommitStateSplit`. The toolbar — Sort
  *     (FF Select + a direction toggle), Arrived via, Profiles, and a search
  *     field that commits on Enter/blur — drives real server parameters for
  *     both lists. Curated columns: Time, Page (title over URL), Arrived via
  *     (the worded transition), Dwell (recorded `visitDuration`, "not
- *     recorded" when Chrome kept none — never zero), and the Commit State
- *     word. Every wire field stays reachable through the row detail sheet.
+ *     recorded" when Chrome kept none — never zero), and — in the Recovered
+ *     list only — the Commit State word (every saved row would say
+ *     "saved"). `ResponsiveRows` stacks each row into a card below `sm`.
+ *     Every wire field stays reachable through the row detail sheet.
  *
- * Presentation rules kept: the Completeness Statement renders before any
- * row; the four value states stay worded, never colour alone; the two
+ * Presentation rules kept: the shell's coverage indicator sits by the
+ * title, before any row; the four value states stay worded, never colour alone; the two
  * recovered Commit States keep their own hue *and* word; no axis is
  * projected past the last recorded day and no cell invents a count the
  * evidence does not contain.
  */
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -44,6 +47,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { Tooltip } from "@/components/ui/tooltip";
+import { SearchIcon, SortNewestIcon, SortOldestIcon } from "@/lib/app-icons";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +77,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import { formatDaySpan, SavedOnlyTag } from "./history-chart-parts.js";
 import { ErrorRows, ListBlock, RevealSwap } from "./list-states.js";
 import {
   figure,
@@ -231,18 +236,17 @@ function spanDays(first: string, last: string): number | null {
 
 interface ActivityFigures {
   readonly savedVisits: number;
-  readonly recoveredVisits: number;
   readonly activeDays: number;
   readonly span: { readonly first: string; readonly last: string } | null;
 }
 
 /**
- * The four headline figures. Saved visits and active days come from the
- * committed rows of the `activity` set (the same days the chart draws);
- * recovered visits are named in the detail, never added in. The recorded
- * span is the calendar distance between the first and last saved day;
- * distinct sites is a floor read off the loaded saved visit rows and
- * labelled as such.
+ * The four headline figures, label and value only. Saved visits and active
+ * days come from the committed rows of the `activity` set (the same days the
+ * chart draws); recovered visits are the Recovered tab's count, never added
+ * in. The recorded span is the calendar distance between the first and last
+ * saved day, with those days as its one data line. Distinct sites is read
+ * off the loaded saved visit rows; while more rows exist it reads "N+".
  */
 function HistoryFigures({
   activity,
@@ -251,12 +255,7 @@ function HistoryFigures({
   readonly activity: Read<ActivityFigures>;
   readonly distinctHosts: Read<{ count: number; more: boolean }>;
 }) {
-  const activityDetail = (text: (value: ActivityFigures) => string) =>
-    activity.state === "ready"
-      ? text(activity.value)
-      : activity.state === "failed"
-        ? "the activity read failed"
-        : "reading activity";
+  const span = activity.state === "ready" ? activity.value.span : null;
   return (
     <MetricBand className="grid-cols-2 lg:grid-cols-4">
       <MetricBandItem
@@ -264,18 +263,12 @@ function HistoryFigures({
         value={figure(activity, (value) =>
           value.savedVisits.toLocaleString("en-US"),
         )}
-        detail={activityDetail((value) =>
-          value.recoveredVisits === 0
-            ? "none recovered"
-            : `${value.recoveredVisits.toLocaleString("en-US")} recovered, not counted`,
-        )}
       />
       <MetricBandItem
         label="Active days"
         value={figure(activity, (value) =>
           value.activeDays.toLocaleString("en-US"),
         )}
-        detail={activityDetail(() => "days with a saved visit")}
       />
       <MetricBandItem
         label="Recorded span"
@@ -286,26 +279,17 @@ function HistoryFigures({
               : spanDays(value.span.first, value.span.last);
           return days === null ? "none" : plural(days, "day", "days");
         })}
-        detail={activityDetail((value) =>
-          value.span === null
-            ? "no dated saved visits"
-            : value.span.first === value.span.last
-              ? formatDay(value.span.first)
-              : `${formatDay(value.span.first)} to ${formatDay(value.span.last)}`,
-        )}
+        detail={
+          span === null ? undefined : formatDaySpan(span.first, span.last)
+        }
       />
       <MetricBandItem
         label="Distinct sites"
-        value={figure(distinctHosts, (value) =>
-          value.count.toLocaleString("en-US"),
+        value={figure(
+          distinctHosts,
+          (value) =>
+            `${value.count.toLocaleString("en-US")}${value.more ? "+" : ""}`,
         )}
-        detail={
-          distinctHosts.state === "failed"
-            ? "the visit read failed"
-            : distinctHosts.state === "ready" && !distinctHosts.value.more
-              ? "in saved visits"
-              : "in loaded saved visits"
-        }
       />
     </MetricBand>
   );
@@ -345,37 +329,32 @@ function ActivityPanel({
     [activity],
   );
   const recovered = activity === null ? 0 : visitTotal(activity.recovered);
-  const notes: string[] = [];
-  if (recovered > 0) {
-    notes.push(
-      `${plural(recovered, "recovered visit is", "recovered visits are")} not drawn; they are listed under Recovered below.`,
-    );
-  }
-  if (activity !== null && !activity.complete) {
-    notes.push(
-      "Drawn from the first activity rows read; more exist in the Case.",
-    );
-  }
   return (
     <ChartSection
       title="Browsing activity"
-      description="Saved page visits per day. Choose a range or select a bar."
+      description=""
       action={
-        <DateRangePicker
-          from={range.from}
-          to={range.to}
-          min={rangeMin}
-          max={rangeMax}
-          triggerLabel="All recorded days"
-          formatDate={formatDay}
-          onChange={onRangeChange}
-          presets
-        />
+        <>
+          <SavedOnlyTag
+            recovered={recovered}
+            unit={{ one: "visit", many: "visits" }}
+          />
+          <DateRangePicker
+            from={range.from}
+            to={range.to}
+            min={rangeMin}
+            max={rangeMax}
+            triggerLabel="All recorded days"
+            formatDate={formatDay}
+            onChange={onRangeChange}
+            presets
+          />
+        </>
       }
       footer={
-        notes.length === 0 ? undefined : (
+        activity === null || activity.complete ? undefined : (
           <p className={cn(size.type.caption, "text-muted-foreground")}>
-            {notes.join(" ")}
+            Drawn from the first activity rows read; more exist in the Case.
           </p>
         )
       }
@@ -449,7 +428,7 @@ function VisitFilterControls({
     desc: "descending",
     asc: "ascending",
   };
-  const DirectionIcon = descending ? ArrowDownWideNarrow : ArrowUpNarrowWide;
+  const DirectionIcon = descending ? SortNewestIcon : SortOldestIcon;
   const flip = `Sorted ${descending ? words.desc : words.asc}. Switch to ${
     descending ? words.asc : words.desc
   }`;
@@ -534,7 +513,7 @@ function VisitFilterControls({
       <FilterTextField
         id="history-visits-search"
         label="Search recorded visits"
-        icon={Search}
+        icon={SearchIcon}
         value={filters.search}
         placeholder="Search page or URL…"
         onCommit={(search) => {
@@ -577,8 +556,8 @@ function VisitPage({ row }: { readonly row: Finding }) {
 }
 
 /** The visit table's columns, and where each sits in the stacked card on a
- *  phone (`ResponsiveRows`): time and State on the first line, the page as
- *  the card's title, transition and dwell under it. */
+ *  phone (`ResponsiveRows`): time and (recovered only) State on the first
+ *  line, the page as the card's title, transition and dwell under it. */
 const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
   {
     key: "time",
@@ -625,6 +604,12 @@ const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
       );
     },
   },
+];
+
+/** The Recovered list adds the Commit State word (unsaved vs overwritten);
+ *  in the Saved list every row would read "saved", so it is left out. */
+const RECOVERED_VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
+  ...VISIT_COLUMNS,
   {
     key: "state",
     header: "State",
@@ -635,15 +620,17 @@ const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
 
 function VisitTable({
   rows,
+  recovered,
   onSelect,
 }: {
   readonly rows: readonly Finding[];
+  readonly recovered: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
   return (
     <ResponsiveRows
       rows={rows}
-      columns={VISIT_COLUMNS}
+      columns={recovered ? RECOVERED_VISIT_COLUMNS : VISIT_COLUMNS}
       rowKey={(row, index) => `${row.commitState}-${String(index)}`}
       rowLabel={(row) =>
         `Open visit row detail: ${fieldText(row.fields.title) ?? fieldText(row.fields.url) ?? "page visit"}`
@@ -692,7 +679,7 @@ function VisitList({
         />
       }
     >
-      <VisitTable rows={list.rows} onSelect={onSelect} />
+      <VisitTable rows={list.rows} recovered={recovered} onSelect={onSelect} />
     </ListBlock>
   );
 }
@@ -735,7 +722,6 @@ export function HistoryPage({
       state: "ready",
       value: {
         savedVisits: visitTotal(activity.saved),
-        recoveredVisits: visitTotal(activity.recovered),
         activeDays: days.length,
         span:
           first === undefined || last === undefined ? null : { first, last },
@@ -756,8 +742,8 @@ export function HistoryPage({
     };
   }, [activity]);
 
-  // Distinct sites: a floor read off the loaded saved visit rows, labelled
-  // as such rather than claimed as the Case total.
+  // Distinct sites: a floor read off the loaded saved visit rows, marked
+  // "N+" while more exist rather than claimed as the Case total.
   const saved = visits.saved;
   const distinctHosts = useMemo<Read<{ count: number; more: boolean }>>(() => {
     if (saved.error !== null && saved.rows.length === 0) {
@@ -830,7 +816,6 @@ export function HistoryPage({
       <SectionPanel
         id="history-visits-title"
         title="Recorded visits"
-        description="Every page visit Chrome recorded, filtered on the server."
         aside={
           filtersActive ? (
             <Button

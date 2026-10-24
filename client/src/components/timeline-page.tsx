@@ -1,7 +1,7 @@
 /**
- * Timeline: the chronological stream across artifacts. Evidence coverage
- * first (every artifact the timeline merges), then the activity widget, then
- * the records. The timeline route has no Commit State filter, so the
+ * Timeline: the chronological stream across artifacts. The page-visits
+ * chart (the records' date filter), then the records; coverage of every
+ * artifact the timeline merges is the shell's indicator by the title. The timeline route has no Commit State filter, so the
  * records panel splits the loaded stream into saved and recovered events
  * (`splitByCommit`) — two lists, each still in time order (forensic rule 4).
  */

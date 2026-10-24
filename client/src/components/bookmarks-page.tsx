@@ -3,63 +3,46 @@
  *
  * Bookmarks are the one evidence kind the subject *curated* — every row is a
  * page they chose to keep and a folder they chose to file it under. So this
- * page reads them as a collection, not a log: the folder tree they built, the
- * cadence at which they saved, and which sites they returned to often, then
- * the full row lists. Every figure is a plain reading of fields the evidence
- * already carries (`name`, `url`, `dateAdded`, `folderPath`, `sourceFile`);
- * nothing is smoothed, projected, or scored.
+ * page reads them as a collection, not a log: a figure strip (saved
+ * bookmarks, folders, distinct sites, rows read from the `.bak` backup copy),
+ * then the folder tree they built beside the row lists. Every figure is a
+ * plain reading of fields the evidence already carries (`name`, `url`,
+ * `dateAdded`, `folderPath`, `sourceFile`).
  *
- * Sections, each a direct grouping of the saved rows:
- *  1. A figure strip (saved bookmarks, folders used, distinct sites, rows
- *     read from the `.bak` backup copy).
- *  2. Saved over time — bookmarks added per calendar month from `dateAdded`,
- *     zero-filled between the first and last month so cadence reads as real
- *     calendar time; the busiest month is marked. Undated rows are disclosed
- *     as their own worded figure, never folded silently into a month.
- *  3. Most-bookmarked sites — a host-frequency leaderboard; picking a site
- *     narrows the lists to it.
- *  4. The folder navigator beside the lists — the subject's own bookmark
- *     hierarchy rebuilt from `folderPath`, with per-branch counts. Picking a
- *     folder focuses both lists on that folder and everything beneath it.
+ * The folder navigator rebuilds the subject's own hierarchy from
+ * `folderPath`, with per-branch counts; picking a folder focuses both lists
+ * on that folder and everything beneath it.
  *
  * Saved bookmarks and bookmarks recovered from WAL / journal sidecars are
  * separate server reads (`useCommitStateLists`, every page followed so the
  * figures cover the whole set) and separate lists (the Saved / Recovered
- * switch), never sorted together; every figure counts saved rows only.
- * Columns are curated: Folder (the TYPE-lead column for this artifact),
- * Bookmark (name over URL), Added, Source (live file vs. `.bak` backup), and
- * the Commit State word; every wire field stays reachable in the row sheet.
+ * tabs); every figure counts saved rows only. Columns are curated: Folder
+ * (the TYPE-lead column for this artifact), Bookmark (name over URL), Added,
+ * Source (live file vs. `.bak` backup), and — in the Recovered tab — the
+ * Commit State word; every wire field stays reachable in the row sheet.
  * Missing values read as their own state word. This page is read-only.
  */
-import {
-  Bookmark,
-  ChevronRight,
-  Folder,
-  FolderOpen,
-  Library,
-  Search,
-} from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Panel } from "@/components/panel";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
-import { Badge } from "@/components/ui/badge";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
 } from "@/hooks/use-fluid-hover";
+import {
+  ARTIFACT_ICONS,
+  ChevronRightIcon,
+  FolderIcon,
+  LibraryIcon,
+  OpenFolderIcon,
+  SearchIcon,
+} from "@/lib/app-icons";
 import { useShape } from "@/lib/shape-context";
 import { typeClass, useSize } from "@/lib/size-context";
 import { spring } from "@/lib/springs";
@@ -71,14 +54,8 @@ import {
   useCommitStateLists,
   type PaginatedList,
 } from "../use-commit-state-lists.js";
-import {
-  BookmarksCadence,
-  formatMonth,
-  type MonthBucket,
-} from "./bookmarks-cadence.js";
-import { ChartSection } from "./chart-section.js";
-import { ChartEmpty, useChartTokens } from "./charts.js";
-import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
+import { ChartEmpty } from "./charts.js";
+import { EmptyRows } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
   FieldCell,
@@ -89,18 +66,20 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
-import { ListBlock } from "./list-states.js";
+import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 import {
   CommitStateSplit,
   plural,
+  ResponsiveRows,
   SectionPanel,
-  ShareBar,
   TimeCell,
   WeightLabel,
   type CommitView,
+  type RowColumn,
 } from "./page-kit.js";
+import { Term } from "./term.js";
 
 /* --------------------------------- reads ---------------------------------- */
 
@@ -317,7 +296,11 @@ function FolderRow({
   useRegisterFluidHoverItem(registerItem, index, ref);
   const lead = TREE_INSET + depth * TREE_STEP;
   const Icon =
-    icon === "library" ? Library : open === true ? FolderOpen : Folder;
+    icon === "library"
+      ? LibraryIcon
+      : open === true
+        ? OpenFolderIcon
+        : FolderIcon;
   return (
     // One grid cell holds both buttons, so the chevron sits over the row's
     // leading edge without a positioned <li> — a positioned ancestor would
@@ -341,7 +324,7 @@ function FolderRow({
             animate={{ rotate: open === true ? 90 : 0 }}
             transition={spring.fast}
           >
-            <ChevronRight
+            <ChevronRightIcon
               aria-hidden="true"
               size={size.icon}
               strokeWidth={1.5}
@@ -377,17 +360,29 @@ function FolderRow({
           active={active}
           className={cn(typeClass("body"), "flex-1 text-foreground")}
         />
-        <span
-          className={cn(
-            typeClass("caption"),
-            "shrink-0 text-muted-foreground tabular-nums",
-          )}
-        >
-          {count.toLocaleString("en-US")}
-          {direct !== undefined && direct !== count ? (
-            <span> ({direct.toLocaleString("en-US")})</span>
-          ) : null}
-        </span>
+        {direct !== undefined && direct !== count ? (
+          <Tooltip
+            content={`${count.toLocaleString("en-US")} in this folder and beneath it; ${direct.toLocaleString("en-US")} filed directly here.`}
+          >
+            <span
+              className={cn(
+                typeClass("caption"),
+                "shrink-0 text-muted-foreground tabular-nums",
+              )}
+            >
+              {count.toLocaleString("en-US")} ({direct.toLocaleString("en-US")})
+            </span>
+          </Tooltip>
+        ) : (
+          <span
+            className={cn(
+              typeClass("caption"),
+              "shrink-0 text-muted-foreground tabular-nums",
+            )}
+          >
+            {count.toLocaleString("en-US")}
+          </span>
+        )}
       </button>
     </li>
   );
@@ -430,11 +425,7 @@ function FolderNavigator({
   }, []);
 
   return (
-    <SectionPanel
-      id="bookmarks-folders"
-      title="Folders"
-      description="Saved bookmarks per folder. Pick one to focus the lists."
-    >
+    <SectionPanel id="bookmarks-folders" title="Folders">
       {roots.length === 0 ? (
         <ChartEmpty>No folders recorded on the saved bookmarks.</ChartEmpty>
       ) : (
@@ -484,277 +475,18 @@ function FolderNavigator({
           </div>
         </nav>
       )}
-      <p
-        className={cn(
-          typeClass("caption"),
-          "border-t border-border px-4 py-2.5 text-muted-foreground",
-        )}
-      >
-        Count is the folder and everything beneath it; the figure in (brackets)
-        is filed directly there.
-        {unfiled > 0
-          ? ` ${plural(unfiled, "saved bookmark", "saved bookmarks")} had no recorded folder.`
-          : ""}
-      </p>
-    </SectionPanel>
-  );
-}
-
-/* ------------------------------ save cadence ------------------------------ */
-
-/**
- * Bookmarks added per calendar month, from `dateAdded`. The range between the
- * first and last recorded month is zero-filled so the cadence reads as real
- * calendar time (a long quiet gap looks like a gap), bounded so a pathological
- * span never draws thousands of empty columns.
- */
-function buildMonths(rows: readonly BookmarkRow[]): {
-  readonly months: readonly MonthBucket[];
-  readonly undated: number;
-} {
-  const byMonth = new Map<string, number>();
-  let undated = 0;
-  for (const row of rows) {
-    if (row.addedUtc === null) {
-      undated += 1;
-      continue;
-    }
-    const month = row.addedUtc.slice(0, 7);
-    byMonth.set(month, (byMonth.get(month) ?? 0) + 1);
-  }
-  const recorded = [...byMonth.keys()].sort();
-  const first = recorded[0];
-  const last = recorded[recorded.length - 1];
-  if (first === undefined || last === undefined) {
-    return { months: [], undated };
-  }
-  const months: MonthBucket[] = [];
-  const [startYear, startMonth] = first.split("-").map(Number);
-  const [endYear, endMonth] = last.split("-").map(Number);
-  let year = startYear ?? 0;
-  let month = startMonth ?? 1;
-  // Guard the fill: at most ~5 years of columns, else draw only recorded ones.
-  const spanMonths =
-    ((endYear ?? 0) - (startYear ?? 0)) * 12 +
-    ((endMonth ?? 1) - (startMonth ?? 1));
-  if (spanMonths > 60) {
-    return {
-      months: recorded.map((key) => ({
-        month: key,
-        count: byMonth.get(key) ?? 0,
-      })),
-      undated,
-    };
-  }
-  for (let index = 0; index <= spanMonths; index += 1) {
-    const key = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
-    months.push({ month: key, count: byMonth.get(key) ?? 0 });
-    month += 1;
-    if (month > 12) {
-      month = 1;
-      year += 1;
-    }
-  }
-  return { months, undated };
-}
-
-/** The cadence chart panel: the bars, then the busiest month and any undated
- *  rows as worded figures in the footer. */
-function SaveCadence({
-  rows,
-  className,
-}: {
-  readonly rows: readonly BookmarkRow[];
-  readonly className?: string;
-}) {
-  const tokens = useChartTokens();
-  const { months, undated } = useMemo(() => buildMonths(rows), [rows]);
-  const busiest = useMemo(() => {
-    let best: MonthBucket | null = null;
-    for (const bucket of months) {
-      if (bucket.count > 0 && (best === null || bucket.count > best.count)) {
-        best = bucket;
-      }
-    }
-    return best;
-  }, [months]);
-  const undatedNote =
-    undated > 0
-      ? `${plural(undated, "saved bookmark", "saved bookmarks")} had no recorded date.`
-      : null;
-  return (
-    <ChartSection
-      className={className}
-      title="Saved over time"
-      description="Saved bookmarks added per month."
-      footer={
-        busiest === null && undatedNote === null ? undefined : (
-          <p className={cn(typeClass("caption"), "text-muted-foreground")}>
-            {busiest === null ? null : (
-              <>
-                Busiest month:{" "}
-                <span className="text-foreground">
-                  {formatMonth(busiest.month)}
-                </span>{" "}
-                — {busiest.count.toLocaleString("en-US")} saved.{" "}
-              </>
-            )}
-            {undatedNote}
-          </p>
-        )
-      }
-    >
-      <div className="h-[220px] px-2 pt-2 pb-3">
-        {months.length === 0 ? (
-          <ChartEmpty>No dated saved bookmarks to chart.</ChartEmpty>
-        ) : (
-          <BookmarksCadence months={months} tokens={tokens} />
-        )}
-      </div>
-    </ChartSection>
-  );
-}
-
-/* ------------------------------ site leaders ------------------------------ */
-
-/** How many hosts the leaders card lists before "and N more". */
-const HOST_LIMIT = 6;
-
-function hostTallies(rows: readonly BookmarkRow[]) {
-  const map = new Map<string, number>();
-  for (const row of rows) {
-    if (row.host === null) {
-      continue;
-    }
-    const host = row.host.replace(/^www\./, "");
-    map.set(host, (map.get(host) ?? 0) + 1);
-  }
-  return [...map.entries()]
-    .map(([host, count]) => ({ host, count }))
-    .sort((left, right) => right.count - left.count);
-}
-
-/**
- * Which sites the subject bookmarked most — a host-frequency leaderboard over
- * the saved bookmarks. Picking a site narrows the lists to it.
- */
-function SiteLeaders({
-  rows,
-  activeHost,
-  onPick,
-}: {
-  readonly rows: readonly BookmarkRow[];
-  readonly activeHost: string | null;
-  readonly onPick: (host: string) => void;
-}) {
-  const hosts = useMemo(() => hostTallies(rows), [rows]);
-  const listRef = useRef<HTMLDivElement>(null);
-  const hover = useFluidHover(listRef, { axis: "y" });
-  const shape = useShape();
-
-  if (hosts.length === 0) {
-    return <ChartEmpty>No parseable site on the saved bookmarks.</ChartEmpty>;
-  }
-  const peak = hosts[0]?.count ?? 0;
-
-  return (
-    <>
-      <div ref={listRef} {...hover.handlers} className="relative px-1 pb-1">
-        <FluidHoverHighlight hover={hover} className={shape.item} />
-        <ol className="flex flex-col">
-          {hosts.slice(0, HOST_LIMIT).map((entry, index) => (
-            <SiteRow
-              key={entry.host}
-              index={index}
-              registerItem={hover.registerItem}
-              host={entry.host}
-              count={entry.count}
-              peak={peak}
-              active={activeHost === entry.host}
-              onPick={onPick}
-            />
-          ))}
-        </ol>
-      </div>
-      {hosts.length > HOST_LIMIT ? (
+      {unfiled > 0 ? (
         <p
           className={cn(
             typeClass("caption"),
             "border-t border-border px-4 py-2.5 text-muted-foreground",
           )}
         >
-          and {plural(hosts.length - HOST_LIMIT, "more site", "more sites")} in
-          the lists
+          {plural(unfiled, "saved bookmark", "saved bookmarks")} with no
+          recorded folder.
         </p>
       ) : null}
-    </>
-  );
-}
-
-function SiteRow({
-  index,
-  registerItem,
-  host,
-  count,
-  peak,
-  active,
-  onPick,
-}: {
-  readonly index: number;
-  readonly registerItem: (index: number, element: HTMLElement | null) => void;
-  readonly host: string;
-  readonly count: number;
-  readonly peak: number;
-  readonly active: boolean;
-  readonly onPick: (host: string) => void;
-}) {
-  const ref = useRef<HTMLButtonElement>(null);
-  const shape = useShape();
-  useRegisterFluidHoverItem(registerItem, index, ref);
-  return (
-    <li>
-      <button
-        ref={ref}
-        type="button"
-        aria-pressed={active}
-        aria-label={`${host}, ${plural(count, "saved bookmark", "saved bookmarks")}`}
-        onClick={() => {
-          onPick(host);
-        }}
-        className={cn(
-          "relative grid h-9 w-full cursor-pointer grid-cols-[1rem_minmax(0,1fr)_6rem_2rem] items-center gap-3 px-3 text-left transition-colors duration-80",
-          BUTTON_FOCUS,
-          shape.item,
-          active && "bg-active",
-        )}
-      >
-        <span
-          className={cn(
-            typeClass("caption"),
-            "text-center text-muted-foreground tabular-nums",
-          )}
-        >
-          {index + 1}
-        </span>
-        <span className="flex min-w-0 items-center gap-2.5">
-          <SiteAvatar host={host} />
-          <WeightLabel
-            text={host}
-            active={active}
-            className={cn(typeClass("body"), "text-foreground")}
-          />
-        </span>
-        <ShareBar fraction={peak === 0 ? 0 : count / peak} />
-        <span
-          className={cn(
-            typeClass("body"),
-            "text-right text-muted-foreground tabular-nums",
-          )}
-        >
-          {count.toLocaleString("en-US")}
-        </span>
-      </button>
-    </li>
+    </SectionPanel>
   );
 }
 
@@ -792,12 +524,7 @@ function FolderCell({ row }: { readonly row: BookmarkRow }) {
   }
   return (
     <span className="flex min-w-0 items-center gap-1.5" title={row.folderPath}>
-      <Folder
-        aria-hidden="true"
-        size={size.icon}
-        strokeWidth={1.5}
-        className="shrink-0"
-      />
+      <FolderIcon size={size.icon} strokeWidth={1.5} className="shrink-0" />
       <span className="truncate">
         {row.folderSegments[row.folderSegments.length - 1] ?? row.folderPath}
       </span>
@@ -805,93 +532,90 @@ function FolderCell({ row }: { readonly row: BookmarkRow }) {
   );
 }
 
-function BookmarksTable({
-  rows,
-  onSelect,
-}: {
-  readonly rows: readonly BookmarkRow[];
-  readonly onSelect: (finding: Finding) => void;
-}) {
+/** The bookmark's name over its URL (the URL mono, as a value to copy). */
+function BookmarkCell({ row }: { readonly row: BookmarkRow }) {
   return (
-    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
-      <Table className="min-w-[760px]">
-        <TableHeader>
-          <TableRow>
-            {["Folder", "Bookmark", "Added", "Source", "State"].map((label) => (
-              <TableHead key={label} className="whitespace-nowrap">
-                {label}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody className="reveal-items">
-          {rows.map((row, index) => (
-            <TableRow
-              key={index}
-              index={index}
-              tabIndex={0}
-              aria-label={`Open bookmark ${row.name ?? row.url ?? "with no recorded name or URL"}`}
-              onClick={() => {
-                onSelect(row.finding);
-              }}
-              onKeyDown={(event) => {
-                activateOnKey(event, () => {
-                  onSelect(row.finding);
-                });
-              }}
-              className={ROW_FOCUS_CLASS}
-            >
-              <TableCell className="max-w-[160px]">
-                <FolderCell row={row} />
-              </TableCell>
-              <TableCell className="max-w-[340px]">
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <SiteAvatar host={row.host} />
-                  <span className="flex min-w-0 flex-col">
-                    {row.name === null ? (
-                      <FieldCell field={row.finding.fields.name} />
-                    ) : (
-                      <span
-                        className="truncate text-foreground"
-                        title={row.name}
-                      >
-                        {row.name}
-                      </span>
-                    )}
-                    {row.url === null ? (
-                      <span className={typeClass("caption")}>
-                        <FieldCell field={row.finding.fields.url} />
-                      </span>
-                    ) : (
-                      <span
-                        className={cn(
-                          typeClass("caption"),
-                          "truncate font-mono text-muted-foreground",
-                        )}
-                        title={row.url}
-                      >
-                        {row.url}
-                      </span>
-                    )}
-                  </span>
-                </span>
-              </TableCell>
-              <TableCell>
-                <TimeCell field={row.finding.fields.dateAdded} />
-              </TableCell>
-              <TableCell>
-                <SourceWord row={row} />
-              </TableCell>
-              <TableCell>
-                <StateWord state={row.finding.commitState} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <span className="flex min-w-0 flex-col">
+      {row.name === null ? (
+        <FieldCell field={row.finding.fields.name} />
+      ) : (
+        <span className="truncate text-foreground" title={row.name}>
+          {row.name}
+        </span>
+      )}
+      {row.url === null ? (
+        <span className={typeClass("caption")}>
+          <FieldCell field={row.finding.fields.url} />
+        </span>
+      ) : (
+        <span
+          className={cn(
+            typeClass("caption"),
+            "truncate font-mono text-muted-foreground",
+          )}
+          title={row.url}
+        >
+          {row.url}
+        </span>
+      )}
+    </span>
   );
 }
+
+/**
+ * The table's columns: Folder (the TYPE-lead column), Bookmark, Added,
+ * Source, and State in the Recovered tab only. Below `sm` a row stacks:
+ * folder and state, the bookmark, then added and source.
+ */
+function bookmarkColumns(
+  recovered: boolean,
+): readonly RowColumn<BookmarkRow>[] {
+  const columns: RowColumn<BookmarkRow>[] = [
+    {
+      key: "folder",
+      header: "Folder",
+      className: "max-w-[160px]",
+      stack: "lead",
+      cell: (row) => <FolderCell row={row} />,
+    },
+    {
+      key: "bookmark",
+      header: "Bookmark",
+      className: "max-w-[340px]",
+      stack: "title",
+      cell: (row) => (
+        <span className="flex min-w-0 items-center gap-2.5">
+          <SiteAvatar host={row.host} />
+          <BookmarkCell row={row} />
+        </span>
+      ),
+      stackedCell: (row) => <BookmarkCell row={row} />,
+    },
+    {
+      key: "added",
+      header: "Added",
+      className: "whitespace-nowrap",
+      cell: (row) => <TimeCell field={row.finding.fields.dateAdded} />,
+    },
+    {
+      key: "source",
+      header: "Source",
+      cell: (row) => <SourceWord row={row} />,
+    },
+  ];
+  if (recovered) {
+    columns.push({
+      key: "state",
+      header: "State",
+      stack: "aside",
+      cell: (row) => <StateWord state={row.finding.commitState} />,
+    });
+  }
+  return columns;
+}
+
+const SAVED_COLUMNS = bookmarkColumns(false);
+const RECOVERED_COLUMNS = bookmarkColumns(true);
 
 /** One list (saved or recovered) with its loading, error, empty and footer. */
 function BookmarkList({
@@ -927,24 +651,27 @@ function BookmarkList({
         />
       }
     >
-      <BookmarksTable rows={visible} onSelect={onSelect} />
+      <ResponsiveRows
+        rows={visible}
+        columns={noun === "saved" ? SAVED_COLUMNS : RECOVERED_COLUMNS}
+        rowKey={(row, index) => `${row.finding.commitState}-${String(index)}`}
+        rowLabel={(row) =>
+          `Open bookmark ${row.name ?? row.url ?? "with no recorded name or URL"}`
+        }
+        onSelect={(row) => {
+          onSelect(row.finding);
+        }}
+        tableClassName={noun === "saved" ? "min-w-[660px]" : "min-w-[760px]"}
+      />
     </ListBlock>
   );
 }
 
-/** Placeholder at the size of the strip and the two charts. */
+/** Placeholder at the size of the figure strip. */
 function BookmarksSkeleton() {
   return (
-    <div
-      className="flex flex-col gap-5"
-      role="status"
-      aria-label="Loading bookmark figures"
-    >
-      <Skeleton className="h-[160px] w-full rounded-xl lg:h-[86px]" />
-      <div className="grid grid-cols-12 gap-4">
-        <Skeleton className="col-span-12 h-[310px] rounded-xl lg:col-span-7 lg:h-[320px]" />
-        <Skeleton className="col-span-12 h-[320px] rounded-xl lg:col-span-5" />
-      </div>
+    <div role="status" aria-label="Loading bookmark figures">
+      <Skeleton className="h-[150px] w-full rounded-xl lg:h-[76px]" />
     </div>
   );
 }
@@ -1034,10 +761,6 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
     );
   }, []);
 
-  const pickHost = useCallback((host: string) => {
-    setSearch((current) => (current === host ? "" : host));
-  }, []);
-
   const clearFilters = useCallback(() => {
     setSearch("");
     setFolderFilter(null);
@@ -1063,11 +786,6 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
       id="bookmarks-list"
       className="min-w-0"
       title={folderFilter ?? "All bookmarks"}
-      description={
-        folderFilter === null
-          ? "Saved bookmarks and bookmarks recovered from WAL or journal sidecars are separate lists."
-          : "This folder and everything filed beneath it."
-      }
       aside={
         folderFilter === null ? undefined : (
           <Button
@@ -1104,7 +822,7 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
             commit="change"
             label="Search loaded bookmarks"
             placeholder="Search name, URL, or folder"
-            icon={Search}
+            icon={SearchIcon}
             value={search}
             onCommit={setSearch}
           />
@@ -1138,7 +856,7 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
       {pageEmpty ? (
         <Panel>
           <EmptyRows
-            icon={Bookmark}
+            icon={ARTIFACT_ICONS.bookmarks}
             title="No bookmarks"
             message="No bookmarks recorded in this Case, saved or recovered."
           />
@@ -1146,95 +864,70 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
       ) : (
         <>
           {showFigures ? (
-            <div className="reveal-swap">
-              <BookmarksSkeleton />
-              {figuresReady ? (
-                <div className="flex flex-col gap-5">
-                  {capped ? (
-                    <Banner status="warning" contrast="high">
-                      <BannerTitle>
-                        These figures cover part of the Case
-                      </BannerTitle>
-                      <BannerDescription>
-                        They read the first{" "}
-                        {saved.length.toLocaleString("en-US")} saved bookmarks —
-                        the most this page loads at once. More rows exist in the
-                        Case.
-                      </BannerDescription>
-                    </Banner>
-                  ) : null}
+            <RevealSwap
+              loading={!figuresReady}
+              skeleton={<BookmarksSkeleton />}
+            >
+              <div className="flex flex-col gap-5">
+                {capped ? (
+                  <Banner status="warning" contrast="high">
+                    <BannerTitle>
+                      These figures cover part of the Case
+                    </BannerTitle>
+                    <BannerDescription>
+                      They read the first {saved.length.toLocaleString("en-US")}{" "}
+                      saved bookmarks — the most this page loads at once. More
+                      rows exist in the Case.
+                    </BannerDescription>
+                  </Banner>
+                ) : null}
 
-                  {/* Figure strip — the saved collection at a glance. Every
-                      figure is a direct read of the saved rows below. */}
-                  <MetricBand className="grid-cols-2 lg:grid-cols-4">
-                    <MetricBandItem
-                      label="Saved bookmarks"
-                      value={`${summary.total.toLocaleString("en-US")}${capped ? "+" : ""}`}
-                      detail="recovered rows are listed apart"
-                    />
-                    <MetricBandItem
-                      label="Folders used"
-                      value={summary.folders.toLocaleString("en-US")}
-                      detail="distinct recorded folder paths"
-                    />
-                    <MetricBandItem
-                      label="Distinct sites"
-                      value={summary.hosts.toLocaleString("en-US")}
-                      detail="hosts of the saved URLs"
-                    />
-                    <MetricBandItem
-                      label="From backup"
-                      value={summary.backup.toLocaleString("en-US")}
-                      detail="read from Bookmarks.bak"
-                    />
-                  </MetricBand>
-
-                  {/* Cadence + sites — the rhythm at which the collection
-                      was built, and where the subject kept returning. */}
-                  <div className="grid grid-cols-12 gap-4">
-                    <SaveCadence
-                      rows={saved}
-                      className="col-span-12 lg:col-span-7"
-                    />
-                    <SectionPanel
-                      id="bookmarks-sites"
-                      title="Most-bookmarked sites"
-                      description="Saved bookmarks per site. Pick one to narrow the lists."
-                      className="col-span-12 lg:col-span-5"
-                      aside={
-                        <Badge size="compact" className="tabular-nums">
-                          {plural(summary.hosts, "site", "sites")}
-                        </Badge>
-                      }
-                    >
-                      <SiteLeaders
-                        rows={saved}
-                        activeHost={search === "" ? null : search}
-                        onPick={pickHost}
-                      />
-                    </SectionPanel>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+                <MetricBand className="grid-cols-2 lg:grid-cols-4">
+                  <MetricBandItem
+                    label="Saved bookmarks"
+                    value={`${summary.total.toLocaleString("en-US")}${capped ? "+" : ""}`}
+                  />
+                  <MetricBandItem
+                    label="Folders"
+                    value={summary.folders.toLocaleString("en-US")}
+                  />
+                  <MetricBandItem
+                    label="Distinct sites"
+                    value={summary.hosts.toLocaleString("en-US")}
+                  />
+                  <MetricBandItem
+                    label={
+                      <Term label="From backup">
+                        Read from Bookmarks.bak, the backup copy Chrome keeps
+                        beside the live file.
+                      </Term>
+                    }
+                    value={summary.backup.toLocaleString("en-US")}
+                  />
+                </MetricBand>
+              </div>
+            </RevealSwap>
           ) : null}
 
           {/* The folder navigator beside the rows it focuses: the structure
               the person built, next to what they filed. */}
           {showFigures ? (
             <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
-              <div className="reveal-swap lg:sticky lg:top-14">
-                <div role="status" aria-label="Loading bookmark folders">
-                  <Skeleton className="h-[240px] w-full rounded-xl" />
-                </div>
-                {figuresReady ? (
-                  <FolderNavigator
-                    rows={saved}
-                    activePath={folderFilter}
-                    onPick={pickFolder}
-                  />
-                ) : null}
-              </div>
+              <RevealSwap
+                className="lg:sticky lg:top-14"
+                loading={!figuresReady}
+                skeleton={
+                  <div role="status" aria-label="Loading bookmark folders">
+                    <Skeleton className="h-[240px] w-full rounded-xl" />
+                  </div>
+                }
+              >
+                <FolderNavigator
+                  rows={saved}
+                  activePath={folderFilter}
+                  onPick={pickFolder}
+                />
+              </RevealSwap>
               {listPanel}
             </div>
           ) : (

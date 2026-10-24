@@ -25,7 +25,6 @@
 export interface FormDataCategory {
   readonly key: string;
   readonly label: string;
-  readonly hint: string;
   readonly matches: (name: string) => boolean;
 }
 
@@ -33,7 +32,6 @@ export interface FormDataCategory {
 const OTHER_CATEGORY: FormDataCategory = {
   key: "other",
   label: "Other",
-  hint: "Everything Chrome did not label as the above",
   matches: () => true,
 };
 
@@ -43,35 +41,30 @@ export const FORM_DATA_CATEGORIES: readonly FormDataCategory[] = [
   {
     key: PAYMENT_KEY,
     label: "Payment",
-    hint: "Card, bank and wallet fields — hidden by default",
     matches: (name) =>
       /card|credit|cvc|cvv|wallet|iban|account_number/.test(name),
   },
   {
     key: "identity",
     label: "Identity",
-    hint: "Names and who the person is",
     matches: (name) =>
       /(?<![a-z0-9])name(?![a-z0-9])|company|first|last|middle/.test(name),
   },
   {
     key: "contact",
     label: "Contact",
-    hint: "E-mail and phone",
     matches: (name) =>
       /email|e_mail|phone|tel(?![a-z0-9])|mobile|fax/.test(name),
   },
   {
     key: "address",
     label: "Address",
-    hint: "Postal and location fields",
     matches: (name) =>
       /address|street|city|state|zip|postal|country|province|region/.test(name),
   },
   {
     key: "searches",
     label: "Searches",
-    hint: "Free text typed into search and query boxes",
     matches: (name) =>
       /search|query|(?<![a-z0-9])q(?![a-z0-9])|find|lookup|keyword/.test(name),
   },
