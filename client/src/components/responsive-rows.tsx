@@ -35,6 +35,7 @@ import {
   Fragment,
   memo,
   useEffect,
+  useId,
   useRef,
   useState,
   type ReactNode,
@@ -116,7 +117,8 @@ export function ResponsiveRows<Row>({
   readonly rowKey: (row: Row, index: number) => string;
   /** Makes rows clickable (opens the row sheet). */
   readonly onSelect?: (row: Row) => void;
-  /** Accessible name of a clickable row. */
+  /** Accessible name of a clickable phone card (its button); a table row
+   *  is named by its cells and described by what Enter does. */
   readonly rowLabel?: (row: Row, index: number) => string;
   /** Classes for the `Table` (usually a `min-w-[…]` for the scroller). */
   readonly tableClassName?: string;
@@ -175,7 +177,6 @@ function TableRows<Row>({
   columns,
   rowKey,
   onSelect,
-  rowLabel,
   size,
   revealing,
   tableClassName,
@@ -187,8 +188,16 @@ function TableRows<Row>({
     enabled: windowed,
     resetKey: rows,
   });
+  // A clickable row is a table row (its cells, read with their headers,
+  // name it) described by one hint: what Enter does.
+  const hintId = useId();
   return (
     <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
+      {onSelect === undefined ? null : (
+        <span id={hintId} hidden>
+          Enter opens this row's detail.
+        </span>
+      )}
       <Table
         size={size}
         className={tableClassName}
@@ -230,7 +239,7 @@ function TableRows<Row>({
                 index={item.index}
                 columns={columns}
                 onSelect={onSelect}
-                label={rowLabel?.(row, item.index)}
+                hintId={hintId}
                 windowed={windowed}
               />
             );
@@ -247,14 +256,14 @@ const BodyRow = memo(function BodyRow<Row>({
   index,
   columns,
   onSelect,
-  label,
+  hintId,
   windowed,
 }: {
   readonly row: Row;
   readonly index: number;
   readonly columns: readonly RowColumn<Row>[];
   readonly onSelect?: (row: Row) => void;
-  readonly label?: string;
+  readonly hintId: string;
   readonly windowed: boolean;
 }) {
   const open =
@@ -270,7 +279,9 @@ const BodyRow = memo(function BodyRow<Row>({
       data-row-nav={open === undefined ? undefined : ""}
       aria-rowindex={windowed ? index + 2 : undefined}
       tabIndex={open === undefined ? undefined : 0}
-      aria-label={label}
+      // The cells name the row (with their column headers); the hint says
+      // what Enter does. (`label` names the phone card's button.)
+      aria-describedby={open === undefined ? undefined : hintId}
       onClick={open}
       onKeyDown={
         open === undefined
@@ -293,7 +304,7 @@ const BodyRow = memo(function BodyRow<Row>({
   readonly index: number;
   readonly columns: readonly RowColumn<Row>[];
   readonly onSelect?: (row: Row) => void;
-  readonly label?: string;
+  readonly hintId: string;
   readonly windowed: boolean;
 }) => ReactNode;
 
@@ -398,6 +409,10 @@ const StackedRow = memo(function StackedRow<Row>({
 }) {
   const size = useSize(sizeVariant);
   const ref = useRef<HTMLDivElement>(null);
+  // The card's button is named by its short action label; its content
+  // (time, state, the value, the meta line) is its description, so the
+  // label no longer hides what the card shows.
+  const detailsId = useId();
   useRegisterFluidHoverItem(hover?.registerItem, index, ref);
   const show = (column: RowColumn<Row>) =>
     (column.stackedCell ?? column.cell)(row, index);
@@ -426,6 +441,7 @@ const StackedRow = memo(function StackedRow<Row>({
         role={open === undefined ? undefined : "button"}
         tabIndex={open === undefined ? undefined : 0}
         aria-label={label}
+        aria-describedby={open === undefined ? undefined : detailsId}
         onClick={open}
         onKeyDown={
           open === undefined
@@ -438,82 +454,84 @@ const StackedRow = memo(function StackedRow<Row>({
               }
         }
         className={cn(
-          "relative flex min-w-0 flex-col gap-0.5 rounded-lg px-3 py-2.5",
+          "relative flex min-w-0 flex-col rounded-lg px-3 py-2.5",
           open !== undefined && ROW_FOCUS_CLASS,
         )}
       >
-        {lead.length + aside.length === 0 ? null : (
-          <SizeProvider size="compact">
+        <div id={detailsId} className="flex min-w-0 flex-col gap-0.5">
+          {lead.length + aside.length === 0 ? null : (
+            <SizeProvider size="compact">
+              <div
+                className={cn(
+                  size.type.caption,
+                  "flex min-w-0 items-center justify-between gap-3 text-muted-foreground",
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  {lead.map((column) => (
+                    <Fragment key={column.key}>{show(column)}</Fragment>
+                  ))}
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  {aside.map((column) => (
+                    <Fragment key={column.key}>{show(column)}</Fragment>
+                  ))}
+                </span>
+              </div>
+            </SizeProvider>
+          )}
+          {title.map((column) => (
             <div
-              className={cn(
-                size.type.caption,
-                "flex min-w-0 items-center justify-between gap-3 text-muted-foreground",
-              )}
+              key={column.key}
+              className={cn(size.type.body, "min-w-0 text-foreground")}
             >
-              <span className="flex min-w-0 items-center gap-2">
-                {lead.map((column) => (
-                  <Fragment key={column.key}>{show(column)}</Fragment>
-                ))}
-              </span>
-              <span className="flex shrink-0 items-center gap-2">
-                {aside.map((column) => (
-                  <Fragment key={column.key}>{show(column)}</Fragment>
-                ))}
-              </span>
+              {show(column)}
             </div>
-          </SizeProvider>
-        )}
-        {title.map((column) => (
-          <div
-            key={column.key}
-            className={cn(size.type.body, "min-w-0 text-foreground")}
-          >
-            {show(column)}
-          </div>
-        ))}
-        {meta.length === 0 ? null : (
-          <SizeProvider size="compact">
-            {/* Every item carries its own leading " · " in a fixed 16px
+          ))}
+          {meta.length === 0 ? null : (
+            <SizeProvider size="compact">
+              {/* Every item carries its own leading " · " in a fixed 16px
                 slot, and the row is pulled 16px left inside a clipping
                 box: the separator that would start a wrapped line falls
                 in the clipped strip, so a line never ends or starts on a
                 dangling dot, and a segment never splits from its dot. */}
-            <div className="min-w-0 overflow-hidden">
-              <div
-                className={cn(
-                  size.type.caption,
-                  "-ml-4 flex min-w-0 flex-wrap items-baseline text-muted-foreground",
-                )}
-              >
-                {meta.map((column) => (
-                  <Fragment key={column.key}>
-                    <span className="inline-flex min-w-0 max-w-full items-baseline">
-                      <span
-                        aria-hidden="true"
-                        className="w-4 shrink-0 text-center"
-                      >
-                        ·
-                      </span>
-                      <span className="inline-flex min-w-0 items-baseline gap-1">
-                        {column.labelled === true ? (
-                          <span>
-                            {column.label ??
-                              (typeof column.header === "string"
-                                ? column.header
-                                : null)}
+              <div className="min-w-0 overflow-hidden">
+                <div
+                  className={cn(
+                    size.type.caption,
+                    "-ml-4 flex min-w-0 flex-wrap items-baseline text-muted-foreground",
+                  )}
+                >
+                  {meta.map((column) => (
+                    <Fragment key={column.key}>
+                      <span className="inline-flex min-w-0 max-w-full items-baseline">
+                        <span
+                          aria-hidden="true"
+                          className="w-4 shrink-0 text-center"
+                        >
+                          ·
+                        </span>
+                        <span className="inline-flex min-w-0 items-baseline gap-1">
+                          {column.labelled === true ? (
+                            <span>
+                              {column.label ??
+                                (typeof column.header === "string"
+                                  ? column.header
+                                  : null)}
+                            </span>
+                          ) : null}
+                          <span className="min-w-0 text-foreground">
+                            {show(column)}
                           </span>
-                        ) : null}
-                        <span className="min-w-0 text-foreground">
-                          {show(column)}
                         </span>
                       </span>
-                    </span>
-                  </Fragment>
-                ))}
+                    </Fragment>
+                  ))}
+                </div>
               </div>
-            </div>
-          </SizeProvider>
-        )}
+            </SizeProvider>
+          )}
+        </div>
       </div>
     </li>
   );

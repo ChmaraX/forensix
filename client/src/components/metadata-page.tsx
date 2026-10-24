@@ -790,11 +790,8 @@ function UnreadProfiles({
  *  saved page loads, at their size. */
 function FiguresSkeleton() {
   return (
-    <div
-      className="flex flex-col gap-5"
-      role="status"
-      aria-label="Loading browser profile metadata"
-    >
+    <div className="flex flex-col gap-5" role="status">
+      <span className="sr-only">Loading browser profile metadata</span>
       <Skeleton className="h-[148px] w-full rounded-xl lg:h-[74px]" />
       <Skeleton className="h-[260px] w-full rounded-xl" />
     </div>

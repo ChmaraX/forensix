@@ -266,7 +266,8 @@ function bookmarkColumns(
     },
     {
       key: "added",
-      header: "Added",
+      header: "Added (UTC)",
+      label: "Added",
       className: "whitespace-nowrap",
       cell: (row) => <TimeCell field={row.finding.fields.dateAdded} />,
     },
@@ -362,7 +363,8 @@ function BookmarkList({
 /** Placeholder at the size of the figure strip. */
 function BookmarksSkeleton() {
   return (
-    <div role="status" aria-label="Loading bookmark figures">
+    <div role="status">
+      <span className="sr-only">Loading bookmark figures</span>
       <Skeleton className="h-[150px] w-full rounded-xl lg:h-[76px]" />
     </div>
   );
@@ -669,7 +671,8 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
                 className="sticky top-14"
                 loading={!figuresReady}
                 skeleton={
-                  <div role="status" aria-label="Loading bookmark folders">
+                  <div role="status">
+                    <span className="sr-only">Loading bookmark folders</span>
                     <Skeleton className="h-[240px] w-full rounded-xl" />
                   </div>
                 }

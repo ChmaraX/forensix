@@ -296,7 +296,8 @@ describe("citationOf", () => {
 describe("fieldLabel", () => {
   it("reads a known field in words", () => {
     expect(fieldLabel("visitId")).toBe("Visit id");
-    expect(fieldLabel("totalBytes", "download")).toBe("Expected size (bytes)");
+    // The value says "bytes" (field-values.ts), so the label does not.
+    expect(fieldLabel("totalBytes", "download")).toBe("Expected size");
   });
 
   it("prefers a kind-specific label", () => {

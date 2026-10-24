@@ -642,7 +642,15 @@ function OverviewContent({
           id={topSitesId}
           title="Most visited sites"
           aside={<JumpLink label="Sites" href={hrefFor("sites")} />}
-          className="col-span-12 md:col-span-6 lg:col-span-8"
+          // One or two hosts (a one-day range) hug their rows instead of
+          // stretching to the chart's height beside them.
+          className={cn(
+            "col-span-12 md:col-span-6 lg:col-span-8",
+            mostVisited.state === "ready" &&
+              mostVisited.items.length <= 2 &&
+              mostVisited.items.length > 0 &&
+              "md:self-start",
+          )}
         >
           {mostVisited.state === "failed" ? (
             <ErrorRows

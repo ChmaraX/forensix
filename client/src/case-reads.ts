@@ -96,3 +96,74 @@ export async function exactVisitsOf(url: string): Promise<{
     more: pages.some((page) => page.nextCursor !== null),
   };
 }
+
+/** Upper bound on pages (100 rows each) one ⌘K index read drains per
+ *  Commit State. */
+const INDEX_PAGE_CAP = 20;
+const INDEX_STATES = ["committed", "wal_resident", "journal_resident"] as const;
+
+/** Every row of `route` the ⌘K index lists, saved and recovered, up to
+ *  `INDEX_PAGE_CAP` pages per Commit State (`complete` says whether every
+ *  read ran out). */
+async function drainForIndex(route: string): Promise<{
+  readonly rows: readonly Finding[];
+  readonly complete: boolean;
+}> {
+  const reads = await Promise.all(
+    INDEX_STATES.map(async (state) => {
+      const rows: Finding[] = [];
+      let after: string | null = null;
+      for (let page = 0; page < INDEX_PAGE_CAP; page += 1) {
+        const parameters: (readonly [string, string])[] = [
+          ["limit", "100"],
+          ["commit-state", state],
+        ];
+        if (after !== null) {
+          parameters.push(["after", after]);
+        }
+        const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
+          route,
+          parameters,
+        );
+        rows.push(...result.items);
+        after = result.nextCursor;
+        if (after === null) {
+          return { rows, complete: true };
+        }
+      }
+      return { rows, complete: false };
+    }),
+  );
+  return {
+    rows: reads.flatMap((read) => read.rows),
+    complete: reads.every((read) => read.complete),
+  };
+}
+
+type IndexRead = Promise<{
+  readonly rows: readonly Finding[];
+  readonly complete: boolean;
+}>;
+
+let downloadRows: IndexRead | null = null;
+let savedLoginRows: IndexRead | null = null;
+
+/** The Case's downloads (every Commit State), read once, for ⌘K's Files. */
+export function caseDownloads(): IndexRead {
+  downloadRows ??= drainForIndex("downloads").catch((error: unknown) => {
+    downloadRows = null;
+    throw error;
+  });
+  return downloadRows;
+}
+
+/** The Case's saved logins (every Commit State), read once, for ⌘K's
+ *  Usernames. The index keeps only each row's recorded username and site
+ *  (and its reference) - never a password field. */
+export function caseSavedLogins(): IndexRead {
+  savedLoginRows ??= drainForIndex("credentials").catch((error: unknown) => {
+    savedLoginRows = null;
+    throw error;
+  });
+  return savedLoginRows;
+}

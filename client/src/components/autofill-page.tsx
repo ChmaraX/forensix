@@ -201,7 +201,8 @@ function entryColumns(
     },
     {
       key: "lastUsed",
-      header: "Last used",
+      header: "Last used (UTC)",
+      label: "Last used",
       className: "whitespace-nowrap",
       cell: (entry) => <TimeCell field={entry.row.fields.dateLastUsed} />,
     },
@@ -424,7 +425,8 @@ function CategorySelect({
 /** Placeholder at the size of the figure strip. */
 function AutofillSkeleton() {
   return (
-    <div role="status" aria-label="Loading form data figures">
+    <div role="status">
+      <span className="sr-only">Loading form data figures</span>
       <Skeleton className="h-[76px] w-full rounded-xl" />
     </div>
   );

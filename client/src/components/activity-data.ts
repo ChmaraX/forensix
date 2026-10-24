@@ -22,6 +22,23 @@ export interface ActivityBucket {
   readonly date: string;
   readonly hour: number;
   readonly count: number;
+  /** The profile the bucket's visits belong to (one activity row per
+   *  profile per local date and hour). */
+  readonly profile?: string;
+}
+
+/** The buckets of the picked profiles (every bucket when none is picked):
+ *  the lens's profile pick, applied to a chart by the recorded profile. */
+export function bucketsOfProfiles(
+  buckets: readonly ActivityBucket[],
+  profiles: readonly string[],
+): readonly ActivityBucket[] {
+  return profiles.length === 0
+    ? buckets
+    : buckets.filter(
+        (bucket) =>
+          bucket.profile !== undefined && profiles.includes(bucket.profile),
+      );
 }
 
 /**
@@ -94,6 +111,7 @@ export async function fetchActivity(): Promise<SplitActivity> {
         date,
         hour,
         count,
+        profile: row.profile,
       });
     }
     after = result.nextCursor;
@@ -277,6 +295,43 @@ export function bucketsToHourTotals(
  * pixels than the continuity is worth, and left alone when `days` is already
  * empty or a single point.
  */
+/**
+ * `days` gap-filled across `span` too (zero days at its ends), so a chart's
+ * axis reaches days the Case records events on without a page visit (the
+ * Timeline's downloads and cookies). Left as `fillGaps(days)` when the span
+ * would pass `GAP_FILL_LIMIT` days or is not known.
+ */
+export function fillGapsAcross(
+  days: readonly DayCount[],
+  span: { readonly min: string | null; readonly max: string | null },
+): readonly DayCount[] {
+  const ends = [span.min, span.max].filter(
+    (date): date is string => date !== null,
+  );
+  if (ends.length === 0) {
+    return fillGaps(days);
+  }
+  const widened = [
+    ...days,
+    ...ends
+      .filter((date) => !days.some((day) => day.date === date))
+      .map((date) => ({ date, count: 0 })),
+  ].sort((left, right) => left.date.localeCompare(right.date));
+  const first = widened[0]?.date;
+  const last = widened[widened.length - 1]?.date;
+  const length =
+    first === undefined || last === undefined
+      ? 0
+      : Math.round(
+          (new Date(`${last}T00:00:00Z`).getTime() -
+            new Date(`${first}T00:00:00Z`).getTime()) /
+            86_400_000,
+        ) + 1;
+  // Over the limit fillGaps would leave the days sparse: then keep the
+  // visits' own axis rather than two lone zero days at its ends.
+  return length > GAP_FILL_LIMIT ? fillGaps(days) : fillGaps(widened);
+}
+
 export function fillGaps(days: readonly DayCount[]): readonly DayCount[] {
   const first = days[0];
   const last = days[days.length - 1];

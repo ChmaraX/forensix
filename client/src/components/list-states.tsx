@@ -145,7 +145,7 @@ export function ErrorRows({
 
 /**
  * The list's footer, drawn only when it has something to say: the list is
- * paged (the server has more — "50 of 50+" and Load more) or a client-side
+ * paged (the server has more — "50 loaded" and Load more) or a client-side
  * filter hides loaded rows ("3 of 22"). A complete, unfiltered list has no
  * footer: its count is already on the Saved / Recovered tab.
  */
@@ -155,6 +155,7 @@ export function ListFooter({
   more,
   loading = false,
   onLoadMore,
+  draining = false,
   className,
 }: {
   /** Rows on show (after any client-side filter). */
@@ -166,10 +167,13 @@ export function ListFooter({
   readonly loading?: boolean;
   /** Reads the next page; with it, a paged footer offers "Load more". */
   readonly onLoadMore?: () => void;
+  /** The rest of the list is being read in the background (a drained
+   *  read): says so at the footer's end instead of offering Load more. */
+  readonly draining?: boolean;
   readonly className?: string;
 }) {
   const size = useSize();
-  if (!more && shown >= total) {
+  if (!more && !draining && shown >= total) {
     return null;
   }
   return (
@@ -184,9 +188,22 @@ export function ListFooter({
       <p
         className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
       >
-        {`${shown.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}${more ? "+" : ""}`}
+        {/* Unfiltered and paged, "36 loaded" (with Load more) reads
+            plainer than "36 of 36+"; a filter keeps "3 of 36+". */}
+        {shown === total && (more || draining)
+          ? `${shown.toLocaleString("en-US")} loaded`
+          : `${shown.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}${more || draining ? "+" : ""}`}
       </p>
-      {more && onLoadMore !== undefined ? (
+      {draining ? (
+        <p
+          className={cn(
+            size.type.caption,
+            "ml-auto text-muted-foreground tabular-nums",
+          )}
+        >
+          Reading the rest of the list…
+        </p>
+      ) : more && onLoadMore !== undefined ? (
         <Button
           variant="tertiary"
           size="compact"
@@ -199,6 +216,30 @@ export function ListFooter({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * A drained read's progress above the figures it feeds (Cache, Downloads):
+ * one muted line while the rest of the list is read in the background, so
+ * figures that are still growing never read as final. The line is not a
+ * live region (the lists' `ListStatus` speaks); it collapses when done.
+ */
+export function DrainNote({
+  draining,
+  message,
+}: {
+  readonly draining: boolean;
+  readonly message: string;
+}) {
+  const size = useSize();
+  if (!draining) {
+    return null;
+  }
+  return (
+    <p className={cn(size.type.caption, "text-muted-foreground tabular-nums")}>
+      {message}
+    </p>
   );
 }
 
@@ -363,7 +404,7 @@ export interface ListNoun {
  *    for that page again (the loaded rows stay; a recovered list retries
  *    only its failed half);
  *  - `ListFooter` closes the list only while it is paged or filtered
- *    ("3 of 12", "50 of 50+" with Load more).
+ *    ("3 of 12", "50 loaded" with Load more).
  *
  * The page's table goes in `children`, given the rows left after its own
  * filter; `shown` is their count.
@@ -380,6 +421,7 @@ export function ListBlock({
   loadingLabel,
   errorTitle,
   total,
+  draining = false,
   children,
 }: {
   readonly list: ListSource;
@@ -404,8 +446,12 @@ export function ListBlock({
   readonly errorTitle?: string;
   /** Rows this list holds before its client-side filter, when the list is
    *  one part of a larger loaded source (the Timeline's saved or recovered
-   *  half of one stream). @default list.rows.length */
+   *  half of one stream; the rows in the lens of a drained read).
+   *  @default list.rows.length */
   readonly total?: number;
+  /** A drained read is still reading pages in the background (Cache,
+   *  Downloads): counts read "+" and the footer says it is reading. */
+  readonly draining?: boolean;
   /** The table, rendered only when at least one row is shown. */
   readonly children: ReactNode;
 }) {
@@ -413,7 +459,8 @@ export function ListBlock({
   const visible = shown ?? loaded;
   const narrowed = filtered ?? visible !== loaded;
   const firstRead = list.loading && loaded === 0;
-  const more = list.error === null && list.cursor !== null;
+  const paged = list.error === null && list.cursor !== null;
+  const more = paged || (draining && list.error === null);
   if (list.error !== null && loaded === 0) {
     return (
       <ErrorRows
@@ -474,7 +521,8 @@ export function ListBlock({
         <ListFooter
           shown={visible}
           total={total ?? loaded}
-          more={more}
+          more={paged}
+          draining={draining && list.error === null}
           loading={list.loading}
           onLoadMore={list.loadMore}
         />

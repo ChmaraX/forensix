@@ -42,6 +42,7 @@ import {
   useRowSelection,
   useViewProfiles,
   useViewRange,
+  useViewSearch,
   useViewTab,
 } from "../view-state.js";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
@@ -55,7 +56,7 @@ import { DateRangePicker } from "./date-range-picker.js";
 import { caseDayOf, inCaseDays } from "./day-bounds.js";
 import { fieldText } from "./finding-fields.js";
 import { CompactFilters, FilterTextField, ProfilePicker } from "./filters.js";
-import { RevealSwap } from "./list-states.js";
+import { DrainNote, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet } from "./row-sheet.js";
 import {
@@ -95,7 +96,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
   const reduced = usePrefersReducedMotion();
   // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
   const [view, setView] = useViewTab();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useViewSearch();
   const [kindFilter, setKindFilter] = useState<FileKind | null>(null);
   // The Case-wide lens: the range (Case days) and the profile pick.
   const [range, setRange] = useViewRange();
@@ -271,6 +272,18 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
     [search, kindFilter, hasRange, range, sort, timeZone, inProfiles],
   );
   const visibleSaved = useMemo(() => narrow(model), [narrow, model]);
+  // The tabs and footers count the rows in the lens (range, profiles) -
+  // the same base the figures use - so a day reads "Saved 1 · 1 of 1",
+  // never an all-days total beside one row.
+  const recoveredInLens = useMemo(
+    () =>
+      recoveredModel.filter(
+        (row) =>
+          inProfiles(row) &&
+          (!hasRange || inCaseDays(row.startUtc, range, timeZone)),
+      ),
+    [recoveredModel, inProfiles, hasRange, range, timeZone],
+  );
   const visibleRecovered = useMemo(
     () => narrow(recoveredModel),
     [narrow, recoveredModel],
@@ -322,13 +335,10 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
     };
   }, [model, recoveredModel, timeZone]);
 
-  const recoveredTotal = recoveredRead.rows?.length ?? null;
-
   const clearAll = useCallback(() => {
     setKindFilter(null);
-    setSearch("");
-    // The range and the profiles in one history entry.
-    updateView({ from: "", to: "", profiles: [] });
+    // The search, the range and the profiles in one history entry.
+    updateView({ q: null, from: "", to: "", profiles: [] });
   }, []);
 
   const receivedDetail = [
@@ -352,7 +362,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
           skeleton={<DownloadsLoading pages={savedRead.pages} />}
         >
           <div className="flex flex-col gap-5">
-            {!savedRead.complete ? (
+            {!savedRead.complete && !savedRead.draining ? (
               <Banner status="warning" contrast="high">
                 <BannerTitle>These figures cover part of the Case.</BannerTitle>
                 <BannerDescription>
@@ -363,10 +373,14 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
               </Banner>
             ) : null}
 
+            <DrainNote
+              draining={savedRead.draining && savedRead.error === null}
+              message={`Reading the rest of the saved downloads - ${model.length.toLocaleString("en-US")} read so far. The figures grow as rows arrive.`}
+            />
             <MetricBand className="grid-cols-2 lg:grid-cols-4">
               <MetricBandItem
                 label="Saved downloads"
-                value={summary.total.toLocaleString("en-US")}
+                value={`${summary.total.toLocaleString("en-US")}${savedRead.draining ? "+" : ""}`}
                 detail={spanLabel}
               />
               <MetricBandItem
@@ -439,8 +453,10 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
             value={view}
             onValueChange={setView}
             label="Saved or recovered downloads"
-            savedCount={savedRead.rows === null ? null : model.length}
-            recoveredCount={recoveredTotal}
+            savedCount={savedRead.rows === null ? null : modelInRange.length}
+            recoveredCount={
+              recoveredRead.rows === null ? null : recoveredInLens.length
+            }
             savedMore={!savedRead.complete}
             recoveredMore={!recoveredRead.complete}
             toolbar={
@@ -488,6 +504,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
               <DownloadList
                 read={savedRead}
                 rows={visibleSaved}
+                total={modelInRange.length}
                 recovered={false}
                 filtered={filtered}
                 filteredMessage={filteredMessage("saved downloads")}
@@ -499,6 +516,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
               <DownloadList
                 read={recoveredRead}
                 rows={visibleRecovered}
+                total={recoveredInLens.length}
                 recovered
                 filtered={filtered}
                 filteredMessage={filteredMessage("recovered downloads")}

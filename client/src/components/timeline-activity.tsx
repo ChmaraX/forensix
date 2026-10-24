@@ -1,6 +1,8 @@
 /**
  * The Timeline page's activity chart: saved page visits per day, above the
- * chronological records. It is the records' date filter.
+ * chronological records. It is the records' date filter; its axis and its
+ * picker span every day the stream records an event on (a download day
+ * with no visit is a zero bar that can still be picked).
  *
  * The chart is the shared `ActivityBars` (the one chart for "visits per
  * day", the same as Overview and History). Dragging across it picks a date
@@ -16,7 +18,11 @@ import { useMemo } from "react";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { bucketsToDays, fillGaps, type useActivity } from "./activity-data.js";
+import {
+  bucketsToDays,
+  fillGapsAcross,
+  type useActivity,
+} from "./activity-data.js";
 import { type DayCount, useChartTokens } from "./charts.js";
 import { ActivityBars } from "./charts-ready.js";
 import { ChartSection } from "./chart-section.js";
@@ -41,19 +47,31 @@ export function TimelineActivityCard({
   range,
   onRangeChange,
   read,
+  eventSpan,
 }: {
   readonly range: DayRange;
   readonly onRangeChange: (range: DayRange) => void;
   readonly read: ReturnType<typeof useActivity>;
+  /** The first and last Case day of any recorded event (not only page
+   *  visits): the axis and the picker reach them. */
+  readonly eventSpan: {
+    readonly min: string | null;
+    readonly max: string | null;
+  };
 }) {
   const tokens = useChartTokens();
   const size = useSize();
   const { activity, error, retry } = read;
 
-  // Saved days, gap-filled so the x-axis is real calendar time.
+  // Saved days, gap-filled so the x-axis is real calendar time - across
+  // every day the stream records an event on, so a download day without a
+  // visit is on the axis (a zero bar) and can be picked.
   const days = useMemo<readonly DayCount[] | null>(
-    () => (activity === null ? null : fillGaps(bucketsToDays(activity.saved))),
-    [activity],
+    () =>
+      activity === null
+        ? null
+        : fillGapsAcross(bucketsToDays(activity.saved), eventSpan),
+    [activity, eventSpan],
   );
 
   // The picker spans every recorded day, saved or recovered: its range
@@ -62,12 +80,19 @@ export function TimelineActivityCard({
     if (activity === null) {
       return { min: null, max: null };
     }
-    const all = bucketsToDays([...activity.saved, ...activity.recovered]);
+    const all = [
+      ...bucketsToDays([...activity.saved, ...activity.recovered]).map(
+        (day) => day.date,
+      ),
+      ...[eventSpan.min, eventSpan.max].filter(
+        (date): date is string => date !== null,
+      ),
+    ].sort();
     return {
-      min: all[0]?.date ?? null,
-      max: all[all.length - 1]?.date ?? null,
+      min: all[0] ?? null,
+      max: all[all.length - 1] ?? null,
     };
-  }, [activity]);
+  }, [activity, eventSpan]);
 
   return (
     <ChartSection
@@ -105,7 +130,8 @@ export function TimelineActivityCard({
           <RevealSwap
             loading={days === null}
             skeleton={
-              <div role="status" aria-label="Loading activity">
+              <div role="status">
+                <span className="sr-only">Loading activity</span>
                 <Skeleton className={cn(CHART_HEIGHT, "w-full rounded-lg")} />
               </div>
             }

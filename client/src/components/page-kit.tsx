@@ -29,7 +29,13 @@
  * (WAL / rollback-journal) rows are a separate list from saved rows and never
  * sorted in.
  */
-import { useRef, useState, type ComponentProps, type ReactNode } from "react";
+import {
+  useId,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 
 import {
   Panel,
@@ -52,6 +58,13 @@ import { cn } from "@/lib/utils";
 
 import type { FieldState, Finding } from "../types.js";
 import { focusTabWithoutRing } from "./pointer-focus.js";
+import { SM_UP, useMediaQuery } from "./use-media-query.js";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { Term, TermTooltip } from "./term.js";
 import { SERIES } from "./charts.js";
 import {
@@ -66,24 +79,7 @@ export { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
 
 /* -------------------------------- formatting ------------------------------- */
 
-/** Bytes as "1.4 MB" / "812 KB" / "312 B" — base-1024, one decimal below
- *  100 units. Presentation only: the exact byte count stays reachable in the
- *  row detail sheet (put it in a `title` where the short form is shown). */
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${String(bytes)} B`;
-  }
-  const units = ["KB", "MB", "GB", "TB"];
-  let value = bytes / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  const rounded =
-    value >= 100 ? Math.round(value) : Math.round(value * 10) / 10;
-  return `${rounded.toLocaleString("en-US")} ${units[unit] ?? "KB"}`;
-}
+export { formatBytes } from "./bytes.js";
 
 /** "1 visit" / "1,204 visits". */
 export function plural(count: number, one: string, many: string): string {
@@ -225,6 +221,9 @@ export function Count({
   );
 }
 
+/** The phone Select's value for "All" (no chip key can be empty). */
+const ALL_CHIP = "__all__";
+
 /** One chip of a `CountChips` row. */
 export interface CountChip {
   readonly key: string;
@@ -239,9 +238,11 @@ export interface CountChip {
  * tabular count; one selected pill (`bg-active`, semibold label without
  * reflow) and FF's fluid hover highlight gliding between pills
  * (`useFluidHover` on both axes, so a wrapped second row tracks too). From
- * `sm` up the row wraps onto a second line instead of scrolling; below it
- * scrolls sideways with no scrollbar, its edges fading (`scroll-fade-x`).
- * It sits in the list `Toolbar`'s trailing controls. `null` is "All".
+ * `sm` up the row wraps onto a second line instead of scrolling. Below `sm`
+ * the same choice is one labelled compact FF `Select` ("Event type: All
+ * 36"), so no chip hides past the edge of a phone screen and every option
+ * shows its count when it opens. It sits in the list `Toolbar`'s trailing
+ * controls. `null` is "All".
  *
  * `partial`: the counts are of the rows loaded so far and more stand on the
  * server - each count reads "36+" (the same "+" as the Saved / Recovered
@@ -272,17 +273,59 @@ export function CountChips({
   const containerRef = useRef<HTMLDivElement>(null);
   const hover = useFluidHover(containerRef, { axis: "xy" });
   const shape = useShape();
+  const wide = useMediaQuery(SM_UP);
+  const selectId = useId();
   const items: readonly {
     readonly key: string | null;
     readonly label: string;
     readonly count: number;
   }[] = [{ key: null, label: allLabel, count: total }, ...chips];
+  if (!wide) {
+    return (
+      <div className="flex min-w-0 items-center gap-2 max-sm:w-full">
+        <label
+          htmlFor={selectId}
+          className={cn(typeClass("caption"), "shrink-0 text-muted-foreground")}
+        >
+          {label}
+        </label>
+        <Select
+          size="compact"
+          value={active ?? ALL_CHIP}
+          onValueChange={(key) => {
+            onChange(key === ALL_CHIP ? null : key);
+          }}
+        >
+          <SelectTrigger
+            id={selectId}
+            className="min-w-0 flex-1"
+            aria-label={partial ? `${label} (counts of loaded rows)` : label}
+          />
+          <SelectContent>
+            {items.map((item, index) => (
+              <SelectItem
+                key={item.key ?? ALL_CHIP}
+                index={index}
+                value={item.key ?? ALL_CHIP}
+              >
+                {item.label}{" "}
+                <span className="text-muted-foreground tabular-nums">
+                  {item.count.toLocaleString("en-US")}
+                  {partial ? "+" : ""}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
   return (
     <div
       ref={containerRef}
       role="group"
       aria-label={partial ? `${label} (counts of loaded rows)` : label}
-      className="scroll-fade-x scrollbar-hide relative flex min-w-0 items-center gap-0.5 p-0.5 max-sm:w-full max-sm:overflow-x-auto sm:flex-wrap"
+      className="relative flex min-w-0 flex-wrap items-center gap-0.5 p-0.5"
       {...hover.handlers}
     >
       <FluidHoverHighlight hover={hover} className={shape.bg} />
@@ -712,11 +755,15 @@ function CommitStateTabs({
           value="saved"
           label={countLabel("Saved", saved, savedMore)}
           onMouseDown={focusTabWithoutRing}
+          // A segmented control over one list, not tabs with panels: no
+          // aria-controls pointing at a panel Radix never renders.
+          aria-controls={undefined}
         />
         <RecoveredTabItem
           value="recovered"
           label={countLabel("Recovered", recovered, recoveredMore)}
           onMouseDown={focusTabWithoutRing}
+          aria-controls={undefined}
         />
       </TabsList>
     </Tabs>

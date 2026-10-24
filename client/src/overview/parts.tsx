@@ -429,7 +429,9 @@ export function TopSitesList({
             index={index}
             registerItem={hover.registerItem}
             label={`${site.host}, ${plural(site.count, "saved visit", "saved visits")} - open in Sites`}
-            className="grid h-9 grid-cols-[minmax(0,10rem)_minmax(0,1fr)_auto] items-center gap-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto]"
+            // On a phone the share bar steps aside so the host reads whole
+            // (the count beside it still orders the list).
+            className="grid h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto]"
           >
             <span className="flex min-w-0 items-center gap-2.5">
               <SiteMark domain={site.host} favicon={favicons.get(site.host)} />
@@ -441,7 +443,7 @@ export function TopSitesList({
               </span>
             </span>
             {/* The bar keeps a reading length on the wide column. */}
-            <span className="block w-full max-w-sm">
+            <span className="block w-full max-w-sm max-sm:hidden">
               <ShareBar
                 fraction={peak === 0 ? 0 : site.count / peak}
                 peak={peak > 0 && site.count === peak}
@@ -554,18 +556,21 @@ export function DownloadsList({
             <span
               className={cn(
                 typeClass("body"),
-                "flex flex-wrap items-center gap-x-3 gap-y-1 md:contents",
+                // Below md, one fixed shape for every card: outcome and
+                // size on the first line (size at the right), the time on
+                // its own line - never a wrap that depends on the lengths.
+                "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 md:contents",
               )}
             >
               <span className="min-w-0">
                 <DownloadState field={download.fields.state} />
               </span>
-              <span className="min-w-0 md:text-right">
+              <span className="min-w-0 text-right">
                 <DownloadSize row={row} />
               </span>
               <TimeText
                 field={download.fields.startTime}
-                className="md:text-right"
+                className="max-md:col-span-2 md:text-right"
               />
             </span>
           </LinkRow>
@@ -840,11 +845,8 @@ export function LoadingOverview({
   readonly className?: string;
 }) {
   return (
-    <div
-      role="status"
-      aria-label="Loading overview"
-      className={cn("flex flex-col gap-5", className)}
-    >
+    <div role="status" className={cn("flex flex-col gap-5", className)}>
+      <span className="sr-only">Loading overview</span>
       <div className="flex items-center gap-4 pt-2">
         <Skeleton className="size-12 rounded-xl" />
         <div className="flex flex-col gap-2">

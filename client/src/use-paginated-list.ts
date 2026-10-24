@@ -9,7 +9,9 @@
  * change starts a new generation, and a response from an older one (a
  * "Load more" still in flight when the filters changed) is dropped, so an
  * old page never lands in the new list and its cursor never replaces the new
- * one. `loadMore` does nothing while a read is in flight.
+ * one. A new generation (or unmounting) also aborts the old one's read in
+ * flight (`AbortController`), so a stale request stops on the wire too.
+ * `loadMore` does nothing while a read is in flight.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -30,6 +32,8 @@ export function usePaginatedList<Row>(
   // The current generation, and whether a read of it is in flight.
   const generation = useRef(0);
   const inFlight = useRef(false);
+  // Aborts the current generation's reads (first page and "Load more").
+  const controller = useRef<AbortController | null>(null);
 
   useEffect(() => {
     generation.current += 1;
@@ -45,12 +49,14 @@ export function usePaginatedList<Row>(
         generation.current += 1;
       };
     }
+    const abort = new AbortController();
+    controller.current = abort;
     inFlight.current = true;
     setLoading(true);
     setError(null);
     setRows([]);
     setCursor(null);
-    callApi<PageOf<Row>>(route, parameters)
+    callApi<PageOf<Row>>(route, parameters, { signal: abort.signal })
       .then((page) => {
         if (cancelled()) {
           return;
@@ -75,6 +81,7 @@ export function usePaginatedList<Row>(
     return () => {
       generation.current += 1;
       inFlight.current = false;
+      abort.abort();
     };
   }, [route, parametersKey, reloadNonce, enabled]);
 
@@ -86,7 +93,9 @@ export function usePaginatedList<Row>(
     inFlight.current = true;
     setLoading(true);
     setError(null);
-    callApi<PageOf<Row>>(route, [...parameters, ["after", cursor]])
+    callApi<PageOf<Row>>(route, [...parameters, ["after", cursor]], {
+      signal: controller.current?.signal,
+    })
       .then((page) => {
         if (generation.current !== current) {
           return;

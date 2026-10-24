@@ -13,7 +13,27 @@ import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { profileLabel } from "./components/finding-fields.js";
 import { formatCaseDay } from "./related.js";
-import { useLensApplied, useViewState } from "./view-state.js";
+import { pageLabelOf } from "./router.js";
+import { useLensApplied, useViewLocation, useViewState } from "./view-state.js";
+
+/** Pages with their own date picker, which shows the applied range. */
+const RANGE_PICKER_PAGES: ReadonlySet<string> = new Set([
+  "overview",
+  "history",
+  "timeline",
+  "downloads",
+  "cache",
+]);
+
+/** The recorded time each range-filtering page narrows by, for the chip's
+ *  description ("13 Mar 2024, by visit time"). */
+const RANGE_FIELD: Readonly<Record<string, string>> = {
+  overview: "visit day",
+  history: "visit time",
+  timeline: "each event's own time",
+  downloads: "start time",
+  cache: "last used time",
+};
 
 /** "12 Mar 2024", "12 - 14 Mar 2024", "12 Mar - 4 Apr 2024",
  *  "30 Dec 2023 - 2 Jan 2024", "From 12 Mar 2024". */
@@ -86,20 +106,45 @@ export function useLensSummary(): string | null {
 export function ViewLensChip({
   onClear,
 }: {
-  /** After the lens is cleared (the shell announces it). */
-  readonly onClear?: () => void;
+  /** After the lens is cleared, with what is shown now (the shell
+   *  announces it). */
+  readonly onClear?: (message: string) => void;
 }) {
-  const { clear } = useViewState();
-  const { applied, unapplied } = useLensParts();
+  const { clear, range, profiles, setProfiles } = useViewState();
+  const lens = useLensApplied();
+  const { page } = useViewLocation();
+  const pageLabel = pageLabelOf(page) ?? "This page";
+  const parts = useLensParts();
+  // A page whose own date picker shows the applied range (it says the
+  // same days, with its own clear) does not get them twice: the chip then
+  // carries only what the picker does not.
+  const rangeOnPage = lens.range && RANGE_PICKER_PAGES.has(page);
+  const rangeWords = rangeLabel(range.from, range.to);
+  const applied = rangeOnPage
+    ? parts.applied.filter((part) => part !== rangeWords)
+    : parts.applied;
+  const { unapplied } = parts;
   const appliedText = applied.join(" · ");
   const unappliedText = unapplied.join(" · ");
   const all = [...applied, ...unapplied].join(" · ");
-  const label =
-    unapplied.length === 0
-      ? `Showing ${appliedText}`
-      : applied.length === 0
-        ? `${unappliedText}, not applied on this page`
-        : `Showing ${appliedText}; ${unappliedText} not applied on this page`;
+  // Each part in words, with what it filters by or why it does not: "13
+  // Mar 2024, by start time", "Cookies does not filter by date".
+  const rangeText = rangeLabel(range.from, range.to);
+  const profileText = profilesLabel(profiles);
+  const field = RANGE_FIELD[page];
+  const sentences = [
+    rangeText === null
+      ? null
+      : lens.range
+        ? `Showing ${rangeText}${field === undefined ? "" : `, by ${field}`}.`
+        : `${rangeText} is not applied: ${pageLabel} does not filter by date.`,
+    profileText === null
+      ? null
+      : lens.profiles
+        ? `Showing ${profileText}.`
+        : `${profileText} is not applied: ${pageLabel} does not filter by profile.`,
+  ].filter((sentence): sentence is string => sentence !== null);
+  const label = sentences.join(" ");
   return (
     <AnimatePresence initial={false}>
       {all === "" ? null : (
@@ -131,19 +176,29 @@ export function ViewLensChip({
             {unappliedText === "" ? null : (
               <span className="text-muted-foreground">
                 {appliedText === "" ? "" : " · "}
-                Not applied here: {unappliedText}
+                Not applied on {pageLabel}: {unappliedText}
               </span>
             )}
           </span>
           <Button
             variant="ghost"
             size="icon-compact"
-            className="size-6 shrink-0"
+            className="coarse-hit size-6 shrink-0"
             aria-label={`Clear ${all}`}
-            title="Show every day and every profile"
+            title={
+              rangeOnPage
+                ? "Show every profile"
+                : "Show every day and every profile"
+            }
             onClick={() => {
-              clear();
-              onClear?.();
+              if (rangeOnPage) {
+                // The range stays with the page's picker.
+                setProfiles([]);
+                onClear?.("Showing every profile");
+              } else {
+                clear();
+                onClear?.("Showing every day and every profile");
+              }
             }}
           >
             <CloseIcon />

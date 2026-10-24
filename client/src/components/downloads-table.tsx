@@ -47,7 +47,6 @@ import {
   type SortState,
   type DownloadRow,
   stateLabel,
-  isUnfinished,
 } from "./downloads-model.js";
 
 /* --------------------------------- table ---------------------------------- */
@@ -55,9 +54,11 @@ import {
 /**
  * The download outcome in words, beside a neutral mark: an outcome is no
  * evidence state, so it never borrows an evidence hue (amber would read as
- * "recovered" beside the State column). "Complete" sits muted (the ordinary
- * outcome); the two unfinished outcomes read in the foreground. A value outside the known set passes through verbatim, and a state
- * Chrome did not record keeps its field's own word.
+ * "recovered" beside the State column). Every outcome reads in the
+ * foreground at one weight - the word carries the meaning, so the one
+ * finished file is never drawn quieter than the unfinished ones. A value
+ * outside the known set passes through verbatim, and a state Chrome did
+ * not record keeps its field's own word.
  */
 export function DownloadState({
   field,
@@ -69,13 +70,11 @@ export function DownloadState({
   if (state === null) {
     return <FieldCell field={field} />;
   }
-  const unfinished = isUnfinished(state);
   return (
     <span
       className={cn(
         size.type.caption,
-        "inline-flex items-center gap-1.5 whitespace-nowrap",
-        unfinished ? "text-foreground" : "text-muted-foreground",
+        "inline-flex items-center gap-1.5 whitespace-nowrap text-foreground",
       )}
     >
       <EvidenceDot state="neutral" />
@@ -327,11 +326,7 @@ export function SortControls({
 export function DownloadsLoading({ pages }: { readonly pages: number }) {
   const size = useSize();
   return (
-    <div
-      className="flex flex-col gap-5"
-      role="status"
-      aria-label="Loading downloads"
-    >
+    <div className="flex flex-col gap-5" role="status">
       <p
         className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
         aria-live="polite"
@@ -353,10 +348,13 @@ export function DownloadsLoading({ pages }: { readonly pages: number }) {
 
 /** One of the two download lists (Saved or Recovered): its first read
  *  swapped in over a skeleton, a failed read with Retry, the rows or their
- *  empty state, and the footer. Rows are already narrowed and sorted. */
+ *  empty state, and the footer. Rows are already narrowed and sorted;
+ *  `total` is the rows in the lens (range, profiles), so the footer reads
+ *  "3 of 12" against the same base the tab counts. */
 export function DownloadList({
   read,
   rows,
+  total,
   recovered,
   filtered,
   onSelect,
@@ -365,10 +363,13 @@ export function DownloadList({
 }: {
   readonly read: {
     readonly rows: readonly Finding[] | null;
+    readonly draining: boolean;
     readonly error: string | null;
     readonly retry: () => void;
   };
   readonly rows: readonly DownloadRow[];
+  /** Rows in the lens before the search and kind filters. */
+  readonly total: number;
   readonly recovered: boolean;
   readonly filtered: boolean;
   readonly onSelect: (row: DownloadRow) => void;
@@ -393,6 +394,8 @@ export function DownloadList({
           : { one: "saved download", many: "saved downloads" }
       }
       shown={rows.length}
+      total={total}
+      draining={read.draining}
       filtered={filtered}
       filteredMessage={filteredMessage}
       onClearFilters={onClearFilters}

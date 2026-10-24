@@ -4,15 +4,14 @@
  * figures, widgets and lists share. Split out of `downloads-page.tsx`; no
  * behaviour of its own.
  */
-import { useCallback, useEffect, useState } from "react";
 import {
   DownloadedFileIcon,
   FILE_KIND_ICONS,
   type AppIcon,
 } from "@/lib/app-icons";
-import { callApi } from "../api.js";
-import type { CommitState, Finding, PageOf } from "../types.js";
+import type { CommitState, Finding } from "../types.js";
 import { fieldInteger, fieldText, fieldUtc, hostOf } from "./finding-fields.js";
+import { useDrainedRead } from "./use-drained-read.js";
 
 /* --------------------------------- reads ---------------------------------- */
 
@@ -23,82 +22,30 @@ export const DOWNLOADS_PAGE_CAP = 150;
  * Reads every download row of one Commit State (up to the page cap), newest
  * first. The real API paginates; the read follows the cursor until it runs
  * out, so the aggregates below cover the whole Case rather than one page.
- * `complete` is false only when the cap was hit before the cursor did. Each
- * Commit State is its own server read (forensic rule 4): saved rows never
- * mix with WAL- or journal-resident ones.
+ * The first page paints at once and the rest drain in the background
+ * (`draining`, `useDrainedRead`), every request abortable. `complete` is
+ * false while draining and when the cap was hit before the cursor ran out.
+ * Each Commit State is its own server read (forensic rule 4): saved rows
+ * never mix with WAL- or journal-resident ones.
  */
 export function useDownloads(route: string, commitState: CommitState) {
-  const [rows, setRows] = useState<readonly Finding[] | null>(null);
-  const [complete, setComplete] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pages, setPages] = useState(0);
-  const [nonce, setNonce] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setRows(null);
-    setError(null);
-    setPages(0);
-    (async () => {
-      const collected: Finding[] = [];
-      let after: string | null = null;
-      let ran = true;
-      for (let page = 0; page < DOWNLOADS_PAGE_CAP; page += 1) {
-        const parameters: (readonly [string, string])[] = [
-          ["sort", "start-time"],
-          ["direction", "desc"],
-          ["limit", "100"],
-          ["commit-state", commitState],
-        ];
-        if (after !== null) {
-          parameters.push(["after", after]);
-        }
-        const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
-          route,
-          parameters,
-        );
-        // Unmounted, or Retry started a new read: stop following pages.
-        if (cancelled) {
-          return;
-        }
-        collected.push(...result.items);
-        after = result.nextCursor;
-        setPages(page + 1);
-        if (after === null) {
-          ran = false;
-          break;
-        }
-      }
-      if (cancelled) {
-        return;
-      }
-      setRows(collected);
-      setComplete(!ran || after === null);
-    })().catch((requestError: unknown) => {
-      if (!cancelled) {
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [route, commitState, nonce]);
-
-  const retry = useCallback(() => {
-    setNonce((value) => value + 1);
-  }, []);
-
-  return { rows, complete, error, pages, retry };
+  return useDrainedRead(
+    route,
+    [
+      ["sort", "start-time"],
+      ["direction", "desc"],
+      ["limit", "100"],
+      ["commit-state", commitState],
+    ],
+    DOWNLOADS_PAGE_CAP,
+  );
 }
 
 export type DownloadsRead = ReturnType<typeof useDownloads>;
 
 /** The recovered downloads: the WAL read, then the journal read, joined in
- *  that order (never interleaved). Ready only when both reads landed. */
+ *  that order (never interleaved). Ready once both reads have a first page;
+ *  draining while either still reads. */
 export function joinRecovered(wal: DownloadsRead, journal: DownloadsRead) {
   return {
     rows:
@@ -106,6 +53,7 @@ export function joinRecovered(wal: DownloadsRead, journal: DownloadsRead) {
         ? null
         : [...wal.rows, ...journal.rows],
     complete: wal.complete && journal.complete,
+    draining: wal.draining || journal.draining,
     error: wal.error ?? journal.error,
     retry: () => {
       if (wal.error !== null) {

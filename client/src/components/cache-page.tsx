@@ -29,7 +29,7 @@
  * State, so the one loaded set is split with `splitByCommit`, and every
  * figure counts the saved entries only. Nothing here is inferred.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   updateView,
@@ -54,8 +54,7 @@ import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
 import { SizeProvider, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { callApi } from "../api.js";
-import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
+import type { ArtifactConfig, FieldState, Finding } from "../types.js";
 import { fillGaps, useCaseTimeZone } from "./activity-data.js";
 import { cacheResourceHost, cacheSiteKey } from "./cache-keys.js";
 import { ChartSection } from "./chart-section.js";
@@ -81,6 +80,7 @@ import {
   ProfilePicker,
 } from "./filters.js";
 import {
+  DrainNote,
   ErrorRows,
   ListFooter,
   ListStatus,
@@ -104,6 +104,7 @@ import {
 } from "./page-kit.js";
 import { RowSheet } from "./row-sheet.js";
 import { SiteHostLink } from "./host-link.js";
+import { useDrainedRead } from "./use-drained-read.js";
 
 /**
  * Reads the whole Cache list for this Case, up to a bounded number of pages.
@@ -112,75 +113,33 @@ import { SiteHostLink } from "./host-link.js";
  * silently under-reporting a total. Cache rows arrive with committed and
  * recovered Commit States already mixed (the route cannot filter it), so a
  * single rank-neutral read is the whole set; the page splits them for display.
+ * The first page paints at once; the rest drain in the background
+ * (`useDrainedRead`, every request abortable).
  */
 const CACHE_PAGE_CAP = 60;
 
 function useCacheEntries(route: string) {
-  const [rows, setRows] = useState<readonly Finding[]>([]);
-  const [complete, setComplete] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setRows([]);
-    setComplete(false);
-    (async () => {
-      const collected: Finding[] = [];
-      let after: string | null = null;
-      let ranOut = false;
-      for (let page = 0; page < CACHE_PAGE_CAP; page += 1) {
-        const parameters: (readonly [string, string])[] = [
-          ["sort", "last-used"],
-          ["direction", "desc"],
-          ["limit", "100"],
-        ];
-        if (after !== null) {
-          parameters.push(["after", after]);
-        }
-        const result = await callApi<PageOf<Finding>>(route, parameters);
-        // Unmounted, or Retry started a new read: stop following pages.
-        if (cancelled) {
-          return;
-        }
-        collected.push(...result.items);
-        after = result.nextCursor;
-        if (after === null) {
-          ranOut = true;
-          break;
-        }
-      }
-      if (cancelled) {
-        return;
-      }
-      setRows(collected);
-      setComplete(ranOut);
-      setLoading(false);
-    })().catch((requestError: unknown) => {
-      if (cancelled) {
-        return;
-      }
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Request failed.",
-      );
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [route, nonce]);
-
-  const retry = useCallback(() => {
-    setNonce((value) => value + 1);
-  }, []);
-
-  return { rows, complete, loading, error, retry };
+  const read = useDrainedRead(
+    route,
+    [
+      ["sort", "last-used"],
+      ["direction", "desc"],
+      ["limit", "100"],
+    ],
+    CACHE_PAGE_CAP,
+  );
+  return {
+    rows: read.rows ?? NO_ROWS,
+    complete: read.complete,
+    // No page yet: the skeletons stand in.
+    loading: read.rows === null && read.error === null,
+    draining: read.draining && read.error === null,
+    error: read.error,
+    retry: read.retry,
+  };
 }
+
+const NO_ROWS: readonly Finding[] = [];
 
 /* ------------------------------- field reads ------------------------------- */
 
@@ -534,7 +493,8 @@ const SIZE_COLUMN: RowColumn<Finding> = {
 
 const LAST_USED_COLUMN: RowColumn<Finding> = {
   key: "last-used",
-  header: "Last used",
+  header: "Last used (UTC)",
+  label: "Last used",
   className: "w-[184px] whitespace-nowrap",
   stack: "lead",
   cell: (row) => <TimeCell field={row.fields.lastUsed} />,
@@ -638,9 +598,11 @@ function EntriesTable({
  */
 function EntryList({
   rows,
+  inLens,
   visible,
   noun,
   loading,
+  draining,
   error,
   complete,
   filteredMessage,
@@ -649,9 +611,14 @@ function EntryList({
   onClearFilters,
 }: {
   readonly rows: readonly Finding[];
+  /** The rows in the lens (range, profiles): the base the tab counts and
+   *  the footer reads "3 of 12" against. */
+  readonly inLens: number;
   readonly visible: readonly Finding[];
   readonly noun: "saved" | "recovered";
   readonly loading: boolean;
+  /** The rest of the cache is still being read. */
+  readonly draining: boolean;
   readonly error: string | null;
   readonly complete: boolean;
   /** What a filtered-empty list says ("No saved cache entries last used
@@ -679,7 +646,7 @@ function EntryList({
           loading,
           failed: false,
           shown: visible.length,
-          total: rows.length,
+          total: inLens,
           more: !complete,
           filtered,
         })}
@@ -728,8 +695,9 @@ function EntryList({
       {loading || visible.length === 0 ? null : (
         <ListFooter
           shown={visible.length}
-          total={rows.length}
-          more={!complete}
+          total={inLens}
+          more={!complete && !draining}
+          draining={draining}
         />
       )}
     </>
@@ -742,11 +710,8 @@ function EntryList({
  *  their size. */
 function FiguresSkeleton() {
   return (
-    <div
-      className="flex flex-col gap-5"
-      role="status"
-      aria-label="Loading cache figures"
-    >
+    <div className="flex flex-col gap-5" role="status">
+      <span className="sr-only">Loading cache figures</span>
       <Skeleton className="h-[148px] w-full rounded-xl lg:h-[74px]" />
       <Skeleton className="h-[290px] w-full rounded-xl" />
     </div>
@@ -894,6 +859,16 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
     () => narrow(all.recovered),
     [narrow, all.recovered],
   );
+  // The tabs and footers count the entries in the lens (range, profiles) -
+  // the base the figures use - never an all-days total beside a day's rows.
+  const savedInLens = useMemo(
+    () => all.saved.filter(inLens).length,
+    [all.saved, inLens],
+  );
+  const recoveredInLens = useMemo(
+    () => all.recovered.filter(inLens).length,
+    [all.recovered, inLens],
+  );
 
   const clearFilters = useCallback(() => {
     // One history entry: Back restores the filters as they were.
@@ -912,9 +887,10 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
     return `No ${list.complete ? "" : "loaded "}${noun} cache entries ${parts.join(" ")}.`;
   };
 
-  // Read finished without error: the counts are known.
+  // A page has landed without error: the counts are known (with "+"
+  // while the rest drains).
   const settled = !list.loading && list.error === null;
-  const pageEmpty = settled && list.rows.length === 0;
+  const pageEmpty = settled && !list.draining && list.rows.length === 0;
   // The figures read the saved entries only; with none (or a failed read)
   // they step aside and the lists carry the reason.
   const showFigures =
@@ -923,9 +899,11 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
   const entryList = (noun: "saved" | "recovered") => (
     <EntryList
       rows={noun === "saved" ? all.saved : all.recovered}
+      inLens={noun === "saved" ? savedInLens : recoveredInLens}
       visible={noun === "saved" ? savedVisible : recoveredVisible}
       noun={noun}
       loading={list.loading}
+      draining={list.draining}
       error={list.error}
       complete={list.complete}
       filteredMessage={lookedFor(noun)}
@@ -953,6 +931,10 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
               skeleton={<FiguresSkeleton />}
             >
               <div className="flex flex-col gap-5">
+                <DrainNote
+                  draining={list.draining}
+                  message={`Reading the rest of the cache - ${list.rows.length.toLocaleString("en-US")} entries read so far. The figures grow as entries arrive.`}
+                />
                 <CacheSummary rows={savedInRange} complete={list.complete} />
                 <LastUsedPanel
                   rows={savedOfProfiles}
@@ -970,8 +952,8 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
               value={view}
               onValueChange={setView}
               label="Saved or recovered cache entries"
-              savedCount={settled ? all.saved.length : null}
-              recoveredCount={settled ? all.recovered.length : null}
+              savedCount={settled ? savedInLens : null}
+              recoveredCount={settled ? recoveredInLens : null}
               savedMore={settled && !list.complete}
               recoveredMore={settled && !list.complete}
               toolbar={

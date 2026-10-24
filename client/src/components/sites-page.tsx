@@ -304,11 +304,8 @@ function hostSummary(host: SiteHost): string {
 
 function HostListSkeleton() {
   return (
-    <div
-      role="status"
-      aria-label="Loading observed hosts"
-      className="reveal-items flex flex-col gap-1 p-1"
-    >
+    <div role="status" className="reveal-items flex flex-col gap-1 p-1">
+      <span className="sr-only">Loading observed hosts</span>
       {[0, 1, 2, 3, 4, 5].map((index) => (
         <div key={index} className="flex h-[60px] items-center gap-2.5 px-3">
           <Skeleton className="size-7 rounded-md" />
@@ -321,6 +318,18 @@ function HostListSkeleton() {
     </div>
   );
 }
+
+/** "downloads and cache", "downloads, cache and favicons". */
+function joinWords(words: readonly string[]): string {
+  if (words.length <= 1) {
+    return words.join("");
+  }
+  return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1] ?? ""}`;
+}
+
+/** What the detail header's two counts cover (its hover note). */
+const DETAIL_COUNT_NOTE =
+  "The first count is the host list's: visits, saved logins, cookies, form entries, bookmarks and top sites. Downloads, cache entries and favicons are matched here by their exact URL host and counted after it.";
 
 /** The card's accessible name (also how "All hosts" finds it again). */
 function hostCardLabel(host: SiteHost): string {
@@ -470,7 +479,9 @@ const timeColumn = (
   stack: "lead" | "meta" = "meta",
 ): KindColumn => ({
   key,
-  header,
+  // Table times are UTC; the header says so (the card keeps the word).
+  header: `${header} (UTC)`,
+  label: header,
   className: "w-[184px] whitespace-nowrap",
   stack,
   labelled: stack === "meta",
@@ -1055,6 +1066,31 @@ function HostDetail({
   const savedIn = (rows: readonly SiteRow[]) =>
     rows.filter((row) => row.commitState === "committed").length;
   const recoveredTotal = allRows.length - savedIn(allRows);
+  // The header counts on the host list's base first (the six kinds core's
+  // host list counts, so "5 saved rows" here is the card's "5"), then the
+  // rows matched here by exact URL host (downloads, cache, favicons) as
+  // "more", so the two counts never contradict.
+  const listedKinds = presentKinds.filter((meta) => ROUTE_KINDS.has(meta.kind));
+  const extraKinds = presentKinds.filter((meta) => !ROUTE_KINDS.has(meta.kind));
+  const savedOfKinds = (kinds: readonly { readonly kind: SiteKind }[]) =>
+    kinds.reduce((sum, meta) => sum + savedIn(grouped.get(meta.kind) ?? []), 0);
+  const listedSaved = savedOfKinds(listedKinds);
+  const extraSaved = savedOfKinds(extraKinds);
+  const extraWords = joinWords(
+    extraKinds
+      .filter((meta) => savedIn(grouped.get(meta.kind) ?? []) > 0)
+      .map((meta) => meta.label.toLowerCase()),
+  );
+  const detailCounts = [
+    listedKinds.length === 0
+      ? null
+      : `${plural(listedSaved, "saved row", "saved rows")} in ${plural(listedKinds.length, "kind", "kinds")}`,
+    extraSaved === 0
+      ? null
+      : `${plural(extraSaved, listedKinds.length === 0 ? "saved row" : "more saved row", listedKinds.length === 0 ? "saved rows" : "more saved rows")} in ${extraWords}`,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(" · ");
 
   return (
     <div
@@ -1104,8 +1140,9 @@ function HostDetail({
                   typeClass("caption"),
                   "text-muted-foreground tabular-nums",
                 )}
+                title={DETAIL_COUNT_NOTE}
               >
-                {`${plural(savedIn(allRows), "saved row", "saved rows")} in ${plural(presentKinds.length, "kind", "kinds")}`}
+                {detailCounts}
                 {recoveredTotal > 0
                   ? ` · ${plural(recoveredTotal, "recovered row", "recovered rows")}`
                   : ""}

@@ -60,6 +60,7 @@ import { AbsentWord, FieldStateText } from "./field-state.js";
 import { fieldUtc, profileLabel } from "./finding-fields.js";
 import { TimeText } from "./page-kit.js";
 import { RelatedLinks } from "./related-links.js";
+import { humanizeFieldValue } from "../field-values.js";
 
 export type SelectedRow = { readonly kind: "finding"; readonly row: Finding };
 
@@ -187,8 +188,10 @@ function ProvenanceLine({
             role="group"
             aria-label={label}
             // Evidence paths stay readable in full: the value wraps instead
-            // of truncating (the whole row still copies it).
-            className="[&_.truncate]:break-all [&_.truncate]:whitespace-normal"
+            // of truncating (the whole row still copies it), at its
+            // separators ("/", "-", ".") first, mid-token only when one
+            // segment cannot fit the width on its own.
+            className="[&_.truncate]:whitespace-normal [&_.truncate]:[overflow-wrap:anywhere]"
           />
         )}
       </dd>
@@ -378,13 +381,18 @@ function CopyCitationButton({ citation }: { readonly citation: string }) {
   );
 }
 
-/** A timestamp field's value as the tables write it, plus "UTC"; anything
- *  else as its Field State text. */
+/** A timestamp field's value as the tables write it, plus "UTC"; an enum,
+ *  boolean or byte count in words with the recorded value as a caption or
+ *  on hover (`humanizeFieldValue`); anything else as its Field State text. */
 function FieldValue({
   field,
+  name,
+  kind,
   mono,
 }: {
   readonly field: FieldState;
+  readonly name: string;
+  readonly kind: string;
   readonly mono: boolean | "auto";
 }) {
   const size = useSize();
@@ -395,6 +403,29 @@ function FieldValue({
         <span className={cn(size.type.caption, "text-muted-foreground")}>
           UTC
         </span>
+      </span>
+    );
+  }
+  const human =
+    field.state === "value"
+      ? humanizeFieldValue(name, kind, field.value)
+      : null;
+  if (human !== null) {
+    return (
+      <span className="flex min-w-0 flex-col">
+        <span className="tabular-nums" title={human.title}>
+          {human.text}
+        </span>
+        {human.caption === undefined ? null : (
+          <span
+            className={cn(
+              size.type.caption,
+              "font-mono text-muted-foreground [overflow-wrap:anywhere]",
+            )}
+          >
+            {human.caption}
+          </span>
+        )}
       </span>
     );
   }
@@ -553,7 +584,7 @@ export function RowSheet({
                       <span
                         className={cn(
                           size.type.caption,
-                          "font-mono break-all text-muted-foreground",
+                          "font-mono text-muted-foreground [overflow-wrap:anywhere]",
                         )}
                       >
                         {name}
@@ -568,6 +599,8 @@ export function RowSheet({
                       ) : (
                         <FieldValue
                           field={field}
+                          name={name}
+                          kind={row.findingKind}
                           mono={isIdField(name) ? true : "auto"}
                         />
                       )}

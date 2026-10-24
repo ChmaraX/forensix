@@ -74,10 +74,14 @@ function CellLink({
   extras,
   label,
   className,
+  tabbable = false,
   children,
 }: {
   readonly page: string;
   readonly extras: Extras;
+  /** Takes a tab stop: a link outside a row (a card's host list), where no
+   *  row sheet offers the keyboard path. @default false */
+  readonly tabbable?: boolean;
   /** Where it goes, as the tooltip ("Open teamviewer.com in Sites"); the
    *  accessible name stays the value shown. */
   readonly label: string;
@@ -112,14 +116,20 @@ function CellLink({
   return (
     <a
       href={hrefFor(page, extras)}
-      tabIndex={-1}
+      tabIndex={tabbable ? undefined : -1}
       title={label}
       onClick={onClick}
       onAuxClick={stop}
       onKeyDown={stopKey}
       onPointerEnter={refresh}
       onFocus={refresh}
-      className={cn(LINK_CLASS, className)}
+      className={cn(
+        LINK_CLASS,
+        // Outside a row nothing hover-reveals the underline: it shows muted
+        // at rest, so the link is seen as one.
+        tabbable && "decoration-muted-foreground",
+        className,
+      )}
     >
       {children}
     </a>
@@ -193,11 +203,14 @@ export async function siteHostListed(key: string): Promise<boolean> {
 export function SiteHostLink({
   host,
   className,
+  tabbable = false,
   children,
 }: {
   /** The recorded host, URL or host key (`siteKeyOf` keys it). */
   readonly host: string | null;
   readonly className?: string;
+  /** Takes a tab stop (outside a row; see `CellLink`). @default false */
+  readonly tabbable?: boolean;
   /** The value as the cell shows it. */
   readonly children: ReactNode;
 }) {
@@ -213,6 +226,7 @@ export function SiteHostLink({
       extras={extras}
       label={`Open ${key} in Sites`}
       className={className}
+      tabbable={tabbable}
     >
       {children}
     </CellLink>

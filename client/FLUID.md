@@ -61,7 +61,7 @@ The decluttered pages follow these; keep new work to them.
 - **Charts count saved rows** without saying so (no "Saved only" tag);
   the Recovered tab says what recovered rows are (its tooltip).
 - **List footer:** only while the list is paged or a client-side filter
-  hides rows: "3 of 22", "50 of 50+" with Load more (`ListFooter`). Never
+  hides rows: "3 of 22", "50 loaded" with Load more (`ListFooter`; "3 of 50+" when a filter also hides rows). Never
   "22 saved X shown".
 - **State column:** only in the Recovered tab (it separates unsaved from
   overwritten); the Saved tab has none, every row there is saved.
@@ -89,13 +89,13 @@ The decluttered pages follow these; keep new work to them.
 
 ## What is installed
 
-| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, icons-untitledui, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/responsive-rows.tsx`, `lib/app-icons.ts` (see "Icons"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/day-bounds.ts`, `components/secrets.ts`, `components/site-favicons.ts`, `components/pointer-focus.ts`, `components/charts.tsx` + `charts-ready.tsx` + `chart-section.tsx`, `components/related-links.tsx`, `components/host-link.tsx` (see "Cell links"), `components/identity-kit.tsx`, `components/url-host.ts`, `components/row-lookup-notice.tsx`, `src/row-lookup.ts`, `src/case-context.tsx`, `src/command-menu.tsx`, `src/view-lens.tsx` |
+| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, icons-untitledui, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/responsive-rows.tsx`, `lib/app-icons.ts` (see "Icons"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/day-bounds.ts`, `components/secrets.ts`, `components/site-favicons.ts`, `components/pointer-focus.ts`, `components/charts.tsx` + `charts-ready.tsx` + `chart-section.tsx`, `components/related-links.tsx`, `components/host-link.tsx` (see "Cell links"), `components/identity-kit.tsx`, `components/url-host.ts`, `components/row-lookup-notice.tsx`, `src/row-lookup.ts`, `src/case-context.tsx`, `src/command-menu.tsx`, `src/command-index.ts`, `src/field-values.ts`, `components/use-drained-read.ts`, `components/bytes.ts`, `src/view-lens.tsx` |
 
 ## The shell (do not restyle it per page)
 
@@ -148,7 +148,8 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
   `src/view-lens.tsx`) and the ⌘K trigger ("Jump to" + caps; icon only below
   `sm`, where the breadcrumb also gives way to the page's h1). The ⌘K dialog
   (`CaseCommandMenu`, `src/command-menu.tsx`) and the J / K keys
-  (`useGlobalRowKeys`, `src/shortcuts.ts`) are installed once by the shell.
+  (`useGlobalRowKeys`, `src/shortcuts.ts`) are installed once by the shell,
+  with the scoped `[` (`useSidebarKey`; see "Keyboard and ⌘K").
 
 ## Which component for which need
 
@@ -167,7 +168,7 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
 | Segmented control (2-4 mutually exclusive views, e.g. newest/oldest, bytes/count) | FF `Tabs` + `TabsList` + `TabItem` (`size="compact"` in a toolbar); `CommitStateSplit` for saved/recovered                                                                                                                                                                                                                                                                                                                                                   |
 | Tab navigation inside a page (e.g. per-profile sections)                          | FF `TabsSubtle` + `TabsSubtleItem`                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | Multi-select toggles (profiles)                                                   | FF `CheckboxGroup` in a popover or panel (`ProfilePicker`)                                                                                                                                                                                                                                                                                                                                                                                                   |
-| One-of chip filter with counts (event types, form categories)                     | page-kit `CountChips` in the list `Toolbar`'s trailing controls: "All N" then "Label N" (count muted, tabular), fluid hover, wraps from `sm`, scrolls (no scrollbar) below                                                                                                                                                                                                                                                                                   |
+| One-of chip filter with counts (event types, form categories)                     | page-kit `CountChips` in the list `Toolbar`'s trailing controls: "All N" then "Label N" (count muted, tabular), fluid hover, wraps from `sm`; below `sm` one labelled compact Select with every count (no chip hidden past the edge)                                                                                                                                                                                                                         |
 | Actions menu or "more"                                                            | FF `DropdownMenu`, `DropdownTrigger`, `DropdownContent`, `MenuItem`                                                                                                                                                                                                                                                                                                                                                                                          |
 | Anchored panel (date range calendar, etc.)                                        | `Popover`, `PopoverTrigger`, `PopoverContent` from `@/components/ui/popover` (`flush` drops the 4px padding)                                                                                                                                                                                                                                                                                                                                                 |
 | Copy a hash, path, or URL                                                         | FF `InputCopy`                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -184,6 +185,12 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
 | Rendered prose or markdown                                                        | `.typeset` on the container                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ## Type: six roles, three weights, two colors
+
+The scale (`--fs-*` / `--lh-*` in app.css) is written in rem - FF's px
+values at the browser's 16px default - so a reader's larger default font
+size grows the dashboard (zoom still works). Two px sizes remain outside
+app CSS: Recharts' tick labels (`fontSize: 12`, an SVG attribute) and the
+registry's `pointer-coarse:text-[16px]` field rule.
 
 - **Size** every piece of text with a role:
   `typeClass("display" | "title" | "subtitle" | "body" | "caption" | "micro", "default" | "compact")`,
@@ -450,9 +457,23 @@ Sites open rows from their own loaded lists only.
 page that filters by them reads `useViewRange` / `useViewProfiles`; the
 topbar chip (`ViewLensChip`) shows the lens with a clear button - the
 parts the page on show applies in the foreground, the rest muted after
-"Not applied here:" (so a page never looks filtered when it is not, and
-the lens never looks lost). Clearing announces "Showing every day and
-every profile" and returns focus to the h1.
+"Not applied on <page>:" (so a page never looks filtered when it is not,
+and the lens never looks lost). Its name says each part in words with
+what it filters by or why not ("Showing 13 Mar 2024, by start time.",
+"13 Mar 2024 is not applied: Cookies does not filter by date."). A page
+whose own date picker shows the applied range (Overview, History,
+Timeline, Downloads, Cache) does not get the range twice: the chip then
+carries only the profile pick, and its clear leaves the range to the
+picker. Clearing announces what is shown now and returns focus to the h1.
+
+Where the lens applies: range - Overview, History, Timeline, Downloads,
+Cache; profiles - History, Timeline (by each loaded row's recorded
+profile; the chart draws the picked profiles' activity rows, which record
+their profile), Downloads, Cache and every artifact page with a profile
+picker. Not applied (the chip says so): the range on pages whose routes
+take no date (Cookies, Saved logins, Form data, Bookmarks, Top sites,
+Favicons, Browser profile, Sites) and the profile pick on Overview and
+Sites (`site-hosts` takes no profile) - never filtered by inference.
 
 **Migration for page agents** (wired today: Overview range, History range
 
@@ -507,6 +528,17 @@ onClose={sheet.close} />`.
   tables write them plus "UTC" (`TimeText`), the ISO instant on hover. The
   header names the kind in words (`FINDING_KINDS[kind].noun`, raw kind on
   hover), never the snake_case kind.
+- **Field values** (`humanizeFieldValue`, `src/field-values.ts`,
+  unit-tested): a decoded enum (download outcome, danger type, interrupt
+  reason; cookie SameSite, priority, source scheme and type; visit source;
+  favicon icon type) reads as a word ("Not dangerous") with the recorded
+  token as a mono caption (`not_dangerous`); a boolean reads Yes / No with
+  `true` / `false` as the caption; a byte count reads "9,873,300 bytes (9.4
+  MB)" with the recorded number on hover. Anything else is shown as
+  recorded. Code-like values (paths, URLs) wrap after their separators
+  (`breakAtSeparators`: a `<wbr>` after "/", ".", "-" …, no character
+  added, so the copied value is exact), mid-token only when one segment
+  cannot fit.
 - **Copy citation** (header, stays put while the body scrolls): one line of
   provenance for a report - `Artifact: History (history_visit) · Profile:
 Default profile · File: … · Table: visits · Row id: 500106 · Commit
@@ -540,26 +572,51 @@ per session (shared with the Related block):
   the row is hovered (muted) and firms to the text colour under the
   pointer (80ms colour step).
 
-## Keyboard and ⌘K (`src/shortcuts.ts`, `src/command-menu.tsx`)
+## Keyboard and ⌘K (`src/shortcuts.ts`, `src/command-menu.tsx`, `src/command-index.ts`)
 
 - **Rows:** J or ↓ next row, K or ↑ previous, in page order (past one
   list's end into the next); from outside a list J lands on the first row,
   K on the last; Enter / Space opens the row (the rows' own
-  `activateOnKey`). ↑ / ↓ act only on a row; J / K never in a field, menu
-  or dialog. The shell installs `useGlobalRowKeys(column)`.
-  `useRowKeyboardNav(ref)` scopes the same keys to one list container (for
-  `ResponsiveRows` / a table) and lets a move past its end through to the
-  page handler. Rows match `ROW_NAV_SELECTOR` (`[data-row-nav]`, else
-  today's `tbody > tr[tabindex="0"]` and `[role=button]` cards); only
-  rendered rows count.
-- **⌘K** (FF `CommandMenuDialog`, mod+K, also the topbar's "Jump to"):
-  Pages (nav order), Hosts (once a query is typed; every host Sites lists,
-  `caseSiteHosts`, opening Sites on it), Recent days (the latest days with
-  saved page visits, opening the Timeline on that day), Theme (Light /
-  System / Dark via `chooseTheme`), Shortcuts (`SHORTCUTS`, with caps; "Next
-  row" / "Previous row" go to the first / last row, the sidebar row toggles
-  it). Shortcuts are listed here and nowhere else - no how-to copy on
-  pages.
+  `activateOnKey`). ↑ / ↓ act only on a row. The shell installs
+  `useGlobalRowKeys(column)`; `useRowKeyboardNav(ref)` scopes the same keys
+  to one list container (for `ResponsiveRows` / a table) and lets a move
+  past its end through to the page handler. Rows match `ROW_NAV_SELECTOR`
+  (`[data-row-nav]`, else `tbody > tr[tabindex="0"]` and `[role=button]`
+  cards); only rendered rows count.
+- **Single-key shortcuts are scoped (WCAG 2.1.4).** J / K act only while
+  focus is on a row, inside a list (a table, `[data-row-nav-list]`), or on
+  the page itself (the body, the page's h1) - never on a button, link,
+  tab, chart, field, menu or dialog, never from the sidebar or topbar, and
+  never with a modifier (Shift included). `[` (show or hide the sidebar)
+  acts only from the page itself: FF's own app-wide binding is off
+  (`SidebarProvider shortcut={null}`) and `useSidebarKey` binds the scoped
+  one. All three can be turned off from ⌘K ("Single-key shortcuts: on /
+  off", `localStorage["forensix.singleKeyShortcuts"]`). The decisions are
+  pure and unit-tested (`rowKeyDelta`, `sidebarKeyFires`,
+  `parseSingleKeySetting`; `focusPlaceOf` reads the DOM). FF's sidebar
+  tooltips still show `[` (the registry shows the default key even when
+  its binding is off).
+- **Focus returns where it was.** Closing ⌘K without a pick returns focus
+  to what had it (a row, the trigger; else the page's h1); a sidebar
+  collapse that hides the focused element hands focus to the topbar's
+  sidebar trigger; closing the linked-row banner focuses the page's h1.
+- **⌘K** (FF `CommandMenuDialog`, mod+K, also the topbar's "Jump to"; its
+  input is named "Jump to"): Pages (nav order); with no query, Recent days
+  (the latest 7 days with saved page visits); once a query is typed, the
+  Case index (rules in `command-index.ts`, unit-tested): Hosts (every host
+  Sites lists, opening Sites on it), Files (download file names, opening
+  that exact Downloads row), Usernames (saved-login usernames with their
+  site, opening that exact Saved logins row - never a password field) and
+  Days (every day with saved page visits, typed "12 Mar", "Mar 12",
+  "12 March" or "2024-03-12", opening the Timeline on it). Each group
+  lists its first 8 matches, then "N more … match" (Sites, Downloads and
+  Saved logins open searched for the query; days ask for more of the
+  date). The index reads start the first time the menu opens and are made
+  once per session (`case-reads.ts`); "Still reading the Case" shows while
+  they land. Theme (Light / System / Dark via `chooseTheme`); Shortcuts
+  (`SHORTCUTS`, with caps, plus the single-key switch). A query nothing
+  matches is written into an always-mounted polite region. Shortcuts are
+  listed here and nowhere else - no how-to copy on pages.
 
 ## Profiles: one name, one count
 
@@ -620,7 +677,37 @@ Recorded from the lead's decisions (forensic rules above still win):
   covers all nine); the most-evidenced host is shown when none is picked.
   The host list itself (core `site-hosts`) still counts only the six, so a
   host seen only in downloads, cache or favicons opens by URL but is not
-  listed (see core/src/sites-query.ts).
+  listed (see core/src/sites-query.ts). The detail header counts on the
+  list's base first, then the rest as "more": "5 saved rows in 4 kinds · 2
+  more saved rows in downloads and cache" beside the card's "5 saved rows",
+  so the two counts never contradict.
+- **Counts follow the lens on one base.** A page's tab counts, list footer
+  and figures count the same rows for the same lens: Downloads and Cache
+  tabs and footers count the rows in the range and profile pick (the
+  figures' base), so a day reads "Saved 1" beside its one row, never an
+  all-days total.
+- **Drained reads paint early** (`useDrainedRead`,
+  `components/use-drained-read.ts`): Cache and Downloads show their first
+  page at once and read the rest in the background (counts "+", a muted
+  "Reading the rest of …" line above the figures, the footer's "Reading the
+  rest of the list…"); every read carries an `AbortSignal` (unmount, Retry
+  or new parameters abort the request in flight), as `usePaginatedList`
+  does too.
+- **A failed read says which failure** (`ApiError`, `src/api.ts`,
+  unit-tested): the server did not answer (stopped), refused this tab's
+  token (restarted - open the new link), or answered with its own error;
+  the browser's or server's words follow in brackets, never alone.
+- **Rows:** a clickable table row is named by its cells (read with their
+  headers) and described by one hint ("Enter opens this row's detail."); a
+  phone card's button is named by its short action and described by its
+  own content (`aria-describedby`).
+- **Time columns say UTC** in their header ("Created (UTC)"; the phone
+  card keeps the plain word as its label) on every table, Sites included.
+- **Touch targets:** on a coarse pointer the sheet's close is 40px, the
+  phone drawer's nav rows are 40px (app.css overrides the registry height),
+  and small icon controls in dense rows (the lens chip's clear, a bookmark
+  folder's chevron) take a 40px ring (`.coarse-hit`); a Term in a column
+  header gets the same grown hit area as a figure label.
 - **Delight and motion** stay inside FF's motion system: meaningful state
   changes only (see "Motion"), no decoration, no count-ups.
 - **Phone toolbars** keep to two rows with `CompactFilters`.
@@ -837,7 +924,7 @@ const [view, setView] = useState<CommitView>("saved");
   failed first read, empty or filtered-empty ("Clear filters"), load-more
   error, `ListFooter`. Pass it as `saved` / `recovered`. The footer shows
   only while paged or filtered: `ListFooter({ shown, total, more,
-loading?, onLoadMore? })` reads "3 of 22" / "50 of 50+" (Load more while
+loading?, onLoadMore? })` reads "3 of 22" / "50 loaded" / "3 of 50+" (Load more while
   the server has more). `total` is for a list that is one part of a
   larger loaded source (the Timeline's halves).
 - `CommitStateSplit` `variant="tabs"` (default) is for every full artifact

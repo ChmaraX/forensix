@@ -35,7 +35,8 @@ import {
 
 import { SearchIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
-import { SizeProvider } from "@/lib/size-context";
+import { SizeProvider, typeClass } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
 import { rowRefOf } from "../router.js";
 
 import type { ArtifactConfig, Finding } from "../types.js";
@@ -118,43 +119,67 @@ function Rank({ row }: { readonly row: Finding }) {
   );
 }
 
+/** "1", "1 and 7", "1, 4 and 7". */
+function rankList(ranks: readonly number[]): string {
+  const words = ranks.map(String);
+  return words.length <= 1
+    ? (words[0] ?? "")
+    : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1] ?? ""}`;
+}
+
 /**
- * Ranks the saved list skips because only a recovered row holds them (per
- * Profile), as the Rank header's note - "Ranks 1 and 7 are recovered rows" -
- * so a saved list starting at 2 reads as the evidence, not a bug. Null when
- * the saved ranks have no such gap.
+ * The ranks the saved list skips (no saved row of any loaded profile holds
+ * them, up to the highest loaded rank), said once above the saved list and in the Rank header's note -
+ * "Saved ranks skip 1 and 7: rank 1 is a recovered row (Recovered tab);
+ * rank 7 is in neither list." - so a saved list starting at 2 reads as the
+ * evidence, not a bug. Null when the saved ranks have no gap.
  */
-function recoveredRankNote(
+function rankGapNote(
   saved: readonly Finding[],
   recovered: readonly Finding[],
 ): string | null {
-  const keyOf = (row: Finding, rank: number) =>
-    `${row.profile}\n${String(rank)}`;
-  const savedKeys = new Set(
-    saved.flatMap((row) => {
-      const rank = fieldInteger(row.fields.urlRank);
-      return rank === null ? [] : [keyOf(row, rank)];
-    }),
-  );
-  const missing = [
-    ...new Set(
-      recovered.flatMap((row) => {
+  // Over every loaded profile at once: a rank is skipped when no saved row
+  // of any profile holds it (each profile ranks from 1, so a multi-profile
+  // Case does not read every other profile's ranks as gaps).
+  const ranksOf = (rows: readonly Finding[]) =>
+    new Set(
+      rows.flatMap((row) => {
         const rank = fieldInteger(row.fields.urlRank);
-        return rank === null || savedKeys.has(keyOf(row, rank)) ? [] : [rank];
+        return rank === null || rank < 1 ? [] : [rank];
       }),
-    ),
-  ].sort((left, right) => left - right);
-  if (missing.length === 0) {
+    );
+  const savedRanks = ranksOf(saved);
+  const recoveredRanks = ranksOf(recovered);
+  if (savedRanks.size === 0) {
     return null;
   }
-  const words = missing.map(String);
-  const list =
-    words.length === 1
-      ? words[0]
-      : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1] ?? ""}`;
-  return missing.length === 1
-    ? `Chrome's own rank. Rank ${list ?? ""} is a recovered row, in the Recovered tab.`
-    : `Chrome's own rank. Ranks ${list ?? ""} are recovered rows, in the Recovered tab.`;
+  const highest = Math.max(...savedRanks, ...recoveredRanks);
+  const inRecovered: number[] = [];
+  const inNeither: number[] = [];
+  for (let rank = 1; rank <= highest; rank += 1) {
+    if (!savedRanks.has(rank)) {
+      (recoveredRanks.has(rank) ? inRecovered : inNeither).push(rank);
+    }
+  }
+  const skipped = [...inRecovered, ...inNeither].sort(
+    (left, right) => left - right,
+  );
+  if (skipped.length === 0) {
+    return null;
+  }
+  const parts = [
+    inRecovered.length === 0
+      ? null
+      : inRecovered.length === 1
+        ? `rank ${rankList(inRecovered)} is a recovered row (Recovered tab)`
+        : `ranks ${rankList(inRecovered)} are recovered rows (Recovered tab)`,
+    inNeither.length === 0
+      ? null
+      : inNeither.length === 1
+        ? `rank ${rankList(inNeither)} is in neither list`
+        : `ranks ${rankList(inNeither)} are in neither list`,
+  ].filter((part): part is string => part !== null);
+  return `Saved ranks skip ${rankList(skipped)}: ${parts.join("; ")}.`;
 }
 
 /** The ranked table's columns. On a phone the card reads the rank (and, in
@@ -176,7 +201,12 @@ function rankColumns({
   const columns: RowColumn<Finding>[] = [
     {
       key: "rank",
-      header: note === null ? "Rank" : <Term label="Rank">{note}</Term>,
+      header:
+        note === null ? (
+          "Rank"
+        ) : (
+          <Term label="Rank">{`Chrome's own rank. ${note}`}</Term>
+        ),
       label: "Rank",
       className: "w-16 text-right tabular-nums",
       stack: "lead",
@@ -264,38 +294,53 @@ function RankedList({
       }),
     [recovered, rankNote, withProfile],
   );
+  const note = recovered || visible.length === 0 ? null : rankNote;
   return (
-    <ListBlock
-      list={list}
-      noun={
-        recovered
-          ? { one: "recovered row", many: "recovered rows" }
-          : { one: "saved row", many: "saved rows" }
-      }
-      shown={visible.length}
-      filtered={filtered}
-      onClearFilters={onClearFilters}
-      skeletonRows={recovered ? 3 : 8}
-      empty={
-        <EmptyRows
-          title={recovered ? "No recovered rows" : "No saved rows"}
-          message={
-            recovered
-              ? "Neither the write-ahead log nor the rollback journal holds a Top sites row."
-              : "The Top Sites database holds no committed rows."
-          }
+    <>
+      {/* Said once, above the ranks it explains (also the Rank header's
+          note). */}
+      {note === null ? null : (
+        <p
+          className={cn(
+            typeClass("caption"),
+            "px-4 pt-2 text-muted-foreground tabular-nums",
+          )}
+        >
+          {note}
+        </p>
+      )}
+      <ListBlock
+        list={list}
+        noun={
+          recovered
+            ? { one: "recovered row", many: "recovered rows" }
+            : { one: "saved row", many: "saved rows" }
+        }
+        shown={visible.length}
+        filtered={filtered}
+        onClearFilters={onClearFilters}
+        skeletonRows={recovered ? 3 : 8}
+        empty={
+          <EmptyRows
+            title={recovered ? "No recovered rows" : "No saved rows"}
+            message={
+              recovered
+                ? "Neither the write-ahead log nor the rollback journal holds a Top sites row."
+                : "The Top Sites database holds no committed rows."
+            }
+          />
+        }
+      >
+        <ResponsiveRows
+          rows={visible}
+          columns={columns}
+          rowKey={topSiteKey}
+          rowLabel={topSiteLabel}
+          onSelect={onSelect}
+          tableClassName="min-w-[560px]"
         />
-      }
-    >
-      <ResponsiveRows
-        rows={visible}
-        columns={columns}
-        rowKey={topSiteKey}
-        rowLabel={topSiteLabel}
-        onSelect={onSelect}
-        tableClassName="min-w-[560px]"
-      />
-    </ListBlock>
+      </ListBlock>
+    </>
   );
 }
 
@@ -334,7 +379,7 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
   const withProfile = ranked.length > 1;
 
   const rankNote = useMemo(
-    () => recoveredRankNote(saved.rows, recovered.rows),
+    () => rankGapNote(saved.rows, recovered.rows),
     [saved.rows, recovered.rows],
   );
 

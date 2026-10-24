@@ -181,6 +181,9 @@ export function ThemeToggle({ className }: { readonly className?: string }) {
             title={DESCRIPTIONS[option]}
             className="flex-1 justify-center"
             onMouseDown={focusTabWithoutRing}
+            // A segmented control, not tabs with panels (no dangling
+            // aria-controls).
+            aria-controls={undefined}
           />
         ))}
       </TabsList>

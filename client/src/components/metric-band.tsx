@@ -275,11 +275,8 @@ export function UnavailableFigure() {
 /** A figure still being read: a skeleton the height of the figure line. */
 export function PendingFigure() {
   return (
-    <span
-      role="status"
-      aria-label="Loading"
-      className="flex h-[30px] items-center"
-    >
+    <span role="status" className="flex h-[30px] items-center">
+      <span className="sr-only">Loading</span>
       <Skeleton className="h-5 w-16" />
     </span>
   );

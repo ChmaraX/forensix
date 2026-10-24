@@ -284,7 +284,8 @@ const SIZE_COLUMN: RowColumn<Finding> = {
 
 const UPDATED_COLUMN: RowColumn<Finding> = {
   key: "updated",
-  header: "Last updated",
+  header: "Last updated (UTC)",
+  label: "Last updated",
   className: "whitespace-nowrap",
   stack: "lead",
   cell: (row) => <TimeCell field={row.fields.lastUpdated} />,
@@ -396,7 +397,8 @@ function IconList({
  *  size. */
 function FiguresSkeleton() {
   return (
-    <div role="status" aria-label="Loading favicon figures">
+    <div role="status">
+      <span className="sr-only">Loading favicon figures</span>
       <Skeleton className="h-[74px] w-full rounded-xl" />
     </div>
   );

@@ -196,7 +196,9 @@ const SheetContent = forwardRef<HTMLDivElement, SheetContentProps>(
                   <Button
                     variant="ghost"
                     size="icon-compact"
-                    className="absolute top-3 right-3"
+                    // 28px for a mouse, 40px on touch (the header makes
+                    // room for it: pr-12, pr-14 on touch).
+                    className="absolute top-3 right-3 pointer-coarse:size-10"
                   >
                     <XIcon />
                     <span className="sr-only">Close</span>
@@ -216,7 +218,10 @@ SheetContent.displayName = "SheetContent";
 function SheetHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex flex-col gap-1 py-4 pr-12 pl-5", className)}
+      className={cn(
+        "flex flex-col gap-1 py-4 pr-12 pl-5 pointer-coarse:pr-14",
+        className,
+      )}
       {...props}
     />
   );

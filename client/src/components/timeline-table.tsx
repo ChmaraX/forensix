@@ -26,7 +26,8 @@
  */
 import { useMemo, useState } from "react";
 
-import { useViewFilter, useViewTab } from "../view-state.js";
+import { updateView, useViewFilter, useViewTab } from "../view-state.js";
+import { CompactFilters, FilterField, ProfilePicker } from "./filters.js";
 
 import { rowRefOf } from "../router.js";
 import type { Finding } from "../types.js";
@@ -68,9 +69,9 @@ export type TimelineDirection = "asc" | "desc";
 /**
  * What each timeline record kind is, in reading order: its worded label, its
  * icon, the field holding the event's own recorded instant, and the fields
- * that say what the row is about. `primary` falls back to `secondary` when
- * the primary field is empty or missing (a visit with no page title shows
- * its URL large rather than an "(empty)" as the headline).
+ * that say what the row is about. `primary` always leads with its own state
+ * word when it holds no value (a visit with no page title reads "(empty)"
+ * over its URL, as History does - forensic rule 3), `secondary` below it.
  */
 const EVENT_META: Readonly<
   Record<
@@ -181,14 +182,9 @@ function monoOf(row: Finding, name: string): boolean {
   return MONO_FIELDS.has(name) || isCodeLike(fieldText(row.fields[name]) ?? "");
 }
 
-function hasValue(row: Finding, name: string): boolean {
-  const field = row.fields[name];
-  return field?.state === "value" && field.value !== "";
-}
-
-/** The field the row is about, large, with its context below. The primary
- *  field falls back to the secondary one only when it holds no recorded
- *  value; when neither does, the primary field's own state word shows. */
+/** The field the row is about, large, with its context below. With no
+ *  recorded value the primary field shows its own state word ("(empty)",
+ *  "absent"), never borrowing the secondary field's value. */
 function Details({
   row,
   reveal,
@@ -203,11 +199,7 @@ function Details({
   }
   const secrets = secretFieldsOf(row);
   const hidden = (name: string) => !reveal && secrets.includes(name);
-  const primaryRecorded = hasValue(row, meta.primary);
-  const headline =
-    primaryRecorded || !hasValue(row, meta.secondary)
-      ? meta.primary
-      : meta.secondary;
+  const headline = meta.primary;
   // A form entry is named by the shared field-name label (the Form data
   // page's rule), never its raw type in mono; the sheet keeps the raw name.
   // A download reads by its file name, as the Downloads table does; the
@@ -241,7 +233,7 @@ function Details({
           className="text-foreground"
         />
       )}
-      {!primaryRecorded ? null : hidden(meta.secondary) ? (
+      {hidden(meta.secondary) ? (
         <span className={size.type.caption}>
           <SecretValueCell field={row.fields[meta.secondary]} reveal={false} />
         </span>
@@ -413,7 +405,10 @@ export function TimelineRecordsCard({
   onDirectionChange,
   rangeActive,
   rangeWords = null,
-  onClearRange,
+  profileOptions,
+  profiles,
+  onProfilesChange,
+  profileWords = null,
 }: {
   readonly rows: readonly Finding[];
   readonly loading: boolean;
@@ -428,7 +423,13 @@ export function TimelineRecordsCard({
   /** The range in words ("on 12 Mar 2024", "in 11 - 14 Mar"), for an
    *  empty list. */
   readonly rangeWords?: string | null;
-  readonly onClearRange: () => void;
+  /** Every profile the Case knows, for the picker. */
+  readonly profileOptions: readonly string[];
+  /** The Case-wide profile pick (empty: every profile). */
+  readonly profiles: readonly string[];
+  readonly onProfilesChange: (profiles: readonly string[]) => void;
+  /** The pick in words ("in Profile 2"), for an empty list. */
+  readonly profileWords?: string | null;
 }) {
   // The kind chip is in the URL (`filter`), so refresh and Back keep it.
   const [kindFilter, setKindFilter] = useViewFilter();
@@ -454,6 +455,11 @@ export function TimelineRecordsCard({
   const split = useMemo(() => splitByCommit(rows), [rows]);
   const inView = view === "saved" ? split.saved : split.recovered;
   const counts = useMemo(() => countKinds(inView), [inView]);
+  // One event type on show: "All 2 · Page visit 2" would filter nothing
+  // (and an empty "Filters" popover must not appear for it on a phone).
+  const showKinds =
+    kindFilter !== null ||
+    FILTER_KINDS.filter((kind) => (counts.get(kind) ?? 0) > 0).length > 1;
   const firstRead = loading && rows.length === 0;
 
   const source: ListSource = {
@@ -465,11 +471,18 @@ export function TimelineRecordsCard({
     retry: onRetry,
   };
 
-  const list = (part: readonly Finding[], recovered: boolean) => {
-    const visible =
+  // Only the tab on show is filtered (and once per change, not per
+  // render): the other tab's list is not built until it is picked.
+  const visibleInView = useMemo(
+    () =>
       kindFilter === null
-        ? part
-        : part.filter((row) => row.findingKind === kindFilter);
+        ? inView
+        : inView.filter((row) => row.findingKind === kindFilter),
+    [inView, kindFilter],
+  );
+
+  const list = (part: readonly Finding[], recovered: boolean) => {
+    const visible = visibleInView;
     const noun = recovered
       ? { one: "recovered event", many: "recovered events" }
       : { one: "saved event", many: "saved events" };
@@ -479,19 +492,22 @@ export function TimelineRecordsCard({
         list={source}
         noun={noun}
         shown={visible.length}
-        filtered={kindFilter !== null || rangeActive}
+        filtered={kindFilter !== null || rangeActive || profiles.length > 0}
         filteredMessage={
           kindFilter !== null
             ? `No loaded ${noun.many} match this event type.${more}`
             : // The days are a server filter: with the stream read to its
               // end, "none on 2 Mar" is the whole answer.
-              `No ${cursor === null ? "" : "loaded "}${noun.many} ${
-                rangeWords ?? "in the selected days"
-              }.${more}`
+              `No ${cursor === null ? "" : "loaded "}${noun.many} ${[
+                rangeWords ?? (rangeActive ? "in the selected days" : null),
+                profileWords,
+              ]
+                .filter((part) => part !== null)
+                .join(" ")}.${more}`
         }
         onClearFilters={() => {
           setKindFilter(null);
-          onClearRange();
+          updateView({ from: "", to: "", profiles: [] });
         }}
         loadingLabel="Loading events"
         skeletonRows={recovered ? 3 : 8}
@@ -550,13 +566,33 @@ export function TimelineRecordsCard({
         recoveredMore={cursor !== null}
         toolbar={
           <>
-            <KindChips
-              counts={counts}
-              total={inView.length}
-              active={kindFilter}
-              onChange={setKindFilter}
-              partial={cursor !== null}
-            />
+            {/* On a phone the profile pick and the event type share the
+                one "Filters" popover (two toolbar rows, like History). */}
+            <CompactFilters
+              active={
+                (profiles.length > 0 ? 1 : 0) + (kindFilter === null ? 0 : 1)
+              }
+            >
+              {profileOptions.length > 1 ? (
+                <FilterField label="Profiles" htmlFor="timeline-profiles">
+                  <ProfilePicker
+                    id="timeline-profiles"
+                    profiles={profileOptions}
+                    selected={profiles}
+                    onChange={onProfilesChange}
+                  />
+                </FilterField>
+              ) : null}
+              {showKinds ? (
+                <KindChips
+                  counts={counts}
+                  total={inView.length}
+                  active={kindFilter}
+                  onChange={setKindFilter}
+                  partial={cursor !== null}
+                />
+              ) : null}
+            </CompactFilters>
             {anySecret ? (
               <Switch
                 label="Show values"
@@ -568,8 +604,8 @@ export function TimelineRecordsCard({
             ) : null}
           </>
         }
-        saved={list(split.saved, false)}
-        recovered={list(split.recovered, true)}
+        saved={view === "saved" ? list(split.saved, false) : null}
+        recovered={view === "recovered" ? list(split.recovered, true) : null}
       />
     </SectionPanel>
   );

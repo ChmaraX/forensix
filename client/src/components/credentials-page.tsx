@@ -20,7 +20,7 @@
  * picks. A site - read from the origin URL, else the sign-on realm - opens
  * Sites on it (in the table, when Sites lists it).
  */
-import { useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 
 import { rowRefOf } from "../router.js";
 import { useRowSelection, useViewSearch, useViewTab } from "../view-state.js";
@@ -208,11 +208,26 @@ function ReusedIdentities({
                   <CardTitle className={CARD_TITLE_CLEAR}>
                     {entry.username}
                   </CardTitle>
+                  {/* Wraps rather than truncates: a truncating box would clip
+                      each link's focus ring. */}
                   <CardDescription
-                    className={cn(typeClass("caption"), "truncate")}
-                    title={entry.hosts.join(", ")}
+                    className={cn(typeClass("caption"), "break-words")}
                   >
-                    {entry.hosts.join(", ")}
+                    {/* Each site is a pivot to its Sites dossier, above the
+                        card's own press target (z-20) and in the tab order
+                        after it. */}
+                    {entry.hosts.map((host, index) => (
+                      <Fragment key={host}>
+                        {index === 0 ? null : ", "}
+                        <SiteHostLink
+                          host={host}
+                          tabbable
+                          className="relative z-30"
+                        >
+                          {host}
+                        </SiteHostLink>
+                      </Fragment>
+                    ))}
                   </CardDescription>
                 </CardHeader>
                 <CardFooter className="pointer-events-none">
@@ -337,14 +352,16 @@ function credentialColumns(recovered: boolean): readonly RowColumn<Finding>[] {
     },
     {
       key: "created",
-      header: "Created",
+      header: "Created (UTC)",
+      label: "Created",
       className: "whitespace-nowrap",
       labelled: true,
       cell: (row) => <TimeCell field={row.fields.dateCreated} />,
     },
     {
       key: "lastUsed",
-      header: "Last used",
+      header: "Last used (UTC)",
+      label: "Last used",
       className: "whitespace-nowrap",
       stack: "lead",
       cell: (row) => <TimeCell field={row.fields.dateLastUsed} />,
@@ -438,11 +455,8 @@ function CredentialList({
 /** Placeholder at the size of the figure strip and the reused list. */
 function CredentialsSkeleton() {
   return (
-    <div
-      className="flex flex-col gap-5"
-      role="status"
-      aria-label="Loading saved-login figures"
-    >
+    <div className="flex flex-col gap-5" role="status">
+      <span className="sr-only">Loading saved-login figures</span>
       <Skeleton className="h-[76px] w-full rounded-xl" />
       <Skeleton className="h-[120px] w-full rounded-xl" />
     </div>

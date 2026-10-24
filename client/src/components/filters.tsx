@@ -202,7 +202,7 @@ export function ProfilePicker({
           {summary}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-56">
+      <PopoverContent className="w-56" aria-label="Profiles">
         <CheckboxGroup checkedIndices={checked} aria-label="Profiles">
           {profiles.map((profile, index) => {
             const active = selected.includes(profile);
@@ -279,16 +279,13 @@ export function CompactFilters({
       <PopoverContent
         align="end"
         collisionPadding={16}
+        aria-label="Filters"
         className="w-[min(22rem,calc(100vw-2rem))]"
       >
         <SizeProvider size="compact">
-          <div
-            role="group"
-            aria-label="Filters"
-            className="flex flex-col gap-3 p-2"
-          >
-            {children}
-          </div>
+          {/* The popover itself is named "Filters"; its controls carry
+              their own labels. */}
+          <div className="flex flex-col gap-3 p-2">{children}</div>
         </SizeProvider>
       </PopoverContent>
     </Popover>

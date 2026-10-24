@@ -32,6 +32,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
 
 import logoMark from "./assets/forensix-logo.png";
@@ -94,7 +95,7 @@ import { cn } from "./lib/utils.js";
 import { OverviewPage } from "./overview.js";
 import { RowLookupNotice } from "./components/row-lookup-notice.js";
 import { EVIDENCE_ORDER } from "./router.js";
-import { useGlobalRowKeys } from "./shortcuts.js";
+import { useGlobalRowKeys, useSidebarKey } from "./shortcuts.js";
 import { ThemeToggle } from "./theme.js";
 import {
   CaseContextProvider,
@@ -256,7 +257,8 @@ function CaseSidebar({
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
   return (
-    <Sidebar variant="inset" aria-label="Case sections">
+    // A landmark (axe `region`): the sidebar is the app's navigation.
+    <Sidebar variant="inset" role="navigation" aria-label="Case sections">
       <SidebarHeader>
         <SidebarWorkspaceHeader name="ForensiX" tile={<BrandTile />} />
       </SidebarHeader>
@@ -264,7 +266,9 @@ function CaseSidebar({
         {NAV_GROUPS.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-            <SidebarMenu aria-label={group.label}>
+            {/* role="list": FF draws its hover and selection fills as
+                divs inside the ul; the explicit role keeps it a list. */}
+            <SidebarMenu role="list" aria-label={group.label}>
               {group.targets.map((target) => (
                 <SidebarMenuItem key={target.key}>
                   <SidebarMenuButton
@@ -533,6 +537,56 @@ function useAnnouncer(): readonly [string, (message: string) => void] {
   return [message, announce] as const;
 }
 
+/**
+ * The shell's sidebar keys and focus: `[` toggles the sidebar from the page
+ * itself only (`useSidebarKey`; FF's own app-wide binding is off), and when
+ * a collapse hides the element that had focus (a nav row, the brand row's
+ * trigger, a ⌘K pick made from the sidebar), focus moves to the topbar's
+ * sidebar trigger instead of falling to <body>.
+ */
+function SidebarKeys({
+  column,
+}: {
+  readonly column: RefObject<HTMLElement | null>;
+}) {
+  const { toggleSidebar } = useSidebar();
+  useSidebarKey(column, toggleSidebar);
+  useEffect(() => {
+    const trigger = () =>
+      document.querySelector<HTMLElement>(
+        '.inset-topbar [data-sidebar="trigger"]',
+      );
+    const collapsed = () =>
+      document.querySelector(
+        '[data-slot="sidebar"][data-state="collapsed"]',
+      ) !== null;
+    // Focus leaving a sidebar element for nowhere (it was hidden by the
+    // collapse): once the browser has settled on <body>, hand focus to the
+    // topbar's trigger - the control that brings the sidebar back.
+    const onFocusOut = (event: FocusEvent) => {
+      const target = event.target;
+      if (
+        event.relatedTarget !== null ||
+        !(target instanceof HTMLElement) ||
+        target.closest('[data-slot="sidebar"]') === null
+      ) {
+        return;
+      }
+      setTimeout(() => {
+        const active = document.activeElement;
+        if ((active === null || active === document.body) && collapsed()) {
+          trigger()?.focus({ preventScroll: true });
+        }
+      }, 0);
+    };
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
+  return null;
+}
+
 /** The topbar's ⌘K trigger: "Jump to" with its caps (icon only on a phone). */
 function JumpToButton({ onOpen }: { readonly onOpen: () => void }) {
   return (
@@ -541,7 +595,7 @@ function JumpToButton({ onOpen }: { readonly onOpen: () => void }) {
       size="compact"
       leadingIcon={SearchIcon}
       onClick={onOpen}
-      aria-label="Jump to a page, host or day"
+      aria-label="Jump to a page, host, file, username or day"
       aria-keyshortcuts="Meta+K Control+K"
       className="shrink-0 text-muted-foreground"
     >
@@ -555,7 +609,7 @@ function JumpToButton({ onOpen }: { readonly onOpen: () => void }) {
  * Application shell.
  *
  * FF's App Sidebar: a resizable, collapsible inset sidebar (drag its edge,
- * press `[`, or the topbar trigger; collapsed, it peeks back on hover) and a
+ * press `[` from the page, or the topbar trigger; collapsed, it peeks back on hover) and a
  * drawer below 768px. Its open state is not persisted: the dashboard writes
  * nothing it does not need, and the cookie FF uses would ride along on every
  * API request.
@@ -618,10 +672,13 @@ export function App() {
     return column === null ? undefined : focusPageHeading(column, drawer);
   }, [active.key, active.label, announce]);
 
-  const clearedLens = useCallback(() => {
-    announce("Showing every day and every profile");
-    headingIn(columnRef.current)?.focus({ preventScroll: true });
-  }, [announce]);
+  const clearedLens = useCallback(
+    (message: string) => {
+      announce(message);
+      headingIn(columnRef.current)?.focus({ preventScroll: true });
+    },
+    [announce],
+  );
 
   // Evidence coverage for the page on show (forensic rule 1): the indicator
   // for its title row and the banner for under it. Overview's scope is the
@@ -644,7 +701,8 @@ export function App() {
   return (
     <FluidProvider icons={untitleduiIcons}>
       <TooltipProvider delayDuration={150}>
-        <SidebarProvider persist={false} peek="hover">
+        <SidebarProvider persist={false} peek="hover" shortcut={null}>
+          <SidebarKeys column={columnRef} />
           <CaseSidebar activeKey={active.key} onSelect={selectTarget} />
           {/* Below the drawer breakpoint the rail is gone; keep the inset card
               off the left edge as it is off the right. */}
@@ -698,12 +756,14 @@ export function App() {
               open={menuOpen}
               onOpenChange={setMenuOpen}
               scope={columnRef}
+              announce={announce}
             />
             <CaseContextProvider value={caseContext}>
               <SurfaceProvider value={2}>
                 <div
                   key={active.key}
                   ref={columnRef}
+                  data-page-column=""
                   className="reveal-product mx-auto flex w-full max-w-[1360px] min-w-0 flex-col gap-5 px-4 pb-10 md:px-8"
                 >
                   {/* Overview builds its own masthead as its first block; the

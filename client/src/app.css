@@ -337,32 +337,35 @@
 /* ── Type scale ───────────────────────────────────────────────────────────
    Six roles, each a size and a leading, at the default and compact steps
    (FF registry/default/lib/type-scale.ts). Components read them through
-   typeClass() / useSize().type, never as raw px. */
+   typeClass() / useSize().type, never as raw px. Written in rem (the FF px
+   value beside each, at the browser's 16px default), so a reader who sets
+   a larger default font size in the browser gets a larger dashboard, not
+   only one that zooms. */
 :root {
-  --fs-display: 28px;
-  --lh-display: 34px;
-  --fs-display-compact: 24px;
-  --lh-display-compact: 30px;
-  --fs-title: 16px;
-  --lh-title: 22px;
-  --fs-title-compact: 15px;
-  --lh-title-compact: 20px;
-  --fs-subtitle: 14px;
-  --lh-subtitle: 20px;
-  --fs-subtitle-compact: 13px;
-  --lh-subtitle-compact: 18px;
-  --fs-body: 13px;
-  --lh-body: 20px;
-  --fs-body-compact: 12px;
-  --lh-body-compact: 18px;
-  --fs-caption: 12px;
-  --lh-caption: 16px;
-  --fs-caption-compact: 11px;
-  --lh-caption-compact: 14px;
-  --fs-micro: 11px;
-  --lh-micro: 14px;
-  --fs-micro-compact: 10px;
-  --lh-micro-compact: 12px;
+  --fs-display: 1.75rem; /* 28px */
+  --lh-display: 2.125rem; /* 34px */
+  --fs-display-compact: 1.5rem; /* 24px */
+  --lh-display-compact: 1.875rem; /* 30px */
+  --fs-title: 1rem; /* 16px */
+  --lh-title: 1.375rem; /* 22px */
+  --fs-title-compact: 0.9375rem; /* 15px */
+  --lh-title-compact: 1.25rem; /* 20px */
+  --fs-subtitle: 0.875rem; /* 14px */
+  --lh-subtitle: 1.25rem; /* 20px */
+  --fs-subtitle-compact: 0.8125rem; /* 13px */
+  --lh-subtitle-compact: 1.125rem; /* 18px */
+  --fs-body: 0.8125rem; /* 13px */
+  --lh-body: 1.25rem; /* 20px */
+  --fs-body-compact: 0.75rem; /* 12px */
+  --lh-body-compact: 1.125rem; /* 18px */
+  --fs-caption: 0.75rem; /* 12px */
+  --lh-caption: 1rem; /* 16px */
+  --fs-caption-compact: 0.6875rem; /* 11px */
+  --lh-caption-compact: 0.875rem; /* 14px */
+  --fs-micro: 0.6875rem; /* 11px */
+  --lh-micro: 0.875rem; /* 14px */
+  --fs-micro-compact: 0.625rem; /* 10px */
+  --lh-micro-compact: 0.75rem; /* 12px */
 }
 
 @theme inline {
@@ -516,6 +519,37 @@ html.transitioning *::after {
   content: "";
   position: absolute;
   inset: -8px -2px -2px;
+}
+/* The same grown hit area for a Term in a column header (Top sites' Rank,
+   Cookies' SameSite, Saved logins' Password, History's Dwell): the header
+   row's padding takes it, the text stays put. */
+th .term-trigger {
+  position: relative;
+}
+th .term-trigger::before {
+  content: "";
+  position: absolute;
+  inset: -8px -4px;
+}
+
+/* Coarse pointers (touch): small icon controls inside a dense row (the
+   lens chip's clear, the bookmark folder chevron) keep their drawn size
+   but take a 40px target through an invisible ring around them. */
+@media (pointer: coarse) {
+  .coarse-hit {
+    position: relative;
+  }
+  .coarse-hit::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+  /* The phone drawer's nav rows (FF sidebar menu buttons, 32px) grow to
+     40px on touch: the registry's own height class is overridden here,
+     not in the registry file. */
+  [data-mobile="true"] [data-sidebar="menu-button"] {
+    height: 40px;
+  }
 }
 
 /* ============================================================================
@@ -1490,6 +1524,11 @@ html.transitioning *::after {
 @keyframes reveal-out {
   to {
     opacity: 0;
+    /* Discrete: stays visible for the whole fade, then hides, so a
+       skeleton left in place (a raw `.reveal-swap`) also leaves the
+       accessibility tree - its "Loading…" status is not read after the
+       data landed. */
+    visibility: hidden;
   }
 }
 .reveal-swap {

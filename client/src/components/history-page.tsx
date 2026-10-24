@@ -67,6 +67,7 @@ import {
   type PaginatedList,
 } from "../use-commit-state-lists.js";
 import {
+  bucketsOfProfiles,
   bucketsToDays,
   fillGaps,
   useActivity,
@@ -408,7 +409,8 @@ function ActivityPanel({
           <RevealSwap
             loading={activity === null}
             skeleton={
-              <div role="status" aria-label="Loading activity">
+              <div role="status">
+                <span className="sr-only">Loading activity</span>
                 <Skeleton className={cn(CHART_HEIGHT, "w-full rounded-lg")} />
               </div>
             }
@@ -815,8 +817,28 @@ export function HistoryPage({
    *  nothing to filter there. */
   readonly profiles?: readonly string[];
 }) {
-  const { activity, error: activityError, retry } = useActivity();
+  const {
+    activity: caseWideActivity,
+    error: activityError,
+    retry,
+  } = useActivity();
   const [filters, setFilters] = useVisitFilters();
+  // The figures and the chart follow the profile pick as the lists do:
+  // each activity row records its profile.
+  const activity = useMemo(
+    () =>
+      caseWideActivity === null || filters.profiles.length === 0
+        ? caseWideActivity
+        : {
+            ...caseWideActivity,
+            saved: bucketsOfProfiles(caseWideActivity.saved, filters.profiles),
+            recovered: bucketsOfProfiles(
+              caseWideActivity.recovered,
+              filters.profiles,
+            ),
+          },
+    [caseWideActivity, filters.profiles],
+  );
   const timeZone = activity?.timeZone ?? null;
   const parameters = useMemo(
     () => visitParameters(filters, timeZone),

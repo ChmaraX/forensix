@@ -52,7 +52,7 @@ export function Term({
       <span
         tabIndex={0}
         className={cn(
-          "cursor-help underline decoration-muted-foreground decoration-dotted underline-offset-2",
+          "term-trigger cursor-help underline decoration-muted-foreground decoration-dotted underline-offset-2",
           className,
         )}
       >

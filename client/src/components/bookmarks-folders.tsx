@@ -206,7 +206,7 @@ export function FolderRow({
           aria-expanded={open === true}
           onClick={onToggle}
           className={cn(
-            "relative z-10 col-start-1 row-start-1 inline-flex size-6 cursor-pointer items-center justify-center self-center justify-self-start rounded-md text-muted-foreground transition-colors duration-80 hover:text-foreground",
+            "coarse-hit relative z-10 col-start-1 row-start-1 inline-flex size-6 cursor-pointer items-center justify-center self-center justify-self-start rounded-md text-muted-foreground transition-colors duration-80 hover:text-foreground",
             BUTTON_FOCUS,
           )}
           style={{ marginLeft: `${String(lead)}px` }}

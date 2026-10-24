@@ -589,7 +589,8 @@ function cookieColumns(
     },
     {
       key: "created",
-      header: "Created",
+      header: "Created (UTC)",
+      label: "Created",
       className: "w-[176px] whitespace-nowrap",
       cell: (row) => <TimeCell field={row.finding.fields.creationTime} />,
     },
@@ -697,11 +698,8 @@ function CookieList({
 /** Placeholder at the size of the figure strip and Persistence. */
 function CookiesSkeleton() {
   return (
-    <div
-      className="flex flex-col gap-5"
-      role="status"
-      aria-label="Loading cookie figures"
-    >
+    <div className="flex flex-col gap-5" role="status">
+      <span className="sr-only">Loading cookie figures</span>
       <Skeleton className="h-[150px] w-full rounded-xl lg:h-[76px]" />
       <Skeleton className="h-[290px] w-full rounded-xl" />
     </div>

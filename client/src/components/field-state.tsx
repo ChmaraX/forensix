@@ -17,11 +17,14 @@
  * Sizes follow the surrounding SizeProvider (`useSize().type.body`), so a
  * compact table gets compact values.
  */
+import { Fragment, type ReactNode } from "react";
+
 import { formatValue } from "../lib.js";
 import type { FieldState } from "../types.js";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { EvidenceDot } from "./evidence.js";
+import { Term } from "./term.js";
 
 /**
  * Monospace is for values a person might copy or compare character by
@@ -135,11 +138,13 @@ export function FieldStateText({
           ? "block truncate whitespace-nowrap"
           : code === ""
             ? "break-words"
-            : "break-all",
+            : // Code-like values (paths, URLs, hashes) break at their
+              // separators first, mid-token only when a segment cannot fit.
+              "[overflow-wrap:anywhere]",
       )}
       title={truncate ? text : undefined}
     >
-      {text}
+      {truncate || code === "" ? text : breakAtSeparators(text)}
       {field.synthetic === true ? (
         <span
           className={cn(
@@ -147,10 +152,44 @@ export function FieldStateText({
             "ml-1.5 font-sans text-muted-foreground",
           )}
         >
-          (synthetic)
+          {/* Said once, where it is shown: what "synthetic" means. */}
+          <Term
+            label="(synthetic)"
+            technical="Technical: the value carries the analyzer's synthetic flag."
+          >
+            Put together by the analyzer from other recorded values (a
+            bookmark's folder path from the folders above it) - the file stores
+            no such single value.
+          </Term>
         </span>
       ) : null}
     </span>
+  );
+}
+
+/** Separators a code-like value may wrap after: path and URL delimiters. */
+const SEPARATOR = /([/\\?&=#.:_-])/;
+
+/**
+ * A code-like value (path, URL, key) with a line-break opportunity after
+ * each separator (`<wbr>`), so it wraps at "/" or "." rather than mid-token
+ * ("…linkedin.com/logi / n"). `<wbr>` adds no character: the text selected
+ * or copied is the recorded value exactly.
+ */
+export function breakAtSeparators(text: string): ReactNode {
+  if (text.length < 24) {
+    return text;
+  }
+  const parts = text.split(SEPARATOR);
+  return parts.map((part, index) =>
+    SEPARATOR.test(part) ? (
+      <Fragment key={index}>
+        {part}
+        <wbr />
+      </Fragment>
+    ) : (
+      part
+    ),
   );
 }
 
