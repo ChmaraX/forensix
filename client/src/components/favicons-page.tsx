@@ -86,11 +86,12 @@ const FAVICON_PARAMETERS: QueryParameters = [
 
 /* ------------------------------- field reads ------------------------------- */
 
-/** The host a favicon belongs to: its icon URL host, then its first page URL. */
-function faviconHost(row: Finding): string | null {
-  const fromIcon = hostOf(fieldText(row.fields.iconUrl));
-  if (fromIcon !== null) {
-    return fromIcon.replace(/^www\./, "");
+/** The URL a favicon's host is read from: its icon URL, then its first page
+ *  URL; null when neither has a host. */
+function faviconHostUrl(row: Finding): string | null {
+  const icon = fieldText(row.fields.iconUrl);
+  if (hostOf(icon) !== null) {
+    return icon;
   }
   const pages = row.fields.pageUrls;
   if (pages !== undefined && pages.state === "value") {
@@ -99,13 +100,17 @@ function faviconHost(row: Finding): string | null {
       const first = list.find(
         (entry): entry is string => typeof entry === "string",
       );
-      const host = hostOf(first ?? null);
-      if (host !== null) {
-        return host.replace(/^www\./, "");
+      if (first !== undefined && hostOf(first) !== null) {
+        return first;
       }
     }
   }
   return null;
+}
+
+/** The host a favicon belongs to: its icon URL host, then its first page URL. */
+function faviconHost(row: Finding): string | null {
+  return hostOf(faviconHostUrl(row));
 }
 
 /* --------------------------------- widgets --------------------------------- */
@@ -226,7 +231,7 @@ function SiteCell({
       <SiteAvatar host={host} src={src} />
       <span className="flex min-w-0 flex-1 flex-col">
         <SiteHostLink
-          host={siteKeyOf(host)}
+          host={faviconHostUrl(row)}
           className={cn(
             size.type.body,
             "max-w-full self-start truncate text-foreground",
@@ -429,7 +434,8 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
   const hosts = useMemo(
     () =>
       loadedRows.flatMap((row) => {
-        const host = faviconHost(row);
+        // Asked as Sites keys hosts, the key the route answers by.
+        const host = siteKeyOf(faviconHostUrl(row));
         return host === null ? [] : [host];
       }),
     [loadedRows],

@@ -71,6 +71,7 @@ import {
   useProfileLens,
 } from "./identity-kit.js";
 import { SiteHostLink } from "./host-link.js";
+import { siteKeyOf } from "../related.js";
 import { useArtifactCoverage } from "../case-context.js";
 import {
   COOKIE_SECRET_FIELDS,
@@ -130,12 +131,14 @@ interface CookieRow {
   readonly lifespanDays: number | null;
 }
 
-/** A cookie host key normalized for display: no leading dot, no `www.`. */
+/** A cookie host key as Sites keys it (`siteKeyOf`: no leading dot, lower
+ *  case, `www.` kept), so the cell reads as the host its link opens; the
+ *  recorded text when it is no host key. */
 function displayHost(hostKey: string | null): string | null {
-  if (hostKey === null) {
+  if (hostKey === null || hostKey === "") {
     return null;
   }
-  return hostKey.replace(/^\./, "").replace(/^www\./, "") || null;
+  return siteKeyOf(hostKey) ?? hostKey;
 }
 
 function toCookieRow(finding: Finding): CookieRow {

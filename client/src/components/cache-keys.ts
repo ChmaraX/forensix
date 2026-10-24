@@ -24,7 +24,8 @@ export function cacheResourceHost(row: Finding): string | null {
   return urlHostOf(cacheResourceUrl(recordedText(row.fields.key)));
 }
 
-/** The entry's resource host as Sites keys hosts ("example.com"), or null. */
+/** The entry's resource host as Sites keys hosts ("www.example.com": the
+ *  hostname, lower case, no port), or null. */
 export function cacheSiteKey(row: Finding): string | null {
   return siteKeyOf(cacheResourceUrl(recordedText(row.fields.key)));
 }

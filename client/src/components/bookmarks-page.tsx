@@ -430,7 +430,7 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
       if (row.folderPath !== null) {
         folders.add(row.folderPath);
       }
-      // A site as Sites keys it (no `www.`, lower case).
+      // A site as Sites keys it (the hostname, lower case).
       const site = siteKeyOf(row.url);
       if (site !== null) {
         hosts.add(site);

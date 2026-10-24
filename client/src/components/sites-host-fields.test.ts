@@ -53,7 +53,7 @@ describe("cacheResourceUrl", () => {
           key: value("_dk_https://top.example https://WWW.Example.com/x"),
         }),
       ),
-    ).toBe("example.com");
+    ).toBe("www.example.com");
     expect(
       cacheSiteKey(
         finding("cache_entry", { key: { state: "unavailable", reason: "x" } }),
@@ -76,10 +76,8 @@ describe("hostFieldsOf", () => {
   });
 
   it("names every URL field recorded on exactly the host", () => {
-    expect(hostFieldsOf(download, "example.com")).toEqual([
-      "urlChain",
-      "referrer",
-    ]);
+    expect(hostFieldsOf(download, "www.example.com")).toEqual(["urlChain"]);
+    expect(hostFieldsOf(download, "example.com")).toEqual(["referrer"]);
     expect(hostFieldsOf(download, "other.test")).toEqual(["tabUrl"]);
   });
 
@@ -93,7 +91,7 @@ describe("hostFieldsOf", () => {
       urlChain: { state: "absent" },
       finalUrl: value("https://www.example.com/f"),
     });
-    expect(hostFieldsOf(noChain, "example.com")).toEqual(["finalUrl"]);
+    expect(hostFieldsOf(noChain, "www.example.com")).toEqual(["finalUrl"]);
   });
 
   it("reads a favicon's icon URL and page URLs", () => {
@@ -109,7 +107,9 @@ describe("hostFieldsOf", () => {
     const entry = finding("cache_entry", {
       key: value("https://www.example.com/x.js"),
     });
-    expect(hostFieldsOf(entry, "example.com")).toEqual(["key"]);
+    expect(hostFieldsOf(entry, "www.example.com")).toEqual(["key"]);
+    // No domain expansion: www is a host apart.
+    expect(hostFieldsOf(entry, "example.com")).toEqual([]);
     expect(hostFieldsOf(entry, "other.test")).toEqual([]);
   });
 });

@@ -626,25 +626,25 @@ function textField(row, field) {
     : null;
 }
 
-/** Normalized host key: URL host or cookie host key, lowercased, without
- *  leading dots or `www.` — so `.gmail.com` cookies and `www.gmail.com`
- *  visits group under one host, mirroring what the future real route will
- *  do. */
+/** A bare host key: no scheme, port, path, query, fragment, userinfo or
+ *  whitespace, or a bracketed IPv6 literal. */
+const BARE_HOST = /^(?:[^\s/?#:@\\[\]]+|\[[0-9a-f:.]+\])$/i;
+
+/** The host key Sites groups under, mirroring core's `siteHostKey`
+ *  (core/src/sites-query.ts) exactly: a URL by its hostname (no port), a
+ *  cookie host key (".example.com" domain, "example.com" host-only) by
+ *  itself, one leading dot removed, lower-cased. No domain expansion:
+ *  `www.example.com` is a host apart from `example.com`. */
 function hostKeyOf(raw) {
   if (raw === null) return null;
-  let host = raw;
-  if (host.includes("://")) {
-    try {
-      host = new URL(host).host;
-    } catch {
-      return null;
-    }
+  const text = raw.startsWith(".") ? raw.slice(1) : raw;
+  if (text.length === 0) return null;
+  if (BARE_HOST.test(text)) return text.toLocaleLowerCase("en-US");
+  try {
+    return new URL(text).hostname.toLocaleLowerCase("en-US") || null;
+  } catch {
+    return null;
   }
-  host = host
-    .toLowerCase()
-    .replace(/^\.+/, "")
-    .replace(/^www\./, "");
-  return host === "" ? null : host;
 }
 
 /** Each site artifact kind: its fixture rows (less unread databases) and
@@ -712,15 +712,10 @@ function siteHosts(params, request) {
 
 /** The `site-favicons` route as the real server resolves it: per asked
  *  host, the largest readable favicon whose icon URL or page URL names
- *  that host (`www.` dropped), as an inline `data:` URI; `null` when none. */
+ *  that host (keyed as Sites keys hosts, `hostKeyOf`), as an inline
+ *  `data:` URI; `null` when none. */
 function siteFavicons(params, request) {
-  const hostOfUrl = (url) => {
-    try {
-      return new URL(url).hostname.replace(/^www\./, "");
-    } catch {
-      return null;
-    }
-  };
+  const hostOfUrl = hostKeyOf;
   const best = new Map();
   for (const row of readable(caseData.favicons, "Favicons", request)) {
     if (typeof row._dataUri !== "string") continue;

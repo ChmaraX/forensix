@@ -36,25 +36,41 @@ function finding(
 }
 
 describe("siteKeyOf", () => {
-  it("keys a URL by its host, as Sites does", () => {
+  it("keys a URL by its hostname, as Sites does", () => {
     expect(siteKeyOf("https://www.TeamViewer.com/download?x=1")).toBe(
-      "teamviewer.com",
+      "www.teamviewer.com",
     );
   });
 
-  it("keys a cookie host key without its leading dot", () => {
+  it("keys a domain cookie's host key without its leading dot", () => {
     expect(siteKeyOf(".gmail.com")).toBe("gmail.com");
   });
 
-  it("keeps a port, which is part of the host", () => {
-    expect(siteKeyOf("http://localhost:8080/")).toBe("localhost:8080");
+  it("keys a host-only cookie's bare host key as itself", () => {
+    expect(siteKeyOf("Example.com")).toBe("example.com");
+    expect(siteKeyOf("www.google.com")).toBe("www.google.com");
+    expect(siteKeyOf("[::1]")).toBe("[::1]");
+  });
+
+  it("expands no domain: www is a host apart", () => {
+    expect(siteKeyOf("https://www.example.com/")).not.toBe(
+      siteKeyOf("https://example.com/"),
+    );
+  });
+
+  it("drops a port, which Sites does not key", () => {
+    expect(siteKeyOf("http://localhost:8080/")).toBe("localhost");
+    expect(siteKeyOf("http://[::1]:8080/")).toBe("[::1]");
   });
 
   it("reads nothing from a non-host", () => {
     expect(siteKeyOf(null)).toBeNull();
     expect(siteKeyOf("C:/Users/file.exe")).toBeNull();
     expect(siteKeyOf("not a url://")).toBeNull();
+    expect(siteKeyOf("about:blank")).toBeNull();
+    expect(siteKeyOf("example.com/path")).toBeNull();
     expect(siteKeyOf("")).toBeNull();
+    expect(siteKeyOf(".")).toBeNull();
   });
 });
 
@@ -65,7 +81,7 @@ describe("hostLinkOf", () => {
     );
     expect(link).toMatchObject({
       page: "sites",
-      extras: { host: "dropbox.com" },
+      extras: { host: "www.dropbox.com" },
       field: "url",
     });
   });
@@ -106,7 +122,7 @@ describe("hostLinkOf", () => {
       }),
     );
     expect(link).toMatchObject({
-      extras: { host: "github.com" },
+      extras: { host: "www.github.com" },
       field: "iconUrl",
     });
   });

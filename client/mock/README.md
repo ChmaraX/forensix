@@ -57,7 +57,8 @@ last-used rows by timestamp, newest first - mirroring core's
 `queryTimeline`.
 
 `site-hosts` groups history visits, cookies, saved logins, bookmarks, and top
-sites by a normalized host key (lowercased, no leading dots or `www.`), with
+sites by core's host key (a URL's hostname, or a cookie host key less one
+leading dot; lowercased; `www.` kept - no domain expansion), with
 per-kind counts (`counts`, every Commit State, and `savedCounts`, committed
 rows only), honoring `search`, in host-name order like core's
 `querySiteHosts`. `site-findings?host=` returns every row for one host, each

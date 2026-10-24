@@ -69,32 +69,38 @@ function utcOf(field: FieldState | undefined): string | null {
 /* ---------------------------------- host ---------------------------------- */
 
 /**
- * The key Sites groups a host under: the URL's host (or a cookie host key)
- * lower-cased, without leading dots or a leading `www.` - so a
- * `.gmail.com` cookie and a `www.gmail.com` visit open the same host. A
- * string transform of the recorded value, the same one the Sites route
- * applies; null when there is no host to read.
+ * A bare host key: a host with no scheme, port, path, query, fragment,
+ * userinfo or whitespace ("example.com", "www.example.com"), or a bracketed
+ * IPv6 literal ("[::1]").
+ */
+const BARE_HOST = /^(?:[^\s/?#:@\\[\]]+|\[[0-9a-f:.]+\])$/i;
+
+/**
+ * The key Sites groups a recorded host under - the same transform core's
+ * `siteHostKey` (core/src/sites-query.ts) applies, so a key read here is one
+ * the Sites route lists. A URL is keyed by its hostname (no port, userinfo
+ * or path); a Chrome cookie host key - a domain cookie's ".example.com" or
+ * a host-only cookie's bare "example.com" - by itself. One leading dot is
+ * removed and the result lower-cased. Nothing else: no domain expansion,
+ * so "www.example.com" is a host apart from "example.com". Null when there
+ * is no host to read.
  */
 export function siteKeyOf(raw: string | null): string | null {
   if (raw === null) {
     return null;
   }
-  let host = raw.trim();
-  if (host.includes("://")) {
-    try {
-      host = new URL(host).host;
-    } catch {
-      return null;
-    }
-  } else if (/[/?#\s]/.test(host)) {
-    // Not a host key: a path or free text.
+  const text = raw.startsWith(".") ? raw.slice(1) : raw;
+  if (text.length === 0) {
     return null;
   }
-  host = host
-    .toLowerCase()
-    .replace(/^\.+/, "")
-    .replace(/^www\./, "");
-  return host === "" ? null : host;
+  if (BARE_HOST.test(text)) {
+    return text.toLocaleLowerCase("en-US");
+  }
+  try {
+    return new URL(text).hostname.toLocaleLowerCase("en-US") || null;
+  } catch {
+    return null;
+  }
 }
 
 /** A field a row's host is read from, and how: the recorded text itself

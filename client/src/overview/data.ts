@@ -19,7 +19,7 @@ export { fieldString };
 
 /**
  * One Most visited sites row: a host as the Sites page keys it
- * (`siteKeyOf`: lower case, no `www.`) and its saved visit rows - the same
+ * (`siteKeyOf`: the hostname, lower case) and its saved visit rows - the same
  * measure, and the same number, Sites prints beside the host ("4 visits").
  * Never Chrome's own per-URL `visit_count`, which Sites does not show.
  */

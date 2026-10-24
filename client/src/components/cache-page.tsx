@@ -269,7 +269,7 @@ function CacheSummary({
       if (integrityVerified(row)) {
         verified += 1;
       }
-      // Hosts as Sites keys them (no `www.`), so the figure and the
+      // Hosts as Sites keys them (`siteKeyOf`), so the figure and the
       // Sites view count one host once.
       const host = cacheSiteKey(row);
       if (host !== null) {
@@ -467,7 +467,6 @@ function ResourceCell({
   if (host === null) {
     return <FieldCell field={row.fields.key} mono />;
   }
-  const shown = host.replace(/^www\./, "");
   const lines = (
     <span className="flex min-w-0 flex-col">
       {wide ? (
@@ -478,14 +477,14 @@ function ResourceCell({
             "max-w-full self-start truncate text-foreground",
           )}
         >
-          {shown}
+          {host}
         </SiteHostLink>
       ) : (
         <span
           className={cn(size.type.body, "block truncate text-foreground")}
-          title={shown}
+          title={host}
         >
-          {shown}
+          {host}
         </span>
       )}
       <SizeProvider size="compact">

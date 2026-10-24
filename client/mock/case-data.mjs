@@ -425,7 +425,9 @@ function buildCookies() {
       ),
       fields: {
         cookieId: value(String(700_000 + i)),
-        hostKey: value(`.${host}`),
+        // Chrome records a domain cookie's host key with a leading dot and
+        // a host-only cookie's (most real cookies) without one.
+        hostKey: value(i % 2 === 0 ? host : `.${host}`),
         name: value(pick(rand, names)),
         path: value("/"),
         topFrameSiteKey:

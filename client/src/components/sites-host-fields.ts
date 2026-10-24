@@ -3,9 +3,9 @@
  * Sites route does not group itself (Downloads, Cache, Favicons). The Sites
  * view reads those artifacts' own routes with the host as a search, then
  * keeps only rows that record the host exactly: a URL field whose host,
- * keyed as Sites keys hosts (`siteKeyOf`: lower case, no leading dot or
- * `www.`), equals it. A partial match ("dropbox.com" inside
- * "dl.dropbox.com") never counts.
+ * keyed as Sites keys hosts (`siteKeyOf`: the hostname, lower case, no
+ * domain expansion), equals it. A partial match ("dropbox.com" inside
+ * "dl.dropbox.com" or "www.dropbox.com") never counts.
  *
  * Pure (sites-host-fields.test.ts).
  */
