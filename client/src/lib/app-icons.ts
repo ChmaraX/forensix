@@ -14,12 +14,9 @@
  * the CSP is untouched), and is `aria-hidden` by default.
  */
 import {
-  AlertTriangle,
   Archive,
-  ArrowDown,
   ArrowNarrowDown,
   ArrowNarrowUp,
-  ArrowUp,
   ArrowUpRight,
   BookClosed,
   Bookmark,
@@ -42,28 +39,24 @@ import {
   Folder,
   FolderCheck,
   Globe01,
-  Globe02,
   Image01,
   ImageX,
   Inbox01,
   Key01,
   LayoutGrid01,
   Lock01,
-  LockUnlocked01,
   Monitor01,
   Moon01,
   MusicNote01,
   RefreshCcw01,
   Rows01,
   SearchMd,
-  ShieldTick,
   Sun,
   Table,
   Terminal,
   Ticket01,
   TrendUp01,
   User01,
-  Users01,
   XClose,
 } from "@untitledui/icons";
 
@@ -110,8 +103,6 @@ export const HideIcon: AppIcon = EyeOff;
 /** Newest first / oldest first. */
 export const SortNewestIcon: AppIcon = ArrowNarrowDown;
 export const SortOldestIcon: AppIcon = ArrowNarrowUp;
-export const ArrowDownIcon: AppIcon = ArrowDown;
-export const ArrowUpIcon: AppIcon = ArrowUp;
 
 /* Theme. */
 export const LightThemeIcon: AppIcon = Sun;
@@ -120,15 +111,10 @@ export const DarkThemeIcon: AppIcon = Moon01;
 
 /* States and things. */
 export const EmptyIcon: AppIcon = Inbox01;
-export const WarningIcon: AppIcon = AlertTriangle;
 export const LockedIcon: AppIcon = Lock01;
-export const UnlockedIcon: AppIcon = LockUnlocked01;
-export const VerifiedIcon: AppIcon = ShieldTick;
 export const MissingImageIcon: AppIcon = ImageX;
 export const BrowserIcon: AppIcon = Browser;
-export const WebIcon: AppIcon = Globe02;
 export const UserIcon: AppIcon = User01;
-export const UsersIcon: AppIcon = Users01;
 export const FolderIcon: AppIcon = Folder;
 export const OpenFolderIcon: AppIcon = FolderCheck;
 export const LibraryIcon: AppIcon = BookClosed;

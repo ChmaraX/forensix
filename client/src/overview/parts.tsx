@@ -15,8 +15,6 @@ import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
 import { MetricBand, MetricBandItem } from "@/components/metric-band";
 import { plural, ShareBar, TimeText } from "@/components/page-kit";
 import { Panel } from "@/components/panel";
-import { TermTooltip } from "@/components/term";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -79,21 +77,6 @@ export function JumpLink({
   );
 }
 
-/**
- * "Saved only": a chart header's quiet qualifier for a chart that plots saved
- * rows alone. The tooltip names what it leaves out ("10 recovered visits not
- * drawn"); the rows themselves are listed under Recovered on their page.
- */
-export function SavedOnlyTag({ note }: { readonly note: string }) {
-  return (
-    <TermTooltip content={note}>
-      <Badge size="compact" tabIndex={0} className="cursor-help">
-        Saved only
-      </Badge>
-    </TermTooltip>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Masthead
 // ---------------------------------------------------------------------------
@@ -107,10 +90,13 @@ export function SavedOnlyTag({ note }: { readonly note: string }) {
 export function Masthead({
   subjectName,
   meta,
+  coverage,
   picker,
 }: {
   readonly subjectName: string | null;
   readonly meta: string;
+  /** The shell's whole-Case coverage indicator, before the picker. */
+  readonly coverage?: ReactNode;
   readonly picker: ReactNode;
 }) {
   const size = useSize();
@@ -151,7 +137,10 @@ export function Masthead({
           ) : null}
         </div>
       </div>
-      <div className="flex shrink-0 md:pt-1">{picker}</div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2 md:pt-1">
+        {coverage}
+        {picker}
+      </div>
     </header>
   );
 }
@@ -391,7 +380,7 @@ function TopSiteRow({
       onClick={() => {
         onOpen(domain);
       }}
-      aria-label={`${domain}, ${plural(site.count, "saved visit", "saved visits")} — open in Sites`}
+      aria-label={`${domain}, ${plural(site.count, "saved visit", "saved visits")} - open in Sites`}
       className={cn(
         rowClass,
         "cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-focus-ring",
@@ -411,7 +400,9 @@ export function TopSitesList({
   sites,
   favicons,
   onOpenSite,
+  emptyMessage = "No saved site visits are recorded in this Case.",
 }: {
+  readonly emptyMessage?: string;
   readonly sites: readonly TopSite[];
   readonly favicons: ReadonlyMap<string, string | null>;
   readonly onOpenSite?: (domain: string) => void;
@@ -423,7 +414,7 @@ export function TopSitesList({
     return (
       <EmptyRows
         icon={ARTIFACT_ICONS.sites}
-        message="No saved site visits are recorded in this Case."
+        message={emptyMessage}
         className="flex-1 justify-center py-8"
       />
     );
@@ -506,14 +497,16 @@ function downloadPath(field: FieldState | undefined): string {
 
 export function DownloadsList({
   downloads,
+  emptyMessage = "No saved downloads are recorded in this Case.",
 }: {
   readonly downloads: readonly Finding[];
+  readonly emptyMessage?: string;
 }) {
   if (downloads.length === 0) {
     return (
       <EmptyRows
         icon={DownloadedFileIcon}
-        message="No saved downloads are recorded in this Case."
+        message={emptyMessage}
         className="flex-1 justify-center py-8"
       />
     );

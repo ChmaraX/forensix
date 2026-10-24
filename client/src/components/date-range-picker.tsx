@@ -598,9 +598,11 @@ export function DateRangePicker({
               className="shrink-0 text-muted-foreground transition-[color,stroke-width] duration-80 group-hover:text-foreground group-hover:[stroke-width:2]"
             />
             <span className="truncate tabular-nums">
-              {active
-                ? `${from === "" ? "…" : formatDate(from)} — ${to === "" ? "…" : formatDate(to)}`
-                : triggerLabel}
+              {!active
+                ? triggerLabel
+                : from !== "" && from === to
+                  ? formatDate(from)
+                  : `${from === "" ? "…" : formatDate(from)} - ${to === "" ? "…" : formatDate(to)}`}
             </span>
             {active ? null : (
               <ChevronDownIcon

@@ -11,8 +11,9 @@
  * Layout, top-down, as FF Panels: a MetricBand of recorded figures (label
  * and value; the span's dates are the one data line) → bytes per day (the
  * one series style: ink bars, the peak — or a picked day — at full strength;
- * drag across it to focus the lists on a range; a "Saved only" tag names
- * the recovered downloads it leaves out) beside the file kinds (an FF
+ * it drives the page's date range with its picker: click a day, again to
+ * clear, drag for a span; the figures, kinds and lists follow) beside the
+ * file kinds (an FF
  * CardGroup: one fluid hover highlight, a picked kind holds the selected
  * fill and focuses the lists) → the lists, sorted from the toolbar (Sort +
  * direction, as on History) and drawn by `ResponsiveRows` (a table from
@@ -113,7 +114,6 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField } from "./filters.js";
-import { formatDaySpan, SavedOnlyTag } from "./history-chart-parts.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
@@ -127,6 +127,7 @@ import {
   TimeCell,
   formatBytes,
   formatDay,
+  formatDaySpan,
   formatDayTick,
   plural,
   type CommitView,
@@ -600,19 +601,23 @@ function VolumeChart({
     };
   }, [dragStart, dragCurrent, hasRange, range]);
 
+  // A press on one day is a click (that day, or the full span when it is
+  // already the range — as ActivityBars reads); a drag sets the span.
   const commitDrag = useCallback(() => {
     if (dragStart === null) {
       return;
     }
     const end = dragCurrent ?? dragStart;
     onRangeChange(
-      dragStart <= end
-        ? { from: dragStart, to: end }
-        : { from: end, to: dragStart },
+      dragStart === end && range.from === end && range.to === end
+        ? { from: "", to: "" }
+        : dragStart <= end
+          ? { from: dragStart, to: end }
+          : { from: end, to: dragStart },
     );
     setDragStart(null);
     setDragCurrent(null);
-  }, [dragStart, dragCurrent, onRangeChange]);
+  }, [dragStart, dragCurrent, onRangeChange, range]);
 
   const days = useMemo<readonly VolumeDay[]>(() => {
     const byDate = new Map<string, { bytes: number; count: number }>();
@@ -664,14 +669,13 @@ function VolumeChart({
     const index = activeIndexOf(state);
     return index === null ? null : (days[index]?.date ?? null);
   };
-  // One emphasis: the picked day when the range is one drawn day, else the
-  // busiest; days outside the focused range dim — as ActivityBars reads.
-  const picked =
-    range.from !== "" && range.from === range.to ? range.from : null;
-  const pickedShown =
-    picked !== null && days.some((day) => day.date === picked);
+  // One emphasis: the selection when there is one (the picked day or
+  // span), else the busiest; days outside the range dim — as ActivityBars
+  // reads.
   const emphasisOf = (day: VolumeDay) =>
-    pickedShown ? day.date === picked : peak > 0 && day.bytes === peak;
+    highlight !== null
+      ? day.bytes > 0 && day.date >= highlight.from && day.date <= highlight.to
+      : peak > 0 && day.bytes === peak;
   const dimmedOf = (day: VolumeDay) =>
     highlight !== null &&
     (day.date < highlight.from || day.date > highlight.to);
@@ -889,10 +893,10 @@ function KindBreakdown({
 /* --------------------------------- table ---------------------------------- */
 
 /**
- * The download state in words. "Complete" sits muted beside a neutral dot
- * (the ordinary outcome); the two unfinished states read in the foreground
- * with the warning hue on the dot — the word is always present, never colour
- * alone. A value outside the known set passes through verbatim, and a state
+ * The download outcome in words, beside a neutral mark: an outcome is no
+ * evidence state, so it never borrows an evidence hue (amber would read as
+ * "recovered" beside the State column). "Complete" sits muted (the ordinary
+ * outcome); the two unfinished outcomes read in the foreground. A value outside the known set passes through verbatim, and a state
  * Chrome did not record keeps its field's own word.
  */
 function DownloadState({ field }: { readonly field: FieldState | undefined }) {
@@ -910,7 +914,7 @@ function DownloadState({ field }: { readonly field: FieldState | undefined }) {
         unfinished ? "text-foreground" : "text-muted-foreground",
       )}
     >
-      <EvidenceDot state={unfinished ? "warning" : "neutral"} />
+      <EvidenceDot state="neutral" />
       {stateLabel(state)}
     </span>
   );
@@ -1260,6 +1264,25 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
     [walRead.rows, journalRead.rows],
   );
 
+  // The date range narrows the figures and the file kinds as it narrows
+  // the lists; the chart keeps drawing every day, the range washed in.
+  const modelInRange = useMemo(
+    () =>
+      hasRange
+        ? model.filter((row) => {
+            if (row.startUtc === null) {
+              return false;
+            }
+            const day = row.startUtc.slice(0, 10);
+            return (
+              (range.from === "" || day >= range.from) &&
+              (range.to === "" || day <= range.to)
+            );
+          })
+        : model,
+    [model, hasRange, range],
+  );
+
   const summary = useMemo(() => {
     let bytes = 0;
     let sized = 0;
@@ -1267,7 +1290,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
     const hosts = new Set<string>();
     let firstUtc: string | null = null;
     let lastUtc: string | null = null;
-    for (const row of model) {
+    for (const row of modelInRange) {
       if (row.bytes !== null) {
         bytes += row.bytes;
         sized += 1;
@@ -1288,7 +1311,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
       }
     }
     return {
-      total: model.length,
+      total: modelInRange.length,
       bytes,
       sized,
       unfinished,
@@ -1296,7 +1319,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
       firstUtc,
       lastUtc,
     };
-  }, [model]);
+  }, [modelInRange]);
 
   // The same filters and sort narrow both lists.
   const narrow = useCallback(
@@ -1385,7 +1408,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
                 <BannerTitle>These figures cover part of the Case.</BannerTitle>
                 <BannerDescription>
                   They cover the first {model.length.toLocaleString("en-US")}{" "}
-                  saved downloads read — the most this page loads at once. More
+                  saved downloads read - the most this page loads at once. More
                   rows exist in the Case.
                 </BannerDescription>
               </Banner>
@@ -1422,25 +1445,18 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
             <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
               <ChartSection
                 title="Downloads over time"
-                description=""
                 className="lg:col-span-2"
                 action={
-                  <>
-                    <SavedOnlyTag
-                      recovered={recoveredTotal ?? 0}
-                      unit={{ one: "download", many: "downloads" }}
-                    />
-                    <DateRangePicker
-                      from={range.from}
-                      to={range.to}
-                      min={pickerSpan.min}
-                      max={pickerSpan.max}
-                      triggerLabel="All recorded days"
-                      formatDate={formatDay}
-                      onChange={setRange}
-                      presets
-                    />
-                  </>
+                  <DateRangePicker
+                    from={range.from}
+                    to={range.to}
+                    min={pickerSpan.min}
+                    max={pickerSpan.max}
+                    triggerLabel="All recorded days"
+                    formatDate={formatDay}
+                    onChange={setRange}
+                    presets
+                  />
                 }
               >
                 <div className="px-2 pt-2 pb-3">
@@ -1453,7 +1469,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
               </ChartSection>
               <SectionPanel id="downloads-kinds-title" title="By file kind">
                 <KindBreakdown
-                  rows={model}
+                  rows={modelInRange}
                   activeKind={kindFilter}
                   onKind={onKind}
                 />

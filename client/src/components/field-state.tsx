@@ -96,7 +96,7 @@ export function FieldStateText({
           "inline-flex max-w-full items-baseline gap-1.5",
           truncate ? "whitespace-nowrap" : "flex-wrap",
         )}
-        title={truncate ? `unavailable — ${field.reason}` : undefined}
+        title={truncate ? `unavailable - ${field.reason}` : undefined}
       >
         <EvidenceDot state="unavailable" className="self-center" />
         <span className="text-foreground">unavailable</span>
@@ -106,7 +106,7 @@ export function FieldStateText({
             truncate ? "truncate" : "break-words",
           )}
         >
-          — {field.reason}
+          - {field.reason}
         </span>
       </span>
     );

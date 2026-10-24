@@ -28,7 +28,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
-import { Tooltip } from "@/components/ui/tooltip";
 import { ARTIFACT_ICONS, LockedIcon, SearchIcon } from "@/lib/app-icons";
 import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
@@ -53,6 +52,7 @@ import { FilterTextField } from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { Term } from "./term.js";
 import {
   CARD_TITLE_CLEAR,
   CommitStateSplit,
@@ -188,13 +188,16 @@ function ReusedIdentities({
 const SEALED_NOTE =
   "Chrome encrypts every saved password with the operating system's key. This page never shows one.";
 
+/** The Password column header: its tooltip says why every value is sealed. */
+const PASSWORD_HEADER = <Term label="Password">{SEALED_NOTE}</Term>;
+
 /**
  * The stored password's *state*, never its contents. Chrome seals each
  * password with the OS key; the analyzer reports it `unavailable` with a
  * reason, and the cell reads a neutral "sealed" (it is the expected state of
- * every row, not an error) with that reason in its tooltip. A `value` state
+ * every row, not an error; the column header explains it). A `value` state
  * is still withheld. No own tab stop: the row is the focus target, and its
- * sheet carries the raw field.
+ * sheet carries the raw field and its recorded reason.
  */
 function PasswordCell({ field }: { readonly field: FieldState | undefined }) {
   const size = useSize();
@@ -206,33 +209,19 @@ function PasswordCell({ field }: { readonly field: FieldState | undefined }) {
   }
   const sealed = field.state === "unavailable";
   return (
-    <Tooltip
-      content={
-        <span className="block">
-          {sealed ? `${field.reason} ` : "A password value was recorded. "}
-          {SEALED_NOTE}
-        </span>
-      }
-      className="max-w-[280px] whitespace-normal"
-    >
-      <span className="flex cursor-help items-center gap-1.5 whitespace-nowrap">
-        {sealed ? (
-          <>
-            <EvidenceDot state="neutral" />
-            sealed
-          </>
-        ) : (
-          <>
-            <LockedIcon
-              size={size.icon}
-              strokeWidth={1.5}
-              className="shrink-0"
-            />
-            value withheld
-          </>
-        )}
-      </span>
-    </Tooltip>
+    <span className="flex items-center gap-1.5 whitespace-nowrap">
+      {sealed ? (
+        <>
+          <EvidenceDot state="neutral" />
+          sealed
+        </>
+      ) : (
+        <>
+          <LockedIcon size={size.icon} strokeWidth={1.5} className="shrink-0" />
+          value withheld
+        </>
+      )}
+    </span>
   );
 }
 
@@ -283,7 +272,8 @@ function credentialColumns(recovered: boolean): readonly RowColumn<Finding>[] {
     },
     {
       key: "password",
-      header: "Password",
+      header: PASSWORD_HEADER,
+      label: "Password",
       stack: "hidden",
       cell: (row) => <PasswordCell field={row.fields.secret} />,
     },

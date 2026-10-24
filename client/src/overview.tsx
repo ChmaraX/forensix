@@ -18,10 +18,14 @@
  *
  * Saved and recovered rows: every figure and chart counts saved rows only
  * (Most visited sites and Recent downloads read `commit-state=committed`; the
- * shared activity read keeps recovered rows apart). The two charts carry a
- * "Saved only" tag naming how many recovered visits they leave out.
+ * shared activity read keeps recovered rows apart).
+ *
+ * The date range (the masthead's picker, or a day clicked / a span dragged
+ * on Browsing activity) narrows every panel: the figures, Time of day, Most
+ * visited sites (re-read from the saved visits in range) and Recent
+ * downloads.
  */
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 
 import {
   bucketsToDays,
@@ -31,7 +35,7 @@ import {
 import { ActivityBars, HourBars, useChartTokens } from "@/components/charts";
 import { ChartSection } from "@/components/chart-section";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { ErrorRows } from "@/components/list-states";
+import { ErrorRows, LoadingRows } from "@/components/list-states";
 import { plural, SectionPanel } from "@/components/page-kit";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 
@@ -39,13 +43,17 @@ import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 // model" Sheet, until the topic-status route exists.
 import { TopicCategorizationLine } from "./overview-topic-widget.js";
 import {
+  dayInRange,
+  fieldDay,
   fieldString,
   formatDay,
   formatDayRange,
   formatSpan,
+  loadMostVisitedIn,
   loadOverview,
   shiftDay,
   type OverviewData,
+  type TopSite,
 } from "./overview/data";
 import {
   CaseFigures,
@@ -53,7 +61,6 @@ import {
   JumpLink,
   LoadingOverview,
   Masthead,
-  SavedOnlyTag,
   SubjectList,
   TopSitesList,
   type CaseFigure,
@@ -61,7 +68,11 @@ import {
 
 export function OverviewPage({
   onOpen,
+  coverage,
 }: {
+  /** The shell's whole-Case coverage indicator, for the masthead's right.
+   *  Overview carries no coverage banner. */
+  readonly coverage?: ReactNode;
   /** Opens a nav section by key — the per-panel jump links in panel headers,
    *  and the Most visited sites row click, which passes a second argument:
    *  the host to preselect once the Sites tab is open. */
@@ -117,7 +128,9 @@ export function OverviewPage({
   return (
     <div className="reveal-swap">
       <LoadingOverview className="reveal-items" />
-      {data === null ? null : <OverviewContent data={data} onOpen={onOpen} />}
+      {data === null ? null : (
+        <OverviewContent data={data} onOpen={onOpen} coverage={coverage} />
+      )}
     </div>
   );
 }
@@ -125,7 +138,9 @@ export function OverviewPage({
 function OverviewContent({
   data,
   onOpen,
+  coverage,
 }: {
+  readonly coverage?: ReactNode;
   readonly data: OverviewData;
   readonly onOpen?: (key: string, param?: string) => void;
 }) {
@@ -203,10 +218,65 @@ function OverviewContent({
     return { days, hourTotals, totalVisits, recoveredVisits };
   }, [data, rangeFrom, rangeTo]);
 
-  // The same days, continuous: zero-count days fill the gaps between them so
-  // the chart's x-axis is real calendar time — the same shared reading
-  // History's and Timeline's "page visits per day" charts draw.
-  const chartDays = useMemo(() => fillGaps(windowed.days), [windowed.days]);
+  // Every saved day, continuous: zero-count days fill the gaps between them
+  // so the chart's x-axis is real calendar time — the same shared reading
+  // History's and Timeline's "page visits per day" charts draw. The chart
+  // always draws the whole span and drives the masthead's range: a clicked
+  // day or a dragged span narrows every panel; the range is washed in.
+  const chartDays = useMemo(
+    () => fillGaps(bucketsToDays(data.activity)),
+    [data.activity],
+  );
+  const rangeActive = rangeFrom !== "" || rangeTo !== "";
+
+  // Recent downloads in range: the newest five saved downloads that started
+  // inside it (the read is newest first).
+  const recentDownloads = useMemo(
+    () =>
+      (rangeActive
+        ? data.downloads.filter((row) => {
+            const day = fieldDay(row.fields.startTime);
+            return (
+              day !== null && dayInRange(day, { from: rangeFrom, to: rangeTo })
+            );
+          })
+        : data.downloads
+      ).slice(0, 5),
+    [data.downloads, rangeActive, rangeFrom, rangeTo],
+  );
+
+  // Most visited sites in range: the whole-Case summary, or — under a
+  // narrowed range — the saved visits in it counted per URL.
+  const [rangedSites, setRangedSites] = useState<{
+    readonly key: string;
+    readonly sites: readonly TopSite[];
+  } | null>(null);
+  const rangeKey = `${rangeFrom}|${rangeTo}`;
+  useEffect(() => {
+    if (!rangeActive) {
+      return;
+    }
+    let cancelled = false;
+    loadMostVisitedIn({ from: rangeFrom, to: rangeTo })
+      .then(({ sites }) => {
+        if (!cancelled) {
+          setRangedSites({ key: rangeKey, sites });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRangedSites({ key: rangeKey, sites: [] });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rangeActive, rangeFrom, rangeTo, rangeKey]);
+  const mostVisited = !rangeActive
+    ? data.mostVisited
+    : rangedSites !== null && rangedSites.key === rangeKey
+      ? rangedSites.sites
+      : null;
 
   // The longest stretch of consecutive days with no recorded visits between
   // two active days — a derived reading of the same `days` set the activity
@@ -320,15 +390,6 @@ function OverviewContent({
           onOpen(key);
         };
 
-  // Both charts plot saved visits only; the tag says how many recovered
-  // visits they leave out, and is absent when there are none.
-  const savedOnly =
-    windowed.recoveredVisits > 0 ? (
-      <SavedOnlyTag
-        note={`${plural(windowed.recoveredVisits, "recovered visit", "recovered visits")} not drawn`}
-      />
-    ) : null;
-
   // The activity read stopped at its page cap: both charts drawn from it say
   // so in their footer instead of silently covering less than the span.
   const truncationNote = truncated ? (
@@ -348,6 +409,7 @@ function OverviewContent({
       <Masthead
         subjectName={subjectName}
         meta={heroMeta}
+        coverage={coverage}
         picker={
           <DateRangePicker
             size="compact"
@@ -375,13 +437,7 @@ function OverviewContent({
         {/* Activity — the page's main chart. */}
         <ChartSection
           title="Browsing activity"
-          description=""
-          action={
-            <>
-              {savedOnly}
-              <JumpLink label="History" onOpen={open("history")} />
-            </>
-          }
+          action={<JumpLink label="History" onOpen={open("history")} />}
           footer={truncationNote}
           className="col-span-12 lg:col-span-8"
         >
@@ -391,7 +447,15 @@ function OverviewContent({
               real height (set by the Subject panel beside it). */}
           <div className="relative min-h-[240px] flex-1">
             <div className="absolute inset-0 px-2 pt-2 pb-3">
-              <ActivityBars days={chartDays} tokens={tokens} />
+              <ActivityBars
+                days={chartDays}
+                tokens={tokens}
+                range={{ from: rangeFrom, to: rangeTo }}
+                onRangeChange={({ from, to }) => {
+                  setRangeFrom(from);
+                  setRangeTo(to);
+                }}
+              />
             </div>
           </div>
         </ChartSection>
@@ -436,13 +500,7 @@ function OverviewContent({
 
         <ChartSection
           title="Time of day"
-          description=""
-          action={
-            <>
-              {savedOnly}
-              <JumpLink label="Timeline" onOpen={open("timeline")} />
-            </>
-          }
+          action={<JumpLink label="Timeline" onOpen={open("timeline")} />}
           footer={truncationNote}
           className="col-span-12 md:col-span-6"
         >
@@ -461,17 +519,24 @@ function OverviewContent({
           aside={<JumpLink label="History" onOpen={open("history")} />}
           className="col-span-12 md:col-span-6"
         >
-          <TopSitesList
-            sites={data.mostVisited}
-            favicons={data.favicons}
-            onOpenSite={
-              onOpen === undefined
-                ? undefined
-                : (domain) => {
-                    onOpen("sites", domain);
-                  }
-            }
-          />
+          {mostVisited === null ? (
+            <LoadingRows rows={6} label="Loading most visited sites" />
+          ) : (
+            <TopSitesList
+              sites={mostVisited}
+              emptyMessage={
+                rangeActive ? "No saved visit falls in this range." : undefined
+              }
+              favicons={data.favicons}
+              onOpenSite={
+                onOpen === undefined
+                  ? undefined
+                  : (domain) => {
+                      onOpen("sites", domain);
+                    }
+              }
+            />
+          )}
         </SectionPanel>
 
         <SectionPanel
@@ -480,7 +545,14 @@ function OverviewContent({
           aside={<JumpLink label="Downloads" onOpen={open("downloads")} />}
           className="col-span-12"
         >
-          <DownloadsList downloads={data.downloads} />
+          <DownloadsList
+            downloads={recentDownloads}
+            emptyMessage={
+              rangeActive
+                ? "No saved download started in this range."
+                : undefined
+            }
+          />
         </SectionPanel>
 
         {/* TODO: wire to the real topic-candidates / topic-status routes

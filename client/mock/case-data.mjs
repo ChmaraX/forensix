@@ -202,11 +202,11 @@ function urlFor(rand, host) {
 }
 
 const TITLES_BY_CATEGORY = {
-  banking: "Online Banking — Accounts",
-  crypto: "Trade — Portfolio",
+  banking: "Online Banking - Accounts",
+  crypto: "Trade - Portfolio",
   cloud: "My Drive",
-  job: "LinkedIn — Jobs",
-  vpn: "VPN — Account",
+  job: "LinkedIn - Jobs",
+  vpn: "VPN - Account",
   internal: "Northfield Partners Intranet",
   social: "Home",
   news: "Markets",
@@ -298,14 +298,16 @@ function buildHistoryVisits() {
 const HISTORY_VISITS = buildHistoryVisits();
 
 function buildHistoryActivity() {
-  // One Finding per Profile per local date/hour bucket, aggregated from the
-  // visit rows above — mirrors core's `activity` view.
+  // One Finding per Profile per Commit State per local date/hour bucket,
+  // aggregated from the visit rows above — mirrors core's `activity` view,
+  // which groups by save state too (core/src/history.ts), so saved and
+  // recovered visits never share a bucket.
   const buckets = new Map();
   for (const visit of HISTORY_VISITS) {
     const dt = new Date(visit._sortTime);
     const date = dt.toISOString().slice(0, 10);
     const hour = String(dt.getUTCHours()).padStart(2, "0");
-    const key = `${visit.profile}|${date}|${hour}`;
+    const key = `${visit.profile}|${visit.commitState}|${date}|${hour}`;
     const bucket = buckets.get(key) ?? {
       profile: visit.profile,
       date,
@@ -768,12 +770,12 @@ function buildBookmarks() {
       folder: "Bookmarks Bar / Finance",
     },
     {
-      name: "LinkedIn Jobs — Finance Director",
+      name: "LinkedIn Jobs - Finance Director",
       url: "https://www.linkedin.com/jobs/view/394021",
       folder: "Bookmarks Bar / Job Search",
     },
     {
-      name: "Indeed — Saved Searches",
+      name: "Indeed - Saved Searches",
       url: "https://www.indeed.com/jobs?q=finance+director",
       folder: "Bookmarks Bar / Job Search",
     },
@@ -803,12 +805,12 @@ function buildBookmarks() {
       folder: "Other Bookmarks",
     },
     {
-      name: "Glassdoor — Company Reviews",
+      name: "Glassdoor - Company Reviews",
       url: "https://www.glassdoor.com/",
       folder: "Bookmarks Bar / Job Search",
     },
     {
-      name: "Dropbox — Exports",
+      name: "Dropbox - Exports",
       url: "https://www.dropbox.com/home/exports",
       folder: "Bookmarks Bar / Work",
     },
@@ -1264,10 +1266,11 @@ const ARTIFACT_TABLES = [
 
 function buildCompleteness() {
   const statements = ARTIFACT_TABLES.map((artifact) => {
-    const isAbsent = artifact === "Bookmarks" && false; // reserved, kept produced
-    const isUnavailable = artifact === "Cache";
+    // Every database the fixture serves rows for was read: an unreadable
+    // artifact belongs to the `?degraded=1` statement (server.mjs), which
+    // also withholds its rows.
     const perProfile = PROFILES.map((profile, i) => {
-      const outcome = isUnavailable ? "unavailable" : "produced";
+      const outcome = "produced";
       return {
         sourceId: i === 0 ? SOURCE_IMAGE : SOURCE_USER_DATA,
         profile,
@@ -1277,9 +1280,7 @@ function buildCompleteness() {
             ? `${profile}/Preferences`
             : `${profile}/${artifact.replace(/ /g, " ")}`,
         outcome,
-        reason: isUnavailable
-          ? "Chrome disk cache blob format not present in this acquisition"
-          : null,
+        reason: null,
         runId: "run-2024-04-17T09-12-00Z",
       };
     });

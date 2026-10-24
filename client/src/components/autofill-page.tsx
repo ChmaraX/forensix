@@ -27,7 +27,6 @@ import { useCallback, useMemo, useState } from "react";
 import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
-import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
 
@@ -40,10 +39,12 @@ import {
 import { EmptyRows } from "./data-table.js";
 import {
   CommitStateSplit,
+  CountChips,
   ResponsiveRows,
   SectionPanel,
   TimeCell,
   type CommitView,
+  type CountChip,
   type RowColumn,
 } from "./page-kit.js";
 import { FieldCell, fieldText, StateWord } from "./finding-fields.js";
@@ -265,9 +266,9 @@ function EntryList({
 }
 
 /**
- * The category chips: "All N", then each class with entries in the open tab
- * and its count there. One pick narrows the list; "All" clears.
- * Neutral — the class name is the label, no hue stands in.
+ * The category chips (page-kit `CountChips`): "All N", then each class with
+ * entries in the open tab and its count there. One pick narrows the list;
+ * "All" clears. Neutral — the class name is the label, no hue stands in.
  */
 function CategoryChips({
   categories,
@@ -280,43 +281,33 @@ function CategoryChips({
   readonly active: string | null;
   readonly onPick: (key: string | null) => void;
 }) {
-  const counts = useMemo(() => {
-    const map = new Map<string, number>();
+  const chips = useMemo(() => {
+    const counts = new Map<string, number>();
     for (const entry of entries) {
-      map.set(entry.category.key, (map.get(entry.category.key) ?? 0) + 1);
+      counts.set(entry.category.key, (counts.get(entry.category.key) ?? 0) + 1);
     }
-    return map;
-  }, [entries]);
-  // A class with no entry in the open tab sits out, unless it is the pick.
-  const shown = categories.filter(
-    (category) =>
-      (counts.get(category.key) ?? 0) > 0 || category.key === active,
-  );
-  const selected =
-    active === null
-      ? 0
-      : shown.findIndex((category) => category.key === active) + 1;
+    // A class with no entry in the open tab sits out, unless it is the pick.
+    return categories
+      .filter(
+        (category) =>
+          (counts.get(category.key) ?? 0) > 0 || category.key === active,
+      )
+      .map(
+        (category): CountChip => ({
+          key: category.key,
+          label: category.label,
+          count: counts.get(category.key) ?? 0,
+        }),
+      );
+  }, [categories, entries, active]);
   return (
-    // A phone scrolls the chips sideways rather than clipping them.
-    <div className="scroll-fade-x max-w-full overflow-x-auto max-sm:w-full">
-      <TabsSubtle
-        idPrefix="autofill-category"
-        aria-label="Narrow by category"
-        selectedIndex={Math.max(0, selected)}
-        onSelect={(index) => {
-          onPick(index === 0 ? null : (shown[index - 1]?.key ?? null));
-        }}
-      >
-        <TabsSubtleItem index={0} label={`All ${String(entries.length)}`} />
-        {shown.map((category, index) => (
-          <TabsSubtleItem
-            key={category.key}
-            index={index + 1}
-            label={`${category.label} ${String(counts.get(category.key) ?? 0)}`}
-          />
-        ))}
-      </TabsSubtle>
-    </div>
+    <CountChips
+      label="Narrow by category"
+      total={entries.length}
+      chips={chips}
+      active={active}
+      onChange={onPick}
+    />
   );
 }
 

@@ -39,8 +39,13 @@ import { activateOnKey, ROW_FOCUS_CLASS } from "./data-table.js";
 
 export interface RowColumn<Row> {
   readonly key: string;
-  /** Column header (table) and, with `labelled`, the meta label (card). */
-  readonly header: string;
+  /** Column header (table) and, with `labelled`, the meta label (card).
+   *  May be a node — e.g. a `Term` whose tooltip explains the column's
+   *  values; the card then uses `label`. */
+  readonly header: ReactNode;
+  /** Plain words for the card's meta label when `header` is not a string.
+   *  @default header (when it is a string) */
+  readonly label?: string;
   readonly cell: (row: Row, index: number) => ReactNode;
   /** Classes for this column's head and cells in the table. */
   readonly className?: string;
@@ -295,7 +300,12 @@ function StackedRow<Row>({
                   {position === 0 ? null : <span aria-hidden="true">·</span>}
                   <span className="inline-flex min-w-0 items-baseline gap-1">
                     {column.labelled === true ? (
-                      <span>{column.header}</span>
+                      <span>
+                        {column.label ??
+                          (typeof column.header === "string"
+                            ? column.header
+                            : null)}
+                      </span>
                     ) : null}
                     <span className="min-w-0 text-foreground">
                       {show(column)}

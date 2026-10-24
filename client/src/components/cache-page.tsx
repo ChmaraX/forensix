@@ -30,15 +30,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
-import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
 import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
 import { fillGaps } from "./activity-data.js";
+import { ChartSection } from "./chart-section.js";
+import { DateRangePicker } from "./date-range-picker.js";
 import {
   ActivityBars,
-  ChartEmpty,
   useChartTokens,
   type ChartTokens,
   type DayCount,
@@ -51,8 +51,8 @@ import {
   fieldText,
   fieldUtc,
   hostOf,
-  SiteAvatar,
   StateWord,
+  TwoLineCell,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import {
@@ -64,6 +64,7 @@ import {
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import {
   CHART_HEIGHT,
+  formatDay,
   CommitStateSplit,
   type CommitView,
   formatBytes,
@@ -307,83 +308,95 @@ function CacheSummary({
   );
 }
 
-/** The quiet "Saved only" mark on a chart that draws saved rows only; its
- *  tooltip names what was left out. */
-function SavedOnlyTag({ left }: { readonly left: string }) {
+/** The page's date range on the last-used day (`""` = an open bound). */
+interface DayRange {
+  readonly from: string;
+  readonly to: string;
+}
+
+const FULL_SPAN: DayRange = { from: "", to: "" };
+
+/** An entry's last-used day falls in the range; with a range set, an entry
+ *  with no last-used time falls outside it. */
+function lastUsedIn(row: Finding, range: DayRange): boolean {
+  if (range.from === "" && range.to === "") {
+    return true;
+  }
+  const utc = fieldUtc(row.fields.lastUsed);
+  if (utc === null) {
+    return false;
+  }
+  const day = utc.slice(0, 10);
   return (
-    <Tooltip content={left}>
-      <span
-        tabIndex={0}
-        className={cn(
-          typeClass("caption"),
-          "cursor-help rounded-sm whitespace-nowrap text-muted-foreground outline-none",
-        )}
-      >
-        Saved only
-      </span>
-    </Tooltip>
+    (range.from === "" || day >= range.from) &&
+    (range.to === "" || day <= range.to)
   );
 }
 
 /**
  * "Last used over time" — saved entries per day of their `lastUsed`
- * instant, on the shared `ActivityBars` (gap-filled calendar time). Entries
- * without a last-used time land on no bar; the chart's tag names them with
- * the recovered entries it leaves out.
+ * instant, on the shared `ActivityBars` (gap-filled calendar time). It
+ * drives the page's date range with the picker in its header: a day or a
+ * dragged span narrows the figures and both lists to entries last used
+ * then.
  */
 function LastUsedPanel({
   rows,
-  recovered,
+  range,
+  onRangeChange,
   tokens,
 }: {
   readonly rows: readonly Finding[];
-  /** Loaded recovered entries, not drawn. */
-  readonly recovered: number;
+  readonly range: DayRange;
+  readonly onRangeChange: (range: DayRange) => void;
   readonly tokens: ChartTokens;
 }) {
-  const { days, undated } = useMemo(() => {
+  const days = useMemo(() => {
     const byDate = new Map<string, number>();
-    let missing = 0;
     for (const row of rows) {
       const utc = fieldUtc(row.fields.lastUsed);
-      if (utc === null) {
-        missing += 1;
-        continue;
+      if (utc !== null) {
+        const date = utc.slice(0, 10);
+        byDate.set(date, (byDate.get(date) ?? 0) + 1);
       }
-      const date = utc.slice(0, 10);
-      byDate.set(date, (byDate.get(date) ?? 0) + 1);
     }
     const recorded = [...byDate.entries()]
       .map(([date, count]): DayCount => ({ date, count }))
       .sort((left, right) => left.date.localeCompare(right.date));
-    return { days: fillGaps(recorded), undated: missing };
+    return fillGaps(recorded);
   }, [rows]);
 
-  const left = [
-    recovered === 0
-      ? null
-      : `${plural(recovered, "recovered entry", "recovered entries")} not drawn`,
-    undated === 0
-      ? null
-      : `${plural(undated, "saved entry", "saved entries")} with no last-used time`,
-  ].filter((part): part is string => part !== null);
-
   return (
-    <SectionPanel
-      id="cache-last-used"
+    <ChartSection
       title="Last used over time"
-      aside={left.length === 0 ? null : <SavedOnlyTag left={left.join("; ")} />}
+      action={
+        days.length === 0 ? undefined : (
+          <DateRangePicker
+            from={range.from}
+            to={range.to}
+            min={days[0]?.date ?? null}
+            max={days[days.length - 1]?.date ?? null}
+            triggerLabel="All recorded days"
+            formatDate={formatDay}
+            onChange={onRangeChange}
+            presets
+          />
+        )
+      }
     >
       <div className="px-2 pt-2 pb-3">
         <div className={cn(CHART_HEIGHT, "w-full")}>
-          {days.length === 0 ? (
-            <ChartEmpty>No saved entries carry a last-used time.</ChartEmpty>
-          ) : (
-            <ActivityBars days={days} tokens={tokens} unit={CACHE_ENTRY_UNIT} />
-          )}
+          <ActivityBars
+            days={days}
+            tokens={tokens}
+            unit={CACHE_ENTRY_UNIT}
+            range={range}
+            onRangeChange={onRangeChange}
+            emptyMessage="No saved entries carry a last-used time."
+          />
         </div>
       </div>
-    </SectionPanel>
+    </ChartSection>
   );
 }
 
@@ -393,7 +406,8 @@ const CACHE_ENTRY_UNIT = { one: "cache entry", many: "cache entries" };
 
 /** The integrity word for the table: verified / failed / not recorded — the
  *  three states worded apart, the dot only repeating the word (warning for
- *  failed, neutral for not recorded). */
+ *  a failed check, which questions the evidence itself; a neutral ring for
+ *  verified; absent for not recorded). */
 function integrityWord(row: Finding): {
   readonly label: string;
   readonly state: EvidenceState;
@@ -404,7 +418,7 @@ function integrityWord(row: Finding): {
     return { label: "failed", state: "warning" };
   }
   if (keyHashValid === true) {
-    return { label: "verified", state: "produced" };
+    return { label: "verified", state: "neutral" };
   }
   return { label: "not recorded", state: "absent" };
 }
@@ -441,23 +455,13 @@ function ResourceCell({
   readonly avatar?: boolean;
 }) {
   const host = keyHost(row);
-  const key = <FieldCell field={row.fields.key} mono />;
   return (
-    <span className="flex min-w-0 items-center gap-2.5">
-      {avatar ? <SiteAvatar host={host} /> : null}
-      {host === null ? (
-        <span className="min-w-0 flex-1">{key}</span>
-      ) : (
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-foreground" title={host}>
-            {host.replace(/^www\./, "")}
-          </span>
-          <SizeProvider size="compact">
-            <span className="min-w-0 text-muted-foreground">{key}</span>
-          </SizeProvider>
-        </span>
-      )}
-    </span>
+    <TwoLineCell
+      primary={host === null ? row.fields.key : host.replace(/^www\./, "")}
+      secondary={host === null ? null : row.fields.key}
+      mono={host === null}
+      avatar={avatar ? host : undefined}
+    />
   );
 }
 
@@ -634,22 +638,11 @@ function EntryList({
           />
         )}
       </RevealSwap>
-      {loading || (!filtered && complete) || visible.length === 0 ? null : (
+      {loading || visible.length === 0 ? null : (
         <ListFooter
-          count={visible.length}
-          cursor={null}
-          loading={false}
-          onLoadMore={() => undefined}
-          summary={
-            <>
-              {filtered
-                ? `${visible.length.toLocaleString("en-US")} of ${rows.length.toLocaleString("en-US")}`
-                : plural(rows.length, `${noun} entry`, `${noun} entries`)}
-              {complete
-                ? ""
-                : ` · reading stopped at ${(CACHE_PAGE_CAP * 100).toLocaleString("en-US")} entries; more stand in the Case`}
-            </>
-          }
+          shown={visible.length}
+          total={rows.length}
+          more={!complete}
         />
       )}
     </>
@@ -682,6 +675,7 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
   const [view, setView] = useState<CommitView>("saved");
   const [search, setSearch] = useState("");
   const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
+  const [range, setRange] = useState<DayRange>(FULL_SPAN);
 
   // The Cache route cannot filter by Commit State: split the one loaded set.
   const all = useMemo(() => splitByCommit(list.rows), [list.rows]);
@@ -695,6 +689,9 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
     (rows: readonly Finding[]) => {
       const query = search.trim().toLocaleLowerCase("en-US");
       return rows.filter((row) => {
+        if (!lastUsedIn(row, range)) {
+          return false;
+        }
         if (profileFilter.length > 0 && !profileFilter.includes(row.profile)) {
           return false;
         }
@@ -711,7 +708,13 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
         return haystack.includes(query);
       });
     },
-    [search, profileFilter],
+    [search, profileFilter, range],
+  );
+  // The figures follow the date range (not the search or profile filter,
+  // which only narrow the lists).
+  const savedInRange = useMemo(
+    () => all.saved.filter((row) => lastUsedIn(row, range)),
+    [all.saved, range],
   );
   const savedVisible = useMemo(() => narrow(all.saved), [narrow, all.saved]);
   const recoveredVisible = useMemo(
@@ -726,6 +729,7 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
   const clearFilters = useCallback(() => {
     setSearch("");
     setProfileFilter([]);
+    setRange(FULL_SPAN);
   }, []);
 
   // Read finished without error: the counts are known.
@@ -765,10 +769,11 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
           {showFigures ? (
             <RevealSwap loading={list.loading} skeleton={<FiguresSkeleton />}>
               <div className="flex flex-col gap-5">
-                <CacheSummary rows={all.saved} complete={list.complete} />
+                <CacheSummary rows={savedInRange} complete={list.complete} />
                 <LastUsedPanel
                   rows={all.saved}
-                  recovered={all.recovered.length}
+                  range={range}
+                  onRangeChange={setRange}
                   tokens={tokens}
                 />
               </div>

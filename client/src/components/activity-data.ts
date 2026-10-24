@@ -148,11 +148,6 @@ export function useActivity(): {
   return { activity, error, retry };
 }
 
-/** Total visits across a bucket set. */
-export function visitTotal(buckets: readonly ActivityBucket[]): number {
-  return buckets.reduce((sum, bucket) => sum + bucket.count, 0);
-}
-
 function inRange(
   date: string,
   range?: { readonly from?: string; readonly to?: string },

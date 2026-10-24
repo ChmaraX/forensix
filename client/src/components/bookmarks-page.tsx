@@ -64,6 +64,7 @@ import {
   hostOf,
   SiteAvatar,
   StateWord,
+  TwoLineCell,
 } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
@@ -532,33 +533,14 @@ function FolderCell({ row }: { readonly row: BookmarkRow }) {
   );
 }
 
-/** The bookmark's name over its URL (the URL mono, as a value to copy). */
+/** The bookmark's name over its URL. */
 function BookmarkCell({ row }: { readonly row: BookmarkRow }) {
   return (
-    <span className="flex min-w-0 flex-col">
-      {row.name === null ? (
-        <FieldCell field={row.finding.fields.name} />
-      ) : (
-        <span className="truncate text-foreground" title={row.name}>
-          {row.name}
-        </span>
-      )}
-      {row.url === null ? (
-        <span className={typeClass("caption")}>
-          <FieldCell field={row.finding.fields.url} />
-        </span>
-      ) : (
-        <span
-          className={cn(
-            typeClass("caption"),
-            "truncate font-mono text-muted-foreground",
-          )}
-          title={row.url}
-        >
-          {row.url}
-        </span>
-      )}
-    </span>
+    <TwoLineCell
+      primary={row.finding.fields.name}
+      secondary={row.finding.fields.url}
+      mono={false}
+    />
   );
 }
 
@@ -876,7 +858,7 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
                     </BannerTitle>
                     <BannerDescription>
                       They read the first {saved.length.toLocaleString("en-US")}{" "}
-                      saved bookmarks — the most this page loads at once. More
+                      saved bookmarks - the most this page loads at once. More
                       rows exist in the Case.
                     </BannerDescription>
                   </Banner>

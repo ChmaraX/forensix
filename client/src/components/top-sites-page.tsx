@@ -22,7 +22,6 @@ import { useCallback, useMemo, useState } from "react";
 
 import { SearchIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
-import { useSize } from "@/lib/size-context";
 
 import type { ArtifactConfig, Finding } from "../types.js";
 import {
@@ -38,6 +37,7 @@ import {
   profileLabel,
   SiteAvatar,
   StateWord,
+  TwoLineCell,
 } from "./finding-fields.js";
 import { FilterTextField, ProfilePicker } from "./filters.js";
 import { ListBlock } from "./list-states.js";
@@ -56,33 +56,14 @@ const RANK_ORDER: readonly (readonly [string, string])[] = [
   ["direction", "asc"],
 ];
 
-function asText(value: unknown): string {
-  return typeof value === "string" ? value : String(value);
-}
-
-/** A ranked site: its title over its URL (monospace, caption). */
+/** A ranked site: its title over its URL. */
 function SitePage({ row }: { readonly row: Finding }) {
-  const size = useSize();
-  const url = fieldText(row.fields.url);
-  const title = fieldText(row.fields.title);
   return (
-    <span className="flex min-w-0 flex-col">
-      <span className="min-w-0" title={title ?? undefined}>
-        <FieldCell
-          field={row.fields.title}
-          format={asText}
-          className="text-foreground"
-        />
-      </span>
-      <span className="min-w-0" title={url ?? undefined}>
-        <FieldCell
-          field={row.fields.url}
-          format={asText}
-          mono
-          className={size.type.caption}
-        />
-      </span>
-    </span>
+    <TwoLineCell
+      primary={row.fields.title}
+      secondary={row.fields.url}
+      mono={false}
+    />
   );
 }
 

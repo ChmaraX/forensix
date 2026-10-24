@@ -29,17 +29,17 @@ export const COMMIT_META: Readonly<
     technical: "Commit State: committed",
   },
   wal_resident: {
-    label: "recovered — unsaved",
+    label: "recovered - unsaved",
     badge: "wal",
     plain:
       "Found in Chrome's write-ahead log: changes Chrome had not yet finished saving when it stopped. Real activity, recovered by the analyzer.",
     technical: "Commit State: wal_resident (WAL)",
   },
   journal_resident: {
-    label: "recovered — overwritten",
+    label: "recovered - overwritten",
     badge: "journal",
     plain:
-      "Found in Chrome's rollback journal: data from an interrupted write — often rows that were being deleted or replaced. Recovered by the analyzer.",
+      "Found in Chrome's rollback journal: data from an interrupted write - often rows that were being deleted or replaced. Recovered by the analyzer.",
     technical: "Commit State: journal_resident (rollback journal)",
   },
 };

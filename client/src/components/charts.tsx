@@ -25,8 +25,7 @@
  *    `FluidHoverHighlight`), and the bar under it gains strength on the same
  *    spring (`FluidBar`);
  *  - entrance animation on the `spring.slow` tier's duration, off under reduced
- *    motion (`chartAnimation`);
- *  - a legend where every colour sits beside its word (`ChartLegend`).
+ *    motion (`chartAnimation`).
  *
  * One series style (`SERIES`, `seriesColor`, `SeriesBar`), the same in light
  * and dark: the series is ink (`--foreground`) — FF's palette is neutral, so
@@ -40,13 +39,7 @@
  * evidence series, always with their word.
  */
 import { motion } from "motion/react";
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -54,18 +47,21 @@ import {
   ReferenceArea,
   Rectangle,
   ResponsiveContainer,
-  Scatter,
-  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
-  ZAxis,
   type BarShapeProps,
   type MouseHandlerDataParam,
   type RectangleProps,
 } from "recharts";
 
 import { EvidenceDot, type EvidenceState } from "@/components/evidence";
+import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
+import { Tooltip as UiTooltip } from "@/components/ui/tooltip";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@/hooks/use-fluid-hover";
 import { Elevated } from "@/lib/elevated";
 import { fontWeights } from "@/lib/font-weight";
 import { typeClass } from "@/lib/size-context";
@@ -358,61 +354,6 @@ export function ChartTooltipNote({
   );
 }
 
-interface ChartLegendItem {
-  /** The word the colour stands for. Required: colour never stands alone. */
-  readonly label: ReactNode;
-  /** Resolved series colour (from `useChartTokens`). */
-  readonly color?: string;
-  /** Evidence state: draws the shared `EvidenceDot` instead of `color`. */
-  readonly state?: EvidenceState;
-  /** Mark drawn before the word. Defaults to a dot. */
-  readonly shape?: "dot" | "diamond" | "bar";
-}
-
-/**
- * Chart legend: each series mark beside its word, caption size. Evidence
- * series pass `state` so the dot matches every other state mark in the app.
- */
-function ChartLegend({
-  items,
-  className,
-}: {
-  readonly items: readonly ChartLegendItem[];
-  readonly className?: string;
-}) {
-  return (
-    <ul
-      className={cn(
-        typeClass("caption"),
-        "flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground",
-        className,
-      )}
-    >
-      {items.map((item, index) => (
-        <li key={index} className="inline-flex items-center gap-1.5">
-          {item.state === undefined ? (
-            <span
-              aria-hidden="true"
-              className={cn(
-                "inline-block shrink-0",
-                item.shape === "diamond"
-                  ? "size-2 rotate-45 rounded-[1px]"
-                  : item.shape === "bar"
-                    ? "h-2 w-1 rounded-[1px]"
-                    : "size-1.5 rounded-full",
-              )}
-              style={{ backgroundColor: item.color }}
-            />
-          ) : (
-            <EvidenceDot state={item.state} />
-          )}
-          <span>{item.label}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 /**
  * The chart's fluid hover: one `--hover` band, rounded like an FF item, that
  * glides to the category under the pointer on `spring.fast` and fades in where
@@ -627,41 +568,47 @@ function unitFor(count: number, unit: ChartUnit): string {
 /* ─────────────────────────────── Charts ─────────────────────────────── */
 
 /**
- * Visits per recorded day, as discrete bars — the one activity chart shared
- * by Overview and History so the same dataset never reads two different ways
- * in the same app. Each day is one recorded bucket, not a sample on a
- * continuous curve: bars are the honest reading here, an interpolated area
- * would imply a continuity between days the evidence doesn't contain. The
- * busiest day is held at full strength; every other day sits at reduced
- * opacity, so the peak reads at a glance without a second legend.
+ * Counts per recorded day, as discrete bars — the one per-day chart shared by
+ * Overview, History, Timeline, Downloads and Cache, so the same kind of data
+ * never reads two different ways. Each day is one recorded bucket, not a
+ * sample on a continuous curve. One emphasis at full ink: the selected day
+ * when the range is one day, else the peak.
+ *
+ * With `onRangeChange` the chart drives the page's date range (the same
+ * value its date picker shows), one behaviour everywhere:
+ *  - click a day: the range becomes that day; click it again: the full span
+ *    (`{ from: "", to: "" }`);
+ *  - drag across days: the range becomes those days;
+ *  - an active range is a wash behind the bars, the days outside it dimmed.
+ * The cursor is a pointer and the fluid hover band follows it. Without
+ * `onRangeChange` the chart is a plain read-only reading.
  */
 export function ActivityBars({
   days,
   tokens,
-  selectedDate = null,
-  onSelectDay,
   range,
   onRangeChange,
   unit = VISITS_UNIT,
+  emptyMessage = "No dated visits to draw.",
 }: {
   readonly days: readonly DayCount[];
   readonly tokens: ChartTokens;
-  /** The one day currently filtered to, if any — drawn with an outline
-   *  distinct from the busiest-day fill so "selected" and "peak" never read
-   *  as the same signal. */
-  readonly selectedDate?: string | null;
-  /** Present only where a click can act on it (e.g. History); omitted, the
-   *  chart stays the plain read-only reading it always was (e.g. Overview). */
-  readonly onSelectDay?: (date: string) => void;
+  /** The page's date range (`""` = an open bound). */
   readonly range?: { readonly from: string; readonly to: string };
+  /** Makes the chart drive the range (see above). */
   readonly onRangeChange?: (range: { from: string; to: string }) => void;
   /** The unit the tooltip prints after the count. @default page visit(s) */
   readonly unit?: ChartUnit;
+  /** Words when there is no day to draw. */
+  readonly emptyMessage?: string;
 }) {
   const reduced = usePrefersReducedMotion();
   const [dragStart, setDragStart] = useState<string | null>(null);
   const [dragCurrent, setDragCurrent] = useState<string | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  // A drag across days ends in a click event too; that click must not undo
+  // the range the drag just set.
+  const dragged = useRef(false);
   const highlight = useMemo(() => {
     if (dragStart !== null && dragCurrent !== null) {
       return dragStart <= dragCurrent
@@ -682,38 +629,49 @@ export function ActivityBars({
   }, [dragCurrent, dragStart, range, days]);
   const commitDrag = () => {
     if (
-      dragStart === null ||
-      dragCurrent === null ||
-      dragStart === dragCurrent ||
-      onRangeChange === undefined
+      dragStart !== null &&
+      dragCurrent !== null &&
+      dragStart !== dragCurrent &&
+      onRangeChange !== undefined
     ) {
-      setDragStart(null);
-      setDragCurrent(null);
-      return;
+      dragged.current = true;
+      onRangeChange(
+        dragStart <= dragCurrent
+          ? { from: dragStart, to: dragCurrent }
+          : { from: dragCurrent, to: dragStart },
+      );
     }
-    onRangeChange(
-      dragStart <= dragCurrent
-        ? { from: dragStart, to: dragCurrent }
-        : { from: dragCurrent, to: dragStart },
-    );
     setDragStart(null);
     setDragCurrent(null);
   };
+  const selectedDate =
+    range !== undefined && range.from !== "" && range.from === range.to
+      ? range.from
+      : null;
+  const selectDay = (date: string) => {
+    if (onRangeChange === undefined) {
+      return;
+    }
+    onRangeChange(
+      date === selectedDate ? { from: "", to: "" } : { from: date, to: date },
+    );
+  };
   if (days.length === 0) {
-    return <ChartEmpty>No dated visits to draw.</ChartEmpty>;
+    return <ChartEmpty>{emptyMessage}</ChartEmpty>;
   }
   const rows = days;
   const peak = rows.reduce((max, row) => Math.max(max, row.count), 0);
-  const interactive = onSelectDay !== undefined || onRangeChange !== undefined;
+  const interactive = onRangeChange !== undefined;
   const dateAt = (state: MouseHandlerDataParam | undefined) => {
     const index = activeIndexOf(state);
     return index === null ? null : (rows[index]?.date ?? null);
   };
-  // One emphasis: the selected day when there is one, else the peak.
-  const selectedShown =
-    selectedDate !== null && rows.some((row) => row.date === selectedDate);
+  // One emphasis: the selection when there is one (the picked day, or every
+  // day of the picked or dragged span), else the peak.
   const emphasisOf = (row: DayCount) =>
-    selectedShown ? row.date === selectedDate : peak > 0 && row.count === peak;
+    highlight !== null
+      ? row.count > 0 && row.date >= highlight.from && row.date <= highlight.to
+      : peak > 0 && row.count === peak;
   const dimmedOf = (row: DayCount) =>
     highlight !== null &&
     (row.date < highlight.from || row.date > highlight.to);
@@ -755,12 +713,13 @@ export function ActivityBars({
         onClick={(state) => {
           // The whole lit band is the click target, not only the bar inside
           // it: what the hover band lights is what a click selects.
-          if (onSelectDay === undefined) {
+          if (dragged.current) {
+            dragged.current = false;
             return;
           }
           const date = dateAt(state);
           if (date !== null) {
-            onSelectDay(date);
+            selectDay(date);
           }
         }}
       >
@@ -897,7 +856,7 @@ export function HourBars({
             const hour = Number(row["hour"]);
             return (
               <ChartTooltipCard
-                label={`${formatHour(hour)} – ${formatHour((hour + 1) % 24)}`}
+                label={`${formatHour(hour)} - ${formatHour((hour + 1) % 24)}`}
               >
                 <ChartTooltipValue
                   value={formatCount(count)}
@@ -932,217 +891,188 @@ export function HourBars({
   );
 }
 
-/** One credential plotted on the saved-login age chart: age since created
- *  (x, days) against dormancy since last used (y, days). Both are derived
- *  from recorded timestamps — never invented; a credential with no recorded
- *  last-use is dropped from the plot, not placed at zero. */
-export interface CredentialAgePoint {
-  readonly site: string;
-  readonly username: string;
-  /** Whole days between the recorded creation instant and now. */
-  readonly ageDays: number;
-  /** Whole days between the recorded last-use instant and now. */
-  readonly idleDays: number;
-  /** Recorded `timesUsed`, sizing the dot; `null` when the column was absent. */
-  readonly timesUsed: number | null;
-  /** True when the row was recovered from a sidecar, not committed storage. */
-  readonly recovered: boolean;
-  /** Which sidecar a recovered row came from: WAL (`--wal`, the default) or
-   *  the rollback journal (`--violet`). Ignored for saved rows. */
-  readonly sidecar?: "wal" | "journal";
+/* ───────────────────────────── Segment bar ───────────────────────────── */
+
+/** One category of a `SegmentBar`, in the distribution's own order. */
+export interface Segment {
+  readonly key: string;
+  /** The category, in words ("≤ 1 year"). */
+  readonly label: string;
+  readonly count: number;
 }
 
-/** Diamond mark for recovered points: a shape as well as a colour, and the
- *  legend word beside it, so "recovered" never rests on colour alone. */
-function DiamondMark(props: unknown): ReactElement {
-  const { cx, cy, size, fill } = props as {
-    cx?: number;
-    cy?: number;
-    size?: number;
-    fill?: string;
-  };
-  const x = cx ?? 0;
-  const y = cy ?? 0;
-  const r = Math.sqrt(size ?? 64) / 1.6;
+/** Ink strength of the segment at `position` of `total` ordered categories:
+ *  an ordinal ramp in the one series colour, light (first) to full (last). */
+function segmentOpacity(position: number, total: number): number {
+  if (total <= 1) {
+    return SERIES.emphasis;
+  }
   return (
-    <path
-      d={`M${String(x)} ${String(y - r)}L${String(x + r)} ${String(y)}L${String(x)} ${String(y + r)}L${String(x - r)} ${String(y)}Z`}
-      fill={fill}
-      fillOpacity={0.7}
-    />
+    SERIES.rest + ((SERIES.emphasis - SERIES.rest) * position) / (total - 1)
   );
 }
 
 /**
- * Saved-login age scatter. Each dot is one credential: how long ago Chrome
- * first stored it (x) against how long since it was last used (y). Dots near
- * the diagonal were saved and then left; dots low on the y-axis are recently
- * used regardless of age. Every coordinate is read straight off the recorded
- * `dateCreated` / `dateLastUsed` instants — the chart derives distances in
- * days, it does not model or predict anything the evidence does not contain.
+ * A categorical distribution as one proportion bar: each non-zero category
+ * a segment sized by its count, in the categories' own order, drawn in
+ * neutral ordinal shades of the one series colour (ink, light to full) —
+ * never an evidence hue. Zero categories are left out of the bar and the
+ * legend. Under it, a compact legend: each category's swatch, label, count
+ * and share.
+ *
+ * Hover (or focus) a segment or its legend entry: FF's fluid highlight
+ * glides behind that segment (`useFluidHover`, `spring.fast`), the segment
+ * lifts a step (the last, already full, stays), its legend label turns semibold, and a tooltip names
+ * it ("≤ 1 year · 18 cookies · 82%"). Read-only: nothing is clickable.
+ *
+ *   <SegmentBar segments={buckets} tokens={tokens} unit={{ one: "cookie", many: "cookies" }} />
  */
-export function CredentialAgeScatter({
-  points,
+export function SegmentBar({
+  segments,
   tokens,
-  legend = true,
+  unit,
+  label,
+  className,
 }: {
-  readonly points: readonly CredentialAgePoint[];
+  /** Every category in order; zeros are not drawn. */
+  readonly segments: readonly Segment[];
   readonly tokens: ChartTokens;
-  /** Optional: the word legend under the plot (Saved / Recovered from
-   *  sidecar). On by default; pass `false` when the host prints its own. */
-  readonly legend?: boolean;
+  readonly unit: ChartUnit;
+  /** Accessible name of the bar (e.g. "Saved cookies by lifespan"). */
+  readonly label?: string;
+  readonly className?: string;
 }) {
-  const reduced = usePrefersReducedMotion();
-  if (points.length === 0) {
-    return <ChartEmpty>No dated logins to plot.</ChartEmpty>;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hover = useFluidHover(containerRef, { axis: "x" });
+  const total = segments.reduce((sum, segment) => sum + segment.count, 0);
+  // The ramp runs over the drawn (non-zero) categories, in order, so two
+  // neighbours never sit a hair apart in shade.
+  const drawn = segments.filter((segment) => segment.count > 0);
+  const shown = drawn.map((segment, position) => ({
+    ...segment,
+    opacity: segmentOpacity(position, drawn.length),
+  }));
+  if (total === 0) {
+    return <ChartEmpty>Nothing to draw.</ChartEmpty>;
   }
-  const committed = points.filter((point) => !point.recovered);
-  // Recovered points take their sidecar's evidence hue (FLUID.md: WAL is
-  // --wal, the rollback journal --violet), always with the legend word and
-  // the diamond shape, never on colour alone.
-  const wal = points.filter(
-    (point) => point.recovered && point.sidecar !== "journal",
-  );
-  const journal = points.filter(
-    (point) => point.recovered && point.sidecar === "journal",
-  );
-  const legendItems: ChartLegendItem[] = [
-    ...(committed.length > 0
-      ? [{ label: "Saved login", color: seriesColor(tokens) }]
-      : []),
-    ...(wal.length > 0
-      ? [
-          {
-            label:
-              journal.length > 0
-                ? "Recovered from WAL"
-                : "Recovered from sidecar",
-            color: tokens["--wal"],
-            shape: "diamond" as const,
-          },
-        ]
-      : []),
-    ...(journal.length > 0
-      ? [
-          {
-            label: "Recovered from journal",
-            color: tokens["--violet"],
-            shape: "diamond" as const,
-          },
-        ]
-      : []),
-  ];
-  const axisLabel = {
-    fill: tokens["--muted-foreground"],
-    fontSize: 12,
-    fontFamily: CHART_FONT_FAMILY,
+  const share = (count: number) => {
+    const percent = (count / total) * 100;
+    return percent > 0 && percent < 1
+      ? "<1%"
+      : `${String(Math.round(percent))}%`;
   };
+  const describe = (segment: Segment) =>
+    `${segment.label} · ${segment.count.toLocaleString("en-US")} ${unitFor(segment.count, unit)} · ${share(segment.count)}`;
+  const ink = seriesColor(tokens);
   return (
-    <div className="flex h-full w-full flex-col gap-2">
-      <div className="min-h-0 flex-1">
-        <ResponsiveContainer
-          width="100%"
-          height="100%"
-          className={CHART_FOCUS_CLASS}
-        >
-          <ScatterChart margin={{ top: 10, right: 12, bottom: 20, left: 4 }}>
-            <CartesianGrid {...chartGrid(tokens)} />
-            <XAxis
-              type="number"
-              dataKey="ageDays"
-              name="Age"
-              {...chartAxis(tokens)}
-              tickFormatter={(value: number) => `${String(value)}d`}
-              label={{
-                value: "Days since first saved",
-                position: "bottom",
-                offset: 4,
-                ...axisLabel,
-              }}
-            />
-            <YAxis
-              type="number"
-              dataKey="idleDays"
-              name="Idle"
-              width={64}
-              {...chartAxis(tokens)}
-              tickFormatter={(value: number) => `${String(value)}d`}
-              label={{
-                value: "Days idle",
-                angle: -90,
-                position: "insideLeft",
-                ...axisLabel,
-              }}
-            />
-            <ZAxis
-              type="number"
-              dataKey="timesUsed"
-              range={[40, 320]}
-              name="Uses"
-            />
-            <Tooltip
-              {...chartTooltipMotion(reduced)}
-              cursor={{
-                stroke: tokens["--border"],
-                strokeWidth: 1,
-                strokeDasharray: "0",
-              }}
-              content={({ payload }) => {
-                const row = tooltipEntry(payload);
-                if (row === null) {
-                  return null;
-                }
-                const uses = row["timesUsed"];
-                return (
-                  <ChartTooltipCard label={String(row["site"])}>
-                    <p
-                      className={cn(
-                        typeClass("body"),
-                        "truncate text-foreground",
-                      )}
-                    >
-                      {String(row["username"])}
-                    </p>
-                    <ChartTooltipNote>
-                      saved {String(row["ageDays"])}d ago · idle{" "}
-                      {String(row["idleDays"])}d
-                      {typeof uses === "number"
-                        ? ` · used ${String(uses)}×`
-                        : ""}
-                    </ChartTooltipNote>
-                    {row["recovered"] === true ? (
-                      <ChartTooltipNote>
-                        Recovered from sidecar
-                      </ChartTooltipNote>
-                    ) : null}
-                  </ChartTooltipCard>
-                );
-              }}
-            />
-            <Scatter
-              data={committed}
-              fill={seriesColor(tokens)}
-              fillOpacity={0.55}
-              {...chartAnimation(reduced)}
-            />
-            <Scatter
-              data={wal}
-              fill={tokens["--wal"]}
-              shape={DiamondMark}
-              {...chartAnimation(reduced)}
-            />
-            <Scatter
-              data={journal}
-              fill={tokens["--violet"]}
-              shape={DiamondMark}
-              {...chartAnimation(reduced)}
-            />
-          </ScatterChart>
-        </ResponsiveContainer>
+    <div className={cn("flex flex-col gap-2", className)}>
+      <div
+        ref={containerRef}
+        role="img"
+        aria-label={`${label === undefined ? "" : `${label}: `}${shown.map(describe).join("; ")}`}
+        className="relative flex h-8 items-stretch gap-0.5"
+        {...hover.handlers}
+      >
+        <FluidHoverHighlight hover={hover} className="rounded-lg" />
+        {shown.map((segment, index) => (
+          <SegmentCell
+            key={segment.key}
+            index={index}
+            weight={segment.count}
+            color={ink}
+            opacity={segment.opacity}
+            lifted={hover.activeIndex === index}
+            note={describe(segment)}
+            registerItem={hover.registerItem}
+          />
+        ))}
       </div>
-      {legend ? (
-        <ChartLegend items={legendItems} className="shrink-0 px-2 pb-1" />
-      ) : null}
+      <ul
+        className={cn(
+          typeClass("caption"),
+          "flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground tabular-nums",
+        )}
+      >
+        {shown.map((segment, index) => (
+          <li
+            key={segment.key}
+            className="inline-flex items-center gap-1.5"
+            onMouseEnter={() => {
+              hover.setActiveIndex(index);
+            }}
+            onMouseLeave={() => {
+              hover.setActiveIndex(null);
+            }}
+          >
+            <span
+              aria-hidden="true"
+              className="inline-block size-2 shrink-0 rounded-[2px]"
+              style={{ backgroundColor: ink, opacity: segment.opacity }}
+            />
+            <span
+              className="text-foreground transition-[font-variation-settings] duration-80"
+              style={{
+                fontVariationSettings:
+                  hover.activeIndex === index
+                    ? fontWeights.semibold
+                    : fontWeights.normal,
+              }}
+            >
+              {segment.label}
+            </span>
+            <span>
+              {segment.count.toLocaleString("en-US")} · {share(segment.count)}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
+  );
+}
+
+/** One segment: a hover target the bar's full height, the ink bar centred
+ *  in it, sized by `weight` (flex-grow, so the gaps never overflow). */
+function SegmentCell({
+  index,
+  weight,
+  color,
+  opacity,
+  lifted,
+  note,
+  registerItem,
+}: {
+  readonly index: number;
+  readonly weight: number;
+  readonly color: string;
+  readonly opacity: number;
+  readonly lifted: boolean;
+  readonly note: string;
+  readonly registerItem: (index: number, element: HTMLElement | null) => void;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useRegisterFluidHoverItem(registerItem, index, ref);
+  return (
+    <UiTooltip content={note}>
+      <span
+        ref={ref}
+        tabIndex={0}
+        aria-label={note}
+        className="relative z-10 flex min-w-2 cursor-default items-center px-0.5 outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
+        style={{ flexGrow: weight, flexBasis: 0 }}
+      >
+        <motion.span
+          aria-hidden="true"
+          className="block h-3 w-full rounded-[3px]"
+          style={{ backgroundColor: color }}
+          initial={false}
+          animate={{
+            opacity: lifted
+              ? Math.min(SERIES.emphasis, opacity + 0.25)
+              : opacity,
+          }}
+          transition={spring.fast}
+        />
+      </span>
+    </UiTooltip>
   );
 }

@@ -9,24 +9,17 @@
  * precision; the records below filter on it.
  *
  * Saved and recovered visits are counted apart (forensic rule 4): the chart
- * draws saved (committed) activity rows only, and a "Saved only" tag in its
- * header names the recovered visits it leaves out.
+ * draws saved (committed) activity rows only.
  */
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import {
-  bucketsToDays,
-  fillGaps,
-  useActivity,
-  visitTotal,
-} from "./activity-data.js";
+import { bucketsToDays, fillGaps, useActivity } from "./activity-data.js";
 import { ActivityBars, type DayCount, useChartTokens } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
-import { SavedOnlyTag } from "./history-chart-parts.js";
 import { ErrorRows, RevealSwap } from "./list-states.js";
 import { Skeleton } from "./ui/misc.js";
 import { CHART_HEIGHT, formatDay } from "./page-kit.js";
@@ -72,44 +65,21 @@ export function TimelineActivityCard({
     };
   }, [activity]);
 
-  // A bar is "selected" only when the range is pinned to that one day.
-  const selectedDate =
-    range.from !== "" && range.from === range.to ? range.from : null;
-  const onSelectDay = useCallback(
-    (date: string) => {
-      onRangeChange(
-        range.from === date && range.to === date
-          ? { from: "", to: "" }
-          : { from: date, to: date },
-      );
-    },
-    [range, onRangeChange],
-  );
-
-  const recovered = activity === null ? 0 : visitTotal(activity.recovered);
-
   return (
     <ChartSection
       title="Page visits per day"
-      description=""
       action={
         span.min === null ? undefined : (
-          <>
-            <SavedOnlyTag
-              recovered={recovered}
-              unit={{ one: "visit", many: "visits" }}
-            />
-            <DateRangePicker
-              from={range.from}
-              to={range.to}
-              min={span.min}
-              max={span.max}
-              triggerLabel="All recorded days"
-              formatDate={formatDay}
-              onChange={onRangeChange}
-              presets
-            />
-          </>
+          <DateRangePicker
+            from={range.from}
+            to={range.to}
+            min={span.min}
+            max={span.max}
+            triggerLabel="All recorded days"
+            formatDate={formatDay}
+            onChange={onRangeChange}
+            presets
+          />
         )
       }
       footer={
@@ -140,8 +110,6 @@ export function TimelineActivityCard({
               <ActivityBars
                 days={days ?? []}
                 tokens={tokens}
-                selectedDate={selectedDate}
-                onSelectDay={onSelectDay}
                 range={range}
                 onRangeChange={onRangeChange}
               />

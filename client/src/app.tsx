@@ -30,14 +30,17 @@ import { CachePage } from "./components/cache-page.js";
 import {
   CoverageBanner,
   CoverageIndicator,
+  coverageOf,
 } from "./components/completeness.js";
 import { CookiesPage } from "./components/cookies-page.js";
 import { CredentialsPage } from "./components/credentials-page.js";
 import { DownloadsPage } from "./components/downloads-page.js";
 import { FaviconsPage } from "./components/favicons-page.js";
 import { HistoryPage } from "./components/history-page.js";
+import { EmptyRows } from "./components/data-table.js";
 import { ErrorRows, LoadingRows } from "./components/list-states.js";
 import { MetadataPage } from "./components/metadata-page.js";
+import { Panel } from "./components/panel.js";
 import { SidebarInsetTopbar } from "./components/sidebar-app/inset-topbar.js";
 import {
   SidebarWorkspaceHeader,
@@ -350,9 +353,26 @@ function PageHeader({
 }
 
 /**
+ * A single-artifact page none of whose databases could be read: the banner
+ * above names the reason; here the page says it has nothing to show because
+ * of it — never "no rows in this Case", which would read as an absence.
+ */
+function UnreadPage({ target }: { readonly target: NavTarget }) {
+  return (
+    <Panel>
+      <EmptyRows
+        icon={target.icon}
+        message={`No rows to show: no ${target.label} database could be read.`}
+      />
+    </Panel>
+  );
+}
+
+/**
  * The page for a nav target. Evidence coverage is the shell's: the page's
  * indicator sits in its title row and, when something was not read, a
- * banner sits above the page (forensic rule 1).
+ * banner sits above the page (forensic rule 1). A single-artifact page
+ * whose every database is unreadable shows `UnreadPage` instead.
  */
 function ActivePage({
   target,
@@ -364,6 +384,16 @@ function ActivePage({
   readonly sitesPreselect: string | null;
 }) {
   const { profiles } = context;
+  const scope = coverageOf(context.completeness, coverageScopeOf(target));
+  if (
+    target.config !== null &&
+    target.timeline !== true &&
+    target.sites !== true &&
+    scope.unavailable > 0 &&
+    scope.produced === 0
+  ) {
+    return <UnreadPage target={target} />;
+  }
   if (target.timeline === true) {
     return <TimelinePage />;
   }
@@ -442,6 +472,24 @@ export function App() {
     }
   }, []);
 
+  // Evidence coverage for the page on show (forensic rule 1): the indicator
+  // for its title row and the banner for under it. Overview's scope is the
+  // whole Case.
+  const coverageIndicator =
+    context === null ? null : (
+      <CoverageIndicator
+        completeness={context.completeness}
+        artifacts={coverageScopeOf(active)}
+      />
+    );
+  const coverageBanner =
+    context === null ? null : (
+      <CoverageBanner
+        completeness={context.completeness}
+        artifacts={coverageScopeOf(active)}
+      />
+    );
+
   // A new page starts at the top, as a fresh screen would.
   useEffect(() => {
     globalThis.scrollTo({ top: 0 });
@@ -488,29 +536,27 @@ export function App() {
                 key={active.key}
                 className="reveal-product mx-auto flex w-full max-w-[1360px] min-w-0 flex-col gap-5 px-4 pb-10 md:px-8"
               >
-                {/* Overview builds its own masthead as its first block and
-                    states coverage in its Readable figure. */}
+                {/* Overview builds its own masthead as its first block; the
+                    shell still owns its coverage (the whole Case): a quiet
+                    indicator at the right of the masthead and no banner —
+                    the landing page stays calm; every evidence page keeps
+                    its banner when degraded. */}
                 {active.key === "overview" ? null : (
-                  <PageHeader
-                    title={active.label}
-                    aside={
+                  <PageHeader title={active.label} aside={coverageIndicator} />
+                )}
+                {active.key === "overview" ? null : coverageBanner}
+                {active.key === "overview" ? (
+                  <OverviewPage
+                    onOpen={openSection}
+                    coverage={
                       context === null ? null : (
                         <CoverageIndicator
                           completeness={context.completeness}
-                          artifacts={coverageScopeOf(active)}
+                          quiet
                         />
                       )
                     }
                   />
-                )}
-                {active.key === "overview" || context === null ? null : (
-                  <CoverageBanner
-                    completeness={context.completeness}
-                    artifacts={coverageScopeOf(active)}
-                  />
-                )}
-                {active.key === "overview" ? (
-                  <OverviewPage onOpen={openSection} />
                 ) : error !== null ? (
                   <ErrorRows message={error} onRetry={retry} className="px-0" />
                 ) : context === null ? (

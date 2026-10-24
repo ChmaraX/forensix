@@ -13,7 +13,7 @@
 import type { ReactNode } from "react";
 
 import { fontWeights } from "@/lib/font-weight";
-import { typeClass, useSize } from "@/lib/size-context";
+import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { COMMIT_META } from "../terms.js";
 import type { CommitState, FieldState } from "../types.js";
@@ -171,6 +171,77 @@ export function FieldCell({
   ) : (
     <span className={cn("block min-w-0", className)}>
       <FieldStateText field={field} truncate={truncate} mono={mono} />
+    </span>
+  );
+}
+
+/**
+ * The two-line cell every evidence table shares: the line a row reads by (a
+ * title, a host, a cookie or user name) over the line that locates it (a
+ * URL, a path, a realm) — muted, a step smaller (compact), always
+ * monospace, since it is a value to copy. Both lines truncate with the full
+ * text on hover. Each field keeps its own state word, so a missing title
+ * reads "absent" above its URL instead of being papered over.
+ *
+ *  - `primary`: a FieldState, or text already read from the row (a host);
+ *  - `secondary`: the locating field; `null` drops the second line;
+ *  - `mono`: the primary line's monospace rule (`FieldCell`'s), e.g. `true`
+ *    for a cookie name, `false` for a title. Text is never mono unless
+ *    `true`. @default "auto"
+ *  - `avatar`: a host for a leading `SiteAvatar` tile (`null` draws "?");
+ *    omit for none (a stacked phone card).
+ *
+ *   <TwoLineCell primary={row.fields.title} secondary={row.fields.url} mono={false} />
+ */
+export function TwoLineCell({
+  primary,
+  secondary = null,
+  mono = "auto",
+  avatar,
+}: {
+  readonly primary: FieldState | string | undefined;
+  readonly secondary?: FieldState | undefined | null;
+  readonly mono?: boolean | "auto";
+  readonly avatar?: string | null;
+}) {
+  const size = useSize();
+  const first =
+    typeof primary === "string" ? (
+      <span
+        className={cn(
+          size.type.body,
+          "block truncate text-foreground",
+          mono === true && "font-mono",
+        )}
+        title={primary}
+      >
+        {primary}
+      </span>
+    ) : (
+      <span className="block min-w-0 text-foreground">
+        <FieldCell field={primary} mono={mono} />
+      </span>
+    );
+  const lines =
+    secondary === null ? (
+      first
+    ) : (
+      <span className="flex min-w-0 flex-col">
+        {first}
+        <SizeProvider size="compact">
+          <span className="block min-w-0 text-muted-foreground">
+            <FieldCell field={secondary} mono />
+          </span>
+        </SizeProvider>
+      </span>
+    );
+  if (avatar === undefined) {
+    return lines;
+  }
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      <SiteAvatar host={avatar} />
+      <span className="min-w-0 flex-1">{lines}</span>
     </span>
   );
 }

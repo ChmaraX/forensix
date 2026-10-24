@@ -35,7 +35,7 @@ import {
   useCommitStateLists,
   type PaginatedList,
 } from "../use-commit-state-lists.js";
-import { ChartEmpty, useChartTokens } from "./charts.js";
+import { ChartEmpty, SegmentBar, useChartTokens } from "./charts.js";
 import { EmptyRows } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
@@ -45,6 +45,7 @@ import {
   fieldUtc,
   SiteAvatar,
   StateWord,
+  TwoLineCell,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
@@ -57,7 +58,6 @@ import {
 } from "./row-sheet.js";
 import {
   CommitStateSplit,
-  MeterList,
   plural,
   ResponsiveRows,
   SectionPanel,
@@ -167,13 +167,25 @@ const SAME_SITE_LABEL: Readonly<Record<string, string>> = {
   unspecified: "Unspecified",
 };
 
-/** What each recorded SameSite policy means, for the column's tooltips. */
+/** What each recorded SameSite policy means, for the column header's
+ *  tooltip. */
 const SAME_SITE_HINT: Readonly<Record<string, string>> = {
   no_restriction: "Sent on every cross-site request.",
   lax: "Sent on top-level navigations only.",
   strict: "Never sent cross-site.",
   unspecified: "No policy set; the browser default applies.",
 };
+
+/** The SameSite column header: its tooltip says what each policy means. */
+const SAME_SITE_HEADER = (
+  <Term label="SameSite">
+    {Object.entries(SAME_SITE_HINT).map(([key, hint]) => (
+      <span key={key} className="block">
+        {SAME_SITE_LABEL[key] ?? key}: {hint}
+      </span>
+    ))}
+  </Term>
+);
 
 /**
  * Lifespan buckets, derived from each cookie's own creation-to-expiry span.
@@ -329,16 +341,12 @@ function LifespanCard({ rows }: { readonly rows: readonly CookieRow[] }) {
           No saved cookie carries both a creation and an expiry time.
         </ChartEmpty>
       ) : (
-        <div className="px-4 pt-1 pb-3">
-          <MeterList
-            rows={buckets.map((bucket) => ({
-              key: bucket.key,
-              label: bucket.label,
-              value: bucket.count,
-              display: bucket.count.toLocaleString("en-US"),
-            }))}
+        <div className="px-4 pt-1 pb-4">
+          <SegmentBar
+            segments={buckets}
             tokens={tokens}
-            labelWidth="5rem"
+            unit={{ one: "cookie", many: "cookies" }}
+            label="Saved cookies by lifespan"
           />
         </div>
       )}
@@ -367,21 +375,13 @@ function FlagCell({ field }: { readonly field: FieldState | undefined }) {
   return on ? <span className="text-foreground">Yes</span> : <span>No</span>;
 }
 
-/** The recorded SameSite policy as a word, its meaning in a tooltip. */
+/** The recorded SameSite policy as a word (the header explains them). */
 function SameSiteCell({ field }: { readonly field: FieldState | undefined }) {
   const key = fieldText(field);
   if (key === null) {
     return <FieldCell field={field} />;
   }
-  const label = SAME_SITE_LABEL[key] ?? key;
-  const hint = SAME_SITE_HINT[key];
-  return hint === undefined ? (
-    <span>{label}</span>
-  ) : (
-    <Tooltip content={hint}>
-      <span className="cursor-help">{label}</span>
-    </Tooltip>
-  );
+  return <span>{SAME_SITE_LABEL[key] ?? key}</span>;
 }
 
 function LifespanCell({ row }: { readonly row: CookieRow }) {
@@ -399,7 +399,7 @@ function LifespanCell({ row }: { readonly row: CookieRow }) {
   if (row.lifespanDays < 0) {
     return (
       <span className="inline-flex items-center gap-1.5 text-foreground">
-        <EvidenceDot state="warning" />
+        <EvidenceDot state="neutral" />
         expired
       </span>
     );
@@ -429,26 +429,14 @@ function HostCell({
 
 /** The cookie's name (a key, so mono) over its path when that isn't "/". */
 function NameCell({ row }: { readonly row: CookieRow }) {
-  if (row.name === null) {
-    return <FieldCell field={row.finding.fields.name} />;
-  }
   return (
-    <span className="flex min-w-0 flex-col">
-      <span className="truncate font-mono" title={row.name}>
-        {row.name}
-      </span>
-      {row.path === null || row.path === "/" ? null : (
-        <span
-          className={cn(
-            typeClass("caption"),
-            "truncate font-mono text-muted-foreground",
-          )}
-          title={row.path}
-        >
-          {row.path}
-        </span>
-      )}
-    </span>
+    <TwoLineCell
+      primary={row.finding.fields.name}
+      secondary={
+        row.path === null || row.path === "/" ? null : row.finding.fields.path
+      }
+      mono
+    />
   );
 }
 
@@ -502,7 +490,8 @@ function cookieColumns(
     },
     {
       key: "sameSite",
-      header: "SameSite",
+      header: SAME_SITE_HEADER,
+      label: "SameSite",
       className: "whitespace-nowrap",
       stack: "hidden",
       cell: (row) => <SameSiteCell field={row.finding.fields.sameSite} />,

@@ -14,10 +14,9 @@
  *     never "0".
  *  2. An activity-over-time bar chart (saved visits per local day) — the
  *     shared `ActivityBars`, so the same dataset never reads two different
- *     shapes; a "Saved only" tag names the recovered visits it leaves out.
- *     Clicking a bar pins the visit table (and the date-range control in
- *     the chart's own header) to that one day; clicking it again clears
- *     back to the whole recorded span.
+ *     shapes. The chart drives the page's date range with the picker in
+ *     its header: click a day to pin the figures and both lists to it
+ *     (again to clear), drag across days for a range.
  *  3. The raw visit table, as two server reads kept apart
  *     (forensic rule 4): "Saved" (committed rows) and "Recovered" (WAL then
  *     journal rows), switched with `CommitStateSplit`. The toolbar — Sort
@@ -61,7 +60,6 @@ import {
   bucketsToDays,
   fillGaps,
   useActivity,
-  visitTotal,
   type SplitActivity,
 } from "./activity-data.js";
 import { ActivityBars, useChartTokens } from "./charts.js";
@@ -75,9 +73,9 @@ import {
   hostOf,
   SiteAvatar,
   StateWord,
+  TwoLineCell,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
-import { formatDaySpan, SavedOnlyTag } from "./history-chart-parts.js";
 import { ErrorRows, ListBlock, RevealSwap } from "./list-states.js";
 import {
   figure,
@@ -89,6 +87,7 @@ import {
   CHART_HEIGHT,
   CommitStateSplit,
   formatDay,
+  formatDaySpan,
   plural,
   ResponsiveRows,
   SectionPanel,
@@ -305,8 +304,6 @@ function ActivityPanel({
   onRangeChange,
   rangeMin,
   rangeMax,
-  selectedDate,
-  onSelectDay,
 }: {
   readonly activity: SplitActivity | null;
   readonly error: string | null;
@@ -318,8 +315,6 @@ function ActivityPanel({
   readonly onRangeChange: (range: { from: string; to: string }) => void;
   readonly rangeMin: string | null;
   readonly rangeMax: string | null;
-  readonly selectedDate: string | null;
-  readonly onSelectDay: (date: string) => void;
 }) {
   const tokens = useChartTokens();
   const size = useSize();
@@ -328,28 +323,20 @@ function ActivityPanel({
     () => (activity === null ? [] : fillGaps(bucketsToDays(activity.saved))),
     [activity],
   );
-  const recovered = activity === null ? 0 : visitTotal(activity.recovered);
   return (
     <ChartSection
       title="Browsing activity"
-      description=""
       action={
-        <>
-          <SavedOnlyTag
-            recovered={recovered}
-            unit={{ one: "visit", many: "visits" }}
-          />
-          <DateRangePicker
-            from={range.from}
-            to={range.to}
-            min={rangeMin}
-            max={rangeMax}
-            triggerLabel="All recorded days"
-            formatDate={formatDay}
-            onChange={onRangeChange}
-            presets
-          />
-        </>
+        <DateRangePicker
+          from={range.from}
+          to={range.to}
+          min={rangeMin}
+          max={rangeMax}
+          triggerLabel="All recorded days"
+          formatDate={formatDay}
+          onChange={onRangeChange}
+          presets
+        />
       }
       footer={
         activity === null || activity.complete ? undefined : (
@@ -379,8 +366,6 @@ function ActivityPanel({
               <ActivityBars
                 days={days}
                 tokens={tokens}
-                selectedDate={selectedDate}
-                onSelectDay={onSelectDay}
                 range={range}
                 onRangeChange={onRangeChange}
               />
@@ -530,28 +515,14 @@ function asText(value: unknown): string {
   return typeof value === "string" ? value : String(value);
 }
 
-/** A visit's page: its title over its URL (mono, caption). */
+/** A visit's page: its title over its URL. */
 function VisitPage({ row }: { readonly row: Finding }) {
-  const size = useSize();
-  const url = fieldText(row.fields.url);
-  const title = fieldText(row.fields.title);
   return (
-    <span className="flex min-w-0 flex-col">
-      <span className="min-w-0" title={title ?? undefined}>
-        <FieldCell
-          field={row.fields.title}
-          format={asText}
-          className="text-foreground"
-        />
-      </span>
-      <span className="min-w-0" title={url ?? undefined}>
-        <FieldCell
-          field={row.fields.url}
-          format={asText}
-          className={cn(size.type.caption, "font-mono")}
-        />
-      </span>
-    </span>
+    <TwoLineCell
+      primary={row.fields.title}
+      secondary={row.fields.url}
+      mono={false}
+    />
   );
 }
 
@@ -715,19 +686,23 @@ export function HistoryPage({
     if (activity === null) {
       return { state: "loading" };
     }
-    const days = bucketsToDays(activity.saved);
+    // The page's date range narrows the figures as it narrows the lists.
+    const days = bucketsToDays(activity.saved, {
+      from: filters.from,
+      to: filters.to,
+    });
     const first = days[0]?.date;
     const last = days[days.length - 1]?.date;
     return {
       state: "ready",
       value: {
-        savedVisits: visitTotal(activity.saved),
+        savedVisits: days.reduce((sum, day) => sum + day.count, 0),
         activeDays: days.length,
         span:
           first === undefined || last === undefined ? null : { first, last },
       },
     };
-  }, [activity, activityError]);
+  }, [activity, activityError, filters.from, filters.to]);
 
   // The date picker spans every recorded day, saved or recovered: its range
   // filters both visit lists.
@@ -775,20 +750,6 @@ export function HistoryPage({
     setFilters(DEFAULT_VISIT_FILTERS);
   }, []);
 
-  // A bar is "selected" only when the filter is pinned to that one exact
-  // day — a wider picked range highlights no single bar, since no one bar
-  // speaks for it. Clicking the already-selected day clears back to the
-  // whole span; clicking any other day pins to it.
-  const selectedDate =
-    filters.from !== "" && filters.from === filters.to ? filters.from : null;
-  const onSelectDay = useCallback((date: string) => {
-    setFilters((current) =>
-      current.from === date && current.to === date
-        ? { ...current, from: "", to: "" }
-        : { ...current, from: date, to: date },
-    );
-  }, []);
-
   return (
     <div className="flex flex-col gap-5">
       <HistoryFigures
@@ -806,8 +767,6 @@ export function HistoryPage({
         }}
         rangeMin={pickerSpan.min}
         rangeMax={pickerSpan.max}
-        selectedDate={selectedDate}
-        onSelectDay={onSelectDay}
       />
 
       {/* The raw visit stream, saved and recovered as two server reads.

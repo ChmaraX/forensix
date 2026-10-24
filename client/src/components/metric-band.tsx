@@ -9,7 +9,9 @@
  * rules stay right whatever `grid-cols-*` the caller wraps the items into.
  *
  * Text follows FF's roles: a caption label (no eyebrow caps), the figure in
- * the title role at semibold with tabular digits, and caption detail. The
+ * the display role's compact step (24px, a clear step above the 16px title
+ * and below the 28px page title) at semibold with tabular digits, and
+ * caption detail. The
  * optional progress bar fills by sliding a pill (transform) on
  * `spring.moderate`.
  *
@@ -161,7 +163,7 @@ export function MetricBandItem({
       </div>
       <span
         className={cn(
-          size.type.title,
+          FIGURE_TYPE,
           "block truncate text-foreground tabular-nums",
           valueClassName,
         )}
@@ -217,6 +219,10 @@ export function MetricBandItem({
   );
 }
 
+/** The figure's type: the display role's compact step (24px / 30px), the
+ *  same everywhere a figure strip sits, whatever the surrounding size. */
+const FIGURE_TYPE = typeClass("display", "compact");
+
 /** A figure whose read failed: the state word with its dot, never a zero. */
 export function UnavailableFigure() {
   return (
@@ -232,11 +238,15 @@ export function UnavailableFigure() {
   );
 }
 
-/** A figure still being read: a skeleton the height of the title line. */
+/** A figure still being read: a skeleton the height of the figure line. */
 export function PendingFigure() {
   return (
-    <span role="status" aria-label="Loading" className="flex h-7 items-center">
-      <Skeleton className="h-4 w-16" />
+    <span
+      role="status"
+      aria-label="Loading"
+      className="flex h-[30px] items-center"
+    >
+      <Skeleton className="h-5 w-16" />
     </span>
   );
 }

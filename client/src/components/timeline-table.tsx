@@ -27,7 +27,6 @@ import { useMemo, useState } from "react";
 import type { Finding } from "../types.js";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle";
 import {
   ARTIFACT_ICONS,
   SortNewestIcon,
@@ -47,12 +46,13 @@ import { SecretValueCell, secretFieldsOf } from "./row-sheet.js";
 import { ListBlock, type ListSource } from "./list-states.js";
 import {
   CommitStateSplit,
-  plural,
+  CountChips,
   ResponsiveRows,
   SectionPanel,
   splitByCommit,
   TimeCell,
   type CommitView,
+  type CountChip,
   type RowColumn,
 } from "./page-kit.js";
 
@@ -290,8 +290,9 @@ function RecordTable({
   );
 }
 
-/** The event-type chips: "All events" or one kind, each with its count in
- *  the list on show. FF TabsSubtle: one selected pill, fluid hover. */
+/** The event-type chips (page-kit `CountChips`): "All" or one kind, each
+ *  with its count in the list on show. A kind with no event there sits out
+ *  unless it is the pick. */
 function KindChips({
   counts,
   total,
@@ -303,28 +304,23 @@ function KindChips({
   readonly active: string | null;
   readonly onChange: (kind: string | null) => void;
 }) {
-  const kinds: readonly string[] = FILTER_KINDS;
-  const selectedIndex = active === null ? 0 : kinds.indexOf(active) + 1;
+  const chips = FILTER_KINDS.filter(
+    (kind) => (counts.get(kind) ?? 0) > 0 || kind === active,
+  ).map(
+    (kind): CountChip => ({
+      key: kind,
+      label: timelineEventLabel(kind),
+      count: counts.get(kind) ?? 0,
+    }),
+  );
   return (
-    <TabsSubtle
-      aria-label="Event type"
-      selectedIndex={selectedIndex}
-      onSelect={(index) => {
-        onChange(index === 0 ? null : (FILTER_KINDS[index - 1] ?? null));
-      }}
-    >
-      <TabsSubtleItem
-        index={0}
-        label={`All events ${total.toLocaleString("en-US")}`}
-      />
-      {FILTER_KINDS.map((kind, index) => (
-        <TabsSubtleItem
-          key={kind}
-          index={index + 1}
-          label={`${EVENT_META[kind]?.label ?? kind} ${(counts.get(kind) ?? 0).toLocaleString("en-US")}`}
-        />
-      ))}
-    </TabsSubtle>
+    <CountChips
+      label="Event type"
+      total={total}
+      chips={chips}
+      active={active}
+      onChange={onChange}
+    />
   );
 }
 
@@ -423,11 +419,7 @@ export function TimelineRecordsCard({
         errorTitle="The timeline could not be loaded."
         // The list is one part of the loaded stream: count against that
         // part, never against every loaded event.
-        summary={
-          kindFilter === null
-            ? `${plural(part.length, noun.one, noun.many)} shown`
-            : `${visible.length.toLocaleString("en-US")} of ${part.length.toLocaleString("en-US")}`
-        }
+        total={part.length}
         empty={
           <EmptyRows
             title={recovered ? "No recovered events" : "No saved events"}

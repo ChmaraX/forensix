@@ -12,7 +12,8 @@
  *
  * Simplification (see mock/README.md): `limit` and `commit-state` are honored
  * (commit-state on exactly the routes the real server filters by it); every
- * other query param (search, sort, direction, per-artifact extra filters) is
+ * other query param (search, sort, direction, per-artifact extra filters;
+ * `from` / `to` are honored on the History visits view and the timeline) is
  * accepted but IGNORED. That is enough to design against; it is not enough to
  * test filtering/sorting/pagination behavior.
  *
@@ -21,10 +22,13 @@
  *
  * Degraded coverage: `--degraded` (or FORENSIX_MOCK_DEGRADED=1) makes every
  * `completeness` read report a degraded Completeness Statement — History
- * missing in one Profile, Cookies unreadable (database locked) — on top of
- * the fixture's own Cache / Form data gaps. Without the flag, open the
- * dashboard as `/?degraded=1`: the page URL rides each API call's Referer,
- * so only that tab sees the degraded statement.
+ * missing in one Profile, Cookies and Cache unreadable (database locked) —
+ * on top of the fixture's own Form data gap (no Web Data in the Guest
+ * profile). The data routes stay consistent with it: a database that was
+ * not read serves no rows (its route, the Timeline and the Sites routes
+ * drop them). Without the flag, open the dashboard as `/?degraded=1`: the
+ * page URL rides each API call's Referer, so only that tab sees the
+ * degraded Case.
  *
  * The bundle defaults to `client/dist/index.js`. `--bundle`, or the
  * FORENSIX_CLIENT_BUNDLE / FORENSIX_CLIENT_OUTDIR environment variables, point
@@ -91,15 +95,21 @@ function wantsDegraded(request) {
   }
 }
 
-/** The fixture's statement with two more gaps: History absent in the second
- *  Profile, Cookies unreadable in every Profile. Design-only. */
+/** Artifacts the degraded statement reports unreadable in every Profile. */
+const DEGRADED_UNREADABLE = ["Cookies", "Cache"];
+
+/** The fixture's statement with more gaps: History absent in the second
+ *  Profile, Cookies and Cache unreadable in every Profile. Design-only. */
 function degradedCompleteness() {
   const statements = caseData.completeness.statements.map((statement) => {
-    if (statement.artifact !== "History" && statement.artifact !== "Cookies") {
+    if (
+      statement.artifact !== "History" &&
+      !DEGRADED_UNREADABLE.includes(statement.artifact)
+    ) {
       return statement;
     }
     const artifacts = statement.artifacts.map((entry, index) => {
-      if (statement.artifact === "Cookies") {
+      if (DEGRADED_UNREADABLE.includes(statement.artifact)) {
         return {
           ...entry,
           outcome: "unavailable",
@@ -128,6 +138,36 @@ function degradedCompleteness() {
   return { ...caseData.completeness, statements };
 }
 
+/** The Completeness Statement this API call sees. */
+function completenessFor(request) {
+  return wantsDegraded(request)
+    ? degradedCompleteness()
+    : caseData.completeness;
+}
+
+/** "Artifact|Profile" for every database the call's statement says was not
+ *  read (absent or unavailable). */
+function unreadDatabases(request) {
+  const unread = new Set();
+  for (const statement of completenessFor(request).statements) {
+    for (const entry of statement.artifacts) {
+      if (entry.outcome !== "produced") {
+        unread.add(`${statement.artifact}|${entry.profile}`);
+      }
+    }
+  }
+  return unread;
+}
+
+/** Rows of one Completeness artifact, less those from a database the call's
+ *  statement says was not read — an unreadable artifact serves no rows. */
+function readable(rows, artifact, request) {
+  const unread = unreadDatabases(request);
+  return unread.size === 0
+    ? rows
+    : rows.filter((row) => !unread.has(`${artifact}|${row.profile}`));
+}
+
 /* ------------------------------- HTML shell ------------------------------- */
 
 function htmlShell() {
@@ -137,7 +177,7 @@ function htmlShell() {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ForensiX dashboard — design mock (${caseData.caseId})</title>
+    <title>ForensiX dashboard - design mock (${caseData.caseId})</title>
     <script>window.__FORENSIX_TOKEN__ = ${safeToken};</script>
     <script type="module" src="/index.js"></script>
   </head>
@@ -220,10 +260,14 @@ function candidateRows(rows) {
 
 /* --------------------------------- routes --------------------------------- */
 
-const historyView = (view) => {
-  if (view === "activity") return findingRows(caseData.history.activity);
-  if (view === "most-visited") return findingRows(caseData.history.mostVisited);
-  return findingRows(caseData.history.visits); // "visits" and default
+const historyView = (view, request) => {
+  const rows =
+    view === "activity"
+      ? caseData.history.activity
+      : view === "most-visited"
+        ? caseData.history.mostVisited
+        : caseData.history.visits; // "visits" and default
+  return findingRows(readable(rows, "History", request));
 };
 
 /** Extracts the ISO timestamp a Finding sorts the Timeline by, per
@@ -242,12 +286,34 @@ function timelineSortKey(row) {
   return field?.state === "value" ? field.value.utc : null;
 }
 
-function timelineRows() {
+/** The `from` / `to` instant bounds, as the real server applies them to the
+ *  History `visits` view and the Timeline: rows whose time falls outside are
+ *  dropped (a row with no time too, once a bound is set). */
+function byInstantRange(rows, params, timeOf) {
+  const from = params?.get("from") ?? "";
+  const to = params?.get("to") ?? "";
+  if (from === "" && to === "") {
+    return rows;
+  }
+  return rows.filter((row) => {
+    const utc = timeOf(row);
+    return (
+      utc !== null && (from === "" || utc >= from) && (to === "" || utc <= to)
+    );
+  });
+}
+
+const visitTimeOf = (row) =>
+  row.fields.visitTime?.state === "value"
+    ? row.fields.visitTime.value.utc
+    : null;
+
+function timelineRows(request) {
   const rows = [
-    ...caseData.history.visits,
-    ...caseData.downloads,
-    ...caseData.cookies,
-    ...caseData.autofill,
+    ...readable(caseData.history.visits, "History", request),
+    ...readable(caseData.downloads, "Downloads", request),
+    ...readable(caseData.cookies, "Cookies", request),
+    ...readable(caseData.autofill, "Web Data", request),
   ].filter((row) => timelineSortKey(row) !== null);
   rows.sort((a, b) => (timelineSortKey(a) < timelineSortKey(b) ? 1 : -1)); // desc, newest first
   return findingRows(rows);
@@ -286,17 +352,34 @@ function hostKeyOf(raw) {
   return host === "" ? null : host;
 }
 
-/** Each site artifact kind: its fixture rows and the field carrying a host. */
+/** Each site artifact kind: its fixture rows (less unread databases) and
+ *  the field carrying a host. */
 const SITE_SOURCES = [
-  ["visits", () => caseData.history.visits, (row) => textField(row, "url")],
-  ["cookies", () => caseData.cookies, (row) => textField(row, "hostKey")],
+  [
+    "visits",
+    (request) => readable(caseData.history.visits, "History", request),
+    (row) => textField(row, "url"),
+  ],
+  [
+    "cookies",
+    (request) => readable(caseData.cookies, "Cookies", request),
+    (row) => textField(row, "hostKey"),
+  ],
   [
     "saved_logins",
-    () => caseData.credentials,
+    (request) => readable(caseData.credentials, "Login Data", request),
     (row) => textField(row, "originUrl") ?? textField(row, "signonRealm"),
   ],
-  ["bookmarks", () => caseData.bookmarks, (row) => textField(row, "url")],
-  ["top_sites", () => caseData.topSites, (row) => textField(row, "url")],
+  [
+    "bookmarks",
+    (request) => readable(caseData.bookmarks, "Bookmarks", request),
+    (row) => textField(row, "url"),
+  ],
+  [
+    "top_sites",
+    (request) => readable(caseData.topSites, "Top Sites", request),
+    (row) => textField(row, "url"),
+  ],
 ];
 
 const EMPTY_SITE_COUNTS = {
@@ -308,11 +391,11 @@ const EMPTY_SITE_COUNTS = {
   form_data: 0,
 };
 
-function siteHosts(params) {
+function siteHosts(params, request) {
   const search = (params.get("search") ?? "").toLowerCase();
   const byHost = new Map();
   for (const [kind, rowsOf, hostOf] of SITE_SOURCES) {
-    for (const row of rowsOf()) {
+    for (const row of rowsOf(request)) {
       const host = hostKeyOf(hostOf(row));
       if (host === null) continue;
       const counts = byHost.get(host) ?? { ...EMPTY_SITE_COUNTS };
@@ -331,12 +414,12 @@ function siteHosts(params) {
   return { status: "ok", items, nextCursor: null, limit: items.length };
 }
 
-function siteFindings(params) {
+function siteFindings(params, request) {
   const host = hostKeyOf(params.get("host"));
   const items = [];
   if (host !== null) {
     for (const [kind, rowsOf, hostOf] of SITE_SOURCES) {
-      for (const row of rowsOf()) {
+      for (const row of rowsOf(request)) {
         if (hostKeyOf(hostOf(row)) === host) {
           items.push({ ...findingRows([row])[0], artifactKind: kind });
         }
@@ -349,39 +432,55 @@ function siteFindings(params) {
 // `commit-state` is honored exactly where server/src/index.ts passes it to
 // core: not on `cache` (its records carry their state mixed) or `timeline`
 // (one chronological stream), and not on the site-* routes.
+/** A Finding route of one Completeness artifact: its readable rows, by
+ *  `commit-state`, limited. */
+const artifactRoute = (rowsOf, artifact) => (params, request) =>
+  pageOf(
+    byCommitState(findingRows(readable(rowsOf(), artifact, request)), params),
+    params,
+  );
+
 const ROUTES = {
-  "site-hosts": (params) => siteHosts(params),
-  "site-findings": (params) => siteFindings(params),
-  completeness: (_params, request) =>
-    wantsDegraded(request) ? degradedCompleteness() : caseData.completeness,
+  "site-hosts": (params, request) => siteHosts(params, request),
+  "site-findings": (params, request) => siteFindings(params, request),
+  completeness: (_params, request) => completenessFor(request),
   profiles: () => caseData.profiles,
-  history: (params) =>
-    pageOf(byCommitState(historyView(params.get("view")), params), params),
-  timeline: (params) => pageOf(timelineRows(), params),
+  history: (params, request) => {
+    const view = params.get("view");
+    const rows = historyView(view, request);
+    return pageOf(
+      byCommitState(
+        view === "activity" || view === "most-visited"
+          ? rows
+          : byInstantRange(rows, params, visitTimeOf),
+        params,
+      ),
+      params,
+    );
+  },
+  timeline: (params, request) =>
+    pageOf(
+      byInstantRange(timelineRows(request), params, timelineSortKey),
+      params,
+    ),
   "site-favicons": () => ({ status: "ok", icons: {} }),
-  cookies: (params) =>
-    pageOf(byCommitState(findingRows(caseData.cookies), params), params),
-  credentials: (params) =>
-    pageOf(byCommitState(findingRows(caseData.credentials), params), params),
-  "top-sites": (params) =>
-    pageOf(byCommitState(findingRows(caseData.topSites), params), params),
-  cache: (params) => pageOf(findingRows(caseData.cache), params),
-  favicons: (params) =>
-    pageOf(byCommitState(findingRows(caseData.favicons), params), params),
+  cookies: artifactRoute(() => caseData.cookies, "Cookies"),
+  credentials: artifactRoute(() => caseData.credentials, "Login Data"),
+  "top-sites": artifactRoute(() => caseData.topSites, "Top Sites"),
+  // No commit-state filter on cache (its records carry their state mixed).
+  cache: (params, request) =>
+    pageOf(findingRows(readable(caseData.cache, "Cache", request)), params),
+  favicons: artifactRoute(() => caseData.favicons, "Favicons"),
   candidates: (params) => pageOf(candidateRows(caseData.candidates), params),
   "topic-candidates": (params) =>
     pageOf(
       byCommitState(candidateRows(caseData.topicCandidates), params),
       params,
     ),
-  metadata: (params) =>
-    pageOf(byCommitState(findingRows(caseData.metadata), params), params),
-  downloads: (params) =>
-    pageOf(byCommitState(findingRows(caseData.downloads), params), params),
-  bookmarks: (params) =>
-    pageOf(byCommitState(findingRows(caseData.bookmarks), params), params),
-  autofill: (params) =>
-    pageOf(byCommitState(findingRows(caseData.autofill), params), params),
+  metadata: artifactRoute(() => caseData.metadata, "Preferences"),
+  downloads: artifactRoute(() => caseData.downloads, "Downloads"),
+  bookmarks: artifactRoute(() => caseData.bookmarks, "Bookmarks"),
+  autofill: artifactRoute(() => caseData.autofill, "Web Data"),
 };
 
 /* --------------------------------- server ---------------------------------- */
@@ -471,7 +570,7 @@ server.listen(port, HOST, () => {
   console.log(`[forensix mock] bundle: ${distIndexJs}`);
   if (!existsSync(distIndexJs)) {
     console.log(
-      `[forensix mock] note: ${distIndexJs} not built yet — run \`npm run build\` first.`,
+      `[forensix mock] note: ${distIndexJs} not built yet - run \`npm run build\` first.`,
     );
   }
 });

@@ -1,7 +1,7 @@
 /**
  * The framed home of a chart: an FF `Panel` (one surface step above the page
- * column) with the panel title and description on the left and the chart's
- * controls on the right. Controls sit in a compact `SizeProvider`, the size
+ * column) with the panel title (and an optional description under it) on
+ * the left and the chart's controls on the right. Controls sit in a compact `SizeProvider`, the size
  * step FF uses for toolbars, so a range picker, a segmented toggle, and a
  * button placed there all share the 28px ladder without per-control props.
  */
@@ -26,7 +26,8 @@ export function ChartSection({
   footer,
 }: {
   readonly title: string;
-  readonly description: string;
+  /** Only when it adds information the title does not carry. */
+  readonly description?: ReactNode;
   readonly action?: ReactNode;
   readonly children: ReactNode;
   readonly className?: string;
@@ -42,9 +43,11 @@ export function ChartSection({
       className={cn("overflow-hidden", className)}
     >
       <PanelHeader className="items-center pb-1">
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <PanelTitle id={titleId}>{title}</PanelTitle>
-          <PanelDescription>{description}</PanelDescription>
+          {description === undefined ? null : (
+            <PanelDescription>{description}</PanelDescription>
+          )}
         </div>
         {action === undefined ? null : (
           <SizeProvider size="compact">

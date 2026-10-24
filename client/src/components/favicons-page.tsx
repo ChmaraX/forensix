@@ -20,7 +20,6 @@ import { useCallback, useMemo, useState } from "react";
 import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
 import { MissingImageIcon, SearchIcon } from "@/lib/app-icons";
-import { SizeProvider } from "@/lib/size-context";
 
 import type { QueryParameters } from "../api.js";
 import type { ArtifactConfig, Finding } from "../types.js";
@@ -35,8 +34,8 @@ import {
   fieldInteger,
   fieldText,
   hostOf,
-  SiteAvatar,
   StateWord,
+  TwoLineCell,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
@@ -166,23 +165,13 @@ function SiteCell({
   readonly avatar?: boolean;
 }) {
   const host = faviconHost(row);
-  const iconUrl = <FieldCell field={row.fields.iconUrl} mono />;
   return (
-    <span className="flex min-w-0 items-center gap-2.5">
-      {avatar ? <SiteAvatar host={host} /> : null}
-      {host === null ? (
-        <span className="min-w-0 flex-1">{iconUrl}</span>
-      ) : (
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-foreground" title={host}>
-            {host}
-          </span>
-          <SizeProvider size="compact">
-            <span className="min-w-0 text-muted-foreground">{iconUrl}</span>
-          </SizeProvider>
-        </span>
-      )}
-    </span>
+    <TwoLineCell
+      primary={host ?? row.fields.iconUrl}
+      secondary={host === null ? null : row.fields.iconUrl}
+      mono={host === null}
+      avatar={avatar ? host : undefined}
+    />
   );
 }
 

@@ -2,7 +2,7 @@
  * Shared list chrome, drawn with FF parts: loading rows on the table row
  * ladder (Skeleton bars inside 36px / 28px rows, handed in one by one with
  * `reveal-items`), a load failure as an error Banner with Retry, the
- * "N rows shown / Load more" footer, a filtered-empty state with "Clear
+ * "3 of 22" / Load more footer (only while paged or filtered), a filtered-empty state with "Clear
  * filters", `RevealSwap` (a `reveal-swap` that lets go of its skeleton) and
  * `ListBlock` — the whole body of one paginated list (saved or recovered).
  */
@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 
 import type { PaginatedList } from "../use-commit-state-lists.js";
 import { EmptyRows } from "./data-table.js";
-import { plural } from "./page-kit.js";
 
 /** Bar widths for placeholder cells, so the rows don't read as a grid. */
 const LEAD_WIDTHS = ["w-20", "w-16", "w-24", "w-14", "w-20", "w-16"] as const;
@@ -124,25 +123,33 @@ export function ErrorRows({
   );
 }
 
+/**
+ * The list's footer, drawn only when it has something to say: the list is
+ * paged (the server has more — "50 of 50+" and Load more) or a client-side
+ * filter hides loaded rows ("3 of 22"). A complete, unfiltered list has no
+ * footer: its count is already on the Saved / Recovered tab.
+ */
 export function ListFooter({
-  count,
-  cursor,
-  loading,
+  shown,
+  total,
+  more,
+  loading = false,
   onLoadMore,
-  summary,
   className,
 }: {
-  readonly count: number;
-  readonly cursor: string | null;
-  readonly loading: boolean;
-  readonly onLoadMore: () => void;
-  /** Replaces the default "N rows shown" words (e.g. "12 of 40 loaded rows
-   *  shown"); " · more available" is still appended while a cursor stands. */
-  readonly summary?: ReactNode;
+  /** Rows on show (after any client-side filter). */
+  readonly shown: number;
+  /** Rows loaded in this list. */
+  readonly total: number;
+  /** The server has more rows (a cursor stands); "+" follows the total. */
+  readonly more: boolean;
+  readonly loading?: boolean;
+  /** Reads the next page; with it, a paged footer offers "Load more". */
+  readonly onLoadMore?: () => void;
   readonly className?: string;
 }) {
   const size = useSize();
-  if (count === 0 && cursor === null) {
+  if (!more && shown >= total) {
     return null;
   }
   return (
@@ -156,10 +163,9 @@ export function ListFooter({
         className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
         aria-live="polite"
       >
-        {summary ?? `${plural(count, "row", "rows")} shown`}
-        {cursor === null ? "" : " · more available"}
+        {`${shown.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}${more ? "+" : ""}`}
       </p>
-      {cursor !== null ? (
+      {more && onLoadMore !== undefined ? (
         <Button
           variant="tertiary"
           size="compact"
@@ -252,10 +258,6 @@ interface ListNoun {
   readonly many: string;
 }
 
-function countOf(count: number, noun: ListNoun): string {
-  return plural(count, noun.one, noun.many);
-}
-
 /**
  * The body of one paginated list (saved or recovered), shared by every
  * evidence page:
@@ -267,8 +269,8 @@ function countOf(count: number, noun: ListNoun): string {
  *  - a failed "Load more" is an `ErrorRows` under the rows whose Retry asks
  *    for that page again (the loaded rows stay; a recovered list retries
  *    only its failed half);
- *  - `ListFooter` closes the list ("12 saved logins shown", or "3 of 12
- *    loaded saved logins shown" while filtered).
+ *  - `ListFooter` closes the list only while it is paged or filtered
+ *    ("3 of 12", "50 of 50+" with Load more).
  *
  * The page's table goes in `children`, given the rows left after its own
  * filter; `shown` is their count.
@@ -284,7 +286,7 @@ export function ListBlock({
   skeletonRows = 6,
   loadingLabel,
   errorTitle,
-  summary,
+  total,
   children,
 }: {
   readonly list: ListSource;
@@ -307,8 +309,10 @@ export function ListBlock({
   readonly loadingLabel?: string;
   /** Title of a failed first read. @default "The <many> could not be loaded." */
   readonly errorTitle?: string;
-  /** Footer words in place of the default count. */
-  readonly summary?: ReactNode;
+  /** Rows this list holds before its client-side filter, when the list is
+   *  one part of a larger loaded source (the Timeline's saved or recovered
+   *  half of one stream). @default list.rows.length */
+  readonly total?: number;
   /** The table, rendered only when at least one row is shown. */
   readonly children: ReactNode;
 }) {
@@ -316,6 +320,7 @@ export function ListBlock({
   const visible = shown ?? loaded;
   const narrowed = filtered ?? visible !== loaded;
   const firstRead = list.loading && loaded === 0;
+  const more = list.error === null && list.cursor !== null;
   if (list.error !== null && loaded === 0) {
     return (
       <ErrorRows
@@ -357,18 +362,15 @@ export function ListBlock({
           className="border-t border-border"
         />
       )}
-      <ListFooter
-        count={loaded}
-        cursor={list.error === null ? list.cursor : null}
-        loading={list.loading}
-        onLoadMore={list.loadMore}
-        summary={
-          summary ??
-          (visible === loaded
-            ? `${countOf(loaded, noun)} shown`
-            : `${visible.toLocaleString("en-US")} of ${countOf(loaded, { one: `loaded ${noun.one}`, many: `loaded ${noun.many}` })} shown`)
-        }
-      />
+      {visible === 0 && !more ? null : (
+        <ListFooter
+          shown={visible}
+          total={total ?? loaded}
+          more={more}
+          loading={list.loading}
+          onLoadMore={list.loadMore}
+        />
+      )}
     </>
   );
 }

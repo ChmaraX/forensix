@@ -180,7 +180,7 @@ function CandidateBadge() {
     <TermTooltip
       content={
         <TermExplanation technical="Topic Candidate (ranked)">
-          A ranked suggestion from the on-device topic classifier — an inference
+          A ranked suggestion from the on-device topic classifier - an inference
           over recorded URLs, not a recorded fact.
         </TermExplanation>
       }
@@ -218,7 +218,7 @@ export function TopicCategorizationLine({
       <PanelTitle id={titleId}>Topic categorization</PanelTitle>
       <CandidateBadge />
       <p className={cn(typeClass("body"), "min-w-0 text-muted-foreground")}>
-        unavailable — {reason?.short ?? "model not available"}
+        unavailable - {reason?.short ?? "model not available"}
       </p>
       <SizeProvider size="compact">
         <Button

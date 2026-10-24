@@ -67,7 +67,7 @@ import {
   useCommitStateLists,
 } from "../use-commit-state-lists.js";
 import { EmptyRows } from "./data-table.js";
-import { EvidenceBadge, EvidenceDot, type EvidenceState } from "./evidence.js";
+import { EvidenceDot, type EvidenceState } from "./evidence.js";
 import { MaybeFieldStateText } from "./field-state.js";
 import {
   fieldBool,
@@ -131,7 +131,6 @@ function rowHeadline(row: Finding): string {
  *  — the state its dot repeats. Every other reading is a plain label. */
 interface Reading {
   readonly label: string;
-  readonly state?: EvidenceState;
 }
 
 /**
@@ -150,7 +149,7 @@ function exitReading(field: FieldState | undefined): Reading | null {
     return { label: "Clean exit" };
   }
   if (normalized === "crashed") {
-    return { label: "Crashed", state: "warning" };
+    return { label: "Crashed" };
   }
   return { label: `Exit: ${raw}` };
 }
@@ -170,17 +169,12 @@ function accountReading(fields: Finding["fields"]): Reading | null {
   return null;
 }
 
-/** A derived reading as an FF Badge: a worded warning chip, else a plain
- *  label. Not focusable — the card is the one tab stop, and the field list
- *  and the detail sheet carry the source values. */
+/** A derived reading as a plain FF Badge (no evidence hue: an exit type or
+ *  an account kind is no evidence state). Not focusable — the card is the
+ *  one tab stop, and the field list and the detail sheet carry the source
+ *  values. */
 function ReadingBadge({ reading }: { readonly reading: Reading }) {
-  return reading.state === undefined ? (
-    <Badge size="compact">{reading.label}</Badge>
-  ) : (
-    <EvidenceBadge state={reading.state} size="compact">
-      {reading.label}
-    </EvidenceBadge>
-  );
+  return <Badge size="compact">{reading.label}</Badge>;
 }
 
 /* ------------------------------ Shared pieces ----------------------------- */
@@ -269,9 +263,9 @@ function KeyState({
     readonly state: EvidenceState;
   } | null =
     present === true
-      ? { word: "present", state: "produced" }
+      ? { word: "present", state: "neutral" }
       : present === false
-        ? { word: "not present", state: "warning" }
+        ? { word: "not present", state: "neutral" }
         : null;
   return (
     <li

@@ -44,7 +44,6 @@ import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
 import type {
-  FieldState,
   Finding,
   PageOf,
   SiteArtifactKind,
@@ -63,7 +62,12 @@ import {
   TimeCell,
 } from "./page-kit.js";
 import { EmptyRows } from "./data-table.js";
-import { FieldCell, SiteAvatar, StateWord } from "./finding-fields.js";
+import {
+  FieldCell,
+  SiteAvatar,
+  StateWord,
+  TwoLineCell,
+} from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
 import { ErrorRows, LoadingRows } from "./list-states.js";
 import {
@@ -344,36 +348,6 @@ function HostList({
 
 /* ------------------------- per-kind curated tables ------------------------- */
 
-/**
- * Two recorded fields in one cell: the one a row reads by (a title, a
- * cookie name, a username) over the one that locates it (a URL, a path, a
- * realm), muted and a step smaller. Each keeps its own state word, so a
- * missing title reads "absent" above its URL instead of being papered over.
- */
-function StackedCell({
-  primary,
-  secondary,
-  prose = false,
-}: {
-  readonly primary: FieldState | undefined;
-  readonly secondary: FieldState | undefined;
-  /** The primary value is prose (a title, a bookmark name): never mono. */
-  readonly prose?: boolean;
-}) {
-  return (
-    <span className="flex min-w-0 flex-col">
-      <span className="min-w-0 text-foreground">
-        <FieldCell field={primary} mono={prose ? false : "auto"} />
-      </span>
-      <SizeProvider size="compact">
-        <span className="min-w-0 text-muted-foreground">
-          <FieldCell field={secondary} mono />
-        </span>
-      </SizeProvider>
-    </span>
-  );
-}
-
 type KindColumn = RowColumn<SiteFinding>;
 
 const timeColumn = (
@@ -401,10 +375,10 @@ const stackedColumn = (
   className: "max-w-[420px] min-w-[220px]",
   stack: "title",
   cell: (row) => (
-    <StackedCell
+    <TwoLineCell
       primary={row.fields[primary]}
       secondary={row.fields[secondary]}
-      prose={prose}
+      mono={prose ? false : "auto"}
     />
   ),
 });
@@ -564,9 +538,6 @@ function KindPanel({
       <CommitStateSplit
         variant="stacked"
         headingAs="h4"
-        // Each recovered row's State word (and its tooltip) names the
-        // sidecar, so the sub-heading carries no caption.
-        recoveredDescription=""
         savedCount={saved.length}
         recoveredCount={recovered.length}
         saved={

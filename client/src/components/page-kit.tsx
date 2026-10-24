@@ -4,18 +4,19 @@
  * reads and filters its own rows and hands these parts plain values.
  *
  * Formatting
- *  - `formatBytes`, `plural`, `formatDay`, `formatDayTick`, `CHART_HEIGHT`.
+ *  - `formatBytes`, `plural`, `formatDay`, `formatDayTick`, `formatDaySpan`,
+ *    `CHART_HEIGHT`.
  * Text
  *  - `TimeText` / `TimeCell` (UTC instant or the word "absent"), `Count`,
- *    `WeightLabel` (semibold-when-active without reflow).
+ *    `WeightLabel` (semibold-when-active without reflow), `CountChips`
+ *    (chip filters with counts).
  * Layout
  *  - `ResponsiveRows` (an FF Table above `sm`, stacked row cards on a
  *    phone; one column list with a `stack` role per column),
- *  - `SectionHeading` (a title-role heading above a block of panels),
- *    `SectionPanel` (a Panel with title, count, description, trailing aside),
+ *  - `SectionPanel` (a Panel with title, count, description, trailing aside),
  *    `Toolbar` (a compact filter bar), `IconTile`.
  * Bars
- *  - `MeterList` (ranked horizontal bars), `ShareBar` (a share-of-peak pill),
+ *  - `ShareBar` (a share-of-peak pill),
  *    `CARD_TITLE_CLEAR`.
  * Saved / recovered (forensic rule 4)
  *  - `CommitStateTabs`, `CommitStateSplit` (tabs or stacked), and
@@ -28,8 +29,7 @@
  * (WAL / rollback-journal) rows are a separate list from saved rows and never
  * sorted in.
  */
-import { motion } from "motion/react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ComponentProps, type ReactNode } from "react";
 
 import {
   Panel,
@@ -39,14 +39,20 @@ import {
   type HeadingTag,
 } from "@/components/panel";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@/hooks/use-fluid-hover";
 import { RefreshIcon, type AppIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
+import { useShape } from "@/lib/shape-context";
 import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
-import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 
 import type { FieldState, Finding } from "../types.js";
-import { SERIES, seriesColor, type ChartTokens } from "./charts.js";
+import { Term, TermTooltip } from "./term.js";
+import { SERIES } from "./charts.js";
 import {
   AbsentWord,
   FieldCell,
@@ -112,6 +118,17 @@ export function formatDayTick(date: string): string {
         month: "short",
         timeZone: "UTC",
       });
+}
+
+/** A recorded span as data, shortened: "11 Mar – 17 Apr" within one year,
+ *  "9 Dec 2023 – 4 Jan 2024" across years, "4 Mar 2024" for one day. */
+export function formatDaySpan(first: string, last: string): string {
+  if (first === last) {
+    return formatDay(first);
+  }
+  return first.slice(0, 4) === last.slice(0, 4)
+    ? `${formatDayTick(first)} - ${formatDayTick(last)}`
+    : `${formatDay(first)} - ${formatDay(last)}`;
 }
 
 /** Height of a page's over-time chart, shared by the chart and its
@@ -204,6 +221,122 @@ export function Count({
         ? children.toLocaleString("en-US")
         : children}
     </span>
+  );
+}
+
+/** One chip of a `CountChips` row. */
+export interface CountChip {
+  readonly key: string;
+  readonly label: string;
+  readonly count: number;
+}
+
+/**
+ * A one-of chip filter with counts, the one look for every such row
+ * (Timeline event types, Form data categories), composed from FF parts:
+ * 28px pills, "All N" first, then each chip as its label and a muted,
+ * tabular count; one selected pill (`bg-active`, semibold label without
+ * reflow) and FF's fluid hover highlight gliding between pills
+ * (`useFluidHover` on both axes, so a wrapped second row tracks too). From
+ * `sm` up the row wraps onto a second line instead of scrolling; below it
+ * scrolls sideways with no scrollbar, its edges fading (`scroll-fade-x`).
+ * It sits in the list `Toolbar`'s trailing controls. `null` is "All".
+ */
+export function CountChips({
+  label,
+  allLabel = "All",
+  total,
+  chips,
+  active,
+  onChange,
+}: {
+  /** Accessible name of the chip row. */
+  readonly label: string;
+  /** @default "All" */
+  readonly allLabel?: string;
+  /** Rows the "All" chip counts. */
+  readonly total: number;
+  readonly chips: readonly CountChip[];
+  readonly active: string | null;
+  readonly onChange: (key: string | null) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hover = useFluidHover(containerRef, { axis: "xy" });
+  const shape = useShape();
+  const items: readonly {
+    readonly key: string | null;
+    readonly label: string;
+    readonly count: number;
+  }[] = [{ key: null, label: allLabel, count: total }, ...chips];
+  return (
+    <div
+      ref={containerRef}
+      role="group"
+      aria-label={label}
+      className="scroll-fade-x scrollbar-hide relative flex min-w-0 items-center gap-0.5 p-0.5 max-sm:w-full max-sm:overflow-x-auto sm:flex-wrap"
+      {...hover.handlers}
+    >
+      <FluidHoverHighlight hover={hover} className={shape.bg} />
+      {items.map((item, index) => (
+        <CountChipButton
+          key={item.key ?? "all"}
+          index={index}
+          label={item.label}
+          count={item.count}
+          selected={item.key === active}
+          registerItem={hover.registerItem}
+          onSelect={() => {
+            onChange(item.key);
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CountChipButton({
+  index,
+  label,
+  count,
+  selected,
+  registerItem,
+  onSelect,
+}: {
+  readonly index: number;
+  readonly label: string;
+  readonly count: number;
+  readonly selected: boolean;
+  readonly registerItem: (index: number, element: HTMLElement | null) => void;
+  readonly onSelect: () => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useRegisterFluidHoverItem(registerItem, index, ref);
+  const size = useSize();
+  const shape = useShape();
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-pressed={selected}
+      onClick={onSelect}
+      className={cn(
+        "relative z-10 inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap outline-none transition-colors duration-80 focus-visible:ring-1 focus-visible:ring-focus-ring",
+        size.control,
+        size.px,
+        size.type.body,
+        shape.bg,
+        selected ? "bg-active text-foreground" : "text-muted-foreground",
+      )}
+    >
+      <WeightLabel
+        text={label}
+        active={selected}
+        className={selected ? "text-foreground" : undefined}
+      />
+      <span className="text-muted-foreground tabular-nums">
+        {count.toLocaleString("en-US")}
+      </span>
+    </button>
   );
 }
 
@@ -412,100 +545,11 @@ function PanelToolbar({
 
 /* ---------------------------------- bars ----------------------------------- */
 
-export interface MeterRow {
-  readonly key: string;
-  /** The category, in words (a host, a size band, a resolution). */
-  readonly label: ReactNode;
-  /** The quantity the bar is drawn from. */
-  readonly value: number;
-  /** The quantity as printed at the row's end (e.g. "1.4 MB"). */
-  readonly display: ReactNode;
-  /** Hover title for the printed figure (e.g. the exact byte count). */
-  readonly title?: string;
-}
-
-/**
- * A ranked list of horizontal bars, one 36px row per category, scaled to the
- * largest value, in the one series style (charts.tsx `SERIES`): ink, the
- * peak at full strength and the rest at the resting step. Each bar slides in on
- * `spring.slow`, transform only. Rows are read-only, so the list carries no
- * hover highlight (it would promise a click).
- */
-export function MeterList({
-  rows,
-  tokens,
-  labelWidth = "10rem",
-  className,
-}: {
-  readonly rows: readonly MeterRow[];
-  readonly tokens: ChartTokens;
-  /** Width of the label column (any CSS length). */
-  readonly labelWidth?: string;
-  readonly className?: string;
-}) {
-  const peak = rows.reduce((max, row) => Math.max(max, row.value), 0);
-  return (
-    <ul
-      className={cn("grid gap-x-3", className)}
-      style={{
-        gridTemplateColumns: `minmax(0, ${labelWidth}) minmax(0, 1fr) max-content`,
-      }}
-    >
-      {rows.map((row) => {
-        const share = peak === 0 ? 0 : row.value / peak;
-        // A non-zero value always shows a sliver, so "some" never reads as
-        // "none"; a true zero stays an empty track.
-        const shown = row.value === 0 ? 0 : Math.max(share, 0.02);
-        return (
-          <li
-            key={row.key}
-            className="col-span-3 grid h-9 grid-cols-subgrid items-center"
-          >
-            <span
-              className={cn(
-                typeClass("body"),
-                "flex min-w-0 items-center gap-2 text-foreground",
-              )}
-            >
-              {row.label}
-            </span>
-            <span className="relative h-1.5 overflow-hidden rounded-full bg-hover">
-              <motion.span
-                aria-hidden="true"
-                className="absolute inset-0 rounded-full"
-                style={{
-                  backgroundColor: seriesColor(tokens),
-                  opacity:
-                    row.value === peak && peak > 0
-                      ? SERIES.emphasis
-                      : SERIES.rest,
-                }}
-                initial={{ x: "-100%" }}
-                animate={{ x: `${String((shown - 1) * 100)}%` }}
-                transition={spring.slow}
-              />
-            </span>
-            <span
-              className={cn(
-                typeClass("body"),
-                "text-right text-muted-foreground tabular-nums",
-              )}
-              title={row.title}
-            >
-              {row.display}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
 /**
  * A share of the busiest entry: a full-width pill slid in from the left
  * inside a clipping track (translateX, never a scaled or width-animated bar),
- * in the one series style (ink). Same grammar as `MeterList`: the peak
- * (fraction 1, or `peak`) at full strength, every other bar at rest.
+ * in the one series style (ink): the peak (fraction 1, or `peak`) at full
+ * strength, every other bar at rest.
  * Decorative — the figure it draws must be printed beside it.
  */
 export function ShareBar({
@@ -566,6 +610,21 @@ export function splitByCommit<Row extends Pick<Finding, "commitState">>(
   return { saved, recovered };
 }
 
+/** What "Recovered" means, in plain words: the one explanation, on the
+ *  Recovered tab and the stacked "Recovered" sub-heading alike. */
+const RECOVERED_NOTE =
+  "Rows found only in Chrome's temporary database files (write-ahead log or rollback journal). They can include entries that were deleted or overwritten in the saved database.";
+
+/** The Recovered tab with `RECOVERED_NOTE` as its tooltip. TabsList reads
+ *  `value` and hands `_index` to its children, so both pass through. */
+function RecoveredTabItem(props: ComponentProps<typeof TabItem>) {
+  return (
+    <TermTooltip content={RECOVERED_NOTE}>
+      <TabItem {...props} />
+    </TermTooltip>
+  );
+}
+
 /** Which list a CommitStateSplit shows. */
 export type CommitView = "saved" | "recovered";
 
@@ -611,7 +670,7 @@ function CommitStateTabs({
     >
       <TabsList aria-label={label}>
         <TabItem value="saved" label={countLabel("Saved", saved, savedMore)} />
-        <TabItem
+        <RecoveredTabItem
           value="recovered"
           label={countLabel("Recovered", recovered, recoveredMore)}
         />
@@ -648,8 +707,8 @@ interface CommitStateSplitCounts {
  *
  * `variant="stacked"` — only for a small embedded table (a Sites drill-down
  * panel): the saved list, then — only when there are recovered rows — a
- * hairline, a "Recovered N · from the write-ahead log or rollback journal"
- * sub-heading, and the recovered list. Saved rows always come first.
+ * hairline, a "Recovered N" sub-heading (its tooltip says the rows come from
+ * the write-ahead log or rollback journal), and the recovered list. Saved rows always come first.
  */
 export function CommitStateSplit(
   props: CommitStateSplitCounts &
@@ -666,8 +725,6 @@ export function CommitStateSplit(
         }
       | {
           readonly variant: "stacked";
-          /** Replaces the sub-heading's caption. */
-          readonly recoveredDescription?: ReactNode;
           /** The "Recovered" sub-heading's element, one below the
            *  enclosing panel's title. @default "h3" */
           readonly headingAs?: HeadingTag;
@@ -732,13 +789,11 @@ function TabbedSplit({
 function StackedSplit({
   recoveredCount,
   recoveredMore = false,
-  recoveredDescription,
   headingAs: Heading = "h3",
   saved,
   recovered,
   className,
 }: CommitStateSplitCounts & {
-  readonly recoveredDescription?: ReactNode;
   readonly headingAs?: HeadingTag;
 }) {
   const size = useSize();
@@ -757,16 +812,15 @@ function StackedSplit({
               className={cn(typeClass("body"), "text-foreground")}
               style={{ fontVariationSettings: fontWeights.semibold }}
             >
-              Recovered
+              <Term label="Recovered">
+                Rows read from the write-ahead log or rollback journal: not part
+                of the saved database.
+              </Term>
             </Heading>
             <Count>
               {recoveredCount.toLocaleString("en-US")}
               {recoveredMore ? "+" : ""}
             </Count>
-            <span className={cn(typeClass("caption"), "text-muted-foreground")}>
-              {recoveredDescription ??
-                "from the write-ahead log or rollback journal"}
-            </span>
           </div>
           {recovered}
         </div>

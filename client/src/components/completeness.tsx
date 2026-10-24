@@ -278,14 +278,20 @@ const DETAIL_POPOVER = "w-[min(26rem,calc(100vw-2rem))] pb-1.5";
 export function CoverageIndicator({
   completeness,
   artifacts,
+  quiet = false,
   className,
 }: {
   readonly completeness: CaseCompleteness;
   /** Completeness artifact keys in scope; omit for the whole Case. */
   readonly artifacts?: readonly string[];
+  /** The landing page's reading (Overview): the dot stays a neutral ring
+   *  unless something in scope is unreadable (then red). @default false */
+  readonly quiet?: boolean;
   readonly className?: string;
 }) {
   const scope = coverageOf(completeness, artifacts);
+  const dot: EvidenceState =
+    quiet && scope.state !== "unavailable" ? "neutral" : scope.state;
   const label =
     scope.attempted === 0
       ? "Not analyzed"
@@ -300,7 +306,7 @@ export function CoverageIndicator({
           className={cn("shrink-0 tabular-nums", className)}
         >
           <span className="inline-flex items-center gap-1.5">
-            <EvidenceDot state={scope.state} />
+            <EvidenceDot state={dot} />
             {label}
           </span>
         </Button>
@@ -386,7 +392,7 @@ function GapSentence({ gaps }: { readonly gaps: readonly Gap[] }) {
     );
   }
   const reason =
-    only.reason === null ? "" : ` — ${only.reason.replace(/\.$/, "")}`;
+    only.reason === null ? "" : ` - ${only.reason.replace(/\.$/, "")}`;
   if (only.outcome === "unavailable") {
     return (
       <>
@@ -418,7 +424,7 @@ function plainGaps(gaps: readonly Gap[]): string {
           gap.outcome === "missing"
             ? "not analyzed"
             : OUTCOME_META[gap.outcome].label
-        }${gap.reason === null ? "" : ` — ${gap.reason}`}`,
+        }${gap.reason === null ? "" : ` - ${gap.reason}`}`,
     )
     .join("; ");
 }
@@ -470,29 +476,5 @@ export function CoverageBanner({
         </Popover>
       </BannerActions>
     </Banner>
-  );
-}
-
-/**
- * @deprecated The shell renders coverage for every page (`CoverageIndicator`
- * in the title row, `CoverageBanner` under it). Kept so older call sites
- * compile: the indicator, right-aligned, then the banner when degraded.
- */
-export function CompletenessPanel({
-  completeness,
-  artifacts,
-  className,
-}: {
-  readonly completeness: CaseCompleteness;
-  readonly artifacts?: readonly string[];
-  readonly className?: string;
-}) {
-  return (
-    <div className={cn("flex flex-col gap-3", className)}>
-      <div className="flex justify-end">
-        <CoverageIndicator completeness={completeness} artifacts={artifacts} />
-      </div>
-      <CoverageBanner completeness={completeness} artifacts={artifacts} />
-    </div>
   );
 }

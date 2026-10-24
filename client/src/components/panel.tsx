@@ -99,13 +99,6 @@ export function PanelDescription({
   );
 }
 
-export function PanelContent({
-  className,
-  ...props
-}: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("px-4 py-4", className)} {...props} />;
-}
-
 export function PanelFooter({
   className,
   ...props
