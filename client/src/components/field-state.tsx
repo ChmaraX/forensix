@@ -21,7 +21,8 @@ import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { EvidenceDot } from "./evidence.js";
 
-function AbsentWord() {
+/** The word "absent", at the surrounding body size, always muted. */
+export function AbsentWord() {
   const size = useSize();
   return (
     <span

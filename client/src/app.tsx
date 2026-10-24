@@ -40,7 +40,6 @@ import { useCallback, useEffect, useState } from "react";
 import { callApi } from "./api.js";
 import logoMark from "./assets/forensix-logo.png";
 import { ARTIFACTS } from "./artifacts.js";
-import { ArtifactPage } from "./components/artifact-page.js";
 import { AutofillPage } from "./components/autofill-page.js";
 import { BookmarksPage } from "./components/bookmarks-page.js";
 import { CachePage } from "./components/cache-page.js";
@@ -368,6 +367,57 @@ function PageHeader({ target }: { readonly target: NavTarget }) {
 }
 
 /**
+ * The page for a nav target. Every page gets the Case-wide Completeness
+ * Statement (`completeness`) and renders its own scoped Evidence coverage
+ * panel before any row (forensic rule 1).
+ */
+function ActivePage({
+  target,
+  context,
+  sitesPreselect,
+}: {
+  readonly target: NavTarget;
+  readonly context: CaseContext;
+  readonly sitesPreselect: string | null;
+}) {
+  const { completeness, profiles } = context;
+  if (target.timeline === true) {
+    return <TimelinePage completeness={completeness} />;
+  }
+  if (target.sites === true) {
+    return (
+      <SitesPage initialHost={sitesPreselect} completeness={completeness} />
+    );
+  }
+  const config = target.config;
+  switch (config?.key) {
+    case "history":
+      return <HistoryPage profiles={profiles} completeness={completeness} />;
+    case "top-sites":
+      return <TopSitesPage config={config} completeness={completeness} />;
+    case "downloads":
+      return <DownloadsPage config={config} completeness={completeness} />;
+    case "bookmarks":
+      return <BookmarksPage config={config} completeness={completeness} />;
+    case "cookies":
+      return <CookiesPage config={config} completeness={completeness} />;
+    case "favicons":
+      return <FaviconsPage config={config} completeness={completeness} />;
+    case "metadata":
+      return <MetadataPage config={config} completeness={completeness} />;
+    case "autofill":
+      return <AutofillPage config={config} completeness={completeness} />;
+    case "credentials":
+      return <CredentialsPage config={config} completeness={completeness} />;
+    case "cache":
+      return <CachePage config={config} completeness={completeness} />;
+    default:
+      // Every artifact in ARTIFACTS has a page above.
+      return null;
+  }
+}
+
+/**
  * Application shell.
  *
  * FF's App Sidebar: a resizable, collapsible inset sidebar (drag its edge,
@@ -424,25 +474,34 @@ export function App() {
           {/* Below the drawer breakpoint the rail is gone; keep the inset card
               off the left edge as it is off the right. */}
           <SidebarInset className="max-md:ml-2!">
-            <SidebarInsetTopbar className="sticky top-0 z-30 px-2">
-              <nav
-                aria-label="Breadcrumb"
-                className={cn(
-                  "flex min-w-0 items-center gap-1.5",
-                  typeClass("body"),
-                )}
-              >
-                <span className="truncate text-muted-foreground">
-                  {groupOf(active)}
-                </span>
-                <span aria-hidden="true" className="text-muted-foreground">
-                  /
-                </span>
-                <span aria-current="page" className="truncate text-foreground">
-                  {active.label}
-                </span>
-              </nav>
-            </SidebarInsetTopbar>
+            {/* The sticky bar wears the inset's own surface (level 2) and
+                frame, so rows pass under it instead of showing through the
+                breadcrumb, and FF's scroll-divider hairline plus a short
+                fade appear once the page scrolls (`.inset-topbar`). */}
+            <div className="inset-topbar">
+              <SidebarInsetTopbar className="px-2">
+                <nav
+                  aria-label="Breadcrumb"
+                  className={cn(
+                    "flex min-w-0 items-center gap-1.5",
+                    typeClass("body"),
+                  )}
+                >
+                  <span className="truncate text-muted-foreground">
+                    {groupOf(active)}
+                  </span>
+                  <span aria-hidden="true" className="text-muted-foreground">
+                    /
+                  </span>
+                  <span
+                    aria-current="page"
+                    className="truncate text-foreground"
+                  >
+                    {active.label}
+                  </span>
+                </nav>
+              </SidebarInsetTopbar>
+            </div>
             <SurfaceProvider value={2}>
               <div
                 key={active.key}
@@ -452,41 +511,17 @@ export function App() {
                 {active.key === "overview" ? null : (
                   <PageHeader target={active} />
                 )}
-                {active.timeline === true ? (
-                  <TimelinePage />
-                ) : active.sites === true ? (
-                  <SitesPage initialHost={sitesPreselect} />
-                ) : active.config === null ? (
+                {active.key === "overview" ? (
                   <OverviewPage onOpen={openSection} />
                 ) : error !== null ? (
                   <ErrorRows message={error} onRetry={retry} className="px-0" />
                 ) : context === null ? (
                   <LoadingRows className="px-0" />
-                ) : active.config.key === "history" ? (
-                  <HistoryPage profiles={context.profiles} />
-                ) : active.config.key === "top-sites" ? (
-                  <TopSitesPage config={active.config} />
-                ) : active.config.key === "downloads" ? (
-                  <DownloadsPage config={active.config} />
-                ) : active.config.key === "bookmarks" ? (
-                  <BookmarksPage config={active.config} />
-                ) : active.config.key === "cookies" ? (
-                  <CookiesPage config={active.config} />
-                ) : active.config.key === "favicons" ? (
-                  <FaviconsPage config={active.config} />
-                ) : active.config.key === "metadata" ? (
-                  <MetadataPage config={active.config} />
-                ) : active.config.key === "autofill" ? (
-                  <AutofillPage config={active.config} />
-                ) : active.config.key === "credentials" ? (
-                  <CredentialsPage config={active.config} />
-                ) : active.config.key === "cache" ? (
-                  <CachePage config={active.config} />
                 ) : (
-                  <ArtifactPage
-                    config={active.config}
-                    completeness={context.completeness}
-                    profiles={context.profiles}
+                  <ActivePage
+                    target={active}
+                    context={context}
+                    sitesPreselect={sitesPreselect}
                   />
                 )}
               </div>

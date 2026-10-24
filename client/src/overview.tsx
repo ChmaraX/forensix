@@ -161,11 +161,21 @@ function OverviewContent({
   // local date at the boundaries, which only ever widens the shown span or
   // range bounds by a day — it can never hide evidence, unlike a value derived
   // from a capped read.
+  //
+  // Every day the loaded activity rows cover is recorded evidence too, so the
+  // span always contains them: "full span" can never read narrower than the
+  // chart drawn under it (it once read a single day when both bound reads
+  // returned the same row).
   const fullSpan = useMemo(() => {
     const { first, last } = data.recordedSpan;
+    const days = [
+      ...(first === null ? [] : [first.slice(0, 10)]),
+      ...(last === null ? [] : [last.slice(0, 10)]),
+      ...data.activity.map((bucket) => bucket.date),
+    ].sort();
     return {
-      first: first === null ? null : first.slice(0, 10),
-      last: last === null ? null : last.slice(0, 10),
+      first: days[0] ?? null,
+      last: days[days.length - 1] ?? null,
     };
   }, [data]);
 

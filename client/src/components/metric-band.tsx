@@ -15,6 +15,12 @@
  *
  * API is unchanged: `className` still takes the grid columns
  * (`grid-cols-2 sm:grid-cols-4`), and the inner grid inherits them.
+ * `tone` colours the progress fill (unless `progress.tone` overrides it)
+ * and, beside the item's `status` word, a state dot. A tone never shows
+ * without a word: with no `status` and no `progress`, `tone` draws nothing.
+ * So a tinted tile is `tone="warning" status="recovered"` — the dot repeats
+ * the word, it never replaces it.
+ *
  * Forensic rule: tiles show recorded facts only — never a Candidate value.
  */
 import { motion } from "motion/react";
@@ -95,8 +101,11 @@ export function MetricBandItem({
   readonly value: ReactNode;
   readonly detail?: ReactNode;
   readonly icon?: ReactNode;
+  /** A short state word at the item's top right (e.g. "recovered"). */
   readonly status?: ReactNode;
   readonly progress?: MetricBandProgress;
+  /** Hue of the progress fill and of the dot beside `status`; never shown
+   *  on its own (see the module note). */
   readonly tone?: MetricBandTone;
   /** Extra classes for the figure. Prefer none: the title role is the
    *  band's one figure size. */
@@ -122,8 +131,20 @@ export function MetricBandItem({
         </span>
         {status === undefined ? null : (
           <span
-            className={cn(size.type.caption, "shrink-0 text-muted-foreground")}
+            className={cn(
+              size.type.caption,
+              "inline-flex shrink-0 items-center gap-1.5 text-muted-foreground",
+            )}
           >
+            {tone === "neutral" ? null : (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "inline-block size-1.5 shrink-0 rounded-full",
+                  PROGRESS_TONE[tone],
+                )}
+              />
+            )}
             {status}
           </span>
         )}

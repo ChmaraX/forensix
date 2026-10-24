@@ -57,7 +57,12 @@ import { SizeProvider, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import type { FieldState, Finding, PageOf } from "../types.js";
+import type {
+  CaseCompleteness,
+  FieldState,
+  Finding,
+  PageOf,
+} from "../types.js";
 import {
   bucketsToDays,
   fillGaps,
@@ -69,6 +74,7 @@ import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import {
   AbsentWord,
+  fieldString,
   fieldText,
   fieldUtc,
   formatInstant,
@@ -76,27 +82,14 @@ import {
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
-import { Coverage } from "./history-coverage.js";
+import { CompletenessPanel } from "./completeness.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { CHART_HEIGHT } from "./page-kit.js";
 
 /* ------------------------------- data reads ------------------------------- */
-
-/** `"value"`-state field as a plain string (numbers included), or null. */
-function fieldString(field: FieldState | undefined): string | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  if (typeof field.value === "string") {
-    return field.value === "" ? null : field.value;
-  }
-  if (typeof field.value === "number") {
-    return String(field.value);
-  }
-  return null;
-}
 
 /** How many visit rows the arrival breakdown and the table load per request. */
 const VISITS_PAGE_LIMIT = 100;
@@ -384,9 +377,6 @@ function HistoryFigures({
 }
 
 /* ------------------------------- activity --------------------------------- */
-
-/** Height of the plot, shared by the chart and its skeleton. */
-const CHART_HEIGHT = "h-[220px]";
 
 function ActivityPanel({
   days,
@@ -732,7 +722,10 @@ function VisitTable({
 
 export function HistoryPage({
   profiles = [],
+  completeness,
 }: {
+  /** The Case's Completeness Statement (the shell reads it once). */
+  readonly completeness: CaseCompleteness;
   /** Every Profile the Case has, for the toolbar's Profiles menu. Omitted (or
    *  empty) simply hides the Profiles filter — a single-Profile Case has
    *  nothing to filter there. */
@@ -805,7 +798,7 @@ export function HistoryPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <Coverage artifact="History" />
+      <CompletenessPanel completeness={completeness} artifacts={["History"]} />
 
       {/* The Case's browsing at a glance: four figures, then the per-day
           chart. Every figure is a direct read of the activity/visit sets

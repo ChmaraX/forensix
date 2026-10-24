@@ -1,14 +1,24 @@
 /**
- * Shared readers and small renderers for curated Finding views (Timeline,
- * Top sites, Sites). These never invent data: a missing or non-value field
- * reads as `null` and renders as the word "absent" at the call site.
+ * Shared readers and small renderers for curated Finding views. These never
+ * invent data.
+ *
+ * The readers (`fieldText`, `fieldString`, `fieldBool`, `fieldUtc`,
+ * `fieldInteger`) return the recorded value or `null` — and `null` covers
+ * absent, (empty) AND unavailable alike. Use them for arithmetic, grouping
+ * and sorting only. To *show* a field, render `FieldCell` (or `TimeCell` in
+ * page-kit for timestamps) with the FieldState itself, so each of the four
+ * states keeps its own word: the value, "(empty)", "absent", or
+ * "unavailable — reason".
  */
+import type { ReactNode } from "react";
+
 import { fontWeights } from "@/lib/font-weight";
 import { typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { COMMIT_META } from "../terms.js";
 import type { CommitState, FieldState } from "../types.js";
 import { EvidenceDot } from "./evidence.js";
+import { FieldStateText, MaybeFieldStateText } from "./field-state.js";
 import { TermExplanation, TermTooltip } from "./term.js";
 
 /** `"value"`-state non-empty string, or null. */
@@ -19,6 +29,28 @@ export function fieldText(field: FieldState | undefined): string | null {
   return typeof field.value === "string" && field.value !== ""
     ? field.value
     : null;
+}
+
+/** `"value"`-state field as a plain string (numbers included), or null. */
+export function fieldString(field: FieldState | undefined): string | null {
+  if (field === undefined || field.state !== "value") {
+    return null;
+  }
+  if (typeof field.value === "string") {
+    return field.value === "" ? null : field.value;
+  }
+  if (typeof field.value === "number") {
+    return String(field.value);
+  }
+  return null;
+}
+
+/** A `"value"`-state boolean, or null — booleans arrive as real `true`/`false`. */
+export function fieldBool(field: FieldState | undefined): boolean | null {
+  if (field === undefined || field.state !== "value") {
+    return null;
+  }
+  return typeof field.value === "boolean" ? field.value : null;
 }
 
 /** The UTC instant of a timestamp field (`{utc, ...}` value shape), or null. */
@@ -80,17 +112,60 @@ export function hostOf(url: string | null): string | null {
   }
 }
 
-/** The word "absent", at the surrounding body size, always muted. */
-export function AbsentWord() {
+/**
+ * One field in a table cell, with its own state word. A recorded, non-empty
+ * value renders through `format` when given (a host, a size, a link label),
+ * else as the raw value (mono, truncated). Every other state renders its
+ * word — "(empty)", "absent", "unavailable — reason" — never a blank and
+ * never "absent" for a value that was unreadable. A field the row does not
+ * carry at all (`undefined`) reads "absent".
+ *
+ *   <FieldCell field={row.fields.hostKey} />
+ *   <FieldCell field={row.fields.totalBytes} format={(v) => formatBytes(Number(v))} />
+ */
+export function FieldCell({
+  field,
+  format,
+  truncate = true,
+  className,
+}: {
+  readonly field: FieldState | undefined;
+  /** Renders a recorded, non-empty value. */
+  readonly format?: (value: unknown) => ReactNode;
+  /** One line with an ellipsis (table cells). @default true */
+  readonly truncate?: boolean;
+  readonly className?: string;
+}) {
   const size = useSize();
-  return (
-    <span
-      className={cn(size.type.body, "whitespace-nowrap text-muted-foreground")}
-    >
-      absent
+  if (
+    format !== undefined &&
+    field !== undefined &&
+    field.state === "value" &&
+    field.value !== ""
+  ) {
+    return (
+      <span
+        className={cn(
+          size.type.body,
+          truncate ? "block truncate whitespace-nowrap" : "break-words",
+          className,
+        )}
+      >
+        {format(field.value)}
+      </span>
+    );
+  }
+  return field === undefined ? (
+    <MaybeFieldStateText field={field} truncate={truncate} />
+  ) : (
+    <span className={cn("block min-w-0", className)}>
+      <FieldStateText field={field} truncate={truncate} />
     </span>
   );
 }
+
+/** The word "absent" (one shared copy, from field-state.tsx). */
+export { AbsentWord } from "./field-state.js";
 
 const AVATAR_SIZE = {
   md: { box: "size-7 rounded-md", type: typeClass("caption") },
@@ -135,7 +210,16 @@ export function SiteAvatar({
  * foreground for the recovered states); the hue rides the dot alone, with
  * the plain-language tooltip.
  */
-export function StateWord({ state }: { readonly state: CommitState }) {
+export function StateWord({
+  state,
+  focusable = false,
+}: {
+  readonly state: CommitState;
+  /** Give the word its own tab stop (for the tooltip). Leave it off inside a
+   *  focusable table row: the row is the tab stop, and its sheet carries the
+   *  explanation. @default false */
+  readonly focusable?: boolean;
+}) {
   const size = useSize();
   const meta = COMMIT_META[state];
   return (
@@ -147,9 +231,11 @@ export function StateWord({ state }: { readonly state: CommitState }) {
       }
     >
       <span
-        tabIndex={0}
+        tabIndex={focusable ? 0 : undefined}
         className={cn(
-          "inline-flex cursor-help items-center gap-1.5 whitespace-nowrap rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+          "inline-flex cursor-help items-center gap-1.5 whitespace-nowrap rounded-sm",
+          focusable &&
+            "outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
           size.type.caption,
           state === "committed" ? "text-muted-foreground" : "text-foreground",
         )}

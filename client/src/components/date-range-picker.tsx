@@ -712,16 +712,19 @@ export function DateRangePicker({
         </PopoverContent>
       </Popover>
       {active ? (
-        <button
-          type="button"
+        // FF's ghost icon button, a step under the 28px ladder so it sits
+        // inside the bordered control without touching its hairline.
+        <Button
+          variant="ghost"
+          size="icon-compact"
           aria-label="Clear date range"
           onClick={() => {
             onChange({ from: "", to: "" });
           }}
-          className="mr-1 inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none transition-colors duration-80 hover:text-foreground focus-visible:ring-1 focus-visible:ring-focus-ring"
+          className="mr-0.5 h-6 w-6"
         >
-          <X aria-hidden="true" strokeWidth={1.5} className="size-3.5" />
-        </button>
+          <X aria-hidden="true" />
+        </Button>
       ) : null}
     </div>
   );

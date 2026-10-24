@@ -2,11 +2,10 @@
  * Shared list chrome, drawn with FF parts: loading rows on the table row
  * ladder (Skeleton bars inside 36px / 28px rows, handed in one by one with
  * `reveal-items`), a load failure as an error Banner with Retry, the
- * "N rows shown / Load more" footer, and the framed list section (a Panel).
+ * "N rows shown / Load more" footer.
  */
 import type { ReactNode } from "react";
 
-import { Panel } from "@/components/panel";
 import {
   Banner,
   BannerAction,
@@ -16,7 +15,6 @@ import {
 } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
-import { fontWeights } from "@/lib/font-weight";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
@@ -32,23 +30,38 @@ const BODY_WIDTHS = [
 ] as const;
 
 /**
- * Placeholder rows, each the height of a table row at the surrounding ladder
- * step (36px default, 28px compact), separated by the table's hairline.
+ * Placeholder rows the size of the real table: the same `px-1 py-1` scroller
+ * inset as an evidence table, each row the height of a table row at the
+ * surrounding ladder step (36px default, 28px compact) with the cell's own
+ * horizontal padding, separated by the table's hairline. A live
+ * `role="status"` region named by `label`.
+ *
+ * Use it as the first child of a `reveal-swap`, with the real table added
+ * after it once rows land:
+ *
+ *   <div className="reveal-swap">
+ *     <LoadingRows label="Loading visits" />
+ *     {loaded ? <VisitTable … /> : null}
+ *   </div>
  */
 export function LoadingRows({
   className,
   rows = 5,
+  label = "Loading rows",
 }: {
   readonly className?: string;
   /** How many placeholder rows. @default 5 */
   readonly rows?: number;
+  /** Accessible name of the status region. @default "Loading rows" */
+  readonly label?: string;
 }) {
   const size = useSize();
+  const cellInset = size.variant === "compact" ? "px-2.5" : "px-3";
   return (
     <div
-      className={cn("reveal-items flex flex-col px-4 py-1", className)}
+      className={cn("reveal-items flex flex-col px-1 py-1", className)}
       role="status"
-      aria-label="Loading rows"
+      aria-label={label}
     >
       {Array.from({ length: rows }, (_, index) => (
         <div
@@ -56,6 +69,7 @@ export function LoadingRows({
           className={cn(
             "flex items-center gap-6 border-b border-border last:border-b-0",
             size.control,
+            cellInset,
           )}
         >
           <Skeleton
@@ -156,56 +170,5 @@ export function ListFooter({
         </Button>
       ) : null}
     </div>
-  );
-}
-
-/** A framed list: title, row count, optional trailing control, rows. */
-export function ListCard({
-  title,
-  titleExtra,
-  count,
-  description,
-  className,
-  children,
-}: {
-  readonly title: ReactNode;
-  readonly titleExtra?: ReactNode;
-  readonly count: number;
-  /** Optional one-line caption under the title. */
-  readonly description?: ReactNode;
-  readonly className?: string;
-  readonly children: ReactNode;
-}) {
-  const size = useSize();
-  return (
-    <Panel className={cn("overflow-clip", className)}>
-      <header className="flex min-h-13 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2.5">
-        <div className="flex min-w-0 flex-col">
-          <div className="flex items-baseline gap-2">
-            <h2
-              className={cn(size.type.subtitle, "text-foreground")}
-              style={{ fontVariationSettings: fontWeights.semibold }}
-            >
-              {title}
-            </h2>
-            <span
-              className={cn(
-                size.type.caption,
-                "text-muted-foreground tabular-nums",
-              )}
-            >
-              {count}
-            </span>
-          </div>
-          {description === undefined ? null : (
-            <p className={cn(size.type.caption, "text-muted-foreground")}>
-              {description}
-            </p>
-          )}
-        </div>
-        {titleExtra}
-      </header>
-      {children}
-    </Panel>
   );
 }

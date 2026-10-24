@@ -48,17 +48,24 @@ import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import type { ArtifactConfig, Finding, PageOf } from "../types.js";
+import type {
+  ArtifactConfig,
+  CaseCompleteness,
+  Finding,
+  PageOf,
+} from "../types.js";
+import { CompletenessPanel } from "./completeness.js";
 import {
   Count,
   formatBytes,
   MeterList,
+  type MeterRow,
+  plural,
   SectionHeading,
   splitByCommit,
   TimeText,
   Toolbar,
-  type MeterRow,
-} from "./cache-kit.js";
+} from "./page-kit.js";
 import { useChartTokens } from "./charts.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
@@ -197,10 +204,6 @@ function faviconEdge(row: Finding): number | null {
 
 function faviconBytes(row: Finding): number | null {
   return fieldInteger(row.fields.payloadBytes);
-}
-
-function plural(count: number, one: string, many: string): string {
-  return `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
 }
 
 /* --------------------------------- widgets --------------------------------- */
@@ -551,7 +554,13 @@ function FaviconsSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
+export function FaviconsPage({
+  config,
+  completeness,
+}: {
+  readonly config: ArtifactConfig;
+  readonly completeness: CaseCompleteness;
+}) {
   const list = useFavicons(config.route);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
@@ -609,6 +618,10 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
 
   return (
     <div className="flex flex-col gap-5">
+      <CompletenessPanel
+        completeness={completeness}
+        artifacts={[config.completenessArtifact]}
+      />
       {list.error !== null && list.rows.length === 0 ? (
         <Panel>
           <ErrorRows message={list.error} onRetry={list.retry} />
@@ -646,7 +659,7 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
                   }
                   className="mt-3"
                 >
-                  <Toolbar>
+                  <Toolbar placement="inline">
                     {profiles.length > 1 ? (
                       <FilterField label="Profile">
                         <ProfilePicker

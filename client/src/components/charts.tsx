@@ -886,7 +886,7 @@ export function CoverageDial({
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5">
         <span
-          className={cn(typeClass("display"), "text-foreground tabular-nums")}
+          className={cn(typeClass("title"), "text-foreground tabular-nums")}
           style={{ fontVariationSettings: fontWeights.semibold }}
         >
           {percent}%
@@ -919,6 +919,9 @@ export interface CredentialAgePoint {
   readonly timesUsed: number | null;
   /** True when the row was recovered from a sidecar, not committed storage. */
   readonly recovered: boolean;
+  /** Which sidecar a recovered row came from: WAL (`--wal`, the default) or
+   *  the rollback journal (`--violet`). Ignored for saved rows. */
+  readonly sidecar?: "wal" | "journal";
 }
 
 /** Diamond mark for recovered points: a shape as well as a colour, and the
@@ -966,16 +969,36 @@ export function CredentialAgeScatter({
     return <ChartEmpty>No dated logins to plot.</ChartEmpty>;
   }
   const committed = points.filter((point) => !point.recovered);
-  const recovered = points.filter((point) => point.recovered);
+  // Recovered points take their sidecar's evidence hue (FLUID.md: WAL is
+  // --wal, the rollback journal --violet), always with the legend word and
+  // the diamond shape, never on colour alone.
+  const wal = points.filter(
+    (point) => point.recovered && point.sidecar !== "journal",
+  );
+  const journal = points.filter(
+    (point) => point.recovered && point.sidecar === "journal",
+  );
   const legendItems: ChartLegendItem[] = [
     ...(committed.length > 0
       ? [{ label: "Saved login", color: tokens["--primary"] }]
       : []),
-    ...(recovered.length > 0
+    ...(wal.length > 0
       ? [
           {
-            label: "Recovered from sidecar",
-            color: tokens["--muted-foreground"],
+            label:
+              journal.length > 0
+                ? "Recovered from WAL"
+                : "Recovered from sidecar",
+            color: tokens["--wal"],
+            shape: "diamond" as const,
+          },
+        ]
+      : []),
+    ...(journal.length > 0
+      ? [
+          {
+            label: "Recovered from journal",
+            color: tokens["--violet"],
             shape: "diamond" as const,
           },
         ]
@@ -995,7 +1018,7 @@ export function CredentialAgeScatter({
           className={CHART_FOCUS_CLASS}
         >
           <ScatterChart margin={{ top: 10, right: 12, bottom: 20, left: 4 }}>
-            <CartesianGrid stroke={tokens["--border"]} />
+            <CartesianGrid {...chartGrid(tokens)} />
             <XAxis
               type="number"
               dataKey="ageDays"
@@ -1075,8 +1098,14 @@ export function CredentialAgeScatter({
               {...chartAnimation(reduced)}
             />
             <Scatter
-              data={recovered}
-              fill={tokens["--muted-foreground"]}
+              data={wal}
+              fill={tokens["--wal"]}
+              shape={DiamondMark}
+              {...chartAnimation(reduced)}
+            />
+            <Scatter
+              data={journal}
+              fill={tokens["--violet"]}
               shape={DiamondMark}
               {...chartAnimation(reduced)}
             />

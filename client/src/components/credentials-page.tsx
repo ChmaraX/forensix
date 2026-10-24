@@ -62,7 +62,14 @@ import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
+import type {
+  ArtifactConfig,
+  CaseCompleteness,
+  FieldState,
+  Finding,
+  PageOf,
+} from "../types.js";
+import { CompletenessPanel } from "./completeness.js";
 import {
   CredentialAgeScatter,
   useChartTokens,
@@ -75,7 +82,6 @@ import {
   fieldInteger,
   fieldText,
   fieldUtc,
-  formatInstant,
   hostOf,
   StateWord,
 } from "./finding-fields.js";
@@ -83,6 +89,7 @@ import { FilterTextField } from "./filters.js";
 import { ErrorRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { plural, TimeCell } from "./page-kit.js";
 
 /* ------------------------------ data loading ------------------------------ */
 
@@ -244,10 +251,6 @@ function summarize(rows: readonly Finding[]): CredentialSummary {
     points,
     reused,
   };
-}
-
-function plural(count: number, one: string, many: string): string {
-  return `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
 }
 
 /* -------------------------------- widgets --------------------------------- */
@@ -415,20 +418,6 @@ function ReusedRow({
         </span>
       </button>
     </li>
-  );
-}
-
-/** "3 Dec 2024" then its time, or the word "absent" when no instant recorded. */
-function TimeCell({ utc }: { readonly utc: string | null }) {
-  const parts = utc === null ? null : formatInstant(utc);
-  if (utc === null || parts === null) {
-    return <AbsentWord />;
-  }
-  return (
-    <span className="whitespace-nowrap tabular-nums" title={`${utc} (UTC)`}>
-      {parts.date}
-      <span className="ml-2 text-muted-foreground">{parts.time}</span>
-    </span>
   );
 }
 
@@ -715,8 +704,10 @@ function CredentialsSkeleton() {
 
 export function CredentialsPage({
   config,
+  completeness,
 }: {
   readonly config: ArtifactConfig;
+  readonly completeness: CaseCompleteness;
 }) {
   const list = useCredentials(config.route);
   const tokens = useChartTokens();
@@ -737,6 +728,10 @@ export function CredentialsPage({
 
   return (
     <div className="flex flex-col gap-4">
+      <CompletenessPanel
+        completeness={completeness}
+        artifacts={[config.completenessArtifact]}
+      />
       {list.error !== null ? (
         <ErrorRows
           message={list.error}

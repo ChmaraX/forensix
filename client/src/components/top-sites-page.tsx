@@ -63,7 +63,13 @@ import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
 import { COMMIT_META } from "../terms.js";
-import type { ArtifactConfig, CommitState, Finding, PageOf } from "../types.js";
+import type {
+  ArtifactConfig,
+  CaseCompleteness,
+  CommitState,
+  Finding,
+  PageOf,
+} from "../types.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
   AbsentWord,
@@ -73,10 +79,11 @@ import {
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
-import { Coverage } from "./history-coverage.js";
+import { CompletenessPanel } from "./completeness.js";
 import { ErrorRows, ListFooter } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { CARD_TITLE_CLEAR, Count, ShareBar } from "./page-kit.js";
 
 /** One rank-sorted read across every Commit State, paginated by the route. */
 function useTopSites(route: string) {
@@ -236,10 +243,6 @@ function StatStrip({ stats }: { readonly stats: TopSitesStats }) {
     </MetricBand>
   );
 }
-
-/** Inline CardTitle trims its line box to cap height and clips; this pads
- *  the clip box (and pulls the layout back) so descenders aren't cut. */
-const CARD_TITLE_CLEAR = "whitespace-nowrap [&>span]:-my-1 [&>span]:py-1";
 
 /** How many leaderboard rows each Profile card shows before "and N more". */
 const BOARD_LIMIT = 5;
@@ -614,25 +617,6 @@ const SPLIT_FILL: Readonly<Record<CommitState, string>> = {
   journal_resident: "bg-violet",
 };
 
-/**
- * A share of the busiest entry's count: a full-width pill slid in from the
- * left inside a clipping track (never a scaled or width-animated bar).
- */
-function ShareBar({ fraction }: { readonly fraction: number }) {
-  const clamped = Math.min(1, Math.max(0, fraction));
-  return (
-    <span
-      aria-hidden="true"
-      className="block h-1.5 w-full overflow-hidden rounded-full bg-hover"
-    >
-      <span
-        className="block h-full w-full rounded-full bg-muted-foreground"
-        style={{ transform: `translateX(${String((clamped - 1) * 100)}%)` }}
-      />
-    </span>
-  );
-}
-
 function CommitLegendRow({
   state,
   hint,
@@ -788,7 +772,13 @@ function TopSitesSkeleton() {
   );
 }
 
-export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
+export function TopSitesPage({
+  config,
+  completeness,
+}: {
+  readonly config: ArtifactConfig;
+  readonly completeness: CaseCompleteness;
+}) {
   const list = useTopSites(config.route);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
@@ -834,7 +824,10 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <Coverage artifact={config.completenessArtifact} />
+      <CompletenessPanel
+        completeness={completeness}
+        artifacts={[config.completenessArtifact]}
+      />
 
       {list.error !== null ? (
         <Panel>
@@ -864,7 +857,7 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
                 <PanelTitle id="top-sites-all-title">
                   All ranked sites
                 </PanelTitle>
-                <RowCount count={visible.length} />
+                <Count>{visible.length}</Count>
               </div>
             </PanelHeader>
             <SizeProvider size="compact">
@@ -951,16 +944,5 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
         />
       ) : null}
     </div>
-  );
-}
-
-function RowCount({ count }: { readonly count: number }) {
-  const size = useSize();
-  return (
-    <span
-      className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
-    >
-      {count.toLocaleString("en-US")}
-    </span>
   );
 }

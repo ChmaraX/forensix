@@ -74,7 +74,13 @@ import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import type { ArtifactConfig, Finding, PageOf } from "../types.js";
+import type {
+  ArtifactConfig,
+  CaseCompleteness,
+  Finding,
+  PageOf,
+} from "../types.js";
+import { CompletenessPanel } from "./completeness.js";
 import {
   CHART_FOCUS_CLASS,
   chartAnimation,
@@ -1119,7 +1125,13 @@ function AutofillSkeleton() {
   );
 }
 
-export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
+export function AutofillPage({
+  config,
+  completeness,
+}: {
+  readonly config: ArtifactConfig;
+  readonly completeness: CaseCompleteness;
+}) {
   const list = useAutofill(config.route);
   const derived = useDerived(list.rows);
   const tokens = useChartTokens();
@@ -1141,6 +1153,10 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <CompletenessPanel
+        completeness={completeness}
+        artifacts={[config.completenessArtifact]}
+      />
       {list.error !== null ? (
         <ErrorRows
           message={list.error}

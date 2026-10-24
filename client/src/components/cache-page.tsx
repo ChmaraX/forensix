@@ -67,17 +67,25 @@ import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
+import type {
+  ArtifactConfig,
+  CaseCompleteness,
+  FieldState,
+  Finding,
+  PageOf,
+} from "../types.js";
+import { CompletenessPanel } from "./completeness.js";
 import {
   Count,
   formatBytes,
   MeterList,
+  type MeterRow,
+  plural,
   SectionHeading,
   splitByCommit,
   TimeText,
   Toolbar,
-  type MeterRow,
-} from "./cache-kit.js";
+} from "./page-kit.js";
 import {
   activeIndexOf,
   CHART_FOCUS_CLASS,
@@ -242,10 +250,6 @@ function integrityVerified(row: Finding): boolean {
  *  what identifies the resource, so a bare parse is enough for grouping. */
 function keyHost(row: Finding): string | null {
   return hostOf(fieldText(row.fields.key));
-}
-
-function plural(count: number, one: string, many: string): string {
-  return `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
 }
 
 function formatDay(date: string): string {
@@ -873,7 +877,13 @@ function CacheSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function CachePage({ config }: { readonly config: ArtifactConfig }) {
+export function CachePage({
+  config,
+  completeness,
+}: {
+  readonly config: ArtifactConfig;
+  readonly completeness: CaseCompleteness;
+}) {
   const list = useCacheEntries(config.route);
   const tokens = useChartTokens();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
@@ -933,6 +943,10 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
 
   return (
     <div className="flex flex-col gap-5">
+      <CompletenessPanel
+        completeness={completeness}
+        artifacts={[config.completenessArtifact]}
+      />
       {list.error !== null ? (
         <Panel>
           <ErrorRows
@@ -981,7 +995,7 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
                   description={<BackendBadges rows={list.rows} />}
                   className="mt-3"
                 >
-                  <Toolbar>
+                  <Toolbar placement="inline">
                     {profiles.length > 1 ? (
                       <FilterField label="Profile">
                         <ProfilePicker

@@ -49,11 +49,20 @@ The defaults are unchanged: `dist/index.js` and port 7799.
 - `GET /api/<route>` for every route the real server exposes: `completeness`,
   `profiles`, `history`, `timeline`, `site-favicons`, `cookies`,
   `credentials`, `top-sites`, `cache`, `favicons`, `candidates`,
-  `topic-candidates`, `metadata`, `downloads`, `bookmarks`, `autofill`.
+  `topic-candidates`, `metadata`, `downloads`, `bookmarks`, `autofill` —
+  plus the Sites page's `site-hosts` and `site-findings`.
 
 `timeline` merges history visits, downloads, cookie creation, and autofill
 last-used rows by timestamp, newest first — mirroring core's
-`queryTimeline`. `site-hosts`/`site-findings` are not wired up yet.
+`queryTimeline`.
+
+`site-hosts` groups history visits, cookies, saved logins, bookmarks, and top
+sites by a normalized host key (lowercased, no leading dots or `www.`), with
+per-kind counts, honoring `search`. `site-findings?host=` returns every row
+for one host, each tagged with its `artifactKind`. The real server does not
+wire these two routes yet (see `server/src/index.ts`), so against a real Case
+the Sites page shows its "could not be loaded" state; the mock serves them so
+the page can be designed.
 
 The fixture data lives in `case-data.mjs`: one hand-authored case
 (`CASE-2024-0417`, an insider-threat/financial-fraud scenario), two Chrome
@@ -63,9 +72,22 @@ data, and completeness outcomes covering produced/absent/unavailable.
 
 ## Known simplification
 
-Query parameters — search, sort, direction, limit, per-artifact extra
-filters, `commit-state` — are accepted but **ignored**. Every route always
-returns its full static list. That's enough to design list/detail UI against
+Two query parameters are honored:
+
+- `limit` — the first `limit` rows (the Overview's fixed-height cards rely
+  on it). `nextCursor` is always `null`, so there is never a second page.
+- `commit-state` (`committed`, `wal_resident`, `journal_resident`) — on
+  exactly the routes the real server filters by it (`history`, `cookies`,
+  `credentials`, `top-sites`, `favicons`, `topic-candidates`, `metadata`,
+  `downloads`, `bookmarks`, `autofill`); any other value is a 400
+  `INVALID_ARGUMENT`, as on the real server. `cache` and `timeline` ignore
+  it, as the real server does. This is what lets the client's
+  saved / recovered split (`useCommitStateLists`) read each Commit State as
+  its own query.
+
+Every other parameter — search, sort, direction, per-artifact extra
+filters — is accepted but **ignored**; those routes return their full static
+list. That's enough to design list/detail UI against
 realistic data; it is not a stand-in for testing filtering, sorting, or
 pagination behavior. The real server (`server/src/index.ts` + `core/`) is the
 source of truth for that logic.

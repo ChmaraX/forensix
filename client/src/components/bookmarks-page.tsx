@@ -46,14 +46,7 @@ import {
   Search,
 } from "lucide-react";
 import { motion } from "motion/react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Panel,
@@ -80,20 +73,24 @@ import {
   useFluidHover,
   useRegisterFluidHoverItem,
 } from "@/hooks/use-fluid-hover";
-import { fontWeights } from "@/lib/font-weight";
 import { useShape } from "@/lib/shape-context";
 import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import type { ArtifactConfig, Finding, PageOf } from "../types.js";
+import type {
+  ArtifactConfig,
+  CaseCompleteness,
+  Finding,
+  PageOf,
+} from "../types.js";
+import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
   AbsentWord,
   fieldText,
   fieldUtc,
-  formatInstant,
   hostOf,
   SiteAvatar,
   StateWord,
@@ -102,6 +99,7 @@ import { FilterTextField } from "./filters.js";
 import { ErrorRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { plural, SectionPanel, TimeCell, WeightLabel } from "./page-kit.js";
 
 /* --------------------------------- reads ---------------------------------- */
 
@@ -202,10 +200,6 @@ function formatMonthShort(monthKey: string): string {
   return `${month} '${monthKey.slice(2, 4)}`;
 }
 
-function plural(count: number, one: string, many: string): string {
-  return `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
-}
-
 /* ----------------------------- derived model ------------------------------ */
 
 interface BookmarkRow {
@@ -252,71 +246,6 @@ function toRow(finding: Finding): BookmarkRow {
  */
 function isBackupSource(source: string | null): boolean {
   return source !== null && source.toLowerCase().includes(".bak");
-}
-
-/* --------------------------------- frame ---------------------------------- */
-
-function SectionPanel({
-  title,
-  description,
-  aside,
-  className,
-  children,
-}: {
-  readonly title: string;
-  readonly description?: string;
-  readonly aside?: ReactNode;
-  readonly className?: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <Panel className={className}>
-      <PanelHeader className="flex-nowrap items-center">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <PanelTitle>{title}</PanelTitle>
-          {description === undefined ? null : (
-            <PanelDescription>{description}</PanelDescription>
-          )}
-        </div>
-        {aside}
-      </PanelHeader>
-      {children}
-    </Panel>
-  );
-}
-
-/** A label that turns semibold when active without moving its neighbours:
- *  FF's ghost-span pattern, truncating inside a grid cell. */
-function WeightLabel({
-  text,
-  active,
-  className,
-}: {
-  readonly text: string;
-  readonly active: boolean;
-  readonly className?: string;
-}) {
-  return (
-    <span className={cn("inline-grid min-w-0", className)} title={text}>
-      <span
-        className="col-start-1 row-start-1 truncate transition-[font-variation-settings] duration-80"
-        style={{
-          fontVariationSettings: active
-            ? fontWeights.semibold
-            : fontWeights.normal,
-        }}
-      >
-        {text}
-      </span>
-      <span
-        aria-hidden="true"
-        className="invisible col-start-1 row-start-1 truncate"
-        style={{ fontVariationSettings: fontWeights.semibold }}
-      >
-        {text}
-      </span>
-    </span>
-  );
 }
 
 /* ------------------------------- folder tree ------------------------------ */
@@ -994,19 +923,6 @@ function SiteRow({
 
 /* --------------------------------- table ---------------------------------- */
 
-function TimeCell({ utc }: { readonly utc: string | null }) {
-  const parts = utc === null ? null : formatInstant(utc);
-  if (utc === null || parts === null) {
-    return <AbsentWord />;
-  }
-  return (
-    <span className="whitespace-nowrap tabular-nums" title={`${utc} (UTC)`}>
-      {parts.date}
-      <span className="ml-2 text-muted-foreground">{parts.time}</span>
-    </span>
-  );
-}
-
 /**
  * The source file as a plain word: the live `Bookmarks` file is the quiet
  * default; a row recovered from the `.bak` copy keeps its own dot *and* the
@@ -1285,7 +1201,13 @@ function BookmarksSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
+export function BookmarksPage({
+  config,
+  completeness,
+}: {
+  readonly config: ArtifactConfig;
+  readonly completeness: CaseCompleteness;
+}) {
   const { rows, complete, error, retry } = useBookmarks(config.route);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
@@ -1332,6 +1254,10 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <CompletenessPanel
+        completeness={completeness}
+        artifacts={[config.completenessArtifact]}
+      />
       {error !== null ? (
         <ErrorRows
           title="The bookmarks could not be loaded."

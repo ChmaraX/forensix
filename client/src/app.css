@@ -136,14 +136,8 @@
   --violet: #7c3aed;
   --journal: var(--violet);
 
-  /* Legacy aliases. Kept so pages compile and read correctly until each one
-     moves to FF components; do not use in new code (see FLUID.md). */
+  /* The main chart series (charts read it through useChartTokens). */
   --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  --accent-border: var(--border);
-  --inverse: var(--foreground);
-  --inverse-foreground: var(--background);
-  --edge-shadow: rgb(0 0 0 / 0.08);
 }
 
 /* ============================================================================
@@ -242,8 +236,6 @@
   --violet: #c4b5fd;
 
   --primary: #93c5fd;
-  --primary-foreground: #171717;
-  --edge-shadow: rgb(0 0 0 / 0.5);
 }
 
 /* Washes and hairlines derived from each state hue, so a re-tune happens in
@@ -333,13 +325,6 @@
   --color-wal-border: var(--wal-border);
   --color-violet-wash: var(--violet-wash);
   --color-violet-border: var(--violet-border);
-
-  /* Legacy (see section 1). */
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-accent-border: var(--accent-border);
-  --color-inverse: var(--inverse);
-  --color-inverse-foreground: var(--inverse-foreground);
 }
 
 /* ── Type scale ───────────────────────────────────────────────────────────
@@ -1573,91 +1558,59 @@ html.transitioning *::after {
 /* </generated:reveal> */
 
 /* ============================================================================
-   8. LEGACY PAGE CLASSES
-   ----------------------------------------------------------------------------
-   Used by pages that have not moved to FF components yet. Re-tuned into the
-   FF palette (the masthead is a flat inverted surface now, not a blue
-   gradient) so nothing reads out of place meanwhile. Delete each rule once
-   no page uses it: `grep -r <class> client/src`.
+   8. SHELL
 ============================================================================ */
 
-:root,
-:root[data-theme="light"] {
-  --hero-bg: #171717;
+/* The inset's sticky topbar (app.tsx wraps FF's SidebarInsetTopbar in it).
+   The bar sticks 8px down — the inset's own top margin — and wears the
+   inset's surface, top radius, and surface ring, so it reads as the card's
+   top edge however far the page has scrolled. A page-coloured strip behind
+   it hides rows in that 8px margin and in the gaps beside its rounded
+   corners. Once the page scrolls, FF's scroll-divider hairline and a short
+   surface fade appear under it, the same signal as `.scroll-divider` +
+   `.scroll-fade`; browsers without scroll timelines get the solid bar only. */
+.inset-topbar {
+  position: sticky;
+  top: 8px;
+  z-index: 30;
 }
 
-:root[data-theme="dark"] {
-  --hero-bg: var(--surface-4);
+.inset-topbar::before {
+  content: "";
+  position: absolute;
+  inset: -8px -1px auto;
+  height: 20px;
+  background-color: var(--background);
+  pointer-events: none;
 }
 
-.fx-hero {
-  background-color: var(--hero-bg);
+.inset-topbar > header {
+  position: relative;
+  border-radius: 12px 12px 0 0;
+  background-color: var(--surface-2);
   box-shadow: var(--shadow-2);
+  /* Keep the ring on the top and sides only; the bottom edge is the divider's. */
+  clip-path: inset(-4px -4px 0 -4px);
 }
 
-/* One-off entrance kept for the Overview tiles until they adopt
-   `reveal-product` (product steps ride spring.moderate, 200ms). */
-@keyframes fx-rise {
-  from {
-    opacity: 0;
-  }
-}
-
-.fx-rise {
-  animation: fx-rise 200ms linear(0, 0.5729, 0.8966, 0.9789, 0.996, 1, 1) both;
-  animation-delay: var(--fx-delay, 0ms);
-}
-
-.metric-band-item + .metric-band-item {
-  border-left: 1px solid var(--border);
-}
-
-.metric-band-accent .metric-band-item + .metric-band-item {
-  border-color: rgb(255 255 255 / 0.16);
-}
-
-.metric-band-accent .metric-band-label,
-.metric-band-accent .metric-band-status,
-.metric-band-accent .metric-band-detail,
-.metric-band-accent .metric-band-progress-label {
-  color: rgb(255 255 255 / 0.72);
-}
-
-.metric-band-accent .metric-band-value {
-  color: #ffffff;
-}
-
-@media (max-width: 639px) {
-  .metric-band-item:nth-child(odd) {
-    border-left: 0;
-  }
-
-  .metric-band-item:nth-child(n + 3) {
-    border-top: 1px solid var(--border);
-  }
-
-  .metric-band-accent .metric-band-item:nth-child(n + 3) {
-    border-top-color: rgb(255 255 255 / 0.16);
-  }
-}
-
-/* Horizontal-scroll affordance for wide evidence tables. New tables use
-   FF's `scroll-fade-x` on the scroller instead. */
-.fx-scroll-x {
-  overflow-x: auto;
+.inset-topbar::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 12px;
   background:
-    linear-gradient(to right, var(--card) 40%, transparent) left / 56px 100%
-      no-repeat local,
-    linear-gradient(to left, var(--card) 40%, transparent) right / 56px 100%
-      no-repeat local,
-    linear-gradient(to right, var(--edge-shadow), transparent) left / 18px 100%
-      no-repeat scroll,
-    linear-gradient(to left, var(--edge-shadow), transparent) right / 18px 100%
-      no-repeat scroll;
+    linear-gradient(var(--border), var(--border)) top / 100% 1px no-repeat,
+    linear-gradient(to bottom, var(--surface-2), transparent);
+  opacity: 0;
+  pointer-events: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .fx-rise {
-    animation: none;
+@supports (animation-timeline: scroll()) {
+  .inset-topbar::after {
+    animation: sf-divider-start both linear;
+    animation-timeline: scroll(root);
+    animation-range: 0 48px;
   }
 }

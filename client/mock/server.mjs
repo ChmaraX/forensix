@@ -10,10 +10,11 @@
  * and must never be imported by `server/`, `core/`, or `cli/`. It exists only
  * so the dashboard can be designed and iterated against rich, realistic data.
  *
- * Simplification (see mock/README.md): query params (search, sort, direction,
- * limit, per-artifact extra filters, commit-state) are accepted but IGNORED —
- * every route returns its full static fixture list. That is enough to design
- * against; it is not enough to test filtering/sorting/pagination behavior.
+ * Simplification (see mock/README.md): `limit` and `commit-state` are honored
+ * (commit-state on exactly the routes the real server filters by it); every
+ * other query param (search, sort, direction, per-artifact extra filters) is
+ * accepted but IGNORED. That is enough to design against; it is not enough to
+ * test filtering/sorting/pagination behavior.
  *
  * Usage:
  *   node mock/server.mjs [--port 7799] [--bundle <path/to/index.js>]
@@ -102,6 +103,27 @@ function pageOf(items, params) {
     nextCursor: null,
     limit,
   };
+}
+
+/** The Commit States the real server accepts (core's `resolveCommitState`). */
+const COMMIT_STATES = ["committed", "wal_resident", "journal_resident"];
+
+class MockBadRequest extends Error {}
+
+/** The `commit-state` filter, as the real server applies it on every Finding
+ *  route that accepts it: absent → every row; a known state → only rows in
+ *  that state; anything else → 400 INVALID_ARGUMENT. */
+function byCommitState(rows, params) {
+  const state = params?.get("commit-state");
+  if (state === null || state === undefined || state === "") {
+    return rows;
+  }
+  if (!COMMIT_STATES.includes(state)) {
+    throw new MockBadRequest(
+      `--commit-state must be one of ${COMMIT_STATES.join(", ")}.`,
+    );
+  }
+  return rows.filter((row) => row.commitState === state);
 }
 
 function findingRows(rows) {
@@ -259,26 +281,41 @@ function siteFindings(params) {
   return { status: "ok", items, nextCursor: null, limit: items.length || 1 };
 }
 
+// `commit-state` is honored exactly where server/src/index.ts passes it to
+// core: not on `cache` (its records carry their state mixed) or `timeline`
+// (one chronological stream), and not on the site-* routes.
 const ROUTES = {
   "site-hosts": (params) => siteHosts(params),
   "site-findings": (params) => siteFindings(params),
   completeness: () => caseData.completeness,
   profiles: () => caseData.profiles,
-  history: (params) => pageOf(historyView(params.get("view")), params),
+  history: (params) =>
+    pageOf(byCommitState(historyView(params.get("view")), params), params),
   timeline: (params) => pageOf(timelineRows(), params),
   "site-favicons": () => ({ status: "ok", icons: {} }),
-  cookies: (params) => pageOf(findingRows(caseData.cookies), params),
-  credentials: (params) => pageOf(findingRows(caseData.credentials), params),
-  "top-sites": (params) => pageOf(findingRows(caseData.topSites), params),
+  cookies: (params) =>
+    pageOf(byCommitState(findingRows(caseData.cookies), params), params),
+  credentials: (params) =>
+    pageOf(byCommitState(findingRows(caseData.credentials), params), params),
+  "top-sites": (params) =>
+    pageOf(byCommitState(findingRows(caseData.topSites), params), params),
   cache: (params) => pageOf(findingRows(caseData.cache), params),
-  favicons: (params) => pageOf(findingRows(caseData.favicons), params),
+  favicons: (params) =>
+    pageOf(byCommitState(findingRows(caseData.favicons), params), params),
   candidates: (params) => pageOf(candidateRows(caseData.candidates), params),
   "topic-candidates": (params) =>
-    pageOf(candidateRows(caseData.topicCandidates), params),
-  metadata: (params) => pageOf(findingRows(caseData.metadata), params),
-  downloads: (params) => pageOf(findingRows(caseData.downloads), params),
-  bookmarks: (params) => pageOf(findingRows(caseData.bookmarks), params),
-  autofill: (params) => pageOf(findingRows(caseData.autofill), params),
+    pageOf(
+      byCommitState(candidateRows(caseData.topicCandidates), params),
+      params,
+    ),
+  metadata: (params) =>
+    pageOf(byCommitState(findingRows(caseData.metadata), params), params),
+  downloads: (params) =>
+    pageOf(byCommitState(findingRows(caseData.downloads), params), params),
+  bookmarks: (params) =>
+    pageOf(byCommitState(findingRows(caseData.bookmarks), params), params),
+  autofill: (params) =>
+    pageOf(byCommitState(findingRows(caseData.autofill), params), params),
 };
 
 /* --------------------------------- server ---------------------------------- */
@@ -340,6 +377,13 @@ const server = createServer((request, response) => {
     try {
       sendJson(response, 200, handler(requestUrl.searchParams));
     } catch (error) {
+      if (error instanceof MockBadRequest) {
+        sendJson(response, 400, {
+          code: "INVALID_ARGUMENT",
+          message: error.message,
+        });
+        return;
+      }
       sendJson(response, 500, {
         code: "MOCK_ERROR",
         message: error instanceof Error ? error.message : String(error),

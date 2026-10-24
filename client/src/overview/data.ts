@@ -106,9 +106,18 @@ async function fetchRecordedSpan(): Promise<{
       ["limit", "1"],
     ]),
   ]);
+  // Both reads' instants bound the span, whichever way the route ordered
+  // them: a route (or the design mock) that ignores `direction` must not
+  // collapse the span onto one row's day.
+  const instants = [
+    fieldTimestampUtc(earliest.items[0]?.fields.visitTime),
+    fieldTimestampUtc(latest.items[0]?.fields.visitTime),
+  ]
+    .filter((instant): instant is string => instant !== null)
+    .sort((a, b) => Date.parse(a) - Date.parse(b));
   return {
-    first: fieldTimestampUtc(earliest.items[0]?.fields.visitTime),
-    last: fieldTimestampUtc(latest.items[0]?.fields.visitTime),
+    first: instants[0] ?? null,
+    last: instants[instants.length - 1] ?? null,
   };
 }
 

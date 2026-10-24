@@ -1,28 +1,17 @@
 /**
- * The filter toolbar: search, sort, direction, extras, limit, profiles.
- *
- * One compact region (`SizeProvider size="compact"`), so every control sits
- * on the 28px step and the gaps halve with it. Built from FF parts:
- *  - search and free-text extras: FF InputGroup + InputField (a hidden label
- *    keeps the accessible name; the placeholder carries the meaning);
- *  - sort, option extras and limit: FF Select;
- *  - direction: a ghost icon Button with a Tooltip naming the order;
- *  - profiles: a tertiary Button that opens an FF CheckboxGroup in a
+ * Filter-bar fields, built from FF parts, that pages compose inside a
+ * compact region (`Toolbar` from page-kit, or their own
+ * `SizeProvider size="compact"`):
+ *  - `FilterField`: a caption label beside its control (an FF Select, …);
+ *  - `FilterTextField`: FF InputGroup + InputField (a hidden label keeps the
+ *    accessible name; the placeholder carries the meaning), committing on
+ *    Enter or blur;
+ *  - `ProfilePicker`: a tertiary Button that opens an FF CheckboxGroup in a
  *    Popover (multi-pick; none picked means every Profile).
- *
- * Text fields commit on Enter or blur, as before; every other control
- * commits on pick.
  */
-import {
-  ArrowDownWideNarrow,
-  ArrowUpNarrowWide,
-  ChevronDown,
-  Search,
-} from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { ChevronDown, Search } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
-import type { QueryParameters } from "../api.js";
-import type { ArtifactConfig } from "../types.js";
 import { Button } from "@/components/ui/button";
 import { CheckboxGroup, CheckboxItem } from "@/components/ui/checkbox-group";
 import { InputField, InputGroup } from "@/components/ui/input-group";
@@ -31,56 +20,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
-import { Tooltip } from "@/components/ui/tooltip";
-import { SizeProvider, useSize } from "@/lib/size-context";
+import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
-
-export interface FilterState {
-  readonly search: string;
-  readonly sort: string;
-  readonly direction: string;
-  readonly limit: string;
-  readonly extras: Readonly<Record<string, string>>;
-  readonly profiles: readonly string[];
-}
-
-export function initialFilters(config: ArtifactConfig): FilterState {
-  return {
-    search: "",
-    sort: config.sorts[0] ?? "",
-    direction: (config.directions ?? ["desc", "asc"])[0] ?? "desc",
-    limit: "25",
-    extras: {},
-    profiles: [],
-  };
-}
-
-export function filterParameters(filters: FilterState): QueryParameters {
-  const parameters: (readonly [string, string])[] = [
-    ["search", filters.search.trim()],
-    ["sort", filters.sort],
-    ["direction", filters.direction],
-    ["limit", filters.limit],
-  ];
-  for (const [name, value] of Object.entries(filters.extras)) {
-    parameters.push([name, value.trim()]);
-  }
-  for (const profile of filters.profiles) {
-    parameters.push(["profile", profile]);
-  }
-  return parameters;
-}
-
-/** FF Select items can't carry "", which the extras use for "all". */
-const ALL_OPTION = "\u0000all";
-
-const LIMITS = ["25", "50", "100"] as const;
 
 /**
  * A caption label beside its control, on one toolbar line. Below the `sm`
@@ -118,8 +59,14 @@ export function FilterField({
 }
 
 /**
- * A text field that commits on Enter or blur (FF InputGroup + InputField).
- * Exported for pages that need the same toolbar search.
+ * A toolbar text field (FF InputGroup + InputField), 240px wide (full width
+ * on a phone). Two commit modes:
+ *  - `commit="submit"` (default): commits on Enter or blur — for a field that
+ *    drives a server query (History, Sites), so typing doesn't fire a read
+ *    per keystroke;
+ *  - `commit="change"`: commits on every keystroke — for a filter over rows
+ *    already loaded in the page (Cookies, Bookmarks, Cache, …), which narrows
+ *    live as you type.
  */
 export function FilterTextField({
   id,
@@ -127,6 +74,7 @@ export function FilterTextField({
   value,
   placeholder,
   onCommit,
+  commit = "submit",
   icon,
   className,
 }: {
@@ -136,6 +84,9 @@ export function FilterTextField({
   readonly value: string;
   readonly placeholder?: string;
   readonly onCommit: (value: string) => void;
+  /** When `onCommit` fires: on Enter/blur (`"submit"`, server queries) or
+   *  on every change (`"change"`, client-side filters). */
+  readonly commit?: "submit" | "change";
   /** Leading icon. Pass `Search` for a search field. */
   readonly icon?: typeof Search;
   readonly className?: string;
@@ -152,7 +103,7 @@ export function FilterTextField({
     <InputGroup
       // In a toolbar the field keeps its hairline at rest, like the Select
       // triggers beside it (FF's bare field ring only shows on hover).
-      className={cn("w-56 [&_label+div]:ring-border max-sm:w-full", className)}
+      className={cn("w-60 [&_label+div]:ring-border max-sm:w-full", className)}
       // InputField keeps its own focus state on the input's blur, so the
       // commit listens one level up (React's onBlur bubbles).
       onBlur={() => {
@@ -169,7 +120,13 @@ export function FilterTextField({
         icon={icon}
         value={draft}
         placeholder={placeholder}
-        onChange={setDraft}
+        onChange={(next) => {
+          setDraft(next);
+          if (commit === "change") {
+            setSeen(next);
+            onCommit(next);
+          }
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter" && draft !== value) {
             onCommit(draft);
@@ -262,183 +219,5 @@ export function ProfilePicker({
         )}
       </PopoverContent>
     </Popover>
-  );
-}
-
-export function FilterBar({
-  config,
-  profiles,
-  filters,
-  onChange,
-  className,
-}: {
-  readonly config: ArtifactConfig;
-  readonly profiles: readonly string[];
-  readonly filters: FilterState;
-  readonly onChange: (filters: FilterState) => void;
-  readonly className?: string;
-}) {
-  const directions = config.directions ?? ["desc", "asc"];
-  const descending = filters.direction === "desc";
-  const idBase = `${config.key}-${useId()}`;
-  const DirectionIcon = descending ? ArrowDownWideNarrow : ArrowUpNarrowWide;
-
-  return (
-    <SizeProvider size="compact">
-      <div
-        role="group"
-        aria-label={`Filter ${config.label}`}
-        className={cn("flex flex-col gap-2", className)}
-      >
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <FilterTextField
-            id={`${idBase}-search`}
-            label={`Search ${config.label.toLowerCase()}`}
-            icon={Search}
-            value={filters.search}
-            placeholder={`Search ${config.label.toLowerCase()}…`}
-            onCommit={(search) => {
-              onChange({ ...filters, search });
-            }}
-            className="w-60 max-sm:w-full"
-          />
-
-          <FilterField label="Sort" htmlFor={`${idBase}-sort`}>
-            <div className="flex items-center gap-1 max-sm:[&>*:first-child]:flex-1">
-              <Select
-                value={filters.sort}
-                onValueChange={(sort) => {
-                  onChange({ ...filters, sort });
-                }}
-              >
-                <SelectTrigger
-                  id={`${idBase}-sort`}
-                  className="min-w-[140px]"
-                />
-                <SelectContent>
-                  {config.sorts.map((sort, index) => (
-                    <SelectItem key={sort} index={index} value={sort}>
-                      {sort}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {directions.length > 1 ? (
-                <Tooltip
-                  content={
-                    descending
-                      ? "Descending — switch to ascending"
-                      : "Ascending — switch to descending"
-                  }
-                >
-                  <Button
-                    variant="ghost"
-                    size="icon-compact"
-                    aria-label={
-                      descending
-                        ? "Sorted descending — switch to ascending"
-                        : "Sorted ascending — switch to descending"
-                    }
-                    onClick={() => {
-                      onChange({
-                        ...filters,
-                        direction: descending ? "asc" : "desc",
-                      });
-                    }}
-                  >
-                    <DirectionIcon />
-                  </Button>
-                </Tooltip>
-              ) : null}
-            </div>
-          </FilterField>
-
-          <FilterField label="Rows" htmlFor={`${idBase}-limit`}>
-            <Select
-              value={filters.limit}
-              onValueChange={(limit) => {
-                onChange({ ...filters, limit });
-              }}
-            >
-              <SelectTrigger
-                id={`${idBase}-limit`}
-                aria-label="Rows per page"
-                className="min-w-[72px]"
-              />
-              <SelectContent>
-                {LIMITS.map((limit, index) => (
-                  <SelectItem key={limit} index={index} value={limit}>
-                    {limit}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FilterField>
-
-          <FilterField label="Profiles" htmlFor={`${idBase}-profiles`}>
-            <ProfilePicker
-              id={`${idBase}-profiles`}
-              profiles={profiles}
-              selected={filters.profiles}
-              onChange={(next) => {
-                onChange({ ...filters, profiles: next });
-              }}
-            />
-          </FilterField>
-        </div>
-        {config.extras.length === 0 ? null : (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            {config.extras.map((extra) => {
-              const id = `${idBase}-${extra.parameter}`;
-              const current = filters.extras[extra.parameter] ?? "";
-              const commit = (value: string) => {
-                onChange({
-                  ...filters,
-                  extras: { ...filters.extras, [extra.parameter]: value },
-                });
-              };
-              return (
-                <FilterField
-                  key={extra.parameter}
-                  label={extra.label}
-                  htmlFor={id}
-                >
-                  {extra.options === undefined ? (
-                    <FilterTextField
-                      id={id}
-                      label={extra.label}
-                      value={current}
-                      placeholder={extra.placeholder}
-                      onCommit={commit}
-                      className="w-40"
-                    />
-                  ) : (
-                    <Select
-                      value={current === "" ? ALL_OPTION : current}
-                      onValueChange={(value) => {
-                        commit(value === ALL_OPTION ? "" : value);
-                      }}
-                    >
-                      <SelectTrigger id={id} />
-                      <SelectContent>
-                        {extra.options.map((option, index) => (
-                          <SelectItem
-                            key={option}
-                            index={index}
-                            value={option === "" ? ALL_OPTION : option}
-                          >
-                            {option === "" ? "all" : option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </FilterField>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </SizeProvider>
   );
 }

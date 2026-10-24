@@ -21,7 +21,6 @@ import {
   Cookie,
   Globe,
   KeyRound,
-  RotateCcw,
   Search,
   TrendingUp,
   type LucideIcon,
@@ -59,13 +58,21 @@ import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
 import type {
+  CaseCompleteness,
   Finding,
   PageOf,
   SiteArtifactKind,
   SiteFinding,
   SiteHost,
 } from "../types.js";
-import { Count, IconTile, splitByCommit, TimeText } from "./cache-kit.js";
+import { CompletenessPanel, SITES_COVERAGE } from "./completeness.js";
+import {
+  CommitStateSplit,
+  Count,
+  IconTile,
+  splitByCommit,
+  TimeText,
+} from "./page-kit.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
   AbsentWord,
@@ -540,46 +547,38 @@ function KindPanel({
           <Count>{rows.length}</Count>
         </div>
       </PanelHeader>
-      {saved.length > 0 ? (
-        <KindTable
-          kind={meta.kind}
-          rows={saved}
-          showState={false}
-          onSelect={onSelect}
-        />
-      ) : (
-        <p className={cn(typeClass("body"), "px-4 pb-3 text-muted-foreground")}>
-          No saved rows: every row of this kind for this host was recovered.
-        </p>
-      )}
-      {recovered.length > 0 ? (
-        <div className="border-t border-border pt-3">
-          <div className="flex items-center gap-2 px-4">
-            <RotateCcw
-              aria-hidden="true"
-              size={14}
-              strokeWidth={1.5}
-              className="text-muted-foreground"
+      <CommitStateSplit
+        variant="stacked"
+        savedCount={saved.length}
+        recoveredCount={recovered.length}
+        saved={
+          saved.length > 0 ? (
+            <KindTable
+              kind={meta.kind}
+              rows={saved}
+              showState={false}
+              onSelect={onSelect}
             />
-            <h4
-              className={cn(typeClass("body"), "text-foreground")}
-              style={{ fontVariationSettings: fontWeights.semibold }}
+          ) : (
+            <p
+              className={cn(
+                typeClass("body"),
+                "px-4 pb-3 text-muted-foreground",
+              )}
             >
-              Recovered
-            </h4>
-            <Count>{recovered.length}</Count>
-            <span className={cn(typeClass("caption"), "text-muted-foreground")}>
-              from the write-ahead log or rollback journal
-            </span>
-          </div>
+              No saved rows: every row of this kind for this host was recovered.
+            </p>
+          )
+        }
+        recovered={
           <KindTable
             kind={meta.kind}
             rows={recovered}
             showState
             onSelect={onSelect}
           />
-        </div>
-      ) : null}
+        }
+      />
     </Panel>
   );
 }
@@ -786,7 +785,10 @@ function HostDetail({
 
 export function SitesPage({
   initialHost,
+  completeness,
 }: {
+  /** The Case's Completeness Statement (the shell reads it once). */
+  readonly completeness: CaseCompleteness;
   /** Preselects a host on mount — the Overview's Top sites card jumps here
    *  with the row's own host instead of landing on an empty selection. */
   readonly initialHost?: string | null;
@@ -818,6 +820,11 @@ export function SitesPage({
 
   return (
     <div className="grid items-start gap-5 md:grid-cols-[minmax(240px,0.36fr)_minmax(0,1fr)]">
+      <CompletenessPanel
+        completeness={completeness}
+        artifacts={SITES_COVERAGE}
+        className="md:col-span-2"
+      />
       <HostList
         hosts={hosts.rows}
         loading={hosts.loading}

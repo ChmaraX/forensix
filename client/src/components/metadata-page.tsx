@@ -74,14 +74,22 @@ import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
-import { Count, IconTile, SectionHeading, Toolbar } from "./cache-kit.js";
+import type {
+  ArtifactConfig,
+  CaseCompleteness,
+  FieldState,
+  Finding,
+  PageOf,
+} from "../types.js";
+import { CompletenessPanel } from "./completeness.js";
+import { Count, IconTile, SectionHeading, Toolbar } from "./page-kit.js";
 import { EmptyRows } from "./data-table.js";
 import { EvidenceBadge, type EvidenceState } from "./evidence.js";
 import { MaybeFieldStateText } from "./field-state.js";
 import { FilterTextField } from "./filters.js";
 import { ErrorRows } from "./list-states.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { fieldBool, fieldString } from "./finding-fields.js";
 
 /** One type-sorted read across every Metadata row, paginated by the route. */
 function useMetadata(route: string) {
@@ -177,28 +185,6 @@ function useMediaQuery(query: string): boolean {
 }
 
 /* ------------------------- Field readers (never invent) ------------------- */
-
-/** A `"value"`-state string, or null — the sole basis for any derived reading. */
-function fieldString(field: FieldState | undefined): string | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  if (typeof field.value === "string") {
-    return field.value === "" ? null : field.value;
-  }
-  if (typeof field.value === "number") {
-    return String(field.value);
-  }
-  return null;
-}
-
-/** A `"value"`-state boolean, or null — booleans arrive as real `true`/`false`. */
-function fieldBool(field: FieldState | undefined): boolean | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  return typeof field.value === "boolean" ? field.value : null;
-}
 
 /** A stable, human label for a profile directory key (`.` is the sole profile). */
 function profileLabel(profile: string): string {
@@ -659,7 +645,13 @@ function MetadataSkeleton() {
 
 /* ---------------------------------- Page ---------------------------------- */
 
-export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
+export function MetadataPage({
+  config,
+  completeness,
+}: {
+  readonly config: ArtifactConfig;
+  readonly completeness: CaseCompleteness;
+}) {
   const list = useMetadata(config.route);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
@@ -714,6 +706,10 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
 
   return (
     <div className="flex flex-col gap-5">
+      <CompletenessPanel
+        completeness={completeness}
+        artifacts={[config.completenessArtifact]}
+      />
       {list.error !== null && list.rows.length === 0 ? (
         <Panel>
           <ErrorRows message={list.error} onRetry={list.retry} />
@@ -758,7 +754,7 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
                   className="mt-3"
                 >
                   {profiles.length > 3 ? (
-                    <Toolbar>
+                    <Toolbar placement="inline">
                       <FilterTextField
                         label="Search loaded profiles"
                         icon={Search}

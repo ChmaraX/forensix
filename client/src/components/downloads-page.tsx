@@ -53,13 +53,7 @@ import {
 } from "recharts";
 
 import { EvidenceDot } from "@/components/evidence";
-import {
-  Panel,
-  PanelDescription,
-  PanelFooter,
-  PanelHeader,
-  PanelTitle,
-} from "@/components/panel";
+import { Panel, PanelFooter } from "@/components/panel";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,7 +80,12 @@ import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import type { ArtifactConfig, Finding, PageOf } from "../types.js";
+import type {
+  ArtifactConfig,
+  CaseCompleteness,
+  Finding,
+  PageOf,
+} from "../types.js";
 import {
   activeIndexOf,
   CHART_FOCUS_CLASS,
@@ -116,10 +115,19 @@ import {
   hostOf,
   SiteAvatar,
 } from "./finding-fields.js";
-import { Coverage } from "./history-coverage.js";
+import { CompletenessPanel } from "./completeness.js";
 import { ErrorRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import {
+  CARD_TITLE_CLEAR,
+  CHART_HEIGHT,
+  SectionPanel,
+  ShareBar,
+  formatBytes,
+  formatDay,
+  formatDayTick,
+} from "./page-kit.js";
 
 /* --------------------------------- reads ---------------------------------- */
 
@@ -198,48 +206,6 @@ function useDownloads(route: string) {
 }
 
 /* ------------------------------- formatting ------------------------------- */
-
-/** Bytes as "1.4 MB" / "812 KB" — base-1024, the size an examiner reads. */
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${String(bytes)} B`;
-  }
-  const units = ["KB", "MB", "GB", "TB"];
-  let value = bytes / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  const rounded =
-    value >= 100 ? Math.round(value) : Math.round(value * 10) / 10;
-  return `${rounded.toLocaleString("en-US")} ${units[unit] ?? "KB"}`;
-}
-
-function formatDay(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-function formatTick(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-}
 
 /** The plain filename an examiner scans for — the last path segment. The full
  *  path stays byte-for-byte in the row detail sheet; this never rewrites it. */
@@ -514,80 +480,6 @@ function compareRows(a: DownloadRow, b: DownloadRow, key: SortKey): number {
 
 /* -------------------------------- widgets --------------------------------- */
 
-/** A framed section: title, optional count and description, optional action. */
-function SectionPanel({
-  id,
-  title,
-  description,
-  count,
-  action,
-  children,
-  className,
-}: {
-  readonly id: string;
-  readonly title: string;
-  readonly description?: string;
-  readonly count?: number;
-  readonly action?: React.ReactNode;
-  readonly children: React.ReactNode;
-  readonly className?: string;
-}) {
-  return (
-    <Panel
-      role="region"
-      aria-labelledby={id}
-      className={cn("overflow-clip", className)}
-    >
-      <PanelHeader className="items-center pb-3">
-        <div className="min-w-0">
-          <div className="flex items-baseline gap-2.5">
-            <PanelTitle id={id}>{title}</PanelTitle>
-            {count === undefined ? null : <Count value={count} />}
-          </div>
-          {description === undefined ? null : (
-            <PanelDescription>{description}</PanelDescription>
-          )}
-        </div>
-        {action}
-      </PanelHeader>
-      {children}
-    </Panel>
-  );
-}
-
-function Count({ value }: { readonly value: number }) {
-  const size = useSize();
-  return (
-    <span
-      className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
-    >
-      {value.toLocaleString("en-US")}
-    </span>
-  );
-}
-
-/**
- * A share of the busiest entry: a full-width pill slid in from the left
- * inside a clipping track (never a scaled or width-animated bar).
- */
-function ShareBar({ fraction }: { readonly fraction: number }) {
-  const clamped = Math.min(1, Math.max(0, fraction));
-  return (
-    <span
-      aria-hidden="true"
-      className="block h-1.5 w-full overflow-hidden rounded-full bg-hover"
-    >
-      <span
-        className="block h-full w-full rounded-full bg-muted-foreground"
-        style={{ transform: `translateX(${String((clamped - 1) * 100)}%)` }}
-      />
-    </span>
-  );
-}
-
-/** Height of the volume plot, shared by the chart and its skeleton. */
-const CHART_HEIGHT = "h-[220px]";
-
 interface VolumeDay {
   readonly date: string;
   readonly bytes: number;
@@ -761,7 +653,7 @@ function VolumeChart({
             dataKey="date"
             {...chartAxis(tokens)}
             minTickGap={40}
-            tickFormatter={formatTick}
+            tickFormatter={formatDayTick}
           />
           <YAxis
             width={56}
@@ -825,10 +717,6 @@ function VolumeChart({
     </div>
   );
 }
-
-/** Inline CardTitle trims its line box to cap height and clips; this pads
- *  the clip box (and pulls the layout back) so descenders aren't cut. */
-const CARD_TITLE_CLEAR = "whitespace-nowrap [&>span]:-my-1 [&>span]:py-1";
 
 /**
  * File-kind breakdown. One card per kind that appears, ordered investigative
@@ -1248,7 +1136,13 @@ function DownloadsLoading({ pages }: { readonly pages: number }) {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
+export function DownloadsPage({
+  config,
+  completeness,
+}: {
+  readonly config: ArtifactConfig;
+  readonly completeness: CaseCompleteness;
+}) {
   const { rows, complete, error, pages, retry } = useDownloads(config.route);
   const reduced = usePrefersReducedMotion();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
@@ -1396,7 +1290,10 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <Coverage artifact={config.completenessArtifact} />
+      <CompletenessPanel
+        completeness={completeness}
+        artifacts={[config.completenessArtifact]}
+      />
 
       {error !== null ? (
         <Panel>
@@ -1510,7 +1407,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
               id="downloads-all-title"
               title="All downloads"
               count={visible.length}
-              action={
+              aside={
                 <SizeProvider size="compact">
                   <div
                     role="group"
@@ -1538,8 +1435,8 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
                           setRange({ from: "", to: "" });
                         }}
                       >
-                        {range.from === "" ? "…" : formatTick(range.from)} —{" "}
-                        {range.to === "" ? "…" : formatTick(range.to)}
+                        {range.from === "" ? "…" : formatDayTick(range.from)} —{" "}
+                        {range.to === "" ? "…" : formatDayTick(range.to)}
                       </Button>
                     ) : null}
                     {/* Narrows the rows already loaded, live as you type — no

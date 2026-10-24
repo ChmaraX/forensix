@@ -15,6 +15,7 @@ import { useId, type ReactNode } from "react";
 import {
   Panel,
   PanelDescription,
+  PanelFooter,
   PanelHeader,
   PanelTitle,
 } from "@/components/panel";
@@ -36,7 +37,7 @@ export function ChartSection({
   readonly children: ReactNode;
   readonly className?: string;
   /** Optional: a quiet strip under the chart (a legend, a truncation note),
-   *  drawn as an FF `PanelFooter`-style hairline row. */
+   *  drawn as a `PanelFooter` hairline row. */
   readonly footer?: ReactNode;
 }) {
   const titleId = useId();
@@ -59,9 +60,9 @@ export function ChartSection({
       </PanelHeader>
       {children}
       {footer === undefined ? null : (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-4 py-2.5">
+        <PanelFooter className="flex-wrap gap-x-4 gap-y-1">
           {footer}
-        </div>
+        </PanelFooter>
       )}
     </Panel>
   );

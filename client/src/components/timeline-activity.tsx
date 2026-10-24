@@ -51,6 +51,7 @@ import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { Skeleton } from "./ui/misc.js";
+import { CHART_HEIGHT, formatDay, formatDayTick } from "./page-kit.js";
 
 export interface DayRange {
   /** ISO `YYYY-MM-DD`, or `""` when that bound is unset. */
@@ -61,33 +62,6 @@ export interface DayRange {
 /** Same shape as `charts.js`'s `DayCount` — aliased here so the rest of this
  *  file (written before the two were unified) doesn't need a rename. */
 type ActivityDay = import("./charts.js").DayCount;
-
-const CHART_HEIGHT = "h-[220px]";
-
-function formatDay(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-function formatTick(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-}
 
 /**
  * The widget. `range` is owned by the page so the table below can filter on
@@ -266,7 +240,7 @@ export function TimelineActivityCard({
                         dataKey="date"
                         {...chartAxis(tokens)}
                         minTickGap={48}
-                        tickFormatter={formatTick}
+                        tickFormatter={formatDayTick}
                       />
                       <YAxis
                         width={40}

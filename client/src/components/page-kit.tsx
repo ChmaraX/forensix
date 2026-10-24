@@ -1,0 +1,804 @@
+/**
+ * The shared page kit: presentation parts every evidence page composes,
+ * built from Fluid Functionalism pieces. They hold no data logic — each page
+ * reads and filters its own rows and hands these parts plain values.
+ *
+ * Formatting
+ *  - `formatBytes`, `plural`, `formatDay`, `formatDayTick`, `CHART_HEIGHT`.
+ * Text
+ *  - `TimeText` / `TimeCell` (UTC instant or the word "absent"), `Count`,
+ *    `WeightLabel` (semibold-when-active without reflow).
+ * Layout
+ *  - `SectionHeading` (a title-role heading above a block of panels),
+ *    `SectionPanel` (a Panel with title, count, description, trailing aside),
+ *    `Toolbar` (a compact filter bar), `IconTile`.
+ * Bars
+ *  - `MeterList` (ranked horizontal bars), `ShareBar` (a share-of-peak pill),
+ *    `CARD_TITLE_CLEAR`.
+ * Saved / recovered (forensic rule 4)
+ *  - `CommitStateTabs`, `CommitStateSplit` (tabs or stacked), and
+ *    `splitByCommit` for the one route that cannot filter by Commit State
+ *    (Cache). Pair the tabs with `useCommitStateLists` from
+ *    `src/use-commit-state-lists.ts`, which reads each Commit State as its
+ *    own server query.
+ *
+ * Forensic rules kept here: a missing time is the word "absent"; sidecar
+ * (WAL / rollback-journal) rows are a separate list from saved rows and never
+ * sorted in.
+ */
+import { RotateCcw, type LucideIcon } from "lucide-react";
+import { motion } from "motion/react";
+import { useState, type ReactNode } from "react";
+
+import {
+  Panel,
+  PanelDescription,
+  PanelHeader,
+  PanelTitle,
+} from "@/components/panel";
+import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { fontWeights } from "@/lib/font-weight";
+import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
+import { spring } from "@/lib/springs";
+import { cn } from "@/lib/utils";
+
+import type { FieldState, Finding } from "../types.js";
+import type { ChartTokens } from "./charts.js";
+import {
+  AbsentWord,
+  FieldCell,
+  fieldUtc,
+  formatInstant,
+} from "./finding-fields.js";
+
+/* -------------------------------- formatting ------------------------------- */
+
+/** Bytes as "1.4 MB" / "812 KB" / "312 B" — base-1024, one decimal below
+ *  100 units. Presentation only: the exact byte count stays reachable in the
+ *  row detail sheet (put it in a `title` where the short form is shown). */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) {
+    return `${String(bytes)} B`;
+  }
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const rounded =
+    value >= 100 ? Math.round(value) : Math.round(value * 10) / 10;
+  return `${rounded.toLocaleString("en-US")} ${units[unit] ?? "KB"}`;
+}
+
+/** "1 visit" / "1,204 visits". */
+export function plural(count: number, one: string, many: string): string {
+  return `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
+}
+
+function parseDay(date: string): Date | null {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** A `YYYY-MM-DD` day as "4 Mar 2024" (UTC); unparseable input is returned
+ *  as is. Chart tooltips and range labels. */
+export function formatDay(date: string): string {
+  const parsed = parseDay(date);
+  return parsed === null
+    ? date
+    : parsed.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      });
+}
+
+/** A `YYYY-MM-DD` day as "4 Mar" (UTC), for chart axis ticks. */
+export function formatDayTick(date: string): string {
+  const parsed = parseDay(date);
+  return parsed === null
+    ? date
+    : parsed.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        timeZone: "UTC",
+      });
+}
+
+/** Height of a page's over-time chart, shared by the chart and its
+ *  skeleton so the swap never jumps. */
+export const CHART_HEIGHT = "h-[220px]";
+
+/* ---------------------------------- text ----------------------------------- */
+
+/**
+ * A timestamp on one line: "9 Dec 2024 14:32:07" (UTC). The date takes the
+ * surrounding colour (so a lit table row lifts it); the time stays muted; the
+ * full instant is the hover title. `TimeText` sets the body role (follows the
+ * SizeProvider); `TimeCell` inherits the cell's type instead.
+ *
+ * Pass the FieldState as `field` (preferred): a recorded instant renders as
+ * above, and every other state keeps its own word — "absent", "(empty)", or
+ * "unavailable — reason" (`FieldCell`). Passing a bare `utc` string (from
+ * `fieldUtc`) still works, but then `null` can only read "absent".
+ */
+export function TimeText({
+  field,
+  utc,
+  inheritType = false,
+  className,
+}: {
+  /** The timestamp field (`{ utc, … }` value shape). */
+  readonly field?: FieldState;
+  /** A bare UTC instant; used when `field` is not given. */
+  readonly utc?: string | null;
+  /** Leave the type size to the parent (a table cell). */
+  readonly inheritType?: boolean;
+  readonly className?: string;
+}) {
+  const size = useSize();
+  const instant = utc !== undefined ? utc : fieldUtc(field);
+  const parts = instant === null ? null : formatInstant(instant);
+  if (instant === null || parts === null) {
+    return utc !== undefined || field === undefined ? (
+      <AbsentWord />
+    ) : (
+      <FieldCell field={field} className={className} />
+    );
+  }
+  return (
+    <span
+      className={cn(
+        !inheritType && size.type.body,
+        "whitespace-nowrap tabular-nums",
+        className,
+      )}
+      title={`${instant} (UTC)`}
+    >
+      {parts.date}
+      <span className="ml-2 text-muted-foreground">{parts.time}</span>
+    </span>
+  );
+}
+
+/** `TimeText` for a table cell: inherits the cell's type role. Prefer
+ *  `<TimeCell field={row.fields.visitTime} />`. */
+export function TimeCell({
+  field,
+  utc,
+}: {
+  readonly field?: FieldState;
+  readonly utc?: string | null;
+}) {
+  return <TimeText field={field} utc={utc} inheritType />;
+}
+
+/** A count beside a title: caption role (follows the SizeProvider), muted,
+ *  tabular. A number is grouped ("1,204"); anything else renders as is. */
+export function Count({
+  children,
+  className,
+}: {
+  readonly children: ReactNode;
+  readonly className?: string;
+}) {
+  const size = useSize();
+  return (
+    <span
+      className={cn(
+        size.type.caption,
+        "text-muted-foreground tabular-nums",
+        className,
+      )}
+    >
+      {typeof children === "number"
+        ? children.toLocaleString("en-US")
+        : children}
+    </span>
+  );
+}
+
+/**
+ * A label that turns semibold when active without moving its neighbours:
+ * FF's ghost-span pattern (an invisible semibold copy reserves the width),
+ * truncating inside a grid cell. Use for a selected list row or a lit bar.
+ */
+export function WeightLabel({
+  text,
+  active,
+  className,
+}: {
+  readonly text: string;
+  readonly active: boolean;
+  readonly className?: string;
+}) {
+  return (
+    <span className={cn("inline-grid min-w-0", className)} title={text}>
+      <span
+        className="col-start-1 row-start-1 truncate transition-[font-variation-settings] duration-80"
+        style={{
+          fontVariationSettings: active
+            ? fontWeights.semibold
+            : fontWeights.normal,
+        }}
+      >
+        {text}
+      </span>
+      <span
+        aria-hidden="true"
+        className="invisible col-start-1 row-start-1 truncate"
+        style={{ fontVariationSettings: fontWeights.semibold }}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
+/* --------------------------------- layout ---------------------------------- */
+
+/**
+ * A section title above a block of panels: the title role in semibold, its
+ * count beside it, an optional muted description below, and controls (a
+ * toolbar) trailing on the right, wrapping under on narrow screens.
+ */
+export function SectionHeading({
+  title,
+  count,
+  description,
+  icon: Icon,
+  children,
+  className,
+}: {
+  readonly title: ReactNode;
+  readonly count?: ReactNode;
+  readonly description?: ReactNode;
+  readonly icon?: LucideIcon;
+  readonly children?: ReactNode;
+  readonly className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-end justify-between gap-x-6 gap-y-3",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          {Icon === undefined ? null : (
+            <Icon
+              aria-hidden="true"
+              size={16}
+              strokeWidth={1.5}
+              className="shrink-0 text-muted-foreground"
+            />
+          )}
+          <h2
+            className={cn(typeClass("title"), "text-foreground")}
+            style={{ fontVariationSettings: fontWeights.semibold }}
+          >
+            {title}
+          </h2>
+          {count === undefined ? null : <Count>{count}</Count>}
+        </div>
+        {description === undefined ? null : (
+          <div className={cn(typeClass("body"), "text-muted-foreground")}>
+            {description}
+          </div>
+        )}
+      </div>
+      {children === undefined ? null : children}
+    </div>
+  );
+}
+
+/**
+ * A framed section: a Panel whose header carries the title (subtitle role),
+ * an optional count beside it, an optional description under it, and an
+ * optional trailing `aside` (a badge, a Tabs switch, an action). With `id`
+ * the panel is a labelled region.
+ */
+export function SectionPanel({
+  id,
+  title,
+  description,
+  count,
+  aside,
+  className,
+  children,
+}: {
+  readonly id?: string;
+  readonly title: ReactNode;
+  readonly description?: ReactNode;
+  readonly count?: ReactNode;
+  readonly aside?: ReactNode;
+  readonly className?: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <Panel
+      role={id === undefined ? undefined : "region"}
+      aria-labelledby={id}
+      className={cn("overflow-clip", className)}
+    >
+      <PanelHeader className="flex-nowrap items-center">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex items-baseline gap-2">
+            <PanelTitle id={id}>{title}</PanelTitle>
+            {count === undefined ? null : <Count>{count}</Count>}
+          </div>
+          {description === undefined ? null : (
+            <PanelDescription>{description}</PanelDescription>
+          )}
+        </div>
+        {aside}
+      </PanelHeader>
+      {children}
+    </Panel>
+  );
+}
+
+/** A 32px tinted tile holding one muted icon (FF's CardMedia treatment). */
+export function IconTile({
+  icon: Icon,
+  className,
+}: {
+  readonly icon: LucideIcon;
+  readonly className?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-hover",
+        className,
+      )}
+    >
+      <Icon size={16} strokeWidth={1.5} className="text-muted-foreground" />
+    </span>
+  );
+}
+
+/**
+ * The list toolbar: every control inside sits on the 28px ladder (one
+ * compact `SizeProvider`), gaps from `useSize().gap`, wrapping on narrow
+ * screens.
+ *
+ * `placement="panel"` (default, the canonical place): directly under the
+ * list's `PanelHeader`, padded `px-4 pt-1 pb-3`. The `start` slot (the
+ * `CommitStateTabs` switch) sits on the left; `children` — filters
+ * (`FilterField` + Select, `ProfilePicker`), then `FilterTextField` last —
+ * are pushed right with `ml-auto`.
+ *
+ * `placement="inline"`: no padding, controls in one wrapping row 20px apart —
+ * for a toolbar placed in another container's slot (e.g. a SectionHeading's
+ * trailing children).
+ */
+export function Toolbar({
+  start,
+  children,
+  placement = "panel",
+  className,
+}: {
+  /** Leading control, usually `CommitStateTabs`. */
+  readonly start?: ReactNode;
+  /** Trailing filters; `FilterTextField` last. */
+  readonly children?: ReactNode;
+  readonly placement?: "panel" | "inline";
+  readonly className?: string;
+}) {
+  return (
+    <SizeProvider size="compact">
+      {placement === "inline" ? (
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-x-5 gap-y-2 max-sm:w-full",
+            className,
+          )}
+        >
+          {start}
+          {children}
+        </div>
+      ) : (
+        <PanelToolbar start={start} className={className}>
+          {children}
+        </PanelToolbar>
+      )}
+    </SizeProvider>
+  );
+}
+
+function PanelToolbar({
+  start,
+  children,
+  className,
+}: {
+  readonly start?: ReactNode;
+  readonly children?: ReactNode;
+  readonly className?: string;
+}) {
+  const size = useSize();
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-y-2 px-4 pt-1 pb-3",
+        size.gap,
+        className,
+      )}
+    >
+      {start}
+      {children === undefined || children === null ? null : (
+        <div
+          className={cn(
+            "ml-auto flex flex-wrap items-center max-sm:w-full",
+            size.gap,
+          )}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------- bars ----------------------------------- */
+
+export interface MeterRow {
+  readonly key: string;
+  /** The category, in words (a host, a size band, a resolution). */
+  readonly label: ReactNode;
+  /** The quantity the bar is drawn from. */
+  readonly value: number;
+  /** The quantity as printed at the row's end (e.g. "1.4 MB"). */
+  readonly display: ReactNode;
+  /** Hover title for the printed figure (e.g. the exact byte count). */
+  readonly title?: string;
+}
+
+/**
+ * A ranked list of horizontal bars, one 36px row per category, scaled to the
+ * largest value. The peak bar is held at full strength and the rest at a
+ * lighter step, the same grammar as the bar charts. Each bar slides in on
+ * `spring.slow`, transform only. Rows are read-only, so the list carries no
+ * hover highlight (it would promise a click).
+ */
+export function MeterList({
+  rows,
+  tokens,
+  labelWidth = "10rem",
+  className,
+}: {
+  readonly rows: readonly MeterRow[];
+  readonly tokens: ChartTokens;
+  /** Width of the label column (any CSS length). */
+  readonly labelWidth?: string;
+  readonly className?: string;
+}) {
+  const peak = rows.reduce((max, row) => Math.max(max, row.value), 0);
+  return (
+    <ul
+      className={cn("grid gap-x-3", className)}
+      style={{
+        gridTemplateColumns: `minmax(0, ${labelWidth}) minmax(0, 1fr) max-content`,
+      }}
+    >
+      {rows.map((row) => {
+        const share = peak === 0 ? 0 : row.value / peak;
+        // A non-zero value always shows a sliver, so "some" never reads as
+        // "none"; a true zero stays an empty track.
+        const shown = row.value === 0 ? 0 : Math.max(share, 0.02);
+        return (
+          <li
+            key={row.key}
+            className="col-span-3 grid h-9 grid-cols-subgrid items-center"
+          >
+            <span
+              className={cn(
+                typeClass("body"),
+                "flex min-w-0 items-center gap-2 text-foreground",
+              )}
+            >
+              {row.label}
+            </span>
+            <span className="relative h-1.5 overflow-hidden rounded-full bg-hover">
+              <motion.span
+                aria-hidden="true"
+                className="absolute inset-0 rounded-full"
+                style={{
+                  backgroundColor: tokens["--primary"],
+                  opacity: row.value === peak && peak > 0 ? 1 : 0.45,
+                }}
+                initial={{ x: "-100%" }}
+                animate={{ x: `${String((shown - 1) * 100)}%` }}
+                transition={spring.slow}
+              />
+            </span>
+            <span
+              className={cn(
+                typeClass("body"),
+                "text-right text-muted-foreground tabular-nums",
+              )}
+              title={row.title}
+            >
+              {row.display}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * A share of the busiest entry: a full-width pill slid in from the left
+ * inside a clipping track (translateX, never a scaled or width-animated bar),
+ * on the main chart series (`--primary`). Same grammar as `MeterList`: the
+ * peak (fraction 1, or `peak`) at full strength, every other bar at 0.45.
+ * Decorative — the figure it draws must be printed beside it.
+ */
+export function ShareBar({
+  fraction,
+  peak,
+  className,
+}: {
+  /** Share of the busiest entry, 0–1. */
+  readonly fraction: number;
+  /** Force the full-strength fill. @default fraction >= 1 */
+  readonly peak?: boolean;
+  /** Extra classes for the fill (e.g. an evidence hue `bg-wal`). */
+  readonly className?: string;
+}) {
+  const clamped = Math.min(1, Math.max(0, fraction));
+  const isPeak = peak ?? clamped >= 1;
+  return (
+    <span
+      aria-hidden="true"
+      className="block h-1.5 w-full overflow-hidden rounded-full bg-hover"
+    >
+      <span
+        className={cn("block h-full w-full rounded-full", className)}
+        style={{
+          backgroundColor:
+            className === undefined ? "var(--primary)" : undefined,
+          opacity: isPeak ? 1 : 0.45,
+          transform: `translateX(${String((clamped - 1) * 100)}%)`,
+        }}
+      />
+    </span>
+  );
+}
+
+/** Lets an FF CardTitle's ghost-span stay on one line without clipping its
+ *  ascenders (`<CardTitle className={CARD_TITLE_CLEAR}>`). */
+export const CARD_TITLE_CLEAR =
+  "whitespace-nowrap [&>span]:-my-1 [&>span]:py-1";
+
+/* ----------------------------- saved / recovered ---------------------------- */
+
+/** Saved rows and sidecar (WAL / rollback-journal) rows, kept apart. Only for
+ *  a route that cannot filter by Commit State (Cache) or rows already loaded
+ *  together (a Sites drill-down); everything else reads each state on its own
+ *  with `useCommitStateLists`. */
+export function splitByCommit<Row extends Pick<Finding, "commitState">>(
+  rows: readonly Row[],
+): { readonly saved: readonly Row[]; readonly recovered: readonly Row[] } {
+  const saved: Row[] = [];
+  const recovered: Row[] = [];
+  for (const row of rows) {
+    if (row.commitState === "committed") {
+      saved.push(row);
+    } else {
+      recovered.push(row);
+    }
+  }
+  return { saved, recovered };
+}
+
+/** Which list a CommitStateSplit shows. */
+export type CommitView = "saved" | "recovered";
+
+function countLabel(word: string, count: number | null, more: boolean) {
+  if (count === null) {
+    return word;
+  }
+  return `${word} ${count.toLocaleString("en-US")}${more ? "+" : ""}`;
+}
+
+/**
+ * The saved / recovered switch: an FF Tabs segmented control reading
+ * "Saved N" · "Recovered N". N is the loaded row count; `+` follows it while
+ * the server has more (`more`). `null` hides the count (still loading).
+ */
+export function CommitStateTabs({
+  value,
+  onValueChange,
+  saved,
+  recovered,
+  savedMore = false,
+  recoveredMore = false,
+  label = "Saved or recovered rows",
+  className,
+}: {
+  readonly value: CommitView;
+  readonly onValueChange: (next: CommitView) => void;
+  readonly saved: number | null;
+  readonly recovered: number | null;
+  readonly savedMore?: boolean;
+  readonly recoveredMore?: boolean;
+  /** Accessible name of the switch (e.g. "Saved or recovered visits"). */
+  readonly label?: string;
+  readonly className?: string;
+}) {
+  return (
+    <Tabs
+      value={value}
+      onValueChange={(next) => {
+        onValueChange(next === "recovered" ? "recovered" : "saved");
+      }}
+      className={className}
+    >
+      <TabsList aria-label={label}>
+        <TabItem value="saved" label={countLabel("Saved", saved, savedMore)} />
+        <TabItem
+          value="recovered"
+          label={countLabel("Recovered", recovered, recoveredMore)}
+        />
+      </TabsList>
+    </Tabs>
+  );
+}
+
+interface CommitStateSplitCounts {
+  /** Loaded saved rows (`null` while the first read is in flight). */
+  readonly savedCount: number | null;
+  /** Loaded recovered rows (`null` while the first read is in flight). */
+  readonly recoveredCount: number | null;
+  /** The server has more saved rows (a cursor stands). */
+  readonly savedMore?: boolean;
+  /** The server has more recovered rows. */
+  readonly recoveredMore?: boolean;
+  /** The saved list (table, empty state, footer). */
+  readonly saved: ReactNode;
+  /** The recovered list (table, empty state, footer). */
+  readonly recovered: ReactNode;
+  readonly className?: string;
+}
+
+/**
+ * One saved/recovered pattern for the whole app (forensic rule 4).
+ *
+ * `variant="tabs"` (default) — for a full artifact table. Sits inside a
+ * Panel, under its PanelHeader: a compact row with the `CommitStateTabs`
+ * switch and any trailing `toolbar` controls, a hairline, then the active
+ * list. The other list unmounts; its data lives in the page's
+ * `useCommitStateLists`, so switching never refetches. Controlled with
+ * `value` + `onValueChange`, or uncontrolled from `defaultValue`.
+ *
+ * `variant="stacked"` — only for a small embedded table (a Sites drill-down
+ * panel): the saved list, then — only when there are recovered rows — a
+ * hairline, a "Recovered N · from the write-ahead log or rollback journal"
+ * sub-heading, and the recovered list. Saved rows always come first.
+ */
+export function CommitStateSplit(
+  props: CommitStateSplitCounts &
+    (
+      | {
+          readonly variant?: "tabs";
+          readonly value?: CommitView;
+          readonly defaultValue?: CommitView;
+          readonly onValueChange?: (next: CommitView) => void;
+          /** Trailing controls on the switch row (search, filters). */
+          readonly toolbar?: ReactNode;
+          /** Accessible name of the switch. */
+          readonly label?: string;
+        }
+      | {
+          readonly variant: "stacked";
+          /** Replaces the sub-heading's caption. */
+          readonly recoveredDescription?: ReactNode;
+        }
+    ),
+) {
+  if (props.variant === "stacked") {
+    return <StackedSplit {...props} />;
+  }
+  return <TabbedSplit {...props} />;
+}
+
+function TabbedSplit({
+  value,
+  defaultValue = "saved",
+  onValueChange,
+  toolbar,
+  label,
+  savedCount,
+  recoveredCount,
+  savedMore = false,
+  recoveredMore = false,
+  saved,
+  recovered,
+  className,
+}: CommitStateSplitCounts & {
+  readonly value?: CommitView;
+  readonly defaultValue?: CommitView;
+  readonly onValueChange?: (next: CommitView) => void;
+  readonly toolbar?: ReactNode;
+  readonly label?: string;
+}) {
+  const [own, setOwn] = useState<CommitView>(defaultValue);
+  const view = value ?? own;
+  return (
+    <div className={cn("flex min-w-0 flex-col", className)}>
+      <Toolbar
+        start={
+          <CommitStateTabs
+            value={view}
+            onValueChange={(next) => {
+              setOwn(next);
+              onValueChange?.(next);
+            }}
+            saved={savedCount}
+            recovered={recoveredCount}
+            savedMore={savedMore}
+            recoveredMore={recoveredMore}
+            label={label}
+          />
+        }
+      >
+        {toolbar}
+      </Toolbar>
+      <div className="min-w-0 border-t border-border">
+        {view === "saved" ? saved : recovered}
+      </div>
+    </div>
+  );
+}
+
+function StackedSplit({
+  recoveredCount,
+  recoveredMore = false,
+  recoveredDescription,
+  saved,
+  recovered,
+  className,
+}: CommitStateSplitCounts & {
+  readonly recoveredDescription?: ReactNode;
+}) {
+  const size = useSize();
+  return (
+    <div className={cn("flex min-w-0 flex-col", className)}>
+      {saved}
+      {recoveredCount === null || recoveredCount === 0 ? null : (
+        <div className="border-t border-border pt-3">
+          <div className="flex flex-wrap items-center gap-x-2 px-4">
+            <RotateCcw
+              aria-hidden="true"
+              size={size.icon}
+              strokeWidth={1.5}
+              className="text-muted-foreground"
+            />
+            <h3
+              className={cn(typeClass("body"), "text-foreground")}
+              style={{ fontVariationSettings: fontWeights.semibold }}
+            >
+              Recovered
+            </h3>
+            <Count>
+              {recoveredCount.toLocaleString("en-US")}
+              {recoveredMore ? "+" : ""}
+            </Count>
+            <span className={cn(typeClass("caption"), "text-muted-foreground")}>
+              {recoveredDescription ??
+                "from the write-ahead log or rollback journal"}
+            </span>
+          </div>
+          {recovered}
+        </div>
+      )}
+    </div>
+  );
+}

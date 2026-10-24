@@ -12,10 +12,11 @@
  *
  * Cookie values are session secrets, so the table keeps them **hidden by
  * default**: a recorded value reads as the words "value hidden" until the
- * examiner turns on "Show values" (the row detail sheet always carries the
- * full field). A value that could not be decrypted offline reads
- * "unavailable" with its reason, an empty one "(empty)", a missing one
- * "absent" — four distinct words, never a colour alone.
+ * examiner turns on "Show values"; the row detail sheet keeps it hidden too,
+ * behind its own Reveal control (`redactedFields`). A value that could not
+ * be decrypted offline reads "unavailable" with its reason, an empty one
+ * "(empty)", a missing one "absent" — four distinct words, never a colour
+ * alone.
  *
  * Presentation rules kept: every derived proportion is a reading of recorded
  * flags, never an inference; saved rows and rows recovered from WAL / journal
@@ -64,15 +65,22 @@ import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
+import type {
+  ArtifactConfig,
+  CaseCompleteness,
+  FieldState,
+  Finding,
+  PageOf,
+} from "../types.js";
+import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import { FieldStateText } from "./field-state.js";
 import {
   AbsentWord,
+  fieldBool,
   fieldText,
   fieldUtc,
-  formatInstant,
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
@@ -80,16 +88,9 @@ import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import { ErrorRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { plural, SectionPanel, TimeCell, WeightLabel } from "./page-kit.js";
 
 /* ------------------------------ data reading ------------------------------ */
-
-/** A `value`-state boolean flag, or null when the field is absent/unavailable. */
-function fieldBool(field: FieldState | undefined): boolean | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  return typeof field.value === "boolean" ? field.value : null;
-}
 
 /**
  * One cookie row reduced to just the fields the widgets and the curated table
@@ -428,38 +429,7 @@ function percent(part: number, whole: number): string {
   return whole === 0 ? "—" : `${String(Math.round((part / whole) * 100))}%`;
 }
 
-function plural(count: number, one: string, many: string): string {
-  return `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
-}
-
 /* ------------------------------ page sections ----------------------------- */
-
-/** A framed widget: Panel with a subtitle-role title, a body-role line under
- *  it, and an optional trailing badge. */
-function WidgetPanel({
-  title,
-  description,
-  aside,
-  children,
-}: {
-  readonly title: string;
-  readonly description: string;
-  readonly aside?: ReactNode;
-  readonly children: ReactNode;
-}) {
-  return (
-    <Panel className="h-full">
-      <PanelHeader className="flex-nowrap">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <PanelTitle>{title}</PanelTitle>
-          <PanelDescription>{description}</PanelDescription>
-        </div>
-        {aside}
-      </PanelHeader>
-      {children}
-    </Panel>
-  );
-}
 
 /** A quiet sentence under a widget — what the figures above leave out. */
 function Footnote({ children }: { readonly children: ReactNode }) {
@@ -525,7 +495,8 @@ function SameSiteCard({ rows }: { readonly rows: readonly CookieRow[] }) {
   const { slices, known } = useMemo(() => sameSiteSlices(rows), [rows]);
   const unknown = rows.length - known;
   return (
-    <WidgetPanel
+    <SectionPanel
+      className="h-full"
       title="Cross-site behaviour"
       description="Each cookie's recorded SameSite policy."
     >
@@ -616,7 +587,7 @@ function SameSiteCard({ rows }: { readonly rows: readonly CookieRow[] }) {
           policy.
         </Footnote>
       ) : null}
-    </WidgetPanel>
+    </SectionPanel>
   );
 }
 
@@ -632,7 +603,8 @@ function LifespanCard({ rows }: { readonly rows: readonly CookieRow[] }) {
   const peak = Math.max(...buckets.map((bucket) => bucket.count), 0);
   const undated = rows.length - dated;
   return (
-    <WidgetPanel
+    <SectionPanel
+      className="h-full"
       title="Persistence"
       description="How long each cookie was set to live."
     >
@@ -694,7 +666,7 @@ function LifespanCard({ rows }: { readonly rows: readonly CookieRow[] }) {
           {plural(undated, "cookie", "cookies")} with no dated span.
         </Footnote>
       ) : null}
-    </WidgetPanel>
+    </SectionPanel>
   );
 }
 
@@ -718,7 +690,8 @@ function HostBoardCard({
   const hover = useFluidHover(listRef, { axis: "y" });
   const shape = useShape();
   return (
-    <WidgetPanel
+    <SectionPanel
+      className="h-full"
       title="Cookies by host"
       description="Pick a host to narrow the table."
       aside={
@@ -756,7 +729,7 @@ function HostBoardCard({
           ))}
         </ul>
       )}
-    </WidgetPanel>
+    </SectionPanel>
   );
 }
 
@@ -826,40 +799,6 @@ function HostBoardRow({
   );
 }
 
-/** A label that turns semibold when active without moving its neighbours:
- *  FF's ghost-span pattern, truncating inside a grid cell. */
-function WeightLabel({
-  text,
-  active,
-  className,
-}: {
-  readonly text: string;
-  readonly active: boolean;
-  readonly className?: string;
-}) {
-  return (
-    <span className={cn("inline-grid min-w-0", className)} title={text}>
-      <span
-        className="col-start-1 row-start-1 truncate transition-[font-variation-settings] duration-80"
-        style={{
-          fontVariationSettings: active
-            ? fontWeights.semibold
-            : fontWeights.normal,
-        }}
-      >
-        {text}
-      </span>
-      <span
-        aria-hidden="true"
-        className="invisible col-start-1 row-start-1 truncate"
-        style={{ fontVariationSettings: fontWeights.semibold }}
-      >
-        {text}
-      </span>
-    </span>
-  );
-}
-
 /* ------------------------------ curated table ----------------------------- */
 
 /** A worded Yes/No/absent for a recorded boolean scope flag. Never colour-only. */
@@ -868,19 +807,6 @@ function FlagWord({ on }: { readonly on: boolean | null }) {
     return <AbsentWord />;
   }
   return on ? <span className="text-foreground">Yes</span> : <span>No</span>;
-}
-
-function TimeCell({ utc }: { readonly utc: string | null }) {
-  const parts = utc === null ? null : formatInstant(utc);
-  if (utc === null || parts === null) {
-    return <AbsentWord />;
-  }
-  return (
-    <span className="whitespace-nowrap tabular-nums" title={`${utc} (UTC)`}>
-      {parts.date}
-      <span className="ml-2 text-muted-foreground">{parts.time}</span>
-    </span>
-  );
 }
 
 /**
@@ -918,6 +844,9 @@ function CookieValueCell({
     </span>
   );
 }
+
+/** Fields the row sheet keeps hidden until revealed (session secrets). */
+const COOKIE_SECRET_FIELDS: readonly string[] = ["value"];
 
 const TABLE_COLUMNS = [
   "Host",
@@ -1239,7 +1168,13 @@ function CookiesSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
+export function CookiesPage({
+  config,
+  completeness,
+}: {
+  readonly config: ArtifactConfig;
+  readonly completeness: CaseCompleteness;
+}) {
   const list = useCookies(config.route);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
@@ -1258,6 +1193,10 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <CompletenessPanel
+        completeness={completeness}
+        artifacts={[config.completenessArtifact]}
+      />
       {list.error !== null ? (
         <ErrorRows
           message={list.error}
@@ -1313,6 +1252,7 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
         <RowSheet
           selected={selected}
           title={`Cookie ${fieldText(selected.row.fields.name) ?? ""}`.trim()}
+          redactedFields={COOKIE_SECRET_FIELDS}
           onClose={() => {
             setSelected(null);
           }}

@@ -8,11 +8,19 @@
  * "Fields" — each a hairline-separated property list. Nothing is coloured
  * without its word: values, (empty), absent and unavailable read as words
  * (field-state.tsx).
+ *
+ * `redactedFields` names fields that hold secrets (a cookie value, a payment
+ * card number). Each recorded, non-empty one opens as the words "value
+ * hidden" with a Reveal button beside it, hidden every time the sheet opens;
+ * "(empty)", "absent" and "unavailable" still show as they are, since none
+ * of them carries a secret.
  */
-import type { ReactNode } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
-import type { Finding } from "../types.js";
+import type { FieldState, Finding } from "../types.js";
 import { CommitBadge } from "../terms.js";
+import { Button } from "@/components/ui/button";
 import { InputCopy } from "@/components/ui/input-copy";
 import {
   Sheet,
@@ -83,10 +91,52 @@ function ProvenanceLine({
   );
 }
 
+/** A redacted field: "value hidden" until revealed, then the value with a
+ *  Hide button. Only a recorded, non-empty value is ever withheld. */
+function RedactedValue({ field }: { readonly field: FieldState }) {
+  const size = useSize();
+  const [revealed, setRevealed] = useState(false);
+  if (field.state !== "value" || field.value === "") {
+    return <FieldStateText field={field} />;
+  }
+  return (
+    <div className="flex min-w-0 items-start justify-between gap-3">
+      {revealed ? (
+        <span className="min-w-0">
+          <FieldStateText field={field} />
+        </span>
+      ) : (
+        <span
+          className={cn(
+            size.type.body,
+            "inline-flex items-center gap-1.5 text-muted-foreground",
+          )}
+        >
+          <EyeOff aria-hidden="true" className="size-3.5 shrink-0" />
+          value hidden
+        </span>
+      )}
+      <Button
+        variant="ghost"
+        size="compact"
+        leadingIcon={revealed ? EyeOff : Eye}
+        aria-pressed={revealed}
+        onClick={() => {
+          setRevealed((current) => !current);
+        }}
+        className="-my-1 shrink-0"
+      >
+        {revealed ? "Hide" : "Reveal"}
+      </Button>
+    </div>
+  );
+}
+
 export function RowSheet({
   selected,
   onClose,
   title,
+  redactedFields,
   children,
 }: {
   readonly selected: SelectedRow;
@@ -94,6 +144,9 @@ export function RowSheet({
   /** Replaces the row kind as the sheet title (e.g. "Page visit"). The
    *  kind still shows in the description. */
   readonly title?: ReactNode;
+  /** Field names whose recorded values stay hidden until the examiner
+   *  reveals them (e.g. `["value"]` for a cookie). */
+  readonly redactedFields?: readonly string[];
   /** Optional page-specific summary, rendered above the source chain. */
   readonly children?: ReactNode;
 }) {
@@ -176,7 +229,11 @@ export function RowSheet({
                       {name}
                     </dt>
                     <dd className="min-w-0 text-foreground">
-                      <FieldStateText field={field} />
+                      {redactedFields?.includes(name) === true ? (
+                        <RedactedValue field={field} />
+                      ) : (
+                        <FieldStateText field={field} />
+                      )}
                     </dd>
                   </div>
                 ))}
