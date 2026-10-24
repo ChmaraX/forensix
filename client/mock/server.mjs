@@ -17,7 +17,14 @@
  * test filtering/sorting/pagination behavior.
  *
  * Usage:
- *   node mock/server.mjs [--port 7799] [--bundle <path/to/index.js>]
+ *   node mock/server.mjs [--port 7799] [--bundle <path/to/index.js>] [--degraded]
+ *
+ * Degraded coverage: `--degraded` (or FORENSIX_MOCK_DEGRADED=1) makes every
+ * `completeness` read report a degraded Completeness Statement — History
+ * missing in one Profile, Cookies unreadable (database locked) — on top of
+ * the fixture's own Cache / Form data gaps. Without the flag, open the
+ * dashboard as `/?degraded=1`: the page URL rides each API call's Referer,
+ * so only that tab sees the degraded statement.
  *
  * The bundle defaults to `client/dist/index.js`. `--bundle`, or the
  * FORENSIX_CLIENT_BUNDLE / FORENSIX_CLIENT_OUTDIR environment variables, point
@@ -62,6 +69,64 @@ function bundlePath() {
 const distIndexJs = bundlePath();
 
 const port = Number(option("port", "7799"));
+
+const ALWAYS_DEGRADED =
+  process.argv.includes("--degraded") ||
+  process.env.FORENSIX_MOCK_DEGRADED === "1";
+
+/** True when this API call should see the degraded Completeness Statement:
+ *  the server flag, or `?degraded=1` on the page that made the call. */
+function wantsDegraded(request) {
+  if (ALWAYS_DEGRADED) {
+    return true;
+  }
+  const referer = request.headers.referer;
+  if (typeof referer !== "string") {
+    return false;
+  }
+  try {
+    return new URL(referer).searchParams.get("degraded") === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** The fixture's statement with two more gaps: History absent in the second
+ *  Profile, Cookies unreadable in every Profile. Design-only. */
+function degradedCompleteness() {
+  const statements = caseData.completeness.statements.map((statement) => {
+    if (statement.artifact !== "History" && statement.artifact !== "Cookies") {
+      return statement;
+    }
+    const artifacts = statement.artifacts.map((entry, index) => {
+      if (statement.artifact === "Cookies") {
+        return {
+          ...entry,
+          outcome: "unavailable",
+          reason: "Database locked.",
+        };
+      }
+      return index === 1
+        ? {
+            ...entry,
+            outcome: "absent",
+            reason: "Profile directory has no History database.",
+          }
+        : entry;
+    });
+    const count = (outcome) =>
+      artifacts.filter((entry) => entry.outcome === outcome).length;
+    return {
+      ...statement,
+      attempted: artifacts.length,
+      produced: count("produced"),
+      absent: count("absent"),
+      unavailable: count("unavailable"),
+      artifacts,
+    };
+  });
+  return { ...caseData.completeness, statements };
+}
 
 /* ------------------------------- HTML shell ------------------------------- */
 
@@ -287,7 +352,8 @@ function siteFindings(params) {
 const ROUTES = {
   "site-hosts": (params) => siteHosts(params),
   "site-findings": (params) => siteFindings(params),
-  completeness: () => caseData.completeness,
+  completeness: (_params, request) =>
+    wantsDegraded(request) ? degradedCompleteness() : caseData.completeness,
   profiles: () => caseData.profiles,
   history: (params) =>
     pageOf(byCommitState(historyView(params.get("view")), params), params),
@@ -375,7 +441,7 @@ const server = createServer((request, response) => {
       return;
     }
     try {
-      sendJson(response, 200, handler(requestUrl.searchParams));
+      sendJson(response, 200, handler(requestUrl.searchParams, request));
     } catch (error) {
       if (error instanceof MockBadRequest) {
         sendJson(response, 400, {

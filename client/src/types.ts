@@ -95,8 +95,6 @@ export interface ExtraFilter {
 export interface ArtifactConfig {
   readonly key: string;
   readonly label: string;
-  /** One line under the page title describing what this artifact holds. */
-  readonly description: string;
   readonly route: string;
   readonly completenessArtifact: string;
   readonly sorts: readonly string[];

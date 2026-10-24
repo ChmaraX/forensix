@@ -88,12 +88,7 @@ import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
-import type {
-  ArtifactConfig,
-  CaseCompleteness,
-  FieldState,
-  Finding,
-} from "../types.js";
+import type { ArtifactConfig, FieldState, Finding } from "../types.js";
 import {
   useCommitStateLists,
   type PaginatedList,
@@ -113,7 +108,6 @@ import {
   usePrefersReducedMotion,
   type ChartTokens,
 } from "./charts.js";
-import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
   CARD_TITLE_CLEAR,
@@ -763,13 +757,7 @@ const ALL_CATEGORIES = "__all__";
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function AutofillPage({
-  config,
-  completeness,
-}: {
-  readonly config: ArtifactConfig;
-  readonly completeness: CaseCompleteness;
-}) {
+export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(
     config.route,
     AUTOFILL_PARAMETERS,
@@ -873,10 +861,6 @@ export function AutofillPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={[config.completenessArtifact]}
-      />
       {pageEmpty ? (
         <Panel>
           <EmptyRows

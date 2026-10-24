@@ -27,6 +27,17 @@
  *  - entrance animation on the `spring.slow` tier's duration, off under reduced
  *    motion (`chartAnimation`);
  *  - a legend where every colour sits beside its word (`ChartLegend`).
+ *
+ * One series style (`SERIES`, `seriesColor`, `SeriesBar`), the same in light
+ * and dark: the series is ink (`--foreground`) — FF's palette is neutral, so
+ * a chart reads as part of the page rather than a coloured widget. Every bar
+ * rests at one light step; exactly one thing is emphasised at full ink: the
+ * selection when there is one, else the peak (ties share it). Bars outside
+ * an active range dim further; the hovered bar lifts on `spring.fast`. A
+ * zero draws nothing — no stub. Counts are integers, so they are drawn as
+ * bars (or steps), never a smoothed line or area that invents values
+ * between buckets. Evidence hues (`--wal`, `--violet`, …) appear only on
+ * evidence series, always with their word.
  */
 import { motion } from "motion/react";
 import {
@@ -136,6 +147,56 @@ export function usePrefersReducedMotion(): boolean {
 }
 
 /* ───────────────────────── Shared FF chart parts ───────────────────────── */
+
+/**
+ * The one series style. Opacities of the ink series: `rest` for every bar,
+ * `emphasis` for the selection (else the peak), `dimmed` outside an active
+ * range. `range` is the wash behind an active range.
+ */
+export const SERIES = {
+  rest: 0.3,
+  emphasis: 1,
+  dimmed: 0.1,
+  range: 0.06,
+} as const;
+
+/** The series colour: ink, resolved for Recharts. */
+export function seriesColor(tokens: ChartTokens): string {
+  return tokens["--foreground"];
+}
+
+/**
+ * A bar's opacity under the series rule: dimmed outside an active range,
+ * else full when it is the emphasised bar (the selection, else the peak),
+ * else at rest.
+ */
+export function seriesOpacity({
+  emphasis,
+  dimmed = false,
+}: {
+  readonly emphasis: boolean;
+  readonly dimmed?: boolean;
+}): number {
+  if (dimmed) {
+    return SERIES.dimmed;
+  }
+  return emphasis ? SERIES.emphasis : SERIES.rest;
+}
+
+/** Props for the wash behind an active range. Spread onto `ReferenceArea`. */
+export function chartRange(tokens: ChartTokens): {
+  readonly fill: string;
+  readonly fillOpacity: number;
+  readonly strokeOpacity: 0;
+  readonly radius: number;
+} {
+  return {
+    fill: seriesColor(tokens),
+    fillOpacity: SERIES.range,
+    strokeOpacity: 0,
+    radius: 6,
+  };
+}
 
 /** The font Recharts writes into its SVG text: the app's Inter. */
 const CHART_FONT_FAMILY = "Inter, system-ui, sans-serif";
@@ -406,6 +467,10 @@ export function FluidBar({
   // Recharts hands the shape its whole entry (payload, tooltip position,
   // indices…); Rectangle reads only the geometry and SVG props it knows.
   const rectangle = props as unknown as RectangleProps;
+  // A zero draws nothing: no 1px stub that reads as "some".
+  if (!(Number(rectangle.height) > 0) || !(Number(rectangle.width) > 0)) {
+    return <g />;
+  }
   return (
     <motion.g
       initial={false}
@@ -414,6 +479,38 @@ export function FluidBar({
     >
       <Rectangle {...rectangle} fillOpacity={1} />
     </motion.g>
+  );
+}
+
+/**
+ * A bar in the one series style: ink, at the opacity `seriesOpacity` gives
+ * it, lifting while hovered. Use from a Bar's `shape` render function:
+ *
+ *   shape={(props: BarShapeProps) => (
+ *     <SeriesBar {...props} tokens={tokens}
+ *       emphasis={isPeakOrSelected(props.originalDataIndex)}
+ *       hovered={props.originalDataIndex === hoverIndex} />
+ *   )}
+ */
+export function SeriesBar({
+  tokens,
+  emphasis,
+  dimmed = false,
+  hovered,
+  ...props
+}: BarShapeProps & {
+  readonly tokens: ChartTokens;
+  readonly emphasis: boolean;
+  readonly dimmed?: boolean;
+  readonly hovered: boolean;
+}) {
+  return (
+    <FluidBar
+      {...props}
+      fill={seriesColor(tokens)}
+      opacity={seriesOpacity({ emphasis, dimmed })}
+      hovered={hovered}
+    />
   );
 }
 
@@ -612,18 +709,14 @@ export function ActivityBars({
     const index = activeIndexOf(state);
     return index === null ? null : (rows[index]?.date ?? null);
   };
-  const strengthOf = (row: DayCount) => {
-    const inRange =
-      highlight === null ||
-      (row.date >= highlight.from && row.date <= highlight.to);
-    if (!inRange) {
-      return 0.2;
-    }
-    if (row.date === selectedDate) {
-      return 1;
-    }
-    return peak > 0 && row.count === peak ? 1 : 0.55;
-  };
+  // One emphasis: the selected day when there is one, else the peak.
+  const selectedShown =
+    selectedDate !== null && rows.some((row) => row.date === selectedDate);
+  const emphasisOf = (row: DayCount) =>
+    selectedShown ? row.date === selectedDate : peak > 0 && row.count === peak;
+  const dimmedOf = (row: DayCount) =>
+    highlight !== null &&
+    (row.date < highlight.from || row.date > highlight.to);
   return (
     <ResponsiveContainer
       width="100%"
@@ -712,28 +805,22 @@ export function ActivityBars({
           <ReferenceArea
             x1={highlight.from}
             x2={highlight.to}
-            fill={tokens["--primary"]}
-            fillOpacity={0.07}
-            strokeOpacity={0}
-            radius={6}
+            {...chartRange(tokens)}
           />
         ) : null}
         <Bar
           dataKey="count"
           radius={[3, 3, 0, 0]}
           {...chartAnimation(reduced)}
-          minPointSize={2}
-          fill={tokens["--primary"]}
+          fill={seriesColor(tokens)}
           shape={(props: BarShapeProps) => {
             const row = rows[props.originalDataIndex];
-            const selected = row !== undefined && row.date === selectedDate;
             return (
-              <FluidBar
+              <SeriesBar
                 {...props}
-                fill={tokens["--primary"]}
-                stroke={selected ? tokens["--foreground"] : undefined}
-                strokeWidth={selected ? 1.5 : 0}
-                opacity={row === undefined ? 0.55 : strengthOf(row)}
+                tokens={tokens}
+                emphasis={row !== undefined && emphasisOf(row)}
+                dimmed={row !== undefined && dimmedOf(row)}
                 hovered={props.originalDataIndex === hoverIndex}
               />
             );
@@ -825,16 +912,16 @@ export function HourBars({
         />
         <Bar
           dataKey="count"
-          radius={[4, 4, 0, 0]}
+          radius={[3, 3, 0, 0]}
           {...chartAnimation(reduced)}
-          fill={tokens["--primary"]}
+          fill={seriesColor(tokens)}
           shape={(props: BarShapeProps) => {
             const row = rows[props.originalDataIndex];
             return (
-              <FluidBar
+              <SeriesBar
                 {...props}
-                fill={tokens["--primary"]}
-                opacity={row !== undefined && row.count === peak ? 1 : 0.35}
+                tokens={tokens}
+                emphasis={row !== undefined && row.count === peak}
                 hovered={props.originalDataIndex === hoverIndex}
               />
             );
@@ -921,7 +1008,7 @@ export function CredentialAgeScatter({
   );
   const legendItems: ChartLegendItem[] = [
     ...(committed.length > 0
-      ? [{ label: "Saved login", color: tokens["--primary"] }]
+      ? [{ label: "Saved login", color: seriesColor(tokens) }]
       : []),
     ...(wal.length > 0
       ? [
@@ -1011,7 +1098,7 @@ export function CredentialAgeScatter({
                     <p
                       className={cn(
                         typeClass("body"),
-                        "truncate font-mono text-foreground",
+                        "truncate text-foreground",
                       )}
                     >
                       {String(row["username"])}
@@ -1034,8 +1121,8 @@ export function CredentialAgeScatter({
             />
             <Scatter
               data={committed}
-              fill={tokens["--primary"]}
-              fillOpacity={0.7}
+              fill={seriesColor(tokens)}
+              fillOpacity={0.55}
               {...chartAnimation(reduced)}
             />
             <Scatter

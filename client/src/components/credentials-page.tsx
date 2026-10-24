@@ -51,12 +51,7 @@ import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
-import type {
-  ArtifactConfig,
-  CaseCompleteness,
-  FieldState,
-  Finding,
-} from "../types.js";
+import type { ArtifactConfig, FieldState, Finding } from "../types.js";
 import {
   useCommitStateLists,
   type PaginatedList,
@@ -68,7 +63,6 @@ import {
   useChartTokens,
   type CredentialAgePoint,
 } from "./charts.js";
-import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
@@ -473,10 +467,8 @@ function CredentialsSkeleton() {
 
 export function CredentialsPage({
   config,
-  completeness,
 }: {
   readonly config: ArtifactConfig;
-  readonly completeness: CaseCompleteness;
 }) {
   const lists = useCommitStateLists<Finding>(
     config.route,
@@ -556,10 +548,6 @@ export function CredentialsPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={[config.completenessArtifact]}
-      />
       {/* The redaction rule, stated before any row: no password is ever
           decrypted or displayed on this page. */}
       <Banner icon={Lock}>

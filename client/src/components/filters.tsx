@@ -9,7 +9,6 @@
  *  - `ProfilePicker`: a tertiary Button that opens an FF CheckboxGroup in a
  *    Popover (multi-pick; none picked means every Profile).
  */
-import { ChevronDown, Search } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ChevronDownIcon, type AppIcon } from "@/lib/app-icons";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
@@ -87,8 +87,8 @@ export function FilterTextField({
   /** When `onCommit` fires: on Enter/blur (`"submit"`, server queries) or
    *  on every change (`"change"`, client-side filters). */
   readonly commit?: "submit" | "change";
-  /** Leading icon. Pass `Search` for a search field. */
-  readonly icon?: typeof Search;
+  /** Leading icon. Pass `SearchIcon` (lib/app-icons) for a search field. */
+  readonly icon?: AppIcon;
   readonly className?: string;
 }) {
   const [draft, setDraft] = useState(value);
@@ -175,7 +175,7 @@ export function ProfilePicker({
           id={id}
           variant="tertiary"
           size="compact"
-          trailingIcon={ChevronDown}
+          trailingIcon={ChevronDownIcon}
           className="max-sm:justify-between"
           aria-label={`Profiles: ${summary ?? "All profiles"}`}
         >

@@ -6,17 +6,25 @@
  * preference (or the OS setting) before the app renders, keeps following the OS
  * while the preference is "system", and exposes a three-state control.
  */
-import { Monitor, Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { TabItem, Tabs, TabsList } from "./components/ui/tabs.js";
+import {
+  DarkThemeIcon,
+  LightThemeIcon,
+  SystemThemeIcon,
+} from "./lib/app-icons.js";
 
 export type ThemePreference = "light" | "dark" | "system";
 
 const STORAGE_KEY = "forensix.theme";
 const PREFERENCES: readonly ThemePreference[] = ["light", "system", "dark"];
 
-const ICONS = { light: Sun, system: Monitor, dark: Moon } as const;
+const ICONS = {
+  light: LightThemeIcon,
+  system: SystemThemeIcon,
+  dark: DarkThemeIcon,
+} as const;
 const LABELS = { light: "Light", system: "System", dark: "Dark" } as const;
 const DESCRIPTIONS = {
   light: "Light theme",

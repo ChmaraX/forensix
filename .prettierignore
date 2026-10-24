@@ -34,3 +34,5 @@ client/src/hooks/
 client/src/lib/*.ts
 client/src/lib/*.tsx
 !client/src/lib/shims/
+# App code that lives beside the registry libs.
+!client/src/lib/app-icons.ts

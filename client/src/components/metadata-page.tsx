@@ -81,18 +81,12 @@ import { typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
-import type {
-  ArtifactConfig,
-  CaseCompleteness,
-  FieldState,
-  Finding,
-} from "../types.js";
+import type { ArtifactConfig, FieldState, Finding } from "../types.js";
 import {
   type PaginatedList,
   type RecoveredList,
   useCommitStateLists,
 } from "../use-commit-state-lists.js";
-import { CompletenessPanel } from "./completeness.js";
 import { EmptyRows } from "./data-table.js";
 import { EvidenceBadge, type EvidenceState } from "./evidence.js";
 import { MaybeFieldStateText } from "./field-state.js";
@@ -735,13 +729,7 @@ function FiguresSkeleton() {
 
 /* ---------------------------------- Page ---------------------------------- */
 
-export function MetadataPage({
-  config,
-  completeness,
-}: {
-  readonly config: ArtifactConfig;
-  readonly completeness: CaseCompleteness;
-}) {
+export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, METADATA_PARAMETERS);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
@@ -816,10 +804,6 @@ export function MetadataPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={[config.completenessArtifact]}
-      />
       {pageEmpty ? (
         <Panel>
           <EmptyRows

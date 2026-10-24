@@ -43,20 +43,12 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
-import type { CaseCompleteness, FieldState, Finding } from "../types.js";
+import type { FieldState, Finding } from "../types.js";
 import {
   useCommitStateLists,
   type PaginatedList,
@@ -70,8 +62,7 @@ import {
 } from "./activity-data.js";
 import { ActivityBars, useChartTokens } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
-import { CompletenessPanel } from "./completeness.js";
-import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
+import { EmptyRows } from "./data-table.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import {
   FieldCell,
@@ -94,9 +85,11 @@ import {
   CommitStateSplit,
   formatDay,
   plural,
+  ResponsiveRows,
   SectionPanel,
   TimeCell,
   type CommitView,
+  type RowColumn,
 } from "./page-kit.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
@@ -554,11 +547,91 @@ function VisitFilterControls({
 
 /* ------------------------------- visit table ------------------------------- */
 
-const VISIT_COLUMNS = ["Time", "Page", "Arrived via", "Dwell", "State"];
-
 function asText(value: unknown): string {
   return typeof value === "string" ? value : String(value);
 }
+
+/** A visit's page: its title over its URL (mono, caption). */
+function VisitPage({ row }: { readonly row: Finding }) {
+  const size = useSize();
+  const url = fieldText(row.fields.url);
+  const title = fieldText(row.fields.title);
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="min-w-0" title={title ?? undefined}>
+        <FieldCell
+          field={row.fields.title}
+          format={asText}
+          className="text-foreground"
+        />
+      </span>
+      <span className="min-w-0" title={url ?? undefined}>
+        <FieldCell
+          field={row.fields.url}
+          format={asText}
+          className={cn(size.type.caption, "font-mono")}
+        />
+      </span>
+    </span>
+  );
+}
+
+/** The visit table's columns, and where each sits in the stacked card on a
+ *  phone (`ResponsiveRows`): time and State on the first line, the page as
+ *  the card's title, transition and dwell under it. */
+const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
+  {
+    key: "time",
+    header: "Time",
+    className: "whitespace-nowrap",
+    stack: "lead",
+    cell: (row) => <TimeCell field={row.fields.visitTime} />,
+  },
+  {
+    key: "page",
+    header: "Page",
+    className: "max-w-[440px]",
+    stack: "title",
+    cell: (row) => (
+      <span className="flex items-center gap-2.5">
+        <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
+        <VisitPage row={row} />
+      </span>
+    ),
+    stackedCell: (row) => <VisitPage row={row} />,
+  },
+  {
+    key: "transition",
+    header: "Arrived via",
+    className: "whitespace-nowrap",
+    cell: (row) => (
+      <FieldCell
+        field={row.fields.transitionCore}
+        format={(value) => TRANSITION_LABELS[asText(value)] ?? asText(value)}
+      />
+    ),
+  },
+  {
+    key: "dwell",
+    header: "Dwell",
+    className: "whitespace-nowrap tabular-nums",
+    labelled: true,
+    cell: (row) => {
+      const dwellField = row.fields.visitDuration;
+      return dwellField?.state === "value" ? (
+        (formatDwell(dwellField) ?? "not recorded")
+      ) : (
+        <FieldCell field={dwellField} />
+      );
+    },
+  },
+  {
+    key: "state",
+    header: "State",
+    stack: "aside",
+    cell: (row) => <StateWord state={row.commitState} />,
+  },
+];
 
 function VisitTable({
   rows,
@@ -567,88 +640,17 @@ function VisitTable({
   readonly rows: readonly Finding[];
   readonly onSelect: (row: Finding) => void;
 }) {
-  const size = useSize();
   return (
-    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
-      <Table className="min-w-[760px]">
-        <TableHeader>
-          <TableRow>
-            {VISIT_COLUMNS.map((label) => (
-              <TableHead key={label} className="whitespace-nowrap">
-                {label}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody className="reveal-items">
-          {rows.map((row, index) => {
-            const url = fieldText(row.fields.url);
-            const title = fieldText(row.fields.title);
-            const dwellField = row.fields.visitDuration;
-            const dwell = formatDwell(dwellField);
-            const open = () => {
-              onSelect(row);
-            };
-            return (
-              <TableRow
-                key={`${row.commitState}-${String(index)}`}
-                index={index}
-                tabIndex={0}
-                aria-label={`Open visit row detail: ${title ?? url ?? "page visit"}`}
-                onClick={open}
-                onKeyDown={(event) => {
-                  activateOnKey(event, open);
-                }}
-                className={ROW_FOCUS_CLASS}
-              >
-                <TableCell className="whitespace-nowrap">
-                  <TimeCell field={row.fields.visitTime} />
-                </TableCell>
-                <TableCell className="max-w-[440px]">
-                  <span className="flex items-center gap-2.5">
-                    <SiteAvatar host={hostOf(url)} />
-                    <span className="flex min-w-0 flex-col">
-                      <span className="min-w-0" title={title ?? undefined}>
-                        <FieldCell
-                          field={row.fields.title}
-                          format={asText}
-                          className="text-foreground"
-                        />
-                      </span>
-                      <span className="min-w-0" title={url ?? undefined}>
-                        <FieldCell
-                          field={row.fields.url}
-                          format={asText}
-                          className={cn(size.type.caption, "font-mono")}
-                        />
-                      </span>
-                    </span>
-                  </span>
-                </TableCell>
-                <TableCell className="whitespace-nowrap">
-                  <FieldCell
-                    field={row.fields.transitionCore}
-                    format={(value) =>
-                      TRANSITION_LABELS[asText(value)] ?? asText(value)
-                    }
-                  />
-                </TableCell>
-                <TableCell className="whitespace-nowrap tabular-nums">
-                  {dwellField?.state === "value" ? (
-                    (dwell ?? "not recorded")
-                  ) : (
-                    <FieldCell field={dwellField} />
-                  )}
-                </TableCell>
-                <TableCell>
-                  <StateWord state={row.commitState} />
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+    <ResponsiveRows
+      rows={rows}
+      columns={VISIT_COLUMNS}
+      rowKey={(row, index) => `${row.commitState}-${String(index)}`}
+      rowLabel={(row) =>
+        `Open visit row detail: ${fieldText(row.fields.title) ?? fieldText(row.fields.url) ?? "page visit"}`
+      }
+      onSelect={onSelect}
+      tableClassName="min-w-[760px]"
+    />
   );
 }
 
@@ -703,10 +705,7 @@ function countOf(list: PaginatedList<unknown>): number | null {
 
 export function HistoryPage({
   profiles = [],
-  completeness,
 }: {
-  /** The Case's Completeness Statement (the shell reads it once). */
-  readonly completeness: CaseCompleteness;
   /** Every Profile the Case has, for the toolbar's Profiles menu. Omitted (or
    *  empty) simply hides the Profiles filter — a single-Profile Case has
    *  nothing to filter there. */
@@ -806,8 +805,6 @@ export function HistoryPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel completeness={completeness} artifacts={["History"]} />
-
       <HistoryFigures
         activity={activityFigures}
         distinctHosts={distinctHosts}

@@ -54,15 +54,8 @@ import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import type {
-  ArtifactConfig,
-  CaseCompleteness,
-  FieldState,
-  Finding,
-  PageOf,
-} from "../types.js";
+import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
 import { ChartSection } from "./chart-section.js";
-import { CompletenessPanel } from "./completeness.js";
 import {
   CHART_HEIGHT,
   CommitStateSplit,
@@ -851,13 +844,7 @@ function FiguresSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function CachePage({
-  config,
-  completeness,
-}: {
-  readonly config: ArtifactConfig;
-  readonly completeness: CaseCompleteness;
-}) {
+export function CachePage({ config }: { readonly config: ArtifactConfig }) {
   const list = useCacheEntries(config.route);
   const tokens = useChartTokens();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
@@ -934,10 +921,6 @@ export function CachePage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={[config.completenessArtifact]}
-      />
       {pageEmpty ? (
         <Panel>
           <EmptyRows

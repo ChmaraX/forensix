@@ -49,18 +49,12 @@ import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
-import type {
-  ArtifactConfig,
-  CaseCompleteness,
-  FieldState,
-  Finding,
-} from "../types.js";
+import type { ArtifactConfig, FieldState, Finding } from "../types.js";
 import {
   useCommitStateLists,
   type PaginatedList,
 } from "../use-commit-state-lists.js";
 import { ChartEmpty, useChartTokens } from "./charts.js";
-import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
@@ -820,13 +814,7 @@ function CookiesSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function CookiesPage({
-  config,
-  completeness,
-}: {
-  readonly config: ArtifactConfig;
-  readonly completeness: CaseCompleteness;
-}) {
+export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, COOKIE_PARAMETERS);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [view, setView] = useState<CommitView>("saved");
@@ -911,10 +899,6 @@ export function CookiesPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={[config.completenessArtifact]}
-      />
       {pageEmpty ? (
         <Panel>
           <EmptyRows

@@ -8,9 +8,9 @@
  * words from field-state.tsx, Commit State as a StateWord, FF `TableRow
  * index` for the fluid hover, `scroll-fade-x` on a wide scroller.
  */
-import { Inbox, type LucideIcon } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 
+import { EmptyIcon, type AppIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 export function EmptyRows({
   message,
   title,
-  icon: Icon = Inbox,
+  icon: Icon = EmptyIcon,
   action,
   className,
 }: {
@@ -31,7 +31,7 @@ export function EmptyRows({
   /** Optional heading above the message (subtitle role). */
   readonly title?: ReactNode;
   /** Optional icon in place of the inbox. */
-  readonly icon?: LucideIcon;
+  readonly icon?: AppIcon;
   /** Optional next step, e.g. a tertiary "Clear filter" Button. */
   readonly action?: ReactNode;
   readonly className?: string;

@@ -4,8 +4,6 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
   {
     key: "history",
     label: "History",
-    description:
-      "Every page visit Chrome recorded, with time, duration, and how the person got there.",
     route: "history",
     completenessArtifact: "History",
     sorts: ["visit-time", "url", "duration", "profile"],
@@ -23,8 +21,6 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
   {
     key: "cookies",
     label: "Cookies",
-    description:
-      "Cookies each site stored: who set them, when, and how long they last.",
     route: "cookies",
     completenessArtifact: "Cookies",
     sorts: [
@@ -47,8 +43,6 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
   {
     key: "credentials",
     label: "Saved logins",
-    description:
-      "Login entries Chrome stored: site, username, and dates. Passwords stay encrypted and are never shown.",
     route: "credentials",
     completenessArtifact: "Login Data",
     sorts: ["created-time", "last-used-time", "origin", "username", "profile"],
@@ -57,7 +51,6 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
   {
     key: "top-sites",
     label: "Top sites",
-    description: "The sites Chrome itself ranked as most visited.",
     route: "top-sites",
     completenessArtifact: "Top Sites",
     sorts: ["rank", "url", "title", "profile"],
@@ -66,8 +59,6 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
   {
     key: "downloads",
     label: "Downloads",
-    description:
-      "Files the browser saved to disk, with source URL, target path, and file size.",
     route: "downloads",
     completenessArtifact: "Downloads",
     sorts: [
@@ -83,8 +74,6 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
   {
     key: "bookmarks",
     label: "Bookmarks",
-    description:
-      "Pages the person saved for later, and the folder each one sits in.",
     route: "bookmarks",
     completenessArtifact: "Bookmarks",
     sorts: ["name", "url", "date-added", "folder", "profile"],
@@ -99,8 +88,6 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
   {
     key: "autofill",
     label: "Form data",
-    description:
-      "Text the person typed into web forms and let Chrome remember, such as names and addresses.",
     route: "autofill",
     completenessArtifact: "Web Data",
     sorts: ["created-time", "last-used-time", "field-name", "value", "profile"],
@@ -109,8 +96,6 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
   {
     key: "cache",
     label: "Cache",
-    description:
-      "Cached browser entries, with their keys, use times, sizes, and source rows.",
     route: "cache",
     completenessArtifact: "Cache",
     sorts: ["key", "last-used", "size", "entry-hash", "profile"],
@@ -120,8 +105,6 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
   {
     key: "favicons",
     label: "Favicons",
-    description:
-      "Site icons Chrome stored, with their page and icon URLs, update times, and source rows.",
     route: "favicons",
     completenessArtifact: "Favicons",
     sorts: ["icon-url", "page-url", "last-updated", "width", "profile"],
@@ -130,8 +113,6 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
   {
     key: "metadata",
     label: "Browser profile",
-    description:
-      "Settings and account details Chrome stored about the browser and each profile.",
     route: "metadata",
     completenessArtifact: "Preferences",
     sorts: ["type", "profile"],
@@ -143,4 +124,22 @@ export const ARTIFACTS: readonly ArtifactConfig[] = [
       },
     ],
   },
+];
+
+/** Every Completeness artifact the Timeline merges (core's queryTimeline). */
+export const TIMELINE_COVERAGE: readonly string[] = [
+  "History",
+  "Downloads",
+  "Cookies",
+  "Web Data",
+];
+
+/** Every Completeness artifact the Sites view groups by host. */
+export const SITES_COVERAGE: readonly string[] = [
+  "History",
+  "Cookies",
+  "Login Data",
+  "Bookmarks",
+  "Top Sites",
+  "Web Data",
 ];

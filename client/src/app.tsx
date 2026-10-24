@@ -19,30 +19,18 @@
  * SidebarProvider + an inset Sidebar + SidebarInset with its topbar. Pages
  * render inside one `reveal-product` column (see FLUID.md).
  */
-import {
-  Bookmark,
-  ClipboardList,
-  Cookie,
-  Database,
-  Download,
-  Fingerprint,
-  Globe,
-  History as HistoryIcon,
-  KeyRound,
-  LayoutDashboard,
-  ListOrdered,
-  Image as SiteImageIcon,
-  TrendingUp,
-  type LucideIcon,
-} from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { callApi } from "./api.js";
 import logoMark from "./assets/forensix-logo.png";
-import { ARTIFACTS } from "./artifacts.js";
+import { ARTIFACTS, SITES_COVERAGE, TIMELINE_COVERAGE } from "./artifacts.js";
 import { AutofillPage } from "./components/autofill-page.js";
 import { BookmarksPage } from "./components/bookmarks-page.js";
 import { CachePage } from "./components/cache-page.js";
+import {
+  CoverageBanner,
+  CoverageIndicator,
+} from "./components/completeness.js";
 import { CookiesPage } from "./components/cookies-page.js";
 import { CredentialsPage } from "./components/credentials-page.js";
 import { DownloadsPage } from "./components/downloads-page.js";
@@ -73,8 +61,10 @@ import {
   useSidebar,
 } from "./components/ui/sidebar.js";
 import { TooltipProvider } from "./components/ui/tooltip.js";
+import { ARTIFACT_ICONS, type AppIcon } from "./lib/app-icons.js";
 import { FluidProvider } from "./lib/fluid-provider.js";
 import { fontWeights } from "./lib/font-weight.js";
+import { untitleduiIcons } from "./lib/icons-untitledui.js";
 import { typeClass } from "./lib/size-context.js";
 import { SurfaceProvider } from "./lib/surface-context.js";
 import { cn } from "./lib/utils.js";
@@ -111,7 +101,7 @@ interface NavTarget {
   readonly key: string;
   readonly label: string;
   readonly config: ArtifactConfig | null;
-  readonly icon: LucideIcon;
+  readonly icon: AppIcon;
   readonly timeline?: boolean;
   readonly sites?: boolean;
 }
@@ -127,28 +117,11 @@ interface NavGroup {
  * The split is what lets nine tables read as one set instead of nine peers of
  * the Overview.
  *
- * Icons are picked for what each record type *is*, not for decoration: Top
- * sites is ranking (`TrendingUp`), the Sites view is host identity (`Globe`),
- * Bookmarks is the saved-page glyph, Favicons is the image glyph — the four
- * that used to collapse into one repeated "site" mark now read apart at a
- * glance. Icons follow the FF sidebar rows: muted at rest, foreground and a
- * heavier stroke on the active or hovered row.
+ * Icons come from `ARTIFACT_ICONS` (lib/app-icons, Untitled UI), picked for
+ * what each record type *is*. They follow the FF sidebar rows: muted at
+ * rest, foreground and a heavier stroke on the active or hovered row.
  */
-const NAV_ICONS: Record<string, LucideIcon> = {
-  overview: LayoutDashboard,
-  timeline: ListOrdered,
-  sites: Globe,
-  history: HistoryIcon,
-  downloads: Download,
-  bookmarks: Bookmark,
-  "top-sites": TrendingUp,
-  cookies: Cookie,
-  credentials: KeyRound,
-  autofill: ClipboardList,
-  cache: Database,
-  favicons: SiteImageIcon,
-  metadata: Fingerprint,
-};
+const NAV_ICONS: Readonly<Record<string, AppIcon>> = ARTIFACT_ICONS;
 /**
  * Evidence is ordered for investigation: activity first, then stored identity
  * data, with browser metadata last as context about the environment.
@@ -175,7 +148,7 @@ const EVIDENCE_TARGETS: readonly NavTarget[] = EVIDENCE_KEYS.flatMap((key) => {
           key: config.key,
           label: config.label,
           config,
-          icon: NAV_ICONS[config.key] ?? Database,
+          icon: NAV_ICONS[config.key] ?? ARTIFACT_ICONS.cache,
         },
       ];
 });
@@ -188,7 +161,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
         key: "overview",
         label: "Overview",
         config: null,
-        icon: LayoutDashboard,
+        icon: ARTIFACT_ICONS.overview,
       },
     ],
   },
@@ -200,14 +173,14 @@ const NAV_GROUPS: readonly NavGroup[] = [
         label: "Timeline",
         config: null,
         timeline: true,
-        icon: ListOrdered,
+        icon: ARTIFACT_ICONS.timeline,
       },
       {
         key: "sites",
         label: "Sites",
         config: null,
         sites: true,
-        icon: Globe,
+        icon: ARTIFACT_ICONS.sites,
       },
     ],
   },
@@ -221,7 +194,7 @@ const DEFAULT_TARGET: NavTarget = NAV_GROUPS[0]?.targets[0] ?? {
   key: "overview",
   label: "Overview",
   config: null,
-  icon: LayoutDashboard,
+  icon: ARTIFACT_ICONS.overview,
 };
 
 interface CaseContext {
@@ -336,40 +309,50 @@ function CaseSidebar({
   );
 }
 
-/** Page title and one-line description, on the display and body roles. */
-function PageHeader({ target }: { readonly target: NavTarget }) {
-  const description =
-    target.timeline === true
-      ? "Recorded browser events in chronological order, without inference."
-      : target.sites === true
-        ? "Recorded host keys grouped from browser evidence, without inference."
-        : target.config?.description;
+/**
+ * The Completeness artifact keys a page lists, for its coverage indicator
+ * and banner: the artifact's own key, or every artifact a merged view reads.
+ */
+function coverageScopeOf(target: NavTarget): readonly string[] | undefined {
+  if (target.timeline === true) {
+    return TIMELINE_COVERAGE;
+  }
+  if (target.sites === true) {
+    return SITES_COVERAGE;
+  }
+  return target.config === null
+    ? undefined
+    : [target.config.completenessArtifact];
+}
+
+/**
+ * The page title on the display role, with an optional trailing `aside`
+ * on the same row (the shell puts the page's coverage indicator there).
+ */
+function PageHeader({
+  title,
+  aside,
+}: {
+  readonly title: string;
+  readonly aside?: ReactNode;
+}) {
   return (
-    <header className="flex flex-col gap-1 pt-2">
+    <header className="flex min-w-0 items-center justify-between gap-3 pt-2">
       <h1
-        className={cn(typeClass("display"), "text-foreground")}
+        className={cn(typeClass("display"), "min-w-0 text-foreground")}
         style={{ fontVariationSettings: fontWeights.bold }}
       >
-        {target.label}
+        {title}
       </h1>
-      {description === undefined ? null : (
-        <p
-          className={cn(
-            typeClass("body"),
-            "max-w-[68ch] text-muted-foreground",
-          )}
-        >
-          {description}
-        </p>
-      )}
+      {aside}
     </header>
   );
 }
 
 /**
- * The page for a nav target. Every page gets the Case-wide Completeness
- * Statement (`completeness`) and renders its own scoped Evidence coverage
- * panel before any row (forensic rule 1).
+ * The page for a nav target. Evidence coverage is the shell's: the page's
+ * indicator sits in its title row and, when something was not read, a
+ * banner sits above the page (forensic rule 1).
  */
 function ActivePage({
   target,
@@ -380,37 +363,35 @@ function ActivePage({
   readonly context: CaseContext;
   readonly sitesPreselect: string | null;
 }) {
-  const { completeness, profiles } = context;
+  const { profiles } = context;
   if (target.timeline === true) {
-    return <TimelinePage completeness={completeness} />;
+    return <TimelinePage />;
   }
   if (target.sites === true) {
-    return (
-      <SitesPage initialHost={sitesPreselect} completeness={completeness} />
-    );
+    return <SitesPage initialHost={sitesPreselect} />;
   }
   const config = target.config;
   switch (config?.key) {
     case "history":
-      return <HistoryPage profiles={profiles} completeness={completeness} />;
+      return <HistoryPage profiles={profiles} />;
     case "top-sites":
-      return <TopSitesPage config={config} completeness={completeness} />;
+      return <TopSitesPage config={config} />;
     case "downloads":
-      return <DownloadsPage config={config} completeness={completeness} />;
+      return <DownloadsPage config={config} />;
     case "bookmarks":
-      return <BookmarksPage config={config} completeness={completeness} />;
+      return <BookmarksPage config={config} />;
     case "cookies":
-      return <CookiesPage config={config} completeness={completeness} />;
+      return <CookiesPage config={config} />;
     case "favicons":
-      return <FaviconsPage config={config} completeness={completeness} />;
+      return <FaviconsPage config={config} />;
     case "metadata":
-      return <MetadataPage config={config} completeness={completeness} />;
+      return <MetadataPage config={config} />;
     case "autofill":
-      return <AutofillPage config={config} completeness={completeness} />;
+      return <AutofillPage config={config} />;
     case "credentials":
-      return <CredentialsPage config={config} completeness={completeness} />;
+      return <CredentialsPage config={config} />;
     case "cache":
-      return <CachePage config={config} completeness={completeness} />;
+      return <CachePage config={config} />;
     default:
       // Every artifact in ARTIFACTS has a page above.
       return null;
@@ -467,7 +448,7 @@ export function App() {
   }, [active]);
 
   return (
-    <FluidProvider>
+    <FluidProvider icons={untitleduiIcons}>
       <TooltipProvider delayDuration={150}>
         <SidebarProvider persist={false} peek="hover">
           <CaseSidebar activeKey={active.key} onSelect={selectTarget} />
@@ -507,9 +488,26 @@ export function App() {
                 key={active.key}
                 className="reveal-product mx-auto flex w-full max-w-[1360px] min-w-0 flex-col gap-5 px-4 pb-10 md:px-8"
               >
-                {/* Overview builds its own masthead as its first block. */}
+                {/* Overview builds its own masthead as its first block and
+                    states coverage in its Readable figure. */}
                 {active.key === "overview" ? null : (
-                  <PageHeader target={active} />
+                  <PageHeader
+                    title={active.label}
+                    aside={
+                      context === null ? null : (
+                        <CoverageIndicator
+                          completeness={context.completeness}
+                          artifacts={coverageScopeOf(active)}
+                        />
+                      )
+                    }
+                  />
+                )}
+                {active.key === "overview" || context === null ? null : (
+                  <CoverageBanner
+                    completeness={context.completeness}
+                    artifacts={coverageScopeOf(active)}
+                  />
                 )}
                 {active.key === "overview" ? (
                   <OverviewPage onOpen={openSection} />

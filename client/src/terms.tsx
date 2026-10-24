@@ -6,11 +6,9 @@
  * without training while staying forensically precise. Labels stay distinct
  * words — meaning is never carried by color alone.
  */
-import type { ReactNode } from "react";
-
 import type { CommitState } from "./types.js";
 import { EvidenceBadge, type EvidenceState } from "./components/evidence.js";
-import { Term, TermExplanation, TermTooltip } from "./components/term.js";
+import { TermExplanation, TermTooltip } from "./components/term.js";
 
 export const COMMIT_META: Readonly<
   Record<
@@ -89,14 +87,3 @@ export const OUTCOME_META = {
   string,
   { label: string; className: string; evidence: EvidenceState }
 >;
-
-export function CoverageTerm({ children }: { readonly children: ReactNode }) {
-  return (
-    <Term label={children} technical="Technical: Completeness Statement">
-      What the analyzer attempted to read from this Case, and what it got:
-      available (parsed fine), not present (the file does not exist), or
-      unreadable (exists but could not be parsed — with the reason). Missing
-      evidence is shown, never hidden.
-    </Term>
-  );
-}

@@ -60,14 +60,12 @@ import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
 import type {
-  CaseCompleteness,
   Finding,
   PageOf,
   SiteArtifactKind,
   SiteFinding,
   SiteHost,
 } from "../types.js";
-import { CompletenessPanel, SITES_COVERAGE } from "./completeness.js";
 import {
   CARD_TITLE_CLEAR,
   CommitStateSplit,
@@ -745,10 +743,7 @@ function HostDetail({
 
 export function SitesPage({
   initialHost,
-  completeness,
 }: {
-  /** The Case's Completeness Statement (the shell reads it once). */
-  readonly completeness: CaseCompleteness;
   /** Preselects a host on mount — the Overview's Top sites card jumps here
    *  with the row's own host instead of landing on an empty selection. */
   readonly initialHost?: string | null;
@@ -780,11 +775,6 @@ export function SitesPage({
 
   return (
     <div className="grid items-start gap-5 md:grid-cols-[minmax(240px,0.36fr)_minmax(0,1fr)]">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={SITES_COVERAGE}
-        className="md:col-span-2"
-      />
       <HostList
         hosts={hosts.rows}
         loading={hosts.loading}

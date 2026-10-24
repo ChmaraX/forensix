@@ -55,18 +55,12 @@ import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { COMMIT_META } from "../terms.js";
-import type {
-  ArtifactConfig,
-  CaseCompleteness,
-  CommitState,
-  Finding,
-} from "../types.js";
+import type { ArtifactConfig, CommitState, Finding } from "../types.js";
 import {
   useCommitStateLists,
   type PaginatedList,
 } from "../use-commit-state-lists.js";
 import { useChartTokens } from "./charts.js";
-import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
   AbsentWord,
@@ -756,13 +750,7 @@ function countOf(list: PaginatedList<unknown>): number | null {
   return list.loading && list.rows.length === 0 ? null : list.rows.length;
 }
 
-export function TopSitesPage({
-  config,
-  completeness,
-}: {
-  readonly config: ArtifactConfig;
-  readonly completeness: CaseCompleteness;
-}) {
+export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, RANK_ORDER);
   const [view, setView] = useState<CommitView>("saved");
   const [selected, setSelected] = useState<SelectedRow | null>(null);
@@ -833,11 +821,6 @@ export function TopSitesPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={[config.completenessArtifact]}
-      />
-
       {/* The summary reads the saved ranking only. */}
       {saved.error !== null && saved.rows.length === 0 ? (
         <Panel>

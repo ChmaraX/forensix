@@ -8,9 +8,8 @@
 import { useMemo, useState } from "react";
 
 import type { QueryParameters } from "../api.js";
-import type { CaseCompleteness, Finding } from "../types.js";
+import type { Finding } from "../types.js";
 import { usePaginatedList } from "../use-paginated-list.js";
-import { CompletenessPanel, TIMELINE_COVERAGE } from "./completeness.js";
 import { RowSheet, secretFieldsOf, type SelectedRow } from "./row-sheet.js";
 import { TimelineActivityCard, type DayRange } from "./timeline-activity.js";
 import {
@@ -19,11 +18,7 @@ import {
   type TimelineDirection,
 } from "./timeline-table.js";
 
-export function TimelinePage({
-  completeness,
-}: {
-  readonly completeness: CaseCompleteness;
-}) {
+export function TimelinePage() {
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [range, setRange] = useState<DayRange>({ from: "", to: "" });
   const [direction, setDirection] = useState<TimelineDirection>("desc");
@@ -44,10 +39,6 @@ export function TimelinePage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={TIMELINE_COVERAGE}
-      />
       <TimelineActivityCard range={range} onRangeChange={setRange} />
       <TimelineRecordsCard
         rows={list.rows}

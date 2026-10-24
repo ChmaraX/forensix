@@ -15,7 +15,6 @@
  * "(empty)", "absent" and "unavailable" still show as they are, since none
  * of them carries a secret.
  */
-import { Eye, EyeOff } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import type { FieldState, Finding } from "../types.js";
@@ -31,11 +30,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { HideIcon, ShowIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { AbsentWord, FieldStateText } from "./field-state.js";
-import { fieldText } from "./finding-fields.js";
+import { fieldText, profileLabel } from "./finding-fields.js";
 import { isPaymentField, PAYMENT_SECRET_FIELDS } from "./form-data.js";
 
 export type SelectedRow = { readonly kind: "finding"; readonly row: Finding };
@@ -73,12 +73,7 @@ export function HiddenValue() {
           "flex cursor-help items-center gap-1.5 whitespace-nowrap text-muted-foreground",
         )}
       >
-        <EyeOff
-          aria-hidden="true"
-          size={size.icon}
-          strokeWidth={1.5}
-          className="shrink-0"
-        />
+        <HideIcon size={size.icon} strokeWidth={1.5} className="shrink-0" />
         value hidden
       </span>
     </Tooltip>
@@ -188,19 +183,14 @@ function RedactedValue({ field }: { readonly field: FieldState }) {
             "inline-flex items-center gap-1.5 text-muted-foreground",
           )}
         >
-          <EyeOff
-            aria-hidden="true"
-            size={size.icon}
-            strokeWidth={1.5}
-            className="shrink-0"
-          />
+          <HideIcon size={size.icon} strokeWidth={1.5} className="shrink-0" />
           value hidden
         </span>
       )}
       <Button
         variant="ghost"
         size="compact"
-        leadingIcon={revealed ? EyeOff : Eye}
+        leadingIcon={revealed ? HideIcon : ShowIcon}
         aria-pressed={revealed}
         onClick={() => {
           setRevealed((current) => !current);
@@ -258,7 +248,9 @@ export function RowSheet({
                   {" · "}
                 </>
               )}
-              Profile <span className="text-foreground">{row.profile}</span>
+              <span className="text-foreground">
+                {profileLabel(row.profile)}
+              </span>
             </SheetDescription>
           </div>
         </SheetHeader>

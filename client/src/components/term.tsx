@@ -5,7 +5,8 @@
  * takes focus, so keyboard users reach the same explanation. The tooltip is
  * FF's (inverted bubble, `spring.fast` in, quicker exit, grouped skip-delay
  * under the app's TooltipProvider), widened for a sentence or two. The
- * optional `technical` line names the exact analyzer term in mono.
+ * optional `technical` line names the exact analyzer term (proportional —
+ * it is a name, not a value to copy).
  */
 import type { ReactElement, ReactNode } from "react";
 
@@ -24,7 +25,7 @@ export function TermExplanation({
     <span className="block">
       {children}
       {technical === undefined ? null : (
-        <span className="mt-1 block font-mono">{technical}</span>
+        <span className="mt-1 block">{technical}</span>
       )}
     </span>
   );

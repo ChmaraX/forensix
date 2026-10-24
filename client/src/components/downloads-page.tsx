@@ -81,7 +81,6 @@ import { cn } from "@/lib/utils";
 import { callApi } from "../api.js";
 import type {
   ArtifactConfig,
-  CaseCompleteness,
   CommitState,
   FieldState,
   Finding,
@@ -116,7 +115,6 @@ import {
   SiteAvatar,
 } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
-import { CompletenessPanel } from "./completeness.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
@@ -1226,13 +1224,7 @@ function DownloadList({
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function DownloadsPage({
-  config,
-  completeness,
-}: {
-  readonly config: ArtifactConfig;
-  readonly completeness: CaseCompleteness;
-}) {
+export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
   const savedRead = useDownloads(config.route, "committed");
   const walRead = useDownloads(config.route, "wal_resident");
   const journalRead = useDownloads(config.route, "journal_resident");
@@ -1412,11 +1404,6 @@ export function DownloadsPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={[config.completenessArtifact]}
-      />
-
       {/* The overview reads the saved downloads only; when that read
           failed it steps aside and the Saved tab carries the error. */}
       {savedRead.error !== null ? null : (

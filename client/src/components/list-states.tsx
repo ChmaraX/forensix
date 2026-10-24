@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 
 import type { PaginatedList } from "../use-commit-state-lists.js";
 import { EmptyRows } from "./data-table.js";
+import { plural } from "./page-kit.js";
 
 /** Bar widths for placeholder cells, so the rows don't read as a grid. */
 const LEAD_WIDTHS = ["w-20", "w-16", "w-24", "w-14", "w-20", "w-16"] as const;
@@ -155,11 +156,7 @@ export function ListFooter({
         className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
         aria-live="polite"
       >
-        {summary ?? (
-          <>
-            {count} row{count === 1 ? "" : "s"} shown
-          </>
-        )}
+        {summary ?? `${plural(count, "row", "rows")} shown`}
         {cursor === null ? "" : " · more available"}
       </p>
       {cursor !== null ? (
@@ -256,7 +253,7 @@ interface ListNoun {
 }
 
 function countOf(count: number, noun: ListNoun): string {
-  return `${count.toLocaleString("en-US")} ${count === 1 ? noun.one : noun.many}`;
+  return plural(count, noun.one, noun.many);
 }
 
 /**

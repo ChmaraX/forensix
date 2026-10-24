@@ -43,14 +43,13 @@ import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
-import type { ArtifactConfig, CaseCompleteness, Finding } from "../types.js";
+import type { ArtifactConfig, Finding } from "../types.js";
 import {
   type PaginatedList,
   type RecoveredList,
   useCommitStateLists,
 } from "../use-commit-state-lists.js";
 import { useChartTokens } from "./charts.js";
-import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
   AbsentWord,
@@ -560,13 +559,7 @@ function FiguresSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function FaviconsPage({
-  config,
-  completeness,
-}: {
-  readonly config: ArtifactConfig;
-  readonly completeness: CaseCompleteness;
-}) {
+export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, FAVICON_PARAMETERS);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [view, setView] = useState<CommitView>("saved");
@@ -636,10 +629,6 @@ export function FaviconsPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={[config.completenessArtifact]}
-      />
       {pageEmpty ? (
         <Panel>
           <EmptyRows

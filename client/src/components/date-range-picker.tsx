@@ -22,7 +22,6 @@
  *    disabled FF control.
  *  - optional range presets (`presets`) as a fluid-hover rail beside the grid.
  */
-import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { LayoutGroup, motion } from "motion/react";
 import {
   createContext,
@@ -56,6 +55,13 @@ import {
   useRegisterFluidHoverItem,
   type UseFluidHoverReturn,
 } from "@/hooks/use-fluid-hover";
+import {
+  CalendarIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CloseIcon,
+} from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { useShape } from "@/lib/shape-context";
 import { typeClass, useSize } from "@/lib/size-context";
@@ -203,13 +209,12 @@ function CalendarChevron({
 }) {
   const Icon =
     orientation === "right"
-      ? ChevronRight
+      ? ChevronRightIcon
       : orientation === "down"
-        ? ChevronDown
-        : ChevronLeft;
+        ? ChevronDownIcon
+        : ChevronLeftIcon;
   return (
     <Icon
-      aria-hidden="true"
       strokeWidth={1.5}
       className={cn(
         orientation === "down" ? "size-3.5 text-muted-foreground" : "size-4",
@@ -587,29 +592,18 @@ export function DateRangePicker({
               active && "pr-1",
             )}
           >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 16 16"
-              width={sizeClasses.icon}
-              height={sizeClasses.icon}
-              className="shrink-0 text-muted-foreground transition-[color,stroke-width] duration-80 group-hover:text-foreground group-hover:[stroke-width:1.6]"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="2" y="3" width="12" height="11" rx="2" />
-              <path d="M2 6.5h12M5 1.5v3M11 1.5v3" />
-            </svg>
+            <CalendarIcon
+              size={sizeClasses.icon}
+              strokeWidth={1.5}
+              className="shrink-0 text-muted-foreground transition-[color,stroke-width] duration-80 group-hover:text-foreground group-hover:[stroke-width:2]"
+            />
             <span className="truncate tabular-nums">
               {active
                 ? `${from === "" ? "…" : formatDate(from)} — ${to === "" ? "…" : formatDate(to)}`
                 : triggerLabel}
             </span>
             {active ? null : (
-              <ChevronDown
-                aria-hidden="true"
+              <ChevronDownIcon
                 size={sizeClasses.icon}
                 strokeWidth={1.5}
                 className="shrink-0 text-muted-foreground transition-colors duration-80 group-hover:text-foreground"
@@ -723,7 +717,7 @@ export function DateRangePicker({
           }}
           className="mr-0.5 h-6 w-6"
         >
-          <X aria-hidden="true" />
+          <CloseIcon />
         </Button>
       ) : null}
     </div>

@@ -1,173 +1,83 @@
 /**
- * Evidence coverage (the Completeness Statement) — always rendered before any
- * rows, so absence is visible, not silent. Plain words; the technical term
- * lives in the tooltip.
+ * Evidence coverage (the Completeness Statement), visible before any row so
+ * absence is never silent — but only as loud as the coverage is bad.
  *
- * A Panel with the title and the four counts on one line (each count is a
- * number + its word; the state hue rides a dot beside the word, never alone),
- * then an FF Accordion row that opens the per-database detail as a compact
- * FF Table whose Outcome column is a worded EvidenceBadge.
+ *  - `CoverageIndicator`: a quiet "2/2 read" control with a state dot. The
+ *    shell puts it at the right of every evidence page's title row. It opens
+ *    the per-database detail (`CoverageDetail`) in an FF popover.
+ *  - `CoverageBanner`: only when something in scope was not read (not
+ *    present, unreadable, or never analyzed) — one line in an FF Banner
+ *    naming what, with a "Details" action opening the same detail. The shell
+ *    renders it directly under the page header. Healthy coverage renders
+ *    nothing here.
  *
- * Scoped per page: a page passes the shell's Case-wide `completeness` and the
- * Completeness artifact keys it shows (`artifacts`), so each page states the
- * coverage of exactly the evidence it lists.
+ * Scope: the Completeness artifact keys a page shows (`artifacts`, from
+ * artifacts.ts: `completenessArtifact`, `TIMELINE_COVERAGE`,
+ * `SITES_COVERAGE`), or the whole Case when omitted.
  */
-import { Panel } from "@/components/panel";
+import { Button } from "@/components/ui/button";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+  Banner,
+  BannerAction,
+  BannerActions,
+  BannerTitle,
+} from "@/components/ui/banner";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { fontWeights } from "@/lib/font-weight";
-import { useSize } from "@/lib/size-context";
+import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
-import { CoverageTerm, OUTCOME_META } from "../terms.js";
-import { ARTIFACTS } from "../artifacts.js";
-import type { CaseCompleteness, CompletenessStatement } from "../types.js";
-import { EvidenceBadge, EvidenceDot, type EvidenceState } from "./evidence.js";
+import { OUTCOME_META } from "../terms.js";
+import { ARTIFACTS, SITES_COVERAGE, TIMELINE_COVERAGE } from "../artifacts.js";
+import type {
+  CaseCompleteness,
+  CompletenessArtifact,
+  CompletenessStatement,
+} from "../types.js";
+import { EvidenceDot, type EvidenceState } from "./evidence.js";
+import { profileLabel } from "./finding-fields.js";
 
-function CoverageStat({
-  label,
-  count,
-  state,
-}: {
-  readonly label: string;
-  readonly count: number;
-  readonly state?: EvidenceState;
-}) {
-  const size = useSize();
-  return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-      {state === undefined ? null : <EvidenceDot state={state} />}
-      <span
-        className={cn(size.type.body, "text-foreground tabular-nums")}
-        style={{ fontVariationSettings: fontWeights.semibold }}
-      >
-        {count.toLocaleString("en-US")}
-      </span>
-      <span className={cn(size.type.body, "text-muted-foreground")}>
-        {label}
-      </span>
-    </span>
-  );
-}
-
-function DetailTable({
-  statements,
-  showArtifact,
-}: {
-  readonly statements: readonly CompletenessStatement[];
-  readonly showArtifact: boolean;
-}) {
-  const rows = statements.flatMap((statement) => statement.artifacts);
-  return (
-    <div className="scroll-fade-x overflow-x-auto [&_tbody>tr:last-child]:border-transparent">
-      <Table size="compact">
-        <TableHeader>
-          <TableRow>
-            <TableHead className="whitespace-nowrap">Outcome</TableHead>
-            {showArtifact ? (
-              <TableHead className="whitespace-nowrap">Artifact</TableHead>
-            ) : null}
-            <TableHead className="whitespace-nowrap">Source</TableHead>
-            <TableHead className="whitespace-nowrap">Profile</TableHead>
-            <TableHead className="whitespace-nowrap">Database</TableHead>
-            <TableHead className="whitespace-nowrap">Reason</TableHead>
-            <TableHead className="whitespace-nowrap">Run</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((artifact, index) => {
-            const outcome = OUTCOME_META[artifact.outcome];
-            return (
-              <TableRow
-                key={`${artifact.artifact}-${artifact.sourceId}-${artifact.profile}-${String(index)}`}
-                index={index}
-              >
-                <TableCell className="whitespace-nowrap">
-                  <EvidenceBadge state={outcome.evidence}>
-                    {outcome.label}
-                  </EvidenceBadge>
-                </TableCell>
-                {showArtifact ? (
-                  <TableCell className="whitespace-nowrap">
-                    {artifactLabel(artifact.artifact)}
-                  </TableCell>
-                ) : null}
-                <TableCell className="font-mono whitespace-nowrap">
-                  {artifact.sourceId}
-                </TableCell>
-                <TableCell className="whitespace-nowrap">
-                  {artifact.profile}
-                </TableCell>
-                <TableCell className="max-w-[280px]">
-                  <span
-                    title={artifact.databasePath}
-                    className="block truncate font-mono"
-                  >
-                    {artifact.databasePath}
-                  </span>
-                </TableCell>
-                <TableCell className="min-w-[160px]">
-                  {artifact.reason ?? "—"}
-                </TableCell>
-                <TableCell className="font-mono whitespace-nowrap">
-                  {artifact.runId}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
+export { SITES_COVERAGE, TIMELINE_COVERAGE };
 
 /** The plain label of a Completeness artifact ("Web Data" → "Form data"). */
-function artifactLabel(artifact: string): string {
+export function artifactLabel(artifact: string): string {
   return (
     ARTIFACTS.find((entry) => entry.completenessArtifact === artifact)?.label ??
     artifact
   );
 }
 
-/** Every Completeness artifact the Timeline merges (core's queryTimeline). */
-export const TIMELINE_COVERAGE: readonly string[] = [
-  "History",
-  "Downloads",
-  "Cookies",
-  "Web Data",
-];
-
-/** Every Completeness artifact the Sites view groups by host. */
-export const SITES_COVERAGE: readonly string[] = [
-  "History",
-  "Cookies",
-  "Login Data",
-  "Bookmarks",
-  "Top Sites",
-  "Web Data",
-];
+/** The coverage of one scope, summed over its statements. */
+export interface CoverageScope {
+  readonly statements: readonly CompletenessStatement[];
+  /** Artifacts in scope with no statement at all ("not analyzed"). */
+  readonly missing: readonly string[];
+  readonly attempted: number;
+  readonly produced: number;
+  readonly absent: number;
+  readonly unavailable: number;
+  /** Anything in scope not read: not present, unreadable, or not analyzed. */
+  readonly degraded: boolean;
+  /** The state dot: produced (all read), unavailable (any unreadable),
+   *  warning (something not present or not analyzed). */
+  readonly state: EvidenceState;
+  /** More than one artifact in scope: the detail groups by artifact. */
+  readonly merged: boolean;
+}
 
 /**
  * The statements in scope, summed: one Completeness Statement per artifact
- * (`artifacts`, the `completenessArtifact` keys from artifacts.ts), or every
- * statement in the Case when `artifacts` is omitted. Artifacts in scope with
- * no statement at all are returned as `missing` — never silently dropped.
+ * (`artifacts`), or every statement in the Case when `artifacts` is omitted.
+ * Artifacts in scope with no statement at all are returned as `missing` —
+ * never silently dropped.
  */
-function scopeOf(
+export function coverageOf(
   completeness: CaseCompleteness,
-  artifacts: readonly string[] | undefined,
-) {
+  artifacts?: readonly string[],
+): CoverageScope {
   const statements =
     artifacts === undefined
       ? completeness.statements
@@ -185,23 +95,388 @@ function scopeOf(
         );
   const total = (key: "attempted" | "produced" | "absent" | "unavailable") =>
     statements.reduce((sum, statement) => sum + statement[key], 0);
+  const attempted = total("attempted");
+  const produced = total("produced");
+  const absent = total("absent");
+  const unavailable = total("unavailable");
+  const degraded =
+    attempted === 0 ||
+    produced < attempted ||
+    missing.length > 0 ||
+    statements.some((statement) => statement.attempted === 0);
   return {
     statements,
     missing,
-    attempted: total("attempted"),
-    produced: total("produced"),
-    absent: total("absent"),
-    unavailable: total("unavailable"),
+    attempted,
+    produced,
+    absent,
+    unavailable,
+    degraded,
+    state: unavailable > 0 ? "unavailable" : degraded ? "warning" : "produced",
+    merged: artifacts === undefined || artifacts.length > 1,
   };
 }
 
+/** "2 of 2 databases read", then what the rest were. */
+function summaryOf(scope: CoverageScope): string {
+  if (scope.attempted === 0) {
+    return "Nothing analyzed in this scope yet.";
+  }
+  const parts = [
+    `${scope.produced.toLocaleString("en-US")} of ${scope.attempted.toLocaleString("en-US")} ${scope.attempted === 1 ? "database" : "databases"} read`,
+  ];
+  if (scope.unavailable > 0) {
+    parts.push(
+      `${scope.unavailable.toLocaleString("en-US")} ${OUTCOME_META.unavailable.label}`,
+    );
+  }
+  if (scope.absent > 0) {
+    parts.push(
+      `${scope.absent.toLocaleString("en-US")} ${OUTCOME_META.absent.label}`,
+    );
+  }
+  if (scope.missing.length > 0) {
+    parts.push(`${scope.missing.length.toLocaleString("en-US")} not analyzed`);
+  }
+  return parts.join(" · ");
+}
+
+const OUTCOME_ORDER: Readonly<Record<CompletenessArtifact["outcome"], number>> =
+  { unavailable: 0, absent: 1, produced: 2 };
+
+/** One database: outcome word (dot repeats it), file, and the reason. */
+function DetailRow({ row }: { readonly row: CompletenessArtifact }) {
+  const outcome = OUTCOME_META[row.outcome];
+  return (
+    <li className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-baseline gap-x-3 px-2.5 py-1.5">
+      <span
+        className={cn(
+          typeClass("caption"),
+          "inline-flex items-center gap-1.5 whitespace-nowrap",
+          outcome.className,
+        )}
+      >
+        <EvidenceDot state={outcome.evidence} />
+        {outcome.label}
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span
+          className={cn(
+            typeClass("caption"),
+            "block truncate font-mono text-foreground",
+          )}
+          title={row.databasePath}
+        >
+          {row.databasePath}
+        </span>
+        {row.reason === null ? null : (
+          <span
+            className={cn(
+              typeClass("caption"),
+              "break-words text-muted-foreground",
+            )}
+          >
+            {row.reason}
+          </span>
+        )}
+      </span>
+    </li>
+  );
+}
+
 /**
- * Evidence coverage for a page. Pass the Case-wide `completeness` the shell
- * loads once, and the `artifacts` the page shows (its own
- * `config.completenessArtifact`, or every artifact a merged view reads —
- * `TIMELINE_COVERAGE`, `SITES_COVERAGE`). Omit `artifacts` for the whole Case.
- * With more than one artifact in scope the counts are summed, the artifacts
- * are named under the title, and the detail table gains an Artifact column.
+ * The per-database detail: a heading, the one-line summary, then every
+ * database in scope (grouped by artifact when more than one is in scope),
+ * unread ones first. Rendered inside the indicator's and the banner's
+ * popover.
+ */
+export function CoverageDetail({ scope }: { readonly scope: CoverageScope }) {
+  const groups = scope.statements.map((statement) => ({
+    key: statement.artifact,
+    label: artifactLabel(statement.artifact),
+    rows: [...statement.artifacts].sort(
+      (a, b) => OUTCOME_ORDER[a.outcome] - OUTCOME_ORDER[b.outcome],
+    ),
+  }));
+  return (
+    <div className="flex flex-col">
+      <div className="flex flex-col gap-0.5 px-2.5 pt-2 pb-1.5">
+        <p
+          className={cn(typeClass("subtitle"), "text-foreground")}
+          style={{ fontVariationSettings: fontWeights.semibold }}
+        >
+          Evidence coverage
+        </p>
+        <p
+          className={cn(
+            typeClass("caption"),
+            "text-muted-foreground tabular-nums",
+          )}
+        >
+          {summaryOf(scope)}
+        </p>
+      </div>
+      <div className="max-h-[min(60vh,24rem)] overflow-y-auto border-t border-border pt-1">
+        {groups.map((group) => (
+          <section key={group.key} aria-label={group.label}>
+            {scope.merged ? (
+              <h3
+                className={cn(
+                  typeClass("caption"),
+                  "px-2.5 pt-1.5 text-foreground",
+                )}
+                style={{ fontVariationSettings: fontWeights.semibold }}
+              >
+                {group.label}
+              </h3>
+            ) : null}
+            <ul>
+              {group.rows.map((row, index) => (
+                <DetailRow
+                  key={`${row.sourceId}-${row.profile}-${String(index)}`}
+                  row={row}
+                />
+              ))}
+            </ul>
+          </section>
+        ))}
+        {scope.missing.map((artifact) => (
+          <section key={artifact} aria-label={artifactLabel(artifact)}>
+            <h3
+              className={cn(
+                typeClass("caption"),
+                "px-2.5 pt-1.5 text-foreground",
+              )}
+              style={{ fontVariationSettings: fontWeights.semibold }}
+            >
+              {artifactLabel(artifact)}
+            </h3>
+            <p
+              className={cn(
+                typeClass("caption"),
+                "flex items-center gap-1.5 px-2.5 py-1.5 text-muted-foreground",
+              )}
+            >
+              <EvidenceDot state="absent" />
+              not analyzed in this Case
+            </p>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Popover surface for the detail: wide enough for a database path. */
+const DETAIL_POPOVER = "w-[min(26rem,calc(100vw-2rem))] pb-1.5";
+
+/**
+ * The quiet coverage control for a page title row: the state dot and
+ * "N/M read" (databases read of those attempted), opening the per-database
+ * detail. Its accessible name carries the full summary.
+ */
+export function CoverageIndicator({
+  completeness,
+  artifacts,
+  className,
+}: {
+  readonly completeness: CaseCompleteness;
+  /** Completeness artifact keys in scope; omit for the whole Case. */
+  readonly artifacts?: readonly string[];
+  readonly className?: string;
+}) {
+  const scope = coverageOf(completeness, artifacts);
+  const label =
+    scope.attempted === 0
+      ? "Not analyzed"
+      : `${scope.produced.toLocaleString("en-US")}/${scope.attempted.toLocaleString("en-US")} read`;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="compact"
+          aria-label={`Evidence coverage: ${summaryOf(scope)}`}
+          className={cn("shrink-0 tabular-nums", className)}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <EvidenceDot state={scope.state} />
+            {label}
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className={DETAIL_POPOVER}>
+        <CoverageDetail scope={scope} />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** One unread thing, in words: the artifact (and Profile when only part of
+ *  it), what happened, and why. */
+interface Gap {
+  readonly subject: string;
+  readonly where: string;
+  readonly outcome: "unavailable" | "absent" | "missing";
+  readonly reason: string | null;
+}
+
+function gapsOf(scope: CoverageScope): Gap[] {
+  const gaps: Gap[] = [];
+  for (const statement of scope.statements) {
+    const subject = artifactLabel(statement.artifact);
+    const unread = statement.artifacts.filter(
+      (row) => row.outcome !== "produced",
+    );
+    const keys = new Map<string, CompletenessArtifact[]>();
+    for (const row of unread) {
+      const key = `${row.outcome}\u0000${row.reason ?? ""}`;
+      keys.set(key, [...(keys.get(key) ?? []), row]);
+    }
+    for (const rows of keys.values()) {
+      const first = rows[0];
+      if (first === undefined || first.outcome === "produced") {
+        continue;
+      }
+      const where =
+        rows.length >= statement.attempted
+          ? ""
+          : rows.length === 1
+            ? ` in ${profileLabel(first.profile)}`
+            : ` in ${String(rows.length)} profiles`;
+      gaps.push({
+        subject,
+        where,
+        outcome: first.outcome,
+        reason: first.reason,
+      });
+    }
+    if (statement.attempted === 0) {
+      gaps.push({ subject, where: "", outcome: "missing", reason: null });
+    }
+  }
+  for (const artifact of scope.missing) {
+    gaps.push({
+      subject: artifactLabel(artifact),
+      where: "",
+      outcome: "missing",
+      reason: null,
+    });
+  }
+  return gaps;
+}
+
+/** The banner's one line: a sentence for one gap, a list for several. */
+function GapSentence({ gaps }: { readonly gaps: readonly Gap[] }) {
+  const strong = { fontVariationSettings: fontWeights.semibold };
+  const only = gaps.length === 1 ? gaps[0] : undefined;
+  if (only === undefined) {
+    return (
+      <>
+        Not everything was read:{" "}
+        {gaps.map((gap, index) => (
+          <span key={index}>
+            {index === 0 ? "" : ", "}
+            <span style={strong}>{gap.subject}</span>
+            {gap.where}
+          </span>
+        ))}
+        .
+      </>
+    );
+  }
+  const reason =
+    only.reason === null ? "" : ` — ${only.reason.replace(/\.$/, "")}`;
+  if (only.outcome === "unavailable") {
+    return (
+      <>
+        <span style={strong}>{only.subject}</span>
+        {only.where} could not be read{reason}.
+      </>
+    );
+  }
+  if (only.outcome === "absent") {
+    return (
+      <>
+        No <span style={strong}>{only.subject}</span> database{only.where}
+        {reason}.
+      </>
+    );
+  }
+  return (
+    <>
+      <span style={strong}>{only.subject}</span> was not analyzed in this Case.
+    </>
+  );
+}
+
+function plainGaps(gaps: readonly Gap[]): string {
+  return gaps
+    .map(
+      (gap) =>
+        `${gap.subject}${gap.where}: ${
+          gap.outcome === "missing"
+            ? "not analyzed"
+            : OUTCOME_META[gap.outcome].label
+        }${gap.reason === null ? "" : ` — ${gap.reason}`}`,
+    )
+    .join("; ");
+}
+
+/**
+ * One line above the rows when something in scope was not read: an FF
+ * Banner (error when anything is unreadable, else warning) naming what, with
+ * a "Details" action opening the per-database detail. Renders nothing when
+ * every database in scope was read.
+ */
+export function CoverageBanner({
+  completeness,
+  artifacts,
+  className,
+}: {
+  readonly completeness: CaseCompleteness;
+  /** Completeness artifact keys in scope; omit for the whole Case. */
+  readonly artifacts?: readonly string[];
+  readonly className?: string;
+}) {
+  const scope = coverageOf(completeness, artifacts);
+  if (!scope.degraded) {
+    return null;
+  }
+  const gaps = gapsOf(scope);
+  return (
+    <Banner
+      status={scope.unavailable > 0 ? "error" : "warning"}
+      size="compact"
+      role="status"
+      aria-label="Evidence coverage"
+      className={className}
+    >
+      <BannerTitle
+        className="sm:truncate"
+        style={{ fontVariationSettings: fontWeights.normal }}
+        title={plainGaps(gaps)}
+      >
+        <GapSentence gaps={gaps} />
+      </BannerTitle>
+      <BannerActions>
+        <Popover>
+          <PopoverTrigger asChild>
+            <BannerAction variant="ghost">Details</BannerAction>
+          </PopoverTrigger>
+          <PopoverContent align="end" className={DETAIL_POPOVER}>
+            <CoverageDetail scope={scope} />
+          </PopoverContent>
+        </Popover>
+      </BannerActions>
+    </Banner>
+  );
+}
+
+/**
+ * @deprecated The shell renders coverage for every page (`CoverageIndicator`
+ * in the title row, `CoverageBanner` under it). Kept so older call sites
+ * compile: the indicator, right-aligned, then the banner when degraded.
  */
 export function CompletenessPanel({
   completeness,
@@ -209,90 +484,15 @@ export function CompletenessPanel({
   className,
 }: {
   readonly completeness: CaseCompleteness;
-  /** Completeness artifact keys in scope (`ArtifactConfig.completenessArtifact`). */
   readonly artifacts?: readonly string[];
   readonly className?: string;
 }) {
-  const size = useSize();
-  const scope = scopeOf(completeness, artifacts);
-  const empty = scope.attempted === 0;
-  const merged = artifacts === undefined || artifacts.length > 1;
-  const named = artifacts === undefined ? [] : artifacts.map(artifactLabel);
-
   return (
-    <Panel
-      role="region"
-      aria-label="Evidence coverage"
-      className={cn("overflow-clip", className)}
-    >
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-        <div className="flex min-w-0 flex-col">
-          <h2
-            className={cn(size.type.subtitle, "text-foreground")}
-            style={{ fontVariationSettings: fontWeights.semibold }}
-          >
-            <CoverageTerm>Evidence coverage</CoverageTerm>
-          </h2>
-          {merged && named.length > 0 ? (
-            <p className={cn(size.type.caption, "text-muted-foreground")}>
-              {named.join(" · ")}
-            </p>
-          ) : null}
-        </div>
-        {empty ? (
-          <p className={cn(size.type.body, "text-muted-foreground")}>
-            {artifacts === undefined
-              ? "Nothing analyzed for this Case yet."
-              : `Nothing analyzed for ${named.join(", ")} in this Case yet.`}
-          </p>
-        ) : (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-            <CoverageStat label="attempted" count={scope.attempted} />
-            <CoverageStat
-              label={OUTCOME_META.produced.label}
-              count={scope.produced}
-              state="produced"
-            />
-            <CoverageStat
-              label={OUTCOME_META.absent.label}
-              count={scope.absent}
-              state="absent"
-            />
-            <CoverageStat
-              label={OUTCOME_META.unavailable.label}
-              count={scope.unavailable}
-              state="unavailable"
-            />
-          </div>
-        )}
-        {!empty && scope.missing.length > 0 ? (
-          <p className={cn(size.type.caption, "text-muted-foreground")}>
-            Not analyzed: {scope.missing.map(artifactLabel).join(", ")}
-          </p>
-        ) : null}
+    <div className={cn("flex flex-col gap-3", className)}>
+      <div className="flex justify-end">
+        <CoverageIndicator completeness={completeness} artifacts={artifacts} />
       </div>
-      {empty ? null : (
-        <div className="border-t border-border p-1">
-          <Accordion
-            type="single"
-            collapsible
-            size="compact"
-            className="w-full"
-          >
-            <AccordionItem value="detail" highlight="trigger">
-              <AccordionTrigger>Per-database detail</AccordionTrigger>
-              <AccordionContent>
-                <div className="px-1 pt-1 pb-2">
-                  <DetailTable
-                    statements={scope.statements}
-                    showArtifact={merged}
-                  />
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </div>
-      )}
-    </Panel>
+      <CoverageBanner completeness={completeness} artifacts={artifacts} />
+    </div>
   );
 }

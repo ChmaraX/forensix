@@ -70,6 +70,16 @@ profiles, both committed and sidecar (WAL/rollback-journal) rows for every
 Finding-backed artifact, all four `FieldState` variants in use across the
 data, and completeness outcomes covering produced/absent/unavailable.
 
+### Degraded coverage
+
+The fixture already has gaps (Cache unreadable, Form data missing in the
+Guest profile). To design the coverage banner on other pages, open the
+dashboard as `http://127.0.0.1:<port>/?degraded=1` (that tab only — the page
+URL rides each API call's Referer), or start the mock with `--degraded` /
+`FORENSIX_MOCK_DEGRADED=1` (every tab). Either way `completeness` also
+reports History missing in the second Profile and Cookies unreadable
+("Database locked.").
+
 ## Known simplification
 
 Two query parameters are honored:

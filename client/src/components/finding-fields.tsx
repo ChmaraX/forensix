@@ -115,18 +115,25 @@ export function hostOf(url: string | null): string | null {
 /**
  * One field in a table cell, with its own state word. A recorded, non-empty
  * value renders through `format` when given (a host, a size, a link label),
- * else as the raw value (mono, truncated). Every other state renders its
- * word — "(empty)", "absent", "unavailable — reason" — never a blank and
- * never "absent" for a value that was unreadable. A field the row does not
- * carry at all (`undefined`) reads "absent".
+ * else as the raw value (truncated). Every other state renders its word —
+ * "(empty)", "absent", "unavailable — reason" — never a blank and never
+ * "absent" for a value that was unreadable. A field the row does not carry
+ * at all (`undefined`) reads "absent".
+ *
+ * Monospace only for code-like values (URLs, paths, hashes, raw keys and
+ * ids): `mono="auto"` (default) decides per value with `isCodeLike`; pin a
+ * column with `mono` (a URL or path column) or `mono={false}` (names,
+ * hosts, locales). A `format`ted value is proportional unless `mono`.
  *
  *   <FieldCell field={row.fields.hostKey} />
+ *   <FieldCell field={row.fields.url} mono />
  *   <FieldCell field={row.fields.totalBytes} format={(v) => formatBytes(Number(v))} />
  */
 export function FieldCell({
   field,
   format,
   truncate = true,
+  mono = "auto",
   className,
 }: {
   readonly field: FieldState | undefined;
@@ -134,6 +141,9 @@ export function FieldCell({
   readonly format?: (value: unknown) => ReactNode;
   /** One line with an ellipsis (table cells). @default true */
   readonly truncate?: boolean;
+  /** Monospace: `"auto"` per value (`isCodeLike`), `true` always, `false`
+   *  never. @default "auto" */
+  readonly mono?: boolean | "auto";
   readonly className?: string;
 }) {
   const size = useSize();
@@ -147,6 +157,7 @@ export function FieldCell({
       <span
         className={cn(
           size.type.body,
+          mono === true && "font-mono",
           truncate ? "block truncate whitespace-nowrap" : "break-words",
           className,
         )}
@@ -159,9 +170,27 @@ export function FieldCell({
     <MaybeFieldStateText field={field} truncate={truncate} />
   ) : (
     <span className={cn("block min-w-0", className)}>
-      <FieldStateText field={field} truncate={truncate} />
+      <FieldStateText field={field} truncate={truncate} mono={mono} />
     </span>
   );
+}
+
+/** Monospace rule for any value outside `FieldCell`: `isCodeLike(text)` and
+ *  `codeClass(text, mono?)` (→ `"font-mono"` or `""`). */
+export { codeClass, isCodeLike } from "./field-state.js";
+
+/**
+ * A Chrome profile directory as a person reads it: "Default" (and the
+ * browser-wide ".") → "Default profile"; a name that already says
+ * "Profile" ("Profile 2") stays as is; anything else gains " profile".
+ * Use wherever the word "Profile" would otherwise be printed in front of
+ * the name ("Profile Profile 2").
+ */
+export function profileLabel(profile: string): string {
+  if (profile === "." || profile === "Default") {
+    return "Default profile";
+  }
+  return /\bprofile\b/i.test(profile) ? profile : `${profile} profile`;
 }
 
 /** The word "absent" (one shared copy, from field-state.tsx). */

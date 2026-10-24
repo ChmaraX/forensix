@@ -9,6 +9,8 @@
  *  - `TimeText` / `TimeCell` (UTC instant or the word "absent"), `Count`,
  *    `WeightLabel` (semibold-when-active without reflow).
  * Layout
+ *  - `ResponsiveRows` (an FF Table above `sm`, stacked row cards on a
+ *    phone; one column list with a `stack` role per column),
  *  - `SectionHeading` (a title-role heading above a block of panels),
  *    `SectionPanel` (a Panel with title, count, description, trailing aside),
  *    `Toolbar` (a compact filter bar), `IconTile`.
@@ -26,7 +28,6 @@
  * (WAL / rollback-journal) rows are a separate list from saved rows and never
  * sorted in.
  */
-import { RotateCcw, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useState, type ReactNode } from "react";
 
@@ -38,19 +39,23 @@ import {
   type HeadingTag,
 } from "@/components/panel";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { RefreshIcon, type AppIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 
 import type { FieldState, Finding } from "../types.js";
-import type { ChartTokens } from "./charts.js";
+import { SERIES, seriesColor, type ChartTokens } from "./charts.js";
 import {
   AbsentWord,
   FieldCell,
   fieldUtc,
   formatInstant,
 } from "./finding-fields.js";
+
+/** Table above `sm`, stacked row cards below (see responsive-rows.tsx). */
+export { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
 
 /* -------------------------------- formatting ------------------------------- */
 
@@ -244,8 +249,9 @@ export function WeightLabel({
 /**
  * A framed section: a Panel whose header carries the title (subtitle role),
  * an optional count beside it, an optional description under it, and an
- * optional trailing `aside` (a badge, a Tabs switch, an action). With `id`
- * the panel is a labelled region.
+ * optional trailing `aside` (a badge, a Tabs switch, an action — on the
+ * compact 28px step, like every toolbar control). With `id` the panel is a
+ * labelled region.
  */
 export function SectionPanel({
   id,
@@ -285,7 +291,11 @@ export function SectionPanel({
             <PanelDescription>{description}</PanelDescription>
           )}
         </div>
-        {aside}
+        {aside === undefined || aside === null ? null : (
+          // Header controls sit on the toolbar's 28px step, like
+          // ChartSection's action, so a panel never mixes control heights.
+          <SizeProvider size="compact">{aside}</SizeProvider>
+        )}
       </PanelHeader>
       {children}
     </Panel>
@@ -297,7 +307,7 @@ export function IconTile({
   icon: Icon,
   className,
 }: {
-  readonly icon: LucideIcon;
+  readonly icon: AppIcon;
   readonly className?: string;
 }) {
   const size = useSize();
@@ -416,8 +426,8 @@ export interface MeterRow {
 
 /**
  * A ranked list of horizontal bars, one 36px row per category, scaled to the
- * largest value. The peak bar is held at full strength and the rest at a
- * lighter step, the same grammar as the bar charts. Each bar slides in on
+ * largest value, in the one series style (charts.tsx `SERIES`): ink, the
+ * peak at full strength and the rest at the resting step. Each bar slides in on
  * `spring.slow`, transform only. Rows are read-only, so the list carries no
  * hover highlight (it would promise a click).
  */
@@ -464,8 +474,11 @@ export function MeterList({
                 aria-hidden="true"
                 className="absolute inset-0 rounded-full"
                 style={{
-                  backgroundColor: tokens["--primary"],
-                  opacity: row.value === peak && peak > 0 ? 1 : 0.45,
+                  backgroundColor: seriesColor(tokens),
+                  opacity:
+                    row.value === peak && peak > 0
+                      ? SERIES.emphasis
+                      : SERIES.rest,
                 }}
                 initial={{ x: "-100%" }}
                 animate={{ x: `${String((shown - 1) * 100)}%` }}
@@ -491,8 +504,8 @@ export function MeterList({
 /**
  * A share of the busiest entry: a full-width pill slid in from the left
  * inside a clipping track (translateX, never a scaled or width-animated bar),
- * on the main chart series (`--primary`). Same grammar as `MeterList`: the
- * peak (fraction 1, or `peak`) at full strength, every other bar at 0.45.
+ * in the one series style (ink). Same grammar as `MeterList`: the peak
+ * (fraction 1, or `peak`) at full strength, every other bar at rest.
  * Decorative — the figure it draws must be printed beside it.
  */
 export function ShareBar({
@@ -518,8 +531,8 @@ export function ShareBar({
         className={cn("block h-full w-full rounded-full", className)}
         style={{
           backgroundColor:
-            className === undefined ? "var(--primary)" : undefined,
-          opacity: isPeak ? 1 : 0.45,
+            className === undefined ? "var(--foreground)" : undefined,
+          opacity: isPeak ? SERIES.emphasis : SERIES.rest,
           transform: `translateX(${String((clamped - 1) * 100)}%)`,
         }}
       />
@@ -735,8 +748,7 @@ function StackedSplit({
       {recoveredCount === null || recoveredCount === 0 ? null : (
         <div className="border-t border-border pt-3">
           <div className="flex flex-wrap items-center gap-x-2 px-4">
-            <RotateCcw
-              aria-hidden="true"
+            <RefreshIcon
               size={size.icon}
               strokeWidth={1.5}
               className="text-muted-foreground"

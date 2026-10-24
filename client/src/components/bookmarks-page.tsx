@@ -66,7 +66,7 @@ import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
-import type { ArtifactConfig, CaseCompleteness, Finding } from "../types.js";
+import type { ArtifactConfig, Finding } from "../types.js";
 import {
   useCommitStateLists,
   type PaginatedList,
@@ -78,7 +78,6 @@ import {
 } from "./bookmarks-cadence.js";
 import { ChartSection } from "./chart-section.js";
 import { ChartEmpty, useChartTokens } from "./charts.js";
-import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
@@ -958,13 +957,7 @@ function inFolder(row: BookmarkRow, folder: string): boolean {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function BookmarksPage({
-  config,
-  completeness,
-}: {
-  readonly config: ArtifactConfig;
-  readonly completeness: CaseCompleteness;
-}) {
+export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(
     config.route,
     BOOKMARK_PARAMETERS,
@@ -1142,10 +1135,6 @@ export function BookmarksPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <CompletenessPanel
-        completeness={completeness}
-        artifacts={[config.completenessArtifact]}
-      />
       {pageEmpty ? (
         <Panel>
           <EmptyRows
