@@ -46,6 +46,7 @@ function insert(
   hostColumn: string,
   hostValue: string,
   id: number,
+  commitState = "committed",
 ): void {
   const database = new DatabaseSync(join(directory, CASE_FILENAME));
   const provenance = JSON.stringify({
@@ -64,9 +65,9 @@ function insert(
   database.prepare(`INSERT INTO ${results} VALUES (?, 1)`).run(id);
   database
     .prepare(
-      `INSERT INTO ${table} VALUES (?, ?, 'finding', ?, 'Default', 'committed', ?, ?, ?)`,
+      `INSERT INTO ${table} VALUES (?, ?, 'finding', ?, 'Default', ?, ?, ?, ?)`,
     )
-    .run(id, id, kind, provenance, fields, hostValue);
+    .run(id, id, kind, commitState, provenance, fields, hostValue);
   database.close();
 }
 
@@ -121,10 +122,26 @@ describe("Sites queries", () => {
           top_sites: 0,
           form_data: 0,
         },
+        savedCounts: {
+          visits: 1,
+          cookies: 1,
+          saved_logins: 1,
+          bookmarks: 0,
+          top_sites: 0,
+          form_data: 0,
+        },
       },
       {
         host: "other.test",
         counts: {
+          visits: 0,
+          cookies: 0,
+          saved_logins: 0,
+          bookmarks: 1,
+          top_sites: 0,
+          form_data: 0,
+        },
+        savedCounts: {
           visits: 0,
           cookies: 0,
           saved_logins: 0,
@@ -169,5 +186,125 @@ describe("Sites queries", () => {
     expect(
       querySiteFindings({ caseDirectory: directory, host: "missing.test" }),
     ).toMatchObject({ items: [], nextCursor: null });
+  });
+
+  it("counts saved rows apart from recovered rows", async () => {
+    const directory = await caseDirectory();
+    insert(
+      directory,
+      "forensic_findings",
+      "history_artifact_results",
+      "history_visit",
+      "sort_url",
+      "https://example.com/a",
+      1,
+    );
+    insert(
+      directory,
+      "forensic_findings",
+      "history_artifact_results",
+      "history_visit",
+      "sort_url",
+      "https://example.com/b",
+      2,
+      "wal_resident",
+    );
+    const [host] = querySiteHosts({ caseDirectory: directory }).items;
+    expect(host?.counts.visits).toBe(2);
+    expect(host?.savedCounts.visits).toBe(1);
+  });
+
+  it("pages hosts in cursor order, punctuation included", async () => {
+    const directory = await caseDirectory();
+    const hosts = ["ab.test", "a-b.test", "a.test", "b.test", "a-c.test"];
+    hosts.forEach((host, index) => {
+      insert(
+        directory,
+        "forensic_findings",
+        "history_artifact_results",
+        "history_visit",
+        "sort_url",
+        `https://${host}/`,
+        index + 1,
+      );
+    });
+    const seen: string[] = [];
+    let after: string | undefined;
+    for (let page = 0; page < 10; page += 1) {
+      const result = querySiteHosts({
+        caseDirectory: directory,
+        limit: 2,
+        after,
+      });
+      seen.push(...result.items.map((item) => item.host));
+      if (result.nextCursor === null) break;
+      after = result.nextCursor;
+    }
+    expect(seen).toEqual([...hosts].sort());
+  });
+
+  it("pages a host's findings by numeric id across digit lengths", async () => {
+    const directory = await caseDirectory();
+    for (let id = 1; id <= 23; id += 1) {
+      insert(
+        directory,
+        "forensic_findings",
+        "history_artifact_results",
+        "history_visit",
+        "sort_url",
+        `https://example.com/${String(id)}`,
+        id,
+      );
+    }
+    const seen: string[] = [];
+    let after: string | undefined;
+    for (let page = 0; page < 10; page += 1) {
+      const result = querySiteFindings({
+        caseDirectory: directory,
+        host: "example.com",
+        limit: 4,
+        after,
+      });
+      seen.push(...result.items.map((item) => item.provenance.rowId));
+      if (result.nextCursor === null) break;
+      after = result.nextCursor;
+    }
+    expect(seen).toEqual(
+      Array.from({ length: 23 }, (_, index) => String(index + 1)),
+    );
+  });
+
+  it("rejects a findings cursor whose key is not a position", async () => {
+    const directory = await caseDirectory();
+    for (const id of [1, 2]) {
+      insert(
+        directory,
+        "forensic_findings",
+        "history_artifact_results",
+        "history_visit",
+        "sort_url",
+        `https://example.com/${String(id)}`,
+        id,
+      );
+    }
+    const { nextCursor } = querySiteFindings({
+      caseDirectory: directory,
+      host: "example.com",
+      limit: 1,
+    });
+    expect(nextCursor).not.toBeNull();
+    const payload = JSON.parse(
+      Buffer.from(nextCursor ?? "", "base64url").toString("utf8"),
+    ) as Record<string, unknown>;
+    const forged = Buffer.from(
+      JSON.stringify({ ...payload, key: "visits:abc" }),
+    ).toString("base64url");
+    expect(() =>
+      querySiteFindings({
+        caseDirectory: directory,
+        host: "example.com",
+        after: forged,
+      }),
+    ).toThrow(/cursor does not belong/);
   });
 });

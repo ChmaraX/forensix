@@ -513,6 +513,71 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
       "alpha.example",
     );
 
+    // Sites: the host list and one host's rows, served like every list route.
+    const siteHosts = await fetch(`${base}/api/site-hosts?limit=100`, {
+      headers: auth,
+    });
+    expect(siteHosts.status).toBe(200);
+    const hostsPage = (await siteHosts.json()) as {
+      readonly command: string;
+      readonly items: readonly {
+        readonly host: string;
+        readonly counts: Readonly<Record<string, number>>;
+        readonly savedCounts: Readonly<Record<string, number>>;
+      }[];
+      readonly limit: number;
+    };
+    expect(hostsPage.command).toBe("site-hosts");
+    expect(hostsPage.limit).toBe(100);
+    const alpha = hostsPage.items.find((item) => item.host === "alpha.example");
+    expect(alpha?.counts.visits).toBeGreaterThan(0);
+    expect(alpha?.savedCounts.visits).toBeGreaterThan(0);
+    const siteFindings = await fetch(
+      `${base}/api/site-findings?host=alpha.example&limit=100`,
+      { headers: auth },
+    );
+    expect(siteFindings.status).toBe(200);
+    const findingsPage = (await siteFindings.json()) as {
+      readonly command: string;
+      readonly items: readonly { readonly artifactKind: string }[];
+    };
+    expect(findingsPage.command).toBe("site-findings");
+    expect(findingsPage.items.length).toBeGreaterThan(0);
+    expect(findingsPage.items.map((item) => item.artifactKind)).toContain(
+      "visits",
+    );
+    // The shared limit contract (1-100) holds on the Sites routes too.
+    for (const path of [
+      "site-hosts?limit=101",
+      "site-findings?host=alpha.example&limit=101",
+    ]) {
+      const response = await fetch(`${base}/api/${path}`, { headers: auth });
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { readonly code: string }).code).toBe(
+        "INVALID_ARGUMENT",
+      );
+    }
+
+    // Activity rows carry the declared timezone their days were bucketed in;
+    // the dashboard turns a clicked day into that zone's day bounds.
+    const activity = (await (
+      await fetch(`${base}/api/history?view=activity&limit=100`, {
+        headers: auth,
+      })
+    ).json()) as {
+      readonly items: readonly {
+        readonly fields: {
+          readonly declaredTimezone?: { readonly value?: unknown };
+        };
+      }[];
+    };
+    expect(activity.items.length).toBeGreaterThan(0);
+    expect(
+      new Set(
+        activity.items.map((item) => item.fields.declaredTimezone?.value),
+      ),
+    ).toEqual(new Set(["America/New_York"]));
+
     // Keyset pagination returns bounded pages with a cursor.
     const firstPage = (await (
       await fetch(`${base}/api/history?sort=visit-time&direction=asc&limit=1`, {

@@ -22,7 +22,11 @@ export type SiteArtifactKind =
 
 export interface SiteHost {
   readonly host: string;
+  /** Rows per artifact kind, every Commit State. */
   readonly counts: Readonly<Record<SiteArtifactKind, number>>;
+  /** Rows per artifact kind that are committed (saved), so a figure can count
+   *  saved rows without summing in WAL- or journal-resident ones. */
+  readonly savedCounts: Readonly<Record<SiteArtifactKind, number>>;
 }
 
 export interface SiteHostQuery {
@@ -211,6 +215,23 @@ function cursor(
   );
 }
 
+function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function compareIds(left: bigint, right: bigint): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/** A site-findings cursor key, `<artifact kind>:<finding id>`, or null. */
+function findingPosition(
+  key: string,
+): { readonly kind: string; readonly id: bigint } | null {
+  const match = /^([a-z_]+):([0-9]+)$/.exec(key);
+  if (match?.[1] === undefined || match[2] === undefined) return null;
+  return { kind: match[1], id: BigInt(match[2]) };
+}
+
 function nextCursor(fingerprintValue: string, key: string): string {
   return Buffer.from(
     JSON.stringify({ version: 1, fingerprint: fingerprintValue, key }),
@@ -249,23 +270,37 @@ export function querySiteHosts(input: SiteHostQuery): SiteHostPage {
     const query = { search };
     const fingerprintValue = fingerprint(database, query);
     const after = cursor(input.after, fingerprintValue, "Sites");
-    const grouped = new Map<string, Record<SiteArtifactKind, number>>();
+    const zeroCounts = () =>
+      Object.fromEntries(ARTIFACT_KINDS.map((kind) => [kind, 0])) as Record<
+        SiteArtifactKind,
+        number
+      >;
+    const grouped = new Map<
+      string,
+      {
+        counts: Record<SiteArtifactKind, number>;
+        savedCounts: Record<SiteArtifactKind, number>;
+      }
+    >();
     for (const row of rows(database)) {
       const host = hostKey(row.host_value);
       if (host === null || (search !== null && !host.includes(search)))
         continue;
-      const counts =
-        grouped.get(host) ??
-        (Object.fromEntries(ARTIFACT_KINDS.map((kind) => [kind, 0])) as Record<
-          SiteArtifactKind,
-          number
-        >);
-      counts[row.artifact_kind]++;
-      grouped.set(host, counts);
+      const entry = grouped.get(host) ?? {
+        counts: zeroCounts(),
+        savedCounts: zeroCounts(),
+      };
+      entry.counts[row.artifact_kind]++;
+      if (row.commit_state === "committed")
+        entry.savedCounts[row.artifact_kind]++;
+      grouped.set(host, entry);
     }
+    // Code-unit order, the same order the cursor's `host > after` filter
+    // uses: a locale collation would page hosts out of order (and skip or
+    // repeat some) whenever punctuation sorts differently.
     const all = [...grouped.entries()]
-      .map(([host, counts]) => ({ host, counts }))
-      .sort((a, b) => a.host.localeCompare(b.host));
+      .map(([host, entry]) => ({ host, ...entry }))
+      .sort((a, b) => compareCodeUnits(a.host, b.host));
     const filtered =
       after === null ? all : all.filter((item) => item.host > after);
     const page = filtered.slice(0, limit);
@@ -297,19 +332,33 @@ export function querySiteFindings(input: SiteFindingsQuery): SiteFindingsPage {
   try {
     const fingerprintValue = fingerprint(database, { host });
     const after = cursor(input.after, fingerprintValue, "Sites");
+    const position = after === null ? null : findingPosition(after);
+    if (after !== null && position === null)
+      throw new ForensixError(
+        "INVALID_CURSOR",
+        "Sites cursor does not belong to this query.",
+      );
     const all = rows(database)
       .filter((row) => hostKey(row.host_value) === host)
       .sort(
         (a, b) =>
-          a.artifact_kind.localeCompare(b.artifact_kind) ||
-          (a.finding_id < b.finding_id ? -1 : 1),
+          compareCodeUnits(a.artifact_kind, b.artifact_kind) ||
+          compareIds(BigInt(a.finding_id), BigInt(b.finding_id)),
       );
     const keyed = all.map((row) => ({
       row,
       key: `${row.artifact_kind}:${row.finding_id}`,
     }));
+    // Keyset on (artifact kind, numeric finding id), the sort order itself:
+    // comparing the joined key as a string would put id 10 before id 9.
     const filtered =
-      after === null ? keyed : keyed.filter((item) => item.key > after);
+      position === null
+        ? keyed
+        : keyed.filter(
+            ({ row }) =>
+              (compareCodeUnits(row.artifact_kind, position.kind) ||
+                compareIds(BigInt(row.finding_id), position.id)) > 0,
+          );
     const page = filtered.slice(0, limit);
     const lastEntry = page.at(-1);
     return {

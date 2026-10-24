@@ -23,6 +23,8 @@ import {
   queryHistory,
   queryMetadata,
   queryProfiles,
+  querySiteFindings,
+  querySiteHosts,
   queryTimeline,
   queryTopSites,
   queryTopicCandidates,
@@ -254,7 +256,11 @@ function findingFieldStringArray(
   key: string,
 ): readonly string[] {
   const field = fields[key];
-  if (field === undefined || field.state !== "value" || !Array.isArray(field.value)) {
+  if (
+    field === undefined ||
+    field.state !== "value" ||
+    !Array.isArray(field.value)
+  ) {
     return [];
   }
   return field.value.filter(
@@ -288,7 +294,12 @@ function sniffImageMimeType(bytes: Buffer): string {
   ) {
     return "image/png";
   }
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+  if (
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  ) {
     return "image/jpeg";
   }
   if (bytes.length >= 3 && bytes.toString("ascii", 0, 3) === "GIF") {
@@ -479,9 +490,28 @@ export const API_ROUTES = new Map<
           | undefined,
       }),
   ],
-  // "site-hosts" and "site-findings" are not wired up here yet: the client's
-  // Sites page will show its normal "could not be loaded" state — an honest
-  // gap, not a crash — until that backend work lands.
+  [
+    "site-hosts",
+    (parameters, caseDirectory) =>
+      querySiteHosts({
+        caseDirectory,
+        search: firstString(parameters.get("search")),
+        limit: integerParameter(parameters, "limit"),
+        after: firstString(parameters.get("after")),
+      }),
+  ],
+  [
+    "site-findings",
+    (parameters, caseDirectory) =>
+      querySiteFindings({
+        caseDirectory,
+        // A missing host reaches core as "" so it raises core's own
+        // INVALID_ARGUMENT, the same wording the CLI uses.
+        host: parameters.get("host") ?? "",
+        limit: integerParameter(parameters, "limit"),
+        after: firstString(parameters.get("after")),
+      }),
+  ],
   [
     "site-favicons",
     (parameters, caseDirectory) => ({
