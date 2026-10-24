@@ -18,30 +18,18 @@
  * "(empty)", a missing one "absent" — four distinct words, never a colour
  * alone.
  *
- * Presentation rules kept: every derived proportion is a reading of recorded
- * flags, never an inference; saved rows and rows recovered from WAL / journal
- * sidecars are separate lists (the Saved / Recovered switch), never sorted
- * together; `absent` / `unavailable` stay worded; and no control here writes,
- * re-runs, or mutates anything — the page only reads the loaded rows back.
+ * Saved rows and rows recovered from WAL / journal sidecars are read as
+ * separate server queries (`useCommitStateLists`) and shown as separate lists
+ * (the Saved / Recovered switch), never sorted together. Every figure above
+ * the table counts the loaded **saved** cookies only, and says so. No control
+ * here writes, re-runs, or mutates anything — the page only reads rows back.
  */
 import { Cookie, EyeOff, Lock, Search, ShieldCheck } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 
-import {
-  Panel,
-  PanelDescription,
-  PanelHeader,
-  PanelTitle,
-} from "@/components/panel";
+import { Panel } from "@/components/panel";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
-import { Badge, badgeColors, type BadgeColor } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
@@ -53,31 +41,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
 } from "@/hooks/use-fluid-hover";
-import { fontWeights } from "@/lib/font-weight";
 import { useShape } from "@/lib/shape-context";
-import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
+import { typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { callApi } from "../api.js";
+import type { QueryParameters } from "../api.js";
 import type {
   ArtifactConfig,
   CaseCompleteness,
   FieldState,
   Finding,
-  PageOf,
 } from "../types.js";
+import {
+  useCommitStateLists,
+  type PaginatedList,
+} from "../use-commit-state-lists.js";
+import { ChartEmpty, useChartTokens } from "./charts.js";
 import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import { FieldStateText } from "./field-state.js";
 import {
   AbsentWord,
+  FieldCell,
   fieldBool,
   fieldText,
   fieldUtc,
@@ -85,12 +76,28 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
-import { ErrorRows } from "./list-states.js";
+import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
-import { plural, SectionPanel, TimeCell, WeightLabel } from "./page-kit.js";
+import {
+  CommitStateSplit,
+  MeterList,
+  plural,
+  SectionPanel,
+  ShareBar,
+  TimeCell,
+  WeightLabel,
+  type CommitView,
+  type MeterRow,
+} from "./page-kit.js";
 
 /* ------------------------------ data reading ------------------------------ */
+
+/** Newest first; each Commit State is its own read (useCommitStateLists). */
+const COOKIE_PARAMETERS: QueryParameters = [
+  ["sort", "creation-time"],
+  ["direction", "desc"],
+];
 
 /**
  * One cookie row reduced to just the fields the widgets and the curated table
@@ -107,10 +114,6 @@ interface CookieRow {
   readonly secure: boolean | null;
   readonly httpOnly: boolean | null;
   readonly sameSite: string | null;
-  readonly created: string | null;
-  readonly expires: string | null;
-  /** The recorded `value` field as-is; the table decides how much to show. */
-  readonly value: FieldState | undefined;
   /** True when `value` came back `unavailable` — the encrypted-offline case. */
   readonly valueSealed: boolean;
   /** Whole days from creation to expiry, or null when a bound is missing. */
@@ -144,86 +147,9 @@ function toCookieRow(finding: Finding): CookieRow {
     secure: fieldBool(finding.fields.isSecure),
     httpOnly: fieldBool(finding.fields.isHttpOnly),
     sameSite: fieldText(finding.fields.sameSite),
-    created,
-    expires,
-    value: finding.fields.value,
     valueSealed: finding.fields.value?.state === "unavailable",
     lifespanDays,
   };
-}
-
-/** Reads loaded cookies newest first; more pages load on demand via the footer. */
-function useCookies(route: string) {
-  const [rows, setRows] = useState<readonly CookieRow[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setRows([]);
-    setCursor(null);
-    callApi<PageOf<Finding>>(route, [
-      ["sort", "creation-time"],
-      ["direction", "desc"],
-    ])
-      .then((page) => {
-        if (cancelled) {
-          return;
-        }
-        setRows(page.items.map(toCookieRow));
-        setCursor(page.nextCursor);
-        setLoading(false);
-      })
-      .catch((requestError: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [route, nonce]);
-
-  const loadMore = useCallback(() => {
-    if (cursor === null) {
-      return;
-    }
-    setLoading(true);
-    callApi<PageOf<Finding>>(route, [
-      ["sort", "creation-time"],
-      ["direction", "desc"],
-      ["after", cursor],
-    ])
-      .then((page) => {
-        setRows((existing) => [...existing, ...page.items.map(toCookieRow)]);
-        setCursor(page.nextCursor);
-        setLoading(false);
-      })
-      .catch((requestError: unknown) => {
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-        setLoading(false);
-      });
-  }, [route, cursor]);
-
-  const retry = useCallback(() => {
-    setNonce((value) => value + 1);
-  }, []);
-
-  return { rows, cursor, loading, error, loadMore, retry };
 }
 
 /* --------------------------- derived summaries ---------------------------- */
@@ -274,16 +200,6 @@ const SAME_SITE_LABEL: Readonly<Record<string, string>> = {
   unspecified: "Unspecified",
 };
 
-/** Segment hue per SameSite value: more permissive reads warmer, stricter
- *  cooler. Hue is never the only signal — every segment is named and counted
- *  in the legend beside it. */
-const SAME_SITE_COLOR: Readonly<Record<string, BadgeColor>> = {
-  no_restriction: "amber",
-  lax: "blue",
-  strict: "green",
-  unspecified: "gray",
-};
-
 const SAME_SITE_HINT: Readonly<Record<string, string>> = {
   no_restriction: "Sent on every cross-site request",
   lax: "Sent on top-level navigations only",
@@ -295,7 +211,6 @@ interface SameSiteSlice {
   readonly key: string;
   readonly label: string;
   readonly count: number;
-  readonly color: BadgeColor;
 }
 
 function sameSiteSlices(rows: readonly CookieRow[]): {
@@ -311,14 +226,15 @@ function sameSiteSlices(rows: readonly CookieRow[]): {
     known += 1;
     counts.set(row.sameSite, (counts.get(row.sameSite) ?? 0) + 1);
   }
-  const slices = SAME_SITE_ORDER.filter(
-    (key) => (counts.get(key) ?? 0) > 0,
-  ).map((key) => ({
-    key,
-    label: SAME_SITE_LABEL[key] ?? key,
-    count: counts.get(key) ?? 0,
-    color: SAME_SITE_COLOR[key] ?? "gray",
-  }));
+  const ordered: readonly string[] = SAME_SITE_ORDER;
+  const extra = [...counts.keys()].filter((key) => !ordered.includes(key));
+  const slices = [...ordered, ...extra.sort()]
+    .filter((key) => (counts.get(key) ?? 0) > 0)
+    .map((key) => ({
+      key,
+      label: SAME_SITE_LABEL[key] ?? key,
+      count: counts.get(key) ?? 0,
+    }));
   return { slices, known };
 }
 
@@ -337,14 +253,12 @@ const LIFESPAN_BUCKETS = [
   { key: "multiyear", label: "> 1 year", test: () => true },
 ] as const;
 
-interface LifespanBucket {
-  readonly key: string;
-  readonly label: string;
-  readonly count: number;
-}
-
 function lifespanBuckets(rows: readonly CookieRow[]): {
-  readonly buckets: readonly LifespanBucket[];
+  readonly buckets: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly count: number;
+  }[];
   readonly dated: number;
 } {
   const counts = new Map<string, number>(
@@ -352,13 +266,12 @@ function lifespanBuckets(rows: readonly CookieRow[]): {
   );
   let dated = 0;
   for (const row of rows) {
-    if (row.lifespanDays === null) {
+    const days = row.lifespanDays;
+    if (days === null) {
       continue;
     }
     dated += 1;
-    const bucket = LIFESPAN_BUCKETS.find((entry) =>
-      entry.test(row.lifespanDays as number),
-    );
+    const bucket = LIFESPAN_BUCKETS.find((entry) => entry.test(days));
     if (bucket !== undefined) {
       counts.set(bucket.key, (counts.get(bucket.key) ?? 0) + 1);
     }
@@ -404,13 +317,7 @@ function topHosts(
 }
 
 /** "3 years" / "12 days" / "session" style label for a lifespan in days. */
-function formatLifespan(days: number | null): string | null {
-  if (days === null) {
-    return null;
-  }
-  if (days < 0) {
-    return "expired";
-  }
+function formatLifespan(days: number): string {
   if (days <= 1) {
     return "session";
   }
@@ -425,8 +332,9 @@ function formatLifespan(days: number | null): string | null {
   return `${String(years)} year${years === 1 ? "" : "s"}`;
 }
 
+/** A share as a whole percent; the figures only render with rows loaded. */
 function percent(part: number, whole: number): string {
-  return whole === 0 ? "—" : `${String(Math.round((part / whole) * 100))}%`;
+  return whole === 0 ? "none" : `${String(Math.round((part / whole) * 100))}%`;
 }
 
 /* ------------------------------ page sections ----------------------------- */
@@ -440,27 +348,29 @@ function Footnote({ children }: { readonly children: ReactNode }) {
   );
 }
 
-/** The four posture figures across the top of the page. */
-function PostureStrip({ summary }: { readonly summary: PostureSummary }) {
+/** The four posture figures across the top of the page (saved rows only). */
+function PostureStrip({
+  summary,
+  more,
+}: {
+  readonly summary: PostureSummary;
+  readonly more: boolean;
+}) {
   const of = (part: number) =>
     `${part.toLocaleString("en-US")} of ${summary.total.toLocaleString("en-US")}`;
   return (
-    <MetricBand className="grid-cols-2 xl:grid-cols-4">
+    <MetricBand className="grid-cols-2 lg:grid-cols-4">
       <MetricBandItem
-        label="Cookies loaded"
-        value={summary.total.toLocaleString("en-US")}
-        detail="Rows read for the figures below"
+        label="Saved cookies loaded"
+        value={`${summary.total.toLocaleString("en-US")}${more ? "+" : ""}`}
+        detail="saved rows; recovered listed apart"
       />
       <MetricBandItem
         label="Secure"
         value={percent(summary.secure, summary.total)}
         detail={`${of(summary.secure)} · Sent only over HTTPS`}
-        icon={<ShieldCheck aria-hidden="true" className="size-3.5" />}
-        progress={{
-          value: summary.secure,
-          max: summary.total,
-          tone: "success",
-        }}
+        icon={<ShieldCheck aria-hidden="true" />}
+        progress={{ value: summary.secure, max: summary.total }}
       />
       <MetricBandItem
         label="HttpOnly"
@@ -469,11 +379,12 @@ function PostureStrip({ summary }: { readonly summary: PostureSummary }) {
         progress={{ value: summary.httpOnly, max: summary.total }}
       />
       <MetricBandItem
-        label="Value sealed"
+        label="Sealed"
         value={percent(summary.sealed, summary.total)}
         detail={`${of(summary.sealed)} · Encrypted, unreadable offline`}
-        icon={<Lock aria-hidden="true" className="size-3.5" />}
+        icon={<Lock aria-hidden="true" />}
         tone="destructive"
+        status="unavailable"
         progress={{
           value: summary.sealed,
           max: summary.total,
@@ -485,97 +396,45 @@ function PostureStrip({ summary }: { readonly summary: PostureSummary }) {
 }
 
 /**
- * The SameSite exposure bar: a single stacked proportion of the cross-site
- * behaviour Chrome recorded for each cookie, most permissive on the left. The
- * legend carries the word, count, and share for every segment, so no reading
- * depends on the hue alone. Cookies without a recorded SameSite are named
- * under the legend as an explicit figure, never dropped.
+ * The SameSite exposure list: the cross-site behaviour Chrome recorded for
+ * each saved cookie, most permissive first, as ranked bars. Every row carries
+ * the policy word, what it means, the count and the share, so no reading
+ * depends on a hue. Cookies without a recorded SameSite are named under the
+ * list as an explicit figure, never dropped.
  */
 function SameSiteCard({ rows }: { readonly rows: readonly CookieRow[] }) {
+  const tokens = useChartTokens();
   const { slices, known } = useMemo(() => sameSiteSlices(rows), [rows]);
   const unknown = rows.length - known;
+  const meterRows: readonly MeterRow[] = slices.map((slice) => ({
+    key: slice.key,
+    label: <span className="truncate">{slice.label}</span>,
+    value: slice.count,
+    display: `${slice.count.toLocaleString("en-US")} · ${String(Math.round((slice.count / known) * 100))}%`,
+    title: SAME_SITE_HINT[slice.key],
+  }));
   return (
     <SectionPanel
+      id="cookies-samesite"
       className="h-full"
       title="Cross-site behaviour"
-      description="Each cookie's recorded SameSite policy."
+      description="Each saved cookie's recorded SameSite policy."
     >
       {known === 0 ? (
-        <p
-          className={cn(
-            typeClass("body"),
-            "px-4 pt-2 pb-4 text-muted-foreground",
-          )}
-        >
-          No cookie carries a recorded SameSite policy.
-        </p>
+        <ChartEmpty>
+          No saved cookie carries a recorded SameSite policy.
+        </ChartEmpty>
       ) : (
-        <div className="flex flex-col gap-4 px-4 pt-2 pb-4">
-          <div
-            className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full"
-            role="img"
-            aria-label={slices
-              .map((slice) => `${slice.label} ${String(slice.count)}`)
-              .join(", ")}
+        <div className="flex flex-col gap-1 px-4 pt-1 pb-3">
+          <MeterList rows={meterRows} tokens={tokens} labelWidth="6rem" />
+          <ul
+            className={cn(typeClass("caption"), "text-muted-foreground")}
+            aria-label="What each policy means"
           >
             {slices.map((slice) => (
-              <span
-                key={slice.key}
-                className="h-full first:rounded-l-full last:rounded-r-full"
-                style={{
-                  width: `${String((slice.count / known) * 100)}%`,
-                  backgroundColor: badgeColors[slice.color],
-                }}
-              />
-            ))}
-          </div>
-          <ul className="flex flex-col">
-            {slices.map((slice) => (
-              <li
-                key={slice.key}
-                className="grid h-9 grid-cols-[auto_minmax(0,1fr)_auto_2.5rem] items-center gap-3 border-b border-border last:border-b-0"
-              >
-                <span
-                  aria-hidden="true"
-                  className="size-2 rounded-full"
-                  style={{ backgroundColor: badgeColors[slice.color] }}
-                />
-                <span className="flex min-w-0 items-baseline gap-2">
-                  <span
-                    className={cn(
-                      typeClass("body"),
-                      "shrink-0 text-foreground",
-                    )}
-                  >
-                    {slice.label}
-                  </span>
-                  <span
-                    className={cn(
-                      typeClass("caption"),
-                      "truncate text-muted-foreground",
-                    )}
-                    title={SAME_SITE_HINT[slice.key]}
-                  >
-                    {SAME_SITE_HINT[slice.key] ?? ""}
-                  </span>
-                </span>
-                <span
-                  className={cn(
-                    typeClass("body"),
-                    "text-foreground tabular-nums",
-                  )}
-                  style={{ fontVariationSettings: fontWeights.semibold }}
-                >
-                  {slice.count.toLocaleString("en-US")}
-                </span>
-                <span
-                  className={cn(
-                    typeClass("caption"),
-                    "text-right text-muted-foreground tabular-nums",
-                  )}
-                >
-                  {Math.round((slice.count / known) * 100)}%
-                </span>
+              <li key={slice.key} className="truncate">
+                <span className="text-foreground">{slice.label}</span>:{" "}
+                {SAME_SITE_HINT[slice.key] ?? "Policy recorded as is"}
               </li>
             ))}
           </ul>
@@ -583,8 +442,8 @@ function SameSiteCard({ rows }: { readonly rows: readonly CookieRow[] }) {
       )}
       {unknown > 0 ? (
         <Footnote>
-          {plural(unknown, "cookie", "cookies")} with no recorded SameSite
-          policy.
+          {plural(unknown, "saved cookie", "saved cookies")} with no recorded
+          SameSite policy.
         </Footnote>
       ) : null}
     </SectionPanel>
@@ -592,78 +451,44 @@ function SameSiteCard({ rows }: { readonly rows: readonly CookieRow[] }) {
 }
 
 /**
- * The lifespan histogram: how long each cookie was set to live, from its own
- * creation-to-expiry span. Bars are drawn as plain rows (not a chart library)
- * because the buckets are few and fixed; every bar carries its count as a
- * number. Cookies missing a creation or expiry bound are reported as an
- * explicit "no dated span" figure below the bars.
+ * The lifespan list: how long each saved cookie was set to live, from its
+ * own creation-to-expiry span, as ranked bars on fixed buckets. Every bar
+ * carries its count as a number, and the expired bucket keeps its word.
+ * Cookies missing a creation or expiry bound are reported as an explicit
+ * "no dated span" figure below the bars.
  */
 function LifespanCard({ rows }: { readonly rows: readonly CookieRow[] }) {
+  const tokens = useChartTokens();
   const { buckets, dated } = useMemo(() => lifespanBuckets(rows), [rows]);
-  const peak = Math.max(...buckets.map((bucket) => bucket.count), 0);
   const undated = rows.length - dated;
   return (
     <SectionPanel
+      id="cookies-lifespan"
       className="h-full"
       title="Persistence"
-      description="How long each cookie was set to live."
+      description="How long each saved cookie was set to live."
     >
       {dated === 0 ? (
-        <p
-          className={cn(
-            typeClass("body"),
-            "px-4 pt-2 pb-4 text-muted-foreground",
-          )}
-        >
-          No cookie carries both a creation and an expiry time.
-        </p>
+        <ChartEmpty>
+          No saved cookie carries both a creation and an expiry time.
+        </ChartEmpty>
       ) : (
-        <ul className="flex flex-col px-4 pt-1 pb-3">
-          {buckets.map((bucket) => (
-            <li
-              key={bucket.key}
-              className="grid h-8 grid-cols-[4.5rem_minmax(0,1fr)_2rem] items-center gap-3"
-            >
-              <span
-                className={cn(typeClass("caption"), "text-muted-foreground")}
-              >
-                {bucket.label}
-              </span>
-              <span className="h-1.5 overflow-hidden rounded-full bg-active">
-                <span
-                  className={cn(
-                    "block h-full rounded-full",
-                    bucket.key === "expired"
-                      ? "bg-destructive"
-                      : "bg-foreground",
-                    bucket.count === peak ? "opacity-90" : "opacity-45",
-                  )}
-                  style={{
-                    width:
-                      peak === 0 || bucket.count === 0
-                        ? "0%"
-                        : `${String(Math.max(4, (bucket.count / peak) * 100))}%`,
-                  }}
-                />
-              </span>
-              <span
-                className={cn(
-                  typeClass("body"),
-                  "text-right tabular-nums",
-                  bucket.count === 0
-                    ? "text-muted-foreground"
-                    : "text-foreground",
-                )}
-              >
-                {bucket.count.toLocaleString("en-US")}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="px-4 pt-1 pb-3">
+          <MeterList
+            rows={buckets.map((bucket) => ({
+              key: bucket.key,
+              label: bucket.label,
+              value: bucket.count,
+              display: bucket.count.toLocaleString("en-US"),
+            }))}
+            tokens={tokens}
+            labelWidth="5rem"
+          />
+        </div>
       )}
       {undated > 0 ? (
         <Footnote>
-          {plural(undated, "cookie", "cookies")} with no dated span.
+          {plural(undated, "saved cookie", "saved cookies")} with no dated span.
         </Footnote>
       ) : null}
     </SectionPanel>
@@ -671,9 +496,9 @@ function LifespanCard({ rows }: { readonly rows: readonly CookieRow[] }) {
 }
 
 /**
- * The busiest cookie hosts. Each row narrows the table to that host (a second
- * click clears it), so the list is a real set of choices and takes FF's fluid
- * hover; the bar is the host's count against the busiest host.
+ * The busiest saved-cookie hosts. Each row narrows both lists to that host (a
+ * second click clears it), so the list is a real set of choices and takes
+ * FF's fluid hover; the bar is the host's count against the busiest host.
  */
 function HostBoardCard({
   rows,
@@ -686,14 +511,15 @@ function HostBoardCard({
 }) {
   const { hosts, distinct } = useMemo(() => topHosts(rows, 6), [rows]);
   const peak = hosts[0]?.count ?? 0;
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const hover = useFluidHover(listRef, { axis: "y" });
   const shape = useShape();
   return (
     <SectionPanel
+      id="cookies-hosts"
       className="h-full"
       title="Cookies by host"
-      description="Pick a host to narrow the table."
+      description="Saved cookies per host. Pick one to narrow the lists."
       aside={
         <Badge size="compact" className="tabular-nums">
           {plural(distinct, "host", "hosts")}
@@ -701,33 +527,24 @@ function HostBoardCard({
       }
     >
       {hosts.length === 0 ? (
-        <p
-          className={cn(
-            typeClass("body"),
-            "px-4 pt-2 pb-4 text-muted-foreground",
-          )}
-        >
-          No cookie carries a recorded host.
-        </p>
+        <ChartEmpty>No saved cookie carries a recorded host.</ChartEmpty>
       ) : (
-        <ul
-          ref={listRef}
-          {...hover.handlers}
-          className="relative flex flex-col px-1 pb-1"
-        >
+        <div ref={listRef} {...hover.handlers} className="relative px-1 pb-1">
           <FluidHoverHighlight hover={hover} className={shape.item} />
-          {hosts.map((entry, index) => (
-            <HostBoardRow
-              key={entry.host}
-              index={index}
-              registerItem={hover.registerItem}
-              entry={entry}
-              peak={peak}
-              active={activeHost === entry.host}
-              onPick={onPick}
-            />
-          ))}
-        </ul>
+          <ul className="flex flex-col">
+            {hosts.map((entry, index) => (
+              <HostBoardRow
+                key={entry.host}
+                index={index}
+                registerItem={hover.registerItem}
+                entry={entry}
+                peak={peak}
+                active={activeHost === entry.host}
+                onPick={onPick}
+              />
+            ))}
+          </ul>
+        </div>
       )}
     </SectionPanel>
   );
@@ -757,11 +574,12 @@ function HostBoardRow({
         ref={ref}
         type="button"
         aria-pressed={active}
+        aria-label={`${entry.host}, ${plural(entry.count, "saved cookie", "saved cookies")}`}
         onClick={() => {
           onPick(entry.host);
         }}
         className={cn(
-          "relative grid h-9 w-full cursor-pointer grid-cols-[minmax(0,1fr)_5rem_2rem] items-center gap-3 px-3 text-left transition-colors duration-80",
+          "relative grid h-9 w-full cursor-pointer grid-cols-[minmax(0,1fr)_5rem_2rem] items-center gap-3 px-3 text-left outline-none transition-colors duration-80 focus-visible:ring-1 focus-visible:ring-focus-ring",
           shape.item,
           active && "bg-active",
         )}
@@ -774,18 +592,7 @@ function HostBoardRow({
             className={cn(typeClass("body"), "text-foreground")}
           />
         </span>
-        <span className="h-1.5 overflow-hidden rounded-full bg-active">
-          <span
-            className={cn(
-              "block h-full rounded-full bg-foreground",
-              entry.count === peak ? "opacity-90" : "opacity-45",
-            )}
-            style={{
-              width:
-                peak === 0 ? "0%" : `${String((entry.count / peak) * 100)}%`,
-            }}
-          />
-        </span>
+        <ShareBar fraction={peak === 0 ? 0 : entry.count / peak} />
         <span
           className={cn(
             typeClass("body"),
@@ -802,9 +609,10 @@ function HostBoardRow({
 /* ------------------------------ curated table ----------------------------- */
 
 /** A worded Yes/No/absent for a recorded boolean scope flag. Never colour-only. */
-function FlagWord({ on }: { readonly on: boolean | null }) {
+function FlagCell({ field }: { readonly field: FieldState | undefined }) {
+  const on = fieldBool(field);
   if (on === null) {
-    return <AbsentWord />;
+    return <FieldCell field={field} />;
   }
   return on ? <span className="text-foreground">Yes</span> : <span>No</span>;
 }
@@ -814,6 +622,7 @@ function FlagWord({ on }: { readonly on: boolean | null }) {
  * a recorded value reads "value hidden" (the value exists, and is withheld
  * here) until "Show values" is on; "(empty)", "absent", and "unavailable"
  * with its reason are shown as they are, since none of them carries a secret.
+ * No own tab stop: the row is the focus target and its sheet the reveal.
  */
 function CookieValueCell({
   field,
@@ -822,17 +631,20 @@ function CookieValueCell({
   readonly field: FieldState | undefined;
   readonly reveal: boolean;
 }) {
+  const size = useSize();
   if (field === undefined) {
     return <AbsentWord />;
   }
   if (field.state === "value" && field.value !== "" && !reveal) {
     return (
       <Tooltip content="A value was recorded. Turn on Show values, or open the row, to read it.">
-        <span
-          tabIndex={0}
-          className="flex cursor-help items-center gap-1.5 whitespace-nowrap"
-        >
-          <EyeOff aria-hidden="true" className="size-3.5 shrink-0" />
+        <span className="flex cursor-help items-center gap-1.5 whitespace-nowrap">
+          <EyeOff
+            aria-hidden="true"
+            size={size.icon}
+            strokeWidth={1.5}
+            className="shrink-0"
+          />
           value hidden
         </span>
       </Tooltip>
@@ -870,7 +682,7 @@ function CookieTable({
   readonly onSelect: (row: Finding) => void;
 }) {
   return (
-    <div className="scroll-fade-x overflow-x-auto px-1 pb-1">
+    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
       <Table className="min-w-[1080px]">
         <TableHeader>
           <TableRow>
@@ -881,13 +693,13 @@ function CookieTable({
             ))}
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody className="reveal-items">
           {rows.map((row, index) => (
             <TableRow
               key={index}
               index={index}
               tabIndex={0}
-              aria-label={`Open cookie ${row.name ?? ""} on ${row.host ?? "unknown host"}`}
+              aria-label={`Open cookie ${row.name ?? "with no recorded name"} on ${row.host ?? "a host not recorded"}`}
               onClick={() => {
                 onSelect(row.finding);
               }}
@@ -898,21 +710,21 @@ function CookieTable({
               }}
               className={ROW_FOCUS_CLASS}
             >
-              <TableCell className="max-w-[220px]">
+              <TableCell className="max-w-[240px]">
                 {row.host === null ? (
-                  <AbsentWord />
+                  <FieldCell field={row.finding.fields.hostKey} />
                 ) : (
-                  <span
-                    className="block truncate text-foreground"
-                    title={row.host}
-                  >
-                    {row.host}
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <SiteAvatar host={row.host} />
+                    <span className="truncate text-foreground" title={row.host}>
+                      {row.host}
+                    </span>
                   </span>
                 )}
               </TableCell>
               <TableCell className="max-w-[220px]">
                 {row.name === null ? (
-                  <AbsentWord />
+                  <FieldCell field={row.finding.fields.name} />
                 ) : (
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate font-mono" title={row.name}>
@@ -933,27 +745,37 @@ function CookieTable({
                 )}
               </TableCell>
               <TableCell>
-                <CookieValueCell field={row.value} reveal={reveal} />
+                <CookieValueCell
+                  field={row.finding.fields.value}
+                  reveal={reveal}
+                />
               </TableCell>
               <TableCell>
-                <FlagWord on={row.secure} />
+                <FlagCell field={row.finding.fields.isSecure} />
               </TableCell>
               <TableCell>
-                <FlagWord on={row.httpOnly} />
+                <FlagCell field={row.finding.fields.isHttpOnly} />
               </TableCell>
               <TableCell className="whitespace-nowrap">
-                {row.sameSite === null ? (
-                  <AbsentWord />
-                ) : (
-                  (SAME_SITE_LABEL[row.sameSite] ?? row.sameSite)
-                )}
+                <FieldCell
+                  field={row.finding.fields.sameSite}
+                  format={(value) =>
+                    SAME_SITE_LABEL[String(value)] ?? String(value)
+                  }
+                />
               </TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">
                 {row.lifespanDays === null ? (
-                  <AbsentWord />
+                  <FieldCell
+                    field={
+                      fieldUtc(row.finding.fields.creationTime) === null
+                        ? row.finding.fields.creationTime
+                        : row.finding.fields.expiresTime
+                    }
+                  />
                 ) : row.lifespanDays < 0 ? (
                   <span className="inline-flex items-center gap-1.5 text-foreground">
-                    <EvidenceDot state="unavailable" />
+                    <EvidenceDot state="warning" />
                     expired
                   </span>
                 ) : (
@@ -961,7 +783,7 @@ function CookieTable({
                 )}
               </TableCell>
               <TableCell>
-                <TimeCell utc={row.created} />
+                <TimeCell field={row.finding.fields.creationTime} />
               </TableCell>
               <TableCell>
                 <StateWord state={row.finding.commitState} />
@@ -974,193 +796,105 @@ function CookieTable({
   );
 }
 
-type View = "saved" | "recovered";
-
 /**
- * The table section: Saved / Recovered as two separate lists (sidecar rows
- * are never sorted in among saved ones), a profile pick when the Case holds
- * more than one, a search, the value-redaction switch, then the rows and the
- * "N shown / Load more" footer.
+ * One list (saved or recovered): its loading rows, its read error, its empty
+ * state, the table, a load-more failure, and the "N shown / Load more"
+ * footer. Each list keeps its own pagination.
  */
-function CookieListPanel({
+function CookieList({
+  list,
   rows,
-  cursor,
-  loading,
-  onLoadMore,
-  search,
-  onSearch,
+  visible,
+  noun,
+  reveal,
   onSelect,
+  onClearFilters,
 }: {
+  readonly list: PaginatedList<Finding>;
   readonly rows: readonly CookieRow[];
-  readonly cursor: string | null;
-  readonly loading: boolean;
-  readonly onLoadMore: () => void;
-  readonly search: string;
-  readonly onSearch: (value: string) => void;
+  readonly visible: readonly CookieRow[];
+  readonly noun: "saved" | "recovered";
+  readonly reveal: boolean;
   readonly onSelect: (row: Finding) => void;
+  readonly onClearFilters: () => void;
 }) {
-  const [view, setView] = useState<View>("saved");
-  const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
-  const [reveal, setReveal] = useState(false);
-  const size = useSize("compact");
-
-  const profiles = useMemo(
-    () => [...new Set(rows.map((row) => row.finding.profile))].sort(),
-    [rows],
-  );
-
-  const saved = useMemo(
-    () => rows.filter((row) => row.finding.commitState === "committed"),
-    [rows],
-  );
-  const recovered = useMemo(
-    () => rows.filter((row) => row.finding.commitState !== "committed"),
-    [rows],
-  );
-  const base = view === "saved" ? saved : recovered;
-
-  const visible = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("en-US");
-    return base.filter((row) => {
-      if (
-        profileFilter.length > 0 &&
-        !profileFilter.includes(row.finding.profile)
-      ) {
-        return false;
-      }
-      if (query === "") {
-        return true;
-      }
-      const haystack = [row.host ?? "", row.name ?? "", row.sameSite ?? ""]
-        .join("\n")
-        .toLocaleLowerCase("en-US");
-      return haystack.includes(query);
-    });
-  }, [base, search, profileFilter]);
-
-  const filtered = visible.length !== base.length;
-  const noun = view === "saved" ? "saved" : "recovered";
-
+  const firstLoad = list.loading && rows.length === 0;
+  if (list.error !== null && rows.length === 0) {
+    return (
+      <ErrorRows
+        title={`The ${noun} cookies could not be loaded.`}
+        message={list.error}
+        onRetry={list.retry}
+      />
+    );
+  }
+  const filtered = visible.length !== rows.length;
   return (
-    <Panel className="overflow-clip">
-      <PanelHeader className="items-center">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <PanelTitle>All loaded cookies</PanelTitle>
-          <PanelDescription>
-            Saved rows and rows recovered from WAL or journal sidecars are kept
-            as separate lists.
-          </PanelDescription>
-        </div>
-      </PanelHeader>
-      <SizeProvider size="compact">
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-y-2 px-4 pt-1 pb-3",
-            size.gap,
-          )}
-        >
-          <Tabs
-            value={view}
-            onValueChange={(next) => {
-              setView(next === "recovered" ? "recovered" : "saved");
-            }}
-          >
-            <TabsList aria-label="Saved or recovered rows">
-              <TabItem
-                value="saved"
-                label={`Saved ${saved.length.toLocaleString("en-US")}`}
-              />
-              <TabItem
-                value="recovered"
-                label={`Recovered ${recovered.length.toLocaleString("en-US")}`}
-              />
-            </TabsList>
-          </Tabs>
-          <div className={cn("ml-auto flex flex-wrap items-center", size.gap)}>
-            <Switch
-              label="Show values"
-              checked={reveal}
-              onToggle={() => {
-                setReveal((value) => !value);
-              }}
-              className="mr-2"
-            />
-            {profiles.length > 1 ? (
-              <FilterField label="Profiles" htmlFor="cookies-profiles">
-                <ProfilePicker
-                  id="cookies-profiles"
-                  profiles={profiles}
-                  selected={profileFilter}
-                  onChange={setProfileFilter}
-                />
-              </FilterField>
-            ) : null}
-            <FilterTextField
-              label="Search loaded cookies"
-              placeholder="Search host or name"
-              icon={Search}
-              value={search}
-              onCommit={onSearch}
-            />
-          </div>
-        </div>
-      </SizeProvider>
-
-      <div className="border-t border-border">
-        {visible.length === 0 ? (
+    <>
+      <div className="reveal-swap">
+        <LoadingRows rows={3} label={`Loading ${noun} cookies`} />
+        {firstLoad ? null : visible.length === 0 ? (
           <EmptyRows
             message={
               filtered
-                ? `No ${noun} cookies match this filter.`
-                : view === "saved"
-                  ? "No saved cookie rows are loaded."
+                ? `No loaded ${noun} cookies match these filters.`
+                : noun === "saved"
+                  ? "No saved cookie rows in this Case."
                   : "No cookie rows were recovered from WAL or journal sidecars."
+            }
+            action={
+              filtered ? (
+                <Button
+                  variant="tertiary"
+                  size="compact"
+                  onClick={onClearFilters}
+                >
+                  Clear filters
+                </Button>
+              ) : undefined
             }
           />
         ) : (
           <CookieTable rows={visible} reveal={reveal} onSelect={onSelect} />
         )}
       </div>
-
-      <div className="flex items-center gap-3 border-t border-border px-4 py-2.5">
-        <p
-          className={cn(
-            typeClass("caption"),
-            "text-muted-foreground tabular-nums",
-          )}
-          aria-live="polite"
-        >
-          {filtered
-            ? `${visible.length.toLocaleString("en-US")} of ${base.length.toLocaleString("en-US")} ${noun} cookies shown`
-            : `${plural(base.length, `${noun} cookie`, `${noun} cookies`)} shown`}
-          {cursor === null ? "" : " · more available"}
-        </p>
-        {cursor !== null ? (
-          <Button
-            variant="tertiary"
-            size="compact"
-            onClick={onLoadMore}
-            loading={loading}
-            disabled={loading}
-            className="ml-auto"
-          >
-            Load more
-          </Button>
-        ) : null}
-      </div>
-    </Panel>
+      {list.error !== null ? (
+        <ErrorRows
+          title={`More ${noun} cookies could not be loaded.`}
+          message={list.error}
+          onRetry={list.cursor === null ? list.retry : list.loadMore}
+        />
+      ) : null}
+      {firstLoad ? null : (
+        <ListFooter
+          count={visible.length}
+          cursor={list.cursor}
+          loading={list.loading}
+          onLoadMore={list.loadMore}
+          summary={
+            filtered
+              ? `${visible.length.toLocaleString("en-US")} of ${plural(rows.length, `loaded ${noun} cookie`, `loaded ${noun} cookies`)} shown`
+              : `${plural(rows.length, `${noun} cookie`, `${noun} cookies`)} shown`
+          }
+        />
+      )}
+    </>
   );
 }
 
 /** Placeholder at the size of the figure strip and the three widgets. */
 function CookiesSkeleton() {
   return (
-    <div className="flex flex-col gap-4" aria-hidden="true">
-      <Skeleton className="h-[112px] w-full rounded-xl" />
+    <div
+      className="flex flex-col gap-5"
+      role="status"
+      aria-label="Loading cookie figures"
+    >
+      <Skeleton className="h-[180px] w-full rounded-xl lg:h-[98px]" />
       <div className="grid grid-cols-12 gap-4">
-        <Skeleton className="col-span-12 h-[300px] rounded-xl lg:col-span-4" />
-        <Skeleton className="col-span-12 h-[300px] rounded-xl lg:col-span-4" />
-        <Skeleton className="col-span-12 h-[300px] rounded-xl lg:col-span-4" />
+        <Skeleton className="col-span-12 h-[290px] rounded-xl lg:col-span-4" />
+        <Skeleton className="col-span-12 h-[290px] rounded-xl lg:col-span-4" />
+        <Skeleton className="col-span-12 h-[290px] rounded-xl lg:col-span-4" />
       </div>
     </div>
   );
@@ -1175,11 +909,60 @@ export function CookiesPage({
   readonly config: ArtifactConfig;
   readonly completeness: CaseCompleteness;
 }) {
-  const list = useCookies(config.route);
+  const lists = useCommitStateLists<Finding>(config.route, COOKIE_PARAMETERS);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
+  const [view, setView] = useState<CommitView>("saved");
   const [search, setSearch] = useState("");
+  const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
+  const [reveal, setReveal] = useState(false);
 
-  const summary = useMemo(() => summarize(list.rows), [list.rows]);
+  const savedRows = useMemo(
+    () => lists.saved.rows.map(toCookieRow),
+    [lists.saved.rows],
+  );
+  const recoveredRows = useMemo(
+    () => lists.recovered.rows.map(toCookieRow),
+    [lists.recovered.rows],
+  );
+  const summary = useMemo(() => summarize(savedRows), [savedRows]);
+
+  const profiles = useMemo(
+    () =>
+      [
+        ...new Set(
+          [...savedRows, ...recoveredRows].map((row) => row.finding.profile),
+        ),
+      ].sort(),
+    [savedRows, recoveredRows],
+  );
+
+  const narrow = useCallback(
+    (rows: readonly CookieRow[]) => {
+      const query = search.trim().toLocaleLowerCase("en-US");
+      return rows.filter((row) => {
+        if (
+          profileFilter.length > 0 &&
+          !profileFilter.includes(row.finding.profile)
+        ) {
+          return false;
+        }
+        if (query === "") {
+          return true;
+        }
+        // Never the value: a search must not reveal a hidden secret.
+        const haystack = [row.host ?? "", row.name ?? "", row.sameSite ?? ""]
+          .join("\n")
+          .toLocaleLowerCase("en-US");
+        return haystack.includes(query);
+      });
+    },
+    [search, profileFilter],
+  );
+  const savedVisible = useMemo(() => narrow(savedRows), [narrow, savedRows]);
+  const recoveredVisible = useMemo(
+    () => narrow(recoveredRows),
+    [narrow, recoveredRows],
+  );
 
   const select = useCallback((row: Finding) => {
     setSelected({ kind: "finding", row });
@@ -1189,69 +972,154 @@ export function CookiesPage({
     setSearch((current) => (current === host ? "" : host));
   }, []);
 
-  const firstLoad = list.loading && list.rows.length === 0;
+  const clearFilters = useCallback(() => {
+    setSearch("");
+    setProfileFilter([]);
+  }, []);
+
+  const savedFirst = lists.saved.loading && savedRows.length === 0;
+  const recoveredFirst = lists.recovered.loading && recoveredRows.length === 0;
+  const pageEmpty =
+    !savedFirst &&
+    !recoveredFirst &&
+    lists.saved.error === null &&
+    lists.recovered.error === null &&
+    savedRows.length === 0 &&
+    recoveredRows.length === 0;
+  // The figures read the saved rows only; with none (or a failed read) they
+  // step aside and the Saved tab carries the reason.
+  const showFigures =
+    savedFirst || (lists.saved.error === null && savedRows.length > 0);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <CompletenessPanel
         completeness={completeness}
         artifacts={[config.completenessArtifact]}
       />
-      {list.error !== null ? (
-        <ErrorRows
-          message={list.error}
-          onRetry={list.retry}
-          className="px-0 py-0"
-        />
-      ) : !firstLoad && list.rows.length === 0 ? (
+      {pageEmpty ? (
         <Panel>
           <EmptyRows
             icon={Cookie}
             title="No cookies"
-            message="No Cookies rows in this Case."
+            message="No Cookies rows in this Case, saved or recovered."
           />
         </Panel>
       ) : (
-        <div className="reveal-swap">
-          <CookiesSkeleton />
-          {firstLoad ? null : (
-            <div className="flex flex-col gap-4">
-              <PostureStrip summary={summary} />
-
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-12 lg:col-span-4">
-                  <SameSiteCard rows={list.rows} />
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                  <LifespanCard rows={list.rows} />
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                  <HostBoardCard
-                    rows={list.rows}
-                    activeHost={search === "" ? null : search}
-                    onPick={pickHost}
+        <>
+          {showFigures ? (
+            <div className="reveal-swap">
+              <CookiesSkeleton />
+              {savedFirst ? null : (
+                <div className="flex flex-col gap-5">
+                  <PostureStrip
+                    summary={summary}
+                    more={lists.saved.cursor !== null}
                   />
+                  <div className="grid grid-cols-12 gap-4">
+                    <div className="col-span-12 lg:col-span-4">
+                      <SameSiteCard rows={savedRows} />
+                    </div>
+                    <div className="col-span-12 lg:col-span-4">
+                      <LifespanCard rows={savedRows} />
+                    </div>
+                    <div className="col-span-12 lg:col-span-4">
+                      <HostBoardCard
+                        rows={savedRows}
+                        activeHost={search === "" ? null : search}
+                        onPick={pickHost}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <CookieListPanel
-                rows={list.rows}
-                cursor={list.cursor}
-                loading={list.loading}
-                onLoadMore={list.loadMore}
-                search={search}
-                onSearch={setSearch}
-                onSelect={select}
-              />
+              )}
             </div>
-          )}
-        </div>
+          ) : null}
+
+          <SectionPanel
+            id="cookies-list"
+            title="All cookies"
+            description="Saved rows and rows recovered from WAL or journal sidecars are separate lists."
+          >
+            <CommitStateSplit
+              value={view}
+              onValueChange={setView}
+              label="Saved or recovered cookies"
+              savedCount={
+                savedFirst ||
+                (lists.saved.error !== null && savedRows.length === 0)
+                  ? null
+                  : savedRows.length
+              }
+              recoveredCount={
+                recoveredFirst ||
+                (lists.recovered.error !== null && recoveredRows.length === 0)
+                  ? null
+                  : recoveredRows.length
+              }
+              savedMore={lists.saved.cursor !== null}
+              recoveredMore={lists.recovered.cursor !== null}
+              toolbar={
+                <>
+                  <Switch
+                    label="Show values"
+                    checked={reveal}
+                    onToggle={() => {
+                      setReveal((value) => !value);
+                    }}
+                    className="mr-2"
+                  />
+                  {profiles.length > 1 ? (
+                    <FilterField label="Profiles" htmlFor="cookies-profiles">
+                      <ProfilePicker
+                        id="cookies-profiles"
+                        profiles={profiles}
+                        selected={profileFilter}
+                        onChange={setProfileFilter}
+                      />
+                    </FilterField>
+                  ) : null}
+                  <FilterTextField
+                    commit="change"
+                    label="Search loaded cookies"
+                    placeholder="Search host or name"
+                    icon={Search}
+                    value={search}
+                    onCommit={setSearch}
+                  />
+                </>
+              }
+              saved={
+                <CookieList
+                  list={lists.saved}
+                  rows={savedRows}
+                  visible={savedVisible}
+                  noun="saved"
+                  reveal={reveal}
+                  onSelect={select}
+                  onClearFilters={clearFilters}
+                />
+              }
+              recovered={
+                <CookieList
+                  list={lists.recovered}
+                  rows={recoveredRows}
+                  visible={recoveredVisible}
+                  noun="recovered"
+                  reveal={reveal}
+                  onSelect={select}
+                  onClearFilters={clearFilters}
+                />
+              }
+            />
+          </SectionPanel>
+        </>
       )}
 
       {selected !== null ? (
         <RowSheet
           selected={selected}
-          title={`Cookie ${fieldText(selected.row.fields.name) ?? ""}`.trim()}
+          title={fieldText(selected.row.fields.name) ?? "Cookie"}
           redactedFields={COOKIE_SECRET_FIELDS}
           onClose={() => {
             setSelected(null);

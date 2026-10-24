@@ -8,28 +8,41 @@
  * this browser hold, and which entries did the person actually reuse.
  *
  * Three derived reads sit above the raw table, each computed only from fields
- * the rows already carry — never a new query, never an invented figure:
+ * the saved rows already carry — never a new query, never an invented figure:
  *
  *  - a category breakdown that groups Chrome's raw field names (EMAIL_ADDRESS,
  *    ADDRESS_HOME_ZIP, search-query, …) into the plain-language classes an
- *    examiner reasons in (Identity, Contact, Address, Payment, Searches,
+ *    examiner reasons in (Payment, Identity, Contact, Address, Searches,
  *    Other). The mapping is a fixed rule stated below, not a guess: the field
  *    name Chrome recorded fully determines the class. Each class doubles as a
- *    filter for the table;
+ *    filter for the lists;
  *  - a reuse leaderboard, ranked by the browser's own `timesUsed` count — the
  *    values the person filled most often;
  *  - a creation-over-time area, one point per week, drawn only across weeks
  *    the evidence actually spans.
  *
+ * Payment-category values (card, CVC, IBAN, wallet, account fields) are
+ * secrets: they read "value hidden" everywhere — table, leaderboard, tile,
+ * accessible names — until the page's "Show values" switch is on, are left
+ * out of the search text while hidden, and stay hidden in the row sheet
+ * behind its own Reveal control.
+ *
  * Presentation rules kept: TYPE (the field type) is the first table column;
  * saved entries and entries recovered from WAL / journal sidecars are
- * separate lists (the Saved / Recovered switch), never sorted together;
- * `absent` and `(empty)` render as words, never a blank; state is a worded
- * dot, never colour alone. No control here can start or rerun ingest,
- * analysis, or export.
+ * separate server reads and separate lists (the Saved / Recovered switch),
+ * never sorted together, and every figure counts saved entries only;
+ * (empty) / absent / unavailable render as their own words. No control here
+ * can start or rerun ingest, analysis, or export.
  */
-import { ClipboardList, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ClipboardList, EyeOff, Search } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   Area,
   AreaChart,
@@ -40,14 +53,17 @@ import {
   YAxis,
 } from "recharts";
 
-import {
-  Panel,
-  PanelDescription,
-  PanelHeader,
-  PanelTitle,
-} from "@/components/panel";
+import { Panel } from "@/components/panel";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
-import { badgeColors, type BadgeColor } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardFooter,
+  CardGroup,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
 import {
   Select,
@@ -55,6 +71,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -63,7 +80,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
@@ -73,14 +90,18 @@ import { useShape } from "@/lib/shape-context";
 import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { callApi } from "../api.js";
+import type { QueryParameters } from "../api.js";
 import type {
   ArtifactConfig,
   CaseCompleteness,
+  FieldState,
   Finding,
-  PageOf,
 } from "../types.js";
-import { CompletenessPanel } from "./completeness.js";
+import {
+  useCommitStateLists,
+  type PaginatedList,
+} from "../use-commit-state-lists.js";
+import { ChartSection } from "./chart-section.js";
 import {
   CHART_FOCUS_CLASS,
   chartAnimation,
@@ -95,168 +116,132 @@ import {
   usePrefersReducedMotion,
   type ChartTokens,
 } from "./charts.js";
+import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
-  AbsentWord,
+  CARD_TITLE_CLEAR,
+  CommitStateSplit,
+  Count,
+  formatDayTick,
+  plural,
+  SectionPanel,
+  ShareBar,
+  TimeCell,
+  type CommitView,
+} from "./page-kit.js";
+import {
+  FieldCell,
   fieldInteger,
   fieldText,
   fieldUtc,
-  formatInstant,
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField } from "./filters.js";
-import { ErrorRows } from "./list-states.js";
+import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
-/** One read of the whole Form data set across every Commit State, paginated
- *  by the route until the cursor runs out or the page cap is hit. The derived
- *  reads above the table are only honest if they cover the whole set, so this
- *  reads every page rather than the first screen. */
-const AUTOFILL_PAGE_CAP = 60;
+/* ------------------------------ data reading ------------------------------ */
 
-function useAutofill(route: string) {
-  const [rows, setRows] = useState<readonly Finding[]>([]);
-  const [complete, setComplete] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
+const AUTOFILL_PARAMETERS: QueryParameters = [
+  ["sort", "last-used-time"],
+  ["direction", "desc"],
+  ["limit", "100"],
+];
 
+/** Rows read per list before the page stops following the cursor. The
+ *  derived reads above the table are only honest if they cover the whole
+ *  set, so every page is read rather than the first screen. */
+const AUTOFILL_ROW_CAP = 6000;
+
+/** Follows a list's cursor until it runs out or the cap is hit. Returns
+ *  whether the read has settled. */
+function useDrained(list: PaginatedList<Finding>): boolean {
+  const { loading, error, cursor, rows, loadMore } = list;
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setRows([]);
-    setComplete(false);
-
-    const collected: Finding[] = [];
-    let after: string | null = null;
-
-    const step = async (): Promise<void> => {
-      for (let page = 0; page < AUTOFILL_PAGE_CAP; page += 1) {
-        const parameters: (readonly [string, string])[] = [
-          ["sort", "last-used-time"],
-          ["direction", "desc"],
-          ["limit", "100"],
-        ];
-        if (after !== null) {
-          parameters.push(["after", after]);
-        }
-        const result = await callApi<PageOf<Finding>>(route, parameters);
-        collected.push(...result.items);
-        after = result.nextCursor;
-        if (after === null) {
-          if (!cancelled) {
-            setComplete(true);
-          }
-          return;
-        }
-      }
-    };
-
-    step()
-      .then(() => {
-        if (!cancelled) {
-          setRows(collected);
-          setLoading(false);
-        }
-      })
-      .catch((requestError: unknown) => {
-        if (!cancelled) {
-          setError(
-            requestError instanceof Error
-              ? requestError.message
-              : "Request failed.",
-          );
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [route, nonce]);
-
-  const retry = useCallback(() => {
-    setNonce((value) => value + 1);
-  }, []);
-
-  return { rows, complete, loading, error, retry };
+    if (
+      !loading &&
+      error === null &&
+      cursor !== null &&
+      rows.length < AUTOFILL_ROW_CAP
+    ) {
+      loadMore();
+    }
+  }, [loading, error, cursor, rows.length, loadMore]);
+  return !loading && (cursor === null || rows.length >= AUTOFILL_ROW_CAP);
 }
 
+/* ------------------------------- categories ------------------------------- */
+
 /**
- * The plain-language classes an examiner reasons in, in reading order, each
- * with the fixed rule that assigns a Chrome field name to it. The rule is
- * pattern-on-name only — the field name Chrome recorded fully decides the
- * class, so the grouping is a restatement of the evidence, not a guess about
- * the value. `matches` is tried in order; the first hit wins, so the broad
+ * The plain-language classes an examiner reasons in, each with the fixed
+ * rule that assigns a Chrome field name to it. The rule is pattern-on-name
+ * only — the field name Chrome recorded fully decides the class, so the
+ * grouping is a restatement of the evidence, not a guess about the value.
+ * `matches` is tried in order and the first hit wins: Payment goes first so
+ * a name that also reads as an address or a name (`wallet_address`,
+ * `card_holder_name`) is always treated as the secret it is; the broad
  * "Searches" and "Other" buckets sit last.
  *
  * Chrome's own autofill field names are SCREAMING_SNAKE_CASE (NAME_FULL,
  * ADDRESS_HOME_ZIP, CREDIT_CARD_NUMBER); free-text form fields the person
  * typed into keep their raw HTML `name`/`id` (search-query, q, email). Both
- * are matched case-insensitively.
- *
- * Each class carries one hue (an FF Badge colour), used on its dot and its
- * bar segment; the class name always sits beside it.
+ * are matched case-insensitively, and a short token (`name`, `tel`, `q`)
+ * only counts between separators — `_` and `-` included, which `\b` would
+ * treat as part of the word (so NAME_FULL is Identity, not Other).
  */
 interface Category {
   readonly key: string;
   readonly label: string;
   readonly hint: string;
-  readonly color: BadgeColor;
   readonly matches: (name: string) => boolean;
 }
 
-/** The `Other` bucket, and the fixed rule's guaranteed fallback: its `matches`
- *  returns true for everything, so it sits last in `CATEGORIES` and is also
- *  returned directly when no earlier class hits — so a field name always
- *  resolves to a defined class, with no index-into-array assumption. */
+/** The `Other` bucket, and the fixed rule's guaranteed fallback. */
 const OTHER_CATEGORY: Category = {
   key: "other",
   label: "Other",
   hint: "Everything Chrome did not label as the above",
-  color: "gray",
   matches: () => true,
 };
 
+const PAYMENT_KEY = "payment";
+
 const CATEGORIES: readonly Category[] = [
+  {
+    key: PAYMENT_KEY,
+    label: "Payment",
+    hint: "Card, bank and wallet fields — hidden by default",
+    matches: (name) =>
+      /card|credit|cvc|cvv|wallet|iban|account_number/.test(name),
+  },
   {
     key: "identity",
     label: "Identity",
     hint: "Names and who the person is",
-    color: "blue",
-    matches: (name) => /\bname\b|company|first|last|middle/.test(name),
+    matches: (name) =>
+      /(?<![a-z0-9])name(?![a-z0-9])|company|first|last|middle/.test(name),
   },
   {
     key: "contact",
     label: "Contact",
     hint: "E-mail and phone",
-    color: "green",
-    matches: (name) => /email|e_mail|phone|tel\b|mobile|fax/.test(name),
+    matches: (name) =>
+      /email|e_mail|phone|tel(?![a-z0-9])|mobile|fax/.test(name),
   },
   {
     key: "address",
     label: "Address",
     hint: "Postal and location fields",
-    color: "amber",
     matches: (name) =>
       /address|street|city|state|zip|postal|country|province|region/.test(name),
-  },
-  {
-    key: "payment",
-    label: "Payment",
-    hint: "Card and wallet fields",
-    color: "red",
-    matches: (name) =>
-      /card|credit|cvc|cvv|wallet|iban|account_number/.test(name),
   },
   {
     key: "searches",
     label: "Searches",
     hint: "Free text typed into search and query boxes",
-    color: "violet",
-    matches: (name) => /search|query|\bq\b|find|lookup|keyword/.test(name),
+    matches: (name) =>
+      /search|query|(?<![a-z0-9])q(?![a-z0-9])|find|lookup|keyword/.test(name),
   },
   OTHER_CATEGORY,
 ];
@@ -273,8 +258,7 @@ function categoryOf(fieldName: string | null): Category {
  * A field type read back for display: Chrome's SCREAMING_SNAKE_CASE names are
  * turned into "Email address", "Address home zip" so the table scans as
  * language, while the exact recorded name stays reachable byte-for-byte in the
- * row detail sheet. A raw HTML field name (search-query) is left as-is — it is
- * already the string the page used, not a Chrome label to soften.
+ * row detail sheet. A raw HTML field name (search-query) is left as-is.
  */
 function readableFieldType(fieldName: string | null): string | null {
   if (fieldName === null || fieldName === "") {
@@ -294,8 +278,28 @@ function readableFieldType(fieldName: string | null): string | null {
     .join(" ");
 }
 
-/** The ISO Monday of the UTC week a timestamp falls in, as a `YYYY-MM-DD`
- *  key — the bucketing the creation-over-time area groups on. */
+/** A field as one word for an accessible name or a caption: the value, or
+ *  "(empty)" / "absent" / "unavailable" — never a blank. */
+function fieldWord(field: FieldState | undefined): string {
+  if (field === undefined || field.state === "absent") {
+    return "absent";
+  }
+  if (field.state === "unavailable") {
+    return "unavailable";
+  }
+  if (field.value === "" || field.value === null) {
+    return "(empty)";
+  }
+  return typeof field.value === "string" ? field.value : String(field.value);
+}
+
+/** True for a Payment entry that carries a recorded, non-empty value — the
+ *  secret the page withholds until "Show values" is on. */
+function holdsSecret(entry: Entry): boolean {
+  return entry.category.key === PAYMENT_KEY && entry.value !== null;
+}
+
+/** The ISO Monday of the UTC week a timestamp falls in, as `YYYY-MM-DD`. */
 function weekKey(utc: string): string | null {
   const parsed = new Date(utc);
   if (Number.isNaN(parsed.getTime())) {
@@ -309,137 +313,117 @@ function weekKey(utc: string): string | null {
   return monday.toISOString().slice(0, 10);
 }
 
-function formatWeek(key: string): string {
-  const parsed = new Date(`${key}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return key;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
+/* ------------------------------ derived reads ----------------------------- */
+
+interface Entry {
+  readonly row: Finding;
+  /** The recorded non-empty value, or null (see `row.fields.fieldValue`). */
+  readonly value: string | null;
+  readonly type: string | null;
+  readonly category: Category;
+  readonly timesUsed: number;
+}
+
+function toEntry(row: Finding): Entry {
+  const type = fieldText(row.fields.fieldName);
+  return {
+    row,
+    value: fieldText(row.fields.fieldValue),
+    type: readableFieldType(type),
+    category: categoryOf(type),
+    timesUsed: fieldInteger(row.fields.timesUsed) ?? 0,
+  };
 }
 
 interface Derived {
   readonly total: number;
   readonly distinctTypes: number;
   readonly sensitive: number;
+  readonly hasPayment: boolean;
   readonly categories: readonly {
     readonly category: Category;
     readonly count: number;
   }[];
-  readonly reuse: readonly {
-    readonly row: Finding;
-    readonly value: string | null;
-    readonly type: string | null;
-    readonly category: Category;
-    readonly timesUsed: number;
-  }[];
+  /** Saved entries by recorded fill count, most first. */
+  readonly ranked: readonly Entry[];
   readonly weeks: readonly { readonly week: string; readonly count: number }[];
-  readonly topReused: {
-    readonly value: string | null;
-    readonly timesUsed: number;
-  } | null;
 }
 
-/** Every read the page shows above the table, computed once from the loaded
- *  set. Identity + Contact + Address + Payment is the "sensitive" tally: the
+/** Every read the page shows above the table, from the saved entries.
+ *  Identity + Contact + Address + Payment is the "sensitive" tally: the
  *  entries that carry directly identifying or financial data, as opposed to
  *  search text. */
-function useDerived(rows: readonly Finding[]): Derived {
-  return useMemo(() => {
-    const counts = new Map<string, number>();
-    const distinct = new Set<string>();
-    let sensitive = 0;
-
-    const reuse = rows
-      .map((row) => {
-        const type = fieldText(row.fields.fieldName);
-        const category = categoryOf(type);
-        counts.set(category.key, (counts.get(category.key) ?? 0) + 1);
-        if (type !== null) {
-          distinct.add(type);
-        }
-        if (
-          category.key === "identity" ||
-          category.key === "contact" ||
-          category.key === "address" ||
-          category.key === "payment"
-        ) {
-          sensitive += 1;
-        }
-        return {
-          row,
-          value: fieldText(row.fields.fieldValue),
-          type: readableFieldType(type),
-          category,
-          timesUsed: fieldInteger(row.fields.timesUsed) ?? 0,
-        };
-      })
-      .sort((left, right) => right.timesUsed - left.timesUsed);
-
-    const weekCounts = new Map<string, number>();
-    for (const row of rows) {
-      const created = fieldUtc(row.fields.dateCreated);
-      if (created === null) {
-        continue;
-      }
-      const key = weekKey(created);
-      if (key !== null) {
-        weekCounts.set(key, (weekCounts.get(key) ?? 0) + 1);
-      }
+function derive(entries: readonly Entry[]): Derived {
+  const counts = new Map<string, number>();
+  const distinct = new Set<string>();
+  let sensitive = 0;
+  for (const entry of entries) {
+    const key = entry.category.key;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const name = fieldText(entry.row.fields.fieldName);
+    if (name !== null) {
+      distinct.add(name);
     }
-    const weeks = [...weekCounts.entries()]
-      .map(([week, count]) => ({ week, count }))
-      .sort((left, right) => left.week.localeCompare(right.week));
+    if (key !== "searches" && key !== "other") {
+      sensitive += 1;
+    }
+  }
 
-    const categories = CATEGORIES.map((category) => ({
+  const weekCounts = new Map<string, number>();
+  for (const entry of entries) {
+    const created = fieldUtc(entry.row.fields.dateCreated);
+    const key = created === null ? null : weekKey(created);
+    if (key !== null) {
+      weekCounts.set(key, (weekCounts.get(key) ?? 0) + 1);
+    }
+  }
+
+  return {
+    total: entries.length,
+    distinctTypes: distinct.size,
+    sensitive,
+    hasPayment: (counts.get(PAYMENT_KEY) ?? 0) > 0,
+    categories: CATEGORIES.map((category) => ({
       category,
       count: counts.get(category.key) ?? 0,
-    })).filter((entry) => entry.count > 0);
-
-    const topReused = reuse[0] ?? null;
-
-    return {
-      total: rows.length,
-      distinctTypes: distinct.size,
-      sensitive,
-      categories,
-      reuse,
-      weeks,
-      topReused:
-        topReused === undefined || topReused === null
-          ? null
-          : { value: topReused.value, timesUsed: topReused.timesUsed },
-    };
-  }, [rows]);
+    })).filter((entry) => entry.count > 0),
+    ranked: [...entries]
+      .filter((entry) => entry.timesUsed > 0)
+      .sort((left, right) => right.timesUsed - left.timesUsed),
+    weeks: [...weekCounts.entries()]
+      .map(([week, count]) => ({ week, count }))
+      .sort((left, right) => left.week.localeCompare(right.week)),
+  };
 }
 
-/** A category's dot: its hue, always beside its name. */
-function CategoryDot({
-  category,
-  className,
-}: {
-  readonly category: Category;
-  readonly className?: string;
-}) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn("inline-block size-2 shrink-0 rounded-full", className)}
-      style={{ backgroundColor: badgeColors[category.color] }}
-    />
-  );
+/* --------------------------------- widgets -------------------------------- */
+
+const WIDE = "(min-width: 1024px)";
+const MEDIUM = "(min-width: 640px)";
+
+function subscribeColumns(onChange: () => void): () => void {
+  const wide = globalThis.matchMedia(WIDE);
+  const medium = globalThis.matchMedia(MEDIUM);
+  wide.addEventListener("change", onChange);
+  medium.addEventListener("change", onChange);
+  return () => {
+    wide.removeEventListener("change", onChange);
+    medium.removeEventListener("change", onChange);
+  };
+}
+
+function readColumns(): number {
+  if (globalThis.matchMedia(WIDE).matches) {
+    return 3;
+  }
+  return globalThis.matchMedia(MEDIUM).matches ? 2 : 1;
 }
 
 /**
- * The category breakdown: one stacked bar showing each class's share of the
- * whole set, then the classes themselves as a grid of choices — each names
- * its class, says what it covers, and gives the exact count. Picking a class
- * narrows the table below to it (a second pick clears), so the grid takes
- * FF's 2-D fluid hover. The bar is a proportion of counts the rows carry,
- * never a score or a projection.
+ * The category breakdown: each class as an FF Card — its name, what it
+ * covers, its count and share of the saved entries. Picking a class narrows
+ * both lists to it (a second pick clears). Counts the rows carry, never a
+ * score or a projection; the class name is the label, no hue stands in.
  */
 function CategoryBreakdown({
   categories,
@@ -452,256 +436,150 @@ function CategoryBreakdown({
   readonly activeKey: string | null;
   readonly onPick: (key: string) => void;
 }) {
-  const gridRef = useRef<HTMLUListElement>(null);
-  const hover = useFluidHover(gridRef, {
-    axis: "xy",
-    gapClick: { maxDistance: 16 },
-  });
-  const shape = useShape();
+  const columns = useSyncExternalStore(subscribeColumns, readColumns);
   if (total === 0 || categories.length === 0) {
     return null;
   }
   return (
-    <Panel>
-      <PanelHeader>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <PanelTitle>Saved data by category</PanelTitle>
-          <PanelDescription>
-            Chrome's field types, grouped into what they describe. Pick one to
-            narrow the table.
-          </PanelDescription>
-        </div>
-      </PanelHeader>
-      <div className="flex flex-col gap-3 px-4 pt-2 pb-1">
-        <div
-          className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full"
-          role="img"
-          aria-label={categories
-            .map((entry) => `${entry.category.label} ${String(entry.count)}`)
-            .join(", ")}
-        >
-          {categories.map((entry) => (
-            <span
-              key={entry.category.key}
-              className="h-full first:rounded-l-full last:rounded-r-full"
-              style={{
-                width: `${String((entry.count / total) * 100)}%`,
-                backgroundColor: badgeColors[entry.category.color],
-              }}
-            />
-          ))}
-        </div>
+    <SectionPanel
+      id="autofill-categories"
+      title="Saved data by category"
+      description="Chrome's field types in the saved entries, grouped into what they describe. Pick one to narrow the lists."
+    >
+      <div className="p-1">
+        <SizeProvider size="compact">
+          <CardGroup orientation="inline" columns={columns}>
+            {categories.map((entry) => (
+              <Card
+                key={entry.category.key}
+                label={`Narrow the lists to ${entry.category.label}`}
+                selected={activeKey === entry.category.key}
+                onClick={() => {
+                  onPick(entry.category.key);
+                }}
+              >
+                <CardHeader className="min-w-0">
+                  <CardTitle className={CARD_TITLE_CLEAR}>
+                    {entry.category.label}
+                  </CardTitle>
+                  <CardDescription
+                    className={cn(typeClass("caption"), "truncate")}
+                    title={entry.category.hint}
+                  >
+                    {entry.category.hint}
+                  </CardDescription>
+                </CardHeader>
+                <CardFooter className="pointer-events-none flex-col items-end gap-0">
+                  <span
+                    className={cn(
+                      typeClass("body"),
+                      "text-foreground tabular-nums",
+                    )}
+                    style={{ fontVariationSettings: fontWeights.semibold }}
+                  >
+                    {entry.count.toLocaleString("en-US")}
+                  </span>
+                  <Count>{`${String(Math.round((entry.count / total) * 100))}%`}</Count>
+                </CardFooter>
+              </Card>
+            ))}
+          </CardGroup>
+        </SizeProvider>
       </div>
-      <ul
-        ref={gridRef}
-        {...hover.handlers}
-        className="relative grid grid-cols-1 gap-x-1 px-1 pb-1 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        <FluidHoverHighlight hover={hover} className={shape.item} />
-        {categories.map((entry, index) => (
-          <CategoryChoice
-            key={entry.category.key}
-            index={index}
-            registerItem={hover.registerItem}
-            category={entry.category}
-            count={entry.count}
-            share={Math.round((entry.count / total) * 100)}
-            active={activeKey === entry.category.key}
-            onPick={onPick}
-          />
-        ))}
-      </ul>
-    </Panel>
+    </SectionPanel>
   );
 }
 
-function CategoryChoice({
-  index,
-  registerItem,
-  category,
-  count,
-  share,
-  active,
-  onPick,
-}: {
-  readonly index: number;
-  readonly registerItem: (index: number, element: HTMLElement | null) => void;
-  readonly category: Category;
-  readonly count: number;
-  readonly share: number;
-  readonly active: boolean;
-  readonly onPick: (key: string) => void;
-}) {
-  const ref = useRef<HTMLButtonElement>(null);
-  const shape = useShape();
-  useRegisterFluidHoverItem(registerItem, index, ref);
-  return (
-    <li>
-      <button
-        ref={ref}
-        type="button"
-        aria-pressed={active}
-        onClick={() => {
-          onPick(category.key);
-        }}
-        className={cn(
-          "relative flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition-colors duration-80",
-          shape.item,
-          active && "bg-active",
-        )}
-      >
-        <CategoryDot category={category} />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span
-            className={cn(typeClass("body"), "inline-grid text-foreground")}
-          >
-            <span
-              className="col-start-1 row-start-1 transition-[font-variation-settings] duration-80"
-              style={{
-                fontVariationSettings: active
-                  ? fontWeights.semibold
-                  : fontWeights.normal,
-              }}
-            >
-              {category.label}
-            </span>
-            <span
-              aria-hidden="true"
-              className="invisible col-start-1 row-start-1"
-              style={{ fontVariationSettings: fontWeights.semibold }}
-            >
-              {category.label}
-            </span>
-          </span>
-          <span
-            className={cn(
-              typeClass("caption"),
-              "truncate text-muted-foreground",
-            )}
-          >
-            {category.hint}
-          </span>
-        </span>
-        <span className="flex shrink-0 flex-col items-end">
-          <span
-            className={cn(typeClass("body"), "text-foreground tabular-nums")}
-            style={{ fontVariationSettings: fontWeights.semibold }}
-          >
-            {count.toLocaleString("en-US")}
-          </span>
-          <span
-            className={cn(
-              typeClass("caption"),
-              "text-muted-foreground tabular-nums",
-            )}
-          >
-            {share}%
-          </span>
-        </span>
-      </button>
-    </li>
-  );
-}
-
-/**
- * The reuse leaderboard: the entries with the highest recorded `timesUsed`,
- * i.e. the values the person filled most often. Each row opens its full
- * record. A value with no recorded use count sits out of this list entirely
- * rather than being ranked at zero — the list is "most reused", and an
- * unfilled count is not a zero.
- */
 const REUSE_LIMIT = 6;
 
+/**
+ * The reuse leaderboard: the saved entries with the highest recorded
+ * `timesUsed`, i.e. the values the person filled most often. Each row opens
+ * its full record. An entry with no recorded use count sits out of this list
+ * entirely rather than being ranked at zero.
+ */
 function ReuseLeaderboard({
-  reuse,
+  ranked,
+  reveal,
   onSelect,
 }: {
-  readonly reuse: Derived["reuse"];
+  readonly ranked: readonly Entry[];
+  readonly reveal: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
-  const ranked = reuse
-    .filter((entry) => entry.timesUsed > 0)
-    .slice(0, REUSE_LIMIT);
-  const peak = ranked[0]?.timesUsed ?? 0;
-  const listRef = useRef<HTMLOListElement>(null);
+  const top = ranked.slice(0, REUSE_LIMIT);
+  const peak = top[0]?.timesUsed ?? 0;
+  const listRef = useRef<HTMLDivElement>(null);
   const hover = useFluidHover(listRef, { axis: "y" });
   const shape = useShape();
+  const hidesAny = !reveal && top.some(holdsSecret);
   return (
-    <Panel className="h-full">
-      <PanelHeader>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <PanelTitle>Most-used entries</PanelTitle>
-          <PanelDescription>
-            By how many times Chrome recorded the value being filled.
-          </PanelDescription>
-        </div>
-      </PanelHeader>
-      {ranked.length === 0 ? (
-        <p
-          className={cn(
-            typeClass("body"),
-            "px-4 pt-2 pb-4 text-muted-foreground",
-          )}
-        >
-          No entry carries a recorded fill count.
-        </p>
+    <SectionPanel
+      id="autofill-reuse"
+      className="h-full"
+      title="Most-used entries"
+      description={
+        hidesAny
+          ? "Saved entries by recorded fills. Payment values stay hidden until Show values is on."
+          : "Saved entries by how many times Chrome recorded the value being filled."
+      }
+    >
+      {top.length === 0 ? (
+        <ChartEmpty>No saved entry carries a recorded fill count.</ChartEmpty>
       ) : (
-        <ol
-          ref={listRef}
-          {...hover.handlers}
-          className="relative flex flex-col px-1 pb-1"
-        >
+        <div ref={listRef} {...hover.handlers} className="relative px-1 pb-1">
           <FluidHoverHighlight hover={hover} className={shape.item} />
-          {ranked.map((entry, index) => (
-            <ReuseRow
-              key={`${entry.category.key}-${String(index)}`}
-              index={index}
-              registerItem={hover.registerItem}
-              value={entry.value}
-              category={entry.category}
-              timesUsed={entry.timesUsed}
-              peak={peak}
-              onOpen={() => {
-                onSelect(entry.row);
-              }}
-            />
-          ))}
-        </ol>
+          <ol className="flex flex-col">
+            {top.map((entry, index) => (
+              <ReuseRow
+                key={`${entry.category.key}-${String(index)}`}
+                index={index}
+                registerItem={hover.registerItem}
+                entry={entry}
+                hidden={!reveal && holdsSecret(entry)}
+                peak={peak}
+                onOpen={() => {
+                  onSelect(entry.row);
+                }}
+              />
+            ))}
+          </ol>
+        </div>
       )}
-    </Panel>
+    </SectionPanel>
   );
 }
 
 function ReuseRow({
   index,
   registerItem,
-  value,
-  category,
-  timesUsed,
+  entry,
+  hidden,
   peak,
   onOpen,
 }: {
   readonly index: number;
   readonly registerItem: (index: number, element: HTMLElement | null) => void;
-  readonly value: string | null;
-  readonly category: Category;
-  readonly timesUsed: number;
+  readonly entry: Entry;
+  readonly hidden: boolean;
   readonly peak: number;
   readonly onOpen: () => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const shape = useShape();
   useRegisterFluidHoverItem(registerItem, index, ref);
-  const share = peak === 0 ? 0 : (timesUsed / peak) * 100;
+  const spoken = hidden
+    ? `${entry.category.label} value hidden`
+    : fieldWord(entry.row.fields.fieldValue);
   return (
     <li>
       <button
         ref={ref}
         type="button"
         onClick={onOpen}
-        aria-label={`Open ${value ?? "(empty)"}, filled ${String(timesUsed)} times`}
+        aria-label={`Open ${spoken}, ${entry.category.label}, filled ${plural(entry.timesUsed, "time", "times")}`}
         className={cn(
-          "relative grid w-full cursor-pointer grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-left",
+          "relative grid h-9 w-full cursor-pointer grid-cols-[1rem_minmax(0,1fr)_4.5rem_auto] items-center gap-3 px-3 text-left outline-none focus-visible:ring-1 focus-visible:ring-focus-ring",
           shape.item,
         )}
       >
@@ -713,39 +591,23 @@ function ReuseRow({
         >
           {index + 1}
         </span>
-        <span className="flex min-w-0 flex-col gap-1.5">
-          <span className="flex min-w-0 items-center gap-2">
-            <CategoryDot category={category} className="size-1.5" />
-            <span
-              className={cn(
-                typeClass("body"),
-                "truncate",
-                value === null ? "text-muted-foreground" : "text-foreground",
-              )}
-              title={value ?? undefined}
-            >
-              {value ?? "(empty)"}
-            </span>
-          </span>
-          <span className="h-1 overflow-hidden rounded-full bg-active">
-            <span
-              className={cn(
-                "block h-full rounded-full bg-foreground",
-                index === 0 ? "opacity-90" : "opacity-45",
-              )}
-              style={{ width: `${String(share)}%` }}
-            />
-          </span>
+        <span className="min-w-0 text-foreground">
+          {hidden ? (
+            <HiddenValue />
+          ) : (
+            <FieldCell field={entry.row.fields.fieldValue} />
+          )}
         </span>
+        <ShareBar fraction={peak === 0 ? 0 : entry.timesUsed / peak} />
         <span className="flex shrink-0 items-baseline gap-1">
           <span
             className={cn(typeClass("body"), "text-foreground tabular-nums")}
             style={{ fontVariationSettings: fontWeights.semibold }}
           >
-            {timesUsed.toLocaleString("en-US")}
+            {entry.timesUsed.toLocaleString("en-US")}
           </span>
           <span className={cn(typeClass("caption"), "text-muted-foreground")}>
-            {timesUsed === 1 ? "fill" : "fills"}
+            {entry.timesUsed === 1 ? "fill" : "fills"}
           </span>
         </span>
       </button>
@@ -754,7 +616,7 @@ function ReuseRow({
 }
 
 /**
- * Entries saved per week, drawn only across the weeks the evidence spans. The
+ * Saved entries per week, drawn only across the weeks the evidence spans. The
  * `dateCreated` a Chrome autofill row carries is when the value was first
  * saved, so this reads as "when did this browser start remembering things" —
  * a first-seen shape, not a usage trend.
@@ -768,11 +630,11 @@ function CreationArea({
 }) {
   const reduced = usePrefersReducedMotion();
   if (weeks.length === 0) {
-    return <ChartEmpty>No dated entries to draw.</ChartEmpty>;
+    return <ChartEmpty>No dated saved entries to draw.</ChartEmpty>;
   }
   const rows = weeks.map((entry) => ({
     ...entry,
-    label: formatWeek(entry.week),
+    label: formatDayTick(entry.week),
   }));
   return (
     <ResponsiveContainer
@@ -837,293 +699,236 @@ function CreationArea({
   );
 }
 
-/** The class a row's field type falls in — the same fixed rule the breakdown
- *  uses, restated inline so the table reads without cross-referencing. */
-function CategoryWord({ category }: { readonly category: Category }) {
+/* ---------------------------------- table --------------------------------- */
+
+/** "value hidden": a recorded Payment value withheld until Show values. */
+function HiddenValue() {
+  const size = useSize();
   return (
-    <span className="flex items-center gap-1.5 whitespace-nowrap">
-      <CategoryDot category={category} className="size-1.5" />
-      {category.label}
-    </span>
+    <Tooltip content="A Payment value was recorded. Turn on Show values, or open the row, to read it.">
+      <span
+        className={cn(
+          size.type.body,
+          "flex cursor-help items-center gap-1.5 whitespace-nowrap text-muted-foreground",
+        )}
+      >
+        <EyeOff
+          aria-hidden="true"
+          size={size.icon}
+          strokeWidth={1.5}
+          className="shrink-0"
+        />
+        value hidden
+      </span>
+    </Tooltip>
   );
 }
 
-type View = "saved" | "recovered";
-
-const ALL_CATEGORIES = "__all__";
+const COLUMNS = [
+  "Type",
+  "Value",
+  "Category",
+  "Fills",
+  "Last used",
+  "State",
+] as const;
 
 /**
- * Raw table — every loaded entry, with the fields an examiner reads first.
- * TYPE (the field type) is the first column, per the app's presentation
- * rule; the full untranslated Chrome name and every other wire field stay
- * reachable in the row detail sheet.
+ * The raw rows, with the fields an examiner reads first. TYPE (the field
+ * type) is the first column; the full untranslated Chrome name and every
+ * other wire field stay reachable in the row detail sheet.
  */
-function EntryListPanel({
-  derived,
-  complete,
-  categoryFilter,
-  onCategory,
+function EntryTable({
+  entries,
+  reveal,
   onSelect,
 }: {
-  readonly derived: Derived;
-  readonly complete: boolean;
-  readonly categoryFilter: string | null;
-  readonly onCategory: (key: string | null) => void;
+  readonly entries: readonly Entry[];
+  readonly reveal: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
-  const [view, setView] = useState<View>("saved");
-  const [search, setSearch] = useState("");
-  const size = useSize("compact");
-
-  const saved = useMemo(
-    () =>
-      derived.reuse.filter((entry) => entry.row.commitState === "committed"),
-    [derived.reuse],
-  );
-  const recovered = useMemo(
-    () =>
-      derived.reuse.filter((entry) => entry.row.commitState !== "committed"),
-    [derived.reuse],
-  );
-  const base = view === "saved" ? saved : recovered;
-
-  // The table reads from the same reuse set so a row's derived
-  // type/category/value is computed once, not per cell.
-  const tableRows = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("en-US");
-    return base.filter((entry) => {
-      if (categoryFilter !== null && entry.category.key !== categoryFilter) {
-        return false;
-      }
-      if (query === "") {
-        return true;
-      }
-      const haystack = [entry.value ?? "", entry.type ?? ""]
-        .join("\n")
-        .toLocaleLowerCase("en-US");
-      return haystack.includes(query);
-    });
-  }, [base, search, categoryFilter]);
-
-  const filtered = tableRows.length !== base.length;
-  const noun = view === "saved" ? "saved" : "recovered";
-
   return (
-    <Panel className="overflow-clip">
-      <PanelHeader>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <PanelTitle>All saved entries</PanelTitle>
-          <PanelDescription>
-            Saved entries and entries recovered from WAL or journal sidecars are
-            kept as separate lists.
-          </PanelDescription>
-        </div>
-      </PanelHeader>
-      <SizeProvider size="compact">
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-y-2 px-4 pt-1 pb-3",
-            size.gap,
-          )}
-        >
-          <Tabs
-            value={view}
-            onValueChange={(next) => {
-              setView(next === "recovered" ? "recovered" : "saved");
-            }}
-          >
-            <TabsList aria-label="Saved or recovered entries">
-              <TabItem
-                value="saved"
-                label={`Saved ${saved.length.toLocaleString("en-US")}`}
-              />
-              <TabItem
-                value="recovered"
-                label={`Recovered ${recovered.length.toLocaleString("en-US")}`}
-              />
-            </TabsList>
-          </Tabs>
-          <div className={cn("ml-auto flex flex-wrap items-center", size.gap)}>
-            {derived.categories.length > 1 ? (
-              <FilterField label="Category" htmlFor="autofill-category">
-                <Select
-                  value={categoryFilter ?? ALL_CATEGORIES}
-                  onValueChange={(next) => {
-                    onCategory(next === ALL_CATEGORIES ? null : next);
-                  }}
-                >
-                  <SelectTrigger id="autofill-category" />
-                  <SelectContent>
-                    <SelectItem index={0} value={ALL_CATEGORIES}>
-                      All categories
-                    </SelectItem>
-                    {derived.categories.map((entry, index) => (
-                      <SelectItem
-                        key={entry.category.key}
-                        index={index + 1}
-                        value={entry.category.key}
-                      >
-                        {entry.category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FilterField>
-            ) : null}
-            <FilterTextField
-              label="Search loaded form entries"
-              placeholder="Search value or type"
-              icon={Search}
-              value={search}
-              onCommit={setSearch}
-            />
-          </div>
-        </div>
-      </SizeProvider>
+    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
+      <Table className="min-w-[900px]">
+        <TableHeader>
+          <TableRow>
+            {COLUMNS.map((label) => (
+              <TableHead key={label} className="whitespace-nowrap">
+                {label}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody className="reveal-items">
+          {entries.map((entry, index) => (
+            <TableRow
+              key={index}
+              index={index}
+              tabIndex={0}
+              aria-label={`Open ${entry.category.label} form entry ${entry.type ?? "of a type not recorded"}`}
+              onClick={() => {
+                onSelect(entry.row);
+              }}
+              onKeyDown={(event) => {
+                activateOnKey(event, () => {
+                  onSelect(entry.row);
+                });
+              }}
+              className={ROW_FOCUS_CLASS}
+            >
+              <TableCell className="max-w-[220px]">
+                {entry.type === null ? (
+                  <FieldCell field={entry.row.fields.fieldName} />
+                ) : (
+                  <span
+                    className="block truncate text-foreground"
+                    title={entry.type}
+                  >
+                    {entry.type}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell className="max-w-[340px]">
+                {!reveal && holdsSecret(entry) ? (
+                  <HiddenValue />
+                ) : (
+                  <FieldCell field={entry.row.fields.fieldValue} />
+                )}
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                {entry.category.label}
+              </TableCell>
+              <TableCell className="tabular-nums">
+                <FieldCell
+                  field={entry.row.fields.timesUsed}
+                  format={(value) => Number(value).toLocaleString("en-US")}
+                />
+              </TableCell>
+              <TableCell>
+                <TimeCell field={entry.row.fields.dateLastUsed} />
+              </TableCell>
+              <TableCell>
+                <StateWord state={entry.row.commitState} />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
 
-      <div className="border-t border-border">
-        {tableRows.length === 0 ? (
+/** One list (saved or recovered) with its loading, error, empty and footer. */
+function EntryList({
+  list,
+  entries,
+  visible,
+  noun,
+  reveal,
+  onSelect,
+  onClearFilters,
+}: {
+  readonly list: PaginatedList<Finding>;
+  readonly entries: readonly Entry[];
+  readonly visible: readonly Entry[];
+  readonly noun: "saved" | "recovered";
+  readonly reveal: boolean;
+  readonly onSelect: (row: Finding) => void;
+  readonly onClearFilters: () => void;
+}) {
+  const firstLoad = list.loading && entries.length === 0;
+  if (list.error !== null && entries.length === 0) {
+    return (
+      <ErrorRows
+        title={`The ${noun} form entries could not be loaded.`}
+        message={list.error}
+        onRetry={list.retry}
+      />
+    );
+  }
+  const filtered = visible.length !== entries.length;
+  const word = (count: number) =>
+    plural(count, `${noun} entry`, `${noun} entries`);
+  return (
+    <>
+      <div className="reveal-swap">
+        <LoadingRows rows={3} label={`Loading ${noun} form entries`} />
+        {firstLoad ? null : visible.length === 0 ? (
           <EmptyRows
             message={
               filtered
-                ? `No ${noun} entries match this filter.`
-                : view === "saved"
-                  ? "No saved Form data rows are loaded."
+                ? `No ${noun} entries match these filters.`
+                : noun === "saved"
+                  ? "No saved Form data rows in this Case."
                   : "No form entries were recovered from WAL or journal sidecars."
+            }
+            action={
+              filtered ? (
+                <Button
+                  variant="tertiary"
+                  size="compact"
+                  onClick={onClearFilters}
+                >
+                  Clear filters
+                </Button>
+              ) : undefined
             }
           />
         ) : (
-          <div className="scroll-fade-x overflow-x-auto px-1 pb-1">
-            <Table className="min-w-[900px]">
-              <TableHeader>
-                <TableRow>
-                  {[
-                    "Type",
-                    "Value",
-                    "Category",
-                    "Fills",
-                    "Last used",
-                    "State",
-                  ].map((label) => (
-                    <TableHead key={label} className="whitespace-nowrap">
-                      {label}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tableRows.map((entry, index) => {
-                  const lastUsed = fieldUtc(entry.row.fields.dateLastUsed);
-                  const lastUsedParts =
-                    lastUsed === null ? null : formatInstant(lastUsed);
-                  return (
-                    <TableRow
-                      key={index}
-                      index={index}
-                      tabIndex={0}
-                      aria-label={`Open form entry ${entry.type ?? ""}`}
-                      onClick={() => {
-                        onSelect(entry.row);
-                      }}
-                      onKeyDown={(event) => {
-                        activateOnKey(event, () => {
-                          onSelect(entry.row);
-                        });
-                      }}
-                      className={ROW_FOCUS_CLASS}
-                    >
-                      <TableCell className="max-w-[220px]">
-                        {entry.type === null ? (
-                          <AbsentWord />
-                        ) : (
-                          <span
-                            className="block truncate text-foreground"
-                            title={entry.type}
-                          >
-                            {entry.type}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="max-w-[340px]">
-                        {entry.value === null ? (
-                          <span className="whitespace-nowrap">(empty)</span>
-                        ) : (
-                          <span
-                            className="block truncate font-mono"
-                            title={entry.value}
-                          >
-                            {entry.value}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <CategoryWord category={entry.category} />
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {fieldInteger(entry.row.fields.timesUsed) === null ? (
-                          <AbsentWord />
-                        ) : (
-                          entry.timesUsed.toLocaleString("en-US")
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {lastUsed === null || lastUsedParts === null ? (
-                          <AbsentWord />
-                        ) : (
-                          <span
-                            className="whitespace-nowrap tabular-nums"
-                            title={`${lastUsed} (UTC)`}
-                          >
-                            {lastUsedParts.date}
-                            <span className="ml-2 text-muted-foreground">
-                              {lastUsedParts.time}
-                            </span>
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <StateWord state={entry.row.commitState} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+          <EntryTable entries={visible} reveal={reveal} onSelect={onSelect} />
         )}
       </div>
-
-      <div className="flex items-center gap-3 border-t border-border px-4 py-2.5">
-        <p
-          className={cn(
-            typeClass("caption"),
-            "text-muted-foreground tabular-nums",
-          )}
-          aria-live="polite"
-        >
-          {filtered
-            ? `${tableRows.length.toLocaleString("en-US")} of ${base.length.toLocaleString("en-US")} ${noun} entries shown`
-            : `${base.length.toLocaleString("en-US")} ${noun} ${base.length === 1 ? "entry" : "entries"} shown`}
-          {complete ? "" : " · more available"}
-        </p>
-      </div>
-    </Panel>
+      {list.error !== null ? (
+        <ErrorRows
+          title={`More ${noun} form entries could not be loaded.`}
+          message={list.error}
+          onRetry={list.cursor === null ? list.retry : list.loadMore}
+        />
+      ) : null}
+      {firstLoad ? null : (
+        <ListFooter
+          count={visible.length}
+          cursor={list.cursor}
+          loading={list.loading}
+          onLoadMore={list.loadMore}
+          summary={
+            filtered
+              ? `${visible.length.toLocaleString("en-US")} of ${word(entries.length)} shown`
+              : `${word(entries.length)} shown`
+          }
+        />
+      )}
+    </>
   );
 }
 
 /** Placeholder at the size of the strip, the breakdown, and the chart row. */
 function AutofillSkeleton() {
   return (
-    <div className="flex flex-col gap-4" aria-hidden="true">
-      <Skeleton className="h-[112px] w-full rounded-xl" />
-      <Skeleton className="h-[200px] w-full rounded-xl" />
+    <div
+      className="flex flex-col gap-5"
+      role="status"
+      aria-label="Loading form data figures"
+    >
+      <Skeleton className="h-[170px] w-full rounded-xl lg:h-[98px]" />
+      <Skeleton className="h-[190px] w-full rounded-xl" />
       <div className="grid grid-cols-12 gap-4">
         <Skeleton className="col-span-12 h-[320px] rounded-xl lg:col-span-7" />
-        <Skeleton className="col-span-12 h-[320px] rounded-xl lg:col-span-5" />
+        <Skeleton className="col-span-12 h-[300px] rounded-xl lg:col-span-5" />
       </div>
     </div>
   );
 }
+
+const ALL_CATEGORIES = "__all__";
+
+/** Fields that hold a Payment entry's secret (the value and its folded copy). */
+const PAYMENT_SECRET_FIELDS: readonly string[] = [
+  "fieldValue",
+  "fieldValueLower",
+];
+
+/* ---------------------------------- page ---------------------------------- */
 
 export function AutofillPage({
   config,
@@ -1132,11 +937,62 @@ export function AutofillPage({
   readonly config: ArtifactConfig;
   readonly completeness: CaseCompleteness;
 }) {
-  const list = useAutofill(config.route);
-  const derived = useDerived(list.rows);
+  const lists = useCommitStateLists<Finding>(config.route, AUTOFILL_PARAMETERS);
+  const savedDone = useDrained(lists.saved);
+  useDrained(lists.recovered);
   const tokens = useChartTokens();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
+  const [view, setView] = useState<CommitView>("saved");
+  const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [reveal, setReveal] = useState(false);
+
+  const saved = useMemo(
+    () => lists.saved.rows.map(toEntry),
+    [lists.saved.rows],
+  );
+  const recovered = useMemo(
+    () => lists.recovered.rows.map(toEntry),
+    [lists.recovered.rows],
+  );
+  const derived = useMemo(() => derive(saved), [saved]);
+  const anyPayment = useMemo(
+    () => [...saved, ...recovered].some(holdsSecret),
+    [saved, recovered],
+  );
+  const listedCategories = useMemo(() => {
+    const keys = new Set(
+      [...saved, ...recovered].map((entry) => entry.category.key),
+    );
+    return CATEGORIES.filter((category) => keys.has(category.key));
+  }, [saved, recovered]);
+
+  const narrow = useCallback(
+    (entries: readonly Entry[]) => {
+      const query = search.trim().toLocaleLowerCase("en-US");
+      return entries.filter((entry) => {
+        if (categoryFilter !== null && entry.category.key !== categoryFilter) {
+          return false;
+        }
+        if (query === "") {
+          return true;
+        }
+        // A hidden Payment value is left out of the search text, so a match
+        // can never disclose what it holds.
+        const value = !reveal && holdsSecret(entry) ? "" : (entry.value ?? "");
+        const haystack = [value, entry.type ?? ""]
+          .join("\n")
+          .toLocaleLowerCase("en-US");
+        return haystack.includes(query);
+      });
+    },
+    [search, categoryFilter, reveal],
+  );
+  const savedVisible = useMemo(() => narrow(saved), [narrow, saved]);
+  const recoveredVisible = useMemo(
+    () => narrow(recovered),
+    [narrow, recovered],
+  );
 
   const select = useCallback((row: Finding) => {
     setSelected({ kind: "finding", row });
@@ -1146,123 +1002,235 @@ export function AutofillPage({
     setCategoryFilter((current) => (current === key ? null : key));
   }, []);
 
+  const clearFilters = useCallback(() => {
+    setSearch("");
+    setCategoryFilter(null);
+  }, []);
+
+  const savedFirst = lists.saved.loading && saved.length === 0;
+  const recoveredFirst = lists.recovered.loading && recovered.length === 0;
+  const pageEmpty =
+    !savedFirst &&
+    !recoveredFirst &&
+    savedDone &&
+    lists.saved.error === null &&
+    lists.recovered.error === null &&
+    saved.length === 0 &&
+    recovered.length === 0;
+  const figuresReady = savedDone || lists.saved.error !== null;
+  const showFigures =
+    !figuresReady || (lists.saved.error === null && saved.length > 0);
+  const capped = lists.saved.cursor !== null && savedDone;
+
   const sensitiveShare =
     derived.total === 0
       ? 0
       : Math.round((derived.sensitive / derived.total) * 100);
+  const top = derived.ranked[0] ?? null;
+  const topHidden = top !== null && !reveal && holdsSecret(top);
+
+  const selectedIsPayment =
+    selected !== null &&
+    categoryOf(fieldText(selected.row.fields.fieldName)).key === PAYMENT_KEY;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <CompletenessPanel
         completeness={completeness}
         artifacts={[config.completenessArtifact]}
       />
-      {list.error !== null ? (
-        <ErrorRows
-          message={list.error}
-          onRetry={list.retry}
-          className="px-0 py-0"
-        />
-      ) : !list.loading && derived.total === 0 ? (
+      {pageEmpty ? (
         <Panel>
           <EmptyRows
             icon={ClipboardList}
             title="No form data"
-            message="No Form data rows in this Case."
+            message="No Form data rows in this Case, saved or recovered."
           />
         </Panel>
       ) : (
-        <div className="reveal-swap">
-          <AutofillSkeleton />
-          {list.loading ? null : (
-            <div className="flex flex-col gap-4">
-              {/* Summary strip — four plain readings of the loaded set.
-                  "Sensitive" is Identity + Contact + Address + Payment:
-                  entries that carry directly identifying or financial data,
-                  as opposed to search text. Every figure is a count the rows
-                  already carry. */}
-              <MetricBand className="grid-cols-2 sm:grid-cols-4">
-                <MetricBandItem
-                  label="Saved entries"
-                  value={derived.total.toLocaleString("en-US")}
-                  detail={
-                    list.complete ? "across all profiles" : "first pages loaded"
-                  }
-                />
-                <MetricBandItem
-                  label="Field types"
-                  value={derived.distinctTypes.toLocaleString("en-US")}
-                  detail={
-                    derived.distinctTypes === 1
-                      ? "distinct type"
-                      : "distinct types"
-                  }
-                />
-                <MetricBandItem
-                  label="Sensitive"
-                  value={`${String(sensitiveShare)}%`}
-                  detail={`${derived.sensitive.toLocaleString("en-US")} identity, contact, address or payment`}
-                  progress={{
-                    value: derived.sensitive,
-                    max: derived.total,
-                    tone: "warning",
-                    label: `${String(sensitiveShare)}% of saved entries`,
-                  }}
-                />
-                <MetricBandItem
-                  label="Most reused"
-                  value={
-                    derived.topReused === null
-                      ? "—"
-                      : derived.topReused.timesUsed.toLocaleString("en-US")
-                  }
-                  detail={
-                    derived.topReused === null
-                      ? "no recorded fills"
-                      : (derived.topReused.value ?? "(empty)")
-                  }
-                />
-              </MetricBand>
+        <>
+          {showFigures ? (
+            <div className="reveal-swap">
+              <AutofillSkeleton />
+              {figuresReady ? (
+                <div className="flex flex-col gap-5">
+                  {/* Summary strip — four plain readings of the saved
+                      entries. "Sensitive" is Identity + Contact + Address +
+                      Payment: entries that carry directly identifying or
+                      financial data, as opposed to search text. */}
+                  <MetricBand className="grid-cols-2 lg:grid-cols-4">
+                    <MetricBandItem
+                      label="Saved entries"
+                      value={`${derived.total.toLocaleString("en-US")}${capped ? "+" : ""}`}
+                      detail={
+                        capped
+                          ? "first pages read; recovered listed apart"
+                          : "all profiles; recovered listed apart"
+                      }
+                    />
+                    <MetricBandItem
+                      label="Field types"
+                      value={derived.distinctTypes.toLocaleString("en-US")}
+                      detail={
+                        derived.distinctTypes === 1
+                          ? "distinct type"
+                          : "distinct types"
+                      }
+                    />
+                    <MetricBandItem
+                      label="Sensitive"
+                      value={`${String(sensitiveShare)}%`}
+                      detail={`${derived.sensitive.toLocaleString("en-US")} identity, contact, address or payment`}
+                      progress={{
+                        value: derived.sensitive,
+                        max: derived.total,
+                      }}
+                    />
+                    <MetricBandItem
+                      label="Most reused"
+                      value={
+                        top === null
+                          ? "none"
+                          : plural(top.timesUsed, "fill", "fills")
+                      }
+                      detail={
+                        top === null
+                          ? "no recorded fill counts"
+                          : topHidden
+                            ? `${top.category.label} value hidden`
+                            : fieldWord(top.row.fields.fieldValue)
+                      }
+                    />
+                  </MetricBand>
 
-              <CategoryBreakdown
-                categories={derived.categories}
-                total={derived.total}
-                activeKey={categoryFilter}
-                onPick={pickCategory}
-              />
+                  <CategoryBreakdown
+                    categories={derived.categories}
+                    total={derived.total}
+                    activeKey={categoryFilter}
+                    onPick={pickCategory}
+                  />
 
-              <div className="grid grid-cols-12 gap-4">
-                <Panel className="col-span-12 lg:col-span-7">
-                  <PanelHeader>
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <PanelTitle>First saved over time</PanelTitle>
-                      <PanelDescription>
-                        When each entry was first remembered, per week.
-                      </PanelDescription>
-                    </div>
-                  </PanelHeader>
-                  <div className="relative min-h-[240px] flex-1">
-                    <div className="absolute inset-0 pt-2 pr-4 pb-3 pl-2">
-                      <CreationArea weeks={derived.weeks} tokens={tokens} />
+                  <div className="grid grid-cols-12 gap-4">
+                    <ChartSection
+                      className="col-span-12 lg:col-span-7"
+                      title="First saved over time"
+                      description="When each saved entry was first remembered, per week."
+                    >
+                      <div className="h-[260px] px-2 pt-2 pb-3">
+                        <CreationArea weeks={derived.weeks} tokens={tokens} />
+                      </div>
+                    </ChartSection>
+
+                    <div className="col-span-12 lg:col-span-5">
+                      <ReuseLeaderboard
+                        ranked={derived.ranked}
+                        reveal={reveal}
+                        onSelect={select}
+                      />
                     </div>
                   </div>
-                </Panel>
-
-                <div className="col-span-12 lg:col-span-5">
-                  <ReuseLeaderboard reuse={derived.reuse} onSelect={select} />
                 </div>
-              </div>
-
-              <EntryListPanel
-                derived={derived}
-                complete={list.complete}
-                categoryFilter={categoryFilter}
-                onCategory={setCategoryFilter}
-                onSelect={select}
-              />
+              ) : null}
             </div>
-          )}
-        </div>
+          ) : null}
+
+          <SectionPanel
+            id="autofill-list"
+            title="All form entries"
+            description="Saved entries and entries recovered from WAL or journal sidecars are separate lists."
+          >
+            <CommitStateSplit
+              value={view}
+              onValueChange={setView}
+              label="Saved or recovered form entries"
+              savedCount={
+                savedFirst || (lists.saved.error !== null && saved.length === 0)
+                  ? null
+                  : saved.length
+              }
+              recoveredCount={
+                recoveredFirst ||
+                (lists.recovered.error !== null && recovered.length === 0)
+                  ? null
+                  : recovered.length
+              }
+              savedMore={lists.saved.cursor !== null}
+              recoveredMore={lists.recovered.cursor !== null}
+              toolbar={
+                <>
+                  {anyPayment ? (
+                    <Switch
+                      label="Show values"
+                      checked={reveal}
+                      onToggle={() => {
+                        setReveal((value) => !value);
+                      }}
+                      className="mr-2"
+                    />
+                  ) : null}
+                  {listedCategories.length > 1 ? (
+                    <FilterField label="Category" htmlFor="autofill-category">
+                      <Select
+                        value={categoryFilter ?? ALL_CATEGORIES}
+                        onValueChange={(next) => {
+                          setCategoryFilter(
+                            next === ALL_CATEGORIES ? null : next,
+                          );
+                        }}
+                      >
+                        <SelectTrigger id="autofill-category" />
+                        <SelectContent>
+                          <SelectItem index={0} value={ALL_CATEGORIES}>
+                            All categories
+                          </SelectItem>
+                          {listedCategories.map((category, index) => (
+                            <SelectItem
+                              key={category.key}
+                              index={index + 1}
+                              value={category.key}
+                            >
+                              {category.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FilterField>
+                  ) : null}
+                  <FilterTextField
+                    commit="change"
+                    label="Search loaded form entries"
+                    placeholder="Search value or type"
+                    icon={Search}
+                    value={search}
+                    onCommit={setSearch}
+                  />
+                </>
+              }
+              saved={
+                <EntryList
+                  list={lists.saved}
+                  entries={saved}
+                  visible={savedVisible}
+                  noun="saved"
+                  reveal={reveal}
+                  onSelect={select}
+                  onClearFilters={clearFilters}
+                />
+              }
+              recovered={
+                <EntryList
+                  list={lists.recovered}
+                  entries={recovered}
+                  visible={recoveredVisible}
+                  noun="recovered"
+                  reveal={reveal}
+                  onSelect={select}
+                  onClearFilters={clearFilters}
+                />
+              }
+            />
+          </SectionPanel>
+        </>
       )}
 
       {selected !== null ? (
@@ -1272,6 +1240,7 @@ export function AutofillPage({
             readableFieldType(fieldText(selected.row.fields.fieldName)) ??
             "Form entry"
           }
+          redactedFields={selectedIsPayment ? PAYMENT_SECRET_FIELDS : undefined}
           onClose={() => {
             setSelected(null);
           }}

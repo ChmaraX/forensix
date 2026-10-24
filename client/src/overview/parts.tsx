@@ -1,21 +1,21 @@
 /**
- * The Overview's building blocks, composed from Fluid Functionalism parts:
- * `Panel` surfaces, FF `Button` jump links, type roles and weight tokens,
- * one `useFluidHover` highlight for the Top sites list, and springs for the
- * little motion there is (share bars, figure counts).
+ * The Overview's building blocks, composed from Fluid Functionalism parts and
+ * the shared page kit: `MetricBand` for the figure strip, `SectionPanel` /
+ * `ChartSection` for every framed section (see overview.tsx), FF `Button`
+ * jump links, `ShareBar` for the Top sites bars, one `useFluidHover`
+ * highlight for the Top sites list, `EmptyRows` for empty lists, and springs
+ * for the little motion there is (figure counts).
  */
-import { ArrowUpRight, FileDown, UserRound } from "lucide-react";
-import { animate, motion, useReducedMotion } from "motion/react";
+import { ArrowUpRight, FileDown, Globe, UserRound } from "lucide-react";
+import { animate, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import {
-  Panel,
-  PanelDescription,
-  PanelHeader,
-  PanelTitle,
-} from "@/components/panel";
-import { MaybeFieldStateText } from "@/components/field-state";
+import { EmptyRows } from "@/components/data-table";
+import { FieldCell } from "@/components/finding-fields";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
+import { MetricBand, MetricBandItem } from "@/components/metric-band";
+import { IconTile, ShareBar, TimeText } from "@/components/page-kit";
+import { Panel } from "@/components/panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -24,7 +24,7 @@ import {
   useRegisterFluidHoverItem,
 } from "@/hooks/use-fluid-hover";
 import { fontWeights } from "@/lib/font-weight";
-import { typeClass } from "@/lib/size-context";
+import { typeClass, useSize } from "@/lib/size-context";
 import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 import type { FieldState, Finding } from "@/types";
@@ -39,51 +39,36 @@ const MODERATE = {
 };
 
 // ---------------------------------------------------------------------------
-// Section header
+// Jump link
 // ---------------------------------------------------------------------------
 
 /**
- * A panel's header: title (with any qualifier badges beside it) over its
- * description, and an optional jump link on the right that opens the section
- * the panel summarizes. The link is an FF ghost button — the panel itself
- * stays a plain reading surface (values can be selected, chart tooltips
- * hovered) rather than one big click target.
+ * A panel's jump link (the `aside` of a SectionPanel, the `action` of a
+ * ChartSection): an FF ghost button that opens the section the panel
+ * summarizes. The panel itself stays a plain reading surface (values can be
+ * selected, chart tooltips hovered) rather than one big click target.
  */
-export function SectionHeader({
-  title,
-  description,
-  badges,
-  linkLabel,
+export function JumpLink({
+  label,
   onOpen,
 }: {
-  readonly title: string;
-  readonly description: ReactNode;
-  readonly badges?: ReactNode;
-  readonly linkLabel?: string;
+  readonly label: string;
   readonly onOpen?: () => void;
 }) {
+  if (onOpen === undefined) {
+    return null;
+  }
   return (
-    <PanelHeader className="flex-nowrap">
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <PanelTitle>{title}</PanelTitle>
-          {badges}
-        </div>
-        <PanelDescription>{description}</PanelDescription>
-      </div>
-      {linkLabel !== undefined && onOpen !== undefined ? (
-        <Button
-          variant="ghost"
-          size="compact"
-          trailingIcon={ArrowUpRight}
-          onClick={onOpen}
-          aria-label={`Open ${linkLabel}`}
-          className="-my-1 -mr-2"
-        >
-          {linkLabel}
-        </Button>
-      ) : null}
-    </PanelHeader>
+    <Button
+      variant="ghost"
+      size="compact"
+      trailingIcon={ArrowUpRight}
+      onClick={onOpen}
+      aria-label={`Open ${label}`}
+      className="-my-1 -mr-2 shrink-0"
+    >
+      {label}
+    </Button>
   );
 }
 
@@ -92,8 +77,84 @@ export function SectionHeader({
 // ---------------------------------------------------------------------------
 
 /**
+ * The Case masthead: whose browser this is, in the display role, with the
+ * date range on the right. It sits on the page substrate like every other
+ * page header — no saturated slab — so the first framed surface the examiner
+ * meets is the figure band and then the evidence.
+ */
+export function Masthead({
+  subjectName,
+  meta,
+  rangeNote,
+  picker,
+}: {
+  readonly subjectName: string | null;
+  readonly meta: string;
+  readonly rangeNote: string | null;
+  readonly picker: ReactNode;
+}) {
+  const size = useSize();
+  return (
+    <header
+      aria-label="Case masthead"
+      className="flex flex-col gap-4 pt-2 md:flex-row md:items-start md:justify-between md:gap-8"
+    >
+      <div className="flex min-w-0 items-center gap-4">
+        <span
+          aria-hidden="true"
+          className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-hover text-muted-foreground"
+        >
+          <UserRound size={size.icon} strokeWidth={1.5} />
+        </span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h1
+            className={cn(
+              typeClass("display"),
+              "truncate",
+              subjectName === null
+                ? "text-muted-foreground"
+                : "text-foreground",
+            )}
+            style={{ fontVariationSettings: fontWeights.bold }}
+          >
+            {subjectName ?? "Subject not recorded"}
+          </h1>
+          {meta.length > 0 ? (
+            <p
+              className={cn(
+                typeClass("body"),
+                "truncate text-muted-foreground",
+              )}
+            >
+              {meta}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col gap-1.5 md:items-end">
+        {picker}
+        {rangeNote === null ? null : (
+          <p
+            className={cn(
+              typeClass("caption"),
+              "max-w-[44ch] text-muted-foreground md:text-right",
+            )}
+          >
+            {rangeNote}
+          </p>
+        )}
+      </div>
+    </header>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Figure band
+// ---------------------------------------------------------------------------
+
+/**
  * Eases a figure to its true value on mount and whenever the value changes
- * (a range edit re-runs it, so the masthead visibly re-counts). It rides
+ * (a range edit re-runs it, so the band visibly re-counts). It rides
  * `spring.moderate` — critically damped, so a count never overshoots past the
  * recorded number — and under reduced motion the true value renders at once.
  */
@@ -121,163 +182,17 @@ function useCountUp(target: number): number {
   return value;
 }
 
-/** One figure in the masthead readout: the number, then what it counts. */
-function Figure({
-  label,
-  value,
-  note,
-}: {
-  readonly label: ReactNode;
-  readonly value: string;
-  readonly note?: string;
-}) {
-  return (
-    // The term reads after its number, so the column is reversed: the
-    // markup keeps `dt` before `dd` for assistive technology.
-    <div className="flex min-w-0 flex-col-reverse justify-end gap-1">
-      <dt
-        className={cn(
-          typeClass("caption"),
-          "flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-muted-foreground",
-        )}
-      >
-        <span className="shrink-0 text-foreground">{label}</span>
-        {note === undefined ? null : (
-          <span className="max-w-full truncate" title={note}>
-            {note}
-          </span>
-        )}
-      </dt>
-      <dd
-        className={cn(typeClass("display"), "text-foreground tabular-nums")}
-        style={{ fontVariationSettings: fontWeights.semibold }}
-      >
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-/** A count that eases to its value; the label stays put. */
-function CountFigure({
-  label,
-  count,
-  note,
-}: {
-  readonly label: ReactNode;
-  readonly count: number;
-  readonly note?: string;
-}) {
+function CountValue({ count }: { readonly count: number }) {
   const shown = useCountUp(count);
-  return (
-    <Figure label={label} value={shown.toLocaleString("en-US")} note={note} />
-  );
+  return <>{shown.toLocaleString("en-US")}</>;
 }
 
 /**
- * The Case masthead: whose browser this is, in the display role, and the
- * page's four headline counts. It sits on the page substrate like every
- * other page header — no saturated slab — so the first framed surface the
- * examiner meets is evidence.
- */
-export function Masthead({
-  subjectName,
-  meta,
-  rangeNote,
-  picker,
-  visits,
-  activeDays,
-  readable,
-  profiles,
-}: {
-  readonly subjectName: string | null;
-  readonly meta: string;
-  readonly rangeNote: string | null;
-  readonly picker: ReactNode;
-  readonly visits: number;
-  readonly activeDays: number;
-  readonly readable: {
-    readonly label: ReactNode;
-    readonly value: string;
-    readonly note?: string;
-  };
-  readonly profiles: readonly string[];
-}) {
-  return (
-    <header aria-label="Case masthead" className="flex flex-col gap-7 pt-2">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-8">
-        <div className="flex min-w-0 items-center gap-4">
-          <span
-            aria-hidden="true"
-            className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-hover text-muted-foreground"
-          >
-            <UserRound size={20} strokeWidth={1.5} />
-          </span>
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <h1
-              className={cn(
-                typeClass("display"),
-                "truncate",
-                subjectName === null
-                  ? "text-muted-foreground"
-                  : "text-foreground",
-              )}
-              style={{ fontVariationSettings: fontWeights.bold }}
-            >
-              {subjectName ?? "Subject not recorded"}
-            </h1>
-            {meta.length > 0 ? (
-              <p
-                className={cn(
-                  typeClass("body"),
-                  "truncate text-muted-foreground",
-                )}
-              >
-                {meta}
-              </p>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-col gap-1.5 md:items-end">
-          {picker}
-          {rangeNote === null ? null : (
-            <p
-              className={cn(
-                typeClass("caption"),
-                "max-w-[44ch] text-muted-foreground md:text-right",
-              )}
-            >
-              {rangeNote}
-            </p>
-          )}
-        </div>
-      </div>
-      <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4 lg:flex lg:flex-wrap lg:gap-x-14">
-        <CountFigure label="Page visits" count={visits} />
-        <CountFigure label="Active days" count={activeDays} />
-        <Figure
-          label={readable.label}
-          value={readable.value}
-          note={readable.note}
-        />
-        <Figure
-          label={profiles.length === 1 ? "Profile" : "Profiles"}
-          value={String(profiles.length)}
-          note={profiles.length === 0 ? undefined : profiles.join(", ")}
-        />
-      </dl>
-    </header>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Highlights
-// ---------------------------------------------------------------------------
-
-/**
- * A 24-hour micro-histogram for the busiest-hour highlight: the same
+ * A 24-hour micro-histogram for the busiest-hour figure: the same
  * `hourTotals` the Time of day chart draws below, restated as a glanceable
- * strip. Purely a restatement of numbers already printed, hence aria-hidden.
+ * strip. It uses the ranked-bar grammar (`--primary`, the peak at full
+ * strength, every other hour at 0.45, an empty hour as a hairline). Purely a
+ * restatement of numbers already printed, hence aria-hidden.
  */
 export function HourSpark({ hours }: { readonly hours: readonly number[] }) {
   const peak = Math.max(...hours, 0);
@@ -285,19 +200,17 @@ export function HourSpark({ hours }: { readonly hours: readonly number[] }) {
     return null;
   }
   return (
-    <div aria-hidden="true" className="flex h-5 w-24 items-end gap-px">
+    <span
+      aria-hidden="true"
+      className="flex h-5 w-16 shrink-0 items-end gap-px sm:w-24"
+    >
       {hours.map((count, hour) => (
         <span
           key={hour}
-          className={cn(
-            "flex-1 rounded-[1px]",
-            count === peak
-              ? "bg-foreground"
-              : count > 0
-                ? "bg-muted-foreground opacity-50"
-                : "bg-border",
-          )}
+          className={cn("flex-1 rounded-[1px]", count === 0 && "bg-border")}
           style={{
+            backgroundColor: count === 0 ? undefined : "var(--primary)",
+            opacity: count === 0 || count === peak ? 1 : 0.45,
             height:
               count === 0
                 ? "1px"
@@ -305,69 +218,67 @@ export function HourSpark({ hours }: { readonly hours: readonly number[] }) {
           }}
         />
       ))}
-    </div>
+    </span>
   );
 }
 
-export interface Highlight {
-  readonly label: string;
-  readonly value: string;
-  /** False when the value is the "nothing of that shape" wording, so it reads
-   *  as a muted state rather than as a recorded figure. */
+export interface CaseFigure {
+  readonly key: string;
+  readonly label: ReactNode;
+  /** A number eases to its value; a string is printed as is. */
+  readonly value: number | string;
+  /** False when the value is a word for "nothing of that shape" (e.g. "No
+   *  dated activity"), so it reads as a muted state, not a recorded figure. */
   readonly recorded: boolean;
-  readonly note: string;
+  /** What the figure counts, in words. Every figure carries one. */
+  readonly detail: string;
+  /** A small restatement drawn at the figure's end (the hour strip). */
   readonly aside?: ReactNode;
 }
 
 /**
- * The highlights band: one Panel, four readings with hairlines between them.
- * Each is a plain reading of a recorded number the page already computed —
- * never a Candidate, never a new query.
+ * The Case figures: one `MetricBand` of recorded readings — the headline
+ * counts first, then the highlights. Each is a plain reading of a number the
+ * page already computed — never a Candidate, never a new query.
  */
-export function HighlightsBand({
+export function CaseFigures({
   items,
 }: {
-  readonly items: readonly Highlight[];
+  readonly items: readonly CaseFigure[];
 }) {
   return (
-    <Panel role="group" aria-label="Highlights" className="overflow-hidden">
-      <div className="-mr-px -mb-px grid grid-cols-1 min-[480px]:grid-cols-2 xl:grid-cols-4">
-        {items.map((item) => (
-          <div
-            key={item.label}
-            className="flex min-w-0 flex-col gap-1 border-r border-b border-border px-4 py-4"
-          >
-            <span className={cn(typeClass("caption"), "text-muted-foreground")}>
-              {item.label}
-            </span>
-            <div className="flex h-[22px] min-w-0 items-center justify-between gap-3">
-              <span
-                className={cn(
-                  typeClass("title"),
-                  "truncate tabular-nums",
-                  item.recorded ? "text-foreground" : "text-muted-foreground",
-                )}
-                style={{ fontVariationSettings: fontWeights.semibold }}
-              >
-                {item.value}
-              </span>
-              {item.aside === undefined ? null : (
-                <span className="shrink-0">{item.aside}</span>
-              )}
-            </div>
-            <span
-              className={cn(
-                typeClass("caption"),
-                "truncate text-muted-foreground",
-              )}
-              title={item.note}
-            >
-              {item.note}
-            </span>
-          </div>
-        ))}
-      </div>
-    </Panel>
+    <section aria-label="Case figures">
+      <MetricBand className="grid-cols-2 lg:grid-cols-4">
+        {items.map((item) => {
+          const value =
+            typeof item.value === "number" ? (
+              <CountValue count={item.value} />
+            ) : (
+              item.value
+            );
+          return (
+            <MetricBandItem
+              key={item.key}
+              label={item.label}
+              value={
+                item.aside === undefined ? (
+                  value
+                ) : (
+                  <span className="flex min-w-0 items-center justify-between gap-3">
+                    <span className="min-w-0 truncate">{value}</span>
+                    {item.aside}
+                  </span>
+                )
+              }
+              valueClassName={
+                item.recorded ? undefined : "text-muted-foreground"
+              }
+              detail={item.detail}
+            />
+          );
+        })}
+      </MetricBand>
+    </section>
   );
 }
 
@@ -377,7 +288,7 @@ export function HighlightsBand({
 
 /**
  * The subject readout: plain-language labels against the Metadata values,
- * each rendered through the shared Field State text, so `absent` and
+ * each rendered through the shared `FieldCell`, so (empty), `absent` and
  * `unavailable` read exactly as they do on every list page — never a blank,
  * never silently skipped.
  */
@@ -402,7 +313,7 @@ export function SubjectList({
             {label}
           </dt>
           <dd className="min-w-0">
-            <MaybeFieldStateText field={field} truncate />
+            <FieldCell field={field} />
           </dd>
         </div>
       ))}
@@ -457,7 +368,6 @@ function TopSiteRow({
   site,
   index,
   peak,
-  isTop,
   favicon,
   registerItem,
   onOpen,
@@ -465,7 +375,6 @@ function TopSiteRow({
   readonly site: TopSite;
   readonly index: number;
   readonly peak: number;
-  readonly isTop: boolean;
   readonly favicon: string | null | undefined;
   readonly registerItem?: (index: number, element: HTMLElement | null) => void;
   readonly onOpen?: (domain: string) => void;
@@ -473,7 +382,6 @@ function TopSiteRow({
   const ref = useRef<HTMLButtonElement>(null);
   useRegisterFluidHoverItem(registerItem, index, ref);
   const domain = domainOf(site.url);
-  const share = peak === 0 ? 0 : site.count / peak;
   const content = (
     <>
       <span className="flex min-w-0 items-center gap-2.5">
@@ -482,21 +390,10 @@ function TopSiteRow({
           {domain}
         </span>
       </span>
-      <span
-        aria-hidden="true"
-        className="h-1 w-full overflow-hidden rounded-full bg-hover"
-      >
-        <motion.span
-          className={cn(
-            "block h-full w-full rounded-full",
-            isTop ? "bg-foreground" : "bg-muted-foreground opacity-60",
-          )}
-          style={{ originX: 0 }}
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: share }}
-          transition={spring.slow}
-        />
-      </span>
+      <ShareBar
+        fraction={peak === 0 ? 0 : site.count / peak}
+        peak={peak > 0 && site.count === peak}
+      />
       <span
         className={cn(
           typeClass("body"),
@@ -519,10 +416,10 @@ function TopSiteRow({
       onClick={() => {
         onOpen(domain);
       }}
-      aria-label={`${domain}, ${site.count.toLocaleString("en-US")} recorded visits — open in Sites`}
+      aria-label={`${domain}, ${site.count.toLocaleString("en-US")} saved visits — open in Sites`}
       className={cn(
         rowClass,
-        "cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+        "cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-focus-ring",
       )}
     >
       {content}
@@ -549,14 +446,11 @@ export function TopSitesList({
   const peak = Math.max(...sites.map((site) => site.count), 0);
   if (sites.length === 0) {
     return (
-      <p
-        className={cn(
-          typeClass("body"),
-          "flex min-h-[120px] flex-1 items-center justify-center px-4 pb-4 text-muted-foreground",
-        )}
-      >
-        No visited sites recorded.
-      </p>
+      <EmptyRows
+        icon={Globe}
+        message="No saved site visits are recorded in this Case."
+        className="flex-1 justify-center py-8"
+      />
     );
   }
   const clickable = onOpenSite !== undefined;
@@ -577,7 +471,6 @@ export function TopSitesList({
           site={site}
           index={index}
           peak={peak}
-          isTop={index === 0}
           favicon={favicons.get(domainOf(site.url))}
           registerItem={clickable ? hover.registerItem : undefined}
           onOpen={onOpenSite}
@@ -598,15 +491,10 @@ function DownloadRow({ download }: { readonly download: Finding }) {
   const name = downloadFileName(download.fields.targetPath);
   return (
     <li className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-1">
-      <span
-        aria-hidden="true"
-        className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-hover text-muted-foreground"
-      >
-        <FileDown size={16} strokeWidth={1.5} />
-      </span>
+      <IconTile icon={FileDown} className="mt-0.5" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {name === null ? (
-          <MaybeFieldStateText field={download.fields.targetPath} truncate />
+          <FieldCell field={download.fields.targetPath} />
         ) : (
           <Tooltip
             content={
@@ -624,8 +512,8 @@ function DownloadRow({ download }: { readonly download: Finding }) {
             </p>
           </Tooltip>
         )}
-        <MaybeFieldStateText field={download.fields.originalUrl} truncate />
-        <MaybeFieldStateText field={download.fields.startTime} />
+        <FieldCell field={download.fields.originalUrl} />
+        <TimeText field={download.fields.startTime} />
       </div>
     </li>
   );
@@ -646,14 +534,11 @@ export function DownloadsList({
 }) {
   if (downloads.length === 0) {
     return (
-      <p
-        className={cn(
-          typeClass("body"),
-          "flex min-h-[120px] flex-1 items-center justify-center px-4 pb-4 text-muted-foreground",
-        )}
-      >
-        No downloads recorded.
-      </p>
+      <EmptyRows
+        icon={FileDown}
+        message="No saved downloads are recorded in this Case."
+        className="flex-1 justify-center py-8"
+      />
     );
   }
   return (
@@ -694,7 +579,9 @@ function SkeletonPanel({
 
 /**
  * The page's skeleton, laid out on the real page's grid at (no more than)
- * its blocks' sizes, so the `reveal-swap` hand-over never shifts layout.
+ * its blocks' sizes — masthead, the eight-figure band, the first panel row —
+ * so the `reveal-swap` hand-over never shifts layout. A live status region,
+ * so the load is announced rather than silent.
  */
 export function LoadingOverview({
   className,
@@ -702,34 +589,28 @@ export function LoadingOverview({
   readonly className?: string;
 }) {
   return (
-    <div aria-hidden="true" className={cn("flex flex-col gap-6", className)}>
-      <div className="flex flex-col gap-7 pt-2">
-        <div className="flex items-center gap-4">
-          <Skeleton className="size-12 rounded-xl" />
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-7 w-56 rounded-md" />
-            <Skeleton className="h-4 w-72 max-w-[60vw] rounded-md" />
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-x-14 gap-y-5">
-          {[0, 1, 2, 3].map((key) => (
-            <div key={key} className="flex flex-col gap-2">
-              <Skeleton className="h-7 w-16 rounded-md" />
-              <Skeleton className="h-3 w-24 rounded-md" />
-            </div>
-          ))}
+    <div
+      role="status"
+      aria-label="Loading overview"
+      className={cn("flex flex-col gap-5", className)}
+    >
+      <div className="flex items-center gap-4 pt-2">
+        <Skeleton className="size-12 rounded-xl" />
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-8 w-56 rounded-md" />
+          <Skeleton className="h-4 w-72 max-w-[60vw] rounded-md" />
         </div>
       </div>
       <Panel className="overflow-hidden">
-        <div className="-mr-px -mb-px grid grid-cols-1 min-[480px]:grid-cols-2 xl:grid-cols-4">
-          {[0, 1, 2, 3].map((key) => (
+        <div className="grid grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((key) => (
             <div
               key={key}
-              className="flex flex-col gap-2 border-r border-b border-border px-4 py-4"
+              className="flex flex-col gap-2 px-4 py-3 shadow-[-1px_0_0_0_var(--border),0_-1px_0_0_var(--border)] sm:px-5 sm:py-3.5"
             >
               <Skeleton className="h-3 w-20 rounded-md" />
-              <Skeleton className="h-4 w-28 rounded-md" />
-              <Skeleton className="h-3 w-32 rounded-md" />
+              <Skeleton className="h-5 w-24 rounded-md" />
+              <Skeleton className="h-3 w-32 max-w-full rounded-md" />
             </div>
           ))}
         </div>

@@ -5,36 +5,36 @@
  * generic evidence dump. The page is a column of FF Panels, read top-down:
  *
  *  1. Evidence coverage — the Completeness Statement, before any row.
- *  2. Four headline figures (recorded visits, active days, recorded span,
+ *  2. Four headline figures (saved visits, active days, recorded span,
  *     distinct sites) in one MetricBand: direct reads of what the analyzer
  *     produced — never a smoothed trend, a projection, or an invented figure.
- *  3. An activity-over-time bar chart (visits per local day) — the same
- *     chart component the Overview masthead uses for the identical dataset,
- *     so the two pages never draw the same evidence two different shapes.
- *     Clicking a bar pins the visit table (and the date-range control in the
- *     chart's own header) to that one day; clicking it again clears back to
- *     the whole recorded span.
- *  4. The raw visit table, on FF's Table (one fluid hover highlight; the lit
- *     row is the row a click opens), with the app's shared toolbar parts:
- *     a search field that commits on Enter/blur, Sort (FF Select + a
- *     direction toggle), Arrived via (FF Select), and the Profiles picker.
- *     Its columns are curated, not the sparse
- *     union grid: Time, Page (title over URL), Arrived via (the worded
- *     transition), Dwell (recorded `visitDuration`, shown as the words "not
- *     recorded" when absent — never zero), and the Commit State word. Every
- *     wire field stays reachable through the row detail sheet.
+ *     They count saved (committed) visits; recovered visits are named beside
+ *     them, never summed in. While a read is in flight a figure is a
+ *     skeleton; when its read failed it reads "unavailable", never "0".
+ *  3. An activity-over-time bar chart (saved visits per local day) — the
+ *     shared `ActivityBars`, so the same dataset never reads two different
+ *     shapes. Clicking a bar pins the visit table (and the date-range
+ *     control in the chart's own header) to that one day; clicking it again
+ *     clears back to the whole recorded span.
+ *  4. The raw visit table, on FF's Table, as two server reads kept apart
+ *     (forensic rule 4): "Saved" (committed rows) and "Recovered" (WAL then
+ *     journal rows), switched with `CommitStateSplit`. The toolbar — Sort
+ *     (FF Select + a direction toggle), Arrived via, Profiles, and a search
+ *     field that commits on Enter/blur — drives real server parameters for
+ *     both lists. Curated columns: Time, Page (title over URL), Arrived via
+ *     (the worded transition), Dwell (recorded `visitDuration`, "not
+ *     recorded" when Chrome kept none — never zero), and the Commit State
+ *     word. Every wire field stays reachable through the row detail sheet.
  *
- * Presentation rules kept: the Completeness Statement ("Evidence coverage")
- * renders before any row; the four value states stay worded, never colour
- * alone; the two recovered Commit States keep their own hue *and* word; no
- * axis is projected past the last recorded day and no cell invents a count the
+ * Presentation rules kept: the Completeness Statement renders before any
+ * row; the four value states stay worded, never colour alone; the two
+ * recovered Commit States keep their own hue *and* word; no axis is
+ * projected past the last recorded day and no cell invents a count the
  * evidence does not contain.
  */
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
-import { Panel, PanelHeader, PanelTitle } from "@/components/panel";
-import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import {
@@ -52,50 +52,57 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
-import { fontWeights } from "@/lib/font-weight";
-import { SizeProvider, useSize } from "@/lib/size-context";
+import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { callApi } from "../api.js";
-import type {
-  CaseCompleteness,
-  FieldState,
-  Finding,
-  PageOf,
-} from "../types.js";
+import type { QueryParameters } from "../api.js";
+import type { CaseCompleteness, FieldState, Finding } from "../types.js";
 import {
-  bucketsToDays,
-  fillGaps,
-  useActivityBuckets,
-} from "./activity-data.js";
-import { ActivityBars, type DayCount, useChartTokens } from "./charts.js";
+  useCommitStateLists,
+  type PaginatedList,
+} from "../use-commit-state-lists.js";
+import { bucketsToDays, fillGaps } from "./activity-data.js";
+import { ActivityBars, useChartTokens } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
+import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import {
-  AbsentWord,
+  FieldCell,
   fieldString,
   fieldText,
-  fieldUtc,
-  formatInstant,
   hostOf,
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
-import { CompletenessPanel } from "./completeness.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
-import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
+import {
+  useSplitActivity,
+  visitTotal,
+  type SplitActivity,
+} from "./history-activity-data.js";
+import { figure, type Read } from "./history-figures.js";
+import { ListBlock, RevealSwap } from "./history-list-block.js";
+import { ErrorRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
+import {
+  CHART_HEIGHT,
+  CommitStateSplit,
+  formatDay,
+  plural,
+  SectionPanel,
+  TimeCell,
+  type CommitView,
+} from "./page-kit.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
-import { CHART_HEIGHT } from "./page-kit.js";
 
 /* ------------------------------- data reads ------------------------------- */
 
-/** How many visit rows the arrival breakdown and the table load per request. */
+/** How many visit rows each list loads per request. */
 const VISITS_PAGE_LIMIT = 100;
 
-/** The filters the visit table and its query both read — every one of them a
- *  real server-side parameter `queryHistory` already accepts, not a
+/** The filters the visit lists and their queries both read — every one of
+ *  them a real server-side parameter `queryHistory` already accepts, not a
  *  client-side narrowing of an already-loaded page. */
 export interface VisitFilters {
   readonly search: string;
@@ -127,132 +134,40 @@ function visitsAreFiltered(filters: VisitFilters): boolean {
   );
 }
 
-/** One keyset page of `visits` rows plus its "Load more" continuation. */
-function useVisits(filters: VisitFilters) {
-  const [rows, setRows] = useState<readonly Finding[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
-
-  const baseParameters = useMemo<(readonly [string, string])[]>(() => {
-    const parameters: (readonly [string, string])[] = [
-      ["view", "visits"],
-      ["sort", filters.sort],
-      ["direction", filters.direction],
-      ["limit", String(VISITS_PAGE_LIMIT)],
-    ];
-    if (filters.search !== "") {
-      parameters.push(["search", filters.search]);
-    }
-    if (filters.transition !== "") {
-      parameters.push(["transition", filters.transition]);
-    }
-    if (filters.from !== "") {
-      parameters.push(["from", `${filters.from}T00:00:00Z`]);
-    }
-    if (filters.to !== "") {
-      parameters.push(["to", `${filters.to}T23:59:59.999999Z`]);
-    }
-    for (const profile of filters.profiles) {
-      parameters.push(["profile", profile]);
-    }
-    return parameters;
-  }, [
-    filters.search,
-    filters.sort,
-    filters.direction,
-    filters.transition,
-    filters.from,
-    filters.to,
-    filters.profiles,
-  ]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setRows([]);
-    setCursor(null);
-    callApi<PageOf<Finding>>("history", baseParameters)
-      .then((page) => {
-        if (cancelled) {
-          return;
-        }
-        setRows(page.items);
-        setCursor(page.nextCursor);
-        setLoading(false);
-      })
-      .catch((requestError: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [baseParameters, nonce]);
-
-  const loadMore = useCallback(() => {
-    if (cursor === null) {
-      return;
-    }
-    setLoading(true);
-    callApi<PageOf<Finding>>("history", [...baseParameters, ["after", cursor]])
-      .then((page) => {
-        setRows((existing) => [...existing, ...page.items]);
-        setCursor(page.nextCursor);
-        setLoading(false);
-      })
-      .catch((requestError: unknown) => {
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-        setLoading(false);
-      });
-  }, [cursor, baseParameters]);
-
-  const retry = useCallback(() => {
-    setNonce((value) => value + 1);
-  }, []);
-
-  return {
-    rows,
-    cursor,
-    loading,
-    error,
-    loadMore,
-    retry,
-  };
+/** The `history` `view=visits` query for the filters (Commit State is added
+ *  per list by `useCommitStateLists`). */
+function visitParameters(filters: VisitFilters): QueryParameters {
+  const parameters: (readonly [string, string])[] = [
+    ["view", "visits"],
+    ["sort", filters.sort],
+    ["direction", filters.direction],
+    ["limit", String(VISITS_PAGE_LIMIT)],
+  ];
+  if (filters.search !== "") {
+    parameters.push(["search", filters.search]);
+  }
+  if (filters.transition !== "") {
+    parameters.push(["transition", filters.transition]);
+  }
+  if (filters.from !== "") {
+    parameters.push(["from", `${filters.from}T00:00:00Z`]);
+  }
+  if (filters.to !== "") {
+    parameters.push(["to", `${filters.to}T23:59:59.999999Z`]);
+  }
+  for (const profile of filters.profiles) {
+    parameters.push(["profile", profile]);
+  }
+  return parameters;
 }
 
 /* ------------------------------ small format ------------------------------ */
 
-function formatDayShort(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-}
-
 /**
  * A recorded `visitDuration` (microseconds, as a string field) read as a
- * compact human dwell — "4m 12s", "38s", "2h 05m". Returns null for a missing
- * or non-positive value, so the caller renders the word "not recorded" rather
- * than a fabricated "0s".
+ * compact human dwell — "4m 12s", "38s", "2h 05m". Returns null for a
+ * non-positive value: Chrome writes 0 when it kept no dwell, so the caller
+ * renders the words "not recorded" rather than a fabricated "0s".
  */
 function formatDwell(field: FieldState | undefined): string | null {
   const raw = fieldString(field);
@@ -277,9 +192,8 @@ function formatDwell(field: FieldState | undefined): string | null {
 }
 
 /**
- * The recorded Chrome core transition, as a plain-language label. Unknown or
- * absent values fall through to `null`, rendered as the word "absent" — the
- * evidence's own gap, never guessed.
+ * The recorded Chrome core transition, as a plain-language label. An unknown
+ * value passes through verbatim; a missing one keeps its own state word.
  */
 const TRANSITION_LABELS: Readonly<Record<string, string>> = {
   link: "Followed a link",
@@ -318,59 +232,83 @@ function spanDays(first: string, last: string): number | null {
   return Math.round((end - start) / 86_400_000) + 1;
 }
 
-/**
- * The four headline figures. Recorded visits and active days come from the
- * authoritative `activity` set (the same one the chart draws); the recorded
- * span is the calendar distance between its first and last day; distinct
- * sites is a floor read off the loaded visit rows and labelled as such.
- */
-function HistoryFigures({
-  loading,
-  totalVisits,
-  activeDays,
-  span,
-  distinctHosts,
-}: {
-  readonly loading: boolean;
-  readonly totalVisits: number;
+interface ActivityFigures {
+  readonly savedVisits: number;
+  readonly recoveredVisits: number;
   readonly activeDays: number;
   readonly span: { readonly first: string; readonly last: string } | null;
-  readonly distinctHosts: number;
+}
+
+/**
+ * The four headline figures. Saved visits and active days come from the
+ * committed rows of the `activity` set (the same days the chart draws);
+ * recovered visits are named in the detail, never added in. The recorded
+ * span is the calendar distance between the first and last saved day;
+ * distinct sites is a floor read off the loaded saved visit rows and
+ * labelled as such.
+ */
+function HistoryFigures({
+  activity,
+  distinctHosts,
+}: {
+  readonly activity: Read<ActivityFigures>;
+  readonly distinctHosts: Read<{ count: number; more: boolean }>;
 }) {
-  const days = span === null ? null : spanDays(span.first, span.last);
-  const spanDetail =
-    span === null
-      ? "no dated activity"
-      : span.first === span.last
-        ? formatDayShort(span.first)
-        : `${formatDayShort(span.first)} — ${formatDayShort(span.last)}`;
+  const activityDetail = (text: (value: ActivityFigures) => string) =>
+    activity.state === "ready"
+      ? text(activity.value)
+      : activity.state === "failed"
+        ? "the activity read failed"
+        : "reading activity";
   return (
     <MetricBand className="grid-cols-2 lg:grid-cols-4">
       <MetricBandItem
-        label="Recorded visits"
-        value={loading ? "—" : totalVisits.toLocaleString("en-US")}
-        detail="page visits in the activity set"
+        label="Saved visits"
+        value={figure(activity, (value) =>
+          value.savedVisits.toLocaleString("en-US"),
+        )}
+        detail={activityDetail((value) =>
+          value.recoveredVisits === 0
+            ? "none recovered"
+            : `${value.recoveredVisits.toLocaleString("en-US")} recovered, not counted`,
+        )}
       />
       <MetricBandItem
         label="Active days"
-        value={loading ? "—" : activeDays.toLocaleString("en-US")}
-        detail="days with at least one visit"
+        value={figure(activity, (value) =>
+          value.activeDays.toLocaleString("en-US"),
+        )}
+        detail={activityDetail(() => "days with a saved visit")}
       />
       <MetricBandItem
         label="Recorded span"
-        value={
-          loading
-            ? "—"
-            : days === null
-              ? "none"
-              : `${days.toLocaleString("en-US")} day${days === 1 ? "" : "s"}`
-        }
-        detail={loading ? "\u00a0" : spanDetail}
+        value={figure(activity, (value) => {
+          const days =
+            value.span === null
+              ? null
+              : spanDays(value.span.first, value.span.last);
+          return days === null ? "none" : plural(days, "day", "days");
+        })}
+        detail={activityDetail((value) =>
+          value.span === null
+            ? "no dated saved visits"
+            : value.span.first === value.span.last
+              ? formatDay(value.span.first)
+              : `${formatDay(value.span.first)} to ${formatDay(value.span.last)}`,
+        )}
       />
       <MetricBandItem
         label="Distinct sites"
-        value={distinctHosts.toLocaleString("en-US")}
-        detail="in loaded visits"
+        value={figure(distinctHosts, (value) =>
+          value.count.toLocaleString("en-US"),
+        )}
+        detail={
+          distinctHosts.state === "failed"
+            ? "the visit read failed"
+            : distinctHosts.state === "ready" && !distinctHosts.value.more
+              ? "in saved visits"
+              : "in loaded saved visits"
+        }
       />
     </MetricBand>
   );
@@ -379,9 +317,9 @@ function HistoryFigures({
 /* ------------------------------- activity --------------------------------- */
 
 function ActivityPanel({
-  days,
-  loading,
+  activity,
   error,
+  onRetry,
   range,
   onRangeChange,
   rangeMin,
@@ -389,11 +327,11 @@ function ActivityPanel({
   selectedDate,
   onSelectDay,
 }: {
-  readonly days: readonly DayCount[];
-  readonly loading: boolean;
+  readonly activity: SplitActivity | null;
   readonly error: string | null;
+  readonly onRetry: () => void;
   /** ISO `YYYY-MM-DD`, or `""` when that bound is unset — the same filter
-   *  state the visit table below reads, so this is the one date control for
+   *  state the visit lists below read, so this is the one date control for
    *  the whole page, not a second one competing with it. */
   readonly range: { readonly from: string; readonly to: string };
   readonly onRangeChange: (range: { from: string; to: string }) => void;
@@ -403,10 +341,28 @@ function ActivityPanel({
   readonly onSelectDay: (date: string) => void;
 }) {
   const tokens = useChartTokens();
+  const size = useSize();
+  // Saved days, gap-filled so the x-axis is real calendar time.
+  const days = useMemo(
+    () => (activity === null ? [] : fillGaps(bucketsToDays(activity.saved))),
+    [activity],
+  );
+  const recovered = activity === null ? 0 : visitTotal(activity.recovered);
+  const notes: string[] = [];
+  if (recovered > 0) {
+    notes.push(
+      `${plural(recovered, "recovered visit is", "recovered visits are")} not drawn; they are listed under Recovered below.`,
+    );
+  }
+  if (activity !== null && !activity.complete) {
+    notes.push(
+      "Drawn from the first activity rows read; more exist in the Case.",
+    );
+  }
   return (
     <ChartSection
       title="Browsing activity"
-      description="Recorded page visits per day. Choose a range or select a bar."
+      description="Saved page visits per day. Choose a range or select a bar."
       action={
         <DateRangePicker
           from={range.from}
@@ -414,43 +370,48 @@ function ActivityPanel({
           min={rangeMin}
           max={rangeMax}
           triggerLabel="All recorded days"
-          formatDate={formatDayShort}
+          formatDate={formatDay}
           onChange={onRangeChange}
           presets
         />
       }
+      footer={
+        notes.length === 0 ? undefined : (
+          <p className={cn(size.type.caption, "text-muted-foreground")}>
+            {notes.join(" ")}
+          </p>
+        )
+      }
     >
-      <div className="px-2 pt-2 pb-3">
-        {error !== null ? (
-          <div className="px-2 py-2">
-            <Banner status="error" contrast="high">
-              <BannerTitle>The activity chart could not be loaded.</BannerTitle>
-              <BannerDescription>{error}</BannerDescription>
-            </Banner>
-          </div>
-        ) : (
-          <div className="reveal-swap">
-            <Skeleton
-              className={cn(
-                CHART_HEIGHT,
-                "mx-2 w-[calc(100%-1rem)] rounded-lg",
-              )}
-            />
-            {loading ? null : (
-              <div className={cn(CHART_HEIGHT, "w-full")}>
-                <ActivityBars
-                  days={days}
-                  tokens={tokens}
-                  selectedDate={selectedDate}
-                  onSelectDay={onSelectDay}
-                  range={range}
-                  onRangeChange={onRangeChange}
-                />
+      {error !== null ? (
+        <ErrorRows
+          title="The activity chart could not be loaded."
+          message={error}
+          onRetry={onRetry}
+        />
+      ) : (
+        <div className="px-2 pt-2 pb-3">
+          <RevealSwap
+            loading={activity === null}
+            skeleton={
+              <div role="status" aria-label="Loading activity">
+                <Skeleton className={cn(CHART_HEIGHT, "w-full rounded-lg")} />
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            }
+          >
+            <div className={cn(CHART_HEIGHT, "w-full")}>
+              <ActivityBars
+                days={days}
+                tokens={tokens}
+                selectedDate={selectedDate}
+                onSelectDay={onSelectDay}
+                range={range}
+                onRangeChange={onRangeChange}
+              />
+            </div>
+          </RevealSwap>
+        </div>
+      )}
     </ChartSection>
   );
 }
@@ -472,12 +433,12 @@ const DIRECTION_WORDS: Readonly<
 };
 
 /**
- * The visit toolbar, from the same shared parts as every artifact page's
- * FilterBar (FilterTextField, FilterField + FF Select, ProfilePicker), so all
- * toolbars in the app read and behave alike. Every control maps to a real
- * server-side parameter `queryHistory` accepts.
+ * The visit filters, laid out by the list's `Toolbar` (right of the
+ * Saved / Recovered switch): Sort, Arrived via, Profiles, then the search
+ * field last. Every control maps to a real server-side parameter
+ * `queryHistory` accepts, so the search commits on Enter/blur.
  */
-function VisitToolbar({
+function VisitFilterControls({
   filters,
   setFilters,
   profiles,
@@ -492,61 +453,43 @@ function VisitToolbar({
     asc: "ascending",
   };
   const DirectionIcon = descending ? ArrowDownWideNarrow : ArrowUpNarrowWide;
-  const flip = `Sorted ${descending ? words.desc : words.asc} — switch to ${
+  const flip = `Sorted ${descending ? words.desc : words.asc}. Switch to ${
     descending ? words.asc : words.desc
   }`;
 
   return (
-    <div
-      role="group"
-      aria-label="Filter recorded visits"
-      className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 pb-3"
-    >
-      <FilterTextField
-        id="history-visits-search"
-        label="Search recorded visits"
-        icon={Search}
-        value={filters.search}
-        placeholder="Search page or URL…"
-        onCommit={(search) => {
-          setFilters({ ...filters, search });
-        }}
-        className="w-60 max-sm:w-full"
-      />
-
+    <>
       <FilterField label="Sort" htmlFor="history-visits-sort">
-        <div className="flex items-center gap-1 max-sm:[&>*:first-child]:flex-1">
-          <Select
-            value={filters.sort}
-            onValueChange={(sort) => {
-              setFilters({ ...filters, sort });
+        <Select
+          value={filters.sort}
+          onValueChange={(sort) => {
+            setFilters({ ...filters, sort });
+          }}
+        >
+          <SelectTrigger id="history-visits-sort" className="min-w-[120px]" />
+          <SelectContent>
+            {VISIT_SORTS.map((sort, index) => (
+              <SelectItem key={sort} index={index} value={sort}>
+                {SORT_LABELS[sort] ?? sort}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Tooltip content={flip}>
+          <Button
+            variant="ghost"
+            size="icon-compact"
+            aria-label={flip}
+            onClick={() => {
+              setFilters({
+                ...filters,
+                direction: descending ? "asc" : "desc",
+              });
             }}
           >
-            <SelectTrigger id="history-visits-sort" className="min-w-[120px]" />
-            <SelectContent>
-              {VISIT_SORTS.map((sort, index) => (
-                <SelectItem key={sort} index={index} value={sort}>
-                  {SORT_LABELS[sort] ?? sort}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Tooltip content={flip}>
-            <Button
-              variant="ghost"
-              size="icon-compact"
-              aria-label={flip}
-              onClick={() => {
-                setFilters({
-                  ...filters,
-                  direction: descending ? "asc" : "desc",
-                });
-              }}
-            >
-              <DirectionIcon />
-            </Button>
-          </Tooltip>
-        </div>
+            <DirectionIcon />
+          </Button>
+        </Tooltip>
       </FilterField>
 
       <FilterField label="Arrived via" htmlFor="history-visits-transition">
@@ -590,7 +533,18 @@ function VisitToolbar({
           />
         </FilterField>
       )}
-    </div>
+
+      <FilterTextField
+        id="history-visits-search"
+        label="Search recorded visits"
+        icon={Search}
+        value={filters.search}
+        placeholder="Search page or URL…"
+        onCommit={(search) => {
+          setFilters({ ...filters, search });
+        }}
+      />
+    </>
   );
 }
 
@@ -598,36 +552,18 @@ function VisitToolbar({
 
 const VISIT_COLUMNS = ["Time", "Page", "Arrived via", "Dwell", "State"];
 
+function asText(value: unknown): string {
+  return typeof value === "string" ? value : String(value);
+}
+
 function VisitTable({
   rows,
-  filtersActive,
   onSelect,
-  onClearFilters,
 }: {
   readonly rows: readonly Finding[];
-  readonly filtersActive: boolean;
   readonly onSelect: (row: Finding) => void;
-  readonly onClearFilters: () => void;
 }) {
   const size = useSize();
-  if (rows.length === 0) {
-    return (
-      <EmptyRows
-        message={
-          filtersActive
-            ? "No recorded visits match these filters."
-            : "No recorded visits in this Case."
-        }
-        action={
-          filtersActive ? (
-            <Button variant="tertiary" size="compact" onClick={onClearFilters}>
-              Clear filters
-            </Button>
-          ) : undefined
-        }
-      />
-    );
-  }
   return (
     <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
       <Table className="min-w-[760px]">
@@ -642,69 +578,63 @@ function VisitTable({
         </TableHeader>
         <TableBody className="reveal-items">
           {rows.map((row, index) => {
-            const utc = fieldUtc(row.fields.visitTime);
-            const parts = utc === null ? null : formatInstant(utc);
             const url = fieldText(row.fields.url);
-            const host = hostOf(url);
             const title = fieldText(row.fields.title);
-            const transition = fieldText(row.fields.transitionCore);
-            const dwell = formatDwell(row.fields.visitDuration);
+            const dwellField = row.fields.visitDuration;
+            const dwell = formatDwell(dwellField);
             const open = () => {
               onSelect(row);
             };
             return (
               <TableRow
-                key={index}
+                key={`${row.commitState}-${String(index)}`}
                 index={index}
                 tabIndex={0}
-                aria-label="Open visit row detail"
+                aria-label={`Open visit row detail: ${title ?? url ?? "page visit"}`}
                 onClick={open}
                 onKeyDown={(event) => {
                   activateOnKey(event, open);
                 }}
                 className={ROW_FOCUS_CLASS}
               >
-                <TableCell
-                  className="whitespace-nowrap tabular-nums"
-                  title={utc === null ? undefined : `${utc} (UTC)`}
-                >
-                  {parts === null ? (
-                    <AbsentWord />
-                  ) : (
-                    <>
-                      <span className="text-foreground">{parts.date}</span>
-                      <span className="ml-2">{parts.time}</span>
-                    </>
-                  )}
+                <TableCell className="whitespace-nowrap">
+                  <TimeCell field={row.fields.visitTime} />
                 </TableCell>
                 <TableCell className="max-w-[440px]">
                   <span className="flex items-center gap-2.5">
-                    <SiteAvatar host={host} />
+                    <SiteAvatar host={hostOf(url)} />
                     <span className="flex min-w-0 flex-col">
-                      <span
-                        className="truncate text-foreground"
-                        title={title ?? undefined}
-                      >
-                        {title ?? host ?? "(untitled)"}
+                      <span className="min-w-0" title={title ?? undefined}>
+                        <FieldCell
+                          field={row.fields.title}
+                          format={asText}
+                          className="text-foreground"
+                        />
                       </span>
-                      <span
-                        className={cn(size.type.caption, "truncate font-mono")}
-                        title={url ?? undefined}
-                      >
-                        {url ?? ""}
+                      <span className="min-w-0" title={url ?? undefined}>
+                        <FieldCell
+                          field={row.fields.url}
+                          format={asText}
+                          className={cn(size.type.caption, "font-mono")}
+                        />
                       </span>
                     </span>
                   </span>
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
-                  {transition === null ? (
-                    <AbsentWord />
-                  ) : (
-                    (TRANSITION_LABELS[transition] ?? transition)
-                  )}
+                  <FieldCell
+                    field={row.fields.transitionCore}
+                    format={(value) =>
+                      TRANSITION_LABELS[asText(value)] ?? asText(value)
+                    }
+                  />
                 </TableCell>
                 <TableCell className="whitespace-nowrap tabular-nums">
-                  {dwell ?? "not recorded"}
+                  {dwellField?.state === "value" ? (
+                    (dwell ?? "not recorded")
+                  ) : (
+                    <FieldCell field={dwellField} />
+                  )}
                 </TableCell>
                 <TableCell>
                   <StateWord state={row.commitState} />
@@ -718,7 +648,64 @@ function VisitTable({
   );
 }
 
+/** One of the two visit lists (Saved or Recovered): skeleton, rows, empty,
+ *  errors and footer from the shared list block. */
+function VisitList({
+  list,
+  recovered,
+  filtersActive,
+  onSelect,
+  onClearFilters,
+}: {
+  readonly list: PaginatedList<Finding>;
+  readonly recovered: boolean;
+  readonly filtersActive: boolean;
+  readonly onSelect: (row: Finding) => void;
+  readonly onClearFilters: () => void;
+}) {
+  const noun = recovered ? "recovered visits" : "saved visits";
+  return (
+    <ListBlock
+      list={list}
+      loadingLabel={`Loading ${noun}`}
+      skeletonRows={recovered ? 3 : 8}
+      errorTitle={`The ${noun} could not be loaded.`}
+      empty={
+        filtersActive ? (
+          <EmptyRows
+            message={`No ${noun} match these filters.`}
+            action={
+              <Button
+                variant="tertiary"
+                size="compact"
+                onClick={onClearFilters}
+              >
+                Clear filters
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyRows
+            title={recovered ? "No recovered visits" : "No saved visits"}
+            message={
+              recovered
+                ? "Neither the write-ahead log nor the rollback journal holds a visit row."
+                : "The History database holds no committed visit rows."
+            }
+          />
+        )
+      }
+    >
+      <VisitTable rows={list.rows} onSelect={onSelect} />
+    </ListBlock>
+  );
+}
+
 /* --------------------------------- page ----------------------------------- */
+
+function countOf(list: PaginatedList<unknown>): number | null {
+  return list.loading && list.rows.length === 0 ? null : list.rows.length;
+}
 
 export function HistoryPage({
   profiles = [],
@@ -731,48 +718,75 @@ export function HistoryPage({
    *  nothing to filter there. */
   readonly profiles?: readonly string[];
 }) {
-  const { buckets, error: activityError } = useActivityBuckets();
+  const { activity, error: activityError, retry } = useSplitActivity();
   const [filters, setFilters] = useState<VisitFilters>(DEFAULT_VISIT_FILTERS);
-  const visits = useVisits(filters);
+  const parameters = useMemo(() => visitParameters(filters), [filters]);
+  const visits = useCommitStateLists<Finding>("history", parameters);
+  const [view, setView] = useState<CommitView>("saved");
   const [selected, setSelected] = useState<SelectedRow | null>(null);
 
-  // Per-day totals for the activity area, summed across every hour bucket.
-  // Sparse — only days with recorded activity — because "active days" below
-  // literally counts this array's length; it must never be gap-filled.
-  const days = useMemo<readonly DayCount[]>(
-    () => (buckets === null ? [] : bucketsToDays(buckets)),
-    [buckets],
-  );
-
-  // The same days, continuous: zero-count bars fill the gaps between them so
-  // the chart's x-axis is real calendar time — the same shared reading
-  // Overview's and Timeline's identical "page visits per day" charts draw.
-  // Never used for the stats below; those stay on the sparse `days`.
-  const chartDays = useMemo(() => fillGaps(days), [days]);
-
-  // Figure strip: recorded visits and active days come from the authoritative
-  // `activity` set (the same one the charts draw), not from the truncatable
-  // visit page; distinct sites is a floor read off the loaded visit rows and
-  // is labelled as such rather than claimed as the Case total.
-  const figures = useMemo(() => {
-    const totalVisits = days.reduce((sum, day) => sum + day.count, 0);
-    const activeDays = days.length;
+  // Figures from the saved activity rows. `days` is sparse — only days with
+  // a saved visit — because "active days" literally counts its length; it
+  // is never gap-filled.
+  const activityFigures = useMemo<Read<ActivityFigures>>(() => {
+    if (activityError !== null) {
+      return { state: "failed" };
+    }
+    if (activity === null) {
+      return { state: "loading" };
+    }
+    const days = bucketsToDays(activity.saved);
     const first = days[0]?.date;
     const last = days[days.length - 1]?.date;
-    const span =
-      first === undefined || last === undefined ? null : { first, last };
+    return {
+      state: "ready",
+      value: {
+        savedVisits: visitTotal(activity.saved),
+        recoveredVisits: visitTotal(activity.recovered),
+        activeDays: days.length,
+        span:
+          first === undefined || last === undefined ? null : { first, last },
+      },
+    };
+  }, [activity, activityError]);
+
+  // The date picker spans every recorded day, saved or recovered: its range
+  // filters both visit lists.
+  const pickerSpan = useMemo(() => {
+    if (activity === null) {
+      return { min: null, max: null };
+    }
+    const days = bucketsToDays([...activity.saved, ...activity.recovered]);
+    return {
+      min: days[0]?.date ?? null,
+      max: days[days.length - 1]?.date ?? null,
+    };
+  }, [activity]);
+
+  // Distinct sites: a floor read off the loaded saved visit rows, labelled
+  // as such rather than claimed as the Case total.
+  const saved = visits.saved;
+  const distinctHosts = useMemo<Read<{ count: number; more: boolean }>>(() => {
+    if (saved.error !== null && saved.rows.length === 0) {
+      return { state: "failed" };
+    }
+    if (saved.loading && saved.rows.length === 0) {
+      return { state: "loading" };
+    }
     const hosts = new Set<string>();
-    for (const row of visits.rows) {
+    for (const row of saved.rows) {
       const host = hostOf(fieldText(row.fields.url));
       if (host !== null) {
         hosts.add(host.replace(/^www\./, ""));
       }
     }
-    return { totalVisits, activeDays, span, distinctHosts: hosts.size };
-  }, [days, visits.rows]);
+    return {
+      state: "ready",
+      value: { count: hosts.size, more: saved.cursor !== null },
+    };
+  }, [saved.rows, saved.loading, saved.error, saved.cursor]);
 
   const filtersActive = visitsAreFiltered(filters);
-  const activityLoading = buckets === null && activityError === null;
 
   const select = useCallback((row: Finding) => {
     setSelected({ kind: "finding", row });
@@ -800,122 +814,90 @@ export function HistoryPage({
     <div className="flex flex-col gap-5">
       <CompletenessPanel completeness={completeness} artifacts={["History"]} />
 
-      {/* The Case's browsing at a glance: four figures, then the per-day
-          chart. Every figure is a direct read of the activity/visit sets
-          below, never a new query or an invented number. */}
       <HistoryFigures
-        loading={activityLoading}
-        totalVisits={figures.totalVisits}
-        activeDays={figures.activeDays}
-        span={figures.span}
-        distinctHosts={figures.distinctHosts}
+        activity={activityFigures}
+        distinctHosts={distinctHosts}
       />
 
       <ActivityPanel
-        days={chartDays}
-        loading={activityLoading}
+        activity={activity}
         error={activityError}
+        onRetry={retry}
         range={{ from: filters.from, to: filters.to }}
         onRangeChange={({ from, to }) => {
           setFilters((current) => ({ ...current, from, to }));
         }}
-        rangeMin={figures.span?.first ?? null}
-        rangeMax={figures.span?.last ?? null}
+        rangeMin={pickerSpan.min}
+        rangeMax={pickerSpan.max}
         selectedDate={selectedDate}
         onSelectDay={onSelectDay}
       />
 
-      {/* The raw visit stream. Curated columns; every wire field stays
-          reachable through the row detail sheet. */}
-      <Panel
-        role="region"
-        aria-labelledby="history-visits-title"
-        className="overflow-clip"
-      >
-        <PanelHeader className="items-center pb-3">
-          <div className="flex min-w-0 items-baseline gap-2.5">
-            <PanelTitle id="history-visits-title">Recorded visits</PanelTitle>
-            <VisitCount
-              count={visits.rows.length}
-              more={visits.cursor !== null}
-              loading={visits.loading && visits.rows.length === 0}
-            />
-          </div>
-          {filtersActive ? (
-            <Button variant="ghost" size="compact" onClick={clearFilters}>
+      {/* The raw visit stream, saved and recovered as two server reads.
+          Curated columns; every wire field stays reachable through the row
+          detail sheet. */}
+      <SectionPanel
+        id="history-visits-title"
+        title="Recorded visits"
+        description="Every page visit Chrome recorded, filtered on the server."
+        aside={
+          filtersActive ? (
+            <Button
+              variant="ghost"
+              size="compact"
+              className="ml-auto"
+              onClick={clearFilters}
+            >
               Clear filters
             </Button>
-          ) : null}
-        </PanelHeader>
-
-        <SizeProvider size="compact">
-          <VisitToolbar
-            filters={filters}
-            setFilters={setFilters}
-            profiles={profiles}
-          />
-        </SizeProvider>
-
-        <div className="border-t border-border">
-          {visits.error !== null ? (
-            <ErrorRows message={visits.error} onRetry={visits.retry} />
-          ) : visits.loading && visits.rows.length === 0 ? (
-            <LoadingRows rows={8} />
-          ) : (
-            <VisitTable
-              rows={visits.rows}
+          ) : undefined
+        }
+      >
+        <CommitStateSplit
+          value={view}
+          onValueChange={setView}
+          label="Saved or recovered visits"
+          savedCount={countOf(visits.saved)}
+          recoveredCount={countOf(visits.recovered)}
+          savedMore={visits.saved.cursor !== null}
+          recoveredMore={visits.recovered.cursor !== null}
+          toolbar={
+            <VisitFilterControls
+              filters={filters}
+              setFilters={setFilters}
+              profiles={profiles}
+            />
+          }
+          saved={
+            <VisitList
+              list={visits.saved}
+              recovered={false}
               filtersActive={filtersActive}
               onSelect={select}
               onClearFilters={clearFilters}
             />
-          )}
-        </div>
-
-        <ListFooter
-          count={visits.rows.length}
-          cursor={visits.cursor}
-          loading={visits.loading}
-          onLoadMore={visits.loadMore}
+          }
+          recovered={
+            <VisitList
+              list={visits.recovered}
+              recovered
+              filtersActive={filtersActive}
+              onSelect={select}
+              onClearFilters={clearFilters}
+            />
+          }
         />
-      </Panel>
+      </SectionPanel>
 
       {selected !== null ? (
         <RowSheet
           selected={selected}
-          title={
-            fieldText(selected.row.fields.title) ??
-            hostOf(fieldText(selected.row.fields.url)) ??
-            "Page visit"
-          }
+          title={fieldText(selected.row.fields.title) ?? "Page visit"}
           onClose={() => {
             setSelected(null);
           }}
         />
       ) : null}
     </div>
-  );
-}
-
-function VisitCount({
-  count,
-  more,
-  loading,
-}: {
-  readonly count: number;
-  readonly more: boolean;
-  readonly loading: boolean;
-}) {
-  const size = useSize();
-  if (loading) {
-    return null;
-  }
-  return (
-    <span
-      className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
-      style={{ fontVariationSettings: fontWeights.normal }}
-    >
-      {count.toLocaleString("en-US")}
-      {more ? " loaded" : ""}
-    </span>
   );
 }

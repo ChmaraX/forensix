@@ -1,6 +1,9 @@
 /**
- * Timeline: one chronological stream across artifacts, never split by Commit
- * State (splitting would hide chronology). Moved out of app.tsx unchanged.
+ * Timeline: the chronological stream across artifacts. Evidence coverage
+ * first (every artifact the timeline merges), then the activity widget, then
+ * the records. The timeline route has no Commit State filter, so the
+ * records panel splits the loaded stream into saved and recovered events
+ * (`splitByCommit`) — two lists, each still in time order (forensic rule 4).
  */
 import { useMemo, useState } from "react";
 
@@ -46,7 +49,6 @@ export function TimelinePage({
         artifacts={TIMELINE_COVERAGE}
       />
       <TimelineActivityCard range={range} onRangeChange={setRange} />
-      {/* This stays one stream: splitting commit states would hide chronology. */}
       <TimelineRecordsCard
         rows={list.rows}
         loading={list.loading}
@@ -60,6 +62,9 @@ export function TimelinePage({
         direction={direction}
         onDirectionChange={setDirection}
         rangeActive={range.from !== "" || range.to !== ""}
+        onClearRange={() => {
+          setRange({ from: "", to: "" });
+        }}
       />
       {selected !== null ? (
         <RowSheet

@@ -13,11 +13,19 @@
  * labelled as ranked Candidates and never feeds a figure or a highlight.
  *
  * Presentation is Fluid Functionalism throughout: an unframed masthead on
- * the page substrate (the shell renders no page header here), `Panel`
- * surfaces for every section, FF ghost buttons for the jump links, one fluid
- * hover highlight on the Top sites list, and `reveal-swap` for the load.
+ * the page substrate (the shell renders no page header here), one
+ * `MetricBand` of figures, `ChartSection` for the two charts and
+ * `SectionPanel` for every other section, FF ghost buttons for the jump
+ * links, one fluid hover highlight on the Top sites list, and `reveal-swap`
+ * for the load.
+ *
+ * Saved and recovered rows: the Top sites and Recent downloads reads ask for
+ * saved rows only (`commit-state=committed`), and say so. The activity read
+ * (`fetchActivityBuckets`, shared with History and Timeline) has no
+ * Commit State filter yet, so every figure and chart drawn from it says it
+ * counts saved and recovered visits together.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import {
   bucketsToDays,
@@ -31,8 +39,10 @@ import {
   useChartTokens,
   type DayCount,
 } from "@/components/charts";
+import { ChartSection } from "@/components/chart-section";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { Panel } from "@/components/panel";
+import { ErrorRows } from "@/components/list-states";
+import { SectionPanel } from "@/components/page-kit";
 import { Term } from "@/components/term";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 
@@ -52,15 +62,15 @@ import {
   type OverviewData,
 } from "./overview/data";
 import {
+  CaseFigures,
   DownloadsList,
-  HighlightsBand,
   HourSpark,
+  JumpLink,
   LoadingOverview,
   Masthead,
-  SectionHeader,
   SubjectList,
   TopSitesList,
-  type Highlight,
+  type CaseFigure,
 } from "./overview/parts";
 
 export function OverviewPage({
@@ -73,6 +83,8 @@ export function OverviewPage({
 }) {
   const [data, setData] = useState<OverviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by Retry: re-runs the read from scratch.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,14 +106,22 @@ export function OverviewPage({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
 
   if (error !== null) {
     return (
-      <Banner status="error" contrast="high">
-        <BannerTitle>The overview could not be loaded</BannerTitle>
-        <BannerDescription>{error}</BannerDescription>
-      </Banner>
+      <div className="flex flex-col gap-5">
+        <ErrorRows
+          title="The overview could not be loaded."
+          message={error}
+          onRetry={() => {
+            setError(null);
+            setData(null);
+            setAttempt((count) => count + 1);
+          }}
+          className="p-0"
+        />
+      </div>
     );
   }
 
@@ -124,6 +144,9 @@ function OverviewContent({
   readonly onOpen?: (key: string, param?: string) => void;
 }) {
   const tokens = useChartTokens();
+  const subjectId = useId();
+  const topSitesId = useId();
+  const downloadsId = useId();
   // The date range narrows the activity panels client-side. History's `from`
   // / `to` bounds apply only to the `visits` view server-side (per-day and
   // per-hour activity is a precomputed summary), so `activity` is fetched
@@ -280,9 +303,11 @@ function OverviewContent({
       : `${String(windowed.days.length)} active day${windowed.days.length === 1 ? "" : "s"} in range, of a recorded span of ${spanLabel ?? "no dated activity"}.`
     : null;
 
-  // The highlights: each a plain reading of a number the page already
-  // computed above, never a new query. A Case (or range) with nothing of
-  // that shape says so in a muted state, not by hiding the reading.
+  // The figures: each a plain reading of a number the page already computed
+  // above, never a new query. A Case (or range) with nothing of that shape
+  // says so in words, muted, rather than hiding the reading. Everything read
+  // from `activity` counts saved and recovered visits together (see the
+  // module note), and the figures say so.
   const topSite = data.mostVisited[0] ?? null;
   const peakHour = windowed.hourTotals.reduce<{
     hour: number;
@@ -294,40 +319,97 @@ function OverviewContent({
         : best,
     null,
   );
-  const highlights: readonly Highlight[] = [
+  const visitScope = truncated
+    ? "Saved and recovered, loaded days"
+    : rangeActive
+      ? "Saved and recovered, in range"
+      : "Saved and recovered visits";
+  const figures: readonly CaseFigure[] = [
     {
+      key: "visits",
+      label: "Page visits",
+      value: windowed.totalVisits,
+      recorded: true,
+      detail: visitScope,
+    },
+    {
+      key: "active-days",
+      label: "Active days",
+      value: windowed.days.length,
+      recorded: true,
+      detail: "Days with at least one visit",
+    },
+    {
+      key: "readable",
+      // Derived from the Completeness Statement alone: produced over
+      // attempted, summed across every artifact the analyzer attempted.
+      label: (
+        <Term
+          label="Readable"
+          technical="Completeness Statement: produced / attempted"
+        >
+          Share of this Case&apos;s artifacts the analyzer could read, from the
+          Completeness Statement. Each artifact page lists what was and was not
+          read.
+        </Term>
+      ),
+      value:
+        coverage.attempted === 0
+          ? "Not analyzed"
+          : `${String(Math.round((coverage.produced / coverage.attempted) * 100))}%`,
+      recorded: coverage.attempted > 0,
+      detail:
+        coverage.attempted === 0
+          ? "Completeness Statement: none attempted"
+          : `Completeness Statement: ${String(coverage.produced)} of ${String(coverage.attempted)} read`,
+    },
+    {
+      key: "profiles",
+      label: data.profiles.length === 1 ? "Profile" : "Profiles",
+      value: data.profiles.length,
+      recorded: true,
+      detail:
+        data.profiles.length === 0
+          ? "No profiles recorded"
+          : data.profiles.join(", "),
+    },
+    {
+      key: "busiest-day",
       label: "Busiest day",
       recorded: windowed.busiest !== null,
       value:
         windowed.busiest === null
           ? "No dated activity"
           : formatDay(windowed.busiest.date),
-      note:
+      detail:
         windowed.busiest === null
-          ? "No page visits recorded in range."
+          ? "No page visits recorded in range"
           : `${windowed.busiest.count.toLocaleString("en-US")} page visits`,
     },
     {
+      key: "busiest-hour",
       label: "Busiest hour",
       recorded: peakHour !== null,
       value:
         peakHour === null ? "No timed activity" : formatHour(peakHour.hour),
-      note:
+      detail:
         peakHour === null
-          ? "No hourly data recorded."
+          ? "No hourly data recorded"
           : `${peakHour.count.toLocaleString("en-US")} page visits, local time`,
       aside: <HourSpark hours={windowed.hourTotals} />,
     },
     {
+      key: "top-site",
       label: "Most visited site",
       recorded: topSite !== null,
       value: topSite === null ? "No visited sites" : domainOf(topSite.url),
-      note:
+      detail:
         topSite === null
-          ? "No sites recorded yet."
-          : `${topSite.count.toLocaleString("en-US")} recorded visits`,
+          ? "No saved site visits recorded"
+          : `${topSite.count.toLocaleString("en-US")} saved visits`,
     },
     {
+      key: "quiet",
       label: "Longest quiet stretch",
       recorded: quietGap !== null,
       value:
@@ -336,12 +418,12 @@ function OverviewContent({
             ? "No dated activity"
             : "No quiet days"
           : `${String(quietGap.days)} day${quietGap.days === 1 ? "" : "s"}`,
-      note:
+      detail:
         quietGap === null
           ? windowed.days.length === 0
-            ? "No page visits recorded in range."
-            : "No day-long gaps inside the active span."
-          : `No visits between ${formatDay(quietGap.from)} and ${formatDay(quietGap.to)}`,
+            ? "No page visits recorded in range"
+            : "No day-long gaps inside the active span"
+          : `Between ${formatDay(quietGap.from)} and ${formatDay(quietGap.to)}`,
     },
   ];
 
@@ -352,8 +434,22 @@ function OverviewContent({
           onOpen(key);
         };
 
+  // The activity read stopped at its page cap: both charts drawn from it say
+  // so in their footer instead of silently covering less than the span.
+  const truncationNote = truncated ? (
+    <Banner status="warning" contrast="high" size="compact" className="w-full">
+      <BannerTitle>
+        This chart stops short of the full recorded span
+      </BannerTitle>
+      <BannerDescription>
+        The recorded span is {spanLabel ?? "undated"}; the chart covers only{" "}
+        {chartsCoverLabel}, the most this page could read.
+      </BannerDescription>
+    </Banner>
+  ) : undefined;
+
   return (
-    <div className="reveal-items flex flex-col gap-6">
+    <div className="reveal-items flex flex-col gap-5">
       <Masthead
         subjectName={subjectName}
         meta={heroMeta}
@@ -376,74 +472,39 @@ function OverviewContent({
             }}
           />
         }
-        visits={windowed.totalVisits}
-        activeDays={windowed.days.length}
-        readable={{
-          label: (
-            <Term
-              label="Readable"
-              technical="Completeness Statement: produced / attempted"
-            >
-              Share of this Case&apos;s artifacts the analyzer could read. Each
-              artifact page lists what was and was not read.
-            </Term>
-          ),
-          value:
-            coverage.attempted === 0
-              ? "—"
-              : `${String(Math.round((coverage.produced / coverage.attempted) * 100))}%`,
-          note:
-            coverage.attempted === 0
-              ? "no artifacts attempted"
-              : `${String(coverage.produced)} of ${String(coverage.attempted)} artifacts`,
-        }}
-        profiles={data.profiles}
       />
 
-      <HighlightsBand items={highlights} />
+      <CaseFigures items={figures} />
 
       <div className="grid grid-cols-12 gap-4">
         {/* Activity — the page's main chart. */}
-        <Panel className="col-span-12 overflow-hidden lg:col-span-8">
-          <SectionHeader
-            title="Browsing activity"
-            description="Page visits recorded in this Case, per day."
-            linkLabel="History"
-            onOpen={open("history")}
-          />
-          {truncated ? (
-            <div className="px-4 pt-1 pb-2">
-              <Banner status="warning" contrast="high" size="compact">
-                <BannerTitle>
-                  These charts stop short of the full recorded span
-                </BannerTitle>
-                <BannerDescription>
-                  The recorded span is {spanLabel ?? "undated"}; the charts
-                  cover only {chartsCoverLabel}, the most this page could read.
-                </BannerDescription>
-              </Banner>
-            </div>
-          ) : null}
+        <ChartSection
+          title="Browsing activity"
+          description="Page visits per day, saved and recovered together."
+          action={<JumpLink label="History" onOpen={open("history")} />}
+          footer={truncationNote}
+          className="col-span-12 lg:col-span-8"
+        >
           {/* Recharts measures its parent, and a bare flex child resolves to
               zero height — so the plot fills an absolutely positioned box
               inside a `flex-1` content area, and stretches to the grid row's
               real height (set by the Subject panel beside it). */}
           <div className="relative min-h-[240px] flex-1">
-            <div className="absolute inset-0 pt-2 pr-4 pb-3 pl-2">
+            <div className="absolute inset-0 px-2 pt-2 pb-3">
               <ActivityBars days={chartDays} tokens={tokens} />
             </div>
           </div>
-        </Panel>
+        </ChartSection>
 
         {/* Subject — the full identity readout, beside the activity it
             belongs next to. */}
-        <Panel className="col-span-12 lg:col-span-4">
-          <SectionHeader
-            title="Subject"
-            description="Read from Preferences and Local State."
-            linkLabel="Metadata"
-            onOpen={open("metadata")}
-          />
+        <SectionPanel
+          id={subjectId}
+          title="Subject"
+          description="Read from Preferences and Local State."
+          aside={<JumpLink label="Metadata" onOpen={open("metadata")} />}
+          className="col-span-12 lg:col-span-4"
+        >
           <SubjectList
             fields={[
               {
@@ -480,17 +541,17 @@ function OverviewContent({
               },
             ]}
           />
-        </Panel>
+        </SectionPanel>
 
         {/* Top sites + Topic categorization — a matched pair right under
             Activity/Subject. */}
-        <Panel className="col-span-12 md:col-span-6">
-          <SectionHeader
-            title="Top sites"
-            description="By recorded visits."
-            linkLabel="Top sites"
-            onOpen={open("top-sites")}
-          />
+        <SectionPanel
+          id={topSitesId}
+          title="Top sites"
+          description="By saved visits."
+          aside={<JumpLink label="Top sites" onOpen={open("top-sites")} />}
+          className="col-span-12 md:col-span-6"
+        >
           <TopSitesList
             sites={data.mostVisited}
             favicons={data.favicons}
@@ -502,39 +563,39 @@ function OverviewContent({
                   }
             }
           />
-        </Panel>
+        </SectionPanel>
 
         {/* TODO: still backed by mock data — wire to the real
             topic-candidates / topic-status routes once they exist. */}
         <TopicWidget state={topicState} className="col-span-12 md:col-span-6" />
 
-        {/* Time of day. Coverage lives in the masthead's "Readable" figure
-            here, and in full as the Evidence coverage panel every artifact
-            page opens with. */}
-        <Panel className="col-span-12 overflow-hidden md:col-span-6">
-          <SectionHeader
-            title="Time of day"
-            description="When the visits happened, by local hour."
-            linkLabel="Timeline"
-            onOpen={open("timeline")}
-          />
+        {/* Time of day. Coverage lives in the "Readable" figure here, and in
+            full as the Evidence coverage panel every artifact page opens
+            with. */}
+        <ChartSection
+          title="Time of day"
+          description="Page visits by local hour, saved and recovered together."
+          action={<JumpLink label="Timeline" onOpen={open("timeline")} />}
+          footer={truncationNote}
+          className="col-span-12 md:col-span-6"
+        >
           <div className="relative min-h-[220px] flex-1">
-            <div className="absolute inset-0 pt-2 pr-4 pb-3 pl-2">
+            <div className="absolute inset-0 px-2 pt-2 pb-3">
               <HourBars hours={windowed.hourTotals} tokens={tokens} />
             </div>
           </div>
-        </Panel>
+        </ChartSection>
 
         {/* Recent downloads — paired with Time of day as two even halves. */}
-        <Panel className="col-span-12 md:col-span-6">
-          <SectionHeader
-            title="Recent downloads"
-            description="Target file and source, newest first."
-            linkLabel="Downloads"
-            onOpen={open("downloads")}
-          />
+        <SectionPanel
+          id={downloadsId}
+          title="Recent downloads"
+          description="Saved downloads: target file and source, newest first."
+          aside={<JumpLink label="Downloads" onOpen={open("downloads")} />}
+          className="col-span-12 md:col-span-6"
+        >
           <DownloadsList downloads={data.downloads} />
-        </Panel>
+        </SectionPanel>
       </div>
     </div>
   );

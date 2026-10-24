@@ -11,9 +11,10 @@
  *
  * Presentation rules kept: hosts and counts are grouped records, never
  * inference; states are worded, never colour alone; a field without its own
- * recorded value shows the word "absent"; within each kind, rows recovered
- * from the WAL / rollback journal are a separate list from saved rows, never
- * sorted in.
+ * recorded value shows its own word ("(empty)", "absent", "unavailable");
+ * within each kind, rows recovered from the WAL / rollback journal are a
+ * separate list from saved rows (the stacked CommitStateSplit), never sorted
+ * in, and the host's figures count saved and recovered rows apart.
  */
 import {
   Bookmark,
@@ -41,6 +42,7 @@ import {
   CardFooter,
   CardGroup,
   CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
 import {
@@ -67,23 +69,18 @@ import type {
 } from "../types.js";
 import { CompletenessPanel, SITES_COVERAGE } from "./completeness.js";
 import {
+  CARD_TITLE_CLEAR,
   CommitStateSplit,
   Count,
   IconTile,
   splitByCommit,
-  TimeText,
+  TimeCell,
 } from "./page-kit.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
-import {
-  AbsentWord,
-  fieldInteger,
-  fieldText,
-  fieldUtc,
-  SiteAvatar,
-  StateWord,
-} from "./finding-fields.js";
+import { FieldCell, SiteAvatar, StateWord } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
-import { ErrorRows } from "./list-states.js";
+import { ErrorRows, LoadingRows } from "./list-states.js";
+import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
 /**
@@ -197,7 +194,11 @@ function hostSummary(host: SiteHost): string {
 
 function HostListSkeleton() {
   return (
-    <div aria-hidden="true" className="reveal-items flex flex-col gap-1 p-1">
+    <div
+      role="status"
+      aria-label="Loading observed hosts"
+      className="reveal-items flex flex-col gap-1 p-1"
+    >
       {[0, 1, 2, 3, 4, 5].map((index) => (
         <div key={index} className="flex h-[60px] items-center gap-2.5 px-3">
           <Skeleton className="size-7 rounded-md" />
@@ -212,49 +213,10 @@ function HostListSkeleton() {
 }
 
 /**
- * A host name that gains weight when selected without reflowing (the
- * ghost-span pattern), and ellipsizes without clipping its descenders.
- */
-function HostName({
-  host,
-  selected,
-}: {
-  readonly host: string;
-  readonly selected: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        typeClass("body", "compact"),
-        "grid grid-cols-[minmax(0,1fr)] text-foreground",
-      )}
-      title={host}
-    >
-      <span
-        aria-hidden="true"
-        className="invisible col-start-1 row-start-1 truncate"
-        style={{ fontVariationSettings: fontWeights.semibold }}
-      >
-        {host}
-      </span>
-      <span
-        className="col-start-1 row-start-1 truncate transition-[font-variation-settings] duration-80"
-        style={{
-          fontVariationSettings: selected
-            ? fontWeights.semibold
-            : fontWeights.normal,
-        }}
-      >
-        {host}
-      </span>
-    </span>
-  );
-}
-
-/**
  * The master list: an FF CardGroup of inline cards, one per host. The fluid
  * highlight previews the host under the pointer; the selected host keeps the
- * selection fill and its name gains weight without reflow.
+ * selection fill and its CardTitle gains weight without reflow (FF's own
+ * ghost-span title).
  */
 function HostList({
   hosts,
@@ -277,12 +239,13 @@ function HostList({
 }) {
   return (
     <Panel
-      aria-label="Observed hosts"
+      role="region"
+      aria-labelledby="sites-hosts-title"
       className="overflow-clip md:sticky md:top-16"
     >
       <PanelHeader className="items-center pb-3">
         <div className="flex items-center gap-2">
-          <PanelTitle>Observed hosts</PanelTitle>
+          <PanelTitle id="sites-hosts-title">Observed hosts</PanelTitle>
           <Count>{hosts.length}</Count>
         </div>
       </PanelHeader>
@@ -299,7 +262,11 @@ function HostList({
         </div>
       </SizeProvider>
       {error !== null ? (
-        <ErrorRows message={error} onRetry={onRetry} />
+        <ErrorRows
+          title="The observed hosts could not be loaded."
+          message={error}
+          onRetry={onRetry}
+        />
       ) : loading && hosts.length === 0 ? (
         <HostListSkeleton />
       ) : hosts.length === 0 ? (
@@ -325,10 +292,9 @@ function HostList({
                 >
                   <SiteAvatar host={item.host} />
                   <CardHeader>
-                    <HostName
-                      host={item.host}
-                      selected={selected === item.host}
-                    />
+                    <CardTitle className={CARD_TITLE_CLEAR} title={item.host}>
+                      {item.host}
+                    </CardTitle>
                     <CardDescription
                       className={cn(typeClass("caption"), "truncate")}
                     >
@@ -360,37 +326,25 @@ interface KindColumn {
   readonly cell: (row: SiteFinding) => ReactNode;
 }
 
-function TextCell({
-  value,
-  mono = false,
-}: {
-  readonly value: string | null;
-  readonly mono?: boolean;
-}) {
-  if (value === null) {
-    return <AbsentWord />;
-  }
-  return (
-    <span className={cn("block truncate", mono && "font-mono")} title={value}>
-      {value}
-    </span>
-  );
-}
-
 const timeColumn = (label: string, field: string): KindColumn => ({
   label,
-  cell: (row) => <TimeText utc={fieldUtc(row.fields[field])} />,
+  cell: (row) => <TimeCell field={row.fields[field]} />,
 });
 
 const textColumn = (
   label: string,
   field: string,
-  options: { readonly mono?: boolean; readonly lead?: boolean } = {},
+  options: { readonly lead?: boolean; readonly prose?: boolean } = {},
 ): KindColumn => ({
   label,
   lead: options.lead,
+  // Raw values (URLs, names, paths) stay mono; prose (titles, folders) reads
+  // in the body face. Every other state keeps its own word either way.
   cell: (row) => (
-    <TextCell value={fieldText(row.fields[field])} mono={options.mono} />
+    <FieldCell
+      field={row.fields[field]}
+      format={options.prose === true ? (value) => String(value) : undefined}
+    />
   ),
 });
 
@@ -404,42 +358,44 @@ const KIND_COLUMNS: Readonly<Record<SiteArtifactKind, readonly KindColumn[]>> =
   {
     visits: [
       timeColumn("Time", "visitTime"),
-      textColumn("Title", "title", { lead: true }),
-      textColumn("URL", "url", { mono: true }),
+      textColumn("Title", "title", { lead: true, prose: true }),
+      textColumn("URL", "url"),
     ],
     cookies: [
-      textColumn("Cookie", "name", { mono: true, lead: true }),
-      textColumn("Path", "path", { mono: true }),
+      textColumn("Cookie", "name", { lead: true }),
+      textColumn("Path", "path"),
       timeColumn("Created", "creationTime"),
       timeColumn("Expires", "expiresTime"),
     ],
     saved_logins: [
-      textColumn("Username", "usernameValue", { mono: true, lead: true }),
-      textColumn("Sign-on realm", "signonRealm", { mono: true }),
+      textColumn("Username", "usernameValue", { lead: true }),
+      textColumn("Sign-on realm", "signonRealm"),
       timeColumn("Created", "dateCreated"),
       timeColumn("Last used", "dateLastUsed"),
     ],
     bookmarks: [
-      textColumn("Bookmark", "name", { lead: true }),
-      textColumn("URL", "url", { mono: true }),
-      textColumn("Folder", "folderPath"),
+      textColumn("Bookmark", "name", { lead: true, prose: true }),
+      textColumn("URL", "url"),
+      textColumn("Folder", "folderPath", { prose: true }),
       timeColumn("Added", "dateAdded"),
     ],
     top_sites: [
       {
         label: "Rank",
         numeric: true,
-        cell: (row) => {
-          const rank = fieldInteger(row.fields.urlRank);
-          return rank === null ? <AbsentWord /> : rank;
-        },
+        cell: (row) => (
+          <FieldCell
+            field={row.fields.urlRank}
+            format={(value) => String(value)}
+          />
+        ),
       },
-      textColumn("Title", "title", { lead: true }),
-      textColumn("URL", "url", { mono: true }),
+      textColumn("Title", "title", { lead: true, prose: true }),
+      textColumn("URL", "url"),
     ],
     form_data: [
-      textColumn("Field", "fieldName", { mono: true, lead: true }),
-      textColumn("Value", "fieldValue", { mono: true }),
+      textColumn("Field", "fieldName", { lead: true }),
+      textColumn("Value", "fieldValue"),
       timeColumn("Last used", "dateLastUsed"),
     ],
   };
@@ -457,7 +413,7 @@ function KindTable({
 }) {
   const columns = KIND_COLUMNS[kind];
   return (
-    <div className="scroll-fade-x overflow-x-auto px-2 py-1">
+    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
       <Table className="tabular-nums">
         <TableHeader>
           <TableRow>
@@ -478,7 +434,7 @@ function KindTable({
             ) : null}
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody className="reveal-items">
           {rows.map((row, index) => {
             const open = () => {
               onSelect(row);
@@ -538,13 +494,22 @@ function KindPanel({
   readonly onSelect: (row: Finding) => void;
 }) {
   const { saved, recovered } = splitByCommit(rows);
+  const titleId = `sites-kind-${meta.kind}`;
   return (
-    <Panel aria-label={meta.label} className="overflow-clip">
+    <Panel role="region" aria-labelledby={titleId} className="overflow-clip">
       <PanelHeader className="items-center pb-2">
         <div className="flex items-center gap-3">
           <IconTile icon={meta.icon} />
-          <PanelTitle>{meta.label}</PanelTitle>
-          <Count>{rows.length}</Count>
+          {/* Under the host's h2: a third-level heading. */}
+          <PanelTitle id={titleId} role="heading" aria-level={3}>
+            {meta.label}
+          </PanelTitle>
+          <Count>
+            {`${saved.length.toLocaleString("en-US")} saved`}
+            {recovered.length === 0
+              ? ""
+              : ` · ${recovered.length.toLocaleString("en-US")} recovered`}
+          </Count>
         </div>
       </PanelHeader>
       <CommitStateSplit
@@ -560,14 +525,10 @@ function KindPanel({
               onSelect={onSelect}
             />
           ) : (
-            <p
-              className={cn(
-                typeClass("body"),
-                "px-4 pb-3 text-muted-foreground",
-              )}
-            >
-              No saved rows: every row of this kind for this host was recovered.
-            </p>
+            <EmptyRows
+              className="py-6"
+              message="No saved rows: every row of this kind for this host was recovered."
+            />
           )
         }
         recovered={
@@ -585,48 +546,24 @@ function KindPanel({
 
 /* ------------------------------- host detail ------------------------------- */
 
-function HostStat({
-  label,
-  value,
-  detail,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly detail: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <dt className={cn(typeClass("caption"), "text-muted-foreground")}>
-        {label}
-      </dt>
-      <dd
-        className={cn(typeClass("title"), "text-foreground tabular-nums")}
-        style={{ fontVariationSettings: fontWeights.semibold }}
-      >
-        {value}
-      </dd>
-      <span className={cn(typeClass("caption"), "text-muted-foreground")}>
-        {detail}
-      </span>
-    </div>
-  );
-}
-
+/** Stands in for the first kind panel while the host's rows load. */
 function DetailSkeleton() {
   return (
-    <div aria-hidden="true" className="flex flex-col gap-5">
-      <Skeleton className="h-[140px] w-full rounded-xl" />
-    </div>
+    <Panel className="overflow-clip">
+      <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+        <Skeleton className="size-8 rounded-lg" />
+        <Skeleton className="h-3.5 w-24" />
+      </div>
+      <LoadingRows label="Loading the host's evidence" rows={4} />
+    </Panel>
   );
 }
 
 function HostDetail({
   host,
-  hostMeta,
   onSelect,
 }: {
   readonly host: string;
-  readonly hostMeta: SiteHost | undefined;
   readonly onSelect: (row: Finding) => void;
 }) {
   const findings = useSiteList<SiteFinding>(
@@ -658,8 +595,8 @@ function HostDetail({
   const recoveredCount = findings.rows.filter(
     (row) => row.commitState !== "committed",
   ).length;
-  const recordedRows =
-    hostMeta === undefined ? findings.rows.length : totalOf(hostMeta);
+  const savedCount = findings.rows.length - recoveredCount;
+  const profileCount = new Set(findings.rows.map((row) => row.profile)).size;
   const ready = !(findings.loading && findings.rows.length === 0);
 
   const tabIndex =
@@ -669,61 +606,69 @@ function HostDetail({
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <Panel aria-label={`Observed host ${host}`}>
-        <div className="flex flex-col gap-5 p-5">
-          <div className="flex min-w-0 items-center gap-4">
-            <SiteAvatar host={host} size="lg" />
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <h2
-                className={cn(
-                  typeClass("title"),
-                  "truncate font-mono text-foreground",
-                )}
-                style={{ fontVariationSettings: fontWeights.semibold }}
-                title={host}
-              >
-                {host}
-              </h2>
-              <p className={cn(typeClass("body"), "text-muted-foreground")}>
-                Recorded evidence for this host, grouped by artifact kind.
-              </p>
-            </div>
+      <section
+        aria-labelledby="sites-host-title"
+        className="flex min-w-0 flex-col gap-4"
+      >
+        <div className="flex min-w-0 items-center gap-4 px-1">
+          <SiteAvatar host={host} size="lg" />
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <h2
+              id="sites-host-title"
+              className={cn(
+                typeClass("title"),
+                "truncate font-mono text-foreground",
+              )}
+              style={{ fontVariationSettings: fontWeights.semibold }}
+              title={host}
+            >
+              {host}
+            </h2>
+            <p className={cn(typeClass("body"), "text-muted-foreground")}>
+              Recorded evidence for this host, grouped by artifact kind.
+            </p>
           </div>
-          <dl className="grid grid-cols-3 gap-4 border-t border-border pt-4">
-            <HostStat
-              label="Recorded rows"
-              value={recordedRows.toLocaleString("en-US")}
-              detail="across this host"
-            />
-            <HostStat
-              label="Evidence kinds"
-              value={
-                findings.error !== null
-                  ? "not loaded"
-                  : ready
-                    ? String(presentKinds.length)
-                    : "…"
-              }
-              detail="recorded artifact types"
-            />
-            <HostStat
-              label="Recovered"
-              value={
-                findings.error !== null
-                  ? "not loaded"
-                  : ready
-                    ? recoveredCount.toLocaleString("en-US")
-                    : "…"
-              }
-              detail="from WAL or journal"
-            />
-          </dl>
         </div>
-      </Panel>
+        {findings.error !== null ? null : (
+          <div className="reveal-swap">
+            <div role="status" aria-label="Loading host figures">
+              <Skeleton className="h-[148px] w-full rounded-xl lg:h-[74px]" />
+            </div>
+            {ready ? (
+              <MetricBand className="grid-cols-2 lg:grid-cols-4">
+                <MetricBandItem
+                  label="Saved rows"
+                  value={savedCount.toLocaleString("en-US")}
+                  detail="committed rows"
+                />
+                <MetricBandItem
+                  label="Recovered rows"
+                  value={recoveredCount.toLocaleString("en-US")}
+                  detail="from WAL or journal"
+                />
+                <MetricBandItem
+                  label="Evidence kinds"
+                  value={presentKinds.length.toLocaleString("en-US")}
+                  detail="recorded artifact types"
+                />
+                <MetricBandItem
+                  label="Profiles"
+                  value={profileCount.toLocaleString("en-US")}
+                  detail="with rows for this host"
+                />
+              </MetricBand>
+            ) : null}
+          </div>
+        )}
+      </section>
 
       {findings.error !== null ? (
         <Panel>
-          <ErrorRows message={findings.error} onRetry={findings.retry} />
+          <ErrorRows
+            title="This host's rows could not be loaded."
+            message={findings.error}
+            onRetry={findings.retry}
+          />
         </Panel>
       ) : ready && findings.rows.length === 0 ? (
         <Panel>
@@ -845,12 +790,7 @@ export function SitesPage({
             />
           </Panel>
         ) : (
-          <HostDetail
-            key={host}
-            host={host}
-            hostMeta={hosts.rows.find((item) => item.host === host)}
-            onSelect={select}
-          />
+          <HostDetail key={host} host={host} onSelect={select} />
         )}
       </div>
       {selected !== null ? (

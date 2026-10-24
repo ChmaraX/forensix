@@ -15,32 +15,29 @@
  * versus long dormant. Every widget is a direct reading of recorded fields —
  * distinct counts, grouped usernames, and day-distances derived from the
  * recorded `dateCreated` / `dateLastUsed` instants. Nothing is inferred or
- * predicted; a credential with no recorded value in a field reads "absent".
+ * predicted; a field with no recorded value reads its own state word.
  *
- * Presentation rules kept: saved logins and logins recovered from WAL /
- * journal sidecars are separate lists (the Saved / Recovered switch), never
- * sorted together; commit states are worded with their dot, never colour
- * alone; every raw wire field stays reachable through the row detail sheet.
+ * Saved logins and logins recovered from WAL / journal sidecars are separate
+ * server reads (`useCommitStateLists`, every page followed so the figures
+ * cover the whole set) and separate lists (the Saved / Recovered switch),
+ * never sorted together. The figures count saved logins; recovered logins
+ * get their own figure and their own marks on the scatter.
  */
-import { KeyRound, Link2, Lock, Search, ShieldAlert } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { KeyRound, Lock, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  Panel,
-  PanelDescription,
-  PanelHeader,
-  PanelTitle,
-} from "@/components/panel";
-import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
+import { Panel } from "@/components/panel";
 import { Badge } from "@/components/ui/badge";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardFooter,
+  CardGroup,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
 import {
   Table,
@@ -50,115 +47,87 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
-import {
-  useFluidHover,
-  useRegisterFluidHoverItem,
-} from "@/hooks/use-fluid-hover";
-import { fontWeights } from "@/lib/font-weight";
-import { useShape } from "@/lib/shape-context";
 import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { callApi } from "../api.js";
+import type { QueryParameters } from "../api.js";
 import type {
   ArtifactConfig,
   CaseCompleteness,
   FieldState,
   Finding,
-  PageOf,
 } from "../types.js";
-import { CompletenessPanel } from "./completeness.js";
 import {
+  useCommitStateLists,
+  type PaginatedList,
+} from "../use-commit-state-lists.js";
+import { ChartSection } from "./chart-section.js";
+import {
+  ChartEmpty,
   CredentialAgeScatter,
   useChartTokens,
   type CredentialAgePoint,
 } from "./charts.js";
+import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
   AbsentWord,
+  FieldCell,
   fieldInteger,
   fieldText,
   fieldUtc,
   hostOf,
+  SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
-import { ErrorRows } from "./list-states.js";
+import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
-import { plural, TimeCell } from "./page-kit.js";
+import {
+  CARD_TITLE_CLEAR,
+  CommitStateSplit,
+  Count,
+  plural,
+  SectionPanel,
+  TimeCell,
+  type CommitView,
+} from "./page-kit.js";
 
 /* ------------------------------ data loading ------------------------------ */
 
-/** Upper bound on pages read for the whole page. Saved-login sets are small
- *  (one row per stored credential), so the widgets read every row rather than
- *  a first page: 60 pages at 100 rows covers 6,000 credentials, well past any
- *  realistic Chrome profile, while still bounding the request count. */
-const CREDENTIAL_PAGE_CAP = 60;
+const CREDENTIAL_PARAMETERS: QueryParameters = [
+  ["sort", "last-used-time"],
+  ["direction", "desc"],
+  ["limit", "100"],
+];
 
-async function fetchAllCredentials(route: string): Promise<readonly Finding[]> {
-  const rows: Finding[] = [];
-  let after: string | null = null;
-  for (let page = 0; page < CREDENTIAL_PAGE_CAP; page += 1) {
-    const parameters: (readonly [string, string])[] = [
-      ["sort", "last-used-time"],
-      ["direction", "desc"],
-      ["limit", "100"],
-    ];
-    if (after !== null) {
-      parameters.push(["after", after]);
-    }
-    const result = await callApi<PageOf<Finding>>(route, parameters);
-    rows.push(...result.items);
-    after = result.nextCursor;
-    if (after === null) {
-      break;
-    }
-  }
-  return rows;
-}
+/** Upper bound on rows read per list. Saved-login sets are small (one row per
+ *  stored credential), so the figures read every row rather than a first
+ *  page: 6,000 credentials is well past any realistic Chrome profile, while
+ *  still bounding the request count. */
+const CREDENTIAL_ROW_CAP = 6000;
 
-function useCredentials(route: string) {
-  const [rows, setRows] = useState<readonly Finding[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
-
+/**
+ * Follows a list's cursor until it runs out (or the cap is hit), one page
+ * after another, so the figures describe the whole set. Returns whether the
+ * list is fully read.
+ */
+function useDrained(list: PaginatedList<Finding>): boolean {
+  const { loading, error, cursor, rows, loadMore } = list;
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setRows([]);
-    fetchAllCredentials(route)
-      .then((result) => {
-        if (!cancelled) {
-          setRows(result);
-          setLoading(false);
-        }
-      })
-      .catch((requestError: unknown) => {
-        if (!cancelled) {
-          setError(
-            requestError instanceof Error
-              ? requestError.message
-              : "Request failed.",
-          );
-          setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [route, nonce]);
-
-  const retry = useCallback(() => {
-    setNonce((value) => value + 1);
-  }, []);
-
-  return { rows, loading, error, retry };
+    if (
+      !loading &&
+      error === null &&
+      cursor !== null &&
+      rows.length < CREDENTIAL_ROW_CAP
+    ) {
+      loadMore();
+    }
+  }, [loading, error, cursor, rows.length, loadMore]);
+  return !loading && (cursor === null || rows.length >= CREDENTIAL_ROW_CAP);
 }
 
 /* --------------------------- derived readings ----------------------------- */
@@ -188,8 +157,6 @@ interface CredentialSummary {
   readonly total: number;
   readonly sites: number;
   readonly identities: number;
-  readonly recovered: number;
-  readonly points: readonly CredentialAgePoint[];
   /** Usernames stored on more than one site, strongest linkage first. */
   readonly reused: readonly {
     readonly username: string;
@@ -197,17 +164,13 @@ interface CredentialSummary {
   }[];
 }
 
+/** Figures over the saved logins only. */
 function summarize(rows: readonly Finding[]): CredentialSummary {
   const hosts = new Set<string>();
   const identities = new Set<string>();
   const byUsername = new Map<string, Set<string>>();
-  const points: CredentialAgePoint[] = [];
-  let recovered = 0;
 
   for (const row of rows) {
-    if (row.commitState !== "committed") {
-      recovered += 1;
-    }
     const host = credentialHost(row);
     if (host !== null) {
       hosts.add(host);
@@ -220,18 +183,6 @@ function summarize(rows: readonly Finding[]): CredentialSummary {
         group.add(host);
         byUsername.set(username, group);
       }
-    }
-    const ageDays = daysSince(fieldUtc(row.fields.dateCreated));
-    const idleDays = daysSince(fieldUtc(row.fields.dateLastUsed));
-    if (ageDays !== null && idleDays !== null) {
-      points.push({
-        site: host ?? "(unknown site)",
-        username: username ?? "(no username)",
-        ageDays,
-        idleDays,
-        timesUsed: fieldInteger(row.fields.timesUsed),
-        recovered: row.commitState !== "committed",
-      });
     }
   }
 
@@ -247,36 +198,45 @@ function summarize(rows: readonly Finding[]): CredentialSummary {
     total: rows.length,
     sites: hosts.size,
     identities: identities.size,
-    recovered,
-    points,
     reused,
   };
 }
 
-/* -------------------------------- widgets --------------------------------- */
-
-/** A small icon well beside a panel title. */
-function TitleIcon({ children }: { readonly children: ReactNode }) {
-  const shape = useShape();
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "inline-flex size-7 shrink-0 items-center justify-center bg-active text-muted-foreground",
-        shape.item,
-      )}
-    >
-      {children}
-    </span>
-  );
+/** Scatter points: saved logins, then recovered ones marked by sidecar. */
+function agePoints(
+  saved: readonly Finding[],
+  recovered: readonly Finding[],
+): readonly CredentialAgePoint[] {
+  const points: CredentialAgePoint[] = [];
+  for (const row of [...saved, ...recovered]) {
+    const ageDays = daysSince(fieldUtc(row.fields.dateCreated));
+    const idleDays = daysSince(fieldUtc(row.fields.dateLastUsed));
+    if (ageDays === null || idleDays === null) {
+      continue;
+    }
+    const isRecovered = row.commitState !== "committed";
+    points.push({
+      site: credentialHost(row) ?? "site absent",
+      username: fieldText(row.fields.usernameValue) ?? "username absent",
+      ageDays,
+      idleDays,
+      timesUsed: fieldInteger(row.fields.timesUsed),
+      recovered: isRecovered,
+      sidecar: row.commitState === "journal_resident" ? "journal" : "wal",
+    });
+  }
+  return points;
 }
 
+/* -------------------------------- widgets --------------------------------- */
+
 /**
- * Reused identities — the same stored username across more than one site.
- * This is account linkage read directly off the evidence, not inference: it
- * only ever states "this exact username string was saved on these sites",
- * which is a fact the rows carry, never a claim the accounts are the same
- * person. Picking an identity narrows the table to it (a second pick clears).
+ * Reused identities — the same stored username across more than one site,
+ * read from the saved logins. This is account linkage read directly off the
+ * evidence, not inference: it only ever states "this exact username string
+ * was saved on these sites", never a claim the accounts are the same person.
+ * Each identity is an FF Card; picking one narrows both lists to it (a second
+ * pick clears).
  */
 function ReusedIdentities({
   reused,
@@ -287,137 +247,56 @@ function ReusedIdentities({
   readonly activeUsername: string | null;
   readonly onPick: (username: string) => void;
 }) {
-  const listRef = useRef<HTMLUListElement>(null);
-  const hover = useFluidHover(listRef, { axis: "y" });
-  const shape = useShape();
   return (
-    <Panel className="h-full">
-      <PanelHeader className="flex-nowrap items-center">
-        <div className="flex min-w-0 items-center gap-3">
-          <TitleIcon>
-            <Link2 className="size-3.5" />
-          </TitleIcon>
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <PanelTitle>Reused usernames</PanelTitle>
-            <PanelDescription>
-              The same username saved on several sites.
-            </PanelDescription>
-          </div>
-        </div>
+    <SectionPanel
+      id="credentials-reused"
+      className="h-full"
+      title="Reused usernames"
+      description="The same username in saved logins on several sites."
+      aside={
         <Badge size="compact" className="tabular-nums">
           {reused.length.toLocaleString("en-US")}
         </Badge>
-      </PanelHeader>
+      }
+    >
       {reused.length === 0 ? (
-        <p
-          className={cn(
-            typeClass("body"),
-            "px-4 pt-2 pb-4 text-muted-foreground",
-          )}
-        >
+        <ChartEmpty>
           No saved username appears on more than one site.
-        </p>
+        </ChartEmpty>
       ) : (
-        <ul
-          ref={listRef}
-          {...hover.handlers}
-          className="relative flex flex-col gap-0.5 px-1 pb-1"
-        >
-          <FluidHoverHighlight hover={hover} className={shape.item} />
-          {reused.map((entry, index) => (
-            <ReusedRow
-              key={entry.username}
-              index={index}
-              registerItem={hover.registerItem}
-              username={entry.username}
-              hosts={entry.hosts}
-              active={activeUsername === entry.username}
-              onPick={onPick}
-            />
-          ))}
-        </ul>
+        <div className="p-1">
+          <SizeProvider size="compact">
+            <CardGroup orientation="inline">
+              {reused.map((entry) => (
+                <Card
+                  key={entry.username}
+                  label={`Narrow the lists to ${entry.username}`}
+                  selected={activeUsername === entry.username}
+                  onClick={() => {
+                    onPick(entry.username);
+                  }}
+                >
+                  <CardHeader className="min-w-0">
+                    <CardTitle className={cn(CARD_TITLE_CLEAR, "font-mono")}>
+                      {entry.username}
+                    </CardTitle>
+                    <CardDescription
+                      className={cn(typeClass("caption"), "truncate")}
+                      title={entry.hosts.join(", ")}
+                    >
+                      {entry.hosts.join(", ")}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardFooter className="pointer-events-none">
+                    <Count>{plural(entry.hosts.length, "site", "sites")}</Count>
+                  </CardFooter>
+                </Card>
+              ))}
+            </CardGroup>
+          </SizeProvider>
+        </div>
       )}
-    </Panel>
-  );
-}
-
-function ReusedRow({
-  index,
-  registerItem,
-  username,
-  hosts,
-  active,
-  onPick,
-}: {
-  readonly index: number;
-  readonly registerItem: (index: number, element: HTMLElement | null) => void;
-  readonly username: string;
-  readonly hosts: readonly string[];
-  readonly active: boolean;
-  readonly onPick: (username: string) => void;
-}) {
-  const ref = useRef<HTMLButtonElement>(null);
-  const shape = useShape();
-  useRegisterFluidHoverItem(registerItem, index, ref);
-  return (
-    <li>
-      <button
-        ref={ref}
-        type="button"
-        aria-pressed={active}
-        onClick={() => {
-          onPick(username);
-        }}
-        className={cn(
-          "relative flex w-full cursor-pointer flex-col gap-2 px-3 py-2.5 text-left transition-colors duration-80",
-          shape.item,
-          active && "bg-active",
-        )}
-      >
-        <span className="flex w-full min-w-0 items-center gap-2">
-          <span
-            className={cn(
-              typeClass("body"),
-              "inline-grid min-w-0 font-mono text-foreground",
-            )}
-          >
-            <span
-              className="col-start-1 row-start-1 truncate transition-[font-variation-settings] duration-80"
-              style={{
-                fontVariationSettings: active
-                  ? fontWeights.semibold
-                  : fontWeights.normal,
-              }}
-              title={username}
-            >
-              {username}
-            </span>
-            <span
-              aria-hidden="true"
-              className="invisible col-start-1 row-start-1 truncate"
-              style={{ fontVariationSettings: fontWeights.semibold }}
-            >
-              {username}
-            </span>
-          </span>
-          <span
-            className={cn(
-              typeClass("caption"),
-              "ml-auto shrink-0 text-muted-foreground tabular-nums",
-            )}
-          >
-            {plural(hosts.length, "site", "sites")}
-          </span>
-        </span>
-        <span className="flex flex-wrap gap-1.5">
-          {hosts.map((host) => (
-            <Badge key={host} size="compact" variant="dot" color="gray">
-              {host}
-            </Badge>
-          ))}
-        </span>
-      </button>
-    </li>
+    </SectionPanel>
   );
 }
 
@@ -425,11 +304,16 @@ function ReusedRow({
  * The stored password's *state*, never its contents. Chrome seals each
  * password with the OS key; the analyzer reports it `unavailable` with a
  * reason, and this cell says exactly that. A `value` state is still withheld
- * — the cell names the state and the row sheet carries the raw field.
+ * — the cell names the state and the row sheet carries the raw field. No own
+ * tab stop: the row is the focus target, and its sheet the explanation.
  */
 function PasswordCell({ field }: { readonly field: FieldState | undefined }) {
+  const size = useSize();
   if (field === undefined || field.state === "absent") {
     return <AbsentWord />;
+  }
+  if (field.state === "value" && field.value === "") {
+    return <FieldCell field={field} />;
   }
   const reason =
     field.state === "unavailable"
@@ -437,10 +321,7 @@ function PasswordCell({ field }: { readonly field: FieldState | undefined }) {
       : "A password value was recorded. It is withheld from this table.";
   return (
     <Tooltip content={reason}>
-      <span
-        tabIndex={0}
-        className="flex cursor-help items-center gap-1.5 whitespace-nowrap"
-      >
+      <span className="flex cursor-help items-center gap-1.5 whitespace-nowrap">
         {field.state === "unavailable" ? (
           <>
             <EvidenceDot state="unavailable" />
@@ -448,7 +329,12 @@ function PasswordCell({ field }: { readonly field: FieldState | undefined }) {
           </>
         ) : (
           <>
-            <Lock aria-hidden="true" className="size-3.5 shrink-0" />
+            <Lock
+              aria-hidden="true"
+              size={size.icon}
+              strokeWidth={1.5}
+              className="shrink-0"
+            />
             value withheld
           </>
         )}
@@ -475,7 +361,7 @@ function CredentialTable({
   readonly onSelect: (row: Finding) => void;
 }) {
   return (
-    <div className="scroll-fade-x overflow-x-auto px-1 pb-1">
+    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
       <Table className="min-w-[960px]">
         <TableHeader>
           <TableRow>
@@ -486,18 +372,15 @@ function CredentialTable({
             ))}
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody className="reveal-items">
           {rows.map((row, index) => {
             const host = credentialHost(row);
-            const realm = fieldText(row.fields.signonRealm);
-            const username = fieldText(row.fields.usernameValue);
-            const uses = fieldInteger(row.fields.timesUsed);
             return (
               <TableRow
                 key={index}
                 index={index}
                 tabIndex={0}
-                aria-label={`Open saved login for ${host ?? realm ?? "unknown site"}`}
+                aria-label={`Open saved login for ${host ?? "a site not recorded"}`}
                 onClick={() => {
                   onSelect(row);
                 }}
@@ -509,37 +392,34 @@ function CredentialTable({
                 className={ROW_FOCUS_CLASS}
               >
                 <TableCell className="max-w-[280px]">
-                  <span
-                    className="block truncate text-foreground"
-                    title={host ?? realm ?? undefined}
-                  >
-                    {host ?? realm ?? "(unknown site)"}
-                  </span>
-                </TableCell>
-                <TableCell className="max-w-[260px]">
-                  {username === null ? (
-                    <AbsentWord />
+                  {host === null ? (
+                    <FieldCell field={row.fields.signonRealm} />
                   ) : (
-                    <span className="block truncate font-mono" title={username}>
-                      {username}
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <SiteAvatar host={host} />
+                      <span className="truncate text-foreground" title={host}>
+                        {host}
+                      </span>
                     </span>
                   )}
+                </TableCell>
+                <TableCell className="max-w-[260px]">
+                  <FieldCell field={row.fields.usernameValue} />
                 </TableCell>
                 <TableCell>
                   <PasswordCell field={row.fields.secret} />
                 </TableCell>
                 <TableCell>
-                  <TimeCell utc={fieldUtc(row.fields.dateCreated)} />
+                  <TimeCell field={row.fields.dateCreated} />
                 </TableCell>
                 <TableCell>
-                  <TimeCell utc={fieldUtc(row.fields.dateLastUsed)} />
+                  <TimeCell field={row.fields.dateLastUsed} />
                 </TableCell>
                 <TableCell className="tabular-nums">
-                  {uses === null ? (
-                    <AbsentWord />
-                  ) : (
-                    uses.toLocaleString("en-US")
-                  )}
+                  <FieldCell
+                    field={row.fields.timesUsed}
+                    format={(value) => Number(value).toLocaleString("en-US")}
+                  />
                 </TableCell>
                 <TableCell>
                   <StateWord state={row.commitState} />
@@ -553,148 +433,100 @@ function CredentialTable({
   );
 }
 
-type View = "saved" | "recovered";
-
 /**
- * The raw rows. Columns are the fields an examiner reads first about a
- * stored login — the site it belongs to, the stored username, the sealed
- * password's state, when it was created, last used, how many times — plus
- * its commit state. Every remaining wire field (realm, encryption scheme,
- * password-modified date) stays reachable in the row detail sheet.
+ * One list (saved or recovered): loading rows, its read error, its empty
+ * state, the table, a failed follow-up page, and the footer.
  */
-function CredentialListPanel({
-  rows,
-  search,
-  onSearch,
+function CredentialList({
+  list,
+  visible,
+  noun,
   onSelect,
+  onClearSearch,
 }: {
-  readonly rows: readonly Finding[];
-  readonly search: string;
-  readonly onSearch: (value: string) => void;
+  readonly list: PaginatedList<Finding>;
+  readonly visible: readonly Finding[];
+  readonly noun: "saved" | "recovered";
   readonly onSelect: (row: Finding) => void;
+  readonly onClearSearch: () => void;
 }) {
-  const [view, setView] = useState<View>("saved");
-  const size = useSize("compact");
-
-  const saved = useMemo(
-    () => rows.filter((row) => row.commitState === "committed"),
-    [rows],
-  );
-  const recovered = useMemo(
-    () => rows.filter((row) => row.commitState !== "committed"),
-    [rows],
-  );
-  const base = view === "saved" ? saved : recovered;
-
-  const visible = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("en-US");
-    if (query === "") {
-      return base;
-    }
-    return base.filter((row) => {
-      const haystack = [
-        credentialHost(row) ?? "",
-        fieldText(row.fields.usernameValue) ?? "",
-        fieldText(row.fields.signonRealm) ?? "",
-        fieldText(row.fields.originUrl) ?? "",
-      ]
-        .join("\n")
-        .toLocaleLowerCase("en-US");
-      return haystack.includes(query);
-    });
-  }, [base, search]);
-
-  const filtered = visible.length !== base.length;
-  const noun = view === "saved" ? "saved" : "recovered";
-
+  const rows = list.rows;
+  const firstLoad = list.loading && rows.length === 0;
+  if (list.error !== null && rows.length === 0) {
+    return (
+      <ErrorRows
+        title={`The ${noun} logins could not be loaded.`}
+        message={list.error}
+        onRetry={list.retry}
+      />
+    );
+  }
+  const filtered = visible.length !== rows.length;
   return (
-    <Panel className="overflow-clip">
-      <PanelHeader>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <PanelTitle>Stored logins</PanelTitle>
-          <PanelDescription>
-            Saved logins and logins recovered from WAL or journal sidecars are
-            kept as separate lists.
-          </PanelDescription>
-        </div>
-      </PanelHeader>
-      <SizeProvider size="compact">
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-y-2 px-4 pt-1 pb-3",
-            size.gap,
-          )}
-        >
-          <Tabs
-            value={view}
-            onValueChange={(next) => {
-              setView(next === "recovered" ? "recovered" : "saved");
-            }}
-          >
-            <TabsList aria-label="Saved or recovered logins">
-              <TabItem
-                value="saved"
-                label={`Saved ${saved.length.toLocaleString("en-US")}`}
-              />
-              <TabItem
-                value="recovered"
-                label={`Recovered ${recovered.length.toLocaleString("en-US")}`}
-              />
-            </TabsList>
-          </Tabs>
-          <FilterTextField
-            label="Search saved logins"
-            placeholder="Search site or username"
-            icon={Search}
-            value={search}
-            onCommit={onSearch}
-            className="ml-auto w-60"
-          />
-        </div>
-      </SizeProvider>
-
-      <div className="border-t border-border">
-        {visible.length === 0 ? (
+    <>
+      <div className="reveal-swap">
+        <LoadingRows rows={3} label={`Loading ${noun} logins`} />
+        {firstLoad ? null : visible.length === 0 ? (
           <EmptyRows
             message={
               filtered
                 ? `No ${noun} logins match this search.`
-                : view === "saved"
+                : noun === "saved"
                   ? "No saved logins in this Case."
                   : "No logins were recovered from WAL or journal sidecars."
+            }
+            action={
+              filtered ? (
+                <Button
+                  variant="tertiary"
+                  size="compact"
+                  onClick={onClearSearch}
+                >
+                  Clear filters
+                </Button>
+              ) : undefined
             }
           />
         ) : (
           <CredentialTable rows={visible} onSelect={onSelect} />
         )}
       </div>
-
-      <div className="flex items-center gap-3 border-t border-border px-4 py-2.5">
-        <p
-          className={cn(
-            typeClass("caption"),
-            "text-muted-foreground tabular-nums",
-          )}
-          aria-live="polite"
-        >
-          {filtered
-            ? `${visible.length.toLocaleString("en-US")} of ${base.length.toLocaleString("en-US")} ${noun} logins shown`
-            : `${plural(base.length, `${noun} login`, `${noun} logins`)} shown`}
-        </p>
-      </div>
-    </Panel>
+      {list.error !== null ? (
+        <ErrorRows
+          title={`More ${noun} logins could not be loaded.`}
+          message={list.error}
+          onRetry={list.cursor === null ? list.retry : list.loadMore}
+        />
+      ) : null}
+      {firstLoad ? null : (
+        <ListFooter
+          count={visible.length}
+          cursor={list.cursor}
+          loading={list.loading}
+          onLoadMore={list.loadMore}
+          summary={
+            filtered
+              ? `${visible.length.toLocaleString("en-US")} of ${plural(rows.length, `${noun} login`, `${noun} logins`)} shown`
+              : `${plural(rows.length, `${noun} login`, `${noun} logins`)} shown`
+          }
+        />
+      )}
+    </>
   );
 }
 
-/** Placeholder at the size of the banner, figure strip, and widget row. */
+/** Placeholder at the size of the figure strip and the widget row. */
 function CredentialsSkeleton() {
   return (
-    <div className="flex flex-col gap-4" aria-hidden="true">
-      <Skeleton className="h-[72px] w-full rounded-xl" />
-      <Skeleton className="h-[112px] w-full rounded-xl" />
+    <div
+      className="flex flex-col gap-5"
+      role="status"
+      aria-label="Loading saved-login figures"
+    >
+      <Skeleton className="h-[160px] w-full rounded-xl lg:h-[86px]" />
       <div className="grid grid-cols-12 gap-4">
         <Skeleton className="col-span-12 h-[360px] rounded-xl lg:col-span-7" />
-        <Skeleton className="col-span-12 h-[360px] rounded-xl lg:col-span-5" />
+        <Skeleton className="col-span-12 h-[150px] rounded-xl lg:col-span-5 lg:h-[360px]" />
       </div>
     </div>
   );
@@ -709,12 +541,47 @@ export function CredentialsPage({
   readonly config: ArtifactConfig;
   readonly completeness: CaseCompleteness;
 }) {
-  const list = useCredentials(config.route);
+  const lists = useCommitStateLists<Finding>(
+    config.route,
+    CREDENTIAL_PARAMETERS,
+  );
+  const savedDone = useDrained(lists.saved);
+  const recoveredDone = useDrained(lists.recovered);
   const tokens = useChartTokens();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
+  const [view, setView] = useState<CommitView>("saved");
   const [search, setSearch] = useState("");
 
-  const summary = useMemo(() => summarize(list.rows), [list.rows]);
+  const saved = lists.saved.rows;
+  const recovered = lists.recovered.rows;
+  const summary = useMemo(() => summarize(saved), [saved]);
+  const points = useMemo(() => agePoints(saved, recovered), [saved, recovered]);
+
+  const narrow = useCallback(
+    (rows: readonly Finding[]) => {
+      const query = search.trim().toLocaleLowerCase("en-US");
+      if (query === "") {
+        return rows;
+      }
+      return rows.filter((row) => {
+        const haystack = [
+          credentialHost(row) ?? "",
+          fieldText(row.fields.usernameValue) ?? "",
+          fieldText(row.fields.signonRealm) ?? "",
+          fieldText(row.fields.originUrl) ?? "",
+        ]
+          .join("\n")
+          .toLocaleLowerCase("en-US");
+        return haystack.includes(query);
+      });
+    },
+    [search],
+  );
+  const savedVisible = useMemo(() => narrow(saved), [narrow, saved]);
+  const recoveredVisible = useMemo(
+    () => narrow(recovered),
+    [narrow, recovered],
+  );
 
   const select = useCallback((row: Finding) => {
     setSelected({ kind: "finding", row });
@@ -724,138 +591,201 @@ export function CredentialsPage({
     setSearch((current) => (current === username ? "" : username));
   }, []);
 
-  const unplotted = summary.total - summary.points.length;
+  const clearSearch = useCallback(() => {
+    setSearch("");
+  }, []);
+
+  const savedFirst = lists.saved.loading && saved.length === 0;
+  const recoveredFirst = lists.recovered.loading && recovered.length === 0;
+  const pageEmpty =
+    savedDone &&
+    recoveredDone &&
+    lists.saved.error === null &&
+    lists.recovered.error === null &&
+    saved.length === 0 &&
+    recovered.length === 0;
+  // The figures wait for every saved page; with a failed saved read they
+  // step aside and the Saved tab carries the reason.
+  const figuresReady =
+    (savedDone || lists.saved.error !== null) &&
+    (recoveredDone || lists.recovered.error !== null);
+  const showFigures =
+    !figuresReady || (lists.saved.error === null && saved.length > 0);
+  const plotted = points.length;
+  const unplotted = saved.length + recovered.length - plotted;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <CompletenessPanel
         completeness={completeness}
         artifacts={[config.completenessArtifact]}
       />
-      {list.error !== null ? (
-        <ErrorRows
-          message={list.error}
-          onRetry={list.retry}
-          className="px-0 py-0"
-        />
-      ) : !list.loading && list.rows.length === 0 ? (
+      {/* The redaction rule, stated before any row: no password is ever
+          decrypted or displayed on this page. */}
+      <Banner icon={Lock}>
+        <BannerTitle>Passwords stay sealed</BannerTitle>
+        <BannerDescription>
+          Chrome encrypts every saved password with the operating system's key.
+          This page never shows one: each password reads as its recorded state,
+          and the figures below describe only sites, usernames, and dates.
+        </BannerDescription>
+      </Banner>
+      {pageEmpty ? (
         <Panel>
           <EmptyRows
             icon={KeyRound}
             title="No saved logins"
-            message="No saved logins recorded in this Case."
+            message="No saved logins recorded in this Case, saved or recovered."
           />
         </Panel>
       ) : (
-        <div className="reveal-swap">
-          <CredentialsSkeleton />
-          {list.loading ? null : (
-            <div className="flex flex-col gap-4">
-              {/* The redaction rule, stated before any row: no password is
-                  ever decrypted or displayed on this page. */}
-              <Banner icon={Lock}>
-                <BannerTitle>Passwords stay sealed</BannerTitle>
-                <BannerDescription>
-                  Chrome encrypts every saved password with the operating
-                  system's key. This page never shows one: each password reads
-                  as its recorded state, and the figures below describe only
-                  sites, usernames, and dates.
-                </BannerDescription>
-              </Banner>
+        <>
+          {showFigures ? (
+            <div className="reveal-swap">
+              <CredentialsSkeleton />
+              {figuresReady ? (
+                <div className="flex flex-col gap-5">
+                  {/* Footprint at a glance — distinct counts read straight
+                      off the saved rows, never inference, and never password
+                      contents. Recovered logins are their own figure. */}
+                  <MetricBand className="grid-cols-2 lg:grid-cols-4">
+                    <MetricBandItem
+                      label="Saved logins"
+                      value={summary.total.toLocaleString("en-US")}
+                      detail={
+                        summary.total === 1 ? "stored entry" : "stored entries"
+                      }
+                    />
+                    <MetricBandItem
+                      label="Distinct sites"
+                      value={summary.sites.toLocaleString("en-US")}
+                      detail="hosts with a saved login"
+                    />
+                    <MetricBandItem
+                      label="Distinct usernames"
+                      value={summary.identities.toLocaleString("en-US")}
+                      detail="unique stored identities"
+                    />
+                    <MetricBandItem
+                      label="Recovered logins"
+                      value={
+                        lists.recovered.error === null
+                          ? recovered.length.toLocaleString("en-US")
+                          : "unavailable"
+                      }
+                      detail={
+                        lists.recovered.error === null
+                          ? "from WAL or journal sidecars"
+                          : "the recovered read failed; see its tab"
+                      }
+                    />
+                  </MetricBand>
 
-              {/* Footprint at a glance — distinct counts read straight off
-                  the rows, never inference, and never password contents. */}
-              <MetricBand className="grid-cols-2 sm:grid-cols-4">
-                <MetricBandItem
-                  label="Saved logins"
-                  value={summary.total.toLocaleString("en-US")}
-                  detail={
-                    summary.total === 1 ? "stored entry" : "stored entries"
-                  }
-                />
-                <MetricBandItem
-                  label="Distinct sites"
-                  value={summary.sites.toLocaleString("en-US")}
-                  detail="hosts with a saved login"
-                />
-                <MetricBandItem
-                  label="Distinct usernames"
-                  value={summary.identities.toLocaleString("en-US")}
-                  detail="unique stored identities"
-                />
-                <MetricBandItem
-                  label="Recovered"
-                  value={summary.recovered.toLocaleString("en-US")}
-                  detail="from WAL / journal sidecars"
-                  tone="warning"
-                />
-              </MetricBand>
-
-              <div className="grid grid-cols-12 gap-4">
-                {/* Login age scatter — the one widget that reads the set as
-                    a shape: recently used logins sit low, long-dormant ones
-                    sit high, and older accounts sit further right. Diamonds
-                    are recovered rows. Every coordinate is a recorded
-                    timestamp turned into a day-distance, nothing modelled. */}
-                <Panel className="col-span-12 lg:col-span-7">
-                  <PanelHeader className="items-center">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <TitleIcon>
-                        <ShieldAlert className="size-3.5" />
-                      </TitleIcon>
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <PanelTitle>Login age and dormancy</PanelTitle>
-                        <PanelDescription>
-                          Days since first saved, against days since last used.
-                        </PanelDescription>
+                  <div className="grid grid-cols-12 gap-4">
+                    {/* Login age scatter — the one widget that reads the set
+                        as a shape: recently used logins sit low, long-dormant
+                        ones sit high, and older accounts sit further right.
+                        Diamonds are recovered rows. Every coordinate is a
+                        recorded timestamp turned into a day-distance. */}
+                    <ChartSection
+                      className="col-span-12 lg:col-span-7"
+                      title="Login age and dormancy"
+                      description="Days since first saved, against days since last used. Diamonds are recovered logins."
+                      footer={
+                        unplotted > 0 ? (
+                          <span
+                            className={cn(
+                              typeClass("caption"),
+                              "text-muted-foreground",
+                            )}
+                          >
+                            {plural(unplotted, "login", "logins")} not plotted —
+                            no recorded creation or last-use date.
+                          </span>
+                        ) : undefined
+                      }
+                    >
+                      <div className="h-[320px] px-2 pt-2 pb-3">
+                        <CredentialAgeScatter points={points} tokens={tokens} />
                       </div>
-                    </div>
-                  </PanelHeader>
-                  <div className="relative min-h-[300px] flex-1">
-                    <div className="absolute inset-0 pt-2 pr-4 pb-2 pl-2">
-                      <CredentialAgeScatter
-                        points={summary.points}
-                        tokens={tokens}
+                    </ChartSection>
+
+                    <div className="col-span-12 lg:col-span-5">
+                      <ReusedIdentities
+                        reused={summary.reused}
+                        activeUsername={search === "" ? null : search}
+                        onPick={pickUsername}
                       />
                     </div>
                   </div>
-                  {unplotted > 0 ? (
-                    <p
-                      className={cn(
-                        typeClass("caption"),
-                        "border-t border-border px-4 py-2.5 text-muted-foreground",
-                      )}
-                    >
-                      {plural(unplotted, "login", "logins")} not plotted — no
-                      recorded creation or last-use date.
-                    </p>
-                  ) : null}
-                </Panel>
-
-                <div className="col-span-12 lg:col-span-5">
-                  <ReusedIdentities
-                    reused={summary.reused}
-                    activeUsername={search === "" ? null : search}
-                    onPick={pickUsername}
-                  />
                 </div>
-              </div>
-
-              <CredentialListPanel
-                rows={list.rows}
-                search={search}
-                onSearch={setSearch}
-                onSelect={select}
-              />
+              ) : null}
             </div>
-          )}
-        </div>
+          ) : null}
+
+          <SectionPanel
+            id="credentials-list"
+            title="Stored logins"
+            description="Saved logins and logins recovered from WAL or journal sidecars are separate lists."
+          >
+            <CommitStateSplit
+              value={view}
+              onValueChange={setView}
+              label="Saved or recovered logins"
+              savedCount={
+                savedFirst || (lists.saved.error !== null && saved.length === 0)
+                  ? null
+                  : saved.length
+              }
+              recoveredCount={
+                recoveredFirst ||
+                (lists.recovered.error !== null && recovered.length === 0)
+                  ? null
+                  : recovered.length
+              }
+              savedMore={lists.saved.cursor !== null}
+              recoveredMore={lists.recovered.cursor !== null}
+              toolbar={
+                <FilterTextField
+                  commit="change"
+                  label="Search loaded logins"
+                  placeholder="Search site or username"
+                  icon={Search}
+                  value={search}
+                  onCommit={setSearch}
+                />
+              }
+              saved={
+                <CredentialList
+                  list={lists.saved}
+                  visible={savedVisible}
+                  noun="saved"
+                  onSelect={select}
+                  onClearSearch={clearSearch}
+                />
+              }
+              recovered={
+                <CredentialList
+                  list={lists.recovered}
+                  visible={recoveredVisible}
+                  noun="recovered"
+                  onSelect={select}
+                  onClearSearch={clearSearch}
+                />
+              }
+            />
+          </SectionPanel>
+        </>
       )}
 
       {selected !== null ? (
         <RowSheet
           selected={selected}
-          title={`Saved login · ${credentialHost(selected.row) ?? "unknown site"}`}
+          title={
+            credentialHost(selected.row) === null
+              ? "Saved login"
+              : `Saved login · ${credentialHost(selected.row) ?? ""}`
+          }
           onClose={() => {
             setSelected(null);
           }}

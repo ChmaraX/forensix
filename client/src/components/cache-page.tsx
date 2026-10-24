@@ -17,21 +17,25 @@
  *  - "Entry sizes" — the size distribution, so a mostly-headers cache reads
  *    apart from a mostly-media one at a glance.
  *
- * Drawn with Fluid Functionalism: Panels per section, the shared chart parts
- * (FF tooltip surface, fluid band cursor), meter lists, an FF Table per list
- * with fluid row hover, and a compact toolbar (FF Select + InputGroup search).
- * The backend each entry was read from (Simple Cache, blockfile) and its
- * format version are stated beside the entry lists, read from the rows.
+ * Drawn with Fluid Functionalism: page-kit SectionPanels and a ChartSection,
+ * the shared chart parts (FF tooltip surface, fluid band cursor), meter lists,
+ * and one "Cache entries" panel whose Saved / Recovered switch
+ * (CommitStateSplit) shows one FF Table at a time, with the profile picker
+ * and a live search on the same toolbar. The backend each saved entry was
+ * read from (Simple Cache, blockfile) and its format version are stated in
+ * that panel's header, read from the rows.
  *
  * Presentation rules kept: the four value states stay worded, never colour
  * alone; every derived figure is summed from real Finding fields, and a row
  * whose size or key is `unavailable`/`absent` is never counted as zero — it is
  * excluded from the sum and shown as its own word in the table. Saved entries
  * and entries recovered from a sidecar are two separate lists, never sorted
- * together. Nothing here is inferred or projected: no trend line, no total
- * beyond what the loaded bytes add up to.
+ * together; the Cache route cannot filter by Commit State, so the one loaded
+ * set is split with `splitByCommit`, and every figure counts the saved
+ * entries only. Nothing here is inferred or projected: no trend line, no
+ * total beyond what the loaded bytes add up to.
  */
-import { Database, RotateCcw, Search } from "lucide-react";
+import { Database, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bar,
@@ -44,14 +48,7 @@ import {
   type BarShapeProps,
 } from "recharts";
 
-import {
-  Panel,
-  PanelContent,
-  PanelDescription,
-  PanelFooter,
-  PanelHeader,
-  PanelTitle,
-} from "@/components/panel";
+import { Panel, PanelContent, PanelFooter } from "@/components/panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
@@ -74,17 +71,20 @@ import type {
   Finding,
   PageOf,
 } from "../types.js";
+import { ChartSection } from "./chart-section.js";
 import { CompletenessPanel } from "./completeness.js";
 import {
-  Count,
+  CHART_HEIGHT,
+  CommitStateSplit,
+  type CommitView,
   formatBytes,
+  formatDayTick,
   MeterList,
   type MeterRow,
   plural,
-  SectionHeading,
+  SectionPanel,
   splitByCommit,
-  TimeText,
-  Toolbar,
+  TimeCell,
 } from "./page-kit.js";
 import {
   activeIndexOf,
@@ -106,9 +106,9 @@ import {
 } from "./charts.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { EvidenceDot, type EvidenceState } from "./evidence.js";
-import { MaybeFieldStateText } from "./field-state.js";
 import {
   AbsentWord,
+  FieldCell,
   fieldInteger,
   fieldText,
   fieldUtc,
@@ -117,7 +117,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
-import { ErrorRows } from "./list-states.js";
+import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
@@ -266,27 +266,26 @@ function formatDay(date: string): string {
   });
 }
 
-function formatTick(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-}
-
 /* --------------------------------- widgets -------------------------------- */
 
 /**
- * The summary band: four derived readings of the loaded set. Every figure is
- * summed from real fields — entries counted, bytes added only when a size was
- * recorded, integrity share over the entries that carry the signal — so an
- * examiner reads the store's shape before any row.
+ * The summary band: four derived readings of the loaded saved entries. Every
+ * figure is summed from real fields — entries counted, bytes added only when
+ * a size was recorded, integrity share over the entries that carry the
+ * signal — so an examiner reads the store's shape before any row. Recovered
+ * entries are named apart, never added in.
  */
-function CacheSummary({ rows }: { readonly rows: readonly Finding[] }) {
+function CacheSummary({
+  rows,
+  recovered,
+  complete,
+}: {
+  readonly rows: readonly Finding[];
+  /** Loaded recovered entries, listed apart. */
+  readonly recovered: number;
+  /** Every page of the Cache list was read. */
+  readonly complete: boolean;
+}) {
   const summary = useMemo(() => {
     let totalBytes = 0;
     let sizedEntries = 0;
@@ -315,15 +314,19 @@ function CacheSummary({ rows }: { readonly rows: readonly Finding[] }) {
   return (
     <MetricBand className="grid-cols-2 lg:grid-cols-4">
       <MetricBandItem
-        label="Entries loaded"
-        value={rows.length.toLocaleString("en-US")}
-        detail="cache entries read"
+        label="Saved entries"
+        value={`${rows.length.toLocaleString("en-US")}${complete ? "" : "+"}`}
+        detail={
+          recovered === 0
+            ? "cache entries read"
+            : `${plural(recovered, "recovered entry", "recovered entries")} listed apart`
+        }
       />
       <MetricBandItem
         label="Cached on disk"
         value={
           summary.sizedEntries === 0
-            ? "absent"
+            ? "not recorded"
             : formatBytes(summary.totalBytes)
         }
         detail={
@@ -334,10 +337,10 @@ function CacheSummary({ rows }: { readonly rows: readonly Finding[] }) {
       />
       <MetricBandItem
         label="Integrity verified"
-        value={rows.length === 0 ? "—" : `${String(verifiedShare)}%`}
+        value={rows.length === 0 ? "not recorded" : `${String(verifiedShare)}%`}
         detail={
           rows.length === 0
-            ? undefined
+            ? "no saved entries"
             : `${summary.verified.toLocaleString("en-US")} of ${plural(rows.length, "entry", "entries")}`
         }
         progress={{
@@ -420,19 +423,23 @@ function LastUsedPanel({
   const peak = days.reduce((max, day) => Math.max(max, day.count), 0);
 
   return (
-    <Panel>
-      <PanelHeader>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <PanelTitle>Last used over time</PanelTitle>
-          <PanelDescription>
-            Cache entries by the day each was last read back.
-          </PanelDescription>
-        </div>
-      </PanelHeader>
-      <PanelContent className="pt-2">
-        <div className="h-[180px] w-full">
+    <ChartSection
+      title="Last used over time"
+      description="Saved cache entries by the day each was last read back."
+      className="h-full"
+      footer={
+        undated > 0 ? (
+          <p className={cn(typeClass("caption"), "text-muted-foreground")}>
+            {plural(undated, "entry", "entries")} with no recorded last-used
+            time not shown.
+          </p>
+        ) : undefined
+      }
+    >
+      <div className="flex-1 px-2 pt-2 pb-3">
+        <div className={cn(CHART_HEIGHT, "w-full")}>
           {days.length === 0 ? (
-            <ChartEmpty>No entries carry a last-used time.</ChartEmpty>
+            <ChartEmpty>No saved entries carry a last-used time.</ChartEmpty>
           ) : (
             <ResponsiveContainer
               width="100%"
@@ -454,7 +461,7 @@ function LastUsedPanel({
                   dataKey="date"
                   {...chartAxis(tokens)}
                   minTickGap={40}
-                  tickFormatter={formatTick}
+                  tickFormatter={formatDayTick}
                 />
                 <YAxis
                   width={32}
@@ -509,14 +516,8 @@ function LastUsedPanel({
             </ResponsiveContainer>
           )}
         </div>
-        {undated > 0 ? (
-          <p className={cn(typeClass("caption"), "mt-2 text-muted-foreground")}>
-            {plural(undated, "entry", "entries")} with no recorded last-used
-            time not shown.
-          </p>
-        ) : null}
-      </PanelContent>
-    </Panel>
+      </div>
+    </ChartSection>
   );
 }
 
@@ -572,20 +573,16 @@ function FootprintPanel({
   const more = hosts.length - FOOTPRINT_LIMIT;
 
   return (
-    <Panel>
-      <PanelHeader>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <PanelTitle>Disk footprint by host</PanelTitle>
-          <PanelDescription>
-            Cached bytes summed per host, largest first.
-          </PanelDescription>
-        </div>
-      </PanelHeader>
+    <SectionPanel
+      id="cache-footprint"
+      title="Disk footprint by host"
+      description="Saved cached bytes summed per host, largest first."
+    >
       <PanelContent className="flex-1 pt-2">
         {meters.length === 0 ? (
           <EmptyRows
             className="py-8"
-            message="No entries carry both a readable host and a recorded size."
+            message="No saved entries carry both a readable host and a recorded size."
           />
         ) : (
           <MeterList rows={meters} tokens={tokens} labelWidth="16rem" />
@@ -594,12 +591,12 @@ function FootprintPanel({
       {more > 0 ? (
         <PanelFooter>
           <p className={cn(typeClass("caption"), "text-muted-foreground")}>
-            and {plural(more, "more host", "more hosts")} in the entry lists
+            and {plural(more, "more host", "more hosts")} in the saved entries
             below
           </p>
         </PanelFooter>
       ) : null}
-    </Panel>
+    </SectionPanel>
   );
 }
 
@@ -661,20 +658,17 @@ function SizesPanel({
   const sized = rows.length - unsized;
 
   return (
-    <Panel>
-      <PanelHeader>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <PanelTitle>Entry sizes</PanelTitle>
-          <PanelDescription>
-            How the cached entries spread across size bands.
-          </PanelDescription>
-        </div>
-      </PanelHeader>
+    <SectionPanel
+      id="cache-sizes"
+      title="Entry sizes"
+      description="How the saved cache entries spread across size bands."
+      className="h-full"
+    >
       <PanelContent className="flex-1 pt-2">
         {sized === 0 ? (
           <EmptyRows
             className="py-8"
-            message="No entries carry a recorded size."
+            message="No saved entries carry a recorded size."
           />
         ) : (
           <MeterList rows={meters} tokens={tokens} labelWidth="8rem" />
@@ -687,14 +681,15 @@ function SizesPanel({
           </p>
         </PanelFooter>
       ) : null}
-    </Panel>
+    </SectionPanel>
   );
 }
 
 /* ---------------------------------- table --------------------------------- */
 
 /** The integrity word for the table: verified / failed / not recorded — the
- *  three states worded apart, the dot only repeating the word. */
+ *  three states worded apart, the dot only repeating the word (warning for
+ *  failed, neutral for not recorded). */
 function integrityWord(row: Finding): {
   readonly label: string;
   readonly state: EvidenceState;
@@ -702,12 +697,52 @@ function integrityWord(row: Finding): {
   const keyHashValid = fieldBoolean(row.fields.keyHashValid);
   const crc = fieldBoolean(row.fields.stream1Crc32Valid);
   if (keyHashValid === false || crc === false) {
-    return { label: "failed", state: "unavailable" };
+    return { label: "failed", state: "warning" };
   }
   if (keyHashValid === true) {
     return { label: "verified", state: "produced" };
   }
   return { label: "not recorded", state: "absent" };
+}
+
+/** Integrity: the verdict word, or — when the key-hash signal itself could
+ *  not be read — that field's own "unavailable" word and reason. */
+function IntegrityCell({ row }: { readonly row: Finding }) {
+  const integrity = integrityWord(row);
+  if (
+    integrity.label === "not recorded" &&
+    row.fields.keyHashValid?.state === "unavailable"
+  ) {
+    return <FieldCell field={row.fields.keyHashValid} />;
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <EvidenceDot state={integrity.state} />
+      {integrity.label}
+    </span>
+  );
+}
+
+/** The host column: the key's host, else the key's own state word; a
+ *  recorded key that names no URL host reads "absent". */
+function HostCell({ row }: { readonly row: Finding }) {
+  const host = keyHost(row);
+  if (host === null) {
+    const key = row.fields.key;
+    return key === undefined || (key.state === "value" && key.value !== "") ? (
+      <AbsentWord />
+    ) : (
+      <FieldCell field={key} />
+    );
+  }
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <SiteAvatar host={host} />
+      <span className="truncate" title={host}>
+        {host.replace(/^www\./, "")}
+      </span>
+    </span>
+  );
 }
 
 function EntriesTable({
@@ -720,7 +755,7 @@ function EntriesTable({
   readonly onSelect: (row: Finding) => void;
 }) {
   return (
-    <div className="scroll-fade-x overflow-x-auto px-2 py-1">
+    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
       <Table className="tabular-nums">
         <TableHeader>
           <TableRow>
@@ -735,18 +770,16 @@ function EntriesTable({
             ) : null}
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody className="reveal-items">
           {rows.map((row, index) => {
-            const key = fieldText(row.fields.key);
             const host = keyHost(row);
             const bytes = entryBytes(row);
-            const integrity = integrityWord(row);
             const open = () => {
               onSelect(row);
             };
             return (
               <TableRow
-                key={`${row.profile}-${fieldText(row.fields.entryHash) ?? String(index)}`}
+                key={`${row.commitState}:${row.profile}:${fieldText(row.fields.entryHash) ?? ""}:${String(index)}`}
                 index={index}
                 tabIndex={0}
                 aria-label={`Open cache entry detail${host === null ? "" : ` for ${host}`}`}
@@ -757,25 +790,10 @@ function EntriesTable({
                 className={ROW_FOCUS_CLASS}
               >
                 <TableCell className="max-w-[380px] min-w-[220px] text-foreground">
-                  {key !== null ? (
-                    <span className="block truncate font-mono" title={key}>
-                      {key}
-                    </span>
-                  ) : (
-                    <MaybeFieldStateText field={row.fields.key} truncate />
-                  )}
+                  <FieldCell field={row.fields.key} />
                 </TableCell>
                 <TableCell className="max-w-[200px]">
-                  {host !== null ? (
-                    <span className="flex min-w-0 items-center gap-2">
-                      <SiteAvatar host={host} />
-                      <span className="truncate" title={host}>
-                        {host.replace(/^www\./, "")}
-                      </span>
-                    </span>
-                  ) : (
-                    <AbsentWord />
-                  )}
+                  <HostCell row={row} />
                 </TableCell>
                 <TableCell className="text-right whitespace-nowrap">
                   {bytes !== null ? (
@@ -783,17 +801,14 @@ function EntriesTable({
                       {formatBytes(bytes)}
                     </span>
                   ) : (
-                    <AbsentWord />
+                    <FieldCell field={row.fields.entrySizeBytes} />
                   )}
                 </TableCell>
                 <TableCell>
-                  <TimeText utc={fieldUtc(row.fields.lastUsed)} />
+                  <TimeCell field={row.fields.lastUsed} />
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
-                  <span className="inline-flex items-center gap-1.5">
-                    <EvidenceDot state={integrity.state} />
-                    {integrity.label}
-                  </span>
+                  <IntegrityCell row={row} />
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
                   {row.profile}
@@ -813,8 +828,9 @@ function EntriesTable({
 }
 
 /**
- * The backends the loaded entries were read from, each with its format
+ * The backends the loaded saved entries were read from, each with its format
  * versions — a reading of the `backend` and `version` fields, never assumed.
+ * Plain Badges: these are labels, not states.
  */
 function BackendBadges({ rows }: { readonly rows: readonly Finding[] }) {
   const backends = useMemo(() => {
@@ -844,33 +860,129 @@ function BackendBadges({ rows }: { readonly rows: readonly Finding[] }) {
     return null;
   }
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    // Spans only: this sits inside the panel's description paragraph.
+    <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
       {backends.map(([backend, entry]) => (
         <Badge key={backend} size="compact">
           <span className="font-mono">{backend}</span>
           {entry.versions.size > 0
             ? ` · format ${[...entry.versions].sort().join(", ")}`
             : ""}
-          {` · ${plural(entry.count, "entry", "entries")}`}
+          {` · ${plural(entry.count, "saved entry", "saved entries")}`}
         </Badge>
       ))}
-    </div>
+    </span>
+  );
+}
+
+/**
+ * One list (saved or recovered) of the loaded cache: its loading rows, the
+ * read's error, its empty state, the table, and the "N shown" footer. The
+ * whole cache is one capped read, so there is no per-list "Load more".
+ */
+function EntryList({
+  rows,
+  visible,
+  noun,
+  loading,
+  error,
+  complete,
+  onRetry,
+  onSelect,
+  onClearFilters,
+}: {
+  readonly rows: readonly Finding[];
+  readonly visible: readonly Finding[];
+  readonly noun: "saved" | "recovered";
+  readonly loading: boolean;
+  readonly error: string | null;
+  readonly complete: boolean;
+  readonly onRetry: () => void;
+  readonly onSelect: (row: Finding) => void;
+  readonly onClearFilters: () => void;
+}) {
+  if (error !== null) {
+    return (
+      <ErrorRows
+        title="The cache entries could not be loaded."
+        message={error}
+        onRetry={onRetry}
+      />
+    );
+  }
+  const filtered = visible.length !== rows.length;
+  return (
+    <>
+      <div className="reveal-swap">
+        <LoadingRows label={`Loading ${noun} cache entries`} />
+        {loading ? null : visible.length === 0 ? (
+          <EmptyRows
+            message={
+              filtered
+                ? `No loaded ${noun} cache entries match these filters.`
+                : noun === "saved"
+                  ? "No saved cache entries. Every loaded entry was recovered."
+                  : "No cache entries were recovered."
+            }
+            action={
+              filtered ? (
+                <Button
+                  variant="tertiary"
+                  size="compact"
+                  onClick={onClearFilters}
+                >
+                  Clear filters
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <EntriesTable
+            rows={visible}
+            showState={noun === "recovered"}
+            onSelect={onSelect}
+          />
+        )}
+      </div>
+      {loading ? null : (
+        <ListFooter
+          count={visible.length}
+          cursor={null}
+          loading={false}
+          onLoadMore={() => undefined}
+          summary={
+            <>
+              {filtered
+                ? `${visible.length.toLocaleString("en-US")} of ${plural(rows.length, `loaded ${noun} entry`, `loaded ${noun} entries`)} shown`
+                : `${plural(rows.length, `${noun} entry`, `${noun} entries`)} shown`}
+              {complete
+                ? ""
+                : ` · reading stopped at ${(CACHE_PAGE_CAP * 100).toLocaleString("en-US")} entries; more stand in the Case`}
+            </>
+          }
+        />
+      )}
+    </>
   );
 }
 
 /* --------------------------------- loading --------------------------------- */
 
-/** Stands in for the summary band, the charts and the first rows while the
- *  cache loads. Built no taller than the real blocks. */
-function CacheSkeleton() {
+/** Stands in for the summary band and the charts while the cache loads, at
+ *  their size. */
+function FiguresSkeleton() {
   return (
-    <div aria-hidden="true" className="flex flex-col gap-5">
-      <Skeleton className="h-[112px] w-full rounded-xl" />
-      <div className="grid gap-5 lg:grid-cols-12">
-        <Skeleton className="h-[280px] w-full rounded-xl lg:col-span-7" />
-        <Skeleton className="h-[280px] w-full rounded-xl lg:col-span-5" />
+    <div
+      className="flex flex-col gap-5"
+      role="status"
+      aria-label="Loading cache figures"
+    >
+      <Skeleton className="h-[78px] w-full rounded-xl" />
+      <div className="grid gap-4 lg:grid-cols-12">
+        <Skeleton className="h-[318px] w-full rounded-xl lg:col-span-7" />
+        <Skeleton className="h-[318px] w-full rounded-xl lg:col-span-5" />
       </div>
-      <Skeleton className="h-[360px] w-full rounded-xl" />
+      <Skeleton className="h-[300px] w-full rounded-xl" />
     </div>
   );
 }
@@ -887,37 +999,45 @@ export function CachePage({
   const list = useCacheEntries(config.route);
   const tokens = useChartTokens();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
+  const [view, setView] = useState<CommitView>("saved");
   const [search, setSearch] = useState("");
   const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
+
+  // The Cache route cannot filter by Commit State: split the one loaded set.
+  const all = useMemo(() => splitByCommit(list.rows), [list.rows]);
 
   const profiles = useMemo(
     () => [...new Set(list.rows.map((row) => row.profile))].sort(),
     [list.rows],
   );
 
-  const visible = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("en-US");
-    return list.rows.filter((row) => {
-      if (profileFilter.length > 0 && !profileFilter.includes(row.profile)) {
-        return false;
-      }
-      if (query === "") {
-        return true;
-      }
-      const haystack = [
-        fieldText(row.fields.key) ?? "",
-        keyHost(row) ?? "",
-        fieldText(row.fields.entryHash) ?? "",
-      ]
-        .join("\n")
-        .toLocaleLowerCase("en-US");
-      return haystack.includes(query);
-    });
-  }, [list.rows, search, profileFilter]);
-
-  const filtered = visible.length !== list.rows.length;
-  const all = useMemo(() => splitByCommit(list.rows), [list.rows]);
-  const shown = useMemo(() => splitByCommit(visible), [visible]);
+  const narrow = useCallback(
+    (rows: readonly Finding[]) => {
+      const query = search.trim().toLocaleLowerCase("en-US");
+      return rows.filter((row) => {
+        if (profileFilter.length > 0 && !profileFilter.includes(row.profile)) {
+          return false;
+        }
+        if (query === "") {
+          return true;
+        }
+        const haystack = [
+          fieldText(row.fields.key) ?? "",
+          keyHost(row) ?? "",
+          fieldText(row.fields.entryHash) ?? "",
+        ]
+          .join("\n")
+          .toLocaleLowerCase("en-US");
+        return haystack.includes(query);
+      });
+    },
+    [search, profileFilter],
+  );
+  const savedVisible = useMemo(() => narrow(all.saved), [narrow, all.saved]);
+  const recoveredVisible = useMemo(
+    () => narrow(all.recovered),
+    [narrow, all.recovered],
+  );
 
   const select = useCallback((row: Finding) => {
     setSelected({ kind: "finding", row });
@@ -928,18 +1048,27 @@ export function CachePage({
     setProfileFilter([]);
   }, []);
 
-  const filteredEmpty = (
-    <EmptyRows
-      message="No loaded cache entries match this filter."
-      action={
-        <Button variant="tertiary" size="compact" onClick={clearFilters}>
-          Clear filters
-        </Button>
-      }
+  // Read finished without error: the counts are known.
+  const settled = !list.loading && list.error === null;
+  const pageEmpty = settled && list.rows.length === 0;
+  // The figures read the saved entries only; with none (or a failed read)
+  // they step aside and the lists carry the reason.
+  const showFigures =
+    list.loading || (list.error === null && all.saved.length > 0);
+
+  const entryList = (noun: "saved" | "recovered") => (
+    <EntryList
+      rows={noun === "saved" ? all.saved : all.recovered}
+      visible={noun === "saved" ? savedVisible : recoveredVisible}
+      noun={noun}
+      loading={list.loading}
+      error={list.error}
+      complete={list.complete}
+      onRetry={list.retry}
+      onSelect={select}
+      onClearFilters={clearFilters}
     />
   );
-
-  const ready = !list.loading;
 
   return (
     <div className="flex flex-col gap-5">
@@ -947,157 +1076,92 @@ export function CachePage({
         completeness={completeness}
         artifacts={[config.completenessArtifact]}
       />
-      {list.error !== null ? (
-        <Panel>
-          <ErrorRows
-            title="The cache entries could not be loaded."
-            message={list.error}
-            onRetry={list.retry}
-          />
-        </Panel>
-      ) : ready && list.rows.length === 0 ? (
+      {pageEmpty ? (
         <Panel>
           <EmptyRows
             icon={Database}
             title="No cache entries"
-            message="No cache entries in this Case."
+            message="No cache entries in this Case, saved or recovered."
           />
         </Panel>
       ) : (
-        <div className="reveal-swap">
-          <CacheSkeleton />
-          {ready ? (
-            <div className="flex flex-col gap-5">
-              <CacheSummary rows={list.rows} />
-
-              <div className="grid gap-5 lg:grid-cols-12">
-                <div className="flex min-w-0 flex-col lg:col-span-7 [&>*]:flex-1">
-                  <LastUsedPanel rows={list.rows} tokens={tokens} />
-                </div>
-                <div className="flex min-w-0 flex-col lg:col-span-5 [&>*]:flex-1">
-                  <SizesPanel rows={list.rows} tokens={tokens} />
-                </div>
-              </div>
-
-              <FootprintPanel rows={list.rows} tokens={tokens} />
-
-              <section
-                aria-label="Cache entries"
-                className="flex flex-col gap-3"
-              >
-                <SectionHeading
-                  title="Cache entries"
-                  count={
-                    filtered
-                      ? `${String(visible.length)} of ${String(list.rows.length)}`
-                      : list.rows.length
-                  }
-                  description={<BackendBadges rows={list.rows} />}
-                  className="mt-3"
-                >
-                  <Toolbar placement="inline">
-                    {profiles.length > 1 ? (
-                      <FilterField label="Profile">
-                        <ProfilePicker
-                          profiles={profiles}
-                          selected={profileFilter}
-                          onChange={setProfileFilter}
-                        />
-                      </FilterField>
-                    ) : null}
-                    <FilterTextField
-                      label="Search loaded cache entries"
-                      icon={Search}
-                      placeholder="Search resource or host…"
-                      value={search}
-                      onCommit={setSearch}
-                    />
-                  </Toolbar>
-                </SectionHeading>
-
-                <Panel className="overflow-clip">
-                  <PanelHeader className="pb-1">
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <div className="flex items-center gap-2">
-                        <PanelTitle>Saved</PanelTitle>
-                        <Count>{shown.saved.length}</Count>
-                      </div>
-                      <PanelDescription>
-                        Entries read from the cache index and its entry files.
-                      </PanelDescription>
+        <>
+          {showFigures ? (
+            <div className="reveal-swap">
+              <FiguresSkeleton />
+              {list.loading ? null : (
+                <div className="flex flex-col gap-5">
+                  <CacheSummary
+                    rows={all.saved}
+                    recovered={all.recovered.length}
+                    complete={list.complete}
+                  />
+                  <div className="grid gap-4 lg:grid-cols-12">
+                    <div className="flex min-w-0 flex-col lg:col-span-7">
+                      <LastUsedPanel rows={all.saved} tokens={tokens} />
                     </div>
-                  </PanelHeader>
-                  {shown.saved.length === 0 ? (
-                    filtered ? (
-                      filteredEmpty
-                    ) : (
-                      <EmptyRows message="No saved entries. Every loaded entry was recovered." />
-                    )
-                  ) : (
-                    <EntriesTable
-                      rows={shown.saved}
-                      showState={false}
-                      onSelect={select}
-                    />
-                  )}
-                  <PanelFooter>
-                    <p
-                      className={cn(
-                        typeClass("caption"),
-                        "text-muted-foreground tabular-nums",
-                      )}
-                      aria-live="polite"
-                    >
-                      {plural(list.rows.length, "entry", "entries")} loaded
-                      {all.recovered.length > 0
-                        ? ` · ${String(all.saved.length)} saved, ${String(all.recovered.length)} recovered`
-                        : ""}
-                      {list.complete ? "" : " · more available"}
-                    </p>
-                  </PanelFooter>
-                </Panel>
-
-                {all.recovered.length > 0 ? (
-                  <Panel className="overflow-clip">
-                    <PanelHeader className="pb-1">
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <RotateCcw
-                            aria-hidden="true"
-                            size={14}
-                            strokeWidth={1.5}
-                            className="text-muted-foreground"
-                          />
-                          <PanelTitle>Recovered</PanelTitle>
-                          <Count>{shown.recovered.length}</Count>
-                        </div>
-                        <PanelDescription>
-                          Entries recovered by the analyzer rather than read as
-                          saved, kept apart from the saved list.
-                        </PanelDescription>
-                      </div>
-                    </PanelHeader>
-                    {shown.recovered.length === 0 ? (
-                      filteredEmpty
-                    ) : (
-                      <EntriesTable
-                        rows={shown.recovered}
-                        showState
-                        onSelect={select}
-                      />
-                    )}
-                  </Panel>
-                ) : null}
-              </section>
+                    <div className="flex min-w-0 flex-col lg:col-span-5">
+                      <SizesPanel rows={all.saved} tokens={tokens} />
+                    </div>
+                  </div>
+                  <FootprintPanel rows={all.saved} tokens={tokens} />
+                </div>
+              )}
             </div>
           ) : null}
-        </div>
+
+          <SectionPanel
+            id="cache-entries"
+            title="Cache entries"
+            description={
+              <>
+                Saved entries and entries recovered by the analyzer are separate
+                lists.
+                <BackendBadges rows={all.saved} />
+              </>
+            }
+          >
+            <CommitStateSplit
+              value={view}
+              onValueChange={setView}
+              label="Saved or recovered cache entries"
+              savedCount={settled ? all.saved.length : null}
+              recoveredCount={settled ? all.recovered.length : null}
+              savedMore={settled && !list.complete}
+              recoveredMore={settled && !list.complete}
+              toolbar={
+                <>
+                  {profiles.length > 1 ? (
+                    <FilterField label="Profiles" htmlFor="cache-profiles">
+                      <ProfilePicker
+                        id="cache-profiles"
+                        profiles={profiles}
+                        selected={profileFilter}
+                        onChange={setProfileFilter}
+                      />
+                    </FilterField>
+                  ) : null}
+                  <FilterTextField
+                    commit="change"
+                    label="Search loaded cache entries"
+                    icon={Search}
+                    placeholder="Search resource or host"
+                    value={search}
+                    onCommit={setSearch}
+                  />
+                </>
+              }
+              saved={entryList("saved")}
+              recovered={entryList("recovered")}
+            />
+          </SectionPanel>
+        </>
       )}
 
       {selected !== null ? (
         <RowSheet
           selected={selected}
-          title={"Cache entry"}
+          title="Cache entry"
           onClose={() => {
             setSelected(null);
           }}

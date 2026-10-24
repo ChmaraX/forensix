@@ -1,6 +1,6 @@
 /**
  * Overview "Topic categorization" widget — a donut and a ranked legend read
- * from the local topic classifier, with a locked preview and an "enable the
+ * from the local topic classifier, with a blurred preview and an "enable the
  * model" Sheet when the classifier isn't available.
  *
  * Topic output is Candidate data: a ranked inference over recorded URLs, not
@@ -14,16 +14,28 @@
  * `TopicCandidateSummary` (see `core/src/history-topic-classification.ts`).
  * Wire both up before this ships for real.
  */
-import { Download, Lock } from "lucide-react";
-import { useState } from "react";
+import { Download } from "lucide-react";
+import { useId, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-import { usePrefersReducedMotion } from "@/components/charts";
-import { EvidenceBadge } from "@/components/evidence";
-import { Panel } from "@/components/panel";
+import {
+  chartAnimation,
+  chartTooltipMotion,
+  ChartTooltipCard,
+  ChartTooltipValue,
+  tooltipEntry,
+  usePrefersReducedMotion,
+} from "@/components/charts";
+import { SectionPanel } from "@/components/page-kit";
 import { TermExplanation, TermTooltip } from "@/components/term";
 import { Badge, badgeColors } from "@/components/ui/badge";
-import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
+import {
+  Banner,
+  BannerAction,
+  BannerActions,
+  BannerDescription,
+  BannerTitle,
+} from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { InputCopy } from "@/components/ui/input-copy";
 import {
@@ -39,8 +51,6 @@ import { Elevated } from "@/lib/elevated";
 import { fontWeights } from "@/lib/font-weight";
 import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
-
-import { SectionHeader } from "./overview/parts";
 
 // ---------------------------------------------------------------------------
 // Mock data — stands in for the real `topic-candidates` + `topic-status` API.
@@ -136,11 +146,12 @@ const REASON_COPY: Record<
 };
 
 // ---------------------------------------------------------------------------
-// Donut + ranked legend. "Unavailable" doesn't hide the widget or swap it for
-// a CTA card: it renders the SAME chart and legend with the SAME example
-// proportions a real Case would show, desaturated and blurred under a locked
-// card — a preview of the widget's real shape, never invented numbers passed
-// off as real ones. "Show me how" opens a Sheet with the setup steps.
+// Donut + ranked legend. "Unavailable" doesn't hide the widget: an FF Banner
+// says the Candidates are unavailable and why, over the SAME chart and legend
+// with the SAME example proportions a real Case would show, desaturated and
+// blurred past reading — a preview of the widget's real shape, never invented
+// numbers passed off as real ones. "Show me how" opens a Sheet with the setup
+// steps.
 // ---------------------------------------------------------------------------
 
 /** Badge hues, as plain hex: Recharts writes fills as SVG attributes, which
@@ -158,34 +169,22 @@ function tintOf(index: number): string {
   return TOPIC_TINTS[index % TOPIC_TINTS.length] ?? badgeColors.gray;
 }
 
-/** FF tooltip surface for a donut slice. */
-function TopicTooltip({
-  active,
-  payload,
-}: {
-  readonly active?: boolean;
-  readonly payload?: readonly { readonly payload?: unknown }[];
-}) {
-  const row = payload?.[0]?.payload as MockTopicRow | undefined;
-  if (active !== true || row === undefined) {
+/** The shared FF chart tooltip for a donut slice: the topic, then its share
+ *  and URL count beside the slice's hue. */
+function TopicTooltip({ payload }: { readonly payload?: unknown }) {
+  const row = tooltipEntry(payload) as MockTopicRow | null;
+  if (row === null) {
     return null;
   }
+  const index = MOCK_TOPICS.findIndex((topic) => topic.label === row.label);
   return (
-    <Elevated
-      offset={2}
-      shadowLevel={3}
-      className="flex max-w-[240px] flex-col gap-0.5 rounded-xl px-3 py-2"
-    >
-      <span className={cn(typeClass("caption"), "text-muted-foreground")}>
-        {row.label}
-      </span>
-      <span
-        className={cn(typeClass("body"), "text-foreground tabular-nums")}
-        style={{ fontVariationSettings: fontWeights.semibold }}
-      >
-        {row.share}% · {row.count.toLocaleString("en-US")} URLs
-      </span>
-    </Elevated>
+    <ChartTooltipCard label={row.label} className="max-w-[240px]">
+      <ChartTooltipValue
+        value={`${String(row.share)}%`}
+        unit={`${row.count.toLocaleString("en-US")} URLs`}
+        color={tintOf(index)}
+      />
+    </ChartTooltipCard>
   );
 }
 
@@ -209,8 +208,8 @@ function TopicDonut({
           paddingAngle={2}
           cornerRadius={3}
           stroke="none"
+          {...chartAnimation(reducedMotion)}
           isAnimationActive={!ghost && !reducedMotion}
-          animationDuration={240}
         >
           {data.map((entry, index) => (
             <Cell key={entry.label} fill={tintOf(index)} />
@@ -218,10 +217,9 @@ function TopicDonut({
         </Pie>
         {ghost ? null : (
           <Tooltip
-            content={<TopicTooltip />}
+            {...chartTooltipMotion(reducedMotion)}
+            content={({ payload }) => <TopicTooltip payload={payload} />}
             cursor={false}
-            isAnimationActive={false}
-            wrapperStyle={{ outline: "none" }}
           />
         )}
       </PieChart>
@@ -236,7 +234,7 @@ function TopicLegend({ data }: { readonly data: readonly MockTopicRow[] }) {
       {data.map((topic, index) => (
         <li
           key={topic.label}
-          className="grid h-8 grid-cols-[1rem_auto_minmax(0,1fr)_auto] items-center gap-2.5"
+          className="grid h-9 grid-cols-[1rem_auto_minmax(0,1fr)_auto] items-center gap-2.5"
         >
           <span
             className={cn(
@@ -269,7 +267,7 @@ function TopicLegend({ data }: { readonly data: readonly MockTopicRow[] }) {
 }
 
 /** Donut + legend, the whole visual payload of the panel — shared by both
- *  states so "locked" previews the actual layout, not just the chart. */
+ *  states so "unavailable" previews the actual layout, not just the chart. */
 function DonutAndLegend({ ghost = false }: { readonly ghost?: boolean }) {
   return (
     <div className="grid grid-cols-1 items-center gap-x-6 gap-y-2 sm:grid-cols-[196px_minmax(0,1fr)] md:grid-cols-1 xl:grid-cols-[196px_minmax(0,1fr)]">
@@ -372,76 +370,69 @@ export function TopicCategorizationCard({
   readonly state: TopicState;
   readonly className?: string;
 }) {
+  const titleId = useId();
   const [sheetOpen, setSheetOpen] = useState(false);
   const reason = REASON_COPY[MOCK_UNAVAILABLE_REASON];
   return (
-    <Panel className={className}>
-      {/* No jump link: there is no Topic page to open yet, and a link
-          pointing nowhere is worse than none. */}
-      <SectionHeader
-        title="Topic categorization"
-        badges={<CandidateBadge />}
-        description="Ranked topic Candidates, by share of classified URLs."
-      />
+    // No jump link: there is no Topic page to open yet, and a link pointing
+    // nowhere is worse than none. The trailing slot carries the Candidate
+    // qualifier instead.
+    <SectionPanel
+      id={titleId}
+      title="Topic categorization"
+      description="Ranked topic Candidates, by share of classified URLs."
+      aside={<CandidateBadge />}
+      className={className}
+    >
       <div className="flex flex-1 flex-col justify-center px-4 pt-1 pb-4">
         {state === "complete" ? (
           <DonutAndLegend />
         ) : (
           <div className="relative">
             {/* Ghost preview: the same donut + legend with example
-                proportions, desaturated, blurred and dimmed — the locked
-                card on top makes plain these are not this Case's numbers. */}
+                proportions, desaturated and blurred past reading — the
+                widget's real shape, never this Case's numbers. */}
             <div
               aria-hidden="true"
-              className="pointer-events-none opacity-40 blur-[3px] grayscale select-none"
+              className="pointer-events-none blur-[3px] grayscale select-none"
             >
               <DonutAndLegend ghost />
             </div>
-            <div className="absolute inset-0 flex items-center justify-center p-2">
+            {/* The Banner spans the body's full width, edge-aligned with the
+                panel's 16px content inset like any in-panel Banner. Its
+                wash is translucent, so it sits on the panel's own surface
+                (offset 0, no shadow) to stay legible over the preview. */}
+            <div className="absolute inset-0 flex items-center">
               <Elevated
-                offset={1}
-                className="flex max-w-[300px] flex-col items-center gap-3 rounded-xl px-5 py-4 text-center"
+                offset={0}
+                shadowLevel={0}
+                className="w-full rounded-xl"
               >
-                <span
-                  aria-hidden="true"
-                  className="inline-flex size-8 items-center justify-center rounded-lg bg-hover text-muted-foreground"
-                >
-                  <Lock size={16} strokeWidth={1.5} />
-                </span>
-                <div className="flex flex-col items-center gap-1.5">
-                  <EvidenceBadge state="unavailable" size="compact">
-                    unavailable
-                  </EvidenceBadge>
-                  <p
-                    className={cn(typeClass("subtitle"), "text-foreground")}
-                    style={{ fontVariationSettings: fontWeights.semibold }}
-                  >
+                <Banner status="info" contrast="high" size="compact">
+                  <BannerTitle>
                     {reason?.headline ?? "Topic model not available"}
-                  </p>
-                  <p
-                    className={cn(
-                      typeClass("caption"),
-                      "text-muted-foreground",
-                    )}
-                  >
-                    Download the local model to enable topic categorization.
-                  </p>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="compact"
-                  onClick={() => {
-                    setSheetOpen(true);
-                  }}
-                >
-                  Show me how
-                </Button>
+                  </BannerTitle>
+                  <BannerDescription>
+                    Topic Candidates are unavailable for this Case. Download the
+                    local model to enable topic categorization.
+                  </BannerDescription>
+                  <BannerActions>
+                    <BannerAction
+                      variant="secondary"
+                      onClick={() => {
+                        setSheetOpen(true);
+                      }}
+                    >
+                      Show me how
+                    </BannerAction>
+                  </BannerActions>
+                </Banner>
               </Elevated>
             </div>
           </div>
         )}
       </div>
       <EnableModelSheet open={sheetOpen} onOpenChange={setSheetOpen} />
-    </Panel>
+    </SectionPanel>
   );
 }

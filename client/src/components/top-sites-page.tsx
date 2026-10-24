@@ -7,46 +7,41 @@
  * page reads that ordering back in a column of FF Panels:
  *
  *  1. Evidence coverage — the Completeness Statement, before any row.
- *  2. A MetricBand of recorded figures — ranked sites, distinct hosts,
- *     Profiles covered, and how many rows were recovered from sidecars rather
- *     than committed.
- *  3. A leaderboard per Profile — Chrome's recorded top placements, as an FF
+ *  2. A MetricBand of recorded figures over the saved ranking — ranked
+ *     sites, distinct hosts, Profiles covered — and, as its own figure, how
+ *     many rows were recovered from sidecars.
+ *  3. A leaderboard per Profile — Chrome's saved top placements, as an FF
  *     CardGroup of inline cards (one fluid hover highlight; a card opens its
  *     row detail).
  *  4. A "top of the list" composition read — which registrable domains hold
- *     the highest-ranked slots, and how the ranking splits between committed
- *     and recovered (sidecar) rows.
- *  5. The full ranked table on FF's Table, searchable and Profile-filterable
- *     (TabsSubtle) over the loaded rows.
+ *     the highest-ranked saved slots (page-kit MeterList), and how the
+ *     loaded rows split between saved and recovered (sidecar) reads.
+ *  5. The full ranked table on FF's Table, as two server reads kept apart
+ *     (forensic rule 4): Saved (committed) and Recovered (WAL then journal),
+ *     switched with `CommitStateSplit`; Profiles (`ProfilePicker`) and a
+ *     live search narrow the loaded rows of either list.
  *
  * Presentation rules kept: the Completeness Statement renders before any row;
  * states are worded, never colour alone; ranks are Chrome's recorded `urlRank`
  * values — never scores or bars the evidence does not contain. The bars in
  * the composition read are shares of *counts this page tallied* (how many of
- * the loaded rows fall in a domain / a commit state), labelled as such — never
- * a fabricated ranking of the sites themselves.
+ * the loaded saved rows fall in a domain), labelled as such — never a
+ * fabricated ranking of the sites themselves.
  */
 import { Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { EvidenceDot, type EvidenceState } from "@/components/evidence";
-import {
-  Panel,
-  PanelDescription,
-  PanelFooter,
-  PanelHeader,
-  PanelTitle,
-} from "@/components/panel";
+import { Panel, PanelFooter } from "@/components/panel";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
-  CardFooter,
   CardGroup,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { InputField, InputGroup } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/misc";
 import {
   Table,
@@ -56,107 +51,56 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle";
 import { fontWeights } from "@/lib/font-weight";
 import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { callApi } from "../api.js";
 import { COMMIT_META } from "../terms.js";
 import type {
   ArtifactConfig,
   CaseCompleteness,
   CommitState,
   Finding,
-  PageOf,
 } from "../types.js";
+import {
+  useCommitStateLists,
+  type PaginatedList,
+} from "../use-commit-state-lists.js";
+import { useChartTokens } from "./charts.js";
+import { CompletenessPanel } from "./completeness.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
   AbsentWord,
+  FieldCell,
   fieldInteger as fieldRank,
   fieldText,
   hostOf,
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
-import { CompletenessPanel } from "./completeness.js";
-import { ErrorRows, ListFooter } from "./list-states.js";
+import { FilterTextField, ProfilePicker } from "./filters.js";
+import { PendingFigure, UnavailableFigure } from "./history-figures.js";
+import { ListBlock, RevealSwap } from "./history-list-block.js";
+import { ErrorRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
+import {
+  CARD_TITLE_CLEAR,
+  CommitStateSplit,
+  MeterList,
+  plural,
+  SectionPanel,
+  type CommitView,
+} from "./page-kit.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
-import { CARD_TITLE_CLEAR, Count, ShareBar } from "./page-kit.js";
 
-/** One rank-sorted read across every Commit State, paginated by the route. */
-function useTopSites(route: string) {
-  const [rows, setRows] = useState<readonly Finding[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
+/** Chrome's own order: rank ascending (Commit State is added per list). */
+const RANK_ORDER: readonly (readonly [string, string])[] = [
+  ["sort", "rank"],
+  ["direction", "asc"],
+];
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setRows([]);
-    setCursor(null);
-    callApi<PageOf<Finding>>(route, [
-      ["sort", "rank"],
-      ["direction", "asc"],
-    ])
-      .then((page) => {
-        if (cancelled) {
-          return;
-        }
-        setRows(page.items);
-        setCursor(page.nextCursor);
-        setLoading(false);
-      })
-      .catch((requestError: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [route, nonce]);
-
-  const loadMore = useCallback(() => {
-    if (cursor === null) {
-      return;
-    }
-    setLoading(true);
-    callApi<PageOf<Finding>>(route, [
-      ["sort", "rank"],
-      ["direction", "asc"],
-      ["after", cursor],
-    ])
-      .then((page) => {
-        setRows((existing) => [...existing, ...page.items]);
-        setCursor(page.nextCursor);
-        setLoading(false);
-      })
-      .catch((requestError: unknown) => {
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-        setLoading(false);
-      });
-  }, [route, cursor]);
-
-  const retry = useCallback(() => {
-    setNonce((value) => value + 1);
-  }, []);
-
-  return { rows, cursor, loading, error, loadMore, retry };
+function asText(value: unknown): string {
+  return typeof value === "string" ? value : String(value);
 }
 
 /**
@@ -182,63 +126,78 @@ interface TopSitesStats {
   readonly rankedCount: number;
   readonly hostCount: number;
   readonly profileCount: number;
-  readonly recoveredCount: number;
 }
 
-/** Distinct-host, per-profile, and commit-state tallies of the loaded rows. */
+/** Distinct-host and per-profile tallies of the loaded saved rows. */
 function summarize(rows: readonly Finding[]): TopSitesStats {
   const hosts = new Set<string>();
   const profiles = new Set<string>();
-  let recovered = 0;
   for (const row of rows) {
     const host = hostOf(fieldText(row.fields.url));
     if (host !== null) {
       hosts.add(host.replace(/^www\./, ""));
     }
     profiles.add(row.profile);
-    if (row.commitState !== "committed") {
-      recovered += 1;
-    }
   }
   return {
     rankedCount: rows.length,
     hostCount: hosts.size,
     profileCount: profiles.size,
-    recoveredCount: recovered,
   };
 }
 
-function StatStrip({ stats }: { readonly stats: TopSitesStats }) {
+/** The figure strip. The first three count the saved ranking; the fourth
+ *  counts recovered rows on their own, never added to the others. */
+function StatStrip({
+  stats,
+  savedMore,
+  recovered,
+}: {
+  readonly stats: TopSitesStats;
+  readonly savedMore: boolean;
+  readonly recovered: PaginatedList<Finding>;
+}) {
+  const loaded = savedMore ? "loaded saved rows" : "saved rows";
+  const recoveredReady = !(recovered.loading && recovered.rows.length === 0);
   return (
     <MetricBand className="grid-cols-2 lg:grid-cols-4">
       <MetricBandItem
         label="Ranked sites"
         value={stats.rankedCount.toLocaleString("en-US")}
-        detail="rows loaded so far"
+        detail={loaded}
       />
       <MetricBandItem
         label="Distinct hosts"
         value={stats.hostCount.toLocaleString("en-US")}
-        detail="unique sites in the list"
+        detail={`unique sites in ${loaded}`}
       />
       <MetricBandItem
         label="Profiles"
         value={stats.profileCount.toLocaleString("en-US")}
         detail={
           stats.profileCount === 1
-            ? "one browser profile"
+            ? "one browser profile ranked"
             : "browser profiles ranked"
         }
       />
       <MetricBandItem
         label="Recovered"
-        value={stats.recoveredCount.toLocaleString("en-US")}
-        detail={
-          stats.recoveredCount === 0
-            ? "all rows saved"
-            : "rows from WAL / journal"
+        value={
+          recovered.error !== null && recovered.rows.length === 0 ? (
+            <UnavailableFigure />
+          ) : recoveredReady ? (
+            `${recovered.rows.length.toLocaleString("en-US")}${recovered.cursor === null ? "" : "+"}`
+          ) : (
+            <PendingFigure />
+          )
         }
-        tone={stats.recoveredCount === 0 ? "neutral" : "warning"}
+        detail={
+          recovered.error !== null && recovered.rows.length === 0
+            ? "the recovered read failed"
+            : recoveredReady && recovered.rows.length === 0
+              ? "no rows in the WAL or journal"
+              : "sidecar rows, counted apart"
+        }
       />
     </MetricBand>
   );
@@ -263,6 +222,25 @@ function RankSlot({ rank }: { readonly rank: number | null }) {
   );
 }
 
+/** A site's name, as recorded: the page title, else its own state word —
+ *  never the host standing in for a name. */
+function SiteName({ row }: { readonly row: Finding }) {
+  const title = fieldText(row.fields.title);
+  return title === null ? <FieldCell field={row.fields.title} /> : title;
+}
+
+/** Where the site lives: its host when the URL parses, the raw URL when it
+ *  does not, and the URL field's state word when none was recorded. */
+function SiteAddress({ row }: { readonly row: Finding }) {
+  const url = fieldText(row.fields.url);
+  return url === null ? (
+    <FieldCell field={row.fields.url} />
+  ) : (
+    (hostOf(url) ?? url)
+  );
+}
+
+/** Chrome's saved ranking, one panel per Profile. */
 function Leaderboard({
   rows,
   onSelect,
@@ -295,59 +273,50 @@ function Leaderboard({
   return (
     <div
       className={cn(
-        "grid items-start gap-5",
+        "grid items-start gap-4",
         byProfile.length > 1 && "lg:grid-cols-2",
       )}
     >
       {byProfile.map(([profile, group]) => (
-        <Panel
+        <SectionPanel
           key={profile}
-          role="region"
-          aria-label={`Chrome's ranking for ${profile}`}
-          className="overflow-clip"
+          id={`top-sites-board-${profile.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
+          title="Chrome's ranking"
+          description="Saved placements, as Chrome ordered them."
+          aside={
+            <Badge size="compact" className="ml-auto">
+              {profile}
+            </Badge>
+          }
         >
-          <PanelHeader className="items-center pb-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <PanelTitle>Chrome&apos;s ranking</PanelTitle>
-              <Badge variant="dot" color="gray" size="compact">
-                {profile}
-              </Badge>
-            </div>
-          </PanelHeader>
           <SizeProvider size="compact">
             <CardGroup orientation="inline" className="px-1 pb-1">
               {group.slice(0, BOARD_LIMIT).map((row, index) => {
-                const url = fieldText(row.fields.url);
-                const host = hostOf(url);
                 const title = fieldText(row.fields.title);
-                const name = title ?? host ?? url ?? "(untitled)";
+                const url = fieldText(row.fields.url);
                 return (
                   <Card
                     key={index}
                     onClick={() => {
                       onSelect(row);
                     }}
-                    label={`Open ${name} row detail`}
-                    className="min-h-14"
+                    label={`Open ${title ?? url ?? "top site"} row detail`}
                   >
                     <RankSlot rank={fieldRank(row.fields.urlRank)} />
-                    <SiteAvatar host={host} />
+                    <SiteAvatar host={hostOf(url)} />
                     <CardHeader className="gap-0.5 pr-3">
-                      <CardTitle className={CARD_TITLE_CLEAR}>{name}</CardTitle>
+                      <CardTitle className={CARD_TITLE_CLEAR}>
+                        <SiteName row={row} />
+                      </CardTitle>
                       <CardDescription
                         className={cn(
                           typeClass("caption", "compact"),
                           "truncate font-mono",
                         )}
                       >
-                        {host ?? url ?? ""}
+                        <SiteAddress row={row} />
                       </CardDescription>
                     </CardHeader>
-                    {row.commitState === "committed" ? null : (
-                      <CardFooter>
-                        <StateWord state={row.commitState} />
-                      </CardFooter>
-                    )}
                   </Card>
                 );
               })}
@@ -358,7 +327,7 @@ function Leaderboard({
               <BoardMore count={group.length - BOARD_LIMIT} />
             </PanelFooter>
           ) : null}
-        </Panel>
+        </SectionPanel>
       ))}
     </div>
   );
@@ -423,141 +392,100 @@ function domainShares(rows: readonly Finding[], topN: number): DomainShare[] {
 const DOMAIN_ROWS = 7;
 const COMPOSITION_TOP_N = 30;
 
+interface CommitSplit {
+  readonly committed: number;
+  readonly wal: number;
+  readonly journal: number;
+  /** Any of the three reads still has rows to load. */
+  readonly more: boolean;
+}
+
 /**
  * Composition read — two honest tallies of *which* rows sit at the top of
- * Chrome's list, drawn as share bars rather than as re-ranked sites:
+ * Chrome's list:
  *
- *  - "Domains at the top": of the highest-ranked `COMPOSITION_TOP_N` rows,
- *    how many slots each registrable domain holds. A site that appears under
- *    several subdomains (mail. / drive. / docs.google.com) reads as one
- *    domain here, which is exactly the concentration an examiner is looking
- *    for. Every bar is a count of loaded rows, labelled "N slots".
- *  - "Where the ranking came from": how the loaded rows split between
- *    committed and recovered (WAL / journal) Commit State — a forensically
- *    load-bearing figure, since a ranking rebuilt largely from sidecars is a
- *    different kind of evidence than one read straight from the committed
- *    database.
+ *  - "Domains at the top": of the highest-ranked `COMPOSITION_TOP_N` saved
+ *    rows, how many slots each registrable domain holds (page-kit
+ *    MeterList). A site that appears under several subdomains (mail. /
+ *    drive. / docs.google.com) reads as one domain here, which is exactly
+ *    the concentration an examiner is looking for. Every bar is a count of
+ *    loaded saved rows, labelled "N slots".
+ *  - "Where the ranking came from": how many rows each of the three reads
+ *    (saved, WAL, journal) returned — a forensically load-bearing figure,
+ *    since a ranking rebuilt largely from sidecars is a different kind of
+ *    evidence than one read straight from the committed database.
  *
- * Neither bar invents a score. Both restate counts the page already has, and
+ * Neither invents a score. Both restate counts the page already has, and
  * every state hue keeps its word.
  */
-function CompositionCard({ rows }: { readonly rows: readonly Finding[] }) {
+function CompositionCard({
+  saved,
+  split,
+}: {
+  readonly saved: readonly Finding[];
+  readonly split: CommitSplit;
+}) {
   const size = useSize();
-  const shares = useMemo(() => domainShares(rows, COMPOSITION_TOP_N), [rows]);
+  const tokens = useChartTokens();
+  const shares = useMemo(() => domainShares(saved, COMPOSITION_TOP_N), [saved]);
   const shown = shares.slice(0, DOMAIN_ROWS);
   const remainder = shares.slice(DOMAIN_ROWS);
   const remainderCount = remainder.reduce((sum, share) => sum + share.count, 0);
-  const peak = Math.max(...shares.map((share) => share.count), 1);
-  const consideredCount = Math.min(rows.length, COMPOSITION_TOP_N);
-
-  const commitSplit = useMemo(() => {
-    let committed = 0;
-    let wal = 0;
-    let journal = 0;
-    for (const row of rows) {
-      if (row.commitState === "committed") {
-        committed += 1;
-      } else if (row.commitState === "wal_resident") {
-        wal += 1;
-      } else {
-        journal += 1;
-      }
-    }
-    return { committed, wal, journal, total: rows.length };
-  }, [rows]);
+  const consideredCount = Math.min(saved.length, COMPOSITION_TOP_N);
+  const total = split.committed + split.wal + split.journal;
 
   return (
-    <div className="grid grid-cols-12 items-start gap-5">
-      <Panel
-        role="region"
-        aria-labelledby="top-sites-domains-title"
-        className="col-span-12 overflow-clip lg:col-span-7"
+    <div className="grid grid-cols-12 items-start gap-4">
+      <SectionPanel
+        id="top-sites-domains-title"
+        title="Domains at the top"
+        description={`Of the ${String(consideredCount)} highest-ranked saved rows, how many slots each site's domain holds.`}
+        className="col-span-12 lg:col-span-7"
       >
-        <PanelHeader>
-          <div className="min-w-0">
-            <PanelTitle id="top-sites-domains-title">
-              Domains at the top
-            </PanelTitle>
-            <PanelDescription>
-              Of the {consideredCount} highest-ranked rows, how many slots each
-              site&apos;s domain holds.
-            </PanelDescription>
-          </div>
-        </PanelHeader>
         {shown.length === 0 ? (
-          <EmptyRows message="No ranked rows with a readable host to group." />
+          <EmptyRows message="No saved ranked rows with a readable host to group." />
         ) : (
-          <ol className="flex flex-col px-4 pt-1 pb-3">
-            {shown.map((share) => (
-              <li
-                key={share.domain}
-                className="grid min-h-12 grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto] items-center gap-4 border-b border-border last:border-b-0"
-              >
-                <span className="flex min-w-0 items-center gap-2.5">
+          <MeterList
+            className="px-4 pt-1 pb-3"
+            labelWidth="clamp(6rem, 32%, 12rem)"
+            tokens={tokens}
+            rows={shown.map((share) => ({
+              key: share.domain,
+              label: (
+                <>
                   <SiteAvatar host={share.domain} />
-                  <span className="flex min-w-0 flex-col">
-                    <span
-                      className={cn(size.type.body, "truncate text-foreground")}
-                    >
-                      {share.domain}
-                    </span>
-                    {share.bestRank !== null ? (
-                      <span
-                        className={cn(
-                          size.type.caption,
-                          "truncate text-muted-foreground tabular-nums",
-                        )}
-                      >
-                        best rank #{share.bestRank}
-                      </span>
-                    ) : null}
+                  <span className="truncate" title={share.domain}>
+                    {share.domain}
                   </span>
-                </span>
-                <ShareBar fraction={share.count / peak} />
-                <span
-                  className={cn(
-                    size.type.caption,
-                    "text-right whitespace-nowrap text-muted-foreground tabular-nums",
-                  )}
-                >
-                  {share.count} slot{share.count === 1 ? "" : "s"}
-                </span>
-              </li>
-            ))}
-          </ol>
+                </>
+              ),
+              value: share.count,
+              display:
+                share.bestRank === null
+                  ? plural(share.count, "slot", "slots")
+                  : `${plural(share.count, "slot", "slots")} · best #${String(share.bestRank)}`,
+            }))}
+          />
         )}
         {remainderCount > 0 ? (
           <PanelFooter>
             <p className={cn(size.type.caption, "text-muted-foreground")}>
-              and {remainder.length} more domain
-              {remainder.length === 1 ? "" : "s"} sharing {remainderCount} slot
-              {remainderCount === 1 ? "" : "s"}
+              and {plural(remainder.length, "more domain", "more domains")}{" "}
+              sharing {plural(remainderCount, "slot", "slots")}
             </p>
           </PanelFooter>
         ) : null}
-      </Panel>
+      </SectionPanel>
 
-      <Panel
-        role="region"
-        aria-labelledby="top-sites-split-title"
-        className="col-span-12 overflow-clip lg:col-span-5"
+      <SectionPanel
+        id="top-sites-split-title"
+        title="Where the ranking came from"
+        description={`How many rows each read returned${split.more ? " so far" : ""}: the saved database and the two recovered sidecars, counted apart.`}
+        className="col-span-12 lg:col-span-5"
       >
-        <PanelHeader>
-          <div className="min-w-0">
-            <PanelTitle id="top-sites-split-title">
-              Where the ranking came from
-            </PanelTitle>
-            <PanelDescription>
-              How the loaded rows split between the saved database and recovered
-              sidecars.
-            </PanelDescription>
-          </div>
-        </PanelHeader>
         <div className="flex flex-col gap-4 px-4 pt-2 pb-4">
-          {commitSplit.total === 0 ? (
-            <p className={cn(size.type.body, "text-muted-foreground")}>
-              No rows loaded to split.
-            </p>
+          {total === 0 ? (
+            <EmptyRows message="No rows loaded to split." />
           ) : (
             <>
               {/* The stacked bar only repeats the legend below, which carries
@@ -568,9 +496,9 @@ function CompositionCard({ rows }: { readonly rows: readonly Finding[] }) {
               >
                 {(
                   [
-                    ["committed", commitSplit.committed],
-                    ["wal_resident", commitSplit.wal],
-                    ["journal_resident", commitSplit.journal],
+                    ["committed", split.committed],
+                    ["wal_resident", split.wal],
+                    ["journal_resident", split.journal],
                   ] as const
                 ).map(([state, count]) =>
                   count === 0 ? null : (
@@ -586,26 +514,26 @@ function CompositionCard({ rows }: { readonly rows: readonly Finding[] }) {
                 <CommitLegendRow
                   state="committed"
                   hint="read from the saved database"
-                  count={commitSplit.committed}
-                  total={commitSplit.total}
+                  count={split.committed}
+                  total={total}
                 />
                 <CommitLegendRow
                   state="wal_resident"
                   hint="recovered from the write-ahead log"
-                  count={commitSplit.wal}
-                  total={commitSplit.total}
+                  count={split.wal}
+                  total={total}
                 />
                 <CommitLegendRow
                   state="journal_resident"
                   hint="recovered from the rollback journal"
-                  count={commitSplit.journal}
-                  total={commitSplit.total}
+                  count={split.journal}
+                  total={total}
                 />
               </dl>
             </>
           )}
         </div>
-      </Panel>
+      </SectionPanel>
     </div>
   );
 }
@@ -633,16 +561,18 @@ function CommitLegendRow({
   const dot: EvidenceState = meta.badge;
   const percent = total === 0 ? 0 : Math.round((count / total) * 100);
   return (
-    <div className="flex min-h-12 items-center gap-3 border-b border-border last:border-b-0">
+    <div className="flex h-12 items-center gap-3 border-b border-border last:border-b-0">
       <EvidenceDot state={dot} />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <dt className={cn(size.type.body, "text-foreground")}>{meta.label}</dt>
+      <dt className="flex min-w-0 flex-1 flex-col">
+        <span className={cn(size.type.body, "text-foreground")}>
+          {meta.label}
+        </span>
         <span
           className={cn(size.type.caption, "truncate text-muted-foreground")}
         >
           {hint}
         </span>
-      </span>
+      </dt>
       <dd
         className={cn(
           size.type.body,
@@ -664,8 +594,6 @@ function CommitLegendRow({
 }
 
 /* --------------------------------- table ---------------------------------- */
-
-const ALL_PROFILES = "All profiles";
 
 function RankedTable({
   rows,
@@ -690,7 +618,6 @@ function RankedTable({
         <TableBody className="reveal-items">
           {rows.map((row, index) => {
             const url = fieldText(row.fields.url);
-            const host = hostOf(url);
             const title = fieldText(row.fields.title);
             const rank = fieldRank(row.fields.urlRank);
             const open = () => {
@@ -698,10 +625,10 @@ function RankedTable({
             };
             return (
               <TableRow
-                key={index}
+                key={`${row.commitState}-${String(index)}`}
                 index={index}
                 tabIndex={0}
-                aria-label="Open top site row detail"
+                aria-label={`Open top site row detail: ${title ?? url ?? "top site"}`}
                 onClick={open}
                 onKeyDown={(event) => {
                   activateOnKey(event, open);
@@ -710,7 +637,7 @@ function RankedTable({
               >
                 <TableCell className="w-16 tabular-nums">
                   {rank === null ? (
-                    <AbsentWord />
+                    <FieldCell field={row.fields.urlRank} />
                   ) : (
                     <span
                       className="text-foreground"
@@ -722,19 +649,21 @@ function RankedTable({
                 </TableCell>
                 <TableCell className="max-w-[520px]">
                   <span className="flex items-center gap-2.5">
-                    <SiteAvatar host={host} />
+                    <SiteAvatar host={hostOf(url)} />
                     <span className="flex min-w-0 flex-col">
-                      <span
-                        className="truncate text-foreground"
-                        title={title ?? undefined}
-                      >
-                        {title ?? host ?? "(untitled)"}
+                      <span className="min-w-0" title={title ?? undefined}>
+                        <FieldCell
+                          field={row.fields.title}
+                          format={asText}
+                          className="text-foreground"
+                        />
                       </span>
-                      <span
-                        className={cn(size.type.caption, "truncate font-mono")}
-                        title={url ?? undefined}
-                      >
-                        {url ?? ""}
+                      <span className="min-w-0" title={url ?? undefined}>
+                        <FieldCell
+                          field={row.fields.url}
+                          format={asText}
+                          className={cn(size.type.caption, "font-mono")}
+                        />
                       </span>
                     </span>
                   </span>
@@ -754,22 +683,91 @@ function RankedTable({
   );
 }
 
-/** Placeholder at the size of the loaded page's first blocks. */
+/** One of the two ranked lists, narrowed by the page's Profiles and search
+ *  over its loaded rows. */
+function RankedList({
+  list,
+  recovered,
+  matches,
+  filtered,
+  onClearFilters,
+  onSelect,
+}: {
+  readonly list: PaginatedList<Finding>;
+  readonly recovered: boolean;
+  readonly matches: (row: Finding) => boolean;
+  readonly filtered: boolean;
+  readonly onClearFilters: () => void;
+  readonly onSelect: (row: Finding) => void;
+}) {
+  const visible = useMemo(
+    () => list.rows.filter(matches),
+    [list.rows, matches],
+  );
+  const noun = recovered ? "recovered rows" : "saved rows";
+  return (
+    <ListBlock
+      list={list}
+      shown={visible.length}
+      loadingLabel={`Loading ${noun}`}
+      skeletonRows={recovered ? 3 : 8}
+      errorTitle={`The ${noun} could not be loaded.`}
+      summary={
+        filtered
+          ? `${visible.length.toLocaleString("en-US")} of ${list.rows.length.toLocaleString("en-US")} loaded ${noun} shown`
+          : undefined
+      }
+      empty={
+        filtered ? (
+          <EmptyRows
+            message={`No loaded ${noun} match these filters.`}
+            action={
+              <Button
+                variant="tertiary"
+                size="compact"
+                onClick={onClearFilters}
+              >
+                Clear filters
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyRows
+            title={recovered ? "No recovered rows" : "No saved rows"}
+            message={
+              recovered
+                ? "Neither the write-ahead log nor the rollback journal holds a Top sites row."
+                : "The Top Sites database holds no committed rows."
+            }
+          />
+        )
+      }
+    >
+      <RankedTable rows={visible} onSelect={onSelect} />
+    </ListBlock>
+  );
+}
+
+/** Placeholder at the size of the summary blocks above the table. */
 function TopSitesSkeleton() {
   return (
     <div
       className="flex flex-col gap-5"
-      aria-label="Loading rows"
+      aria-label="Loading the saved ranking"
       role="status"
     >
       <Skeleton className="h-[86px] rounded-xl" />
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Skeleton className="h-[352px] rounded-xl" />
         <Skeleton className="h-[352px] rounded-xl" />
       </div>
       <Skeleton className="h-[320px] rounded-xl" />
     </div>
   );
+}
+
+function countOf(list: PaginatedList<unknown>): number | null {
+  return list.loading && list.rows.length === 0 ? null : list.rows.length;
 }
 
 export function TopSitesPage({
@@ -779,48 +777,73 @@ export function TopSitesPage({
   readonly config: ArtifactConfig;
   readonly completeness: CaseCompleteness;
 }) {
-  const list = useTopSites(config.route);
+  const lists = useCommitStateLists<Finding>(config.route, RANK_ORDER);
+  const [view, setView] = useState<CommitView>("saved");
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
-  const [profileFilter, setProfileFilter] = useState<string | null>(null);
+  const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
+
+  const saved = lists.saved;
+  const recovered = lists.recovered;
 
   const profiles = useMemo(
-    () => [...new Set(list.rows.map((row) => row.profile))].sort(),
-    [list.rows],
+    () =>
+      [
+        ...new Set(
+          [...saved.rows, ...recovered.rows].map((row) => row.profile),
+        ),
+      ].sort(),
+    [saved.rows, recovered.rows],
   );
 
-  const stats = useMemo(() => summarize(list.rows), [list.rows]);
+  const stats = useMemo(() => summarize(saved.rows), [saved.rows]);
+  const split = useMemo<CommitSplit>(
+    () => ({
+      committed: saved.rows.length,
+      wal: recovered.wal.rows.length,
+      journal: recovered.journal.rows.length,
+      more: saved.cursor !== null || recovered.cursor !== null,
+    }),
+    [
+      saved.rows.length,
+      saved.cursor,
+      recovered.wal.rows.length,
+      recovered.journal.rows.length,
+      recovered.cursor,
+    ],
+  );
 
-  const visible = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("en-US");
-    return list.rows.filter((row) => {
-      if (profileFilter !== null && row.profile !== profileFilter) {
+  const query = search.trim().toLocaleLowerCase("en-US");
+  const filtered = query !== "" || profileFilter.length > 0;
+  const matches = useCallback(
+    (row: Finding) => {
+      if (profileFilter.length > 0 && !profileFilter.includes(row.profile)) {
         return false;
       }
       if (query === "") {
         return true;
       }
-      const haystack = [
+      return [
         fieldText(row.fields.url) ?? "",
         fieldText(row.fields.title) ?? "",
       ]
         .join("\n")
-        .toLocaleLowerCase("en-US");
-      return haystack.includes(query);
-    });
-  }, [list.rows, search, profileFilter]);
+        .toLocaleLowerCase("en-US")
+        .includes(query);
+    },
+    [profileFilter, query],
+  );
 
-  const filtered = visible.length !== list.rows.length;
+  const clearFilters = useCallback(() => {
+    setSearch("");
+    setProfileFilter([]);
+  }, []);
 
   const select = useCallback((row: Finding) => {
     setSelected({ kind: "finding", row });
   }, []);
 
-  const profileTabs = [ALL_PROFILES, ...profiles];
-  const profileIndex =
-    profileFilter === null
-      ? 0
-      : Math.max(0, profiles.indexOf(profileFilter) + 1);
+  const savedFirstRead = saved.loading && saved.rows.length === 0;
 
   return (
     <div className="flex flex-col gap-5">
@@ -829,115 +852,90 @@ export function TopSitesPage({
         artifacts={[config.completenessArtifact]}
       />
 
-      {list.error !== null ? (
+      {/* The summary reads the saved ranking only. */}
+      {saved.error !== null && saved.rows.length === 0 ? (
         <Panel>
-          <ErrorRows message={list.error} onRetry={list.retry} />
-        </Panel>
-      ) : list.loading && list.rows.length === 0 ? (
-        <TopSitesSkeleton />
-      ) : list.rows.length === 0 ? (
-        <Panel>
-          <EmptyRows message="No Top sites rows in this Case." />
+          <ErrorRows
+            title="The saved ranking could not be loaded."
+            message={saved.error}
+            onRetry={saved.retry}
+          />
         </Panel>
       ) : (
-        <>
-          <StatStrip stats={stats} />
-
-          <Leaderboard rows={list.rows} onSelect={select} />
-
-          <CompositionCard rows={list.rows} />
-
-          <Panel
-            role="region"
-            aria-labelledby="top-sites-all-title"
-            className="overflow-clip"
-          >
-            <PanelHeader className="items-center pb-3">
-              <div className="flex min-w-0 items-baseline gap-2.5">
-                <PanelTitle id="top-sites-all-title">
-                  All ranked sites
-                </PanelTitle>
-                <Count>{visible.length}</Count>
-              </div>
-            </PanelHeader>
-            <SizeProvider size="compact">
-              <div
-                role="group"
-                aria-label="Filter loaded top sites"
-                className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 pb-3"
-              >
-                {profiles.length > 1 ? (
-                  <TabsSubtle
-                    idPrefix="top-sites-profile"
-                    selectedIndex={profileIndex}
-                    onSelect={(index) => {
-                      setProfileFilter(
-                        index === 0 ? null : (profiles[index - 1] ?? null),
-                      );
-                    }}
-                    aria-label="Profile"
-                  >
-                    {profileTabs.map((label, index) => (
-                      <TabsSubtleItem key={label} index={index} label={label} />
-                    ))}
-                  </TabsSubtle>
-                ) : (
-                  <span />
-                )}
-                {/* Narrows the rows already loaded, live as you type — no
-                    new query, so there is nothing to commit. Keeps the
-                    toolbar field's hairline at rest like FilterTextField. */}
-                <InputGroup className="w-60 max-sm:w-full [&_label+div]:ring-border">
-                  <InputField
-                    index={0}
-                    label="Search loaded top sites"
-                    labelHidden
-                    icon={Search}
-                    value={search}
-                    placeholder="Search site or title…"
-                    onChange={setSearch}
-                  />
-                </InputGroup>
-              </div>
-            </SizeProvider>
-
-            <div className="border-t border-border">
-              {visible.length === 0 ? (
-                <EmptyRows
-                  message={
-                    filtered
-                      ? "No loaded rows match this filter."
-                      : "No Top sites rows in this Case."
-                  }
-                />
-              ) : (
-                <RankedTable rows={visible} onSelect={select} />
-              )}
-            </div>
-
-            <ListFooter
-              count={list.rows.length}
-              cursor={list.cursor}
-              loading={list.loading}
-              onLoadMore={list.loadMore}
-              summary={
-                filtered
-                  ? `${String(visible.length)} of ${String(list.rows.length)} loaded rows shown`
-                  : undefined
-              }
+        <RevealSwap loading={savedFirstRead} skeleton={<TopSitesSkeleton />}>
+          <div className="flex flex-col gap-5">
+            <StatStrip
+              stats={stats}
+              savedMore={saved.cursor !== null}
+              recovered={recovered}
             />
-          </Panel>
-        </>
+            <Leaderboard rows={saved.rows} onSelect={select} />
+            <CompositionCard saved={saved.rows} split={split} />
+          </div>
+        </RevealSwap>
       )}
+
+      <SectionPanel
+        id="top-sites-all-title"
+        title="All ranked sites"
+        description="Every Top sites row, in Chrome's rank order."
+      >
+        <CommitStateSplit
+          value={view}
+          onValueChange={setView}
+          label="Saved or recovered top sites"
+          savedCount={countOf(saved)}
+          recoveredCount={countOf(recovered)}
+          savedMore={saved.cursor !== null}
+          recoveredMore={recovered.cursor !== null}
+          toolbar={
+            <>
+              {profiles.length > 1 ? (
+                <ProfilePicker
+                  id="top-sites-profiles"
+                  profiles={profiles}
+                  selected={profileFilter}
+                  onChange={setProfileFilter}
+                />
+              ) : null}
+              <FilterTextField
+                id="top-sites-search"
+                commit="change"
+                label="Search loaded top sites"
+                icon={Search}
+                value={search}
+                placeholder="Search site or title…"
+                onCommit={setSearch}
+              />
+            </>
+          }
+          saved={
+            <RankedList
+              list={saved}
+              recovered={false}
+              matches={matches}
+              filtered={filtered}
+              onClearFilters={clearFilters}
+              onSelect={select}
+            />
+          }
+          recovered={
+            <RankedList
+              list={recovered}
+              recovered
+              matches={matches}
+              filtered={filtered}
+              onClearFilters={clearFilters}
+              onSelect={select}
+            />
+          }
+        />
+      </SectionPanel>
 
       {selected !== null ? (
         <RowSheet
           selected={selected}
-          title={
-            fieldText(selected.row.fields.title) ??
-            hostOf(fieldText(selected.row.fields.url)) ??
-            "Top site"
-          }
+          title={fieldText(selected.row.fields.title) ?? "Top site"}
           onClose={() => {
             setSelected(null);
           }}

@@ -20,18 +20,20 @@
  * Every derived badge is a reading of a value the row already carries, never
  * a new fact: an absent or unavailable source field collapses its badge to
  * the same worded state the field list shows, so a conclusion is never
- * asserted past the evidence. The field list below keeps every curated field
- * verbatim, one row at a time behind FF subtle tabs, and the detail sheet
- * keeps every wire field and its provenance.
+ * asserted past the evidence. The environment, the encryption posture and
+ * the profile cards read the saved rows only. "All recorded fields" keeps
+ * every curated field of every row verbatim, stacked one row after another
+ * (or one row picked from the toolbar), with saved rows and rows recovered
+ * from the WAL / rollback journal as separate server reads behind the
+ * Saved / Recovered switch; the detail sheet keeps every wire field and its
+ * provenance.
  *
  * Presentation rules kept: value / (empty) / absent / unavailable stay
- * distinct words, never colour alone; nothing here is inference presented as
- * a factual summary tile.
+ * distinct words, never colour alone; saved and recovered rows are never
+ * mixed; nothing here is inference presented as a factual summary tile.
  */
 import {
-  AlertTriangle,
   Chrome,
-  CircleCheck,
   Globe2,
   KeyRound,
   Lock,
@@ -42,17 +44,22 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
   Panel,
   PanelContent,
   PanelDescription,
-  PanelFooter,
   PanelHeader,
   PanelTitle,
 } from "@/components/panel";
-import { Badge, type BadgeColor } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -64,105 +71,71 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
 import {
-  TabsSubtle,
-  TabsSubtleItem,
-  TabsSubtlePanel,
-} from "@/components/ui/tabs-subtle";
-import { Tooltip } from "@/components/ui/tooltip";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { fontWeights } from "@/lib/font-weight";
-import { typeClass } from "@/lib/size-context";
+import { typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { callApi } from "../api.js";
+import type { QueryParameters } from "../api.js";
 import type {
   ArtifactConfig,
   CaseCompleteness,
   FieldState,
   Finding,
-  PageOf,
 } from "../types.js";
+import {
+  type PaginatedList,
+  type RecoveredList,
+  useCommitStateLists,
+} from "../use-commit-state-lists.js";
 import { CompletenessPanel } from "./completeness.js";
-import { Count, IconTile, SectionHeading, Toolbar } from "./page-kit.js";
 import { EmptyRows } from "./data-table.js";
 import { EvidenceBadge, type EvidenceState } from "./evidence.js";
 import { MaybeFieldStateText } from "./field-state.js";
-import { FilterTextField } from "./filters.js";
-import { ErrorRows } from "./list-states.js";
+import { fieldBool, fieldString, StateWord } from "./finding-fields.js";
+import { FilterField, FilterTextField } from "./filters.js";
+import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
+import {
+  CommitStateSplit,
+  type CommitView,
+  IconTile,
+  plural,
+  SectionPanel,
+  Toolbar,
+} from "./page-kit.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
-import { fieldBool, fieldString } from "./finding-fields.js";
 
-/** One type-sorted read across every Metadata row, paginated by the route. */
-function useMetadata(route: string) {
-  const [rows, setRows] = useState<readonly Finding[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
+/** Browser row first, then profiles; each Commit State is its own read. */
+const METADATA_PARAMETERS: QueryParameters = [
+  ["sort", "type"],
+  ["direction", "asc"],
+];
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setRows([]);
-    setCursor(null);
-    callApi<PageOf<Finding>>(route, [
-      ["sort", "type"],
-      ["direction", "asc"],
-    ])
-      .then((page) => {
-        if (cancelled) {
-          return;
-        }
-        setRows(page.items);
-        setCursor(page.nextCursor);
-        setLoading(false);
-      })
-      .catch((requestError: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [route, nonce]);
+/** Retry only what failed: a failed first read starts that list over; a
+ *  failed "Load more" asks for the same page again and keeps every row
+ *  already loaded. */
+function retryFailedPage<Row>(list: PaginatedList<Row>) {
+  if (list.error === null) {
+    return;
+  }
+  if (list.rows.length > 0 && list.cursor !== null) {
+    list.loadMore();
+  } else {
+    list.retry();
+  }
+}
 
-  const loadMore = useCallback(() => {
-    if (cursor === null) {
-      return;
-    }
-    setLoading(true);
-    callApi<PageOf<Finding>>(route, [
-      ["sort", "type"],
-      ["direction", "asc"],
-      ["after", cursor],
-    ])
-      .then((page) => {
-        setRows((existing) => [...existing, ...page.items]);
-        setCursor(page.nextCursor);
-        setLoading(false);
-      })
-      .catch((requestError: unknown) => {
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-        setLoading(false);
-      });
-  }, [route, cursor]);
-
-  const retry = useCallback(() => {
-    setNonce((value) => value + 1);
-  }, []);
-
-  return { rows, cursor, loading, error, loadMore, retry };
+function retryList<Row>(list: PaginatedList<Row> | RecoveredList<Row>) {
+  if ("wal" in list) {
+    retryFailedPage(list.wal);
+    retryFailedPage(list.journal);
+  } else {
+    retryFailedPage(list);
+  }
 }
 
 /** Whether a media query matches, kept in step with the viewport. */
@@ -204,11 +177,11 @@ function rowHeadline(row: Finding): string {
 
 /* ------------------------------ Derived badges ---------------------------- */
 
+/** A derived reading: its words, and — only for a reading that is a warning
+ *  — the state its dot repeats. Every other reading is a plain label. */
 interface Reading {
   readonly label: string;
-  readonly color: BadgeColor;
-  readonly icon: LucideIcon;
-  readonly title: string;
+  readonly state?: EvidenceState;
 }
 
 /**
@@ -224,27 +197,12 @@ function exitReading(field: FieldState | undefined): Reading | null {
   }
   const normalized = raw.toLocaleLowerCase("en-US");
   if (normalized === "normal") {
-    return {
-      label: "Clean exit",
-      color: "green",
-      icon: CircleCheck,
-      title: `exit_type recorded as "${raw}"`,
-    };
+    return { label: "Clean exit" };
   }
   if (normalized === "crashed") {
-    return {
-      label: "Crashed",
-      color: "amber",
-      icon: AlertTriangle,
-      title: `exit_type recorded as "${raw}": the profile did not shut down cleanly`,
-    };
+    return { label: "Crashed", state: "warning" };
   }
-  return {
-    label: raw,
-    color: "gray",
-    icon: AlertTriangle,
-    title: `exit_type recorded as "${raw}"`,
-  };
+  return { label: `Exit: ${raw}` };
 }
 
 /**
@@ -253,35 +211,25 @@ function exitReading(field: FieldState | undefined): Reading | null {
  * with no e-mail is the local case. When neither can be read, no badge is drawn.
  */
 function accountReading(fields: Finding["fields"]): Reading | null {
-  const email = fieldString(fields.accountEmail);
-  if (email !== null) {
-    return {
-      label: "Signed-in account",
-      color: "blue",
-      icon: UserRound,
-      title: `Account e-mail on record: ${email}`,
-    };
+  if (fieldString(fields.accountEmail) !== null) {
+    return { label: "Signed-in account" };
   }
-  const defaultName = fieldBool(fields.isUsingDefaultName);
-  if (defaultName === true) {
-    return {
-      label: "Local profile",
-      color: "gray",
-      icon: UserRound,
-      title: "No account e-mail recorded; the profile uses its default name",
-    };
+  if (fieldBool(fields.isUsingDefaultName) === true) {
+    return { label: "Local profile" };
   }
   return null;
 }
 
-/** A derived reading as an FF dot Badge, its source on hover. */
+/** A derived reading as an FF Badge: a worded warning chip, else a plain
+ *  label. Not focusable — the card is the one tab stop, and the field list
+ *  and the detail sheet carry the source values. */
 function ReadingBadge({ reading }: { readonly reading: Reading }) {
-  return (
-    <Tooltip content={reading.title}>
-      <Badge variant="dot" color={reading.color} tabIndex={0}>
-        {reading.label}
-      </Badge>
-    </Tooltip>
+  return reading.state === undefined ? (
+    <Badge size="compact">{reading.label}</Badge>
+  ) : (
+    <EvidenceBadge state={reading.state} size="compact">
+      {reading.label}
+    </EvidenceBadge>
   );
 }
 
@@ -297,16 +245,17 @@ function Fact({
   readonly label: string;
   readonly field: FieldState | undefined;
 }) {
+  const size = useSize();
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <dt
         className={cn(
-          typeClass("caption"),
+          size.type.caption,
           "flex items-center gap-1.5 text-muted-foreground",
         )}
       >
         {Icon === undefined ? null : (
-          <Icon aria-hidden="true" size={13} strokeWidth={1.5} />
+          <Icon aria-hidden="true" size={size.icon} strokeWidth={1.5} />
         )}
         {label}
       </dt>
@@ -317,37 +266,63 @@ function Fact({
   );
 }
 
+/** A Panel whose header carries an IconTile beside its title and
+ *  description; a labelled region. */
+function IconPanel({
+  id,
+  icon,
+  title,
+  description,
+  children,
+}: {
+  readonly id: string;
+  readonly icon: LucideIcon;
+  readonly title: string;
+  readonly description: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <Panel role="region" aria-labelledby={id} className="h-full">
+      <PanelHeader>
+        <div className="flex min-w-0 items-center gap-3">
+          <IconTile icon={icon} />
+          <div className="flex min-w-0 flex-col">
+            <PanelTitle id={id} className="truncate">
+              {title}
+            </PanelTitle>
+            <PanelDescription>{description}</PanelDescription>
+          </div>
+        </div>
+      </PanelHeader>
+      {children}
+    </Panel>
+  );
+}
+
 /* --------------------------- Environment panel ---------------------------- */
 
 /**
- * The environment — the browser-level Metadata Finding, framed as the
+ * The environment — the saved browser-level Metadata Finding, framed as the
  * machine context every profile below sits inside.
  */
 function EnvironmentPanel({ browser }: { readonly browser: Finding | null }) {
   const chromeVersion =
     browser === null ? null : fieldString(browser.fields.chromeVersion);
   return (
-    <Panel aria-label="Browser environment">
-      <PanelHeader>
-        <div className="flex min-w-0 items-center gap-3">
-          <IconTile icon={Chrome} />
-          <div className="flex min-w-0 flex-col">
-            <PanelTitle className="truncate">
-              {chromeVersion === null
-                ? "Chrome browser"
-                : `Chrome ${chromeVersion}`}
-            </PanelTitle>
-            <PanelDescription>
-              Environment recorded in Local State
-            </PanelDescription>
-          </div>
-        </div>
-      </PanelHeader>
+    <IconPanel
+      id="metadata-environment"
+      icon={Chrome}
+      title={
+        chromeVersion === null ? "Chrome browser" : `Chrome ${chromeVersion}`
+      }
+      description="Environment recorded in Local State"
+    >
       <PanelContent className="pt-3">
         {browser === null ? (
-          <p className={cn(typeClass("body"), "text-muted-foreground")}>
-            No browser-level metadata was recovered for this Case.
-          </p>
+          <EmptyRows
+            className="py-6"
+            message="No saved browser-level metadata in this Case."
+          />
         ) : (
           <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
             <Fact
@@ -373,7 +348,7 @@ function EnvironmentPanel({ browser }: { readonly browser: Finding | null }) {
           </dl>
         )}
       </PanelContent>
-    </Panel>
+    </IconPanel>
   );
 }
 
@@ -443,16 +418,12 @@ function EncryptionPanel({ browser }: { readonly browser: Finding }) {
         ? "No standard key on disk: encrypted values will not decrypt from this evidence."
         : "Key presence could not be read from Local State.";
   return (
-    <Panel aria-label="Encryption posture">
-      <PanelHeader>
-        <div className="flex min-w-0 items-center gap-3">
-          <IconTile icon={ShieldCheck} />
-          <div className="flex min-w-0 flex-col">
-            <PanelTitle>Encryption posture</PanelTitle>
-            <PanelDescription>{summary}</PanelDescription>
-          </div>
-        </div>
-      </PanelHeader>
+    <IconPanel
+      id="metadata-encryption"
+      icon={ShieldCheck}
+      title="Encryption posture"
+      description={summary}
+    >
       <PanelContent className="pt-1 pb-1">
         <ul className="flex flex-col divide-y divide-border">
           <KeyState
@@ -467,7 +438,7 @@ function EncryptionPanel({ browser }: { readonly browser: Finding }) {
           />
         </ul>
       </PanelContent>
-    </Panel>
+    </IconPanel>
   );
 }
 
@@ -477,8 +448,9 @@ function EncryptionPanel({ browser }: { readonly browser: Finding }) {
  * A profile identity card. The headline is the best human name the row
  * carries (full name, then profile name, then the directory key), the initial
  * tile is drawn from that name, and the two derived badges restate the last
- * exit and the account state in plain words. Clicking the card opens the row
- * detail sheet, so every wire field stays one click away.
+ * exit and the account state in plain words. Clicking anywhere on the card
+ * (its footer badges included) opens the row detail sheet, so every wire
+ * field stays one click away.
  */
 function ProfileCard({
   row,
@@ -528,7 +500,9 @@ function ProfileCard({
         </div>
       </CardHeader>
       {exit !== null || account !== null ? (
-        <CardFooter className="gap-1.5">
+        // The footer rises above the card's click overlay; nothing in it is
+        // interactive, so it lets clicks through to the card.
+        <CardFooter className="pointer-events-none gap-1.5">
           {account === null ? null : <ReadingBadge reading={account} />}
           {exit === null ? null : <ReadingBadge reading={exit} />}
         </CardFooter>
@@ -585,21 +559,70 @@ const FIELD_LABELS: readonly {
 
 const LISTED_KEYS = new Set(FIELD_LABELS.map(({ key }) => key));
 
+/** A stable key for one Metadata row within its list. */
+function rowKey(row: Finding, index: number): string {
+  return `${row.commitState}:${row.findingKind}:${row.profile}:${String(index)}`;
+}
+
 /**
- * Every curated field of one Metadata row, verbatim, as a key/value list.
- * Metadata rows do not share one column set (a browser row and a profile row
- * carry different fields), so a two-column list per row stays readable where
- * one wide grid would not. Each value renders through the shared Field State
- * text, so a value, an empty string, an absent field, and an unavailable
- * field stay four distinct, worded states.
+ * Every curated field of one Metadata row, verbatim, as a key/value list
+ * under a small heading (the row's name, its kind and profile, and the way
+ * into its detail sheet). Metadata rows do not share one column set (a
+ * browser row and a profile row carry different fields), so a two-column
+ * list per row stays readable where one wide grid would not. Each value
+ * renders through the shared Field State text, so a value, an empty string,
+ * an absent field, and an unavailable field stay four distinct, worded
+ * states.
  */
-function FieldList({ row }: { readonly row: Finding }) {
+function RowFields({
+  row,
+  onSelect,
+}: {
+  readonly row: Finding;
+  readonly onSelect: (row: Finding) => void;
+}) {
+  const size = useSize();
   const present = FIELD_LABELS.filter(({ key }) => key in row.fields);
   const unlisted = Object.keys(row.fields).filter(
     (key) => !LISTED_KEYS.has(key),
   ).length;
+  const Icon = row.findingKind === "browser_metadata" ? Chrome : UserRound;
   return (
-    <>
+    <section
+      aria-label={`Recorded fields of ${rowHeadline(row)}`}
+      className="flex flex-col border-b border-border py-3 last:border-b-0"
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pb-1">
+        <Icon
+          aria-hidden="true"
+          size={size.icon}
+          strokeWidth={1.5}
+          className="shrink-0 text-muted-foreground"
+        />
+        <h3
+          className={cn(typeClass("body"), "min-w-0 truncate text-foreground")}
+          style={{ fontVariationSettings: fontWeights.semibold }}
+        >
+          {rowHeadline(row)}
+        </h3>
+        <span className={cn(typeClass("caption"), "text-muted-foreground")}>
+          {row.findingKind === "browser_metadata" ? "Browser" : "Profile"} ·{" "}
+          <span className="font-mono">{profileLabel(row.profile)}</span>
+        </span>
+        {row.commitState === "committed" ? null : (
+          <StateWord state={row.commitState} />
+        )}
+        <Button
+          variant="tertiary"
+          size="compact"
+          className="ml-auto"
+          onClick={() => {
+            onSelect(row);
+          }}
+        >
+          Open detail
+        </Button>
+      </div>
       <dl className="flex flex-col px-4">
         {present.map(({ key, label }) => (
           <div
@@ -622,23 +645,147 @@ function FieldList({ row }: { readonly row: Finding }) {
             "px-4 pt-2 text-muted-foreground",
           )}
         >
-          {unlisted} more field{unlisted === 1 ? "" : "s"} in the row detail.
+          {plural(unlisted, "more field", "more fields")} in the row detail.
         </p>
       ) : null}
+    </section>
+  );
+}
+
+/** "All rows" in the row picker. */
+const ALL_ROWS = "all";
+
+/**
+ * One list (saved or recovered) of recorded fields: its loading rows, its
+ * read error, its empty state, every row stacked (or the one row picked),
+ * a load-more failure (Retry asks for that page again and keeps the loaded
+ * rows), and the "N shown / Load more" footer.
+ */
+function FieldsList({
+  list,
+  noun,
+  focus,
+  onSelect,
+}: {
+  readonly list: PaginatedList<Finding> | RecoveredList<Finding>;
+  readonly noun: "saved" | "recovered";
+  /** The picked row's key, or ALL_ROWS. */
+  readonly focus: string;
+  readonly onSelect: (row: Finding) => void;
+}) {
+  const rows = list.rows;
+  const firstLoad = list.loading && rows.length === 0;
+  const retry = () => {
+    retryList(list);
+  };
+  if (list.error !== null && rows.length === 0) {
+    return (
+      <ErrorRows
+        title={`The ${noun} metadata rows could not be loaded.`}
+        message={list.error}
+        onRetry={retry}
+      />
+    );
+  }
+  const shown = rows.flatMap((row, index) => {
+    const key = rowKey(row, index);
+    return focus === ALL_ROWS || focus === key ? [{ key, row }] : [];
+  });
+  return (
+    <>
+      <div className="reveal-swap">
+        <LoadingRows label={`Loading ${noun} metadata rows`} />
+        {firstLoad ? null : rows.length === 0 ? (
+          <EmptyRows
+            message={
+              noun === "saved"
+                ? "No saved Metadata rows in this Case."
+                : "No Metadata rows were recovered from WAL or journal sidecars."
+            }
+          />
+        ) : (
+          <div className="reveal-items flex flex-col">
+            {shown.map(({ key, row }) => (
+              <RowFields key={key} row={row} onSelect={onSelect} />
+            ))}
+          </div>
+        )}
+      </div>
+      {list.error !== null ? (
+        <ErrorRows
+          title={`More ${noun} metadata rows could not be loaded.`}
+          message={list.error}
+          onRetry={retry}
+        />
+      ) : null}
+      {firstLoad ? null : (
+        <ListFooter
+          count={shown.length}
+          cursor={list.cursor}
+          loading={list.loading}
+          onLoadMore={list.loadMore}
+          summary={
+            shown.length === rows.length
+              ? `${plural(rows.length, `${noun} row`, `${noun} rows`)} shown`
+              : `${shown.length.toLocaleString("en-US")} of ${plural(rows.length, `loaded ${noun} row`, `loaded ${noun} rows`)} shown`
+          }
+        />
+      )}
     </>
   );
 }
 
-/** The skeleton for the first load, no taller than the real blocks. */
-function MetadataSkeleton() {
+/** Picks one row of the active list to read on its own, or every row
+ *  stacked ("All rows", the default). */
+function RowPicker({
+  rows,
+  value,
+  onChange,
+}: {
+  readonly rows: readonly Finding[];
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+}) {
+  if (rows.length < 2) {
+    return null;
+  }
   return (
-    <div aria-hidden="true" className="flex flex-col gap-5">
-      <div className="grid gap-5 lg:grid-cols-2">
+    <FilterField label="Show" htmlFor="metadata-row-picker">
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="metadata-row-picker" />
+        <SelectContent>
+          <SelectItem index={0} value={ALL_ROWS}>
+            All rows
+          </SelectItem>
+          {rows.map((row, index) => (
+            <SelectItem
+              key={rowKey(row, index)}
+              index={index + 1}
+              value={rowKey(row, index)}
+            >
+              {rowHeadline(row)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FilterField>
+  );
+}
+
+/** Stands in for the environment and encryption panels and the profile
+ *  grid while the first saved page loads, at their size. */
+function FiguresSkeleton() {
+  return (
+    <div
+      className="flex flex-col gap-5"
+      role="status"
+      aria-label="Loading browser profile metadata"
+    >
+      <div className="grid gap-4 lg:grid-cols-2">
         <Skeleton className="h-[188px] w-full rounded-xl" />
         <Skeleton className="h-[188px] w-full rounded-xl" />
       </div>
-      <Skeleton className="h-9 w-48 rounded-lg" />
-      <Skeleton className="h-[200px] w-full rounded-xl" />
+      <Skeleton className="h-[260px] w-full rounded-xl" />
     </div>
   );
 }
@@ -652,21 +799,25 @@ export function MetadataPage({
   readonly config: ArtifactConfig;
   readonly completeness: CaseCompleteness;
 }) {
-  const list = useMetadata(config.route);
+  const lists = useCommitStateLists<Finding>(config.route, METADATA_PARAMETERS);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
-  const [fieldsTab, setFieldsTab] = useState(0);
+  const [view, setView] = useState<CommitView>("saved");
+  const [focus, setFocus] = useState<string>(ALL_ROWS);
   const wide = useMediaQuery("(min-width: 768px)");
   const extraWide = useMediaQuery("(min-width: 1280px)");
 
+  const savedRows = lists.saved.rows;
+  const recoveredRows = lists.recovered.rows;
+
   const browser = useMemo(
     () =>
-      list.rows.find((row) => row.findingKind === "browser_metadata") ?? null,
-    [list.rows],
+      savedRows.find((row) => row.findingKind === "browser_metadata") ?? null,
+    [savedRows],
   );
   const profiles = useMemo(
-    () => list.rows.filter((row) => row.findingKind === "profile_metadata"),
-    [list.rows],
+    () => savedRows.filter((row) => row.findingKind === "profile_metadata"),
+    [savedRows],
   );
 
   const visibleProfiles = useMemo(() => {
@@ -697,12 +848,28 @@ export function MetadataPage({
     setSelected({ kind: "finding", row });
   }, []);
 
-  // Keep the field tab on a row that exists (rows only grow, but a retry
-  // starts the list over).
-  const activeTab = Math.min(fieldsTab, Math.max(0, list.rows.length - 1));
-  const activeRow = list.rows[activeTab];
+  const activeRows = view === "saved" ? savedRows : recoveredRows;
+  // A picked row that is no longer in the active list (the other tab, or a
+  // retry that started the list over) falls back to every row.
+  const activeFocus = activeRows.some(
+    (row, index) => rowKey(row, index) === focus,
+  )
+    ? focus
+    : ALL_ROWS;
 
-  const ready = !(list.loading && list.rows.length === 0);
+  const savedFirst = lists.saved.loading && savedRows.length === 0;
+  const recoveredFirst = lists.recovered.loading && recoveredRows.length === 0;
+  const pageEmpty =
+    !savedFirst &&
+    !recoveredFirst &&
+    lists.saved.error === null &&
+    lists.recovered.error === null &&
+    savedRows.length === 0 &&
+    recoveredRows.length === 0;
+  // The panels read the saved rows only; with none (or a failed read) they
+  // step aside and the Saved tab below carries the reason.
+  const showFigures =
+    savedFirst || (lists.saved.error === null && savedRows.length > 0);
 
   return (
     <div className="flex flex-col gap-5">
@@ -710,206 +877,151 @@ export function MetadataPage({
         completeness={completeness}
         artifacts={[config.completenessArtifact]}
       />
-      {list.error !== null && list.rows.length === 0 ? (
-        <Panel>
-          <ErrorRows message={list.error} onRetry={list.retry} />
-        </Panel>
-      ) : ready && list.rows.length === 0 ? (
+      {pageEmpty ? (
         <Panel>
           <EmptyRows
             icon={UserRound}
             title="No browser profile metadata"
-            message="No browser profile metadata in this Case."
+            message="No Metadata rows in this Case, saved or recovered."
           />
         </Panel>
       ) : (
-        <div className="reveal-swap">
-          <MetadataSkeleton />
-          {ready ? (
-            <div className="flex flex-col gap-5">
-              <div className="grid gap-5 lg:grid-cols-2">
-                <div
-                  className={cn(
-                    "flex min-w-0 flex-col [&>*]:flex-1",
-                    browser === null && "lg:col-span-2",
-                  )}
-                >
-                  <EnvironmentPanel browser={browser} />
-                </div>
-                {browser === null ? null : (
-                  <div className="flex min-w-0 flex-col [&>*]:flex-1">
-                    <EncryptionPanel browser={browser} />
-                  </div>
-                )}
-              </div>
-
-              <section aria-label="Profiles" className="flex flex-col gap-3">
-                <SectionHeading
-                  title="Profiles"
-                  count={
-                    profilesFiltered
-                      ? `${String(visibleProfiles.length)} of ${String(profiles.length)}`
-                      : profiles.length
-                  }
-                  className="mt-3"
-                >
-                  {profiles.length > 3 ? (
-                    <Toolbar placement="inline">
-                      <FilterTextField
-                        label="Search loaded profiles"
-                        icon={Search}
-                        placeholder="Search profile or account…"
-                        value={search}
-                        onCommit={setSearch}
-                      />
-                    </Toolbar>
-                  ) : null}
-                </SectionHeading>
-                <Panel className="overflow-clip">
-                  {visibleProfiles.length === 0 ? (
-                    <EmptyRows
-                      message={
-                        profilesFiltered
-                          ? "No profiles match this search."
-                          : "No profile-level metadata in this Case."
-                      }
-                      action={
-                        profilesFiltered ? (
-                          <Button
-                            variant="tertiary"
-                            size="compact"
-                            onClick={() => {
-                              setSearch("");
-                            }}
-                          >
-                            Clear search
-                          </Button>
-                        ) : undefined
-                      }
-                    />
-                  ) : (
-                    <CardGroup columns={columns}>
-                      {visibleProfiles.map((row, index) => (
-                        <ProfileCard
-                          key={`${row.profile}-${String(index)}`}
-                          row={row}
-                          onSelect={select}
-                        />
-                      ))}
-                    </CardGroup>
-                  )}
-                </Panel>
-              </section>
-
-              <section
-                aria-label="All recorded fields"
-                className="flex flex-col gap-3"
-              >
-                <SectionHeading
-                  title="All recorded fields"
-                  count={`${String(list.rows.length)} row${list.rows.length === 1 ? "" : "s"}`}
-                  description="Each Metadata row's examiner-first fields, verbatim. Every wire field and its source row are in the row detail."
-                  className="mt-3"
-                />
-                <Panel className="overflow-clip">
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-3 py-2">
-                    <TabsSubtle
-                      idPrefix="metadata-fields"
-                      size="compact"
-                      selectedIndex={activeTab}
-                      onSelect={setFieldsTab}
-                      className="min-w-0"
+        <>
+          {showFigures ? (
+            <div className="reveal-swap">
+              <FiguresSkeleton />
+              {savedFirst ? null : (
+                <div className="flex flex-col gap-5">
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div
+                      className={cn(
+                        "flex min-w-0 flex-col",
+                        browser === null && "lg:col-span-2",
+                      )}
                     >
-                      {list.rows.map((row, index) => (
-                        <TabsSubtleItem
-                          key={`${row.findingKind}-${row.profile}-${String(index)}`}
-                          index={index}
-                          icon={
-                            row.findingKind === "browser_metadata"
-                              ? Chrome
-                              : UserRound
-                          }
-                          label={rowHeadline(row)}
-                        />
-                      ))}
-                    </TabsSubtle>
-                    {activeRow === undefined ? null : (
-                      <div className="flex items-center gap-3">
-                        <Count>
-                          {activeRow.findingKind === "browser_metadata"
-                            ? "Browser"
-                            : "Profile"}{" "}
-                          ·{" "}
-                          <span className="font-mono">
-                            {profileLabel(activeRow.profile)}
-                          </span>
-                        </Count>
-                        <Button
-                          variant="tertiary"
-                          size="compact"
-                          onClick={() => {
-                            select(activeRow);
-                          }}
-                        >
-                          Open detail
-                        </Button>
+                      <EnvironmentPanel browser={browser} />
+                    </div>
+                    {browser === null ? null : (
+                      <div className="flex min-w-0 flex-col">
+                        <EncryptionPanel browser={browser} />
                       </div>
                     )}
                   </div>
-                  {list.rows.map((row, index) => (
-                    <TabsSubtlePanel
-                      key={`${row.findingKind}-${row.profile}-${String(index)}`}
-                      idPrefix="metadata-fields"
-                      index={index}
-                      selectedIndex={activeTab}
-                      className="py-2"
-                    >
-                      <FieldList row={row} />
-                    </TabsSubtlePanel>
-                  ))}
-                  {list.cursor !== null || list.error !== null ? (
-                    <PanelFooter>
-                      {list.error !== null ? (
-                        <p
-                          className={cn(
-                            typeClass("caption"),
-                            "text-destructive",
-                          )}
-                        >
-                          More rows could not be loaded: {list.error}
-                        </p>
-                      ) : (
-                        <p
-                          className={cn(
-                            typeClass("caption"),
-                            "text-muted-foreground tabular-nums",
-                          )}
-                          aria-live="polite"
-                        >
-                          {list.rows.length} row
-                          {list.rows.length === 1 ? "" : "s"} shown · more
-                          available
-                        </p>
-                      )}
-                      {list.cursor !== null ? (
-                        <Button
-                          variant="tertiary"
-                          size="compact"
-                          className="ml-auto"
-                          onClick={list.loadMore}
-                          loading={list.loading}
-                          disabled={list.loading}
-                        >
-                          Load more
-                        </Button>
-                      ) : null}
-                    </PanelFooter>
-                  ) : null}
-                </Panel>
-              </section>
+
+                  <SectionPanel
+                    id="metadata-profiles"
+                    title="Profiles"
+                    count={
+                      profilesFiltered
+                        ? `${String(visibleProfiles.length)} of ${String(profiles.length)}`
+                        : profiles.length
+                    }
+                    description="Saved profile rows. Recovered rows are listed under All recorded fields."
+                  >
+                    {profiles.length > 3 ? (
+                      <Toolbar>
+                        <FilterTextField
+                          commit="change"
+                          label="Search loaded profiles"
+                          icon={Search}
+                          placeholder="Search profile or account"
+                          value={search}
+                          onCommit={setSearch}
+                        />
+                      </Toolbar>
+                    ) : null}
+                    {visibleProfiles.length === 0 ? (
+                      <EmptyRows
+                        message={
+                          profilesFiltered
+                            ? "No profiles match this search."
+                            : "No saved profile-level metadata in this Case."
+                        }
+                        action={
+                          profilesFiltered ? (
+                            <Button
+                              variant="tertiary"
+                              size="compact"
+                              onClick={() => {
+                                setSearch("");
+                              }}
+                            >
+                              Clear search
+                            </Button>
+                          ) : undefined
+                        }
+                      />
+                    ) : (
+                      <div className="border-t border-border p-1">
+                        <CardGroup columns={columns}>
+                          {visibleProfiles.map((row, index) => (
+                            <ProfileCard
+                              key={rowKey(row, index)}
+                              row={row}
+                              onSelect={select}
+                            />
+                          ))}
+                        </CardGroup>
+                      </div>
+                    )}
+                  </SectionPanel>
+                </div>
+              )}
             </div>
           ) : null}
-        </div>
+
+          <SectionPanel
+            id="metadata-fields"
+            title="All recorded fields"
+            description="Each Metadata row's examiner-first fields, verbatim, one row after another. Every wire field and its source row are in the row detail."
+          >
+            <CommitStateSplit
+              value={view}
+              onValueChange={(next) => {
+                setView(next);
+                setFocus(ALL_ROWS);
+              }}
+              label="Saved or recovered metadata rows"
+              savedCount={
+                savedFirst ||
+                (lists.saved.error !== null && savedRows.length === 0)
+                  ? null
+                  : savedRows.length
+              }
+              recoveredCount={
+                recoveredFirst ||
+                (lists.recovered.error !== null && recoveredRows.length === 0)
+                  ? null
+                  : recoveredRows.length
+              }
+              savedMore={lists.saved.cursor !== null}
+              recoveredMore={lists.recovered.cursor !== null}
+              toolbar={
+                <RowPicker
+                  rows={activeRows}
+                  value={activeFocus}
+                  onChange={setFocus}
+                />
+              }
+              saved={
+                <FieldsList
+                  list={lists.saved}
+                  noun="saved"
+                  focus={activeFocus}
+                  onSelect={select}
+                />
+              }
+              recovered={
+                <FieldsList
+                  list={lists.recovered}
+                  noun="recovered"
+                  focus={activeFocus}
+                  onSelect={select}
+                />
+              }
+            />
+          </SectionPanel>
+        </>
       )}
 
       {selected !== null ? (

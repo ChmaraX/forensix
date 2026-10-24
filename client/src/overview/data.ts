@@ -4,6 +4,7 @@
  * value: every figure is a recorded field or a count of recorded rows.
  */
 import { callApi } from "@/api";
+import { formatDay } from "@/components/page-kit";
 import {
   fetchActivityBuckets,
   type ActivityBucket,
@@ -156,6 +157,9 @@ export async function loadOverview(): Promise<OverviewData> {
     fetchRecordedSpan(),
     callApi<PageOf<Finding>>("history", [
       ["view", "most-visited"],
+      // Saved rows only: a leaderboard never silently sums saved and
+      // recovered (WAL / journal) visits; the panel says "saved visits".
+      ["commit-state", "committed"],
       ["sort", "visit-count"],
       ["direction", "desc"],
       ["limit", "6"],
@@ -168,6 +172,9 @@ export async function loadOverview(): Promise<OverviewData> {
       ["limit", "100"],
     ]),
     callApi<PageOf<Finding>>("downloads", [
+      // Saved rows only: recovered downloads stay their own list on the
+      // Downloads page, never mixed into this one.
+      ["commit-state", "committed"],
       ["sort", "start-time"],
       ["direction", "desc"],
       ["limit", "5"],
@@ -207,18 +214,8 @@ export function domainOf(url: string): string {
   }
 }
 
-export function formatDay(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
+/** "4 Mar 2024" (UTC) — the shared page-kit day label. */
+export { formatDay };
 
 /** "4 Mar 2024 — 17 Apr 2024", one day, or `null` with no dated bound. */
 export function formatSpan(

@@ -64,7 +64,6 @@ import {
   CardMedia,
   CardTitle,
 } from "@/components/ui/card";
-import { InputField, InputGroup } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/misc";
 import {
   Table,
@@ -83,6 +82,8 @@ import { callApi } from "../api.js";
 import type {
   ArtifactConfig,
   CaseCompleteness,
+  CommitState,
+  FieldState,
   Finding,
   PageOf,
 } from "../types.js";
@@ -107,26 +108,32 @@ import { ChartSection } from "./chart-section.js";
 import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import {
-  AbsentWord,
+  FieldCell,
   fieldInteger,
   fieldText,
   fieldUtc,
-  formatInstant,
   hostOf,
   SiteAvatar,
 } from "./finding-fields.js";
+import { FilterTextField } from "./filters.js";
 import { CompletenessPanel } from "./completeness.js";
-import { ErrorRows } from "./list-states.js";
+import { RevealSwap } from "./history-list-block.js";
+import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 import {
   CARD_TITLE_CLEAR,
   CHART_HEIGHT,
+  CommitStateSplit,
+  MeterList,
   SectionPanel,
   ShareBar,
+  TimeCell,
   formatBytes,
   formatDay,
   formatDayTick,
+  plural,
+  type CommitView,
 } from "./page-kit.js";
 
 /* --------------------------------- reads ---------------------------------- */
@@ -135,12 +142,14 @@ import {
 const DOWNLOADS_PAGE_CAP = 150;
 
 /**
- * Reads every download row (up to the page cap), newest first. The real API
- * paginates; the read follows the cursor until it runs out, so the aggregates
- * below cover the whole Case rather than one page. `complete` is false only
- * when the cap was hit before the cursor did.
+ * Reads every download row of one Commit State (up to the page cap), newest
+ * first. The real API paginates; the read follows the cursor until it runs
+ * out, so the aggregates below cover the whole Case rather than one page.
+ * `complete` is false only when the cap was hit before the cursor did. Each
+ * Commit State is its own server read (forensic rule 4): saved rows never
+ * mix with WAL- or journal-resident ones.
  */
-function useDownloads(route: string) {
+function useDownloads(route: string, commitState: CommitState) {
   const [rows, setRows] = useState<readonly Finding[] | null>(null);
   const [complete, setComplete] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +170,7 @@ function useDownloads(route: string) {
           ["sort", "start-time"],
           ["direction", "desc"],
           ["limit", "100"],
+          ["commit-state", commitState],
         ];
         if (after !== null) {
           parameters.push(["after", after]);
@@ -196,13 +206,36 @@ function useDownloads(route: string) {
     return () => {
       cancelled = true;
     };
-  }, [route, nonce]);
+  }, [route, commitState, nonce]);
 
   const retry = useCallback(() => {
     setNonce((value) => value + 1);
   }, []);
 
   return { rows, complete, error, pages, retry };
+}
+
+type DownloadsRead = ReturnType<typeof useDownloads>;
+
+/** The recovered downloads: the WAL read, then the journal read, joined in
+ *  that order (never interleaved). Ready only when both reads landed. */
+function joinRecovered(wal: DownloadsRead, journal: DownloadsRead) {
+  return {
+    rows:
+      wal.rows === null || journal.rows === null
+        ? null
+        : [...wal.rows, ...journal.rows],
+    complete: wal.complete && journal.complete,
+    error: wal.error ?? journal.error,
+    retry: () => {
+      if (wal.error !== null) {
+        wal.retry();
+      }
+      if (journal.error !== null) {
+        journal.retry();
+      }
+    },
+  };
 }
 
 /* ------------------------------- formatting ------------------------------- */
@@ -436,7 +469,9 @@ function toRow(finding: Finding): DownloadRow {
 }
 
 /** How a recorded `state` value reads, plain-worded. Unknown values pass
- *  through verbatim rather than being reshaped into one this page invented. */
+ *  through verbatim rather than being reshaped into one this page invented;
+ *  a state with no recorded value keeps its field's own word (absent,
+ *  (empty), unavailable) in the table. */
 const STATE_LABEL: Readonly<Record<string, string>> = {
   complete: "Complete",
   interrupted: "Interrupted",
@@ -444,10 +479,7 @@ const STATE_LABEL: Readonly<Record<string, string>> = {
   canceled: "Cancelled",
 };
 
-function stateLabel(state: string | null): string {
-  if (state === null) {
-    return "Unrecorded";
-  }
+function stateLabel(state: string): string {
   return STATE_LABEL[state] ?? state;
 }
 
@@ -474,7 +506,10 @@ function compareRows(a: DownloadRow, b: DownloadRow, key: SortKey): number {
     case "started":
       return (a.startUtc ?? "").localeCompare(b.startUtc ?? "");
     case "state":
-      return stateLabel(a.state).localeCompare(stateLabel(b.state), "en-US");
+      return (a.state === null ? "\uffff" : stateLabel(a.state)).localeCompare(
+        b.state === null ? "\uffff" : stateLabel(b.state),
+        "en-US",
+      );
   }
 }
 
@@ -525,9 +560,11 @@ function VolumeChart({
     if (!hasRange) {
       return null;
     }
+    // An unset bound is open-ended, exactly as the table filters: it reaches
+    // the chart's first or last day, never collapses onto the other bound.
     return {
-      from: range.from === "" ? range.to : range.from,
-      to: range.to === "" ? range.from : range.to,
+      from: range.from === "" ? "" : range.from,
+      to: range.to === "" ? "\uffff" : range.to,
     };
   }, [dragStart, dragCurrent, hasRange, range]);
 
@@ -606,6 +643,17 @@ function VolumeChart({
     }
     return peak > 0 && day.bytes === peak ? 1 : 0.55;
   };
+  // The shaded band, clamped to the drawn days (an open bound runs to the
+  // chart's edge).
+  const firstDay = days[0]?.date ?? "";
+  const lastDay = days[days.length - 1]?.date ?? "";
+  const band =
+    highlight === null
+      ? null
+      : {
+          from: highlight.from < firstDay ? firstDay : highlight.from,
+          to: highlight.to > lastDay ? lastDay : highlight.to,
+        };
 
   return (
     <div
@@ -685,10 +733,10 @@ function VolumeChart({
               );
             }}
           />
-          {highlight !== null && highlight.from !== highlight.to ? (
+          {band !== null && band.from < band.to ? (
             <ReferenceArea
-              x1={highlight.from}
-              x2={highlight.to}
+              x1={band.from}
+              x2={band.to}
               fill={tokens["--primary"]}
               fillOpacity={0.07}
               strokeOpacity={0}
@@ -772,12 +820,11 @@ function KindBreakdown({
               onClick={() => {
                 onKind(active ? null : entry.kind);
               }}
-              label={
+              label={`${meta.label}: ${plural(entry.count, "file", "files")}, ${formatBytes(entry.bytes)}. ${
                 active
-                  ? `Show every file kind (now: ${meta.label})`
-                  : `Focus the table on ${meta.label}`
-              }
-              className="min-h-14"
+                  ? "Press to show every file kind"
+                  : "Press to focus the table on this kind"
+              }`}
             >
               <CardMedia icon={meta.icon} />
               <CardHeader className="w-28 flex-none">
@@ -791,8 +838,7 @@ function KindBreakdown({
                 <span
                   className={cn(size.type.body, "text-foreground tabular-nums")}
                 >
-                  {entry.count.toLocaleString("en-US")} file
-                  {entry.count === 1 ? "" : "s"}
+                  {plural(entry.count, "file", "files")}
                 </span>
                 <span
                   className={cn(
@@ -823,6 +869,7 @@ const SOURCE_LIMIT = 6;
  */
 function SourceHosts({ rows }: { readonly rows: readonly DownloadRow[] }) {
   const size = useSize();
+  const tokens = useChartTokens();
   const hosts = useMemo(() => {
     const map = new Map<string, { count: number; bytes: number }>();
     for (const row of rows) {
@@ -842,61 +889,34 @@ function SourceHosts({ rows }: { readonly rows: readonly DownloadRow[] }) {
   if (hosts.length === 0) {
     return <EmptyRows message="No source host recorded on these downloads." />;
   }
-  const peak = hosts[0]?.bytes ?? 0;
+  const more = hosts.length - SOURCE_LIMIT;
 
   return (
     <>
-      <ol className="flex flex-col px-4 pb-2">
-        {hosts.slice(0, SOURCE_LIMIT).map((entry, index) => (
-          <li
-            key={entry.host}
-            className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[auto_minmax(0,1fr)_minmax(48px,0.6fr)_auto] items-center gap-3 border-b border-border last:border-b-0"
-          >
-            <span
-              className={cn(
-                size.type.caption,
-                "w-4 text-center text-muted-foreground tabular-nums",
-              )}
-              style={{ fontVariationSettings: fontWeights.semibold }}
-            >
-              {index + 1}
-            </span>
-            <span className="flex min-w-0 items-center gap-2.5">
+      <MeterList
+        className="px-4 pt-1 pb-3"
+        labelWidth="clamp(6rem, 32%, 12rem)"
+        tokens={tokens}
+        rows={hosts.slice(0, SOURCE_LIMIT).map((entry) => ({
+          key: entry.host,
+          label: (
+            <>
               <SiteAvatar host={entry.host} />
-              <span
-                className={cn(size.type.body, "truncate text-foreground")}
-                title={entry.host}
-              >
+              <span className="truncate" title={entry.host}>
                 {entry.host}
               </span>
-            </span>
-            <span className="max-sm:hidden">
-              <ShareBar fraction={peak === 0 ? 0 : entry.bytes / peak} />
-            </span>
-            <span className="flex w-20 flex-col items-end">
-              <span
-                className={cn(size.type.body, "text-foreground tabular-nums")}
-              >
-                {formatBytes(entry.bytes)}
-              </span>
-              <span
-                className={cn(
-                  size.type.caption,
-                  "text-muted-foreground tabular-nums",
-                )}
-              >
-                {entry.count.toLocaleString("en-US")} file
-                {entry.count === 1 ? "" : "s"}
-              </span>
-            </span>
-          </li>
-        ))}
-      </ol>
-      {hosts.length > SOURCE_LIMIT ? (
+            </>
+          ),
+          value: entry.bytes,
+          display: `${formatBytes(entry.bytes)} · ${plural(entry.count, "file", "files")}`,
+          title: `${entry.bytes.toLocaleString("en-US")} bytes`,
+        }))}
+      />
+      {more > 0 ? (
         <PanelFooter>
           <p className={cn(size.type.caption, "text-muted-foreground")}>
-            and {hosts.length - SOURCE_LIMIT} more source host
-            {hosts.length - SOURCE_LIMIT === 1 ? "" : "s"} in the table below
+            and {plural(more, "more source host", "more source hosts")} in the
+            table below
           </p>
         </PanelFooter>
       ) : null}
@@ -906,27 +926,19 @@ function SourceHosts({ rows }: { readonly rows: readonly DownloadRow[] }) {
 
 /* --------------------------------- table ---------------------------------- */
 
-function TimeCell({ utc }: { readonly utc: string | null }) {
-  const parts = utc === null ? null : formatInstant(utc);
-  if (utc === null || parts === null) {
-    return <AbsentWord />;
-  }
-  return (
-    <span className="whitespace-nowrap tabular-nums" title={`${utc} (UTC)`}>
-      <span className="text-foreground">{parts.date}</span>
-      <span className="ml-2">{parts.time}</span>
-    </span>
-  );
-}
-
 /**
- * The download state as a plain word with a dot: "Complete" sits muted (the
- * boring default), the two unfinished states read in the foreground with the
- * warning hue on the dot alone — state never rides on colour; the word is
- * always present.
+ * The download state in words. "Complete" sits muted, without a dot (the
+ * ordinary outcome); the two unfinished states read in the foreground with
+ * the warning hue on the dot — the word is always present, never colour
+ * alone. A value outside the known set passes through verbatim, and a state
+ * Chrome did not record keeps its field's own word.
  */
-function DownloadState({ state }: { readonly state: string | null }) {
+function DownloadState({ field }: { readonly field: FieldState | undefined }) {
   const size = useSize();
+  const state = fieldText(field);
+  if (state === null) {
+    return <FieldCell field={field} />;
+  }
   const unfinished = isUnfinished(state);
   return (
     <span
@@ -936,9 +948,12 @@ function DownloadState({ state }: { readonly state: string | null }) {
         unfinished ? "text-foreground" : "text-muted-foreground",
       )}
     >
-      <EvidenceDot
-        state={state === null ? "absent" : unfinished ? "warning" : "committed"}
-      />
+      {unfinished ? (
+        <EvidenceDot state="warning" />
+      ) : (
+        // Keeps the word in line with the dotted ones; not a mark.
+        <span aria-hidden="true" className="size-1.5 shrink-0" />
+      )}
       {stateLabel(state)}
     </span>
   );
@@ -988,9 +1003,9 @@ function SortHead({
         {label}
         <Arrow
           aria-hidden="true"
-          size={size.icon - 2}
+          size={size.icon}
           strokeWidth={2}
-          className={cn("shrink-0", active ? "opacity-100" : "opacity-0")}
+          className={cn("shrink-0", !active && "invisible")}
         />
       </button>
     </TableHead>
@@ -1039,7 +1054,7 @@ function DownloadsTable({
                 key={index}
                 index={index}
                 tabIndex={0}
-                aria-label="Open download row detail"
+                aria-label={`Open download row detail: ${row.name ?? "download"}`}
                 onClick={open}
                 onKeyDown={(event) => {
                   activateOnKey(event, open);
@@ -1059,7 +1074,7 @@ function DownloadsTable({
                 </TableCell>
                 <TableCell className="max-w-[300px]">
                   {row.name === null ? (
-                    <AbsentWord />
+                    <FieldCell field={row.finding.fields.targetPath} />
                   ) : (
                     <span
                       className="block truncate text-foreground"
@@ -1070,11 +1085,26 @@ function DownloadsTable({
                   )}
                 </TableCell>
                 <TableCell className="whitespace-nowrap tabular-nums">
-                  {row.bytes === null ? <AbsentWord /> : formatBytes(row.bytes)}
+                  {row.bytes === null ? (
+                    <FieldCell field={row.finding.fields.totalBytes} />
+                  ) : (
+                    <span title={`${row.bytes.toLocaleString("en-US")} bytes`}>
+                      {formatBytes(row.bytes)}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell className="max-w-[240px]">
                   {row.host === null ? (
-                    <AbsentWord />
+                    row.sourceUrl === null ? (
+                      <FieldCell field={row.finding.fields.originalUrl} />
+                    ) : (
+                      <span
+                        className="block truncate font-mono"
+                        title={row.sourceUrl}
+                      >
+                        {row.sourceUrl}
+                      </span>
+                    )
                   ) : (
                     <span className="flex min-w-0 items-center gap-2.5">
                       <SiteAvatar host={row.host} />
@@ -1087,11 +1117,11 @@ function DownloadsTable({
                     </span>
                   )}
                 </TableCell>
-                <TableCell>
-                  <TimeCell utc={row.startUtc} />
+                <TableCell className="whitespace-nowrap">
+                  <TimeCell field={row.finding.fields.startTime} />
                 </TableCell>
                 <TableCell>
-                  <DownloadState state={row.state} />
+                  <DownloadState field={row.finding.fields.state} />
                 </TableCell>
               </TableRow>
             );
@@ -1104,8 +1134,8 @@ function DownloadsTable({
 
 /* --------------------------------- loading --------------------------------- */
 
-/** The read in flight: how far the cursor walk has got, over placeholders at
- *  the size of the blocks they stand in for. */
+/** The saved read in flight: how far the cursor walk has got, over
+ *  placeholders at the size of the blocks they stand in for. */
 function DownloadsLoading({ pages }: { readonly pages: number }) {
   const size = useSize();
   return (
@@ -1119,18 +1149,116 @@ function DownloadsLoading({ pages }: { readonly pages: number }) {
         aria-live="polite"
       >
         {pages === 0
-          ? "Reading downloads…"
-          : `Reading downloads… ${pages.toLocaleString("en-US")} page${
-              pages === 1 ? "" : "s"
-            } loaded`}
+          ? "Reading saved downloads…"
+          : `Reading saved downloads… ${plural(pages, "page", "pages")} loaded`}
       </p>
       <Skeleton className="h-[86px] rounded-xl" />
       <Skeleton className="h-[318px] rounded-xl" />
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Skeleton className="h-[340px] rounded-xl" />
         <Skeleton className="h-[340px] rounded-xl" />
       </div>
     </div>
+  );
+}
+
+/* ---------------------------------- lists --------------------------------- */
+
+/** One of the two download lists (Saved or Recovered): its first read
+ *  swapped in over a skeleton, a failed read with Retry, the table or its
+ *  empty state, and the footer. Rows are already narrowed and sorted. */
+function DownloadList({
+  read,
+  rows,
+  total,
+  recovered,
+  filtered,
+  sort,
+  onSort,
+  onSelect,
+  onClearFilters,
+}: {
+  readonly read: {
+    readonly rows: readonly Finding[] | null;
+    readonly error: string | null;
+    readonly retry: () => void;
+  };
+  readonly rows: readonly DownloadRow[];
+  readonly total: number;
+  readonly recovered: boolean;
+  readonly filtered: boolean;
+  readonly sort: SortState;
+  readonly onSort: (key: SortKey) => void;
+  readonly onSelect: (finding: Finding) => void;
+  readonly onClearFilters: () => void;
+}) {
+  const noun = recovered ? "recovered downloads" : "saved downloads";
+  if (read.error !== null) {
+    return (
+      <ErrorRows
+        title={`The ${noun} could not be loaded.`}
+        message={read.error}
+        onRetry={read.retry}
+      />
+    );
+  }
+  return (
+    <>
+      <RevealSwap
+        loading={read.rows === null}
+        skeleton={
+          <LoadingRows rows={recovered ? 3 : 8} label={`Loading ${noun}`} />
+        }
+      >
+        {rows.length === 0 ? (
+          <div>
+            {filtered ? (
+              <EmptyRows
+                message={`No ${noun} match these filters.`}
+                action={
+                  <Button
+                    variant="tertiary"
+                    size="compact"
+                    onClick={onClearFilters}
+                  >
+                    Clear filters
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyRows
+                title={
+                  recovered ? "No recovered downloads" : "No saved downloads"
+                }
+                message={
+                  recovered
+                    ? "Neither the write-ahead log nor the rollback journal holds a download row."
+                    : "The History database holds no committed download rows."
+                }
+              />
+            )}
+          </div>
+        ) : (
+          <DownloadsTable
+            rows={rows}
+            sort={sort}
+            onSort={onSort}
+            onSelect={onSelect}
+          />
+        )}
+      </RevealSwap>
+      <ListFooter
+        count={total}
+        cursor={null}
+        loading={false}
+        onLoadMore={() => undefined}
+        summary={
+          filtered
+            ? `${rows.length.toLocaleString("en-US")} of ${plural(total, noun.replace("downloads", "download"), noun)} shown`
+            : `${plural(total, noun.replace("downloads", "download"), noun)} shown`
+        }
+      />
+    </>
   );
 }
 
@@ -1143,9 +1271,13 @@ export function DownloadsPage({
   readonly config: ArtifactConfig;
   readonly completeness: CaseCompleteness;
 }) {
-  const { rows, complete, error, pages, retry } = useDownloads(config.route);
+  const savedRead = useDownloads(config.route, "committed");
+  const walRead = useDownloads(config.route, "wal_resident");
+  const journalRead = useDownloads(config.route, "journal_resident");
+  const recoveredRead = joinRecovered(walRead, journalRead);
   const reduced = usePrefersReducedMotion();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
+  const [view, setView] = useState<CommitView>("saved");
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<FileKind | null>(null);
   const [range, setRange] = useState<DayRange>({ from: "", to: "" });
@@ -1154,8 +1286,8 @@ export function DownloadsPage({
   // Clicking a file kind (or picking a day range) narrows the table that sits
   // below the fold on a tall monitor; without this the table would change
   // silently. A brief focus-ring pulse plus a scroll-into-view draws the eye
-  // down. The timer only decides how long the ring is shown; the ring itself
-  // fades in and out on the spring tokens.
+  // down. The ring springs in and, once its spring settles, springs out —
+  // no hand-written timer.
   const tableRef = useRef<HTMLDivElement | null>(null);
   const [pulse, setPulse] = useState(0);
   const [pulsing, setPulsing] = useState(false);
@@ -1168,12 +1300,6 @@ export function DownloadsPage({
       behavior: reduced ? "auto" : "smooth",
       block: "nearest",
     });
-    const timer = setTimeout(() => {
-      setPulsing(false);
-    }, 650);
-    return () => {
-      clearTimeout(timer);
-    };
   }, [pulse, reduced]);
   const focusTable = useCallback(() => {
     setPulse((value) => value + 1);
@@ -1199,7 +1325,19 @@ export function DownloadsPage({
 
   const hasRange = range.from !== "" || range.to !== "";
 
-  const model = useMemo(() => (rows ?? []).map(toRow), [rows]);
+  // Figures, chart, kinds and sources count saved rows only; recovered rows
+  // are their own list below, never summed in.
+  const model = useMemo(
+    () => (savedRead.rows ?? []).map(toRow),
+    [savedRead.rows],
+  );
+  const recoveredModel = useMemo(
+    () =>
+      walRead.rows === null || journalRead.rows === null
+        ? []
+        : [...walRead.rows, ...journalRead.rows].map(toRow),
+    [walRead.rows, journalRead.rows],
+  );
 
   const summary = useMemo(() => {
     let bytes = 0;
@@ -1239,37 +1377,45 @@ export function DownloadsPage({
     };
   }, [model]);
 
-  const visible = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("en-US");
-    const rowsInScope = model.filter((row) => {
-      if (kindFilter !== null && row.kind !== kindFilter) {
-        return false;
-      }
-      if (hasRange) {
-        const day = row.startUtc?.slice(0, 10) ?? null;
-        if (
-          day === null ||
-          (range.from !== "" && day < range.from) ||
-          (range.to !== "" && day > range.to)
-        ) {
+  // The same filters and sort narrow both lists.
+  const narrow = useCallback(
+    (rows: readonly DownloadRow[]) => {
+      const query = search.trim().toLocaleLowerCase("en-US");
+      const rowsInScope = rows.filter((row) => {
+        if (kindFilter !== null && row.kind !== kindFilter) {
           return false;
         }
-      }
-      if (query === "") {
-        return true;
-      }
-      const haystack = [row.name ?? "", row.path ?? "", row.sourceUrl ?? ""]
-        .join("\n")
-        .toLocaleLowerCase("en-US");
-      return haystack.includes(query);
-    });
-    return [...rowsInScope].sort((left, right) => {
-      const order = compareRows(left, right, sort.key);
-      return sort.dir === "asc" ? order : -order;
-    });
-  }, [model, search, kindFilter, hasRange, range, sort]);
-
-  const filtered = visible.length !== model.length;
+        if (hasRange) {
+          const day = row.startUtc?.slice(0, 10) ?? null;
+          if (
+            day === null ||
+            (range.from !== "" && day < range.from) ||
+            (range.to !== "" && day > range.to)
+          ) {
+            return false;
+          }
+        }
+        if (query === "") {
+          return true;
+        }
+        const haystack = [row.name ?? "", row.path ?? "", row.sourceUrl ?? ""]
+          .join("\n")
+          .toLocaleLowerCase("en-US");
+        return haystack.includes(query);
+      });
+      return [...rowsInScope].sort((left, right) => {
+        const order = compareRows(left, right, sort.key);
+        return sort.dir === "asc" ? order : -order;
+      });
+    },
+    [search, kindFilter, hasRange, range, sort],
+  );
+  const visibleSaved = useMemo(() => narrow(model), [narrow, model]);
+  const visibleRecovered = useMemo(
+    () => narrow(recoveredModel),
+    [narrow, recoveredModel],
+  );
+  const filtered = search.trim() !== "" || kindFilter !== null || hasRange;
 
   const select = useCallback((finding: Finding) => {
     setSelected({ kind: "finding", row: finding });
@@ -1277,16 +1423,30 @@ export function DownloadsPage({
 
   const spanLabel =
     summary.firstUtc === null || summary.lastUtc === null
-      ? "no dated downloads"
+      ? "no dated saved downloads"
       : summary.firstUtc.slice(0, 10) === summary.lastUtc.slice(0, 10)
         ? formatDay(summary.firstUtc.slice(0, 10))
-        : `${formatDay(summary.firstUtc.slice(0, 10))} — ${formatDay(summary.lastUtc.slice(0, 10))}`;
+        : `${formatDay(summary.firstUtc.slice(0, 10))} to ${formatDay(summary.lastUtc.slice(0, 10))}`;
 
-  const clearAll = () => {
+  // The date picker spans every dated download, saved or recovered: its
+  // range filters both lists.
+  const pickerSpan = useMemo(() => {
+    const days = [...model, ...recoveredModel]
+      .flatMap((row) => (row.startUtc === null ? [] : [row.startUtc]))
+      .sort();
+    return {
+      min: days[0]?.slice(0, 10) ?? null,
+      max: days[days.length - 1]?.slice(0, 10) ?? null,
+    };
+  }, [model, recoveredModel]);
+
+  const recoveredTotal = recoveredRead.rows?.length ?? null;
+
+  const clearAll = useCallback(() => {
     setKindFilter(null);
     setRange({ from: "", to: "" });
     setSearch("");
-  };
+  }, []);
 
   return (
     <div className="flex flex-col gap-5">
@@ -1295,220 +1455,217 @@ export function DownloadsPage({
         artifacts={[config.completenessArtifact]}
       />
 
-      {error !== null ? (
+      {/* The overview reads the saved downloads only. */}
+      {savedRead.error !== null ? (
         <Panel>
           <ErrorRows
-            title="The downloads could not be loaded."
-            message={error}
-            onRetry={retry}
+            title="The saved downloads could not be loaded."
+            message={savedRead.error}
+            onRetry={savedRead.retry}
           />
         </Panel>
-      ) : rows === null ? (
-        <DownloadsLoading pages={pages} />
-      ) : model.length === 0 ? (
-        <SectionPanel id="downloads-empty-title" title="Downloads">
-          <EmptyRows message="No downloads recorded in this Case." />
-        </SectionPanel>
       ) : (
-        <>
-          {!complete ? (
-            <Banner status="warning" contrast="high">
-              <BannerTitle>These figures cover part of the Case.</BannerTitle>
-              <BannerDescription>
-                They cover the first {model.length.toLocaleString("en-US")}{" "}
-                downloads read — the most this page loads at once. More rows
-                exist in the Case.
-              </BannerDescription>
-            </Banner>
-          ) : null}
+        <RevealSwap
+          loading={savedRead.rows === null}
+          skeleton={<DownloadsLoading pages={savedRead.pages} />}
+        >
+          <div className="flex flex-col gap-5">
+            {!savedRead.complete ? (
+              <Banner status="warning" contrast="high">
+                <BannerTitle>These figures cover part of the Case.</BannerTitle>
+                <BannerDescription>
+                  They cover the first {model.length.toLocaleString("en-US")}{" "}
+                  saved downloads read — the most this page loads at once. More
+                  rows exist in the Case.
+                </BannerDescription>
+              </Banner>
+            ) : null}
 
-          <MetricBand className="grid-cols-2 lg:grid-cols-4">
-            <MetricBandItem
-              label="Files downloaded"
-              value={summary.total.toLocaleString("en-US")}
-              detail={spanLabel}
-            />
-            <MetricBandItem
-              label="Data transferred"
-              value={formatBytes(summary.bytes)}
-              detail={
-                summary.sized === summary.total
-                  ? "recorded total size"
-                  : `across ${summary.sized.toLocaleString("en-US")} sized rows`
+            <MetricBand className="grid-cols-2 lg:grid-cols-4">
+              <MetricBandItem
+                label="Saved downloads"
+                value={summary.total.toLocaleString("en-US")}
+                detail={spanLabel}
+              />
+              <MetricBandItem
+                label="Data transferred"
+                value={formatBytes(summary.bytes)}
+                detail={
+                  summary.sized === summary.total
+                    ? "recorded total size"
+                    : `across ${plural(summary.sized, "sized row", "sized rows")}`
+                }
+              />
+              <MetricBandItem
+                label="Source hosts"
+                value={summary.hosts.toLocaleString("en-US")}
+                detail="distinct download origins"
+              />
+              <MetricBandItem
+                label="Did not finish"
+                value={summary.unfinished.toLocaleString("en-US")}
+                detail="interrupted or cancelled"
+              />
+            </MetricBand>
+
+            {/* Volume over time. Drag across it (or pick a range) to focus
+                  the lists below, the same gesture the Timeline and History
+                  activity charts use. The picker carries its own clear. */}
+            <ChartSection
+              title="Downloads over time"
+              description="Bytes of saved downloads per day. Choose a range or drag across the bars."
+              action={
+                <DateRangePicker
+                  from={range.from}
+                  to={range.to}
+                  min={pickerSpan.min}
+                  max={pickerSpan.max}
+                  triggerLabel="All recorded days"
+                  formatDate={formatDay}
+                  onChange={setRange}
+                  presets
+                />
               }
-            />
-            <MetricBandItem
-              label="Source hosts"
-              value={summary.hosts.toLocaleString("en-US")}
-              detail="distinct download origins"
-            />
-            <MetricBandItem
-              label="Did not finish"
-              value={summary.unfinished.toLocaleString("en-US")}
-              detail="interrupted or cancelled"
-            />
-          </MetricBand>
+              footer={
+                recoveredTotal === null || recoveredTotal === 0 ? undefined : (
+                  <RecoveredNote count={recoveredTotal} />
+                )
+              }
+            >
+              <div className="px-2 pt-2 pb-3">
+                <VolumeChart
+                  rows={model}
+                  range={range}
+                  onRangeChange={setRange}
+                />
+              </div>
+            </ChartSection>
 
-          {/* Volume over time. Drag across it (or pick a range) to focus the
-              table below, the same gesture the Timeline and History activity
-              charts use. The picker carries its own clear. */}
-          <ChartSection
-            title="Downloads over time"
-            description="Bytes transferred per day. Choose a range or drag across the bars."
-            action={
-              <DateRangePicker
-                from={range.from}
-                to={range.to}
-                min={summary.firstUtc?.slice(0, 10) ?? null}
-                max={summary.lastUtc?.slice(0, 10) ?? null}
-                triggerLabel="All recorded days"
-                formatDate={formatDay}
-                onChange={setRange}
-                presets
+            {/* File kinds + sources — the two lenses an examiner scans a
+                  downloads set through, side by side. Picking a file kind
+                  focuses the lists below on it. */}
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+              <SectionPanel
+                id="downloads-kinds-title"
+                title="By file kind"
+                description="Saved downloads. Pick a kind to focus the table."
+              >
+                <KindBreakdown
+                  rows={model}
+                  activeKind={kindFilter}
+                  onKind={onKind}
+                />
+              </SectionPanel>
+              <SectionPanel
+                id="downloads-sources-title"
+                title="Top sources"
+                description="Saved downloads, by total bytes."
+              >
+                <SourceHosts rows={model} />
+              </SectionPanel>
+            </div>
+          </div>
+        </RevealSwap>
+      )}
+
+      {/* The raw rows, saved and recovered as separate reads. */}
+      <div ref={tableRef} className="relative scroll-mt-4">
+        <SectionPanel
+          id="downloads-all-title"
+          title="All downloads"
+          description="Every recorded download. File kind, dates and search narrow both lists."
+        >
+          <CommitStateSplit
+            value={view}
+            onValueChange={setView}
+            label="Saved or recovered downloads"
+            savedCount={savedRead.rows === null ? null : model.length}
+            recoveredCount={recoveredTotal}
+            savedMore={!savedRead.complete}
+            recoveredMore={!recoveredRead.complete}
+            toolbar={
+              <>
+                {kindFilter !== null ? (
+                  <Button
+                    variant="tertiary"
+                    trailingIcon={X}
+                    aria-label={`File kind: ${KIND_META[kindFilter].label}. Clear the file-kind filter`}
+                    onClick={() => {
+                      setKindFilter(null);
+                    }}
+                  >
+                    {KIND_META[kindFilter].label}
+                  </Button>
+                ) : null}
+                {hasRange ? (
+                  <Button
+                    variant="tertiary"
+                    trailingIcon={X}
+                    aria-label="Clear the date range"
+                    onClick={() => {
+                      setRange({ from: "", to: "" });
+                    }}
+                  >
+                    {range.from === "" ? "Start" : formatDayTick(range.from)} to{" "}
+                    {range.to === "" ? "end" : formatDayTick(range.to)}
+                  </Button>
+                ) : null}
+                <FilterTextField
+                  id="downloads-search"
+                  commit="change"
+                  label="Search loaded downloads"
+                  icon={Search}
+                  value={search}
+                  placeholder="Search file, path, or source…"
+                  onCommit={setSearch}
+                />
+              </>
+            }
+            saved={
+              <DownloadList
+                read={savedRead}
+                rows={visibleSaved}
+                total={model.length}
+                recovered={false}
+                filtered={filtered}
+                sort={sort}
+                onSort={onSort}
+                onSelect={select}
+                onClearFilters={clearAll}
               />
             }
-          >
-            <div className="px-2 pt-2 pb-3">
-              <VolumeChart
-                rows={model}
-                range={range}
-                onRangeChange={setRange}
+            recovered={
+              <DownloadList
+                read={recoveredRead}
+                rows={visibleRecovered}
+                total={recoveredModel.length}
+                recovered
+                filtered={filtered}
+                sort={sort}
+                onSort={onSort}
+                onSelect={select}
+                onClearFilters={clearAll}
               />
-            </div>
-          </ChartSection>
-
-          {/* File kinds + sources — the two lenses an examiner scans a
-              downloads set through, side by side. Picking a file kind
-              focuses the table below on it. */}
-          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
-            <SectionPanel
-              id="downloads-kinds-title"
-              title="By file kind"
-              description="Pick a kind to focus the table."
-            >
-              <KindBreakdown
-                rows={model}
-                activeKind={kindFilter}
-                onKind={onKind}
-              />
-            </SectionPanel>
-            <SectionPanel
-              id="downloads-sources-title"
-              title="Top sources"
-              description="By total bytes."
-            >
-              <SourceHosts rows={model} />
-            </SectionPanel>
-          </div>
-
-          {/* The raw rows. */}
-          <div ref={tableRef} className="relative scroll-mt-4">
-            <SectionPanel
-              id="downloads-all-title"
-              title="All downloads"
-              count={visible.length}
-              aside={
-                <SizeProvider size="compact">
-                  <div
-                    role="group"
-                    aria-label="Filter loaded downloads"
-                    className="flex flex-wrap items-center gap-2 max-sm:w-full"
-                  >
-                    {kindFilter !== null ? (
-                      <Button
-                        variant="tertiary"
-                        trailingIcon={X}
-                        aria-label={`File kind: ${KIND_META[kindFilter].label}. Clear the file-kind filter`}
-                        onClick={() => {
-                          setKindFilter(null);
-                        }}
-                      >
-                        {KIND_META[kindFilter].label}
-                      </Button>
-                    ) : null}
-                    {hasRange ? (
-                      <Button
-                        variant="tertiary"
-                        trailingIcon={X}
-                        aria-label="Clear the date range"
-                        onClick={() => {
-                          setRange({ from: "", to: "" });
-                        }}
-                      >
-                        {range.from === "" ? "…" : formatDayTick(range.from)} —{" "}
-                        {range.to === "" ? "…" : formatDayTick(range.to)}
-                      </Button>
-                    ) : null}
-                    {/* Narrows the rows already loaded, live as you type — no
-                        new query, so there is nothing to commit. */}
-                    <InputGroup className="w-64 max-sm:w-full [&_label+div]:ring-border">
-                      <InputField
-                        index={0}
-                        label="Search loaded downloads"
-                        labelHidden
-                        icon={Search}
-                        value={search}
-                        placeholder="Search file, path, or source…"
-                        onChange={setSearch}
-                      />
-                    </InputGroup>
-                  </div>
-                </SizeProvider>
-              }
-            >
-              <div className="border-t border-border">
-                {visible.length === 0 ? (
-                  <EmptyRows
-                    message={
-                      filtered
-                        ? "No loaded downloads match these filters."
-                        : "No downloads in this Case."
-                    }
-                    action={
-                      filtered ? (
-                        <Button
-                          variant="tertiary"
-                          size="compact"
-                          onClick={clearAll}
-                        >
-                          Clear filters
-                        </Button>
-                      ) : undefined
-                    }
-                  />
-                ) : (
-                  <DownloadsTable
-                    rows={visible}
-                    sort={sort}
-                    onSort={onSort}
-                    onSelect={select}
-                  />
-                )}
-              </div>
-
-              <PanelFooter className="min-h-12">
-                <TableSummary
-                  shown={visible.length}
-                  total={model.length}
-                  filtered={filtered}
-                />
-              </PanelFooter>
-            </SectionPanel>
-            <AnimatePresence>
-              {pulsing ? (
-                <motion.span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-focus-ring"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, transition: spring.slow.exit }}
-                  transition={spring.moderate}
-                />
-              ) : null}
-            </AnimatePresence>
-          </div>
-        </>
-      )}
+            }
+          />
+        </SectionPanel>
+        <AnimatePresence>
+          {pulsing ? (
+            <motion.span
+              key={pulse}
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-focus-ring"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, transition: spring.slow.exit }}
+              transition={spring.slow}
+              onAnimationComplete={() => {
+                setPulsing(false);
+              }}
+            />
+          ) : null}
+        </AnimatePresence>
+      </div>
 
       {selected !== null ? (
         <RowSheet
@@ -1525,24 +1682,12 @@ export function DownloadsPage({
   );
 }
 
-function TableSummary({
-  shown,
-  total,
-  filtered,
-}: {
-  readonly shown: number;
-  readonly total: number;
-  readonly filtered: boolean;
-}) {
+function RecoveredNote({ count }: { readonly count: number }) {
   const size = useSize();
   return (
-    <p
-      className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
-      aria-live="polite"
-    >
-      {filtered
-        ? `${String(shown)} of ${String(total)} downloads shown`
-        : `${String(total)} download${total === 1 ? "" : "s"} shown`}
+    <p className={cn(size.type.caption, "text-muted-foreground")}>
+      {plural(count, "recovered download is", "recovered downloads are")} not
+      counted here; they are listed under Recovered below.
     </p>
   );
 }
