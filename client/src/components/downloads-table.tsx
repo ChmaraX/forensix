@@ -17,7 +17,6 @@ import { Tooltip as FluidTooltip } from "@/components/ui/tooltip";
 import { SortNewestIcon, SortOldestIcon } from "@/lib/app-icons";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
-import { siteKeyOf } from "../related.js";
 import { rowRefOf } from "../router.js";
 import type { FieldState, Finding } from "../types.js";
 import { EmptyRows } from "./data-table.js";
@@ -28,11 +27,7 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField } from "./filters.js";
-import {
-  SiteHostLink,
-  useSiteHosts,
-  type SiteHostLookup,
-} from "./history-host-link.js";
+import { SiteHostLink } from "./host-link.js";
 import { Term } from "./term.js";
 import { ListBlock } from "./list-states.js";
 import {
@@ -145,12 +140,12 @@ export function DownloadSize({ row }: { readonly row: DownloadRow }) {
 export function Source({
   row,
   avatar,
-  sites = null,
+  linked = false,
 }: {
   readonly row: DownloadRow;
   readonly avatar: boolean;
-  /** Sites' host list (`useSiteHosts`); null links nothing. */
-  readonly sites?: SiteHostLookup;
+  /** Link the host to Sites (`SiteHostLink`; the table, not a card). */
+  readonly linked?: boolean;
 }) {
   if (row.host === null) {
     return row.sourceUrl === null ? (
@@ -161,14 +156,12 @@ export function Source({
       </span>
     );
   }
-  const key = siteKeyOf(row.sourceUrl);
-  const linked = key !== null && sites !== null && sites(key);
   return (
     <span className="flex min-w-0 items-center gap-2.5">
       {avatar ? <SiteAvatar host={row.host} /> : null}
       <span className="truncate" title={row.sourceUrl ?? row.host}>
         {linked ? (
-          <SiteHostLink siteKey={key}>{row.host}</SiteHostLink>
+          <SiteHostLink host={row.sourceUrl}>{row.host}</SiteHostLink>
         ) : (
           row.host
         )}
@@ -182,7 +175,6 @@ export function Source({
  *  the first line, the file as the title, size · source · start under it. */
 export function downloadColumns(
   recovered: boolean,
-  sites: SiteHostLookup = null,
 ): readonly RowColumn<DownloadRow>[] {
   const columns: RowColumn<DownloadRow>[] = [
     {
@@ -228,7 +220,7 @@ export function downloadColumns(
       key: "source",
       header: "Source",
       className: "max-w-[320px]",
-      cell: (row) => <Source row={row} avatar sites={sites} />,
+      cell: (row) => <Source row={row} avatar linked />,
       stackedCell: (row) => <Source row={row} avatar={false} />,
     },
     {
@@ -384,11 +376,7 @@ export function DownloadList({
   /** What an empty filtered list says (the days, the kind…). */
   readonly filteredMessage?: string;
 }) {
-  const sites = useSiteHosts();
-  const columns = useMemo(
-    () => downloadColumns(recovered, sites),
-    [recovered, sites],
-  );
+  const columns = useMemo(() => downloadColumns(recovered), [recovered]);
   return (
     <ListBlock
       list={{

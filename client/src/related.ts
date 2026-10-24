@@ -18,6 +18,7 @@
  */
 import { FINDING_KINDS } from "./artifacts.js";
 import { localDayOf } from "./components/day-bounds.js";
+import { cacheResourceUrl } from "./components/url-host.js";
 import { fieldLabel } from "./field-labels.js";
 import { rowRefOf, type ViewLocation } from "./router.js";
 import type { FieldState, Finding } from "./types.js";
@@ -96,21 +97,37 @@ export function siteKeyOf(raw: string | null): string | null {
   return host === "" ? null : host;
 }
 
+/** A field a row's host is read from, and how: the recorded text itself
+ *  (a URL or host key), or `read` over it (a cache key names its
+ *  resource URL behind an isolation scope). */
+type HostField =
+  | string
+  | {
+      readonly field: string;
+      readonly read: (text: string) => string | null;
+    };
+
 /** The fields, per kind, whose host a row is "on", most direct first. */
-const HOST_FIELDS: Readonly<Record<string, readonly string[]>> = {
+const HOST_FIELDS: Readonly<Record<string, readonly HostField[]>> = {
   history_visit: ["url"],
   cookie: ["hostKey"],
   login_credential: ["originUrl", "signonRealm"],
   bookmark: ["url"],
   top_site: ["url"],
   download: ["tabUrl", "siteUrl"],
+  cache_entry: [{ field: "key", read: cacheResourceUrl }],
+  favicon: ["iconUrl"],
 };
 
 /** The row's host as Sites keys it, from the first host-bearing field it
  *  records; null when it records none. */
 export function hostLinkOf(row: Finding): RelatedLink | null {
-  for (const field of HOST_FIELDS[row.findingKind] ?? []) {
-    const key = siteKeyOf(recordedText(row.fields[field]));
+  for (const entry of HOST_FIELDS[row.findingKind] ?? []) {
+    const field = typeof entry === "string" ? entry : entry.field;
+    const text = recordedText(row.fields[field]);
+    const key = siteKeyOf(
+      typeof entry === "string" || text === null ? text : entry.read(text),
+    );
     if (key !== null) {
       return {
         key: `host:${key}`,

@@ -69,11 +69,11 @@ import { fontWeights } from "@/lib/font-weight";
 import { typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { callApi, type QueryParameters } from "../api.js";
+import type { QueryParameters } from "../api.js";
+import { useCaseContext } from "../case-context.js";
 import type {
   ArtifactConfig,
   CaseCompleteness,
-  CaseProfiles,
   FieldState,
   Finding,
 } from "../types.js";
@@ -689,38 +689,6 @@ function FieldsList({
 
 /* ------------------------- Profiles with no metadata ---------------------- */
 
-/** The profiles route and the Completeness Statement, read once for the
- *  page: every profile the Case knows, and why one has no metadata row. */
-function useCaseProfileContext(): {
-  readonly profiles: readonly string[];
-  readonly completeness: CaseCompleteness | null;
-} | null {
-  const [context, setContext] = useState<{
-    readonly profiles: readonly string[];
-    readonly completeness: CaseCompleteness | null;
-  } | null>(null);
-  useEffect(() => {
-    let live = true;
-    Promise.all([
-      callApi<CaseProfiles>("profiles", []),
-      callApi<CaseCompleteness>("completeness", []),
-    ])
-      .then(([profiles, completeness]) => {
-        if (live) {
-          setContext({ profiles: profiles.profiles, completeness });
-        }
-      })
-      .catch(() => {
-        // Best effort: without it the panel lists the profiles the rows
-        // carry, as before.
-      });
-    return () => {
-      live = false;
-    };
-  }, []);
-  return context;
-}
-
 /** Why a profile has no profile-level metadata row, from the Completeness
  *  Statement's Preferences entry for it (its outcome and reason). */
 function unreadReason(
@@ -842,7 +810,8 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
   // the URL: Back and a refresh keep them.
   const [view, setView] = useViewTab();
   const [profileFilter, setProfileFilter] = useViewProfiles();
-  const caseContext = useCaseProfileContext();
+  // The shell's one read of the profiles and the Completeness Statement.
+  const caseContext = useCaseContext().context;
   const wide = useMediaQuery("(min-width: 768px)");
 
   const savedRows = lists.saved.rows;
@@ -851,7 +820,8 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
     () => [...savedRows, ...recoveredRows],
     [savedRows, recoveredRows],
   );
-  const sheet = useRowSelection(loadedRows);
+  // A URL-named row this page has not loaded is read by its reference.
+  const sheet = useRowSelection(loadedRows, { route: config.route });
 
   const browser = useMemo(
     () =>

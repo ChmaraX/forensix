@@ -27,7 +27,12 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import { rowRefOf } from "../router.js";
-import { useRowSelection, useViewSearch, useViewTab } from "../view-state.js";
+import {
+  useRowSelection,
+  useViewFilter,
+  useViewSearch,
+  useViewTab,
+} from "../view-state.js";
 
 import { Panel } from "@/components/panel";
 import {
@@ -58,7 +63,12 @@ import {
   type RowColumn,
 } from "./page-kit.js";
 import { FieldCell, fieldText, StateWord } from "./finding-fields.js";
-import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import {
+  CompactFilters,
+  FilterField,
+  FilterTextField,
+  ProfilePicker,
+} from "./filters.js";
 import {
   categoryOf,
   FORM_DATA_CATEGORIES,
@@ -71,9 +81,9 @@ import {
   clearSearchAndProfiles,
   emptyCoverageOf,
   EmptyPivot,
-  useArtifactCoverage,
   useProfileLens,
-} from "./identity-links.js";
+} from "./identity-kit.js";
+import { useArtifactCoverage } from "../case-context.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { SM_UP, useMediaQuery } from "./use-media-query.js";
 import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
@@ -305,11 +315,14 @@ function CategoryChips({
   entries,
   active,
   onPick,
+  partial,
 }: {
   readonly categories: readonly FormDataCategory[];
   readonly entries: readonly Entry[];
   readonly active: string | null;
   readonly onPick: (key: string | null) => void;
+  /** The list stopped at its cap: counts of loaded entries ("36+"). */
+  readonly partial: boolean;
 }) {
   const chips = useMemo(() => {
     const counts = new Map<string, number>();
@@ -337,6 +350,7 @@ function CategoryChips({
       chips={chips}
       active={active}
       onChange={onPick}
+      partial={partial}
     />
   );
 }
@@ -354,11 +368,14 @@ function CategorySelect({
   entries,
   active,
   onPick,
+  partial,
 }: {
   readonly categories: readonly FormDataCategory[];
   readonly entries: readonly Entry[];
   readonly active: string | null;
   readonly onPick: (key: string | null) => void;
+  /** The list stopped at its cap: counts of loaded entries ("36+"). */
+  readonly partial: boolean;
 }) {
   const options = useMemo(() => {
     const counts = new Map<string, number>();
@@ -394,6 +411,7 @@ function CategorySelect({
               {option.label}{" "}
               <span className="text-muted-foreground tabular-nums">
                 {option.count.toLocaleString("en-US")}
+                {partial ? "+" : ""}
               </span>
             </SelectItem>
           ))}
@@ -427,7 +445,9 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
   // and a refresh keep them. The profile pick is the Case-wide lens.
   const [view, setView] = useViewTab();
   const [search, setSearch] = useViewSearch();
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  // The category pick is in the URL (`filter`), so refresh and Back keep
+  // it.
+  const [categoryFilter, setCategoryFilter] = useViewFilter();
   // Values open hidden on every visit (never in the URL).
   const [reveal, setReveal] = useState(false);
   const coverage = useArtifactCoverage(config.completenessArtifact);
@@ -444,7 +464,8 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
     () => [...lists.saved.rows, ...lists.recovered.rows],
     [lists.saved.rows, lists.recovered.rows],
   );
-  const sheet = useRowSelection(loaded);
+  // A URL-named row this page has not loaded is read by its reference.
+  const sheet = useRowSelection(loaded, { route: config.route });
   const lens = useProfileLens(
     useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
   );
@@ -498,7 +519,6 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
   );
 
   const clearFilters = useCallback(() => {
-    setCategoryFilter(null);
     clearSearchAndProfiles();
   }, []);
 
@@ -522,13 +542,14 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
       : undefined;
 
   const wide = useMediaQuery(SM_UP);
-  const chipsFor = (entries: readonly Entry[]) =>
+  const chipsFor = (entries: readonly Entry[], partial: boolean) =>
     wide && listedCategories.length > 1 ? (
       <CategoryChips
         categories={listedCategories}
         entries={entries}
         active={categoryFilter}
         onPick={setCategoryFilter}
+        partial={partial}
       />
     ) : null;
 
@@ -542,7 +563,7 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
           <ArtifactEmpty
             icon={ARTIFACT_ICONS.autofill}
             coverage={emptyCoverageOf(coverage)}
-            source={{ name: "Web Data", kind: "database" }}
+            artifact="Web Data"
             title="No form data"
             what="form entries"
             pivot={<EmptyPivot page="history">Open History</EmptyPivot>}
@@ -605,24 +626,35 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
                       className="max-sm:-ml-2.5 sm:mx-2"
                     />
                   ) : null}
-                  {!wide && listedCategories.length > 1 ? (
-                    <CategorySelect
-                      categories={listedCategories}
-                      entries={view === "saved" ? saved : recovered}
-                      active={categoryFilter}
-                      onPick={setCategoryFilter}
-                    />
-                  ) : null}
-                  {lens.showPicker ? (
-                    <FilterField label="Profiles" htmlFor="autofill-profiles">
-                      <ProfilePicker
-                        id="autofill-profiles"
-                        profiles={lens.options}
-                        selected={lens.selected}
-                        onChange={lens.setSelected}
+                  <CompactFilters
+                    active={
+                      (categoryFilter === null ? 0 : 1) +
+                      (lens.selected.length > 0 ? 1 : 0)
+                    }
+                  >
+                    {!wide && listedCategories.length > 1 ? (
+                      <CategorySelect
+                        categories={listedCategories}
+                        entries={view === "saved" ? saved : recovered}
+                        active={categoryFilter}
+                        onPick={setCategoryFilter}
+                        partial={
+                          (view === "saved" ? lists.saved : lists.recovered)
+                            .cursor !== null
+                        }
                       />
-                    </FilterField>
-                  ) : null}
+                    ) : null}
+                    {lens.showPicker ? (
+                      <FilterField label="Profiles" htmlFor="autofill-profiles">
+                        <ProfilePicker
+                          id="autofill-profiles"
+                          profiles={lens.options}
+                          selected={lens.selected}
+                          onChange={lens.setSelected}
+                        />
+                      </FilterField>
+                    ) : null}
+                  </CompactFilters>
                   <FilterTextField
                     commit="change"
                     label="Search loaded form entries"
@@ -643,7 +675,7 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
                   onSelect={sheet.select}
                   onClearFilters={clearFilters}
                   filteredMessage={filteredMessage("saved form entries")}
-                  chips={chipsFor(saved)}
+                  chips={chipsFor(saved, lists.saved.cursor !== null)}
                 />
               }
               recovered={
@@ -656,7 +688,7 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
                   onSelect={sheet.select}
                   onClearFilters={clearFilters}
                   filteredMessage={filteredMessage("recovered form entries")}
-                  chips={chipsFor(recovered)}
+                  chips={chipsFor(recovered, lists.recovered.cursor !== null)}
                 />
               }
             />

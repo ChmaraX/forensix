@@ -52,7 +52,15 @@ import {
   StateWord,
   TwoLineCell,
 } from "./finding-fields.js";
-import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import {
+  CompactFilters,
+  FilterField,
+  FilterTextField,
+  ProfilePicker,
+  sortKeyOf,
+  SortSelect,
+  type SortOption,
+} from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import {
@@ -60,10 +68,10 @@ import {
   clearSearchAndProfiles,
   emptyCoverageOf,
   EmptyPivot,
-  SiteHostLink,
-  useArtifactCoverage,
   useProfileLens,
-} from "./identity-links.js";
+} from "./identity-kit.js";
+import { SiteHostLink } from "./host-link.js";
+import { useArtifactCoverage } from "../case-context.js";
 import {
   COOKIE_SECRET_FIELDS,
   RowSheet,
@@ -83,9 +91,22 @@ import { Term } from "./term.js";
 /* ------------------------------ data reading ------------------------------ */
 
 /** Newest first; each Commit State is its own read (useCommitStateLists). */
-const COOKIE_PARAMETERS: QueryParameters = [
-  ["sort", "creation-time"],
-  ["direction", "desc"],
+/** The list's orders (`SortSelect`), the route's default first. */
+const NEWEST_CREATED: SortOption = {
+  label: "Created, newest",
+  sort: "creation-time",
+  direction: "desc",
+};
+const COOKIE_SORTS: readonly SortOption[] = [
+  NEWEST_CREATED,
+  { label: "Created, oldest", sort: "creation-time", direction: "asc" },
+  {
+    label: "Last accessed, newest",
+    sort: "last-access-time",
+    direction: "desc",
+  },
+  { label: "Expires, latest", sort: "expires-time", direction: "desc" },
+  { label: "Host, A to Z", sort: "host", direction: "asc" },
 ];
 
 /**
@@ -445,7 +466,7 @@ function HostCell({
     <span className="flex min-w-0 items-center gap-2.5">
       <SiteAvatar host={row.host} />
       <SiteHostLink
-        raw={fieldText(row.finding.fields.hostKey)}
+        host={fieldText(row.finding.fields.hostKey)}
         className="truncate text-foreground"
       >
         {row.host}
@@ -687,7 +708,15 @@ function CookiesSkeleton() {
 /* ---------------------------------- page ---------------------------------- */
 
 export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
-  const lists = useCommitStateLists<Finding>(config.route, COOKIE_PARAMETERS);
+  const [order, setOrder] = useState<SortOption>(NEWEST_CREATED);
+  const parameters = useMemo<QueryParameters>(
+    () => [
+      ["sort", order.sort],
+      ["direction", order.direction],
+    ],
+    [order],
+  );
+  const lists = useCommitStateLists<Finding>(config.route, parameters);
   // Saved / Recovered, the search and the open row live in the URL: Back
   // and a refresh keep them. The profile pick is the Case-wide lens.
   const [view, setView] = useViewTab();
@@ -708,7 +737,8 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
     () => [...lists.saved.rows, ...lists.recovered.rows],
     [lists.saved.rows, lists.recovered.rows],
   );
-  const sheet = useRowSelection(loadedFindings);
+  // A URL-named row this page has not loaded is read by its reference.
+  const sheet = useRowSelection(loadedFindings, { route: config.route });
 
   const rowProfiles = useMemo(
     () => [...new Set(loadedFindings.map((row) => row.profile))],
@@ -776,7 +806,7 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
           <ArtifactEmpty
             icon={ARTIFACT_ICONS.cookies}
             coverage={emptyCoverageOf(coverage)}
-            source={{ name: "Cookies", kind: "database" }}
+            artifact="Cookies"
             title="No cookies"
             what="cookies"
             pivot={<EmptyPivot page="history">Open History</EmptyPivot>}
@@ -825,16 +855,24 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
                     }}
                     className="max-sm:-ml-2.5 sm:mr-2"
                   />
-                  {lens.showPicker ? (
-                    <FilterField label="Profiles" htmlFor="cookies-profiles">
-                      <ProfilePicker
-                        id="cookies-profiles"
-                        profiles={lens.options}
-                        selected={lens.selected}
-                        onChange={lens.setSelected}
-                      />
-                    </FilterField>
-                  ) : null}
+                  <CompactFilters active={lens.selected.length > 0 ? 1 : 0}>
+                    <SortSelect
+                      id="cookies-sort"
+                      options={COOKIE_SORTS}
+                      value={sortKeyOf(order)}
+                      onChange={setOrder}
+                    />
+                    {lens.showPicker ? (
+                      <FilterField label="Profiles" htmlFor="cookies-profiles">
+                        <ProfilePicker
+                          id="cookies-profiles"
+                          profiles={lens.options}
+                          selected={lens.selected}
+                          onChange={lens.setSelected}
+                        />
+                      </FilterField>
+                    ) : null}
+                  </CompactFilters>
                   <FilterTextField
                     commit="change"
                     label="Search loaded cookies"

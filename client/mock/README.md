@@ -111,8 +111,9 @@ rejects is rejected here first, with the real 400 body (`{"status": "error",
 - `site-findings` without a `host` is a 400; an unknown route is a 400
   "Unknown dashboard route.".
 
-- Order - the History `visits` view and `favicons` are sorted by `sort` /
-  `direction` (stable; rows without the value last), and the `timeline`
+- Order - the History `visits` view, `cookies`, `credentials` and
+  `favicons` are sorted by `sort` / `direction` (stable; rows without the
+  value last), and the `timeline`
   follows `direction`, so those lists read in the order their toolbars say.
 
 The simplification: search, the sort order on the other routes and the

@@ -11,7 +11,7 @@
  *
  * The profile pick is the Case-wide lens (`useViewProfiles`); the search,
  * the tab and the open row are in the URL too, so Back and a refresh keep
- * the view. A host Sites lists links to it (`HostLink`).
+ * the view. A host Sites lists links to it (`SiteHostLink`).
  *
  * Presentation rules kept: a cell without its own recorded value reads as
  * the word "(empty)", "absent" or "unavailable", never colour alone; saved
@@ -58,7 +58,12 @@ import {
   TwoLineCell,
   profileLabel,
 } from "./finding-fields.js";
-import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import {
+  CompactFilters,
+  FilterField,
+  FilterTextField,
+  ProfilePicker,
+} from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import {
@@ -70,7 +75,7 @@ import {
   TimeCell,
 } from "./page-kit.js";
 import { RowSheet } from "./row-sheet.js";
-import { HostLink, SitesHostKeysProvider } from "./sites-host-link.js";
+import { SiteHostLink } from "./host-link.js";
 import { useOwnBitmaps } from "./site-favicons.js";
 
 /** Newest refresh first; each Commit State is its own read. */
@@ -220,7 +225,7 @@ function SiteCell({
     <span className="flex min-w-0 items-center gap-2.5">
       <SiteAvatar host={host} src={src} />
       <span className="flex min-w-0 flex-1 flex-col">
-        <HostLink
+        <SiteHostLink
           host={siteKeyOf(host)}
           className={cn(
             size.type.body,
@@ -228,7 +233,7 @@ function SiteCell({
           )}
         >
           {host}
-        </HostLink>
+        </SiteHostLink>
         <SizeProvider size="compact">
           <span className="block min-w-0 text-muted-foreground">
             <FieldCell field={row.fields.iconUrl} mono />
@@ -408,7 +413,8 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
     () => [...savedRows, ...recoveredRows],
     [savedRows, recoveredRows],
   );
-  const sheet = useRowSelection(loadedRows);
+  // A URL-named row this page has not loaded is read by its reference.
+  const sheet = useRowSelection(loadedRows, { route: config.route });
 
   // The picker lists the profiles the loaded icons carry, plus any the
   // lens already picked elsewhere (so it can be unpicked here).
@@ -509,29 +515,28 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
           ) : null}
 
           <FaviconBitmapsContext.Provider value={bitmaps}>
-            <SitesHostKeysProvider>
-              <SectionPanel id="favicons-list" title="Cached icons">
-                <CommitStateSplit
-                  value={view}
-                  onValueChange={setView}
-                  label="Saved or recovered icons"
-                  savedCount={
-                    savedFirst ||
-                    (lists.saved.error !== null && savedRows.length === 0)
-                      ? null
-                      : savedRows.length
-                  }
-                  recoveredCount={
-                    recoveredFirst ||
-                    (lists.recovered.error !== null &&
-                      recoveredRows.length === 0)
-                      ? null
-                      : recoveredRows.length
-                  }
-                  savedMore={lists.saved.cursor !== null}
-                  recoveredMore={lists.recovered.cursor !== null}
-                  toolbar={
-                    <>
+            <SectionPanel id="favicons-list" title="Cached icons">
+              <CommitStateSplit
+                value={view}
+                onValueChange={setView}
+                label="Saved or recovered icons"
+                savedCount={
+                  savedFirst ||
+                  (lists.saved.error !== null && savedRows.length === 0)
+                    ? null
+                    : savedRows.length
+                }
+                recoveredCount={
+                  recoveredFirst ||
+                  (lists.recovered.error !== null && recoveredRows.length === 0)
+                    ? null
+                    : recoveredRows.length
+                }
+                savedMore={lists.saved.cursor !== null}
+                recoveredMore={lists.recovered.cursor !== null}
+                toolbar={
+                  <>
+                    <CompactFilters active={profileFilter.length > 0 ? 1 : 0}>
                       {profiles.length > 1 ? (
                         <FilterField
                           label="Profiles"
@@ -545,37 +550,37 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
                           />
                         </FilterField>
                       ) : null}
-                      <FilterTextField
-                        commit="change"
-                        label="Search loaded favicons"
-                        icon={SearchIcon}
-                        placeholder="Search host or icon URL"
-                        value={search}
-                        onCommit={setSearch}
-                      />
-                    </>
-                  }
-                  saved={
-                    <IconList
-                      list={lists.saved}
-                      visible={savedVisible}
-                      noun="saved"
-                      onSelect={sheet.select}
-                      onClearFilters={clearFilters}
+                    </CompactFilters>
+                    <FilterTextField
+                      commit="change"
+                      label="Search loaded favicons"
+                      icon={SearchIcon}
+                      placeholder="Search host or icon URL"
+                      value={search}
+                      onCommit={setSearch}
                     />
-                  }
-                  recovered={
-                    <IconList
-                      list={lists.recovered}
-                      visible={recoveredVisible}
-                      noun="recovered"
-                      onSelect={sheet.select}
-                      onClearFilters={clearFilters}
-                    />
-                  }
-                />
-              </SectionPanel>
-            </SitesHostKeysProvider>
+                  </>
+                }
+                saved={
+                  <IconList
+                    list={lists.saved}
+                    visible={savedVisible}
+                    noun="saved"
+                    onSelect={sheet.select}
+                    onClearFilters={clearFilters}
+                  />
+                }
+                recovered={
+                  <IconList
+                    list={lists.recovered}
+                    visible={recoveredVisible}
+                    noun="recovered"
+                    onSelect={sheet.select}
+                    onClearFilters={clearFilters}
+                  />
+                }
+              />
+            </SectionPanel>
           </FaviconBitmapsContext.Provider>
         </>
       )}

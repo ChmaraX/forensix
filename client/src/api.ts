@@ -6,7 +6,12 @@ declare global {
   }
 }
 
-const TOKEN = window.__FORENSIX_TOKEN__ ?? "";
+/** The session token the server wrote into the page, read at call time
+ *  (so a module that imports this one also loads outside a browser, as
+ *  the unit tests do). */
+function token(): string {
+  return (globalThis as { window?: Window }).window?.__FORENSIX_TOKEN__ ?? "";
+}
 
 export type QueryParameters = readonly (readonly [string, string])[];
 
@@ -23,7 +28,7 @@ export async function callApi<T>(
   const response = await fetch(`/api/${route}?${query.toString()}`, {
     method: "GET",
     cache: "no-store",
-    headers: { "x-forensix-token": TOKEN },
+    headers: { "x-forensix-token": token() },
   });
   const body: unknown = await response.json();
   if (!response.ok) {

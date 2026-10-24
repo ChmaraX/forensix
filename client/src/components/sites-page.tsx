@@ -30,9 +30,14 @@
  * separate list from saved rows (the stacked CommitStateSplit, State column
  * only there), never sorted in.
  */
-import { useCallback, useContext, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useMemo, useRef } from "react";
 
-import { useRowSelection, useViewHost, useViewSearch } from "../view-state.js";
+import {
+  useRowSelection,
+  useViewFilter,
+  useViewHost,
+  useViewSearch,
+} from "../view-state.js";
 
 import { Panel, PanelHeader, PanelTitle } from "@/components/panel";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
@@ -963,7 +968,8 @@ function HostDetail({
   const favicons = useSiteList<Finding>("favicons", search);
   const cache = useSiteList<Finding>("cache", search);
   const exactReads = { downloads, favicons, cache };
-  const [kindFilter, setKindFilter] = useState<SiteKind | null>(null);
+  // The kind chip is in the URL (`filter`), so refresh and Back keep it.
+  const [kindPick, setKindFilter] = useViewFilter();
   // The favicons' own bitmaps, matched by hash (as on the Favicons page).
   const bitmaps = useOwnBitmaps(useMemo(() => [host], [host]));
 
@@ -1003,6 +1009,9 @@ function HostDetail({
   const presentKinds = KIND_META.filter(
     (meta) => (grouped.get(meta.kind) ?? []).length > 0,
   );
+  // A kind from the URL counts only when this host has rows of it.
+  const kindFilter: SiteKind | null =
+    presentKinds.find((meta) => meta.kind === kindPick)?.kind ?? null;
   // Every read has settled (or failed): the kinds, chips and panels land
   // together instead of shifting as each read arrives.
   const ready =
@@ -1149,6 +1158,7 @@ function HostDetail({
                         }),
                       )}
                       active={kindFilter}
+                      partial={incomplete}
                       onChange={(key) => {
                         setKindFilter(
                           presentKinds.find((meta) => meta.kind === key)

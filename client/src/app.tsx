@@ -34,15 +34,18 @@ import {
   type ReactNode,
 } from "react";
 
-import { callApi } from "./api.js";
 import logoMark from "./assets/forensix-logo.png";
-import { ARTIFACTS, SITES_COVERAGE, TIMELINE_COVERAGE } from "./artifacts.js";
+import {
+  ARTIFACTS,
+  artifactStoreOf,
+  SITES_COVERAGE,
+  TIMELINE_COVERAGE,
+} from "./artifacts.js";
 import { CaseCommandMenu } from "./command-menu.js";
 import { AutofillPage } from "./components/autofill-page.js";
 import { BookmarksPage } from "./components/bookmarks-page.js";
 import { CachePage } from "./components/cache-page.js";
 import {
-  caseProfilesOf,
   CoverageBanner,
   CoverageIndicator,
   coverageOf,
@@ -89,20 +92,22 @@ import { typeClass } from "./lib/size-context.js";
 import { SurfaceProvider } from "./lib/surface-context.js";
 import { cn } from "./lib/utils.js";
 import { OverviewPage } from "./overview.js";
+import { RowLookupNotice } from "./components/row-lookup-notice.js";
 import { EVIDENCE_ORDER } from "./router.js";
 import { useGlobalRowKeys } from "./shortcuts.js";
 import { ThemeToggle } from "./theme.js";
+import {
+  CaseContextProvider,
+  useCaseContextRead,
+  type CaseContext,
+} from "./case-context.js";
 import { useLensSummary, ViewLensChip } from "./view-lens.js";
 import {
   canonicalizeLocation,
   openPage,
   useViewLocation,
 } from "./view-state.js";
-import type {
-  ArtifactConfig,
-  CaseCompleteness,
-  CaseProfiles,
-} from "./types.js";
+import type { ArtifactConfig } from "./types.js";
 
 /**
  * The brand mark on FF's 20px workspace tile: the cutout logo painted in the
@@ -226,57 +231,6 @@ function targetOf(key: string): NavTarget {
   return DEFAULT_TARGET;
 }
 
-interface CaseContext {
-  readonly completeness: CaseCompleteness;
-  readonly profiles: readonly string[];
-}
-
-/**
- * The Case-wide reads every artifact page needs. They are fetched once for the
- * whole shell instead of per page, so switching sections does not refetch the
- * Completeness Statement.
- */
-function useCaseContext() {
-  const [context, setContext] = useState<CaseContext | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadNonce, setReloadNonce] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setError(null);
-    Promise.all([
-      callApi<CaseCompleteness>("completeness", []),
-      callApi<CaseProfiles>("profiles", []),
-    ])
-      .then(([completeness, caseProfiles]) => {
-        if (cancelled) {
-          return;
-        }
-        setContext({ completeness, profiles: caseProfiles.profiles });
-      })
-      .catch((requestError: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadNonce]);
-
-  const retry = useCallback(() => {
-    setContext(null);
-    setReloadNonce((nonce) => nonce + 1);
-  }, []);
-
-  return { context, error, retry };
-}
-
 /** The section a target belongs to, for the topbar trail. */
 function groupOf(target: NavTarget): string {
   return (
@@ -393,7 +347,11 @@ function UnreadPage({ target }: { readonly target: NavTarget }) {
     <Panel>
       <EmptyRows
         icon={target.icon}
-        message={`No rows to show: no ${target.label} database could be read.`}
+        message={`No rows to show: no ${target.label} ${
+          target.config === null
+            ? "database"
+            : artifactStoreOf(target.config.completenessArtifact)
+        } could be read.`}
       />
     </Panel>
   );
@@ -614,7 +572,8 @@ function JumpToButton({ onOpen }: { readonly onOpen: () => void }) {
 export function App() {
   const location = useViewLocation();
   const active = targetOf(location.page);
-  const { context, error, retry } = useCaseContext();
+  const caseContext = useCaseContextRead();
+  const { context, error, retry } = caseContext;
   const columnRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [announcement, announce] = useAnnouncer();
@@ -632,21 +591,6 @@ export function App() {
   const selectTarget = useCallback((target: NavTarget, drawer: boolean) => {
     fromDrawer.current = drawer;
     openPage(target.key);
-  }, []);
-
-  // The Overview's per-panel jump links resolve a section key against the
-  // same NAV_GROUPS the sidebar renders, so a link can never point somewhere
-  // the sidebar does not. The optional second argument is the host the
-  // Most visited card opens Sites on.
-  const openSection = useCallback((key: string, param?: string) => {
-    const target = targetOf(key);
-    if (target.key !== key) {
-      return;
-    }
-    openPage(
-      key,
-      target.sites === true && param !== undefined ? { host: param } : {},
-    );
   }, []);
 
   // The tab's title names the page (and a Sites host), like any app.
@@ -755,47 +699,51 @@ export function App() {
               onOpenChange={setMenuOpen}
               scope={columnRef}
             />
-            <SurfaceProvider value={2}>
-              <div
-                key={active.key}
-                ref={columnRef}
-                className="reveal-product mx-auto flex w-full max-w-[1360px] min-w-0 flex-col gap-5 px-4 pb-10 md:px-8"
-              >
-                {/* Overview builds its own masthead as its first block; the
+            <CaseContextProvider value={caseContext}>
+              <SurfaceProvider value={2}>
+                <div
+                  key={active.key}
+                  ref={columnRef}
+                  className="reveal-product mx-auto flex w-full max-w-[1360px] min-w-0 flex-col gap-5 px-4 pb-10 md:px-8"
+                >
+                  {/* Overview builds its own masthead as its first block; the
                     shell still owns its coverage (the whole Case): a quiet
                     indicator at the right of the masthead and no banner —
                     the landing page stays calm; every evidence page keeps
                     its banner when degraded. */}
-                {active.key === "overview" ? null : (
-                  <PageHeader title={active.label} aside={coverageIndicator} />
-                )}
-                {active.key === "overview" ? null : coverageBanner}
-                {active.key === "overview" ? (
-                  <OverviewPage
-                    onOpen={openSection}
-                    caseProfiles={
-                      context === null
-                        ? undefined
-                        : caseProfilesOf(context.profiles, context.completeness)
-                    }
-                    coverage={
-                      context === null ? null : (
-                        <CoverageIndicator
-                          completeness={context.completeness}
-                          quiet
-                        />
-                      )
-                    }
-                  />
-                ) : error !== null ? (
-                  <ErrorRows message={error} onRetry={retry} className="px-0" />
-                ) : context === null ? (
-                  <LoadingRows className="px-0" />
-                ) : (
-                  <ActivePage target={active} context={context} />
-                )}
-              </div>
-            </SurfaceProvider>
+                  {active.key === "overview" ? null : (
+                    <PageHeader
+                      title={active.label}
+                      aside={coverageIndicator}
+                    />
+                  )}
+                  {active.key === "overview" ? null : coverageBanner}
+                  <RowLookupNotice />
+                  {active.key === "overview" ? (
+                    <OverviewPage
+                      coverage={
+                        context === null ? null : (
+                          <CoverageIndicator
+                            completeness={context.completeness}
+                            quiet
+                          />
+                        )
+                      }
+                    />
+                  ) : error !== null ? (
+                    <ErrorRows
+                      message={error}
+                      onRetry={retry}
+                      className="px-0"
+                    />
+                  ) : context === null ? (
+                    <LoadingRows className="px-0" />
+                  ) : (
+                    <ActivePage target={active} context={context} />
+                  )}
+                </div>
+              </SurfaceProvider>
+            </CaseContextProvider>
           </SidebarInset>
         </SidebarProvider>
       </TooltipProvider>

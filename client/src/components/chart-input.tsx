@@ -121,11 +121,14 @@ export function ChartCursorBand({
 
 /**
  * The wash behind a picked span, inside a Recharts chart: `chartRange`'s ink
- * at 0.06 over bands `from..to` (indices, inclusive). It fades in on
- * `spring.fast` and, as the span changes (a drag, a Shift-stretch, a
- * picker edit), its edges glide on `spring.moderate`, so a range change
- * reads as the same span moving rather than one block swapped for another.
- * Under reduced motion only the fade remains (MotionConfig).
+ * at 0.06 over bands `from..to` (indices, inclusive; one band for a picked
+ * day), and a 2px baseline under it at `markOpacity` (the series' rest
+ * step, 3:1), so a picked day that drew nothing still shows where the
+ * range is. It fades in on `spring.fast` and, as the span changes (a
+ * drag, a Shift-stretch, a picker edit), its edges glide on
+ * `spring.moderate`, so a range change reads as the same span moving
+ * rather than one block swapped for another. Under reduced motion only
+ * the fade remains (MotionConfig).
  */
 export function ChartRangeWash({
   from,
@@ -133,6 +136,7 @@ export function ChartRangeWash({
   count,
   fill,
   opacity,
+  markOpacity,
 }: {
   /** First and last band of the span, or null for no wash. */
   readonly from: number | null;
@@ -141,6 +145,8 @@ export function ChartRangeWash({
   /** Resolved series colour. */
   readonly fill: string;
   readonly opacity: number;
+  /** Opacity of the baseline under the span. */
+  readonly markOpacity: number;
 }) {
   const plot = usePlotArea();
   const band = plot === undefined || count <= 0 ? 0 : plot.width / count;
@@ -149,28 +155,42 @@ export function ChartRangeWash({
     from !== null &&
     to !== null &&
     from >= 0 &&
-    to > from;
+    to >= from;
+  const x = shown ? plot.x + from * band : 0;
+  const width = shown ? (to - from + 1) * band : 0;
+  // The baseline is inset like the bars (Recharts' 18% category gap).
+  const inset = Math.min(band * 0.09, 4);
   return (
     <ZIndexLayer zIndex={DefaultZIndexes.area}>
       <AnimatePresence>
         {shown ? (
           <motion.rect
             key="wash"
-            initial={{
-              opacity: 0,
-              x: plot.x + from * band,
-              width: (to - from + 1) * band,
-            }}
-            animate={{
-              opacity,
-              x: plot.x + from * band,
-              width: (to - from + 1) * band,
-            }}
+            initial={{ opacity: 0, x, width }}
+            animate={{ opacity, x, width }}
             exit={{ opacity: 0, transition: spring.fast.exit }}
             transition={{ ...spring.moderate, opacity: spring.fast }}
             y={plot.y}
             height={plot.height}
             rx={6}
+            fill={fill}
+            pointerEvents="none"
+          />
+        ) : null}
+        {shown ? (
+          <motion.rect
+            key="mark"
+            initial={{ opacity: 0, x: x + inset, width: width - inset * 2 }}
+            animate={{
+              opacity: markOpacity,
+              x: x + inset,
+              width: Math.max(0, width - inset * 2),
+            }}
+            exit={{ opacity: 0, transition: spring.fast.exit }}
+            transition={{ ...spring.moderate, opacity: spring.fast }}
+            y={plot.y + plot.height + 2}
+            height={2}
+            rx={1}
             fill={fill}
             pointerEvents="none"
           />

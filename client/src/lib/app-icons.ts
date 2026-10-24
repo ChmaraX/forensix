@@ -34,6 +34,7 @@ import {
   File04,
   FileCode01,
   FileDownload02,
+  FilterLines,
   Film01,
   Fingerprint01,
   Folder,
@@ -104,6 +105,8 @@ export const HideIcon: AppIcon = EyeOff;
 /** Newest first / oldest first. */
 export const SortNewestIcon: AppIcon = ArrowNarrowDown;
 export const SortOldestIcon: AppIcon = ArrowNarrowUp;
+/** A phone toolbar's "Filters (n)" button (`CompactFilters`). */
+export const FilterIcon: AppIcon = FilterLines;
 /** The ⌘K menu's Shortcuts rows. */
 export const KeyboardIcon: AppIcon = Keyboard01;
 

@@ -50,7 +50,7 @@ import { useChartTokens } from "@/components/charts";
 import { ActivityBars, HourBars } from "@/components/charts-ready";
 import { ChartSection } from "@/components/chart-section";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { coverageOf } from "@/components/completeness";
+import { caseProfilesOf, coverageOf } from "@/components/completeness";
 import { ErrorRows, LoadingRows, RevealSwap } from "@/components/list-states";
 import { formatDaySpan, plural, SectionPanel } from "@/components/page-kit";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
@@ -62,6 +62,7 @@ import { cn } from "@/lib/utils";
 import { TopicCategorizationLine } from "./overview-topic-widget.js";
 import { localDayOf } from "./components/day-bounds.js";
 import { profileLabel } from "./components/finding-fields.js";
+import { useCaseContext, type CaseContext } from "./case-context.js";
 import { rowRefOf } from "./router.js";
 import { hrefFor, useViewRange } from "./view-state.js";
 import {
@@ -95,20 +96,14 @@ import {
 
 export function OverviewPage({
   coverage,
-  caseProfiles,
 }: {
-  /** Every profile the Case knows (`caseProfilesOf`: the profiles route
-   *  plus any the Completeness Statement names), so the Profiles figure
-   *  agrees with the coverage detail. Omitted: the profiles route's list. */
-  readonly caseProfiles?: readonly string[];
   /** The shell's whole-Case coverage indicator, for the masthead's right.
    *  Overview carries no coverage banner. */
   readonly coverage?: ReactNode;
-  /** Unused: every link on the page is a real `<a href>` built with
-   *  `hrefFor` (a new tab works, Back returns here). Kept so the shell's
-   *  call still type-checks; the shell can stop passing it. */
-  readonly onOpen?: (key: string, param?: string) => void;
 }) {
+  // The Completeness Statement and the profiles are the shell's one read
+  // (`useCaseContext`); the page reads only its own panels.
+  const shell = useCaseContext();
   const [data, setData] = useState<OverviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Bumped by Retry: re-runs the read from scratch.
@@ -136,16 +131,21 @@ export function OverviewPage({
     };
   }, [attempt]);
 
-  if (error !== null) {
+  if (error !== null || shell.error !== null) {
     return (
       <div className="flex flex-col gap-5">
         <ErrorRows
           title="The overview could not be loaded."
-          message={error}
+          message={error ?? shell.error ?? ""}
           onRetry={() => {
-            setError(null);
-            setData(null);
-            setAttempt((count) => count + 1);
+            if (shell.error !== null) {
+              shell.retry();
+            }
+            if (error !== null) {
+              setError(null);
+              setData(null);
+              setAttempt((count) => count + 1);
+            }
           }}
           className="p-0"
         />
@@ -159,11 +159,11 @@ export function OverviewPage({
   return (
     <div className="reveal-swap">
       <LoadingOverview className="reveal-items" />
-      {data === null ? null : (
+      {data === null || shell.context === null ? null : (
         <OverviewContent
           data={data}
           coverage={coverage}
-          caseProfiles={caseProfiles}
+          caseContext={shell.context}
         />
       )}
     </div>
@@ -173,12 +173,13 @@ export function OverviewPage({
 function OverviewContent({
   data,
   coverage,
-  caseProfiles,
+  caseContext,
 }: {
   readonly coverage?: ReactNode;
-  readonly caseProfiles?: readonly string[];
+  readonly caseContext: CaseContext;
   readonly data: OverviewData;
 }) {
+  const { completeness } = caseContext;
   const tokens = useChartTokens();
   const subjectId = useId();
   const topSitesId = useId();
@@ -397,10 +398,10 @@ function OverviewContent({
   // reading. Everything read from `activity` counts saved visits only.
   // Every profile the Case knows, so the figure agrees with the coverage;
   // a profile none of whose databases was read is named as such.
-  const profiles = caseProfiles ?? data.profiles;
+  const profiles = caseProfilesOf(caseContext.profiles, completeness);
   const unreadProfiles = profiles.filter(
     (profile) =>
-      !data.completeness.statements.some((statement) =>
+      !completeness.statements.some((statement) =>
         statement.artifacts.some(
           (database) =>
             database.profile === profile && database.outcome === "produced",
@@ -468,7 +469,7 @@ function OverviewContent({
   // How much of each artifact was read, for the Recovered rows: `null`
   // when every database was (the row then needs no note).
   const artifactCoverage = (artifact: string): ArtifactCoverage | null => {
-    const scope = coverageOf(data.completeness, [artifact]);
+    const scope = coverageOf(completeness, [artifact]);
     return scope.degraded
       ? { produced: scope.produced, attempted: scope.attempted }
       : null;

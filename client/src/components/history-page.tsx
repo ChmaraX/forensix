@@ -87,7 +87,12 @@ import {
   StateWord,
   TwoLineCell,
 } from "./finding-fields.js";
-import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import {
+  CompactFilters,
+  FilterField,
+  FilterTextField,
+  ProfilePicker,
+} from "./filters.js";
 import { ErrorRows, ListBlock, RevealSwap } from "./list-states.js";
 import {
   figure,
@@ -108,11 +113,7 @@ import {
 } from "./page-kit.js";
 import { RowSheet } from "./row-sheet.js";
 import { Term } from "./term.js";
-import {
-  UrlWithSiteLink,
-  useSiteHosts,
-  type SiteHostLookup,
-} from "./history-host-link.js";
+import { UrlWithSiteLink } from "./host-link.js";
 
 /* ------------------------------- data reads ------------------------------- */
 
@@ -175,6 +176,12 @@ function visitsAreFiltered(filters: VisitFilters): boolean {
     filters.profiles.length > 0
   );
 }
+
+/** Where a URL-named visit is looked up (`useRowSelection`). */
+const VISIT_LOOKUP = {
+  route: "history",
+  parameters: [["view", "visits"]],
+} as const;
 
 /** The `history` `view=visits` query for the filters (Commit State is added
  *  per list by `useCommitStateLists`). The date range is in Case days (the
@@ -462,82 +469,90 @@ function VisitFilterControls({
     descending ? words.asc : words.desc
   }`;
 
+  // The transition and the profile pick narrow the list; the sort orders.
+  const active =
+    (filters.transition === "" ? 0 : 1) + (filters.profiles.length > 0 ? 1 : 0);
+
   return (
     <>
-      <FilterField label="Sort" htmlFor="history-visits-sort">
-        <Select
-          value={filters.sort}
-          onValueChange={(sort) => {
-            setFilters({ ...filters, sort });
-          }}
-        >
-          <SelectTrigger id="history-visits-sort" className="min-w-[120px]" />
-          <SelectContent>
-            {VISIT_SORTS.map((sort, index) => (
-              <SelectItem key={sort} index={index} value={sort}>
-                {SORT_LABELS[sort] ?? sort}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Tooltip content={flip}>
-          <Button
-            variant="ghost"
-            size="icon-compact"
-            aria-label={flip}
-            onClick={() => {
+      <CompactFilters active={active}>
+        <FilterField label="Sort" htmlFor="history-visits-sort">
+          <Select
+            value={filters.sort}
+            onValueChange={(sort) => {
+              setFilters({ ...filters, sort });
+            }}
+          >
+            <SelectTrigger id="history-visits-sort" className="min-w-[120px]" />
+            <SelectContent>
+              {VISIT_SORTS.map((sort, index) => (
+                <SelectItem key={sort} index={index} value={sort}>
+                  {SORT_LABELS[sort] ?? sort}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Tooltip content={flip}>
+            <Button
+              variant="ghost"
+              size="icon-compact"
+              aria-label={flip}
+              onClick={() => {
+                setFilters({
+                  ...filters,
+                  direction: descending ? "asc" : "desc",
+                });
+              }}
+            >
+              <DirectionIcon />
+            </Button>
+          </Tooltip>
+        </FilterField>
+
+        <FilterField label="Arrived via" htmlFor="history-visits-transition">
+          <Select
+            value={
+              filters.transition === "" ? ANY_TRANSITION : filters.transition
+            }
+            onValueChange={(value) => {
               setFilters({
                 ...filters,
-                direction: descending ? "asc" : "desc",
+                transition: value === ANY_TRANSITION ? "" : value,
               });
             }}
           >
-            <DirectionIcon />
-          </Button>
-        </Tooltip>
-      </FilterField>
-
-      <FilterField label="Arrived via" htmlFor="history-visits-transition">
-        <Select
-          value={
-            filters.transition === "" ? ANY_TRANSITION : filters.transition
-          }
-          onValueChange={(value) => {
-            setFilters({
-              ...filters,
-              transition: value === ANY_TRANSITION ? "" : value,
-            });
-          }}
-        >
-          <SelectTrigger
-            id="history-visits-transition"
-            className="min-w-[168px]"
-          />
-          <SelectContent>
-            <SelectItem index={0} value={ANY_TRANSITION}>
-              Any transition
-            </SelectItem>
-            {Object.entries(TRANSITION_LABELS).map(([value, label], index) => (
-              <SelectItem key={value} index={index + 1} value={value}>
-                {label}
+            <SelectTrigger
+              id="history-visits-transition"
+              className="min-w-[168px]"
+            />
+            <SelectContent>
+              <SelectItem index={0} value={ANY_TRANSITION}>
+                Any transition
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FilterField>
-
-      {profiles.length === 0 ? null : (
-        <FilterField label="Profiles" htmlFor="history-visits-profiles">
-          <ProfilePicker
-            id="history-visits-profiles"
-            profiles={profiles}
-            selected={filters.profiles}
-            onChange={(selected) => {
-              setFilters({ ...filters, profiles: selected });
-            }}
-          />
+              {Object.entries(TRANSITION_LABELS).map(
+                ([value, label], index) => (
+                  <SelectItem key={value} index={index + 1} value={value}>
+                    {label}
+                  </SelectItem>
+                ),
+              )}
+            </SelectContent>
+          </Select>
         </FilterField>
-      )}
+
+        {profiles.length === 0 ? null : (
+          <FilterField label="Profiles" htmlFor="history-visits-profiles">
+            <ProfilePicker
+              id="history-visits-profiles"
+              profiles={profiles}
+              selected={filters.profiles}
+              onChange={(selected) => {
+                setFilters({ ...filters, profiles: selected });
+              }}
+            />
+          </FilterField>
+        )}
+      </CompactFilters>
 
       <FilterTextField
         id="history-visits-search"
@@ -572,13 +587,7 @@ function VisitPage({ row }: { readonly row: Finding }) {
 
 /** The table's page cell: the site tile, the title over the URL, and the
  *  URL's host linked to Sites when Sites lists that exact host. */
-function VisitPageLinked({
-  row,
-  sites,
-}: {
-  readonly row: Finding;
-  readonly sites: SiteHostLookup;
-}) {
+function VisitPageLinked({ row }: { readonly row: Finding }) {
   return (
     <span className="flex min-w-0 items-center gap-2.5">
       <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
@@ -588,7 +597,7 @@ function VisitPageLinked({
         </span>
         <SizeProvider size="compact">
           <span className="block min-w-0 text-muted-foreground">
-            <UrlWithSiteLink field={row.fields.url} sites={sites} />
+            <UrlWithSiteLink field={row.fields.url} />
           </span>
         </SizeProvider>
       </span>
@@ -601,12 +610,9 @@ function VisitPageLinked({
  *  line, the page as the card's title, transition and dwell under it. Every
  *  column but Page has a fixed width that fits its longest value, so Page
  *  takes the rest and no column moves when a day, a range or a tab changes
- *  the rows. `sites` links each URL's host to Sites (table only: a phone
- *  card is one button, and the row sheet carries the same link). */
-function visitColumns(
-  sites: SiteHostLookup,
-  recovered: boolean,
-): readonly RowColumn<Finding>[] {
+ *  the rows. The table links each URL's host to Sites (not a phone card:
+ *  it is one button, and the row sheet carries the same link). */
+function visitColumns(recovered: boolean): readonly RowColumn<Finding>[] {
   const columns: RowColumn<Finding>[] = [
     {
       key: "time",
@@ -621,7 +627,7 @@ function visitColumns(
       header: "Page",
       className: "max-w-[440px]",
       stack: "title",
-      cell: (row) => <VisitPageLinked row={row} sites={sites} />,
+      cell: (row) => <VisitPageLinked row={row} />,
       stackedCell: (row) => <VisitPage row={row} />,
     },
     ...VISIT_DETAIL_COLUMNS,
@@ -692,11 +698,7 @@ function VisitTable({
   readonly recovered: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
-  const sites = useSiteHosts();
-  const columns = useMemo(
-    () => visitColumns(sites, recovered),
-    [sites, recovered],
-  );
+  const columns = useMemo(() => visitColumns(recovered), [recovered]);
   return (
     <ResponsiveRows
       rows={rows}
@@ -827,7 +829,8 @@ export function HistoryPage({
     () => [...visits.saved.rows, ...visits.recovered.rows],
     [visits.saved.rows, visits.recovered.rows],
   );
-  const sheet = useRowSelection(loadedVisits);
+  // A URL-named visit this page has not loaded is read by its reference.
+  const sheet = useRowSelection(loadedVisits, VISIT_LOOKUP);
 
   // Figures from the saved activity rows. `days` is sparse — only days with
   // a saved visit — because "active days" literally counts its length; it

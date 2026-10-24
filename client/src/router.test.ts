@@ -19,6 +19,7 @@ const FULL: ViewLocation = {
   profiles: ["Default", "Profile 2"],
   host: "teamviewer.com",
   q: "https://example.com/a?b=c&d=e#f",
+  filter: "Bookmarks bar/Work",
   tab: "recovered",
   row: "src-01/manifest.jsonl|visits|500106|Default|wal_resident",
 };
@@ -45,7 +46,7 @@ describe("parseLocation / formatLocation", () => {
 
   it("writes parameters in one fixed order", () => {
     expect(formatLocation(FULL)).toBe(
-      "#/history?from=2024-03-12&to=2024-03-14&profile=Default&profile=Profile+2&host=teamviewer.com&q=https%3A%2F%2Fexample.com%2Fa%3Fb%3Dc%26d%3De%23f&tab=recovered&row=src-01%2Fmanifest.jsonl%7Cvisits%7C500106%7CDefault%7Cwal_resident",
+      "#/history?from=2024-03-12&to=2024-03-14&profile=Default&profile=Profile+2&host=teamviewer.com&q=https%3A%2F%2Fexample.com%2Fa%3Fb%3Dc%26d%3De%23f&filter=Bookmarks+bar%2FWork&tab=recovered&row=src-01%2Fmanifest.jsonl%7Cvisits%7C500106%7CDefault%7Cwal_resident",
     );
   });
 

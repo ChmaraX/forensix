@@ -26,7 +26,7 @@
  */
 import { useMemo, useState } from "react";
 
-import { useViewTab } from "../view-state.js";
+import { useViewFilter, useViewTab } from "../view-state.js";
 
 import { rowRefOf } from "../router.js";
 import type { Finding } from "../types.js";
@@ -375,12 +375,12 @@ function KindChips({
   }
   return (
     <CountChips
-      label={partial ? "Event type, counts of loaded events" : "Event type"}
-      allLabel={partial ? "All loaded" : "All"}
+      label="Event type"
       total={total}
       chips={chips}
       active={active}
       onChange={onChange}
+      partial={partial}
     />
   );
 }
@@ -430,7 +430,8 @@ export function TimelineRecordsCard({
   readonly rangeWords?: string | null;
   readonly onClearRange: () => void;
 }) {
-  const [kindFilter, setKindFilter] = useState<string | null>(null);
+  // The kind chip is in the URL (`filter`), so refresh and Back keep it.
+  const [kindFilter, setKindFilter] = useViewFilter();
   // Saved / Recovered lives in the URL (`tab`), so Back and a refresh keep it.
   const [view, setView] = useViewTab();
   const [reveal, setReveal] = useState(false);

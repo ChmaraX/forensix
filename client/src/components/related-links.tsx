@@ -15,7 +15,7 @@ import { ChevronRightIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
-import { caseSiteHosts, caseTimeZone, exactVisitsOf } from "../case-reads.js";
+import { caseTimeZone, exactVisitsOf } from "../case-reads.js";
 import { formatLocation, pageLabelOf } from "../router.js";
 import {
   dayLinkOf,
@@ -27,6 +27,7 @@ import {
 import type { Finding } from "../types.js";
 import { currentLocation, hrefFor } from "../view-state.js";
 import { formatInstant } from "./finding-fields.js";
+import { siteHostListed } from "./host-link.js";
 import { RevealSwap } from "./list-states.js";
 
 function formatTime(utc: string): string {
@@ -44,16 +45,9 @@ async function resolveLinks(row: Finding): Promise<readonly RelatedLink[]> {
   const host = hostLinkOf(row);
   const [timeZone, hostListed, visitLinks] = await Promise.all([
     caseTimeZone(),
-    host === null
-      ? Promise.resolve(false)
-      : caseSiteHosts()
-          .then(
-            (list) =>
-              // A list cut short at its cap cannot rule the host out.
-              !list.complete ||
-              list.hosts.some((entry) => entry.host === host.value),
-          )
-          .catch(() => false),
+    // The one Sites host-list rule (`host-link.tsx`), shared with the
+    // cell links.
+    host === null ? Promise.resolve(false) : siteHostListed(host.value),
     Promise.all(
       visitedUrlsOf(row).map((source) =>
         exactVisitsOf(source.url)

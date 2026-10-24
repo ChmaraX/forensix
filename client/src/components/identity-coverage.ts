@@ -1,6 +1,6 @@
 /**
  * The pure words behind the identity pages' empty states and profile
- * lens (identity-links.tsx): how an artifact with no rows was covered, and
+ * lens (identity-kit.tsx): how an artifact with no rows was covered, and
  * a list of names joined for a sentence. No React, unit-tested in
  * identity-coverage.test.ts.
  */

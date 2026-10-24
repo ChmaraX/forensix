@@ -24,11 +24,16 @@
  * column. Missing values read as their own state word. This page is
  * read-only.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
 import { siteKeyOf } from "../related.js";
 import { rowRefOf } from "../router.js";
-import { useRowSelection, useViewSearch, useViewTab } from "../view-state.js";
+import {
+  useRowSelection,
+  useViewFilter,
+  useViewSearch,
+  useViewTab,
+} from "../view-state.js";
 import { Panel } from "@/components/panel";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -53,16 +58,21 @@ import {
   StateWord,
   TwoLineCell,
 } from "./finding-fields.js";
-import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import {
+  CompactFilters,
+  FilterField,
+  FilterTextField,
+  ProfilePicker,
+} from "./filters.js";
 import {
   ArtifactEmpty,
   clearSearchAndProfiles,
   emptyCoverageOf,
   EmptyPivot,
-  useArtifactCoverage,
   useProfileLens,
-  VisitedUrlLink,
-} from "./identity-links.js";
+} from "./identity-kit.js";
+import { VisitedUrlLink } from "./host-link.js";
+import { useArtifactCoverage } from "../case-context.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet } from "./row-sheet.js";
@@ -379,7 +389,8 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
   // and a refresh keep them. The profile pick is the Case-wide lens.
   const [view, setView] = useViewTab();
   const [search, setSearch] = useViewSearch();
-  const [folderFilter, setFolderFilter] = useState<string | null>(null);
+  // The folder pick is in the URL (`filter`), so refresh and Back keep it.
+  const [folderFilter, setFolderFilter] = useViewFilter();
   const coverage = useArtifactCoverage(config.completenessArtifact);
   const treeBeside = useMediaQuery(LG_UP);
 
@@ -395,7 +406,8 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
     () => [...lists.saved.rows, ...lists.recovered.rows],
     [lists.saved.rows, lists.recovered.rows],
   );
-  const sheet = useRowSelection(loaded);
+  // A URL-named row this page has not loaded is read by its reference.
+  const sheet = useRowSelection(loaded, { route: config.route });
   const lens = useProfileLens(
     useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
   );
@@ -466,7 +478,6 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
   }, []);
 
   const clearFilters = useCallback(() => {
-    setFolderFilter(null);
     clearSearchAndProfiles();
   }, []);
 
@@ -527,23 +538,30 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
         recoveredMore={lists.recovered.cursor !== null}
         toolbar={
           <>
-            {treeBeside || !figuresReady || saved.length === 0 ? null : (
-              <FolderSelect
-                rows={saved}
-                activePath={folderFilter}
-                onPick={pickFolder}
-              />
-            )}
-            {lens.showPicker ? (
-              <FilterField label="Profiles" htmlFor="bookmarks-profiles">
-                <ProfilePicker
-                  id="bookmarks-profiles"
-                  profiles={lens.options}
-                  selected={lens.selected}
-                  onChange={lens.setSelected}
+            <CompactFilters
+              active={
+                (folderFilter === null ? 0 : 1) +
+                (lens.selected.length > 0 ? 1 : 0)
+              }
+            >
+              {treeBeside || !figuresReady || saved.length === 0 ? null : (
+                <FolderSelect
+                  rows={saved}
+                  activePath={folderFilter}
+                  onPick={pickFolder}
                 />
-              </FilterField>
-            ) : null}
+              )}
+              {lens.showPicker ? (
+                <FilterField label="Profiles" htmlFor="bookmarks-profiles">
+                  <ProfilePicker
+                    id="bookmarks-profiles"
+                    profiles={lens.options}
+                    selected={lens.selected}
+                    onChange={lens.setSelected}
+                  />
+                </FilterField>
+              ) : null}
+            </CompactFilters>
             <FilterTextField
               commit="change"
               label="Search loaded bookmarks"
@@ -587,7 +605,7 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
           <ArtifactEmpty
             icon={ARTIFACT_ICONS.bookmarks}
             coverage={emptyCoverageOf(coverage)}
-            source={{ name: "Bookmarks", kind: "file" }}
+            artifact="Bookmarks"
             title="No bookmarks"
             what="bookmarks"
             sidecars={false}

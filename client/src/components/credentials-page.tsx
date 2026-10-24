@@ -20,7 +20,7 @@
  * picks. A site - read from the origin URL, else the sign-on realm - opens
  * Sites on it (in the table, when Sites lists it).
  */
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { rowRefOf } from "../router.js";
 import { useRowSelection, useViewSearch, useViewTab } from "../view-state.js";
@@ -55,16 +55,24 @@ import {
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
-import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import {
+  CompactFilters,
+  FilterField,
+  FilterTextField,
+  ProfilePicker,
+  sortKeyOf,
+  SortSelect,
+  type SortOption,
+} from "./filters.js";
 import {
   ArtifactEmpty,
   clearSearchAndProfiles,
   emptyCoverageOf,
   EmptyPivot,
-  SiteHostLink,
-  useArtifactCoverage,
   useProfileLens,
-} from "./identity-links.js";
+} from "./identity-kit.js";
+import { SiteHostLink } from "./host-link.js";
+import { useArtifactCoverage } from "../case-context.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import {
@@ -87,10 +95,18 @@ import {
 
 /* ------------------------------ data loading ------------------------------ */
 
-const CREDENTIAL_PARAMETERS: QueryParameters = [
-  ["sort", "last-used-time"],
-  ["direction", "desc"],
-  ["limit", "100"],
+/** The list's orders (`SortSelect`), the route's default first. */
+const NEWEST_USED: SortOption = {
+  label: "Last used, newest",
+  sort: "last-used-time",
+  direction: "desc",
+};
+const CREDENTIAL_SORTS: readonly SortOption[] = [
+  NEWEST_USED,
+  { label: "Last used, oldest", sort: "last-used-time", direction: "asc" },
+  { label: "Created, newest", sort: "created-time", direction: "desc" },
+  { label: "Site, A to Z", sort: "origin", direction: "asc" },
+  { label: "Username, A to Z", sort: "username", direction: "asc" },
 ];
 
 /** Upper bound on rows read per list. Saved-login sets are small (one row per
@@ -279,7 +295,7 @@ function SiteCell({
     <span className="flex min-w-0 items-center gap-2.5">
       <SiteAvatar host={host} />
       <SiteHostLink
-        raw={siteSourceOf(row)}
+        host={siteSourceOf(row)}
         className="truncate text-foreground"
       >
         {host}
@@ -440,13 +456,18 @@ export function CredentialsPage({
 }: {
   readonly config: ArtifactConfig;
 }) {
-  const lists = useCommitStateLists<Finding>(
-    config.route,
-    CREDENTIAL_PARAMETERS,
-    {
-      drain: CREDENTIAL_ROW_CAP,
-    },
+  const [order, setOrder] = useState<SortOption>(NEWEST_USED);
+  const parameters = useMemo<QueryParameters>(
+    () => [
+      ["sort", order.sort],
+      ["direction", order.direction],
+      ["limit", "100"],
+    ],
+    [order],
   );
+  const lists = useCommitStateLists<Finding>(config.route, parameters, {
+    drain: CREDENTIAL_ROW_CAP,
+  });
   const savedDone = lists.drained.saved;
   const recoveredDone = lists.drained.recovered;
   // Saved / Recovered, the search (a picked username too) and the open row
@@ -462,7 +483,8 @@ export function CredentialsPage({
     () => [...allSaved, ...allRecovered],
     [allSaved, allRecovered],
   );
-  const sheet = useRowSelection(loaded);
+  // A URL-named row this page has not loaded is read by its reference.
+  const sheet = useRowSelection(loaded, { route: config.route });
   const lens = useProfileLens(
     useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
   );
@@ -537,7 +559,7 @@ export function CredentialsPage({
           <ArtifactEmpty
             icon={ARTIFACT_ICONS.credentials}
             coverage={emptyCoverageOf(coverage)}
-            source={{ name: "Login Data", kind: "database" }}
+            artifact="Login Data"
             title="No saved logins"
             what="stored logins"
             pivot={<EmptyPivot page="cookies">Open Cookies</EmptyPivot>}
@@ -593,19 +615,27 @@ export function CredentialsPage({
               recoveredMore={lists.recovered.cursor !== null}
               toolbar={
                 <>
-                  {lens.showPicker ? (
-                    <FilterField
-                      label="Profiles"
-                      htmlFor="credentials-profiles"
-                    >
-                      <ProfilePicker
-                        id="credentials-profiles"
-                        profiles={lens.options}
-                        selected={lens.selected}
-                        onChange={lens.setSelected}
-                      />
-                    </FilterField>
-                  ) : null}
+                  <CompactFilters active={lens.selected.length > 0 ? 1 : 0}>
+                    <SortSelect
+                      id="credentials-sort"
+                      options={CREDENTIAL_SORTS}
+                      value={sortKeyOf(order)}
+                      onChange={setOrder}
+                    />
+                    {lens.showPicker ? (
+                      <FilterField
+                        label="Profiles"
+                        htmlFor="credentials-profiles"
+                      >
+                        <ProfilePicker
+                          id="credentials-profiles"
+                          profiles={lens.options}
+                          selected={lens.selected}
+                          onChange={lens.setSelected}
+                        />
+                      </FilterField>
+                    ) : null}
+                  </CompactFilters>
                   <FilterTextField
                     commit="change"
                     label="Search loaded logins"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FieldState, Finding } from "../types.js";
-import { splitUrlHost } from "./history-url-host.js";
+import { splitUrlHost } from "./url-host.js";
 import { sourceRowOf } from "./timeline-source-row.js";
 
 const value = (v: unknown): FieldState => ({ state: "value", value: v });

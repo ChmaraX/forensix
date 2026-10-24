@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   bandIndexAt,
   chartKeyEffect,
+  dayTickIndices,
   FULL_SPAN,
   pickDay,
   releaseSpan,
@@ -166,5 +167,34 @@ describe("keyboard", () => {
         },
       ),
     ).toBeNull();
+  });
+});
+
+describe("day labels", () => {
+  it("snaps a label off an empty day onto the nearest drawn day", () => {
+    // 20 bands of 16px: a label every 4 bands (64px), snapped within 2.
+    const values = Array.from({ length: 20 }, (_, index) =>
+      [0, 5, 9, 13, 17].includes(index) ? 1 : 0,
+    );
+    const ticks = dayTickIndices(values, 320);
+    // Every label stands under a bar.
+    expect(ticks.every((index) => values[index] === 1)).toBe(true);
+    expect(ticks[0]).toBe(0);
+  });
+
+  it("keeps a slot's own day when no bar is near, and never crowds", () => {
+    const values = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+    const ticks = dayTickIndices(values, 12 * 16);
+    expect(ticks).toEqual([0, 4, 8]);
+    for (let index = 1; index < ticks.length; index += 1) {
+      expect(
+        (ticks[index] ?? 0) - (ticks[index - 1] ?? 0),
+      ).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("labels nothing without a plot", () => {
+    expect(dayTickIndices([1, 2], 0)).toEqual([]);
+    expect(dayTickIndices([], 300)).toEqual([]);
   });
 });

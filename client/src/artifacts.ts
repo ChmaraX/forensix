@@ -134,15 +134,38 @@ export const TIMELINE_COVERAGE: readonly string[] = [
   "Web Data",
 ];
 
-/** Every Completeness artifact the Sites view groups by host. */
+/** Every Completeness artifact the Sites view groups by host: the six the
+ *  host list counts, and the three its host view lists by exact URL
+ *  host (Downloads, Cache, Favicons). */
 export const SITES_COVERAGE: readonly string[] = [
   "History",
+  "Downloads",
   "Cookies",
   "Login Data",
   "Bookmarks",
   "Top Sites",
   "Web Data",
+  "Cache",
+  "Favicons",
 ];
+
+/** How Chrome keeps an artifact's evidence, in the word a sentence about
+ *  it needs: a SQLite `database`, a plain `file` (Bookmarks, Preferences,
+ *  Local State are JSON) or a `folder` of files (the disk cache). */
+export type ArtifactStore = "database" | "file" | "folder";
+
+const ARTIFACT_STORES: Readonly<Record<string, ArtifactStore>> = {
+  Bookmarks: "file",
+  Preferences: "file",
+  "Local State": "file",
+  Cache: "folder",
+};
+
+/** The store word for a Completeness artifact ("No Bookmarks file", "No
+ *  Cookies database"); SQLite artifacts, the rest, say database. */
+export function artifactStoreOf(completenessArtifact: string): ArtifactStore {
+  return ARTIFACT_STORES[completenessArtifact] ?? "database";
+}
 
 /**
  * What each Finding kind is, in words, and which artifact page lists it:

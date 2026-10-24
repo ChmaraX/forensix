@@ -64,11 +64,7 @@ import {
 } from "./page-kit.js";
 import { RowSheet } from "./row-sheet.js";
 import { Term } from "./term.js";
-import {
-  UrlWithSiteLink,
-  useSiteHosts,
-  type SiteHostLookup,
-} from "./history-host-link.js";
+import { UrlWithSiteLink } from "./host-link.js";
 
 /** Chrome's own order: rank ascending (Commit State is added per list). */
 const RANK_ORDER: readonly (readonly [string, string])[] = [
@@ -89,13 +85,7 @@ function SitePage({ row }: { readonly row: Finding }) {
 
 /** The table's site cell: the site tile, the title over the URL, and the
  *  URL's host linked to Sites when Sites lists that exact host. */
-function SitePageLinked({
-  row,
-  sites,
-}: {
-  readonly row: Finding;
-  readonly sites: SiteHostLookup;
-}) {
+function SitePageLinked({ row }: { readonly row: Finding }) {
   return (
     <span className="flex min-w-0 items-center gap-2.5">
       <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
@@ -105,7 +95,7 @@ function SitePageLinked({
         </span>
         <SizeProvider size="compact">
           <span className="block min-w-0 text-muted-foreground">
-            <UrlWithSiteLink field={row.fields.url} sites={sites} />
+            <UrlWithSiteLink field={row.fields.url} />
           </span>
         </SizeProvider>
       </span>
@@ -170,18 +160,16 @@ function recoveredRankNote(
 /** The ranked table's columns. On a phone the card reads the rank (and, in
  *  the Recovered list, the State word) on its first line, the site as its
  *  title, and the Profile under it. `note` explains a gap in the ranks
- *  (the Rank header's tooltip); `sites` links each URL's host (table
- *  only); `withProfile` adds the Profile column, left out when every
+ *  (the Rank header's tooltip); the table links each URL's host to
+ *  Sites (not a phone card); `withProfile` adds the Profile column, left out when every
  *  loaded row names the same profile (it would read the same on every
  *  row - the row sheet keeps it). */
 function rankColumns({
   note,
-  sites,
   withProfile,
   recovered,
 }: {
   readonly note: string | null;
-  readonly sites: SiteHostLookup;
   readonly withProfile: boolean;
   readonly recovered: boolean;
 }): readonly RowColumn<Finding>[] {
@@ -207,7 +195,7 @@ function rankColumns({
       header: "Site",
       className: "max-w-[520px]",
       stack: "title",
-      cell: (row) => <SitePageLinked row={row} sites={sites} />,
+      cell: (row) => <SitePageLinked row={row} />,
       stackedCell: (row) => <SitePage row={row} />,
     },
   ];
@@ -263,7 +251,6 @@ function RankedList({
   /** The Profile column (when the loaded rows span profiles). */
   readonly withProfile: boolean;
 }) {
-  const sites = useSiteHosts();
   const visible = useMemo(
     () => list.rows.filter(matches),
     [list.rows, matches],
@@ -272,11 +259,10 @@ function RankedList({
     () =>
       rankColumns({
         note: recovered ? null : rankNote,
-        sites,
         withProfile,
         recovered,
       }),
-    [recovered, rankNote, sites, withProfile],
+    [recovered, rankNote, withProfile],
   );
   return (
     <ListBlock
@@ -332,7 +318,8 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
     [saved.rows, recovered.rows],
   );
   // The open row lives in the URL: Back and a refresh re-open it.
-  const sheet = useRowSelection(loaded);
+  // A URL-named row this page has not loaded is read by its reference.
+  const sheet = useRowSelection(loaded, { route: config.route });
 
   // The profiles the loaded rows rank, plus any the lens holds (so a pick
   // made on another page can be undone here).

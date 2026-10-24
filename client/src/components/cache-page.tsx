@@ -19,7 +19,7 @@
  * The date range and the profile pick are the Case-wide lens
  * (`useViewRange` / `useViewProfiles`); the search, the tab and the open
  * row are in the URL too, so Back and a refresh keep the view. A resource
- * host Sites lists links to it (`HostLink`).
+ * host Sites lists links to it (`SiteHostLink`).
  *
  * Presentation rules kept: the four value states stay worded, never colour
  * alone; a row whose size or key is `unavailable`/`absent` is never counted
@@ -74,7 +74,12 @@ import {
   profileLabel,
 } from "./finding-fields.js";
 import { caseDayTotals, inCaseDays } from "./day-bounds.js";
-import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import {
+  CompactFilters,
+  FilterField,
+  FilterTextField,
+  ProfilePicker,
+} from "./filters.js";
 import {
   ErrorRows,
   ListFooter,
@@ -98,7 +103,7 @@ import {
   TimeCell,
 } from "./page-kit.js";
 import { RowSheet } from "./row-sheet.js";
-import { HostLink, SitesHostKeysProvider } from "./sites-host-link.js";
+import { SiteHostLink } from "./host-link.js";
 
 /**
  * Reads the whole Cache list for this Case, up to a bounded number of pages.
@@ -466,7 +471,7 @@ function ResourceCell({
   const lines = (
     <span className="flex min-w-0 flex-col">
       {wide ? (
-        <HostLink
+        <SiteHostLink
           host={cacheSiteKey(row)}
           className={cn(
             size.type.body,
@@ -474,7 +479,7 @@ function ResourceCell({
           )}
         >
           {shown}
-        </HostLink>
+        </SiteHostLink>
       ) : (
         <span
           className={cn(size.type.body, "block truncate text-foreground")}
@@ -817,7 +822,12 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
   const [profileFilter, setProfileFilter] = useViewProfiles();
   const [range, setRange] = useViewRange();
   const [sort, setSort] = useState<EntrySort>("last-used-desc");
-  const sheet = useRowSelection(list.rows);
+  // A URL-named entry this page has not loaded is read by its reference
+  // (the cache route has no Commit State filter).
+  const sheet = useRowSelection(list.rows, {
+    route: config.route,
+    byCommitState: false,
+  });
   // Days are Case days: entries bucket and filter on the Case's clock.
   const { timeZone, settled: zoneSettled } = useCaseTimeZone();
 
@@ -957,17 +967,17 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
           ) : null}
 
           <SectionPanel id="cache-entries" title="Cache entries">
-            <SitesHostKeysProvider>
-              <CommitStateSplit
-                value={view}
-                onValueChange={setView}
-                label="Saved or recovered cache entries"
-                savedCount={settled ? all.saved.length : null}
-                recoveredCount={settled ? all.recovered.length : null}
-                savedMore={settled && !list.complete}
-                recoveredMore={settled && !list.complete}
-                toolbar={
-                  <>
+            <CommitStateSplit
+              value={view}
+              onValueChange={setView}
+              label="Saved or recovered cache entries"
+              savedCount={settled ? all.saved.length : null}
+              recoveredCount={settled ? all.recovered.length : null}
+              savedMore={settled && !list.complete}
+              recoveredMore={settled && !list.complete}
+              toolbar={
+                <>
+                  <CompactFilters active={profileFilter.length > 0 ? 1 : 0}>
                     <FilterField label="Sort" htmlFor="cache-sort">
                       <Select
                         value={sort}
@@ -1002,20 +1012,20 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
                         />
                       </FilterField>
                     ) : null}
-                    <FilterTextField
-                      commit="change"
-                      label="Search loaded cache entries"
-                      icon={SearchIcon}
-                      placeholder="Search resource or host"
-                      value={search}
-                      onCommit={setSearch}
-                    />
-                  </>
-                }
-                saved={entryList("saved")}
-                recovered={entryList("recovered")}
-              />
-            </SitesHostKeysProvider>
+                  </CompactFilters>
+                  <FilterTextField
+                    commit="change"
+                    label="Search loaded cache entries"
+                    icon={SearchIcon}
+                    placeholder="Search resource or host"
+                    value={search}
+                    onCommit={setSearch}
+                  />
+                </>
+              }
+              saved={entryList("saved")}
+              recovered={entryList("recovered")}
+            />
           </SectionPanel>
         </>
       )}

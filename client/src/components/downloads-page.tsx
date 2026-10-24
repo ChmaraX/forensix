@@ -35,8 +35,7 @@
  * only (every saved row would say "saved"). This page is read-only: it
  * starts no ingest, reruns no analysis, and writes nothing back to the Case.
  */
-import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
   updateView,
@@ -48,7 +47,6 @@ import {
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { CloseIcon, SearchIcon } from "@/lib/app-icons";
-import { spring } from "@/lib/springs";
 import type { ArtifactConfig } from "../types.js";
 import { useCaseTimeZone } from "./activity-data.js";
 import { usePrefersReducedMotion } from "./charts.js";
@@ -56,7 +54,7 @@ import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { caseDayOf, inCaseDays } from "./day-bounds.js";
 import { fieldText } from "./finding-fields.js";
-import { FilterTextField, ProfilePicker } from "./filters.js";
+import { CompactFilters, FilterTextField, ProfilePicker } from "./filters.js";
 import { RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet } from "./row-sheet.js";
@@ -106,27 +104,16 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
   const { timeZone, settled: zoneSettled } = useCaseTimeZone();
   const [sort, setSort] = useState<SortState>({ key: "started", dir: "desc" });
 
-  // Clicking a file kind (or picking a day range) narrows the table that sits
-  // below the fold on a tall monitor; without this the table would change
-  // silently. A brief focus-ring pulse plus a scroll-into-view draws the eye
-  // down. The ring springs in and, once its spring settles, springs out —
-  // no hand-written timer.
+  // Clicking a file kind narrows the table, which can sit below the fold on
+  // a tall monitor: it is scrolled into view (only when out of it), and its
+  // rows re-reveal - the list's own motion, no extra highlight.
   const tableRef = useRef<HTMLDivElement | null>(null);
-  const [pulse, setPulse] = useState(0);
-  const [pulsing, setPulsing] = useState(false);
-  useEffect(() => {
-    if (pulse === 0) {
-      return;
-    }
-    setPulsing(true);
+  const focusTable = useCallback(() => {
     tableRef.current?.scrollIntoView({
       behavior: reduced ? "auto" : "smooth",
       block: "nearest",
     });
-  }, [pulse, reduced]);
-  const focusTable = useCallback(() => {
-    setPulse((value) => value + 1);
-  }, []);
+  }, [reduced]);
 
   const onKind = useCallback(
     (kind: FileKind | null) => {
@@ -164,7 +151,8 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
     ],
     [savedRead.rows, walRead.rows, journalRead.rows],
   );
-  const sheet = useRowSelection(loadedFindings);
+  // A URL-named row this page has not loaded is read by its reference.
+  const sheet = useRowSelection(loadedFindings, { route: config.route });
   const sheetSelect = sheet.select;
   const select = useCallback(
     (row: DownloadRow) => {
@@ -457,27 +445,34 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
             recoveredMore={!recoveredRead.complete}
             toolbar={
               <>
-                {kindFilter !== null ? (
-                  <Button
-                    variant="tertiary"
-                    trailingIcon={CloseIcon}
-                    aria-label={`File kind: ${KIND_META[kindFilter].label}. Clear the file-kind filter`}
-                    onClick={() => {
-                      setKindFilter(null);
-                    }}
-                  >
-                    {KIND_META[kindFilter].label}
-                  </Button>
-                ) : null}
-                {profileOptions.length > 1 ? (
-                  <ProfilePicker
-                    id="downloads-profiles"
-                    profiles={profileOptions}
-                    selected={profiles}
-                    onChange={setProfiles}
-                  />
-                ) : null}
-                <SortControls sort={sort} onSort={setSort} />
+                <CompactFilters
+                  active={
+                    (kindFilter === null ? 0 : 1) +
+                    (profiles.length > 0 ? 1 : 0)
+                  }
+                >
+                  {kindFilter !== null ? (
+                    <Button
+                      variant="tertiary"
+                      trailingIcon={CloseIcon}
+                      aria-label={`File kind: ${KIND_META[kindFilter].label}. Clear the file-kind filter`}
+                      onClick={() => {
+                        setKindFilter(null);
+                      }}
+                    >
+                      {KIND_META[kindFilter].label}
+                    </Button>
+                  ) : null}
+                  {profileOptions.length > 1 ? (
+                    <ProfilePicker
+                      id="downloads-profiles"
+                      profiles={profileOptions}
+                      selected={profiles}
+                      onChange={setProfiles}
+                    />
+                  ) : null}
+                  <SortControls sort={sort} onSort={setSort} />
+                </CompactFilters>
                 <FilterTextField
                   id="downloads-search"
                   commit="change"
@@ -513,22 +508,6 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
             }
           />
         </SectionPanel>
-        <AnimatePresence>
-          {pulsing ? (
-            <motion.span
-              key={pulse}
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-focus-ring"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, transition: spring.slow.exit }}
-              transition={spring.slow}
-              onAnimationComplete={() => {
-                setPulsing(false);
-              }}
-            />
-          ) : null}
-        </AnimatePresence>
       </div>
 
       {sheet.selected !== null ? (

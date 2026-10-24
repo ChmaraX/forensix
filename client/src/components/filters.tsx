@@ -7,9 +7,13 @@
  *    accessible name; the placeholder carries the meaning), committing on
  *    Enter or blur;
  *  - `ProfilePicker`: a tertiary Button that opens an FF CheckboxGroup in a
- *    Popover (multi-pick; none picked means every Profile).
+ *    Popover (multi-pick; none picked means every Profile);
+ *  - `SortSelect`: a list's order as one FF Select of worded orders
+ *    ("Last used, newest"), asked of the server;
+ *  - `CompactFilters`: on a phone, a toolbar's filter controls behind one
+ *    "Filters (n)" button.
  */
-import { useState, type ReactNode } from "react";
+import { Children, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CheckboxGroup, CheckboxItem } from "@/components/ui/checkbox-group";
@@ -19,10 +23,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ChevronDownIcon, type AppIcon } from "@/lib/app-icons";
-import { useSize } from "@/lib/size-context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import { ChevronDownIcon, FilterIcon, type AppIcon } from "@/lib/app-icons";
+import { SizeProvider, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { profileLabel } from "./finding-fields.js";
+import { SM_UP, useMediaQuery } from "./use-media-query.js";
 
 /**
  * A caption label beside its control, on one toolbar line. Below the `sm`
@@ -104,7 +115,12 @@ export function FilterTextField({
     <InputGroup
       // In a toolbar the field keeps its hairline at rest, like the Select
       // triggers beside it (FF's bare field ring only shows on hover).
-      className={cn("w-60 [&_label+div]:ring-border max-sm:w-full", className)}
+      // Below `sm` it takes the rest of its row (beside a "Filters"
+      // button), and a row of its own when there is no room.
+      className={cn(
+        "w-60 [&_label+div]:ring-border max-sm:w-auto max-sm:min-w-40 max-sm:flex-1",
+        className,
+      )}
       // InputField keeps its own focus state on the input's blur, so the
       // commit listens one level up (React's onBlur bubbles).
       onBlur={() => {
@@ -223,5 +239,118 @@ export function ProfilePicker({
         )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * A toolbar's filter controls (sort, selects, the profile pick - not the
+ * search field, which stays in the bar) as they fit the screen: inline from
+ * `sm` up; below it, one tertiary "Filters" button ("Filters (2)" while two
+ * of them narrow the list) opening the same controls stacked in an FF
+ * popover, so a phone toolbar keeps two rows (the Saved / Recovered switch
+ * with the button, then the search) instead of four. One pattern for every
+ * list toolbar that would stack more than two rows on a phone.
+ */
+export function CompactFilters({
+  active,
+  children,
+}: {
+  /** How many of the controls narrow the list now (a sort does not). */
+  readonly active: number;
+  readonly children: ReactNode;
+}) {
+  const wide = useMediaQuery(SM_UP);
+  if (wide) {
+    return <>{children}</>;
+  }
+  // Nothing to filter by on this page now (one profile, no folders): no
+  // button that opens an empty popover.
+  if (Children.toArray(children).length === 0) {
+    return null;
+  }
+  const words = active > 0 ? `Filters (${String(active)})` : "Filters";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="tertiary" size="compact" leadingIcon={FilterIcon}>
+          {words}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        collisionPadding={16}
+        className="w-[min(22rem,calc(100vw-2rem))]"
+      >
+        <SizeProvider size="compact">
+          <div
+            role="group"
+            aria-label="Filters"
+            className="flex flex-col gap-3 p-2"
+          >
+            {children}
+          </div>
+        </SizeProvider>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** One worded order of a list: the route's `sort` and `direction`. */
+export interface SortOption {
+  /** "Last used, newest" - the order in words, the field first. */
+  readonly label: string;
+  readonly sort: string;
+  readonly direction: "asc" | "desc";
+}
+
+/** The Select value of an order. */
+export function sortKeyOf(option: SortOption): string {
+  return `${option.sort}:${option.direction}`;
+}
+
+/**
+ * A list's order: "Sort" beside one FF Select of worded orders (field and
+ * direction together, "Created, oldest"), the first being the route's
+ * default. The order is asked of the server (`sort` + `direction`), so a
+ * paged list is in that order from its first row - never a re-sort of the
+ * rows loaded so far.
+ */
+export function SortSelect({
+  id,
+  options,
+  value,
+  onChange,
+}: {
+  readonly id: string;
+  readonly options: readonly SortOption[];
+  /** `sortKeyOf` of the order in use. */
+  readonly value: string;
+  readonly onChange: (option: SortOption) => void;
+}) {
+  return (
+    <FilterField label="Sort" htmlFor={id}>
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          const option = options.find((entry) => sortKeyOf(entry) === next);
+          if (option !== undefined) {
+            onChange(option);
+          }
+        }}
+      >
+        <SelectTrigger id={id} className="min-w-[156px]" />
+        <SelectContent>
+          {options.map((option, index) => (
+            <SelectItem
+              key={sortKeyOf(option)}
+              index={index}
+              value={sortKeyOf(option)}
+            >
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FilterField>
   );
 }

@@ -76,6 +76,55 @@ export function bandIndexAt(
   return Math.min(count - 1, Math.max(0, index));
 }
 
+/**
+ * Which bands get a day label on the axis. A label is wider than a band, so
+ * on a sparse series a label set at a fixed interval often lands on an
+ * empty day and reads as the label of the bar beside it ("23 Mar" under
+ * the 24 Mar bar). Labels are spaced at least `spacing` px apart, each on
+ * its regular slot or, when that day drew nothing, on the nearest day that
+ * did within half a slot - so a label stands under the bar it names. A
+ * slot with no bar near keeps its own day (nothing beside it to misread).
+ * Labels never come closer than `minGap` px. Returns band indices,
+ * ascending.
+ */
+export function dayTickIndices(
+  values: readonly number[],
+  plotWidth: number,
+  spacing = 64,
+  minGap = 48,
+): number[] {
+  const count = values.length;
+  if (count === 0 || !(plotWidth > 0)) {
+    return [];
+  }
+  const band = plotWidth / count;
+  const step = Math.max(1, Math.ceil(spacing / band));
+  const reach = Math.floor(step / 2);
+  const closest = Math.max(1, Math.ceil(minGap / band));
+  const drawn = (index: number) => (values[index] ?? 0) > 0;
+  const ticks: number[] = [];
+  for (let anchor = 0; anchor < count; anchor += step) {
+    let chosen = anchor;
+    if (!drawn(anchor)) {
+      for (let offset = 1; offset <= reach; offset += 1) {
+        if (anchor + offset < count && drawn(anchor + offset)) {
+          chosen = anchor + offset;
+          break;
+        }
+        if (anchor - offset >= 0 && drawn(anchor - offset)) {
+          chosen = anchor - offset;
+          break;
+        }
+      }
+    }
+    const previous = ticks[ticks.length - 1];
+    if (previous === undefined || chosen - previous >= closest) {
+      ticks.push(chosen);
+    }
+  }
+  return ticks;
+}
+
 /** Where the keyboard cursor starts on a chart: the last day of the
  *  range when there is one, else the peak, else the last day. */
 export function startIndex(

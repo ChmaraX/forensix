@@ -11,7 +11,8 @@
  * `useViewProfiles()`, which also tells the topbar chip the page applies it
  * (the chip only shows what the page on show actually filters by).
  *
- * Page state: `useViewHost()`, `useViewSearch()`, `useViewTab()` and
+ * Page state: `useViewHost()`, `useViewSearch()`, `useViewFilter()`,
+ * `useViewTab()` and
  * `useRowSelection(rows)` (the open row sheet). They reset when the page
  * changes.
  *
@@ -40,7 +41,11 @@ import {
   type ViewTab,
 } from "./router.js";
 
+import type { QueryParameters } from "./api.js";
+import { findRowByRef, type RowLookupSource } from "./row-lookup.js";
+
 export type { ViewLocation, ViewTab } from "./router.js";
+export type { RowLookupSource } from "./row-lookup.js";
 
 /* ---------------------------------- store --------------------------------- */
 
@@ -304,7 +309,13 @@ export function useViewHost(): readonly [
 ] {
   const { host } = useViewLocation();
   const setHost = useCallback((next: string | null) => {
-    navigate((current) => ({ ...current, host: next, row: null }));
+    // A new host starts its own view: no row open, no kind picked.
+    navigate((current) => ({
+      ...current,
+      host: next,
+      filter: null,
+      row: null,
+    }));
   }, []);
   return [host, setHost] as const;
 }
@@ -321,6 +332,36 @@ export function useViewSearch(): readonly [string, (q: string) => void] {
   return [q ?? "", setSearch] as const;
 }
 
+/** The page's own one-of filter (a chip or Select pick: Bookmarks folder,
+ *  Form data category, Timeline event kind, Sites kind), so refresh and
+ *  Back restore it. Drop-in for `useState<string | null>(null)` (null is no
+ *  filter; an updater function works too). Replaces the history entry, as
+ *  a search does. */
+export function useViewFilter(): readonly [
+  string | null,
+  (next: string | null | ((current: string | null) => string | null)) => void,
+] {
+  const { filter } = useViewLocation();
+  const setFilter = useCallback(
+    (next: string | null | ((current: string | null) => string | null)) => {
+      navigate(
+        (current) => {
+          const value =
+            typeof next === "function" ? next(current.filter) : next;
+          return {
+            ...current,
+            filter: value === "" ? null : value,
+            row: null,
+          };
+        },
+        { replace: true },
+      );
+    },
+    [],
+  );
+  return [filter, setFilter] as const;
+}
+
 /** The page's Saved / Recovered switch. Drop-in for
  *  `useState<CommitView>("saved")`. Replaces the history entry. */
 export function useViewTab(): readonly [ViewTab, (tab: ViewTab) => void] {
@@ -333,22 +374,91 @@ export function useViewTab(): readonly [ViewTab, (tab: ViewTab) => void] {
   return [tab, setTab] as const;
 }
 
+/* ------------------------------ row from the URL ------------------------- */
+
+/** Where the lookup of a URL-named row stands, for the shell's notice. */
+export type RowLookupStatus =
+  | { readonly state: "idle" }
+  /** Reading the page's route for the row (`findRowByRef`). */
+  | { readonly state: "looking"; readonly ref: string }
+  /** Not found: `capped` when the lookup stopped at its cap with rows
+   *  unread, `failed` when a read failed; neither: the route holds no row
+   *  with that reference. */
+  | {
+      readonly state: "missing";
+      readonly ref: string;
+      readonly capped: boolean;
+      readonly failed: boolean;
+    };
+
+const IDLE: RowLookupStatus = { state: "idle" };
+/** How long a URL-named row may take to arrive with the page's own first
+ *  read before it is looked up by its reference. */
+const ROW_LOOKUP_DELAY = 600;
+let lookupStatus: RowLookupStatus = IDLE;
+const lookupListeners = new Set<() => void>();
+
+function setLookupStatus(next: RowLookupStatus): void {
+  if (
+    next.state === lookupStatus.state &&
+    (next.state === "idle" ||
+      (lookupStatus.state !== "idle" && next.ref === lookupStatus.ref))
+  ) {
+    return;
+  }
+  lookupStatus = next;
+  for (const listener of lookupListeners) {
+    listener();
+  }
+}
+
+/** The URL-named row's lookup (the shell shows "looking" and "missing"). */
+export function useRowLookupStatus(): RowLookupStatus {
+  return useSyncExternalStore(
+    (listener) => {
+      lookupListeners.add(listener);
+      return () => {
+        lookupListeners.delete(listener);
+      };
+    },
+    () => lookupStatus,
+  );
+}
+
+/** Closes the sheet the URL names (the notice's "Close"). */
+export function closeUrlRow(): void {
+  const current = readLocation();
+  if (current.row !== null) {
+    navigate({ ...current, row: null }, { replace: true });
+  }
+}
+
 /**
  * The open row sheet, in the URL. Pass the rows the page has loaded (both
  * lists); `selected` is the row the URL names when it is among them, so a
  * refresh or Back re-opens the sheet once that row has loaded again.
  *
- *   const sheet = useRowSelection([...lists.saved.rows, ...lists.recovered.rows]);
+ *   const sheet = useRowSelection(
+ *     [...lists.saved.rows, ...lists.recovered.rows],
+ *     { route: config.route },
+ *   );
  *   <ResponsiveRows onSelect={sheet.select} … />
  *   {sheet.selected === null ? null : (
  *     <RowSheet selected={sheet.selected} onClose={sheet.close} />
  *   )}
+ *
+ * With `lookup` (the page's route), a URL-named row the lists do not hold
+ * - a Timeline link into a large Case, a copied URL - is read from the
+ * route by its reference (`findRowByRef`, row-lookup.ts) once the page's
+ * own lists have had their first read, and opens from there; the shell
+ * says when it is looked for and when it was not found.
  *
  * A row without a reference (no table or row id) still opens: it is held
  * for this page view only and is not addressable.
  */
 export function useRowSelection<Row extends RowRefSource>(
   rows: readonly Row[],
+  lookup?: RowLookupSource,
 ): {
   readonly selected: { readonly kind: "finding"; readonly row: Row } | null;
   readonly select: (row: Row) => void;
@@ -357,6 +467,11 @@ export function useRowSelection<Row extends RowRefSource>(
   const { row: ref } = useViewLocation();
   // A row with no reference opens for this page view only.
   const [unaddressed, setUnaddressed] = useState<Row | null>(null);
+  // A URL-named row read by its reference (not in the loaded lists).
+  const [found, setFound] = useState<{
+    readonly ref: string;
+    readonly row: Row;
+  } | null>(null);
   const match = useMemo(
     () =>
       ref === null
@@ -364,7 +479,66 @@ export function useRowSelection<Row extends RowRefSource>(
         : (rows.find((candidate) => rowRefOf(candidate) === ref) ?? null),
     [rows, ref],
   );
-  const row = match ?? unaddressed;
+  const route = lookup?.route ?? null;
+  const lookupKey =
+    lookup === undefined ? null : JSON.stringify(lookup.parameters ?? []);
+  const byCommitState = lookup?.byCommitState !== false;
+  useEffect(() => {
+    if (ref === null || match !== null || route === null) {
+      setLookupStatus(IDLE);
+      return;
+    }
+    if (found?.ref === ref) {
+      return;
+    }
+    let live = true;
+    const parameters = JSON.parse(lookupKey ?? "[]") as QueryParameters;
+    // A beat for the page's own first read: a row on its first page opens
+    // from there without a second read.
+    const timer = setTimeout(() => {
+      setLookupStatus({ state: "looking", ref });
+      void lookUp();
+    }, ROW_LOOKUP_DELAY);
+    const lookUp = () =>
+      findRowByRef({ route, parameters, byCommitState }, ref)
+        .then(({ row, capped }) => {
+          if (!live) {
+            return;
+          }
+          if (row === null) {
+            setLookupStatus({ state: "missing", ref, capped, failed: false });
+            return;
+          }
+          // The route's rows are this page's rows (every page's Row is the
+          // route's Finding).
+          setFound({ ref, row: row as unknown as Row });
+          setLookupStatus(IDLE);
+        })
+        .catch(() => {
+          if (live) {
+            setLookupStatus({
+              state: "missing",
+              ref,
+              capped: false,
+              failed: true,
+            });
+          }
+        });
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [ref, match, route, lookupKey, byCommitState, found]);
+  useEffect(
+    () => () => {
+      setLookupStatus(IDLE);
+    },
+    [],
+  );
+  const row =
+    match ??
+    (found !== null && found.ref === ref ? found.row : null) ??
+    unaddressed;
   const selected = useMemo(
     () => (row === null ? null : ({ kind: "finding", row } as const)),
     [row],

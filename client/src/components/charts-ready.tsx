@@ -37,10 +37,10 @@ import {
   ChartRangeWash,
   useChartInput,
 } from "./chart-input.js";
-import type { DaySpan } from "./chart-keys.js";
+import { dayTickIndices, type DaySpan } from "./chart-keys.js";
 import {
   ChartEmpty,
-  chartAnimation,
+  CHART_STATIC,
   chartAxis,
   chartGrid,
   chartRange,
@@ -156,7 +156,9 @@ export interface DayBarsAxis {
  *    cursor): the range becomes that day; again: the full span;
  *  - drag across days (or Shift+arrows): the range becomes those days;
  *  - Escape clears the range;
- *  - an active range is a wash behind the bars, the days outside it dimmed.
+ *  - an active range is a wash behind the bars with a baseline under it
+ *    (so a picked day that drew nothing still shows), its bars at full
+ *    ink and the days outside at rest.
  * Without `onRangeChange` the chart is a plain read-only reading (the
  * keyboard still browses it).
  *
@@ -205,6 +207,9 @@ export function DayBars<Day extends DayBar>({
   const reduced = usePrefersReducedMotion();
   const dates = useMemo(() => days.map((day) => day.date), [days]);
   const values = useMemo(() => days.map((day) => value(day)), [days, value]);
+  // One function identity per `value`: Recharts derives its bar geometry
+  // from the dataKey, so a fresh arrow each render rebuilt it every render.
+  const dataKey = useCallback((day: Day) => value(day), [value]);
   const peak = values.reduce((max, current) => Math.max(max, current), 0);
   const selectedDate =
     range !== undefined && range.from !== "" && range.from === range.to
@@ -239,6 +244,17 @@ export function DayBars<Day extends DayBar>({
     describe,
     describeSpan,
   });
+  const plotWidth = input.plot?.width ?? 0;
+  const tickDates = useMemo(
+    () =>
+      plotWidth > 0
+        ? dayTickIndices(values, plotWidth).flatMap((index) => {
+            const date = dates[index];
+            return date === undefined ? [] : [date];
+          })
+        : undefined,
+    [values, dates, plotWidth],
+  );
   const summary = useMemo(() => {
     const first = dates[0];
     const last = dates[dates.length - 1];
@@ -345,7 +361,9 @@ export function DayBars<Day extends DayBar>({
           <XAxis
             dataKey="date"
             {...chartAxis(tokens)}
-            minTickGap={40}
+            {...(tickDates === undefined
+              ? { minTickGap: 40 }
+              : { ticks: tickDates, interval: 0 as const })}
             tickFormatter={formatDayTick}
           />
           <YAxis
@@ -383,11 +401,12 @@ export function DayBars<Day extends DayBar>({
             count={days.length}
             fill={chartRange(tokens).fill}
             opacity={chartRange(tokens).fillOpacity}
+            markOpacity={SERIES.rest}
           />
           <Bar
-            dataKey={(day: Day) => value(day)}
+            dataKey={dataKey}
             radius={[3, 3, 0, 0]}
-            {...chartAnimation(reduced)}
+            {...CHART_STATIC}
             fill={seriesColor(tokens)}
             shape={(props: BarShapeProps) => {
               const day = days[props.originalDataIndex];
@@ -592,7 +611,7 @@ export function HourBars({
           <Bar
             dataKey="count"
             radius={[3, 3, 0, 0]}
-            {...chartAnimation(reduced)}
+            {...CHART_STATIC}
             fill={seriesColor(tokens)}
             shape={(props: BarShapeProps) => {
               const row = rows[props.originalDataIndex];

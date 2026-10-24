@@ -242,6 +242,11 @@ export interface CountChip {
  * `sm` up the row wraps onto a second line instead of scrolling; below it
  * scrolls sideways with no scrollbar, its edges fading (`scroll-fade-x`).
  * It sits in the list `Toolbar`'s trailing controls. `null` is "All".
+ *
+ * `partial`: the counts are of the rows loaded so far and more stand on the
+ * server - each count reads "36+" (the same "+" as the Saved / Recovered
+ * tab counts), and the row's name says the counts are of loaded rows, so a
+ * count never passes for a Case total.
  */
 export function CountChips({
   label,
@@ -250,6 +255,7 @@ export function CountChips({
   chips,
   active,
   onChange,
+  partial = false,
 }: {
   /** Accessible name of the chip row. */
   readonly label: string;
@@ -260,6 +266,8 @@ export function CountChips({
   readonly chips: readonly CountChip[];
   readonly active: string | null;
   readonly onChange: (key: string | null) => void;
+  /** Counts of loaded rows, more not loaded: "36+". */
+  readonly partial?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const hover = useFluidHover(containerRef, { axis: "xy" });
@@ -273,7 +281,7 @@ export function CountChips({
     <div
       ref={containerRef}
       role="group"
-      aria-label={label}
+      aria-label={partial ? `${label} (counts of loaded rows)` : label}
       className="scroll-fade-x scrollbar-hide relative flex min-w-0 items-center gap-0.5 p-0.5 max-sm:w-full max-sm:overflow-x-auto sm:flex-wrap"
       {...hover.handlers}
     >
@@ -284,6 +292,7 @@ export function CountChips({
           index={index}
           label={item.label}
           count={item.count}
+          partial={partial}
           selected={item.key === active}
           registerItem={hover.registerItem}
           onSelect={() => {
@@ -299,6 +308,7 @@ function CountChipButton({
   index,
   label,
   count,
+  partial,
   selected,
   registerItem,
   onSelect,
@@ -306,6 +316,7 @@ function CountChipButton({
   readonly index: number;
   readonly label: string;
   readonly count: number;
+  readonly partial: boolean;
   readonly selected: boolean;
   readonly registerItem: (index: number, element: HTMLElement | null) => void;
   readonly onSelect: () => void;
@@ -336,6 +347,7 @@ function CountChipButton({
       />
       <span className="text-muted-foreground tabular-nums">
         {count.toLocaleString("en-US")}
+        {partial ? "+" : ""}
       </span>
     </button>
   );

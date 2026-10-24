@@ -89,13 +89,13 @@ The decluttered pages follow these; keep new work to them.
 
 ## What is installed
 
-| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                                                                                                                                                                                                                                                                                                                  |
-| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, icons-untitledui, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                                                                                                                                                                                                                                                                                        |
-| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/responsive-rows.tsx`, `lib/app-icons.ts` (see "Icons"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/day-bounds.ts`, `components/secrets.ts`, `components/site-favicons.ts`, `components/pointer-focus.ts`, `components/charts.tsx` + `charts-ready.tsx` + `chart-section.tsx`, `components/related-links.tsx`, `src/command-menu.tsx`, `src/view-lens.tsx` |
+| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, icons-untitledui, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/responsive-rows.tsx`, `lib/app-icons.ts` (see "Icons"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/day-bounds.ts`, `components/secrets.ts`, `components/site-favicons.ts`, `components/pointer-focus.ts`, `components/charts.tsx` + `charts-ready.tsx` + `chart-section.tsx`, `components/related-links.tsx`, `components/host-link.tsx` (see "Cell links"), `components/identity-kit.tsx`, `components/url-host.ts`, `components/row-lookup-notice.tsx`, `src/row-lookup.ts`, `src/case-context.tsx`, `src/command-menu.tsx`, `src/view-lens.tsx` |
 
 ## The shell (do not restyle it per page)
 
@@ -112,10 +112,19 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
   section 8): it sticks 8px down, wears the inset's surface-2, top radius
   and ring, and once the page scrolls FF's scroll-divider hairline plus a
   short surface fade appear under it. Rows pass under it, never through it.
+- **The Case context is the shell's** (`src/case-context.tsx`): it reads
+  the Completeness Statement and the profiles once
+  (`useCaseContextRead`) and provides them (`CaseContextProvider`); a page
+  that needs them reads `useCaseContext()` (`{ context, error, retry }`)
+  or one artifact's scope with `useArtifactCoverage(artifact)` - never its
+  own `completeness` / `profiles` request (Overview and Browser profile
+  read the context; the identity pages' empty states the scope).
 - The page header is the shell's: the page title alone (no description
   line) and, at the right of the title row, the page's coverage indicator.
   When something in the page's scope was not read, the coverage banner
-  sits directly under the header, above your page. Pages render no
+  sits directly under the header, above your page; under it, the shell's
+  `RowLookupNotice` speaks for a row the URL names that the page had not
+  loaded (see `useRowSelection`). Pages render no
   coverage of their own (see "Evidence coverage"). Overview builds its own
   masthead; the shell hands it a quiet whole-Case indicator for the
   masthead's right (`OverviewPage coverage`) and **no banner**.
@@ -250,6 +259,29 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
   real block after the skeleton when data lands, and put `reveal-items` on
   both so the rows hand over one by one. Build each skeleton at the real
   block's size. Load each block on its own; never fake a sequence.
+- **One easing system.** Motion code uses the spring tiers; CSS uses their
+  `linear()` forms (app.css `--reveal-motion`: `reveal-product` is
+  `spring.moderate`, `reveal-landing` is `spring.slow`), and the only
+  other CSS timing is FF's 80ms colour / weight step. No `ease-*` curves,
+  no hand-written durations (FF's own copy check, `pathLength` in 0.08s, is
+  the one registry exception and the row sheet's "Copy citation" mirrors
+  it exactly).
+- **The motion inventory** - meaningful state changes only, each on its
+  tier, all respecting reduced motion:
+  - copy confirmation: FF InputCopy's swap (`spring.fast`, drawn check),
+    mirrored by "Copy citation";
+  - sheet: FF Sheet (`spring.moderate`, `.exit` to leave);
+  - tab: FF Tabs' indicator; a list switching tab re-reveals its rows;
+  - range: the wash and its baseline glide (`spring.moderate`) and fade
+    (`spring.fast`); the date picker's range pills travel
+    (`spring.moderate`, shared layout ids);
+  - list reveal: `reveal-swap` + `reveal-items`;
+  - ⌘K: FF CommandMenuDialog; popovers `spring.fast`;
+  - hover: fluid highlights and the chart band / bar lift (`spring.fast`).
+- **No decoration and no count-ups.** Nothing animates for its own sake
+  (no attention pulses, bounces or shimmer beyond FF's skeleton), and a
+  number never counts up: its in-between values would be figures the
+  evidence never recorded. A figure appears at its value.
 
 ## Charts (Recharts)
 
@@ -264,11 +296,17 @@ that way.
   - the series is ink, `--foreground` (`seriesColor(tokens)`), in light and
     dark alike - FF's palette is neutral, so a chart belongs to the page
     instead of shouting in blue;
-  - every bar rests at `SERIES.rest` (0.3); **exactly one emphasis** at full
-    ink: the selection when there is one, else the peak (ties share it).
-    Never a second colour or an outline for "selected";
-  - outside an active range, bars dim to `SERIES.dimmed`; the range itself
-    is a `chartRange(tokens)` wash (ink at 0.06) behind the bars;
+  - every bar rests at `SERIES.rest` (0.5: 3.4:1 on a light panel, 4.6:1
+    on a dark one - WCAG 1.4.11's 3:1 for a graphic that carries data);
+    **exactly one emphasis** at full ink: the selection when there is one,
+    else the peak (ties share it). Never a second colour or an outline for
+    "selected";
+  - outside an active range bars stay at rest (`SERIES.dimmed` is the same
+    step, so a picked day that drew nothing never fades the rest to
+    near-invisible); the range itself is a `chartRange(tokens)` wash (ink
+    at 0.06) behind the bars with a 2px baseline under it at the rest step
+    (`ChartRangeWash`), drawn for one picked day too - an empty picked day
+    still shows where the range is;
   - hover lifts the bar under the pointer (`FluidBar`, `spring.fast`);
   - **a zero draws nothing** - no `minPointSize`, no 1px stub;
   - integer counts are bars (or a `type="step"` line), never `monotone`
@@ -288,8 +326,17 @@ that way.
   label and body value, `tabular-nums`, or FF's inverted tooltip style
   (`bg-foreground text-background`, caption). Don't use Recharts' default box.
   Cursor fill: `--hover`.
-- Turn off Recharts animation under reduced motion with
-  `usePrefersReducedMotion()`. Otherwise keep it at or below 240ms.
+- **No Recharts entrance animation** (`CHART_STATIC` on every series):
+  bars draw in the frame their data and layout land; the panel's
+  `reveal-swap` fade is the entrance (and respects reduced motion).
+  Recharts' tween is keyed to the identity of the series' derived
+  geometry, so every re-render that rebuilt it (an inline `dataKey`
+  arrow, a page loading its lists, a pointer resting on the chart)
+  restarted it, and on a busy page the bars sat at zero height for
+  seconds. Keep a `dataKey` function stable (`useCallback`) all the same.
+- The tooltip box follows the pointer on `spring.moderate` written as its
+  CSS `linear()` (`chartTooltipMotion`, the same curve as
+  `reveal-product`), off under reduced motion.
 
 Shared chart parts (`components/charts.tsx`, `components/chart-section.tsx`)
 
@@ -304,8 +351,8 @@ Shared chart parts (`components/charts.tsx`, `components/chart-section.tsx`)
   in a compact SizeProvider on the right; `footer` is a `PanelFooter`.
 - Props helpers, spread onto Recharts: `chartAxis(tokens)` (no axis line or
   tick marks, caption ticks), `chartGrid(tokens)` (one
-  horizontal hairline grid), `chartAnimation(reduced)` (spring.slow's
-  duration, off under reduced motion), `chartTooltipMotion(reduced)`.
+  horizontal hairline grid), `CHART_STATIC` (no entrance tween),
+  `chartTooltipMotion(reduced)`.
 - Tooltip: `ChartTooltipCard` + `ChartTooltipValue` + `ChartTooltipNote`.
 - Bars: `FluidBandCursor`, `FluidBar`, `activeIndexOf`, `CHART_FOCUS_CLASS`.
 - Ready charts (`components/charts-ready.tsx`; the parts above stay in
@@ -319,8 +366,8 @@ unit?, emptyMessage? })` (count per day: visits on Overview, History and
   Downloads, Cache): click a day = that day; click it again (or the
   picker's clear) = the full span; drag across days = that span. Every
   figure, widget and list on the page follows the range; the chart keeps
-  drawing every day, the range washed in and the days outside dimmed, the
-  picked days at full ink. Pointer cursor, fluid hover band. A day is
+  drawing every day, the range washed in (with its baseline) and the days
+  outside at rest, the picked days at full ink. Pointer cursor, fluid hover band. A day is
   picked on pointer-up (press and release on one day), never on `click`:
   the press re-renders the bars, so a `click` on the bar itself would never
   fire. A count axis with a peak of 1-4 stops at `max(peak, 2)` with one
@@ -328,6 +375,12 @@ unit?, emptyMessage? })` (count per day: visits on Overview, History and
   - `onRangeChange` to `ActivityBars`; Downloads' bytes chart follows the
     same rule by hand, with round byte ticks (`byteTicks`: 10 / 20 / 30 /
     40 MB, the last at or above the peak).
+- **Day ticks stand under the bar they name** (`dayTickIndices`,
+  chart-keys.ts, unit-tested): about one label per 64px, each on its
+  regular slot or, when that day drew nothing, on the nearest day that did
+  within half a slot (a label is wider than a band, so "23 Mar" on an
+  empty day read as the label of the 24 Mar bar beside it); never closer
+  than 48px.
 - Day labels: `formatDay` ("4 Mar 2024"), `formatDayTick` ("4 Mar"),
   `formatDaySpan` ("11 Mar - 17 Apr") and the shared `CHART_HEIGHT` come
   from page-kit. The cleared range reads "All recorded days" on every
@@ -345,12 +398,12 @@ unit?, emptyMessage? })` (count per day: visits on Overview, History and
 
 ## URL state and the lens (`src/router.ts`, `src/view-state.tsx`)
 
-The hash is the address: `#/history?from=2024-03-12&to=2024-03-14&profile=Default&host=…&q=…&tab=recovered&row=…`.
+The hash is the address: `#/history?from=2024-03-12&to=2024-03-14&profile=Default&host=…&q=…&filter=…&tab=recovered&row=…`.
 The server serves one file, so nothing changes server-side. Back / Forward
 and a refresh restore the view; a copied URL opens it.
 
 - `router.ts` (pure, unit-tested in `router.test.ts`): `ViewLocation`
-  (`page`, `from`, `to`, `profiles`, `host`, `q`, `tab`, `row`),
+  (`page`, `from`, `to`, `profiles`, `host`, `q`, `filter`, `tab`, `row`),
   `parseLocation(hash)` / `formatLocation(view)` (round-trip; fixed order;
   unknown or malformed parts fall back per part), `withPage(view, page,
 extras)` (the lens travels, the page's own state starts fresh),
@@ -360,20 +413,38 @@ extras)` (the lens travels, the page's own state starts fresh),
 - `view-state.tsx` - the store and the hooks. Every setter writes the URL;
   nothing is mirrored in component state.
 
-| Hook / function                                         | Use                                                                                                                                                                                                                    |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useViewRange()` → `[range, setRange]`                  | The Case-wide date range (`{ from, to }`, Case days, `""` open). Drop-in for a page's `useState({ from: "", to: "" })`; pushes a history entry. Mounting it tells the topbar chip the page applies the range           |
-| `useViewProfiles()` → `[profiles, setProfiles]`         | The Case-wide profile pick (empty = every profile); same contract                                                                                                                                                      |
-| `useViewState()`                                        | The lens without claiming it (`range`, `profiles`, `active`, `setRange`, `setProfiles`, `clear`) - the shell's chip and ⌘K                                                                                             |
-| `useViewTab()` → `[tab, setTab]`                        | The page's Saved / Recovered switch. Drop-in for `useState<CommitView>("saved")`; replaces the entry                                                                                                                   |
-| `useViewHost()` → `[host, setHost]`                     | The host a page is on (Sites); pushes                                                                                                                                                                                  |
-| `useViewSearch()` → `[q, setQ]`                         | The page's search text (History; a Related link opens History searched for a URL); replaces                                                                                                                            |
-| `useRowSelection(rows)` → `{ selected, select, close }` | The open row sheet. Pass every loaded row (both lists); `selected` is the row the URL names once it is loaded; opening pushes an entry, closing steps back over it. A row without a reference still opens, unaddressed |
-| `updateView(patch, { replace? })`                       | Several parts in one entry (a page's "Clear filters")                                                                                                                                                                  |
-| `openPage(page, extras?)`, `hrefFor(page, extras?)`     | Navigate / build a real `<a href>` with the lens carried                                                                                                                                                               |
+| Hook / function                                                  | Use                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useViewRange()` → `[range, setRange]`                           | The Case-wide date range (`{ from, to }`, Case days, `""` open). Drop-in for a page's `useState({ from: "", to: "" })`; pushes a history entry. Mounting it tells the topbar chip the page applies the range                                                                                                                                                              |
+| `useViewProfiles()` → `[profiles, setProfiles]`                  | The Case-wide profile pick (empty = every profile); same contract                                                                                                                                                                                                                                                                                                         |
+| `useViewState()`                                                 | The lens without claiming it (`range`, `profiles`, `active`, `setRange`, `setProfiles`, `clear`) - the shell's chip and ⌘K                                                                                                                                                                                                                                                |
+| `useViewTab()` → `[tab, setTab]`                                 | The page's Saved / Recovered switch. Drop-in for `useState<CommitView>("saved")`; replaces the entry                                                                                                                                                                                                                                                                      |
+| `useViewHost()` → `[host, setHost]`                              | The host a page is on (Sites); pushes                                                                                                                                                                                                                                                                                                                                     |
+| `useViewSearch()` → `[q, setQ]`                                  | The page's search text (History; a Related link opens History searched for a URL); replaces                                                                                                                                                                                                                                                                               |
+| `useViewFilter()` → `[filter, setFilter]`                        | The page's own one-of pick (Bookmarks folder, Form data category, Timeline event kind, Sites kind). Drop-in for `useState<string \| null>(null)` (updater functions work); replaces. A new host (`useViewHost`) clears it                                                                                                                                                 |
+| `useRowSelection(rows, lookup?)` → `{ selected, select, close }` | The open row sheet. Pass every loaded row (both lists); `selected` is the row the URL names once it is loaded; opening pushes an entry, closing steps back over it. A row without a reference still opens, unaddressed. With `lookup` (`{ route, parameters?, byCommitState? }`, the page's route) a URL-named row the lists do not hold is read by its reference (below) |
+| `updateView(patch, { replace? })`                                | Several parts in one entry (a page's "Clear filters")                                                                                                                                                                                                                                                                                                                     |
+| `openPage(page, extras?)`, `hrefFor(page, extras?)`              | Navigate / build a real `<a href>` with the lens carried                                                                                                                                                                                                                                                                                                                  |
 
 History entries: a page, a range, a profile pick, a host and an opened row
-each push one; a tab switch and a search replace.
+each push one; a tab switch, a search and a filter pick replace. "Clear
+filters" is one entry (`updateView({ q: null, filter: null, profiles: [] })`).
+
+**A row the URL names that the page has not loaded** (a Timeline "Open
+this row in Cookies" on a large Case, a copied URL, a refresh deep in a
+paged list): `useRowSelection(rows, { route })` gives the page's own
+first read a beat (600ms), then reads the route for that row by its
+reference (`findRowByRef`, `src/row-lookup.ts`): the reference carries the
+row's profile and Commit State, which every Finding route filters by, so
+it reads that profile's rows of that state page by page (100 a page, at
+most 50 pages) until the row with exactly that reference turns up, and
+the sheet opens on it. Nothing is matched loosely. While it reads, the
+shell's `RowLookupNotice` says "Opening the row this link names…"; when
+it is not found it says why - no row on the page has that reference, or
+it is not among the first 5,000 rows of its profile - with Close (drops
+the row from the URL). Every artifact page passes its route (History
+`view=visits`; Cache without a Commit State filter); the Timeline and
+Sites open rows from their own loaded lists only.
 
 **The lens.** One date range and one profile pick for the whole Case. A
 page that filters by them reads `useViewRange` / `useViewProfiles`; the
@@ -399,7 +470,7 @@ every profile" and returns focus to the h1.
    `onSelect={sheet.select}`, `<RowSheet selected={sheet.selected}
 onClose={sheet.close} />`.
 4. A Sites-like host or a search that should survive Back: `useViewHost` /
-   `useViewSearch`.
+   `useViewSearch`; a chip / Select pick: `useViewFilter`.
 
 ## Related evidence and the row sheet
 
@@ -411,7 +482,13 @@ onClose={sheet.close} />`.
   relationship.
   - host → Sites (`hostLinkOf`; `siteKeyOf` keys it as the Sites route
     does: URL host or cookie host key, lower case, no leading dot or
-    `www.`), only when Sites lists that host;
+    `www.`), only when Sites lists that host (`siteHostListed`, the one
+    rule the cell links share). Host fields per kind (`HOST_FIELDS`): a
+    visit's / bookmark's / top site's `url`, a cookie's `hostKey`, a
+    login's `originUrl` then `signonRealm`, a download's `tabUrl` then
+    `siteUrl`, a cache entry's `key` read through `cacheResourceUrl` (the
+    resource is the key's last part, behind any `_dk_` isolation scope), a
+    favicon's `iconUrl`;
   - day → Timeline (`dayLinkOf`: the Case day of the row's own timestamp,
     the field `FINDING_KINDS[kind].time` in artifacts.ts, in the Case's
     declared timezone);
@@ -438,6 +515,30 @@ State: committed` plus any content hash the row records
   so a secret stays out whether or not it is revealed. FF's copy
   confirmation (InputCopy's drawn check and "Copied", `spring.fast`) and a
   polite "Citation copied." for screen readers.
+
+## Cell links (`components/host-link.tsx`)
+
+One component per pivot for every table, one read of the Sites host list
+per session (shared with the Related block):
+
+- `SiteHostLink({ host, className, children })` - a recorded host, URL or
+  cookie host key that opens Sites on that host (`siteKeyOf`) once Sites
+  is known to list it; plain text until then and for good when it does
+  not (a host list cut short at its page cap cannot rule a host out, so
+  then every host links). `UrlWithSiteLink({ field })` - a URL field on a
+  two-line cell's muted line, its host part linked (`splitUrlHost`,
+  url-host.ts). `VisitedUrlLink({ url })` - a URL that opens History
+  searched for it, on the tab that holds its visits, only when History
+  has a visit to exactly that URL. `useSiteHosts()` / `siteHostListed(key)`
+  - the lookup itself.
+- A cell link is a pointer shortcut inside a row that opens a sheet: its
+  click never opens the sheet, it takes no tab stop (`tabIndex={-1}`; Tab
+  and J / K walk rows - the sheet's Related block is the keyboard path),
+  and a phone card (a button) draws the value as plain text. A real
+  `<a href>` carrying the lens of the moment it is used.
+- Look: the cell's own text and colour; the underline shows only while
+  the row is hovered (muted) and firms to the text colour under the
+  pointer (80ms colour step).
 
 ## Keyboard and ⌘K (`src/shortcuts.ts`, `src/command-menu.tsx`)
 
@@ -488,6 +589,41 @@ detail.
    its loaded stream into Saved and Recovered tabs, each in time order.
 5. **No Candidate value on a tile.** Stat tiles show recorded facts only.
 6. Read-only: no control may start ingest, analysis, or export.
+
+## Rules from the impeccable passes
+
+Recorded from the lead's decisions (forensic rules above still win):
+
+- **Overview stays calm:** no coverage banner (the quiet indicator only);
+  its Profiles count is every profile the Case knows (`caseProfilesOf`,
+  incl. a Guest with nothing read); a compact Recovered panel counts
+  recovered rows per page (unsaved / overwritten, each worded), links to
+  each page's Recovered tab and is never added into a figure.
+- **Figures never overstate:** download sizes are bytes received ("9.4 of
+  28.2 MB" when short, "expected" only when only the total is recorded);
+  outcomes are words; Most visited and Sites use one measure (saved visit
+  rows per host); counts of loaded rows say so ("+", "loaded").
+- **Days are Case days** everywhere (History, Timeline, Overview,
+  Downloads, Cache) with the one UTC fallback.
+- **Contrast:** muted text passes 4.5:1 on every surface it sits on,
+  hover and selected included; the focus ring passes 3:1 at 2px
+  effective; chart bars at rest pass 3:1, inside and outside a range.
+- **Cross-links filter by exact recorded values only** (host → Sites,
+  URL → its visits, day → Timeline, row → its own page); never an
+  inferred relationship. Cell links take no tab stop; the sheet's Related
+  block is the keyboard path.
+- **The URL holds the view** (page, range, profiles, host, search, the
+  page's own pick, tab, open row): Back / Forward / refresh restore it,
+  and a URL-named row opens even when the page had not loaded it.
+- **Sites is the full host view:** Downloads, Cache and Favicons join the
+  six kinds the host list counts (by exact URL host, `SITES_COVERAGE`
+  covers all nine); the most-evidenced host is shown when none is picked.
+  The host list itself (core `site-hosts`) still counts only the six, so a
+  host seen only in downloads, cache or favicons opens by URL but is not
+  listed (see core/src/sites-query.ts).
+- **Delight and motion** stay inside FF's motion system: meaningful state
+  changes only (see "Motion"), no decoration, no count-ups.
+- **Phone toolbars** keep to two rows with `CompactFilters`.
 
 ## Theme
 
@@ -549,7 +685,11 @@ The shell owns it (`components/completeness.tsx`); pages render nothing.
   only when something in scope was not read: one line in an FF Banner
   (`error` when anything is unreadable, else `warning`; compact, low
   contrast) naming what - "Cookies could not be read - Database locked.",
-  "No Form data database in Profile 3 (Guest) - …", or "Not everything was
+  "No Form data database in Profile 3 (Guest) - …", "No Bookmarks file"
+  (the store word follows the artifact, `artifactStoreOf` in artifacts.ts:
+  SQLite artifacts say database, Bookmarks / Preferences / Local State say
+  file, the disk cache says folder; `UnreadPage` and the identity pages'
+  empty states use the same word), or "Not everything was
   read: History in Profile 2, Cookies." - with a "Details" action opening
   the same detail. Healthy coverage: no banner, no panel.
 - Scope: `artifacts` are Completeness artifact keys from `src/artifacts.ts`
@@ -557,8 +697,9 @@ The shell owns it (`components/completeness.tsx`); pages render nothing.
   Data", "Top Sites", "Downloads", "Bookmarks", "Web Data", "Cache",
   "Favicons", "Preferences"); merged views use `TIMELINE_COVERAGE` (History,
   Downloads, Cookies, Web Data - what core's queryTimeline merges) and
-  `SITES_COVERAGE` (History, Cookies, Login Data, Bookmarks, Top Sites, Web
-  Data). Omit it for the whole Case. The shell picks the scope from the nav
+  `SITES_COVERAGE` (History, Downloads, Cookies, Login Data, Bookmarks, Top
+  Sites, Web Data, Cache, Favicons - the host list's six plus the three its
+  host view lists by exact URL host). Omit it for the whole Case. The shell picks the scope from the nav
   target (`coverageScopeOf` in app.tsx).
 - An artifact in scope with no statement at all counts as "not analyzed"
   and raises the banner - never silently dropped.
@@ -612,7 +753,7 @@ Shared presentation parts. Import from `./page-kit.js` (or
 | `IconTile({ icon })`                                                                                   | 32px tinted tile with a muted icon (panel headings only, never a table cell)                                                                                                                                                                                                                                                                                                                                                                                       |
 | `TypeLabel({ icon, label })`                                                                           | The TYPE column's cell on every table: bare muted icon + the worded type in the cell's color                                                                                                                                                                                                                                                                                                                                                                       |
 | `ShareBar({ fraction, peak?, className? })`                                                            | One share-of-peak pill in the series style: ink, peak full / others at rest (translateX)                                                                                                                                                                                                                                                                                                                                                                           |
-| `CountChips({ label, allLabel?, total, chips, active, onChange })`                                     | The one chip filter with counts (Timeline event types, Form data categories): FF parts, 28px pills, muted tabular counts, fluid hover on both axes; wraps from `sm`, scrolls sideways with no scrollbar (`scroll-fade-x`) below                                                                                                                                                                                                                                    |
+| `CountChips({ label, allLabel?, total, chips, active, onChange, partial? })`                           | The one chip filter with counts (Timeline event types, Form data categories, Sites kinds): FF parts, 28px pills, muted tabular counts, fluid hover on both axes; wraps from `sm`, scrolls sideways with no scrollbar (`scroll-fade-x`) below. `partial`: the counts are of the rows loaded so far and more stand - each reads "36+" (the Saved / Recovered tabs' "+") and the row's name says "counts of loaded rows"; never an "All loaded" label                 |
 | `formatDaySpan(first, last)`                                                                           | "11 Mar - 17 Apr" (one year), "9 Dec 2023 - 4 Jan 2024", "4 Mar 2024" (one day): a span as figure data                                                                                                                                                                                                                                                                                                                                                             |
 | `CARD_TITLE_CLEAR`                                                                                     | Class for an FF CardTitle that must stay on one line                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `CommitStateSplit`, `CommitView`, `splitByCommit`                                                      | Saved / recovered (below)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -628,8 +769,10 @@ second line muted, compact and mono; `avatar` adds a `SiteAvatar`,
 `StateWord({ state, focusable? })`, `SiteAvatar({ host, size?, src? })`
 (finding-fields; `src` is a recovered favicon `data:` URI, drawn 16px in
 the same 28px tile as the letter, so rows with and without one align);
-`FilterField`, `FilterTextField({ …, commit? })`, `ProfilePicker`
-(filters); `EmptyRows`, `activateOnKey`, `ROW_FOCUS_CLASS` (data-table);
+`FilterField`, `FilterTextField({ …, commit? })`, `ProfilePicker`,
+`SortSelect`, `CompactFilters` (filters); `SiteHostLink`,
+`UrlWithSiteLink`, `VisitedUrlLink` (host-link, see "Cell links");
+`useProfileLens`, `ArtifactEmpty`, `EmptyPivot` (identity-kit); `EmptyRows`, `activateOnKey`, `ROW_FOCUS_CLASS` (data-table);
 `ListBlock`, `RevealSwap`, `LoadingRows({ rows?, label? })`, `ErrorRows`,
 `ListFooter` (list-states); `figure`, `PendingFigure`, `UnavailableFigure`
 (metric-band); `useActivity`, `bucketsToDays`, `bucketsToHourTotals`, `fillGaps`
@@ -778,30 +921,31 @@ stop with the FF focus ring, so keyboard users reach the tooltip too.
 
 ## Canonical patterns (one winner per repeated need)
 
-| Need                       | Use                                                                                                                                                                                                                                                                 | Not                                                                       |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Section with a header      | page-kit `SectionPanel` (`PanelHeader` + `PanelTitle` subtitle + `PanelDescription` body + caption `Count` + `aside`, `role="region"`, `aria-labelledby`)                                                                                                           | local SectionPanel / WidgetPanel / hand-built `<h2>` headers              |
-| Chart panel                | `ChartSection` (+ `footer`), body `px-2 pt-2 pb-3`, Recharts via the charts.tsx helpers                                                                                                                                                                             | hand-built chart Panels, own tooltips, hand durations                     |
-| Visits per day             | `ActivityBars` everywhere                                                                                                                                                                                                                                           | a copied `BarChart`                                                       |
-| Figure strip               | `MetricBand grid-cols-2 lg:grid-cols-4`: figures on the display role's compact step (24px semibold, tabular), caption labels, `detail` only when it is data                                                                                                         | hand-built `<dl>` strips, captions under figures, `xl:`/`sm:` breakpoints |
-| Toolbar                    | page-kit `Toolbar` under the list's `PanelHeader` (compact, `px-4 pt-1 pb-3`): the saved/recovered switch left, then `ml-auto` filters (`FilterField` + `Select`, `ProfilePicker`), `FilterTextField` (`w-60`) last                                                 | filter chips in the header action                                         |
-| Search                     | `FilterTextField`: `commit="change"` for client-side filters, default Enter/blur for server queries                                                                                                                                                                 | raw `InputGroup`                                                          |
-| Profile filter             | `ProfilePicker` (multi-pick)                                                                                                                                                                                                                                        | `TabsSubtle` per profile                                                  |
-| Table                      | FF `Table` in `scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent`; `TableRow index tabIndex aria-label` + `ROW_FOCUS_CLASS`; `reveal-items` on the body only inside `reveal-swap`; a mixed-type table's first column header "Type" | `px-2` row insets                                                         |
-| List body + footer         | `ListBlock` (its `ListFooter`: "3 of 22", only while paged or filtered)                                                                                                                                                                                             | hand-built footers, "22 saved X shown"                                    |
-| Two-line cell              | finding-fields `TwoLineCell` (name over URL, URL mono)                                                                                                                                                                                                              | local stacked spans                                                       |
-| Chip filter with counts    | page-kit `CountChips`                                                                                                                                                                                                                                               | per-page TabsSubtle rows                                                  |
-| Commit State mark          | `StateWord` in cells (no own tab stop in a focusable row), `CommitBadge` in the sheet header                                                                                                                                                                        | hand-rolled dots                                                          |
-| Other state marks          | `EvidenceDot state="neutral"` + word for anything that is no evidence state (a download outcome, an expired cookie, a verified entry, a key present); evidence hues (amber, violet, red, green) only for evidence states                                            | a state hue borrowed for a different meaning                              |
-| Non-state labels           | plain `Badge`, no dot                                                                                                                                                                                                                                               | grey-dot Badges                                                           |
-| Ranked bars                | page-kit `ShareBar`; a distribution is a charts `SegmentBar`                                                                                                                                                                                                        | `bg-foreground opacity-*` bars, a row of mostly-zero bars                 |
-| Clickable list             | FF `CardGroup` for entities, or `useFluidHover` + `h-9` button rows + `WeightLabel` + `bg-active` when selected                                                                                                                                                     | `py-2` / `py-2.5` / `h-8` rows                                            |
-| Empty                      | `EmptyRows` (icon + title + message when the page is empty; message + tertiary "Clear filters" when filtered); `ChartEmpty` in charts                                                                                                                               | plain `<p>` empties                                                       |
-| Error                      | `ErrorRows` (title ends with "."), also for load-more                                                                                                                                                                                                               | captions in `text-destructive`                                            |
-| Loading                    | `reveal-swap` with a skeleton the size of the real block (`LoadingRows` for tables), `role="status"` + `aria-label`                                                                                                                                                 | ternary swaps, `aria-hidden` skeletons                                    |
-| Page root                  | `flex flex-col gap-5`; grids `gap-4`                                                                                                                                                                                                                                | `gap-4` / `gap-6` roots                                                   |
-| Row sheet title            | the recorded name, else a kind noun ("Cookie", "Download")                                                                                                                                                                                                          | invented words                                                            |
-| Values that can't be shown | words ("absent", "unavailable", "not recorded"), never "-"                                                                                                                                                                                                          | dashes                                                                    |
+| Need                       | Use                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Not                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Section with a header      | page-kit `SectionPanel` (`PanelHeader` + `PanelTitle` subtitle + `PanelDescription` body + caption `Count` + `aside`, `role="region"`, `aria-labelledby`)                                                                                                                                                                                                                                                                                                  | local SectionPanel / WidgetPanel / hand-built `<h2>` headers              |
+| Chart panel                | `ChartSection` (+ `footer`), body `px-2 pt-2 pb-3`, Recharts via the charts.tsx helpers                                                                                                                                                                                                                                                                                                                                                                    | hand-built chart Panels, own tooltips, hand durations                     |
+| Visits per day             | `ActivityBars` everywhere                                                                                                                                                                                                                                                                                                                                                                                                                                  | a copied `BarChart`                                                       |
+| Figure strip               | `MetricBand grid-cols-2 lg:grid-cols-4`: figures on the display role's compact step (24px semibold, tabular), caption labels, `detail` only when it is data                                                                                                                                                                                                                                                                                                | hand-built `<dl>` strips, captions under figures, `xl:`/`sm:` breakpoints |
+| Toolbar                    | page-kit `Toolbar` under the list's `PanelHeader` (compact, `px-4 pt-1 pb-3`): the saved/recovered switch left, then `ml-auto` filters (`FilterField` + `Select`, `ProfilePicker`) inside `CompactFilters active={n}` (below `sm` one tertiary "Filters (n)" button opening them stacked in an FF popover, so a phone toolbar keeps two rows: the switch, then Filters + search), `FilterTextField` (`w-60`; below `sm` it takes the rest of its row) last | filter chips in the header action                                         |
+| Sort                       | filters `SortSelect({ id, options: SortOption[], value, onChange })`: one Select of worded orders ("Last used, newest"), asked of the server (`sort` + `direction`), never a re-sort of the loaded page of a paged list (Cookies, Saved logins)                                                                                                                                                                                                            |
+| Search                     | `FilterTextField`: `commit="change"` for client-side filters, default Enter/blur for server queries                                                                                                                                                                                                                                                                                                                                                        | raw `InputGroup`                                                          |
+| Profile filter             | `ProfilePicker` (multi-pick)                                                                                                                                                                                                                                                                                                                                                                                                                               | `TabsSubtle` per profile                                                  |
+| Table                      | FF `Table` in `scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent`; `TableRow index tabIndex aria-label` + `ROW_FOCUS_CLASS`; `reveal-items` on the body only inside `reveal-swap`; a mixed-type table's first column header "Type"                                                                                                                                                                                        | `px-2` row insets                                                         |
+| List body + footer         | `ListBlock` (its `ListFooter`: "3 of 22", only while paged or filtered)                                                                                                                                                                                                                                                                                                                                                                                    | hand-built footers, "22 saved X shown"                                    |
+| Two-line cell              | finding-fields `TwoLineCell` (name over URL, URL mono)                                                                                                                                                                                                                                                                                                                                                                                                     | local stacked spans                                                       |
+| Chip filter with counts    | page-kit `CountChips`                                                                                                                                                                                                                                                                                                                                                                                                                                      | per-page TabsSubtle rows                                                  |
+| Commit State mark          | `StateWord` in cells (no own tab stop in a focusable row), `CommitBadge` in the sheet header                                                                                                                                                                                                                                                                                                                                                               | hand-rolled dots                                                          |
+| Other state marks          | `EvidenceDot state="neutral"` + word for anything that is no evidence state (a download outcome, an expired cookie, a verified entry, a key present); evidence hues (amber, violet, red, green) only for evidence states                                                                                                                                                                                                                                   | a state hue borrowed for a different meaning                              |
+| Non-state labels           | plain `Badge`, no dot                                                                                                                                                                                                                                                                                                                                                                                                                                      | grey-dot Badges                                                           |
+| Ranked bars                | page-kit `ShareBar`; a distribution is a charts `SegmentBar`                                                                                                                                                                                                                                                                                                                                                                                               | `bg-foreground opacity-*` bars, a row of mostly-zero bars                 |
+| Clickable list             | FF `CardGroup` for entities, or `useFluidHover` + `h-9` button rows + `WeightLabel` + `bg-active` when selected                                                                                                                                                                                                                                                                                                                                            | `py-2` / `py-2.5` / `h-8` rows                                            |
+| Empty                      | `EmptyRows` (icon + title + message when the page is empty; message + tertiary "Clear filters" when filtered); `ChartEmpty` in charts                                                                                                                                                                                                                                                                                                                      | plain `<p>` empties                                                       |
+| Error                      | `ErrorRows` (title ends with "."), also for load-more                                                                                                                                                                                                                                                                                                                                                                                                      | captions in `text-destructive`                                            |
+| Loading                    | `reveal-swap` with a skeleton the size of the real block (`LoadingRows` for tables), `role="status"` + `aria-label`                                                                                                                                                                                                                                                                                                                                        | ternary swaps, `aria-hidden` skeletons                                    |
+| Page root                  | `flex flex-col gap-5`; grids `gap-4`                                                                                                                                                                                                                                                                                                                                                                                                                       | `gap-4` / `gap-6` roots                                                   |
+| Row sheet title            | the recorded name, else a kind noun ("Cookie", "Download")                                                                                                                                                                                                                                                                                                                                                                                                 | invented words                                                            |
+| Values that can't be shown | words ("absent", "unavailable", "not recorded"), never "-"                                                                                                                                                                                                                                                                                                                                                                                                 | dashes                                                                    |
 
 ## Legacy CSS (removed)
 

@@ -13,13 +13,7 @@ import { fetchSiteFavicons } from "@/components/site-favicons";
 import { fieldString, fieldUtc } from "@/components/finding-fields";
 import { siteKeyOf } from "@/related";
 import { EVIDENCE_ORDER } from "@/router";
-import type {
-  CaseCompleteness,
-  CaseProfiles,
-  FieldState,
-  Finding,
-  PageOf,
-} from "@/types";
+import type { FieldState, Finding, PageOf } from "@/types";
 
 export { fieldString };
 
@@ -76,11 +70,6 @@ export interface OverviewData {
   /** False when the host list stopped at its page cap, so a busier host
    *  may be missing from Most visited sites. */
   readonly mostVisitedComplete: boolean;
-  readonly profiles: readonly string[];
-  /** The Case's Completeness Statement: which databases were read, per
-   *  profile - the Profiles figure's detail and the Recovered panel's
-   *  per-artifact note. */
-  readonly completeness: CaseCompleteness;
   readonly metadata: readonly Finding[];
   /** The newest saved downloads (up to `RECENT_DOWNLOADS`). */
   readonly downloads: readonly Finding[];
@@ -269,8 +258,6 @@ export async function loadOverview(): Promise<OverviewData> {
     { saved: activity, recovered, complete: activityComplete, timeZone },
     recordedSpan,
     siteHosts,
-    caseProfiles,
-    completeness,
     metadataPage,
     downloadsPage,
   ] = await Promise.all([
@@ -280,8 +267,6 @@ export async function loadOverview(): Promise<OverviewData> {
     // host's saved visit rows rank Most visited sites, so the panel and
     // Sites print the same number for the same host.
     caseSiteHosts(),
-    callApi<CaseProfiles>("profiles", []),
-    callApi<CaseCompleteness>("completeness", []),
     callApi<PageOf<Finding>>("metadata", [
       ["sort", "type"],
       ["direction", "asc"],
@@ -316,8 +301,6 @@ export async function loadOverview(): Promise<OverviewData> {
     recordedSpan,
     mostVisited,
     mostVisitedComplete: siteHosts.complete,
-    profiles: caseProfiles.profiles,
-    completeness,
     metadata: metadataPage.items,
     favicons,
     downloads: downloadsPage.items,

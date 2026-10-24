@@ -81,6 +81,36 @@ describe("hostLinkOf", () => {
     expect(link?.field).toBe("signonRealm");
   });
 
+  it("reads a cache entry's host from the resource its key names", () => {
+    const link = hostLinkOf(
+      finding("cache_entry", {
+        key: value(
+          "1/0/_dk_https://top.example https://frame.example https://cdn.Example.net/a.js",
+        ),
+      }),
+    );
+    expect(link).toMatchObject({
+      extras: { host: "cdn.example.net" },
+      field: "key",
+    });
+    // A key whose resource is no URL links nothing.
+    expect(
+      hostLinkOf(finding("cache_entry", { key: value("1/0/not-a-url") })),
+    ).toBeNull();
+  });
+
+  it("links a favicon to its icon URL's host", () => {
+    const link = hostLinkOf(
+      finding("favicon", {
+        iconUrl: value("https://www.github.com/favicon.ico"),
+      }),
+    );
+    expect(link).toMatchObject({
+      extras: { host: "github.com" },
+      field: "iconUrl",
+    });
+  });
+
   it("never invents a host: unknown kinds and unrecorded fields link nothing", () => {
     expect(
       hostLinkOf(finding("autofill_entry", { fieldValue: value("x.com") })),

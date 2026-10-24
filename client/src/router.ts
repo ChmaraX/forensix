@@ -42,6 +42,9 @@ export interface ViewLocation {
   readonly host: string | null;
   /** The page's search text, or null. */
   readonly q: string | null;
+  /** The page's own one-of filter (Bookmarks folder, Form data category,
+   *  Timeline event kind, Sites kind), or null. */
+  readonly filter: string | null;
   readonly tab: ViewTab;
   /** The open row (`rowRefOf`), or null. */
   readonly row: string | null;
@@ -94,6 +97,7 @@ export const DEFAULT_LOCATION: ViewLocation = {
   profiles: [],
   host: null,
   q: null,
+  filter: null,
   tab: "saved",
   row: null,
 };
@@ -155,6 +159,7 @@ export function parseLocation(hash: string): ViewLocation {
     profiles,
     host: text("host"),
     q: text("q"),
+    filter: text("filter"),
     tab: query.get("tab") === "recovered" ? "recovered" : "saved",
     row: text("row"),
   };
@@ -182,6 +187,9 @@ export function formatLocation(location: ViewLocation): string {
   if (location.q !== null && location.q !== "") {
     query.append("q", location.q);
   }
+  if (location.filter !== null && location.filter !== "") {
+    query.append("filter", location.filter);
+  }
   if (location.tab === "recovered") {
     query.append("tab", "recovered");
   }
@@ -201,7 +209,8 @@ export function sameLocation(a: ViewLocation, b: ViewLocation): boolean {
 
 /**
  * The view a link or a nav pick opens: `page` with the lens (range,
- * profiles) carried, and the page's own state (host, search, tab, row)
+ * profiles) carried, and the page's own state (host, search, filter, tab,
+ * row)
  * fresh - set only by `extras` (a host for Sites, a row to open). The same
  * for the page on show: a nav pick on it starts it over.
  */
@@ -214,6 +223,7 @@ export function withPage(
     ...current,
     host: null,
     q: null,
+    filter: null,
     tab: "saved",
     row: null,
     ...extras,

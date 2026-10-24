@@ -24,8 +24,9 @@
  *    `spring.fast` (`FluidBandCursor`, the chart's analogue of
  *    `FluidHoverHighlight`), and the bar under it gains strength on the same
  *    spring (`FluidBar`);
- *  - entrance animation on the `spring.slow` tier's duration, off under reduced
- *    motion (`chartAnimation`).
+ *  - no entrance animation of their own: bars draw in the frame their data
+ *    and layout land, and the panel's `reveal-swap` is the entrance
+ *    (`CHART_STATIC`).
  *
  * One series style (`SERIES`, `seriesColor`, `SeriesBar`), the same in light
  * and dark: the series is ink (`--foreground`) — FF's palette is neutral, so
@@ -33,7 +34,8 @@
  * rests at one step (half ink, still 3:1 on its panel); exactly one thing is
  * emphasised at full ink: the
  * selection when there is one, else the peak (ties share it). Bars outside
- * an active range dim further; the hovered bar lifts on `spring.fast`. A
+ * an active range stay at rest (the range wash and its baseline mark the
+ * range); the hovered bar lifts on `spring.fast`. A
  * zero draws nothing — no stub. Counts are integers, so they are drawn as
  * bars (or steps), never a smoothed line or area that invents values
  * between buckets. Evidence hues (`--wal`, `--violet`, …) appear only on
@@ -137,14 +139,15 @@ export function usePrefersReducedMotion(): boolean {
  *
  * `rest` is the lightest step a bar can take and still be seen: ink at 0.5
  * is 3.4:1 on a light panel and 4.6:1 on a dark one (WCAG 1.4.11 asks 3:1
- * of a graphic that carries the data's shape). `dimmed` is deliberately
- * quiet — those days are outside the picked range, and the range wash
- * says so.
+ * of a graphic that carries the data's shape). `dimmed` (outside an active
+ * range) is the same step on purpose: a picked day that drew nothing must
+ * not fade every other bar to near-invisible. The range reads from its
+ * wash, its baseline and the full-ink bars inside it.
  */
 export const SERIES = {
   rest: 0.5,
   emphasis: 1,
-  dimmed: 0.1,
+  dimmed: 0.5,
   range: 0.06,
 } as const;
 
@@ -221,26 +224,32 @@ export function chartGrid(tokens: ChartTokens): {
 }
 
 /**
- * Entrance animation for a Recharts series: the duration of the `spring.slow`
- * tier (the tier for large surfaces, 240ms), off under reduced motion. Spread
- * onto `Bar` / `Area` / `Line` / `Scatter` / `RadialBar`.
+ * Recharts' own entrance animation is off for every series. It is a
+ * JavaScript tween keyed to the identity of the series' derived geometry,
+ * so each re-render that rebuilds it (a page loading its lists, a pointer
+ * resting on the chart) restarts the tween from where it stood - on a busy
+ * page the bars sat near zero for seconds. Bars therefore draw in the
+ * frame their data and layout land; the panel's `reveal-swap` fade is the
+ * entrance (and respects reduced motion). Spread onto `Bar` / `Area` /
+ * `Line` / `Scatter` / `RadialBar`.
  */
-export function chartAnimation(reduced: boolean): {
-  readonly isAnimationActive: boolean;
-  readonly animationDuration: number;
-  readonly animationEasing: "ease-out";
-} {
-  return {
-    isAnimationActive: !reduced,
-    animationDuration: Math.round(spring.slow.duration * 1000),
-    animationEasing: "ease-out",
-  };
-}
+export const CHART_STATIC = { isAnimationActive: false } as const;
 
 /**
- * Tooltip wrapper motion: the box follows the pointer on the `spring.moderate`
- * tier's duration (short travel), still under reduced motion. Spread onto
- * `Tooltip` next to `content` and `cursor`.
+ * FF's `spring.moderate` as a CSS timing: the same `linear()` curve and
+ * length app.css's `reveal-product` writes in `--reveal-motion`, for motion
+ * only CSS can run (the Recharts tooltip box). One easing system: springs
+ * in motion code, their `linear()` form in CSS.
+ */
+const MODERATE_CSS = {
+  duration: 200,
+  easing: "linear(0, 0.5729, 0.8966, 0.9789, 0.996, 1, 1)",
+} as const;
+
+/**
+ * Tooltip wrapper motion: the box follows the pointer on the
+ * `spring.moderate` tier (short travel, `MODERATE_CSS`), still under
+ * reduced motion. Spread onto `Tooltip` next to `content` and `cursor`.
  */
 export function chartTooltipMotion(reduced: boolean): {
   readonly isAnimationActive: boolean;
@@ -250,8 +259,10 @@ export function chartTooltipMotion(reduced: boolean): {
 } {
   return {
     isAnimationActive: !reduced,
-    animationDuration: Math.round(spring.moderate.duration * 1000),
-    animationEasing: "ease-out",
+    animationDuration: MODERATE_CSS.duration,
+    // Recharts types its easing as the CSS keywords but writes any string
+    // into the box's `transition` as is.
+    animationEasing: MODERATE_CSS.easing as unknown as "ease-out",
     wrapperStyle: { outline: "none" },
   };
 }

@@ -1,44 +1,12 @@
 /**
- * Case-wide host reads for the Sites view and the pages that link to it:
- * `useSitesHostKeys` (the hosts the Sites list has, so a page links a host
- * to Sites only when Sites lists it) and `useHostFavicons` (each host's
+ * Case-wide host reads for the Sites view: `useHostFavicons` (each host's
  * recovered favicon for its avatar). Which rows are on a host is
- * `sites-host-fields.ts`.
+ * `sites-host-fields.ts`; whether Sites lists a host (for links to it) is
+ * `host-link.tsx`'s `useSiteHosts`.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { caseSiteHosts } from "../case-reads.js";
 import { fetchSiteFavicons } from "./site-favicons.js";
-
-let hostKeys: ReadonlySet<string> | null = null;
-
-/** The hosts the Sites list has (`caseSiteHosts`, read once per session);
- *  null until read or when the read failed. A host is linked only when it
- *  is in the set, so a list cut short at its cap links fewer, never a host
- *  Sites does not list. */
-export function useSitesHostKeys(): ReadonlySet<string> | null {
-  const [keys, setKeys] = useState<ReadonlySet<string> | null>(hostKeys);
-  useEffect(() => {
-    if (hostKeys !== null) {
-      return;
-    }
-    let live = true;
-    caseSiteHosts()
-      .then(({ hosts }) => {
-        hostKeys = new Set(hosts.map((entry) => entry.host));
-        if (live) {
-          setKeys(hostKeys);
-        }
-      })
-      .catch(() => {
-        // Best effort: without the list no host links to Sites.
-      });
-    return () => {
-      live = false;
-    };
-  }, []);
-  return keys;
-}
 
 /** Hosts per `site-favicons` request (each is a query parameter). */
 const FAVICON_BATCH = 50;

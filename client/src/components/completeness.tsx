@@ -31,7 +31,13 @@ import { fontWeights } from "@/lib/font-weight";
 import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { OUTCOME_META } from "../terms.js";
-import { ARTIFACTS, SITES_COVERAGE, TIMELINE_COVERAGE } from "../artifacts.js";
+import {
+  ARTIFACTS,
+  artifactStoreOf,
+  SITES_COVERAGE,
+  TIMELINE_COVERAGE,
+  type ArtifactStore,
+} from "../artifacts.js";
 import type {
   CaseCompleteness,
   CompletenessArtifact,
@@ -355,6 +361,8 @@ export function CoverageIndicator({
  *  it), what happened, and why. */
 interface Gap {
   readonly subject: string;
+  /** How the artifact is kept: "No Bookmarks file", "No Cookies database". */
+  readonly store: ArtifactStore;
   readonly where: string;
   readonly outcome: "unavailable" | "absent" | "missing";
   readonly reason: string | null;
@@ -364,6 +372,7 @@ function gapsOf(scope: CoverageScope): Gap[] {
   const gaps: Gap[] = [];
   for (const statement of scope.statements) {
     const subject = artifactLabel(statement.artifact);
+    const store = artifactStoreOf(statement.artifact);
     const unread = statement.artifacts.filter(
       (row) => row.outcome !== "produced",
     );
@@ -385,18 +394,26 @@ function gapsOf(scope: CoverageScope): Gap[] {
             : ` in ${String(rows.length)} profiles`;
       gaps.push({
         subject,
+        store,
         where,
         outcome: first.outcome,
         reason: first.reason,
       });
     }
     if (statement.attempted === 0) {
-      gaps.push({ subject, where: "", outcome: "missing", reason: null });
+      gaps.push({
+        subject,
+        store,
+        where: "",
+        outcome: "missing",
+        reason: null,
+      });
     }
   }
   for (const artifact of scope.missing) {
     gaps.push({
       subject: artifactLabel(artifact),
+      store: artifactStoreOf(artifact),
       where: "",
       outcome: "missing",
       reason: null,
@@ -437,7 +454,8 @@ function GapSentence({ gaps }: { readonly gaps: readonly Gap[] }) {
   if (only.outcome === "absent") {
     return (
       <>
-        No <span style={strong}>{only.subject}</span> database{only.where}
+        No <span style={strong}>{only.subject}</span> {only.store}
+        {only.where}
         {reason}.
       </>
     );

@@ -400,6 +400,27 @@ const SORT_KEYS = {
       profile: (row) => row.profile,
     },
   },
+  cookies: {
+    default: ["creation-time", "desc"],
+    keys: {
+      host: (row) => sortValue(row.fields.hostKey),
+      name: (row) => sortValue(row.fields.name),
+      "creation-time": (row) => sortValue(row.fields.creationTime),
+      "expires-time": (row) => sortValue(row.fields.expiresTime),
+      "last-access-time": (row) => sortValue(row.fields.lastAccessTime),
+      profile: (row) => row.profile,
+    },
+  },
+  credentials: {
+    default: ["last-used-time", "desc"],
+    keys: {
+      "created-time": (row) => sortValue(row.fields.dateCreated),
+      "last-used-time": (row) => sortValue(row.fields.dateLastUsed),
+      origin: (row) => sortValue(row.fields.originUrl),
+      username: (row) => sortValue(row.fields.usernameValue),
+      profile: (row) => row.profile,
+    },
+  },
   favicons: {
     default: ["last-updated", "desc"],
     keys: {
