@@ -59,7 +59,11 @@
   --card: var(--surface-3);
   --card-foreground: #171717;
   --muted: #f4f4f5;
-  --muted-foreground: #737373;
+  /* FF ships #737373, which clears 4.5:1 only on near-white: on the hover,
+     active and track fills muted text sits on (#ededed-#f5f5f5) it reads
+     4.05-4.35:1. #666666 keeps the same grey step and clears 4.5:1 on every
+     fill up to --accent (#e5e5e5, 4.56:1). */
+  --muted-foreground: #666666;
 
   --accent: #e5e5e5;
   --accent-foreground: #171717;
@@ -77,7 +81,11 @@
   --success: #16a34a;
   --warning: #d97706;
 
-  --focus-ring: #6b97ff;
+  /* FF's #6b97ff is 2.80:1 on white, under the 3:1 a focus indicator needs
+     (WCAG 1.4.11). One step deeper in the same blue: 4.44:1 on white,
+     >=3.5:1 on every light fill a focused control can sit on. Dark keeps
+     FF's value (5.47:1 on a panel). Rings are drawn 2px (section 3b). */
+  --focus-ring: #3d6ff0;
 
   --checker-a: #bbbbbb;
   --checker-b: #ffffff;
@@ -157,7 +165,9 @@
   --foreground: #f5f5f5;
   --card-foreground: #f5f5f5;
   --muted: #1e1e1e;
-  --muted-foreground: #a3a3a3;
+  /* FF's #a3a3a3 is 4.45:1 on a selected chip (#3b3b3b); #adadad clears
+     4.5:1 on every dark fill up to --input (#404040, 4.62:1). */
+  --muted-foreground: #adadad;
 
   --accent: #525252;
   --accent-foreground: #f5f5f5;
@@ -176,6 +186,8 @@
 
   --checker-a: #1f1f1f;
   --checker-b: #2a2a2a;
+
+  --focus-ring: #6b97ff;
 
   --overlay: 255 255 255;
   --hover: rgb(255 255 255 / 0.06);
@@ -425,10 +437,20 @@ html.transitioning *::after {
     text-wrap: pretty;
   }
 
+  /* The sticky inset topbar (section 8) covers the top 56px of the
+     viewport, plus its 12px fade once scrolled. Anything scrolled into view
+     by focus or a fragment lands below it, so a focused row is never hidden
+     under the bar (WCAG 2.4.11). */
+  html {
+    scroll-padding-top: 76px;
+    scroll-padding-bottom: 16px;
+  }
+
   /* Focus fallback: natively focusable elements no component styles get the
-     same token ring as the components. `outline-none` still wins. */
+     same token ring as the components, 2px like every ring (section 3b).
+     `outline-none` still wins. */
   :focus-visible {
-    outline: 1px solid var(--focus-ring, #6b97ff);
+    outline: 2px solid var(--focus-ring, #3d6ff0);
     outline-offset: 2px;
     border-radius: var(--shape-input-radius, 8px);
   }
@@ -436,6 +458,64 @@ html.transitioning *::after {
   a:focus-visible {
     border-radius: 2px;
   }
+}
+
+/* ============================================================================
+   3b. FOCUS RINGS — 2px everywhere (project override of FF's 1px)
+   FF draws keyboard focus as a 1px ring or outline in --focus-ring. A 1px
+   line does not read as a focus indicator on a 36-55px row, so every FF focus
+   ring is redrawn at 2px here. The registry files stay byte-faithful: these
+   rules match the ring/outline/border utilities FF puts on its focus states
+   (unlayered, so they win over the utilities layer) and change only the
+   width. Colour stays the --focus-ring token.
+============================================================================ */
+
+/* Box-shadow rings: `focus-visible:ring-1` (+ `ring-focus-ring` or the
+   `ring-[color:var(--focus-ring…)]` form) and the `has-[:focus-visible]`
+   variant on a control's frame. */
+:focus-visible:is(
+  [class*="focus-visible:ring-1"],
+  [class*="focus-visible:ring-[color:var(--focus-ring"],
+  [class*="focus-visible:ring-focus-ring"]
+),
+:has(:focus-visible):is([class*="has-[:focus-visible]:ring-1"]) {
+  --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0
+    calc(2px + var(--tw-ring-offset-width, 0px))
+    var(--tw-ring-color, currentcolor);
+}
+
+/* Outline rings (table rows draw theirs inset: rows cannot take a
+   box-shadow ring). The style is restated: Tailwind v4's `outline-none`
+   leaves `--tw-outline-style: none`, which `focus-visible:outline-1` then
+   reads, so `outline-none focus-visible:outline-1` drew no ring at all. */
+:focus-visible:is(
+  [class*="focus-visible:outline-1"],
+  [class*="focus-visible:outline-[color:var(--focus-ring"],
+  [class*="focus-visible:outline-focus-ring"]
+) {
+  outline-style: solid;
+  outline-width: 2px;
+}
+:focus-visible[class*="focus-visible:-outline-offset-1"] {
+  outline-offset: -2px;
+}
+
+/* The fluid-hover lists' focus frame (an absolutely placed bordered box). */
+[class*="border-[color:var(--focus-ring"] {
+  border-width: 2px;
+}
+
+/* Figure labels that explain themselves (a `Term` inside a MetricBand
+   label) are 15px tall. Their hit area grows to 25px (WCAG 2.5.8 asks 24)
+   without moving the text: 8px above (inside the item's padding), 2px
+   below (the gap to the figure). */
+.metric-label [tabindex] {
+  position: relative;
+}
+.metric-label [tabindex]::before {
+  content: "";
+  position: absolute;
+  inset: -8px -2px -2px;
 }
 
 /* ============================================================================

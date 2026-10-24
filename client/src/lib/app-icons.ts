@@ -42,6 +42,7 @@ import {
   Image01,
   ImageX,
   Inbox01,
+  Keyboard01,
   Key01,
   LayoutGrid01,
   Lock01,
@@ -103,6 +104,8 @@ export const HideIcon: AppIcon = EyeOff;
 /** Newest first / oldest first. */
 export const SortNewestIcon: AppIcon = ArrowNarrowDown;
 export const SortOldestIcon: AppIcon = ArrowNarrowUp;
+/** The ⌘K menu's Shortcuts rows. */
+export const KeyboardIcon: AppIcon = Keyboard01;
 
 /* Theme. */
 export const LightThemeIcon: AppIcon = Sun;

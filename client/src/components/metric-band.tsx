@@ -133,14 +133,20 @@ export function MetricBandItem({
   return (
     <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3 shadow-[-1px_0_0_0_var(--border),0_-1px_0_0_var(--border)] sm:px-5 sm:py-3.5">
       <div className="flex min-w-0 items-center justify-between gap-x-3 max-sm:flex-wrap">
+        {/* `metric-label`: a label that explains itself (a `Term`) gets a
+            25px hit area (app.css); the truncating box is padded 8px up
+            and 2px down (and pulled back by as much) so it does not clip
+            that area. */}
         <span
           className={cn(
             size.type.caption,
-            "flex min-w-0 items-center gap-1.5 text-muted-foreground [&_svg]:size-3.5 [&_svg]:shrink-0",
+            "metric-label flex min-w-0 items-center gap-1.5 text-muted-foreground [&_svg]:size-3.5 [&_svg]:shrink-0",
           )}
         >
           {icon}
-          <span className="truncate max-sm:whitespace-normal">{label}</span>
+          <span className="-mt-[8px] -mb-[2px] truncate pt-[8px] pb-[2px] max-sm:whitespace-normal">
+            {label}
+          </span>
         </span>
         {status === undefined ? null : (
           <span

@@ -24,6 +24,8 @@
  */
 import { useMemo, useState } from "react";
 
+import { useViewTab } from "../view-state.js";
+
 import type { Finding } from "../types.js";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -53,7 +55,6 @@ import {
   splitByCommit,
   TimeCell,
   TypeLabel,
-  type CommitView,
   type CountChip,
   type RowColumn,
 } from "./page-kit.js";
@@ -379,7 +380,8 @@ export function TimelineRecordsCard({
   readonly onClearRange: () => void;
 }) {
   const [kindFilter, setKindFilter] = useState<string | null>(null);
-  const [view, setView] = useState<CommitView>("saved");
+  // Saved / Recovered lives in the URL (`tab`), so Back and a refresh keep it.
+  const [view, setView] = useViewTab();
   const [reveal, setReveal] = useState(false);
   // "Show values" appears once a loaded row holds a secret (a Payment form
   // value); Payment values stay hidden until it is on.

@@ -53,6 +53,14 @@ import { cn } from "@/lib/utils";
 import type { QueryParameters } from "../api.js";
 import type { FieldState, Finding } from "../types.js";
 import {
+  updateView,
+  useRowSelection,
+  useViewProfiles,
+  useViewRange,
+  useViewSearch,
+  useViewTab,
+} from "../view-state.js";
+import {
   useCommitStateLists,
   type PaginatedList,
 } from "../use-commit-state-lists.js";
@@ -94,10 +102,9 @@ import {
   ResponsiveRows,
   SectionPanel,
   TimeCell,
-  type CommitView,
   type RowColumn,
 } from "./page-kit.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { RowSheet } from "./row-sheet.js";
 
 /* ------------------------------- data reads ------------------------------- */
 
@@ -666,6 +673,48 @@ function countOf(list: PaginatedList<unknown>): number | null {
   return list.loading && list.rows.length === 0 ? null : list.rows.length;
 }
 
+/** The Saved / Recovered switch, the date range, the profile pick and the
+ *  search live in the URL (view-state.tsx): Back, a refresh and a link
+ *  restore them, and the range and profiles are the Case-wide lens. Sort,
+ *  direction and "Arrived via" stay this page's own. */
+function useVisitFilters(): readonly [
+  VisitFilters,
+  (next: VisitFilters | ((current: VisitFilters) => VisitFilters)) => void,
+] {
+  const [range] = useViewRange();
+  const [profiles] = useViewProfiles();
+  const [search] = useViewSearch();
+  const [own, setOwn] = useState<VisitFilters>(DEFAULT_VISIT_FILTERS);
+  const filters = useMemo<VisitFilters>(
+    () => ({ ...own, from: range.from, to: range.to, profiles, search }),
+    [own, range, profiles, search],
+  );
+  const setFilters = useCallback(
+    (next: VisitFilters | ((current: VisitFilters) => VisitFilters)) => {
+      const value = typeof next === "function" ? next(filters) : next;
+      setOwn(value);
+      const lensChanged =
+        value.from !== filters.from ||
+        value.to !== filters.to ||
+        value.profiles.join("\u0000") !== filters.profiles.join("\u0000");
+      if (lensChanged || value.search !== filters.search) {
+        updateView(
+          {
+            from: value.from,
+            to: value.to,
+            profiles: value.profiles,
+            q: value.search === "" ? null : value.search,
+          },
+          // A search alone replaces the entry; a range or profile is a step.
+          { replace: !lensChanged },
+        );
+      }
+    },
+    [filters],
+  );
+  return [filters, setFilters] as const;
+}
+
 export function HistoryPage({
   profiles = [],
 }: {
@@ -675,15 +724,20 @@ export function HistoryPage({
   readonly profiles?: readonly string[];
 }) {
   const { activity, error: activityError, retry } = useActivity();
-  const [filters, setFilters] = useState<VisitFilters>(DEFAULT_VISIT_FILTERS);
+  const [filters, setFilters] = useVisitFilters();
   const timeZone = activity?.timeZone ?? null;
   const parameters = useMemo(
     () => visitParameters(filters, timeZone),
     [filters, timeZone],
   );
   const visits = useCommitStateLists<Finding>("history", parameters);
-  const [view, setView] = useState<CommitView>("saved");
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
+  const [view, setView] = useViewTab();
+  // The open row lives in the URL: Back and a refresh re-open it.
+  const loadedVisits = useMemo(
+    () => [...visits.saved.rows, ...visits.recovered.rows],
+    [visits.saved.rows, visits.recovered.rows],
+  );
+  const sheet = useRowSelection(loadedVisits);
 
   // Figures from the saved activity rows. `days` is sparse — only days with
   // a saved visit — because "active days" literally counts its length; it
@@ -751,13 +805,11 @@ export function HistoryPage({
 
   const filtersActive = visitsAreFiltered(filters);
 
-  const select = useCallback((row: Finding) => {
-    setSelected({ kind: "finding", row });
-  }, []);
+  const select = sheet.select;
 
   const clearFilters = useCallback(() => {
     setFilters(DEFAULT_VISIT_FILTERS);
-  }, []);
+  }, [setFilters]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -833,13 +885,11 @@ export function HistoryPage({
         />
       </SectionPanel>
 
-      {selected !== null ? (
+      {sheet.selected !== null ? (
         <RowSheet
-          selected={selected}
-          title={fieldText(selected.row.fields.title) ?? "Page visit"}
-          onClose={() => {
-            setSelected(null);
-          }}
+          selected={sheet.selected}
+          title={fieldText(sheet.selected.row.fields.title) ?? "Page visit"}
+          onClose={sheet.close}
         />
       ) : null}
     </div>

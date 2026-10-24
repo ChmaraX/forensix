@@ -20,6 +20,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useViewHost } from "../view-state.js";
+
 import { Panel, PanelHeader, PanelTitle } from "@/components/panel";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -755,15 +757,11 @@ function narrowScreen(): boolean {
   return globalThis.matchMedia("(max-width: 767px)").matches;
 }
 
-export function SitesPage({
-  initialHost,
-}: {
-  /** Preselects a host on mount — the Overview's Top sites card jumps here
-   *  with the row's own host instead of landing on an empty selection. */
-  readonly initialHost?: string | null;
-}) {
+export function SitesPage() {
   const [search, setSearch] = useState("");
-  const [host, setHost] = useState<string | null>(initialHost ?? null);
+  // The host on show lives in the URL (`host`): an Overview or Related link
+  // opens Sites on it, and Back returns to the previous host.
+  const [host, setHost] = useViewHost();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const detailRef = useRef<HTMLDivElement>(null);
   const hosts = useSiteList<SiteHost>(

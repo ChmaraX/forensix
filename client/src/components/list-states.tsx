@@ -5,8 +5,20 @@
  * "3 of 22" / Load more footer (only while paged or filtered), a filtered-empty state with "Clear
  * filters", `RevealSwap` (a `reveal-swap` that lets go of its skeleton) and
  * `ListBlock` — the whole body of one paginated list (saved or recovered).
+ *
+ * Status for assistive tech: every list keeps one polite region mounted
+ * (`ListStatus`) and writes into it what a sighted reader sees change —
+ * "Loading cookies", "22 saved cookies", "3 of 22 saved cookies", "No
+ * loaded saved cookies match these filters." — so a filter result is heard
+ * without moving focus. A standalone `LoadingRows` carries its words as
+ * visually hidden text inside its `role="status"`.
  */
-import { useState, type AnimationEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  type AnimationEvent,
+  type ReactNode,
+} from "react";
 
 import {
   Banner,
@@ -39,7 +51,10 @@ const BODY_WIDTHS = [
  * inset as an evidence table, each row the height of a table row at the
  * surrounding ladder step (36px default, 28px compact) with the cell's own
  * horizontal padding, separated by the table's hairline. A live
- * `role="status"` region named by `label`.
+ * `role="status"` region that says `label` (visually hidden text, so every
+ * screen reader reads it; the bars themselves are hidden from AT). Inside a
+ * list that already has a `ListStatus` pass `announce={false}`: the
+ * skeleton is then silent.
  *
  * Use it as the first child of a `reveal-swap`, with the real table added
  * after it once rows land:
@@ -53,24 +68,29 @@ export function LoadingRows({
   className,
   rows = 5,
   label = "Loading rows",
+  announce = true,
 }: {
   readonly className?: string;
   /** How many placeholder rows. @default 5 */
   readonly rows?: number;
-  /** Accessible name of the status region. @default "Loading rows" */
+  /** What the status region says. @default "Loading rows" */
   readonly label?: string;
+  /** Be a live status region. False inside a list whose `ListStatus`
+   *  already says it. @default true */
+  readonly announce?: boolean;
 }) {
   const size = useSize();
   const cellInset = size.variant === "compact" ? "px-2.5" : "px-3";
   return (
     <div
       className={cn("reveal-items flex flex-col px-1 py-1", className)}
-      role="status"
-      aria-label={label}
+      role={announce ? "status" : undefined}
     >
+      {announce ? <span className="sr-only">{label}</span> : null}
       {Array.from({ length: rows }, (_, index) => (
         <div
           key={index}
+          aria-hidden="true"
           className={cn(
             "flex items-center gap-6 border-b border-border last:border-b-0",
             size.control,
@@ -159,9 +179,10 @@ export function ListFooter({
         className,
       )}
     >
+      {/* Announced by the list's `ListStatus`, not here: a region that
+          mounts with its text is not reliably read. */}
       <p
         className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
-        aria-live="polite"
       >
         {`${shown.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}${more ? "+" : ""}`}
       </p>
@@ -179,6 +200,78 @@ export function ListFooter({
       ) : null}
     </div>
   );
+}
+
+/**
+ * A list's polite status region: always mounted, visually hidden, saying
+ * `message`. The words land a moment after they change (250ms), so a
+ * region that mounts with its first message still announces it, and typing
+ * a filter is read once it settles rather than per keystroke.
+ *
+ *   <ListStatus message={listStatusMessage({ … })} />
+ */
+export function ListStatus({ message }: { readonly message: string }) {
+  const [spoken, setSpoken] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSpoken(message);
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [message]);
+  return (
+    <p role="status" className="sr-only">
+      {spoken}
+    </p>
+  );
+}
+
+/** The words `ListStatus` says for a list's state. */
+export function listStatusMessage({
+  noun,
+  loading,
+  failed,
+  shown,
+  total,
+  more,
+  filtered,
+  filteredMessage,
+  loadingLabel,
+}: {
+  readonly noun: ListNoun;
+  /** The first read is in flight (no rows yet). */
+  readonly loading: boolean;
+  /** Words while loading. @default "Loading <many>" */
+  readonly loadingLabel?: string;
+  /** The first read failed (its error banner speaks for itself). */
+  readonly failed: boolean;
+  /** Rows on show after any filter. */
+  readonly shown: number;
+  /** Rows loaded. */
+  readonly total: number;
+  /** The server has more rows. */
+  readonly more: boolean;
+  /** A filter narrows the list. */
+  readonly filtered: boolean;
+  /** Words for a filtered list with nothing to show, when they are text. */
+  readonly filteredMessage?: string;
+}): string {
+  if (loading) {
+    return loadingLabel ?? `Loading ${noun.many}`;
+  }
+  if (failed) {
+    return "";
+  }
+  const plus = more ? "+" : "";
+  const word = (count: number) => (count === 1 && !more ? noun.one : noun.many);
+  if (filtered && shown === 0) {
+    return filteredMessage ?? `No loaded ${noun.many} match these filters.`;
+  }
+  if (filtered) {
+    return `${shown.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}${plus} ${word(total)}`;
+  }
+  return `${total.toLocaleString("en-US")}${plus} ${word(total)}`;
 }
 
 /** A filtered list with nothing left to show: the reason and a tertiary
@@ -253,7 +346,7 @@ export type ListSource = Pick<
 
 /** A list's noun, singular and plural, e.g. `{ one: "saved login", many:
  *  "saved logins" }`. */
-interface ListNoun {
+export interface ListNoun {
   readonly one: string;
   readonly many: string;
 }
@@ -343,12 +436,27 @@ export function ListBlock({
     );
   return (
     <>
+      <ListStatus
+        message={listStatusMessage({
+          noun,
+          loading: firstRead,
+          failed: false,
+          shown: visible,
+          total: total ?? loaded,
+          more,
+          filtered: narrowed,
+          filteredMessage:
+            typeof filteredMessage === "string" ? filteredMessage : undefined,
+          loadingLabel,
+        })}
+      />
       <RevealSwap
         loading={firstRead}
         skeleton={
           <LoadingRows
             rows={skeletonRows}
             label={loadingLabel ?? `Loading ${noun.many}`}
+            announce={false}
           />
         }
       >

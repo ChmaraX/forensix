@@ -8,7 +8,8 @@
  * Presentation rules enforced across the app:
  *  - the Completeness Statement (shown as "Evidence coverage") renders before
  *    any row;
- *  - TYPE is always the first column;
+ *  - TYPE is the first column of a table that mixes record types (the
+ *    Timeline, Downloads, Form data); a single-type table has none;
  *  - value / (empty) / absent / unavailable are distinct words, never color
  *    alone;
  *  - sidecar (WAL / rollback-journal) rows are a separate list from
@@ -18,16 +19,30 @@
  * The shell is Fluid Functionalism's App Sidebar block (sidebar-app):
  * SidebarProvider + an inset Sidebar + SidebarInset with its topbar. Pages
  * render inside one `reveal-product` column (see FLUID.md).
+ *
+ * The open page and its view live in the URL hash (router.ts,
+ * view-state.tsx): Back / Forward and a refresh restore them. On a page
+ * change the shell sets the document title, moves focus to the page's h1
+ * and announces the page in a polite live region; the topbar carries the
+ * Case-wide lens chip (date range, profiles) and the ⌘K trigger.
  */
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { callApi } from "./api.js";
 import logoMark from "./assets/forensix-logo.png";
 import { ARTIFACTS, SITES_COVERAGE, TIMELINE_COVERAGE } from "./artifacts.js";
+import { CaseCommandMenu } from "./command-menu.js";
 import { AutofillPage } from "./components/autofill-page.js";
 import { BookmarksPage } from "./components/bookmarks-page.js";
 import { CachePage } from "./components/cache-page.js";
 import {
+  caseProfilesOf,
   CoverageBanner,
   CoverageIndicator,
   coverageOf,
@@ -64,7 +79,9 @@ import {
   useSidebar,
 } from "./components/ui/sidebar.js";
 import { TooltipProvider } from "./components/ui/tooltip.js";
-import { ARTIFACT_ICONS, type AppIcon } from "./lib/app-icons.js";
+import { Button } from "./components/ui/button.js";
+import { CommandMenuShortcut } from "./components/ui/command-menu.js";
+import { ARTIFACT_ICONS, SearchIcon, type AppIcon } from "./lib/app-icons.js";
 import { FluidProvider } from "./lib/fluid-provider.js";
 import { fontWeights } from "./lib/font-weight.js";
 import { untitleduiIcons } from "./lib/icons-untitledui.js";
@@ -72,7 +89,15 @@ import { typeClass } from "./lib/size-context.js";
 import { SurfaceProvider } from "./lib/surface-context.js";
 import { cn } from "./lib/utils.js";
 import { OverviewPage } from "./overview.js";
+import { EVIDENCE_ORDER } from "./router.js";
+import { useGlobalRowKeys } from "./shortcuts.js";
 import { ThemeToggle } from "./theme.js";
+import { useLensSummary, ViewLensChip } from "./view-lens.js";
+import {
+  canonicalizeLocation,
+  openPage,
+  useViewLocation,
+} from "./view-state.js";
 import type {
   ArtifactConfig,
   CaseCompleteness,
@@ -126,21 +151,11 @@ interface NavGroup {
  */
 const NAV_ICONS: Readonly<Record<string, AppIcon>> = ARTIFACT_ICONS;
 /**
- * Evidence is ordered for investigation: activity first, then stored identity
- * data, with browser metadata last as context about the environment.
+ * Evidence is ordered for investigation (`EVIDENCE_ORDER`, router.ts, which
+ * ⌘K lists too): activity first, then stored identity data, with browser
+ * metadata last as context about the environment.
  */
-const EVIDENCE_KEYS = [
-  "history",
-  "downloads",
-  "bookmarks",
-  "top-sites",
-  "cookies",
-  "credentials",
-  "autofill",
-  "cache",
-  "favicons",
-  "metadata",
-] as const;
+const EVIDENCE_KEYS = EVIDENCE_ORDER;
 
 const EVIDENCE_TARGETS: readonly NavTarget[] = EVIDENCE_KEYS.flatMap((key) => {
   const config = ARTIFACTS.find((artifact) => artifact.key === key);
@@ -199,6 +214,17 @@ const DEFAULT_TARGET: NavTarget = NAV_GROUPS[0]?.targets[0] ?? {
   config: null,
   icon: ARTIFACT_ICONS.overview,
 };
+
+/** The nav target for a page key (unknown keys open the Overview). */
+function targetOf(key: string): NavTarget {
+  for (const group of NAV_GROUPS) {
+    const target = group.targets.find((entry) => entry.key === key);
+    if (target !== undefined) {
+      return target;
+    }
+  }
+  return DEFAULT_TARGET;
+}
 
 interface CaseContext {
   readonly completeness: CaseCompleteness;
@@ -271,7 +297,8 @@ function CaseSidebar({
   onSelect,
 }: {
   readonly activeKey: string;
-  readonly onSelect: (target: NavTarget) => void;
+  /** `fromDrawer`: picked in the phone drawer, which closes on the pick. */
+  readonly onSelect: (target: NavTarget, fromDrawer: boolean) => void;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
   return (
@@ -291,7 +318,7 @@ function CaseSidebar({
                     isActive={target.key === activeKey}
                     aria-current={target.key === activeKey ? "page" : undefined}
                     onClick={() => {
-                      onSelect(target);
+                      onSelect(target, isMobile);
                       if (isMobile) {
                         setOpenMobile(false);
                       }
@@ -342,7 +369,11 @@ function PageHeader({
   return (
     <header className="flex min-w-0 items-center justify-between gap-3 pt-2">
       <h1
-        className={cn(typeClass("display"), "min-w-0 text-foreground")}
+        tabIndex={-1}
+        className={cn(
+          typeClass("display"),
+          "min-w-0 text-foreground outline-none",
+        )}
         style={{ fontVariationSettings: fontWeights.bold }}
       >
         {title}
@@ -377,11 +408,9 @@ function UnreadPage({ target }: { readonly target: NavTarget }) {
 function ActivePage({
   target,
   context,
-  sitesPreselect,
 }: {
   readonly target: NavTarget;
   readonly context: CaseContext;
-  readonly sitesPreselect: string | null;
 }) {
   const { profiles } = context;
   const scope = coverageOf(context.completeness, coverageScopeOf(target));
@@ -398,7 +427,7 @@ function ActivePage({
     return <TimelinePage />;
   }
   if (target.sites === true) {
-    return <SitesPage initialHost={sitesPreselect} />;
+    return <SitesPage />;
   }
   const config = target.config;
   switch (config?.key) {
@@ -428,6 +457,142 @@ function ActivePage({
   }
 }
 
+/** The page's h1, made a programmatic focus target. */
+function headingIn(column: HTMLElement | null): HTMLElement | null {
+  const heading = column?.querySelector<HTMLElement>("h1") ?? null;
+  if (heading !== null && !heading.hasAttribute("tabindex")) {
+    heading.setAttribute("tabindex", "-1");
+    heading.classList.add("outline-none");
+  }
+  return heading;
+}
+
+/** Focus is somewhere a page change may take it from: nowhere, the nav,
+ *  the topbar, or the drawer trigger - never a field the user is in. */
+function focusIsFree(column: HTMLElement): boolean {
+  const active = document.activeElement;
+  return (
+    active === null ||
+    active === document.body ||
+    !column.contains(active) ||
+    active.matches("h1")
+  );
+}
+
+/**
+ * After a page change: focus the new page's h1 (waiting for it when the
+ * page builds its own, e.g. the Overview masthead after its read). After a
+ * pick in the phone drawer, the drawer hands focus back to its trigger as
+ * it closes; for a moment that hand-back is redirected to the heading too,
+ * so keyboard users continue from the page they opened.
+ */
+function focusPageHeading(
+  column: HTMLElement,
+  fromDrawer: boolean,
+): () => void {
+  const cleanups: (() => void)[] = [];
+  const focus = () => {
+    const heading = headingIn(column);
+    if (heading === null || !focusIsFree(column)) {
+      return heading !== null;
+    }
+    heading.focus({ preventScroll: true });
+    return true;
+  };
+  if (!focus()) {
+    const observer = new MutationObserver(() => {
+      if (focus()) {
+        observer.disconnect();
+      }
+    });
+    observer.observe(column, { childList: true, subtree: true });
+    const stop = setTimeout(() => {
+      observer.disconnect();
+    }, 5000);
+    cleanups.push(() => {
+      observer.disconnect();
+      clearTimeout(stop);
+    });
+  }
+  if (fromDrawer) {
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('[data-sidebar="trigger"]') !== null
+      ) {
+        headingIn(column)?.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener("focusin", onFocusIn);
+    const stop = setTimeout(() => {
+      document.removeEventListener("focusin", onFocusIn);
+    }, 1500);
+    cleanups.push(() => {
+      document.removeEventListener("focusin", onFocusIn);
+      clearTimeout(stop);
+    });
+  }
+  return () => {
+    for (const cleanup of cleanups) {
+      cleanup();
+    }
+  };
+}
+
+/** The polite live region's text, set so a repeat is announced again. A
+ *  message waits while a modal (⌘K, a sheet) still hides the page from
+ *  assistive tech, up to a second. */
+function useAnnouncer(): readonly [string, (message: string) => void] {
+  const [message, setMessage] = useState("");
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const announce = useCallback((next: string) => {
+    setMessage("");
+    if (timer.current !== null) {
+      clearTimeout(timer.current);
+    }
+    const started = Date.now();
+    const attempt = () => {
+      const hidden =
+        document.querySelector('[role="dialog"][data-state="open"]') !== null;
+      if (hidden && Date.now() - started < 1000) {
+        timer.current = setTimeout(attempt, 100);
+        return;
+      }
+      setMessage(next);
+    };
+    // A beat after the clear, so the same words are read again.
+    timer.current = setTimeout(attempt, 150);
+  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current !== null) {
+        clearTimeout(timer.current);
+      }
+    },
+    [],
+  );
+  return [message, announce] as const;
+}
+
+/** The topbar's ⌘K trigger: "Jump to" with its caps (icon only on a phone). */
+function JumpToButton({ onOpen }: { readonly onOpen: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="compact"
+      leadingIcon={SearchIcon}
+      onClick={onOpen}
+      aria-label="Jump to a page, host or day"
+      aria-keyshortcuts="Meta+K Control+K"
+      className="shrink-0 text-muted-foreground"
+    >
+      <span className="max-sm:sr-only">Jump to</span>
+      <CommandMenuShortcut keys="mod+k" className="ml-1 max-sm:hidden" />
+    </Button>
+  );
+}
+
 /**
  * Application shell.
  *
@@ -437,40 +602,82 @@ function ActivePage({
  * nothing it does not need, and the cookie FF uses would ride along on every
  * API request.
  *
+ * The open page comes from the URL (`useViewLocation`); a nav pick, an
+ * Overview jump link, a Related link or ⌘K all move the URL, so Back and
+ * Forward walk the same history.
+ *
  * The content column is one `reveal-product` container keyed by the page, so
  * each page fades in (header first, then the body) when it opens. The column
  * re-provides surface level 2 — the inset's own level — so Panels land on
  * surface 3 and popups walk up the ladder from there.
  */
 export function App() {
-  const [active, setActive] = useState<NavTarget>(DEFAULT_TARGET);
-  // Set only by the Top sites card's row click, and read only by the Sites
-  // page's own initial state — it is not "the current host", just the one
-  // pending handoff into a page the click is about to mount fresh.
-  const [sitesPreselect, setSitesPreselect] = useState<string | null>(null);
+  const location = useViewLocation();
+  const active = targetOf(location.page);
   const { context, error, retry } = useCaseContext();
+  const columnRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [announcement, announce] = useAnnouncer();
+  const lensSummary = useLensSummary();
+  // Set by a drawer pick, read by the page-change focus below.
+  const fromDrawer = useRef(false);
 
-  // A direct nav click always means "go here empty" — only the Top sites
-  // card's own click is allowed to carry a preselected host into Sites.
-  const selectTarget = useCallback((target: NavTarget) => {
-    setSitesPreselect(null);
-    setActive(target);
+  // An unknown or malformed hash shows what it parsed to.
+  useEffect(() => {
+    canonicalizeLocation();
+  }, []);
+
+  useGlobalRowKeys(columnRef);
+
+  const selectTarget = useCallback((target: NavTarget, drawer: boolean) => {
+    fromDrawer.current = drawer;
+    openPage(target.key);
   }, []);
 
   // The Overview's per-panel jump links resolve a section key against the
   // same NAV_GROUPS the sidebar renders, so a link can never point somewhere
-  // the sidebar does not. The optional second argument is the Top sites
-  // card's one extra case: a host to preselect once the Sites page mounts.
+  // the sidebar does not. The optional second argument is the host the
+  // Most visited card opens Sites on.
   const openSection = useCallback((key: string, param?: string) => {
-    for (const group of NAV_GROUPS) {
-      const target = group.targets.find((entry) => entry.key === key);
-      if (target !== undefined) {
-        setSitesPreselect(target.sites === true ? (param ?? null) : null);
-        setActive(target);
-        return;
-      }
+    const target = targetOf(key);
+    if (target.key !== key) {
+      return;
     }
+    openPage(
+      key,
+      target.sites === true && param !== undefined ? { host: param } : {},
+    );
   }, []);
+
+  // The tab's title names the page (and a Sites host), like any app.
+  const host = active.sites === true ? location.host : null;
+  useEffect(() => {
+    document.title = [host, active.label, "ForensiX"]
+      .filter((part) => part !== null)
+      .join(" · ");
+  }, [active.label, host]);
+
+  // A new page starts at the top, takes focus on its h1 and is announced.
+  // The first page of a visit only scrolls: focus stays where a fresh load
+  // puts it.
+  const firstPage = useRef(true);
+  useEffect(() => {
+    globalThis.scrollTo({ top: 0 });
+    if (firstPage.current) {
+      firstPage.current = false;
+      return;
+    }
+    const drawer = fromDrawer.current;
+    fromDrawer.current = false;
+    announce(active.label);
+    const column = columnRef.current;
+    return column === null ? undefined : focusPageHeading(column, drawer);
+  }, [active.key, active.label, announce]);
+
+  const clearedLens = useCallback(() => {
+    announce("Showing every day and every profile");
+    headingIn(columnRef.current)?.focus({ preventScroll: true });
+  }, [announce]);
 
   // Evidence coverage for the page on show (forensic rule 1): the indicator
   // for its title row and the banner for under it. Overview's scope is the
@@ -490,11 +697,6 @@ export function App() {
       />
     );
 
-  // A new page starts at the top, as a fresh screen would.
-  useEffect(() => {
-    globalThis.scrollTo({ top: 0 });
-  }, [active]);
-
   return (
     <FluidProvider icons={untitleduiIcons}>
       <TooltipProvider delayDuration={150}>
@@ -509,10 +711,12 @@ export function App() {
                 fade appear once the page scrolls (`.inset-topbar`). */}
             <div className="inset-topbar">
               <SidebarInsetTopbar className="px-2">
+                {/* Below `sm` the page's own h1 names the page right under
+                    the bar, so the trail gives its room to the lens chip. */}
                 <nav
                   aria-label="Breadcrumb"
                   className={cn(
-                    "flex min-w-0 items-center gap-1.5",
+                    "flex min-w-0 items-center gap-1.5 max-sm:hidden",
                     typeClass("body"),
                   )}
                 >
@@ -529,11 +733,32 @@ export function App() {
                     {active.label}
                   </span>
                 </nav>
+                <div className="ml-auto flex min-w-0 items-center gap-1">
+                  <ViewLensChip onClear={clearedLens} />
+                  <JumpToButton
+                    onOpen={() => {
+                      setMenuOpen(true);
+                    }}
+                  />
+                </div>
               </SidebarInsetTopbar>
             </div>
+            <div role="status" aria-live="polite" className="sr-only">
+              {announcement === ""
+                ? ""
+                : lensSummary === null
+                  ? announcement
+                  : `${announcement} - ${lensSummary}`}
+            </div>
+            <CaseCommandMenu
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
+              scope={columnRef}
+            />
             <SurfaceProvider value={2}>
               <div
                 key={active.key}
+                ref={columnRef}
                 className="reveal-product mx-auto flex w-full max-w-[1360px] min-w-0 flex-col gap-5 px-4 pb-10 md:px-8"
               >
                 {/* Overview builds its own masthead as its first block; the
@@ -548,6 +773,11 @@ export function App() {
                 {active.key === "overview" ? (
                   <OverviewPage
                     onOpen={openSection}
+                    caseProfiles={
+                      context === null
+                        ? undefined
+                        : caseProfilesOf(context.profiles, context.completeness)
+                    }
                     coverage={
                       context === null ? null : (
                         <CoverageIndicator
@@ -562,11 +792,7 @@ export function App() {
                 ) : context === null ? (
                   <LoadingRows className="px-0" />
                 ) : (
-                  <ActivePage
-                    target={active}
-                    context={context}
-                    sitesPreselect={sitesPreselect}
-                  />
+                  <ActivePage target={active} context={context} />
                 )}
               </div>
             </SurfaceProvider>

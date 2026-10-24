@@ -143,3 +143,49 @@ export const SITES_COVERAGE: readonly string[] = [
   "Top Sites",
   "Web Data",
 ];
+
+/**
+ * What each Finding kind is, in words, and which artifact page lists it:
+ * the row sheet's kind caption, the citation's artifact, the Related
+ * block's day. `time` is the field a row is dated by - the same field the
+ * Timeline orders it by where the Timeline lists the kind.
+ */
+export const FINDING_KINDS: Readonly<
+  Record<
+    string,
+    {
+      /** The kind as a person says it ("Page visit"). */
+      readonly noun: string;
+      /** The artifact page (`ArtifactConfig.key`) listing it. */
+      readonly artifact: string;
+      /** The timestamp field the row is dated by, if any. */
+      readonly time?: string;
+    }
+  >
+> = {
+  history_visit: { noun: "Page visit", artifact: "history", time: "visitTime" },
+  download: { noun: "Download", artifact: "downloads", time: "startTime" },
+  cookie: { noun: "Cookie", artifact: "cookies", time: "creationTime" },
+  autofill_entry: {
+    noun: "Form entry",
+    artifact: "autofill",
+    time: "dateLastUsed",
+  },
+  login_credential: {
+    noun: "Saved login",
+    artifact: "credentials",
+    time: "dateLastUsed",
+  },
+  top_site: { noun: "Top site", artifact: "top-sites" },
+  bookmark: { noun: "Bookmark", artifact: "bookmarks", time: "dateAdded" },
+  cache_entry: { noun: "Cache entry", artifact: "cache", time: "lastUsed" },
+  favicon: { noun: "Favicon", artifact: "favicons", time: "lastUpdated" },
+  browser_metadata: { noun: "Browser metadata", artifact: "metadata" },
+  profile_metadata: { noun: "Profile metadata", artifact: "metadata" },
+};
+
+/** The artifact's page label for a Finding kind ("History"), or null. */
+export function artifactLabelOfKind(kind: string): string | null {
+  const key = FINDING_KINDS[kind]?.artifact;
+  return ARTIFACTS.find((artifact) => artifact.key === key)?.label ?? null;
+}

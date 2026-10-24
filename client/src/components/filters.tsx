@@ -22,6 +22,7 @@ import {
 import { ChevronDownIcon, type AppIcon } from "@/lib/app-icons";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
+import { profileLabel } from "./finding-fields.js";
 
 /**
  * A caption label beside its control, on one toolbar line. Below the `sm`
@@ -157,11 +158,14 @@ export function ProfilePicker({
       </span>
     );
   }
+  // One profile name everywhere (`profileLabel`): "Default profile",
+  // "Profile 2", as the coverage detail and the row sheet write them.
+  const [only] = selected;
   const summary =
     selected.length === 0
       ? "All profiles"
-      : selected.length === 1
-        ? selected[0]
+      : selected.length === 1 && only !== undefined
+        ? profileLabel(only)
         : `${String(selected.length)} profiles`;
   const checked = new Set(
     profiles.flatMap((profile, index) =>
@@ -177,7 +181,7 @@ export function ProfilePicker({
           size="compact"
           trailingIcon={ChevronDownIcon}
           className="max-sm:justify-between"
-          aria-label={`Profiles: ${summary ?? "All profiles"}`}
+          aria-label={`Profiles: ${summary}`}
         >
           {summary}
         </Button>
@@ -190,7 +194,7 @@ export function ProfilePicker({
               <CheckboxItem
                 key={profile}
                 index={index}
-                label={profile}
+                label={profileLabel(profile)}
                 checked={active}
                 onToggle={() => {
                   onChange(
@@ -213,7 +217,7 @@ export function ProfilePicker({
                 onChange([]);
               }}
             >
-              Show every Profile
+              Show every profile
             </Button>
           </div>
         )}

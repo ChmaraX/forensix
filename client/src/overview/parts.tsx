@@ -6,8 +6,7 @@
  * `useFluidHover` highlight for that list, `EmptyRows` for empty lists, and
  * springs for the little motion there is (figure counts).
  */
-import { animate, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 import { EmptyRows } from "@/components/data-table";
 import { EvidenceDot } from "@/components/evidence";
@@ -36,18 +35,10 @@ import {
 } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { typeClass, useSize } from "@/lib/size-context";
-import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 import type { FieldState, Finding } from "@/types";
 
 import { domainOf, downloadFileName, type TopSite } from "./data";
-
-/** The enter half of a spring token, for `animate()` (which takes no exit). */
-const MODERATE = {
-  type: spring.moderate.type,
-  duration: spring.moderate.duration,
-  bounce: spring.moderate.bounce,
-};
 
 // ---------------------------------------------------------------------------
 // Jump link
@@ -155,45 +146,16 @@ export function Masthead({
 // Figure band
 // ---------------------------------------------------------------------------
 
-/**
- * Eases a figure to its true value on mount and whenever the value changes
- * (a range edit re-runs it, so the band visibly re-counts). It rides
- * `spring.moderate` — critically damped, so a count never overshoots past the
- * recorded number — and under reduced motion the true value renders at once.
- */
-function useCountUp(target: number): number {
-  const reduced = useReducedMotion() ?? false;
-  const [value, setValue] = useState(reduced ? target : 0);
-  const current = useRef(value);
-  useEffect(() => {
-    if (reduced) {
-      current.current = target;
-      setValue(target);
-      return;
-    }
-    const controls = animate(current.current, target, {
-      ...MODERATE,
-      onUpdate: (latest) => {
-        current.current = latest;
-        setValue(Math.round(latest));
-      },
-    });
-    return () => {
-      controls.stop();
-    };
-  }, [target, reduced]);
-  return value;
-}
-
+/** A count printed as recorded. Figures never count up or tween: every
+ *  in-between number would be a figure the evidence does not contain. */
 function CountValue({ count }: { readonly count: number }) {
-  const shown = useCountUp(count);
-  return <>{shown.toLocaleString("en-US")}</>;
+  return <>{count.toLocaleString("en-US")}</>;
 }
 
 export interface CaseFigure {
   readonly key: string;
   readonly label: ReactNode;
-  /** A number eases to its value; a string is printed as is. */
+  /** A number is printed as recorded; a string is printed as is. */
   readonly value: number | string;
   /** False when the value is a word for "nothing of that shape" (e.g. "No
    *  dated activity"), so it reads as a muted state, not a recorded figure. */

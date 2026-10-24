@@ -23,6 +23,8 @@ import {
   useState,
 } from "react";
 
+import { useViewTab } from "../view-state.js";
+
 import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
 import { MissingImageIcon, SearchIcon } from "@/lib/app-icons";
@@ -49,7 +51,6 @@ import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import {
   CommitStateSplit,
-  type CommitView,
   formatBytes,
   ResponsiveRows,
   type RowColumn,
@@ -360,7 +361,8 @@ function FiguresSkeleton() {
 export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, FAVICON_PARAMETERS);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const [view, setView] = useState<CommitView>("saved");
+  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  const [view, setView] = useViewTab();
   const [search, setSearch] = useState("");
   const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
 

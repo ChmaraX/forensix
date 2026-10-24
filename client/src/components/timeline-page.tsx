@@ -7,13 +7,15 @@
  */
 import { useMemo, useState } from "react";
 
+import { useRowSelection, useViewRange } from "../view-state.js";
+
 import type { QueryParameters } from "../api.js";
 import type { Finding } from "../types.js";
 import { usePaginatedList } from "../use-paginated-list.js";
 import { useActivity } from "./activity-data.js";
 import { dayRangeParameters } from "./day-bounds.js";
-import { RowSheet, secretFieldsOf, type SelectedRow } from "./row-sheet.js";
-import { TimelineActivityCard, type DayRange } from "./timeline-activity.js";
+import { RowSheet, secretFieldsOf } from "./row-sheet.js";
+import { TimelineActivityCard } from "./timeline-activity.js";
 import {
   TimelineRecordsCard,
   timelineEventLabel,
@@ -21,8 +23,8 @@ import {
 } from "./timeline-table.js";
 
 export function TimelinePage() {
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const [range, setRange] = useState<DayRange>({ from: "", to: "" });
+  // The range is the Case-wide one (the shell's lens, in the URL).
+  const [range, setRange] = useViewRange();
   const [direction, setDirection] = useState<TimelineDirection>("desc");
   // The chart's days are the Case's own days (core buckets activity in the
   // declared timezone of the Analysis Run), so a picked range goes to the
@@ -37,6 +39,8 @@ export function TimelinePage() {
     [range, direction, timeZone],
   );
   const list = usePaginatedList<Finding>("timeline", parameters);
+  // The open row lives in the URL: Back and a refresh re-open it.
+  const sheet = useRowSelection(list.rows);
 
   return (
     <div className="flex flex-col gap-5">
@@ -52,9 +56,7 @@ export function TimelinePage() {
         cursor={list.cursor}
         onLoadMore={list.loadMore}
         onRetry={list.retry}
-        onSelect={(row) => {
-          setSelected({ kind: "finding", row });
-        }}
+        onSelect={sheet.select}
         direction={direction}
         onDirectionChange={setDirection}
         rangeActive={range.from !== "" || range.to !== ""}
@@ -62,14 +64,12 @@ export function TimelinePage() {
           setRange({ from: "", to: "" });
         }}
       />
-      {selected !== null ? (
+      {sheet.selected !== null ? (
         <RowSheet
-          selected={selected}
-          title={timelineEventLabel(selected.row.findingKind)}
-          redactedFields={secretFieldsOf(selected.row)}
-          onClose={() => {
-            setSelected(null);
-          }}
+          selected={sheet.selected}
+          title={timelineEventLabel(sheet.selected.row.findingKind)}
+          redactedFields={secretFieldsOf(sheet.selected.row)}
+          onClose={sheet.close}
         />
       ) : null}
     </div>

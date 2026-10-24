@@ -21,6 +21,8 @@
  */
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
+import { useViewTab } from "../view-state.js";
+
 import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
@@ -63,7 +65,6 @@ import {
   ResponsiveRows,
   SectionPanel,
   TimeCell,
-  type CommitView,
   type RowColumn,
 } from "./page-kit.js";
 import { Term } from "./term.js";
@@ -646,7 +647,8 @@ function CookiesSkeleton() {
 export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, COOKIE_PARAMETERS);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const [view, setView] = useState<CommitView>("saved");
+  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  const [view, setView] = useViewTab();
   const [search, setSearch] = useState("");
   const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
   const [reveal, setReveal] = useState(false);

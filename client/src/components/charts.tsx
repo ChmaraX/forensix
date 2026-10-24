@@ -30,7 +30,8 @@
  * One series style (`SERIES`, `seriesColor`, `SeriesBar`), the same in light
  * and dark: the series is ink (`--foreground`) — FF's palette is neutral, so
  * a chart reads as part of the page rather than a coloured widget. Every bar
- * rests at one light step; exactly one thing is emphasised at full ink: the
+ * rests at one step (half ink, still 3:1 on its panel); exactly one thing is
+ * emphasised at full ink: the
  * selection when there is one, else the peak (ties share it). Bars outside
  * an active range dim further; the hovered bar lifts on `spring.fast`. A
  * zero draws nothing — no stub. Counts are integers, so they are drawn as
@@ -133,9 +134,15 @@ export function usePrefersReducedMotion(): boolean {
  * The one series style. Opacities of the ink series: `rest` for every bar,
  * `emphasis` for the selection (else the peak), `dimmed` outside an active
  * range. `range` is the wash behind an active range.
+ *
+ * `rest` is the lightest step a bar can take and still be seen: ink at 0.5
+ * is 3.4:1 on a light panel and 4.6:1 on a dark one (WCAG 1.4.11 asks 3:1
+ * of a graphic that carries the data's shape). `dimmed` is deliberately
+ * quiet — those days are outside the picked range, and the range wash
+ * says so.
  */
 export const SERIES = {
-  rest: 0.3,
+  rest: 0.5,
   emphasis: 1,
   dimmed: 0.1,
   range: 0.06,
@@ -453,13 +460,18 @@ export function activeIndexOf(
 }
 
 /**
- * Recharts 3 makes the plot focusable (its keyboard accessibility layer), and
- * the browser then draws its default outline on a mouse press. This keeps the
- * outline for keyboard focus only, as an FF focus ring. Put it on the
- * `ResponsiveContainer` (or any wrapper around a chart).
+ * For a chart that keeps Recharts' own keyboard layer (a focusable plot):
+ * the browser's outline is dropped on a pointer press and kept, as the 2px
+ * FF focus ring, for keyboard focus. Put it on the `ResponsiveContainer`
+ * (or any wrapper around a chart). The ready charts (`DayBars`,
+ * `ActivityBars`, `HourBars`) don't need it: their `ChartFrame` is the
+ * focusable element and draws the ring itself.
+ *
+ * (`:focus` and `:focus-visible` both match a keyboard-focused plot, so the
+ * outline is removed only for focus that is *not* focus-visible.)
  */
 export const CHART_FOCUS_CLASS =
-  "[&_:focus]:outline-none [&_:focus-visible]:rounded-lg [&_:focus-visible]:outline-1 [&_:focus-visible]:outline-offset-2 [&_:focus-visible]:outline-focus-ring";
+  "[&_:focus:not(:focus-visible)]:outline-none [&_:focus-visible]:rounded-lg [&_:focus-visible]:outline-2 [&_:focus-visible]:outline-solid [&_:focus-visible]:outline-offset-2 [&_:focus-visible]:outline-focus-ring";
 
 /** Centred note for a chart with nothing to draw (body, muted). */
 export function ChartEmpty({ children }: { readonly children: ReactNode }) {

@@ -29,14 +29,18 @@
  */
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { useViewTab } from "../view-state.js";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { CloseIcon, SearchIcon } from "@/lib/app-icons";
 import { spring } from "@/lib/springs";
 import type { ArtifactConfig, Finding } from "../types.js";
+import { useCaseTimeZone } from "./activity-data.js";
 import { usePrefersReducedMotion } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
+import { caseDayOf, inCaseDays } from "./day-bounds.js";
 import { fieldText } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
 import { RevealSwap } from "./list-states.js";
@@ -49,7 +53,6 @@ import {
   formatDay,
   formatDaySpan,
   plural,
-  type CommitView,
 } from "./page-kit.js";
 import {
   useDownloads,
@@ -80,10 +83,13 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
   const recoveredRead = joinRecovered(walRead, journalRead);
   const reduced = usePrefersReducedMotion();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const [view, setView] = useState<CommitView>("saved");
+  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  const [view, setView] = useViewTab();
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<FileKind | null>(null);
   const [range, setRange] = useState<DayRange>({ from: "", to: "" });
+  // Days are Case days: downloads bucket and filter on the Case's clock.
+  const { timeZone, settled: zoneSettled } = useCaseTimeZone();
   const [sort, setSort] = useState<SortState>({ key: "started", dir: "desc" });
 
   // Clicking a file kind (or picking a day range) narrows the table that sits
@@ -139,18 +145,9 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
   const modelInRange = useMemo(
     () =>
       hasRange
-        ? model.filter((row) => {
-            if (row.startUtc === null) {
-              return false;
-            }
-            const day = row.startUtc.slice(0, 10);
-            return (
-              (range.from === "" || day >= range.from) &&
-              (range.to === "" || day <= range.to)
-            );
-          })
+        ? model.filter((row) => inCaseDays(row.startUtc, range, timeZone))
         : model,
-    [model, hasRange, range],
+    [model, hasRange, range, timeZone],
   );
 
   const summary = useMemo(() => {
@@ -199,15 +196,8 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
         if (kindFilter !== null && row.kind !== kindFilter) {
           return false;
         }
-        if (hasRange) {
-          const day = row.startUtc?.slice(0, 10) ?? null;
-          if (
-            day === null ||
-            (range.from !== "" && day < range.from) ||
-            (range.to !== "" && day > range.to)
-          ) {
-            return false;
-          }
+        if (hasRange && !inCaseDays(row.startUtc, range, timeZone)) {
+          return false;
         }
         if (query === "") {
           return true;
@@ -222,7 +212,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
         return sort.dir === "asc" ? order : -order;
       });
     },
-    [search, kindFilter, hasRange, range, sort],
+    [search, kindFilter, hasRange, range, sort, timeZone],
   );
   const visibleSaved = useMemo(() => narrow(model), [narrow, model]);
   const visibleRecovered = useMemo(
@@ -239,8 +229,8 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
     summary.firstUtc === null || summary.lastUtc === null
       ? undefined
       : formatDaySpan(
-          summary.firstUtc.slice(0, 10),
-          summary.lastUtc.slice(0, 10),
+          caseDayOf(summary.firstUtc, timeZone) ?? "",
+          caseDayOf(summary.lastUtc, timeZone) ?? "",
         );
 
   // The date picker spans every dated download, saved or recovered: its
@@ -250,10 +240,10 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
       .flatMap((row) => (row.startUtc === null ? [] : [row.startUtc]))
       .sort();
     return {
-      min: days[0]?.slice(0, 10) ?? null,
-      max: days[days.length - 1]?.slice(0, 10) ?? null,
+      min: caseDayOf(days[0] ?? null, timeZone),
+      max: caseDayOf(days[days.length - 1] ?? null, timeZone),
     };
-  }, [model, recoveredModel]);
+  }, [model, recoveredModel, timeZone]);
 
   const recoveredTotal = recoveredRead.rows?.length ?? null;
 
@@ -269,7 +259,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
           failed it steps aside and the Saved tab carries the error. */}
       {savedRead.error !== null ? null : (
         <RevealSwap
-          loading={savedRead.rows === null}
+          loading={savedRead.rows === null || !zoneSettled}
           skeleton={<DownloadsLoading pages={savedRead.pages} />}
         >
           <div className="flex flex-col gap-5">
@@ -336,6 +326,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
                     rows={model}
                     range={range}
                     onRangeChange={setRange}
+                    timeZone={timeZone}
                   />
                 </div>
               </ChartSection>

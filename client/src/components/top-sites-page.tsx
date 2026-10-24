@@ -20,6 +20,8 @@
  */
 import { useCallback, useMemo, useState } from "react";
 
+import { useViewTab } from "../view-state.js";
+
 import { SearchIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 
@@ -45,7 +47,6 @@ import {
   CommitStateSplit,
   ResponsiveRows,
   SectionPanel,
-  type CommitView,
   type RowColumn,
 } from "./page-kit.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
@@ -249,7 +250,8 @@ function countOf(list: PaginatedList<unknown>): number | null {
 
 export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, RANK_ORDER);
-  const [view, setView] = useState<CommitView>("saved");
+  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  const [view, setView] = useViewTab();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
   const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);

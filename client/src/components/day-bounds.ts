@@ -15,6 +15,11 @@
  * different zones) the bounds are UTC days: the only clock left that does not
  * pick one run's zone over another's.
  *
+ * Pages that bucket or filter *loaded* rows by day (Downloads, Cache) use
+ * `caseDayOf` / `inCaseDays` / `caseDayTotals` with the same zone
+ * (`useCaseTimeZone()` in activity-data), so a moment falls on the same day
+ * on every page.
+ *
  * Pure (no React), unit-tested in `day-bounds.test.ts`.
  */
 
@@ -71,6 +76,11 @@ function partFormatter(timeZone: string): Intl.DateTimeFormat {
 }
 
 function dayAt(instantMs: number, timeZone: string): string {
+  // UTC needs no zone database: the ISO date is the day (and it is several
+  // times faster, which matters when a page buckets thousands of rows).
+  if (timeZone === "UTC") {
+    return new Date(instantMs).toISOString().slice(0, 10);
+  }
   return dayFormatter(timeZone).format(new Date(instantMs));
 }
 
@@ -174,4 +184,90 @@ export function localDayOf(
     return null;
   }
   return dayAt(instant, usableZone(timeZone));
+}
+
+/** An inclusive day range (`""` = an open side). */
+interface DayRange {
+  readonly from: string;
+  readonly to: string;
+}
+
+/**
+ * The Case day of a loaded row's instant: `localDayOf` under the name pages
+ * read it by. `timeZone` is the Case's declared zone
+ * (`useCaseTimeZone().timeZone`); null falls back to UTC days, the same rule
+ * as `dayRangeBounds`.
+ */
+export function caseDayOf(
+  utc: string | null,
+  timeZone: string | null,
+): string | null {
+  return localDayOf(utc, timeZone);
+}
+
+/**
+ * A loaded row's instant falls inside the day range on the Case's clock.
+ * The full span (`{ from: "", to: "" }`) holds every row; with a range set,
+ * a row with no recorded instant falls outside it.
+ */
+export function inCaseDays(
+  utc: string | null,
+  range: DayRange,
+  timeZone: string | null,
+): boolean {
+  if (range.from === "" && range.to === "") {
+    return true;
+  }
+  const day = localDayOf(utc, timeZone);
+  if (day === null) {
+    return false;
+  }
+  return (
+    (range.from === "" || day >= range.from) &&
+    (range.to === "" || day <= range.to)
+  );
+}
+
+/** One Case day of loaded rows: how many, and the sum of their weights. */
+export interface CaseDayTotal {
+  readonly date: string;
+  readonly count: number;
+  readonly weight: number;
+}
+
+/**
+ * Loaded rows bucketed by Case day: per day, the number of rows and the sum
+ * of `weightOf` (bytes, say; 0 without it). Rows with no recorded instant
+ * are left out. Sorted by day; days with no rows are absent (`fillGaps` in
+ * activity-data makes the axis continuous).
+ *
+ *   caseDayTotals(downloads, (row) => row.startUtc, timeZone,
+ *     (row) => row.receivedBytes ?? 0)
+ */
+export function caseDayTotals<Row>(
+  rows: readonly Row[],
+  utcOf: (row: Row) => string | null,
+  timeZone: string | null,
+  weightOf?: (row: Row) => number,
+): CaseDayTotal[] {
+  const zone = usableZone(timeZone);
+  const byDay = new Map<string, { count: number; weight: number }>();
+  for (const row of rows) {
+    const utc = utcOf(row);
+    if (utc === null) {
+      continue;
+    }
+    const instant = Date.parse(utc);
+    if (Number.isNaN(instant)) {
+      continue;
+    }
+    const day = dayAt(instant, zone);
+    const entry = byDay.get(day) ?? { count: 0, weight: 0 };
+    entry.count += 1;
+    entry.weight += weightOf?.(row) ?? 0;
+    byDay.set(day, entry);
+  }
+  return [...byDay.entries()]
+    .map(([date, entry]) => ({ date, ...entry }))
+    .sort((left, right) => left.date.localeCompare(right.date));
 }

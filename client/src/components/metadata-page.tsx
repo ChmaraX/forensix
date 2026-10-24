@@ -32,6 +32,8 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useViewTab } from "../view-state.js";
+
 import { Panel } from "@/components/panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,12 +81,7 @@ import {
 import { FilterField, FilterTextField } from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import {
-  CommitStateSplit,
-  type CommitView,
-  SectionPanel,
-  Toolbar,
-} from "./page-kit.js";
+import { CommitStateSplit, SectionPanel, Toolbar } from "./page-kit.js";
 import { Term } from "./term.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
@@ -691,7 +688,8 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, METADATA_PARAMETERS);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<CommitView>("saved");
+  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  const [view, setView] = useViewTab();
   const [focus, setFocus] = useState<string>(ALL_ROWS);
   const wide = useMediaQuery("(min-width: 768px)");
 

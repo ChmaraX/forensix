@@ -53,6 +53,8 @@ import { cn } from "@/lib/utils";
 // model" Sheet, until the topic-status route exists.
 import { TopicCategorizationLine } from "./overview-topic-widget.js";
 import { localDayOf } from "./components/day-bounds.js";
+import { profileLabel } from "./components/finding-fields.js";
+import { useViewRange } from "./view-state.js";
 import {
   fieldString,
   formatDay,
@@ -79,7 +81,12 @@ import {
 export function OverviewPage({
   onOpen,
   coverage,
+  caseProfiles,
 }: {
+  /** Every profile the Case knows (`caseProfilesOf`: the profiles route
+   *  plus any the Completeness Statement names), so the Profiles figure
+   *  agrees with the coverage detail. Omitted: the profiles route's list. */
+  readonly caseProfiles?: readonly string[];
   /** The shell's whole-Case coverage indicator, for the masthead's right.
    *  Overview carries no coverage banner. */
   readonly coverage?: ReactNode;
@@ -139,7 +146,12 @@ export function OverviewPage({
     <div className="reveal-swap">
       <LoadingOverview className="reveal-items" />
       {data === null ? null : (
-        <OverviewContent data={data} onOpen={onOpen} coverage={coverage} />
+        <OverviewContent
+          data={data}
+          onOpen={onOpen}
+          coverage={coverage}
+          caseProfiles={caseProfiles}
+        />
       )}
     </div>
   );
@@ -149,8 +161,10 @@ function OverviewContent({
   data,
   onOpen,
   coverage,
+  caseProfiles,
 }: {
   readonly coverage?: ReactNode;
+  readonly caseProfiles?: readonly string[];
   readonly data: OverviewData;
   readonly onOpen?: (key: string, param?: string) => void;
 }) {
@@ -170,8 +184,11 @@ function OverviewContent({
   // they sit under. The unset default keeps the full recorded span visible:
   // a rolling-window default would hide older evidence, which breaks the
   // promise that absence is data.
-  const [rangeFrom, setRangeFrom] = useState("");
-  const [rangeTo, setRangeTo] = useState("");
+  // The Case-wide range (the shell's lens, in the URL): it travels to the
+  // pages the Overview links to.
+  const [viewRange, setViewRange] = useViewRange();
+  const rangeFrom = viewRange.from;
+  const rangeTo = viewRange.to;
 
   // The true recorded span, read directly from the Case (not from the
   // possibly-truncated `activity` set). `recordedSpan` carries UTC instants,
@@ -358,6 +375,8 @@ function OverviewContent({
   // it is itself data (the quiet stretch's dates). A Case (or range) with
   // nothing of that shape says so in words, muted, rather than hiding the
   // reading. Everything read from `activity` counts saved visits only.
+  // Every profile the Case knows, so the figure agrees with the coverage.
+  const profiles = caseProfiles ?? data.profiles;
   const figures: readonly CaseFigure[] = [
     {
       key: "visits",
@@ -392,11 +411,13 @@ function OverviewContent({
     },
     {
       key: "profiles",
-      label: data.profiles.length === 1 ? "Profile" : "Profiles",
-      value: data.profiles.length,
+      label: profiles.length === 1 ? "Profile" : "Profiles",
+      value: profiles.length,
       recorded: true,
       valueTooltip:
-        data.profiles.length === 0 ? undefined : data.profiles.join(", "),
+        profiles.length === 0
+          ? undefined
+          : profiles.map((profile) => profileLabel(profile)).join(", "),
     },
   ];
 
@@ -437,10 +458,7 @@ function OverviewContent({
             // One wording on every date picker for the cleared range.
             triggerLabel="All recorded days"
             formatDate={formatDay}
-            onChange={({ from, to }) => {
-              setRangeFrom(from);
-              setRangeTo(to);
-            }}
+            onChange={setViewRange}
           />
         }
       />
@@ -464,11 +482,8 @@ function OverviewContent({
               <ActivityBars
                 days={chartDays}
                 tokens={tokens}
-                range={{ from: rangeFrom, to: rangeTo }}
-                onRangeChange={({ from, to }) => {
-                  setRangeFrom(from);
-                  setRangeTo(to);
-                }}
+                range={viewRange}
+                onRangeChange={setViewRange}
               />
             </div>
           </div>

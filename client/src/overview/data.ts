@@ -5,7 +5,7 @@
  */
 import { callApi } from "@/api";
 import { formatDay } from "@/components/page-kit";
-import { fetchActivity, type ActivityBucket } from "@/components/activity-data";
+import { caseActivity, type ActivityBucket } from "@/components/activity-data";
 import { dayRangeParameters, localDayOf } from "@/components/day-bounds";
 import { fetchSiteFavicons } from "@/components/site-favicons";
 import { fieldString, fieldUtc } from "@/components/finding-fields";
@@ -30,7 +30,7 @@ export interface OverviewData {
    *  the charts below cover less than the full recorded span, and the screen
    *  must say so. */
   readonly activityComplete: boolean;
-  /** The declared timezone the activity days are in (`fetchActivity`), or
+  /** The declared timezone the activity days are in (`caseActivity`), or
    *  null (then days are UTC days). Day ranges and row days use it. */
   readonly timeZone: string | null;
   /** The Case's true first and last saved visit, read directly from the
@@ -242,7 +242,7 @@ export async function loadOverview(): Promise<OverviewData> {
     metadataPage,
     downloadsPage,
   ] = await Promise.all([
-    fetchActivity(),
+    caseActivity(),
     fetchRecordedSpan(),
     callApi<PageOf<Finding>>("history", [
       ["view", "most-visited"],

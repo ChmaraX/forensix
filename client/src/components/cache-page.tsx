@@ -25,6 +25,8 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useViewTab } from "../view-state.js";
+
 import { Panel } from "@/components/panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
@@ -33,7 +35,7 @@ import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
 import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
-import { fillGaps } from "./activity-data.js";
+import { fillGaps, useCaseTimeZone } from "./activity-data.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { useChartTokens, type ChartTokens, type DayCount } from "./charts.js";
@@ -50,10 +52,13 @@ import {
   TwoLineCell,
   profileLabel,
 } from "./finding-fields.js";
+import { caseDayTotals, inCaseDays } from "./day-bounds.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import {
   ErrorRows,
   ListFooter,
+  ListStatus,
+  listStatusMessage,
   LoadingRows,
   RevealSwap,
 } from "./list-states.js";
@@ -62,7 +67,6 @@ import {
   CHART_HEIGHT,
   formatDay,
   CommitStateSplit,
-  type CommitView,
   formatBytes,
   plural,
   ResponsiveRows,
@@ -300,19 +304,13 @@ const FULL_SPAN: DayRange = { from: "", to: "" };
 
 /** An entry's last-used day falls in the range; with a range set, an entry
  *  with no last-used time falls outside it. */
-function lastUsedIn(row: Finding, range: DayRange): boolean {
-  if (range.from === "" && range.to === "") {
-    return true;
-  }
-  const utc = fieldUtc(row.fields.lastUsed);
-  if (utc === null) {
-    return false;
-  }
-  const day = utc.slice(0, 10);
-  return (
-    (range.from === "" || day >= range.from) &&
-    (range.to === "" || day <= range.to)
-  );
+function lastUsedIn(
+  row: Finding,
+  range: DayRange,
+  timeZone: string | null,
+): boolean {
+  // Days are Case days: the same clock as History and Timeline.
+  return inCaseDays(fieldUtc(row.fields.lastUsed), range, timeZone);
 }
 
 /**
@@ -327,26 +325,26 @@ function LastUsedPanel({
   range,
   onRangeChange,
   tokens,
+  timeZone,
 }: {
   readonly rows: readonly Finding[];
   readonly range: DayRange;
   readonly onRangeChange: (range: DayRange) => void;
   readonly tokens: ChartTokens;
+  /** The Case's declared timezone (`useCaseTimeZone`); null = UTC days. */
+  readonly timeZone: string | null;
 }) {
-  const days = useMemo(() => {
-    const byDate = new Map<string, number>();
-    for (const row of rows) {
-      const utc = fieldUtc(row.fields.lastUsed);
-      if (utc !== null) {
-        const date = utc.slice(0, 10);
-        byDate.set(date, (byDate.get(date) ?? 0) + 1);
-      }
-    }
-    const recorded = [...byDate.entries()]
-      .map(([date, count]): DayCount => ({ date, count }))
-      .sort((left, right) => left.date.localeCompare(right.date));
-    return fillGaps(recorded);
-  }, [rows]);
+  const days = useMemo(
+    () =>
+      fillGaps(
+        caseDayTotals(
+          rows,
+          (row) => fieldUtc(row.fields.lastUsed),
+          timeZone,
+        ).map(({ date, count }): DayCount => ({ date, count })),
+      ),
+    [rows, timeZone],
+  );
 
   return (
     <ChartSection
@@ -372,6 +370,7 @@ function LastUsedPanel({
             days={days}
             tokens={tokens}
             unit={CACHE_ENTRY_UNIT}
+            title="Saved cache entries by day last used"
             range={range}
             onRangeChange={onRangeChange}
             emptyMessage="No saved entries carry a last-used time."
@@ -608,9 +607,25 @@ function EntryList({
   const filtered = visible.length !== rows.length;
   return (
     <>
+      <ListStatus
+        message={listStatusMessage({
+          noun: { one: `${noun} cache entry`, many: `${noun} cache entries` },
+          loading,
+          failed: false,
+          shown: visible.length,
+          total: rows.length,
+          more: !complete,
+          filtered,
+        })}
+      />
       <RevealSwap
         loading={loading}
-        skeleton={<LoadingRows label={`Loading ${noun} cache entries`} />}
+        skeleton={
+          <LoadingRows
+            label={`Loading ${noun} cache entries`}
+            announce={false}
+          />
+        }
       >
         {visible.length === 0 ? (
           <EmptyRows
@@ -678,10 +693,13 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
   const list = useCacheEntries(config.route);
   const tokens = useChartTokens();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const [view, setView] = useState<CommitView>("saved");
+  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  const [view, setView] = useViewTab();
   const [search, setSearch] = useState("");
   const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
   const [range, setRange] = useState<DayRange>(FULL_SPAN);
+  // Days are Case days: entries bucket and filter on the Case's clock.
+  const { timeZone, settled: zoneSettled } = useCaseTimeZone();
 
   // The Cache route cannot filter by Commit State: split the one loaded set.
   const all = useMemo(() => splitByCommit(list.rows), [list.rows]);
@@ -695,7 +713,7 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
     (rows: readonly Finding[]) => {
       const query = search.trim().toLocaleLowerCase("en-US");
       return rows.filter((row) => {
-        if (!lastUsedIn(row, range)) {
+        if (!lastUsedIn(row, range, timeZone)) {
           return false;
         }
         if (profileFilter.length > 0 && !profileFilter.includes(row.profile)) {
@@ -714,13 +732,13 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
         return haystack.includes(query);
       });
     },
-    [search, profileFilter, range],
+    [search, profileFilter, range, timeZone],
   );
   // The figures follow the date range (not the search or profile filter,
   // which only narrow the lists).
   const savedInRange = useMemo(
-    () => all.saved.filter((row) => lastUsedIn(row, range)),
-    [all.saved, range],
+    () => all.saved.filter((row) => lastUsedIn(row, range, timeZone)),
+    [all.saved, range, timeZone],
   );
   const savedVisible = useMemo(() => narrow(all.saved), [narrow, all.saved]);
   const recoveredVisible = useMemo(
@@ -773,7 +791,10 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
       ) : (
         <>
           {showFigures ? (
-            <RevealSwap loading={list.loading} skeleton={<FiguresSkeleton />}>
+            <RevealSwap
+              loading={list.loading || !zoneSettled}
+              skeleton={<FiguresSkeleton />}
+            >
               <div className="flex flex-col gap-5">
                 <CacheSummary rows={savedInRange} complete={list.complete} />
                 <LastUsedPanel
@@ -781,6 +802,7 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
                   range={range}
                   onRangeChange={setRange}
                   tokens={tokens}
+                  timeZone={timeZone}
                 />
               </div>
             </RevealSwap>

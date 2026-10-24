@@ -50,6 +50,28 @@ export function artifactLabel(artifact: string): string {
   );
 }
 
+/**
+ * Every profile the Case knows: the profiles route's list, then any other
+ * profile the Completeness Statement names (a Guest profile whose databases
+ * were absent or unreadable still exists in the Case). The one count of
+ * "Profiles" every page states, so it always agrees with the coverage
+ * detail. The browser-wide "." entry (Local State) is not a profile.
+ */
+export function caseProfilesOf(
+  profiles: readonly string[],
+  completeness: CaseCompleteness | null,
+): readonly string[] {
+  const all = new Set(profiles);
+  for (const statement of completeness?.statements ?? []) {
+    for (const database of statement.artifacts) {
+      if (database.profile !== "" && database.profile !== ".") {
+        all.add(database.profile);
+      }
+    }
+  }
+  return [...all];
+}
+
 /** The coverage of one scope, summed over its statements. */
 export interface CoverageScope {
   readonly statements: readonly CompletenessStatement[];

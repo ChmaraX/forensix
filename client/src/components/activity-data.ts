@@ -1,6 +1,8 @@
 /**
  * The shared `history` `view=activity` read (Overview, History, Timeline):
- * one fetch loop, one gap-fill algorithm, used everywhere this data appears.
+ * one fetch loop, read once per Case (`caseActivity`), one gap-fill
+ * algorithm, used everywhere this data appears; and the Case's declared
+ * timezone for pages that bucket loaded rows by day (`useCaseTimeZone`).
  *
  * Saved and recovered stay apart (forensic rule 4). Core writes one activity
  * row per Profile, Commit State, local date and hour, so the read keeps each
@@ -113,7 +115,29 @@ export async function fetchActivity(): Promise<SplitActivity> {
   };
 }
 
-/** `fetchActivity` as a hook. `activity` stays `null` while the read is in
+/**
+ * The Case's activity read, shared: the first caller starts one
+ * `fetchActivity`, every later caller (another page, the next visit to the
+ * same page) gets the same answer. The Case is read-only, so the answer
+ * cannot go stale; a failed read is forgotten so the next caller tries
+ * again, and `refresh` forces a new read (Retry).
+ */
+let sharedActivity: Promise<SplitActivity> | null = null;
+
+export function caseActivity(refresh = false): Promise<SplitActivity> {
+  if (refresh || sharedActivity === null) {
+    const read = fetchActivity();
+    sharedActivity = read;
+    read.catch(() => {
+      if (sharedActivity === read) {
+        sharedActivity = null;
+      }
+    });
+  }
+  return sharedActivity;
+}
+
+/** `caseActivity` as a hook. `activity` stays `null` while the read is in
  *  flight and after a failure (`error` set); `retry` reads again. */
 export function useActivity(): {
   readonly activity: SplitActivity | null;
@@ -128,7 +152,7 @@ export function useActivity(): {
     let cancelled = false;
     setActivity(null);
     setError(null);
-    fetchActivity()
+    caseActivity(nonce > 0)
       .then((result) => {
         if (!cancelled) {
           setActivity(result);
@@ -153,6 +177,44 @@ export function useActivity(): {
   }, []);
 
   return { activity, error, retry };
+}
+
+/**
+ * The Case's declared timezone — the clock every per-day chart and day
+ * filter reads (FLUID.md, "Days are Case days") — for pages that bucket
+ * loaded rows themselves (Downloads, Cache): pass it to `caseDayTotals` /
+ * `inCaseDays` (day-bounds). `settled` is false while the shared activity
+ * read is in flight; draw the per-day chart only once it is true, so days
+ * never jump from UTC to Case days under the reader. `timeZone` null (no
+ * single declared zone, or the read failed) means UTC days, the same
+ * fallback as `dayRangeBounds`.
+ */
+export function useCaseTimeZone(): {
+  readonly timeZone: string | null;
+  readonly settled: boolean;
+} {
+  const [state, setState] = useState<{
+    readonly timeZone: string | null;
+    readonly settled: boolean;
+  }>({ timeZone: null, settled: false });
+  useEffect(() => {
+    let cancelled = false;
+    caseActivity()
+      .then((result) => {
+        if (!cancelled) {
+          setState({ timeZone: result.timeZone, settled: true });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setState({ timeZone: null, settled: true });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return state;
 }
 
 function inRange(

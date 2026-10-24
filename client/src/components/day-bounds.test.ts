@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  caseDayOf,
+  caseDayTotals,
   dayRangeBounds,
   dayRangeParameters,
+  inCaseDays,
   localDayOf,
 } from "./day-bounds.js";
 
@@ -95,5 +98,67 @@ describe("localDayOf", () => {
   it("returns null for no instant or an unparseable one", () => {
     expect(localDayOf(null, "UTC")).toBeNull();
     expect(localDayOf("not a time", "UTC")).toBeNull();
+  });
+});
+
+describe("Case-day bucketing of loaded rows", () => {
+  // 23:30 in New York on 4 Mar is 04:30 UTC on 5 Mar.
+  const late = "2024-03-05T04:30:00.000000Z";
+  const rows = [
+    { utc: late, bytes: 100 },
+    { utc: "2024-03-05T15:00:00.000000Z", bytes: 50 },
+    { utc: null, bytes: 999 },
+    { utc: "not a time", bytes: 7 },
+  ];
+
+  it("reads a row's day on the Case's clock, UTC without a zone", () => {
+    expect(caseDayOf(late, "America/New_York")).toBe("2024-03-04");
+    expect(caseDayOf(late, null)).toBe("2024-03-05");
+    expect(caseDayOf(late, "Not/AZone")).toBe("2024-03-05");
+  });
+
+  it("buckets per Case day with counts and summed weights", () => {
+    expect(
+      caseDayTotals(
+        rows,
+        (row) => row.utc,
+        "America/New_York",
+        (row) => row.bytes,
+      ),
+    ).toEqual([
+      { date: "2024-03-04", count: 1, weight: 100 },
+      { date: "2024-03-05", count: 1, weight: 50 },
+    ]);
+    expect(caseDayTotals(rows, (row) => row.utc, null)).toEqual([
+      { date: "2024-03-05", count: 2, weight: 0 },
+    ]);
+  });
+
+  it("filters by the same days the chart draws", () => {
+    const day = { from: "2024-03-04", to: "2024-03-04" };
+    expect(inCaseDays(late, day, "America/New_York")).toBe(true);
+    expect(inCaseDays(late, day, null)).toBe(false);
+    expect(inCaseDays(late, { from: "2024-03-05", to: "" }, null)).toBe(true);
+    // The full span holds every row; a set range never holds an undated one.
+    expect(inCaseDays(null, { from: "", to: "" }, null)).toBe(true);
+    expect(inCaseDays(null, { from: "", to: "2024-03-09" }, null)).toBe(false);
+  });
+
+  it("agrees with the server bounds of the same day", () => {
+    const zone = "Asia/Tokyo";
+    const { from, to } = dayRangeBounds(
+      { from: "2024-01-15", to: "2024-01-15" },
+      zone,
+    );
+    const range = { from: "2024-01-15", to: "2024-01-15" };
+    expect(inCaseDays(from, range, zone)).toBe(true);
+    expect(inCaseDays(to, range, zone)).toBe(true);
+    expect(
+      inCaseDays(
+        new Date(Date.parse(from ?? "") - 1).toISOString(),
+        range,
+        zone,
+      ),
+    ).toBe(false);
   });
 });

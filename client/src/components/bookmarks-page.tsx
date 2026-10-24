@@ -23,6 +23,8 @@
  * Missing values read as their own state word. This page is read-only.
  */
 import { useCallback, useMemo, useState } from "react";
+
+import { useViewTab } from "../view-state.js";
 import { Panel } from "@/components/panel";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -56,7 +58,6 @@ import {
   ResponsiveRows,
   SectionPanel,
   TimeCell,
-  type CommitView,
   type RowColumn,
 } from "./page-kit.js";
 import { Term } from "./term.js";
@@ -307,7 +308,8 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
   );
   const savedDone = lists.drained.saved;
   const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const [view, setView] = useState<CommitView>("saved");
+  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  const [view, setView] = useViewTab();
   const [search, setSearch] = useState("");
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
 

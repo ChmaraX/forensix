@@ -20,6 +20,8 @@
  */
 import { useCallback, useMemo, useState } from "react";
 
+import { useViewTab } from "../view-state.js";
+
 import { Panel } from "@/components/panel";
 import {
   Card,
@@ -69,7 +71,6 @@ import {
   ResponsiveRows,
   SectionPanel,
   TimeCell,
-  type CommitView,
   type RowColumn,
 } from "./page-kit.js";
 
@@ -406,7 +407,8 @@ export function CredentialsPage({
   const savedDone = lists.drained.saved;
   const recoveredDone = lists.drained.recovered;
   const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const [view, setView] = useState<CommitView>("saved");
+  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  const [view, setView] = useViewTab();
   const [search, setSearch] = useState("");
 
   const saved = lists.saved.rows;

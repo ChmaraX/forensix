@@ -15,8 +15,30 @@
  * Clickable rows (`onSelect`) answer click, Enter and Space in both
  * layouts; the table rows keep FF's own fluid hover, and the cards get the
  * same one-highlight-per-list (`useFluidHover` + `FluidHoverHighlight`).
+ * J / K (and ↑ / ↓ on a row) move between rows (`useRowKeyboardNav`).
+ *
+ * Built for Case-sized lists (thousands of rows):
+ *  - one layout is mounted, picked by `matchMedia` (`useMediaQuery`), never
+ *    both with one hidden by CSS;
+ *  - past `WINDOW_THRESHOLD` rows the list is windowed (`useWindowedRows`):
+ *    only rows near the viewport are in the DOM, the table keeps its
+ *    semantics (`aria-rowcount` on the table, `aria-rowindex` on each row;
+ *    `aria-setsize` / `aria-posinset` on the cards), and the focused row
+ *    stays mounted;
+ *  - rows are memoised: pass stable `columns`, `rowKey`, `onSelect` and
+ *    `rowLabel` (module constants or `useMemo` / `useCallback`) and a
+ *    scroll or a parent re-render re-renders no row;
+ *  - the `reveal-items` hand-over plays once, for the rows on show when the
+ *    list lands; rows that mount later (scrolling, filtering) just appear.
  */
-import { Fragment, useRef, type ReactNode } from "react";
+import {
+  Fragment,
+  memo,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
 import {
@@ -35,7 +57,15 @@ import {
 import { SizeProvider, useSize, type SizeVariant } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
+import { useRowKeyboardNav } from "../shortcuts.js";
 import { activateOnKey, ROW_FOCUS_CLASS } from "./data-table.js";
+import { SM_UP, useMediaQuery } from "./use-media-query.js";
+import {
+  ROW_INDEX_ATTRIBUTE,
+  useWindowedRows,
+  WINDOW_THRESHOLD,
+  type WindowItem,
+} from "./use-windowed-rows.js";
 
 export interface RowColumn<Row> {
   readonly key: string;
@@ -59,13 +89,14 @@ export interface RowColumn<Row> {
 
 /**
  * An evidence list that is a table on wide screens and stacked row cards
- * below `sm`. See the module note for the column roles.
+ * below `sm`. See the module note for the column roles and for what keeps
+ * a long list fast.
  *
  *   <ResponsiveRows
  *     rows={rows}
  *     columns={VISIT_COLUMNS}
- *     rowKey={(row, i) => `${row.commitState}-${i}`}
- *     rowLabel={(row) => `Open visit row detail: ${title(row)}`}
+ *     rowKey={visitKey}
+ *     rowLabel={visitLabel}
  *     onSelect={onSelect}
  *     tableClassName="min-w-[760px]"
  *   />
@@ -93,68 +124,178 @@ export function ResponsiveRows<Row>({
   readonly size?: SizeVariant;
   readonly className?: string;
 }) {
+  const wide = useMediaQuery(SM_UP);
+  const navRef = useRef<HTMLDivElement>(null);
+  useRowKeyboardNav(navRef);
+  const revealing = useFirstReveal();
+  const shared = { rows, columns, rowKey, onSelect, rowLabel, size, revealing };
   return (
-    <div className={cn("min-w-0", className)}>
-      <div className="scroll-fade-x overflow-x-auto px-1 py-1 max-sm:hidden [&_tbody>tr:last-child]:border-transparent">
-        <Table size={size} className={tableClassName}>
-          <TableHeader>
-            <TableRow>
-              {columns.map((column) => (
-                <TableHead
-                  key={column.key}
-                  className={cn("whitespace-nowrap", column.className)}
-                >
-                  {column.header}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody className="reveal-items">
-            {rows.map((row, index) => {
-              const open =
-                onSelect === undefined
-                  ? undefined
-                  : () => {
-                      onSelect(row);
-                    };
-              return (
-                <TableRow
-                  key={rowKey(row, index)}
-                  index={index}
-                  tabIndex={open === undefined ? undefined : 0}
-                  aria-label={rowLabel?.(row, index)}
-                  onClick={open}
-                  onKeyDown={
-                    open === undefined
-                      ? undefined
-                      : (event) => {
-                          activateOnKey(event, open);
-                        }
-                  }
-                  className={open === undefined ? undefined : ROW_FOCUS_CLASS}
-                >
-                  {columns.map((column) => (
-                    <TableCell key={column.key} className={column.className}>
-                      {column.cell(row, index)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-      <StackedRows
-        rows={rows}
-        columns={columns}
-        rowKey={rowKey}
-        onSelect={onSelect}
-        rowLabel={rowLabel}
-        size={size}
-      />
+    <div ref={navRef} className={cn("min-w-0", className)}>
+      {wide ? (
+        <TableRows {...shared} tableClassName={tableClassName} />
+      ) : (
+        <StackedRows {...shared} />
+      )}
     </div>
   );
 }
+
+/** True while the list's first rows hand over (`reveal-items`, 8 steps of
+ *  60ms plus a 200ms entrance); after that rows mount without motion. */
+function useFirstReveal(): boolean {
+  const [revealing, setRevealing] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setRevealing(false);
+    }, 800);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
+  return revealing;
+}
+
+interface RowsProps<Row> {
+  readonly rows: readonly Row[];
+  readonly columns: readonly RowColumn<Row>[];
+  readonly rowKey: (row: Row, index: number) => string;
+  readonly onSelect?: (row: Row) => void;
+  readonly rowLabel?: (row: Row, index: number) => string;
+  readonly size?: SizeVariant;
+  readonly revealing: boolean;
+}
+
+/** Estimated heights before a row is measured: a 36px table row plus its
+ *  hairline, a two-line card. */
+const TABLE_ROW_ESTIMATE = 37;
+const CARD_ESTIMATE = 64;
+
+function TableRows<Row>({
+  rows,
+  columns,
+  rowKey,
+  onSelect,
+  rowLabel,
+  size,
+  revealing,
+  tableClassName,
+}: RowsProps<Row> & { readonly tableClassName?: string }) {
+  const windowed = rows.length > WINDOW_THRESHOLD;
+  const { listRef, items } = useWindowedRows({
+    count: rows.length,
+    estimate: TABLE_ROW_ESTIMATE,
+    enabled: windowed,
+    resetKey: rows,
+  });
+  return (
+    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
+      <Table
+        size={size}
+        className={tableClassName}
+        aria-rowcount={windowed ? rows.length + 1 : undefined}
+      >
+        <TableHeader>
+          <TableRow aria-rowindex={windowed ? 1 : undefined}>
+            {columns.map((column) => (
+              <TableHead
+                key={column.key}
+                className={cn("whitespace-nowrap", column.className)}
+              >
+                {column.header}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody
+          ref={listRef}
+          data-row-nav-list=""
+          className={revealing ? "reveal-items" : undefined}
+        >
+          {items.map((item) => {
+            if (item.kind === "gap") {
+              return (
+                <tr key={item.key} aria-hidden="true">
+                  <td
+                    colSpan={columns.length}
+                    style={{ height: item.height, padding: 0, border: 0 }}
+                  />
+                </tr>
+              );
+            }
+            const row = rows[item.index] as Row;
+            return (
+              <BodyRow
+                key={rowKey(row, item.index)}
+                row={row}
+                index={item.index}
+                columns={columns}
+                onSelect={onSelect}
+                label={rowLabel?.(row, item.index)}
+                windowed={windowed}
+              />
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/** One table row; re-renders only when its own props change. */
+const BodyRow = memo(function BodyRow<Row>({
+  row,
+  index,
+  columns,
+  onSelect,
+  label,
+  windowed,
+}: {
+  readonly row: Row;
+  readonly index: number;
+  readonly columns: readonly RowColumn<Row>[];
+  readonly onSelect?: (row: Row) => void;
+  readonly label?: string;
+  readonly windowed: boolean;
+}) {
+  const open =
+    onSelect === undefined
+      ? undefined
+      : () => {
+          onSelect(row);
+        };
+  return (
+    <TableRow
+      index={index}
+      {...{ [ROW_INDEX_ATTRIBUTE]: index }}
+      data-row-nav={open === undefined ? undefined : ""}
+      aria-rowindex={windowed ? index + 2 : undefined}
+      tabIndex={open === undefined ? undefined : 0}
+      aria-label={label}
+      onClick={open}
+      onKeyDown={
+        open === undefined
+          ? undefined
+          : (event) => {
+              activateOnKey(event, open);
+            }
+      }
+      className={open === undefined ? undefined : ROW_FOCUS_CLASS}
+    >
+      {columns.map((column) => (
+        <TableCell key={column.key} className={column.className}>
+          {column.cell(row, index)}
+        </TableCell>
+      ))}
+    </TableRow>
+  );
+}) as <Row>(props: {
+  readonly row: Row;
+  readonly index: number;
+  readonly columns: readonly RowColumn<Row>[];
+  readonly onSelect?: (row: Row) => void;
+  readonly label?: string;
+  readonly windowed: boolean;
+}) => ReactNode;
 
 function StackedRows<Row>({
   rows,
@@ -163,47 +304,83 @@ function StackedRows<Row>({
   onSelect,
   rowLabel,
   size,
-}: {
-  readonly rows: readonly Row[];
-  readonly columns: readonly RowColumn<Row>[];
-  readonly rowKey: (row: Row, index: number) => string;
-  readonly onSelect?: (row: Row) => void;
-  readonly rowLabel?: (row: Row, index: number) => string;
-  readonly size?: SizeVariant;
-}) {
+  revealing,
+}: RowsProps<Row>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const hover = useFluidHover(containerRef, { axis: "y" });
   const clickable = onSelect !== undefined;
+  const windowed = rows.length > WINDOW_THRESHOLD;
+  const { listRef, items } = useWindowedRows({
+    count: rows.length,
+    estimate: CARD_ESTIMATE,
+    enabled: windowed,
+    resetKey: rows,
+  });
   return (
     <div
       ref={containerRef}
       {...(clickable ? hover.handlers : {})}
-      className="relative px-1 py-1 sm:hidden"
+      className="relative px-1 py-1"
     >
       {clickable ? (
         <FluidHoverHighlight hover={hover} className="rounded-lg" />
       ) : null}
-      <ul className="reveal-items flex flex-col divide-y divide-border">
-        {rows.map((row, index) => (
-          <StackedRow
-            key={rowKey(row, index)}
-            row={row}
-            index={index}
-            columns={columns}
-            onSelect={onSelect}
-            label={rowLabel?.(row, index)}
-            hover={clickable ? hover : undefined}
-            size={size}
-          />
-        ))}
+      <ul
+        ref={listRef}
+        data-row-nav-list=""
+        className={cn(
+          "flex flex-col divide-y divide-border",
+          revealing && "reveal-items",
+        )}
+      >
+        {items.map((item: WindowItem) => {
+          if (item.kind === "gap") {
+            return (
+              <li
+                key={item.key}
+                aria-hidden="true"
+                style={{ height: item.height }}
+              />
+            );
+          }
+          const row = rows[item.index] as Row;
+          return (
+            <StackedRow
+              key={rowKey(row, item.index)}
+              row={row}
+              index={item.index}
+              setSize={windowed ? rows.length : undefined}
+              columns={columns}
+              onSelect={onSelect}
+              label={rowLabel?.(row, item.index)}
+              hover={clickable ? hover : undefined}
+              size={size}
+            />
+          );
+        })}
       </ul>
     </div>
   );
 }
 
-function StackedRow<Row>({
+/** The props of one stacked card. */
+interface StackedRowProps<Row> {
+  readonly row: Row;
+  readonly index: number;
+  /** The full list's length when windowed (`aria-setsize`). */
+  readonly setSize?: number;
+  readonly columns: readonly RowColumn<Row>[];
+  readonly onSelect?: (row: Row) => void;
+  readonly label?: string;
+  readonly hover?: UseFluidHoverReturn;
+  readonly size?: SizeVariant;
+}
+
+/** One stacked card; re-renders only when its own props change. */
+const StackedRow = memo(function StackedRow<Row>({
   row,
   index,
+  setSize,
   columns,
   onSelect,
   label,
@@ -212,6 +389,7 @@ function StackedRow<Row>({
 }: {
   readonly row: Row;
   readonly index: number;
+  readonly setSize?: number;
   readonly columns: readonly RowColumn<Row>[];
   readonly onSelect?: (row: Row) => void;
   readonly label?: string;
@@ -236,9 +414,15 @@ function StackedRow<Row>({
           onSelect(row);
         };
   return (
-    <li className="min-w-0">
+    <li
+      className="min-w-0"
+      {...{ [ROW_INDEX_ATTRIBUTE]: index }}
+      aria-setsize={setSize}
+      aria-posinset={setSize === undefined ? undefined : index + 1}
+    >
       <div
         ref={ref}
+        data-row-nav={open === undefined ? undefined : ""}
         role={open === undefined ? undefined : "button"}
         tabIndex={open === undefined ? undefined : 0}
         aria-label={label}
@@ -333,4 +517,4 @@ function StackedRow<Row>({
       </div>
     </li>
   );
-}
+}) as <Row>(props: StackedRowProps<Row>) => ReactNode;

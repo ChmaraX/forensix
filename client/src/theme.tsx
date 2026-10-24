@@ -92,6 +92,23 @@ function applyWithCrossFade(preference: ThemePreference): () => void {
   };
 }
 
+/** Event `chooseTheme` sends the mounted `ThemeToggle`. */
+const CHOOSE_EVENT = "forensix:choose-theme";
+
+/**
+ * Picks a theme from outside the toggle (the ⌘K menu): stored and applied
+ * with the same cross-fade, and a mounted `ThemeToggle` follows it, so the
+ * control and the page never disagree (an unmounted one - the closed phone
+ * drawer - reads the stored pick when it mounts).
+ */
+export function chooseTheme(preference: ThemePreference): void {
+  writePreference(preference);
+  applyWithCrossFade(preference);
+  globalThis.dispatchEvent(
+    new CustomEvent<ThemePreference>(CHOOSE_EVENT, { detail: preference }),
+  );
+}
+
 /** Applies the stored theme before first paint. Call once, before render. */
 export function initTheme(): void {
   applyPreference(readPreference());
@@ -134,6 +151,18 @@ export function ThemeToggle({ className }: { readonly className?: string }) {
     setPreference(next);
     writePreference(next);
   }, []);
+
+  useEffect(() => {
+    const onChoose = (event: Event) => {
+      if (event instanceof CustomEvent && typeof event.detail === "string") {
+        choose(event.detail);
+      }
+    };
+    globalThis.addEventListener(CHOOSE_EVENT, onChoose);
+    return () => {
+      globalThis.removeEventListener(CHOOSE_EVENT, onChoose);
+    };
+  }, [choose]);
 
   return (
     <Tabs

@@ -1,23 +1,22 @@
 /**
  * The ready-made charts, built on the shared parts in `charts.tsx`:
- * `ActivityBars` (counts per day, the one per-day chart), `HourBars` (per
- * hour of day, read-only) and `SegmentBar` (a categorical proportion). The
- * series style, axes, tooltip and motion rules are the ones `charts.tsx`
- * describes.
+ * `DayBars` (a value per recorded day, the one per-day chart), its counting
+ * form `ActivityBars`, `HourBars` (per hour of day, read-only) and
+ * `SegmentBar` (a categorical proportion). The series style, axes, tooltip
+ * and motion rules are the ones `charts.tsx` describes; pointer, touch and
+ * keyboard input and the text equivalent are `chart-input.tsx`'s.
  */
 import { motion } from "motion/react";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
   type BarShapeProps,
-  type MouseHandlerDataParam,
 } from "recharts";
 
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
@@ -32,8 +31,14 @@ import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 
 import {
-  activeIndexOf,
-  CHART_FOCUS_CLASS,
+  ChartCursorBand,
+  ChartFrame,
+  ChartPlotProbe,
+  ChartRangeWash,
+  useChartInput,
+} from "./chart-input.js";
+import type { DaySpan } from "./chart-keys.js";
+import {
   ChartEmpty,
   chartAnimation,
   chartAxis,
@@ -57,7 +62,8 @@ import { formatDayTick } from "./page-kit.js";
 
 /* ───────────────────────────── Formatting ───────────────────────────── */
 
-function formatDayLong(date: string): string {
+/** "Thu, 14 Mar 2024": a chart day in full, for tooltips and speech. */
+export function formatDayLong(date: string): string {
   const parsed = new Date(`${date}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime())) {
     return date;
@@ -77,7 +83,7 @@ function formatCount(value: number): string {
 
 /** A count's unit, singular and plural (e.g. `{ one: "entry", many:
  *  "entries" }`). */
-interface ChartUnit {
+export interface ChartUnit {
   readonly one: string;
   readonly many: string;
 }
@@ -86,6 +92,17 @@ const VISITS_UNIT: ChartUnit = { one: "page visit", many: "page visits" };
 
 function unitFor(count: number, unit: ChartUnit): string {
   return count === 1 ? unit.one : unit.many;
+}
+
+function capitalise(words: string): string {
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Words for a committed range, for the live region. */
+function describeSpan(range: DaySpan): string {
+  return range.from === range.to
+    ? `Selected ${formatDayLong(range.from)}`
+    : `Selected ${formatDayLong(range.from)} to ${formatDayLong(range.to)}`;
 }
 
 /**
@@ -110,21 +127,291 @@ function countScale(peak: number): {
 
 /* ─────────────────────────────── Charts ─────────────────────────────── */
 
+/** One recorded day of a `DayBars` series. */
+export interface DayBar {
+  /** `YYYY-MM-DD`, a Case day. */
+  readonly date: string;
+}
+
+/** The value axis of a `DayBars` chart. */
+export interface DayBarsAxis {
+  /** Width reserved for the tick labels. @default 40 */
+  readonly width?: number;
+  readonly ticks?: readonly number[];
+  readonly domain?: readonly [number, number];
+  readonly tickFormatter?: (value: number) => string;
+}
+
 /**
- * Counts per recorded day, as discrete bars — the one per-day chart shared by
- * Overview, History, Timeline, Downloads and Cache, so the same kind of data
- * never reads two different ways. Each day is one recorded bucket, not a
- * sample on a continuous curve. One emphasis at full ink: the selected day
- * when the range is one day, else the peak.
+ * A value per recorded day, as discrete bars — the one per-day chart shared
+ * by Overview, History, Timeline, Downloads and Cache, so the same kind of
+ * data never reads two different ways. Each day is one recorded bucket, not
+ * a sample on a continuous curve. One emphasis at full ink: the picked days
+ * when there is a range, else the peak.
  *
  * With `onRangeChange` the chart drives the page's date range (the same
- * value its date picker shows), one behaviour everywhere:
- *  - click a day: the range becomes that day; click it again: the full span
- *    (`{ from: "", to: "" }`);
- *  - drag across days: the range becomes those days;
+ * value its date picker shows), one behaviour everywhere, by mouse, touch
+ * or keyboard (`chart-keys.ts`):
+ *  - press and release on a day (tap, click, Enter/Space on the keyboard
+ *    cursor): the range becomes that day; again: the full span;
+ *  - drag across days (or Shift+arrows): the range becomes those days;
+ *  - Escape clears the range;
  *  - an active range is a wash behind the bars, the days outside it dimmed.
- * The cursor is a pointer and the fluid hover band follows it. Without
- * `onRangeChange` the chart is a plain read-only reading.
+ * Without `onRangeChange` the chart is a plain read-only reading (the
+ * keyboard still browses it).
+ *
+ * The chart is one tab stop named by `title` and a summary (span, total,
+ * busiest day), with a visually hidden day table beside it.
+ *
+ *   <DayBars days={days} value={(day) => day.bytes} tokens={tokens}
+ *     title="Bytes downloaded per day" formatValue={formatBytes}
+ *     axis={{ width: 56, ticks, domain, tickFormatter: formatBytes }}
+ *     tooltip={(day, note) => …} range={range} onRangeChange={setRange} />
+ */
+export function DayBars<Day extends DayBar>({
+  days,
+  value,
+  tokens,
+  title,
+  formatValue,
+  tooltip,
+  axis,
+  range,
+  onRangeChange,
+  emptyMessage,
+}: {
+  readonly days: readonly Day[];
+  /** The drawn value of a day (a count, bytes…). */
+  readonly value: (day: Day) => number;
+  readonly tokens: ChartTokens;
+  /** What a bar is, for the accessible name and the day table: "Page
+   *  visits per day". */
+  readonly title: string;
+  /** A value in words for speech and the day table ("3 page visits",
+   *  "12.4 MB"). */
+  readonly formatValue: (value: number) => string;
+  /** The tooltip body for a day under the pointer or the keyboard cursor;
+   *  `note` is "Selected day" / "Busiest day" when it applies. */
+  readonly tooltip: (day: Day, note: string | null) => ReactNode;
+  /** The value axis. @default whole counts, 40px */
+  readonly axis?: DayBarsAxis;
+  /** The page's date range (`""` = an open bound). */
+  readonly range?: DaySpan;
+  /** Makes the chart drive the range (see above). */
+  readonly onRangeChange?: (range: { from: string; to: string }) => void;
+  /** Words when there is no day to draw. */
+  readonly emptyMessage: string;
+}) {
+  const reduced = usePrefersReducedMotion();
+  const dates = useMemo(() => days.map((day) => day.date), [days]);
+  const values = useMemo(() => days.map((day) => value(day)), [days, value]);
+  const peak = values.reduce((max, current) => Math.max(max, current), 0);
+  const selectedDate =
+    range !== undefined && range.from !== "" && range.from === range.to
+      ? range.from
+      : null;
+  const noteFor = useCallback(
+    (day: Day, dayValue: number): string | null =>
+      day.date === selectedDate
+        ? "Selected day"
+        : peak > 0 && dayValue === peak
+          ? "Busiest day"
+          : null,
+    [selectedDate, peak],
+  );
+  const describe = useCallback(
+    (index: number) => {
+      const day = days[index];
+      const dayValue = values[index] ?? 0;
+      if (day === undefined) {
+        return "";
+      }
+      const note = noteFor(day, dayValue);
+      return `${formatDayLong(day.date)}: ${formatValue(dayValue)}${note === null ? "" : `, ${note.toLowerCase()}`}`;
+    },
+    [days, values, formatValue, noteFor],
+  );
+  const input = useChartInput({
+    dates,
+    values,
+    range,
+    onRangeChange,
+    describe,
+    describeSpan,
+  });
+  const summary = useMemo(() => {
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    if (first === undefined || last === undefined) {
+      return title;
+    }
+    const total = values.reduce((sum, current) => sum + current, 0);
+    const busiest = dates.filter((_, index) => values[index] === peak);
+    const busiestWords =
+      peak > 0
+        ? busiest.length === 1
+          ? `, busiest ${formatDayLong(busiest[0] ?? "")} with ${formatValue(peak)}`
+          : `, busiest ${formatValue(peak)} on ${String(busiest.length)} days`
+        : "";
+    const span =
+      first === last
+        ? formatDayLong(first)
+        : `${formatDayLong(first)} to ${formatDayLong(last)}`;
+    return `${title}, ${span}: ${formatValue(total)} in total${busiestWords}`;
+  }, [dates, values, peak, title, formatValue]);
+  const tableRows = useMemo(
+    () =>
+      days.flatMap((day, index) => {
+        const dayValue = values[index] ?? 0;
+        return dayValue > 0
+          ? [
+              {
+                key: day.date,
+                label: formatDayLong(day.date),
+                value: formatValue(dayValue),
+              },
+            ]
+          : [];
+      }),
+    [days, values, formatValue],
+  );
+  if (days.length === 0) {
+    return <ChartEmpty>{emptyMessage}</ChartEmpty>;
+  }
+  const { highlight } = input;
+  // One emphasis: the selection when there is one (the picked day, or every
+  // day of the picked or dragged span), else the peak.
+  const emphasisOf = (date: string, dayValue: number) =>
+    highlight !== null
+      ? dayValue > 0 && date >= highlight.from && date <= highlight.to
+      : peak > 0 && dayValue === peak;
+  const dimmedOf = (date: string) =>
+    highlight !== null && (date < highlight.from || date > highlight.to);
+  const cursorDay = input.cursor === null ? undefined : days[input.cursor];
+  // The wash's bands: the first and last drawn day inside the highlight.
+  const washFrom =
+    highlight === null
+      ? null
+      : dates.findIndex((date) => date >= highlight.from);
+  const washTo =
+    highlight === null
+      ? null
+      : dates.findLastIndex((date) => date <= highlight.to);
+  const scale =
+    axis === undefined
+      ? { ...countScale(peak), tickFormatter: formatCount }
+      : {
+          ...(axis.ticks === undefined
+            ? {}
+            : { ticks: axis.ticks as number[], interval: 0 as const }),
+          ...(axis.domain === undefined
+            ? {}
+            : { domain: axis.domain as [number, number] }),
+          ...(axis.tickFormatter === undefined
+            ? {}
+            : { tickFormatter: axis.tickFormatter }),
+        };
+  return (
+    <ChartFrame
+      input={input}
+      label={summary}
+      count={days.length}
+      selectable={onRangeChange !== undefined}
+      tip={
+        cursorDay === undefined ? null : (
+          <ChartTooltipCard label={formatDayLong(cursorDay.date)}>
+            {tooltip(
+              cursorDay,
+              noteFor(cursorDay, values[input.cursor ?? 0] ?? 0),
+            )}
+          </ChartTooltipCard>
+        )
+      }
+      table={{
+        caption: `${title} (days with none are left out)`,
+        columns: ["Day", capitalise(title.split(" per ")[0] ?? "Value")],
+        rows: tableRows,
+      }}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={days as Day[]}
+          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          barCategoryGap="18%"
+          accessibilityLayer={false}
+        >
+          <ChartPlotProbe onPlot={input.setPlot} />
+          <CartesianGrid {...chartGrid(tokens)} />
+          <XAxis
+            dataKey="date"
+            {...chartAxis(tokens)}
+            minTickGap={40}
+            tickFormatter={formatDayTick}
+          />
+          <YAxis
+            width={axis?.width ?? 40}
+            {...chartAxis(tokens)}
+            allowDecimals={false}
+            {...scale}
+          />
+          <Tooltip
+            {...chartTooltipMotion(reduced)}
+            active={input.tooltipActive}
+            cursor={<FluidBandCursor fill={tokens["--hover"]} />}
+            content={({ payload }) => {
+              const row = tooltipEntry(payload) as unknown as Day | null;
+              if (row === null) {
+                return null;
+              }
+              return (
+                <ChartTooltipCard label={formatDayLong(row.date)}>
+                  {tooltip(row, noteFor(row, value(row)))}
+                </ChartTooltipCard>
+              );
+            }}
+          />
+          {input.cursor === null ? null : (
+            <ChartCursorBand
+              index={input.cursor}
+              count={days.length}
+              fill={tokens["--hover"]}
+            />
+          )}
+          <ChartRangeWash
+            from={washFrom}
+            to={washTo}
+            count={days.length}
+            fill={chartRange(tokens).fill}
+            opacity={chartRange(tokens).fillOpacity}
+          />
+          <Bar
+            dataKey={(day: Day) => value(day)}
+            radius={[3, 3, 0, 0]}
+            {...chartAnimation(reduced)}
+            fill={seriesColor(tokens)}
+            shape={(props: BarShapeProps) => {
+              const day = days[props.originalDataIndex];
+              const dayValue = values[props.originalDataIndex] ?? 0;
+              return (
+                <SeriesBar
+                  {...props}
+                  tokens={tokens}
+                  emphasis={day !== undefined && emphasisOf(day.date, dayValue)}
+                  dimmed={day !== undefined && dimmedOf(day.date)}
+                  hovered={props.originalDataIndex === input.hoverIndex}
+                />
+              );
+            }}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartFrame>
+  );
+}
+
+/**
+ * Counts per recorded day: `DayBars` with a count, the tooltip "3 page
+ * visits" and whole-count ticks. Overview, History, Timeline and Cache.
  */
 export function ActivityBars({
   days,
@@ -132,204 +419,63 @@ export function ActivityBars({
   range,
   onRangeChange,
   unit = VISITS_UNIT,
+  title,
   emptyMessage = "No dated visits to draw.",
 }: {
   readonly days: readonly DayCount[];
   readonly tokens: ChartTokens;
   /** The page's date range (`""` = an open bound). */
   readonly range?: { readonly from: string; readonly to: string };
-  /** Makes the chart drive the range (see above). */
+  /** Makes the chart drive the range (see `DayBars`). */
   readonly onRangeChange?: (range: { from: string; to: string }) => void;
   /** The unit the tooltip prints after the count. @default page visit(s) */
   readonly unit?: ChartUnit;
+  /** What a bar is, for the accessible name. @default "<Unit many> per
+   *  day" */
+  readonly title?: string;
   /** Words when there is no day to draw. */
   readonly emptyMessage?: string;
 }) {
-  const reduced = usePrefersReducedMotion();
-  const [dragStart, setDragStart] = useState<string | null>(null);
-  const [dragCurrent, setDragCurrent] = useState<string | null>(null);
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const highlight = useMemo(() => {
-    if (dragStart !== null && dragCurrent !== null) {
-      return dragStart <= dragCurrent
-        ? { from: dragStart, to: dragCurrent }
-        : { from: dragCurrent, to: dragStart };
-    }
-    if (range !== undefined && (range.from !== "" || range.to !== "")) {
-      // An unset bound is open-ended, as the lists filter: it runs to the
-      // chart's first or last day.
-      const first = days[0]?.date ?? "";
-      const last = days[days.length - 1]?.date ?? "";
-      return {
-        from: range.from === "" || range.from < first ? first : range.from,
-        to: range.to === "" || range.to > last ? last : range.to,
-      };
-    }
-    return null;
-  }, [dragCurrent, dragStart, range, days]);
-  // A press and release on one day is a click on it; across days, a drag.
-  // Both are decided on pointer-up, never on `click`: the press re-renders
-  // the bars (the drag highlight), so the element under the pointer is
-  // replaced and the browser would never fire `click` on a bar. Leaving the
-  // chart mid-press only ends a drag.
-  const commitDrag = (release: boolean) => {
-    if (dragStart !== null && dragCurrent !== null) {
-      if (dragStart !== dragCurrent) {
-        onRangeChange?.(
-          dragStart <= dragCurrent
-            ? { from: dragStart, to: dragCurrent }
-            : { from: dragCurrent, to: dragStart },
-        );
-      } else if (release) {
-        selectDay(dragStart);
-      }
-    }
-    setDragStart(null);
-    setDragCurrent(null);
-  };
-  const selectedDate =
-    range !== undefined && range.from !== "" && range.from === range.to
-      ? range.from
-      : null;
-  const selectDay = (date: string) => {
-    if (onRangeChange === undefined) {
-      return;
-    }
-    onRangeChange(
-      date === selectedDate ? { from: "", to: "" } : { from: date, to: date },
-    );
-  };
-  if (days.length === 0) {
-    return <ChartEmpty>{emptyMessage}</ChartEmpty>;
-  }
-  const rows = days;
-  const peak = rows.reduce((max, row) => Math.max(max, row.count), 0);
-  const interactive = onRangeChange !== undefined;
-  const dateAt = (state: MouseHandlerDataParam | undefined) => {
-    const index = activeIndexOf(state);
-    return index === null ? null : (rows[index]?.date ?? null);
-  };
-  // One emphasis: the selection when there is one (the picked day, or every
-  // day of the picked or dragged span), else the peak.
-  const emphasisOf = (row: DayCount) =>
-    highlight !== null
-      ? row.count > 0 && row.date >= highlight.from && row.date <= highlight.to
-      : peak > 0 && row.count === peak;
-  const dimmedOf = (row: DayCount) =>
-    highlight !== null &&
-    (row.date < highlight.from || row.date > highlight.to);
-  return (
-    <ResponsiveContainer
-      width="100%"
-      height="100%"
-      className={CHART_FOCUS_CLASS}
-    >
-      <BarChart
-        data={rows as DayCount[]}
-        margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-        barCategoryGap="18%"
-        style={interactive ? { cursor: "pointer" } : undefined}
-        onMouseDown={(state) => {
-          if (onRangeChange === undefined) {
-            return;
-          }
-          const date = dateAt(state);
-          if (date !== null) {
-            setDragStart(date);
-            setDragCurrent(date);
-          }
-        }}
-        onMouseMove={(state) => {
-          setHoverIndex(activeIndexOf(state));
-          if (dragStart !== null) {
-            const date = dateAt(state);
-            if (date !== null) {
-              setDragCurrent(date);
-            }
-          }
-        }}
-        // The whole lit band is the target, not only the bar inside it: what
-        // the hover band lights is what a release selects.
-        onMouseUp={() => {
-          commitDrag(true);
-        }}
-        onMouseLeave={() => {
-          setHoverIndex(null);
-          commitDrag(false);
-        }}
-      >
-        <CartesianGrid {...chartGrid(tokens)} />
-        <XAxis
-          dataKey="date"
-          {...chartAxis(tokens)}
-          minTickGap={40}
-          tickFormatter={formatDayTick}
-        />
-        <YAxis
-          width={40}
-          {...chartAxis(tokens)}
-          allowDecimals={false}
-          {...countScale(peak)}
-          tickFormatter={formatCount}
-        />
-        <Tooltip
-          {...chartTooltipMotion(reduced)}
-          cursor={<FluidBandCursor fill={tokens["--hover"]} />}
-          content={({ payload }) => {
-            const row = tooltipEntry(payload);
-            if (row === null) {
-              return null;
-            }
-            const count = Number(row["count"]);
-            return (
-              <ChartTooltipCard label={formatDayLong(String(row["date"]))}>
-                <ChartTooltipValue
-                  value={formatCount(count)}
-                  unit={unitFor(count, unit)}
-                />
-                {row["date"] === selectedDate ? (
-                  <ChartTooltipNote>Selected day</ChartTooltipNote>
-                ) : peak > 0 && count === peak ? (
-                  <ChartTooltipNote>Busiest day</ChartTooltipNote>
-                ) : null}
-              </ChartTooltipCard>
-            );
-          }}
-        />
-        {highlight !== null && highlight.from < highlight.to ? (
-          <ReferenceArea
-            x1={highlight.from}
-            x2={highlight.to}
-            {...chartRange(tokens)}
-          />
-        ) : null}
-        <Bar
-          dataKey="count"
-          radius={[3, 3, 0, 0]}
-          {...chartAnimation(reduced)}
-          fill={seriesColor(tokens)}
-          shape={(props: BarShapeProps) => {
-            const row = rows[props.originalDataIndex];
-            return (
-              <SeriesBar
-                {...props}
-                tokens={tokens}
-                emphasis={row !== undefined && emphasisOf(row)}
-                dimmed={row !== undefined && dimmedOf(row)}
-                hovered={props.originalDataIndex === hoverIndex}
-              />
-            );
-          }}
-        />
-      </BarChart>
-    </ResponsiveContainer>
+  const formatValue = useCallback(
+    (count: number) => `${formatCount(count)} ${unitFor(count, unit)}`,
+    [unit],
   );
+  return (
+    <DayBars
+      days={days}
+      value={countOf}
+      tokens={tokens}
+      title={title ?? `${capitalise(unit.many)} per day`}
+      formatValue={formatValue}
+      range={range}
+      onRangeChange={onRangeChange}
+      emptyMessage={emptyMessage}
+      tooltip={(day, note) => (
+        <>
+          <ChartTooltipValue
+            value={formatCount(day.count)}
+            unit={unitFor(day.count, unit)}
+          />
+          {note === null ? null : <ChartTooltipNote>{note}</ChartTooltipNote>}
+        </>
+      )}
+    />
+  );
+}
+
+function countOf(day: DayCount): number {
+  return day.count;
+}
+
+/** "9 AM - 10 AM": one hour-of-day bucket. */
+function spanOfHour(hour: number): string {
+  return `${formatHour(hour)} - ${formatHour((hour + 1) % 24)}`;
 }
 
 /**
  * Visits by hour of day. The busiest hour is the only one held at full
- * strength; the hovered hour rises toward it on the same spring as every other
- * fluid hover in the app.
+ * strength; the hovered (or keyboard-browsed) hour rises toward it on the
+ * same spring as every other fluid hover in the app. Read-only.
  */
 export function HourBars({
   hours,
@@ -339,92 +485,130 @@ export function HourBars({
   readonly tokens: ChartTokens;
 }) {
   const reduced = usePrefersReducedMotion();
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const total = hours.reduce((sum, count) => sum + count, 0);
+  const peak = Math.max(0, ...hours);
+  const rows = useMemo(
+    () =>
+      hours.map((count, hour) => ({
+        hour,
+        count,
+        label: formatHour(hour),
+      })),
+    [hours],
+  );
+  const keys = useMemo(() => rows.map((row) => String(row.hour)), [rows]);
+  const describe = useCallback(
+    (index: number) => {
+      const count = hours[index] ?? 0;
+      return `${spanOfHour(index)}: ${formatCount(count)} ${unitFor(count, VISITS_UNIT)}${count === peak && peak > 0 ? ", busiest hour" : ""}`;
+    },
+    [hours, peak],
+  );
+  const input = useChartInput({ dates: keys, values: hours, describe });
   if (total === 0) {
     return <ChartEmpty>No timed visits to draw.</ChartEmpty>;
   }
-  const peak = Math.max(...hours);
-  const rows = hours.map((count, hour) => ({
-    hour,
-    count,
-    label: formatHour(hour),
-  }));
+  const busiest = rows.filter((row) => row.count === peak);
+  const summary = `Page visits by hour of day: ${formatCount(total)} in total, busiest ${
+    busiest.length === 1
+      ? spanOfHour(busiest[0]?.hour ?? 0)
+      : `${String(busiest.length)} hours`
+  } with ${formatCount(peak)}`;
+  const tipFor = (hour: number, count: number) => (
+    <ChartTooltipCard label={spanOfHour(hour)}>
+      <ChartTooltipValue
+        value={formatCount(count)}
+        unit={unitFor(count, VISITS_UNIT)}
+      />
+      {count === peak ? (
+        <ChartTooltipNote>Busiest hour</ChartTooltipNote>
+      ) : null}
+    </ChartTooltipCard>
+  );
   return (
-    <ResponsiveContainer
-      width="100%"
-      height="100%"
-      className={CHART_FOCUS_CLASS}
+    <ChartFrame
+      input={input}
+      label={summary}
+      count={rows.length}
+      selectable={false}
+      tip={
+        input.cursor === null
+          ? null
+          : tipFor(input.cursor, hours[input.cursor] ?? 0)
+      }
+      table={{
+        caption: "Page visits by hour of day (hours with none are left out)",
+        columns: ["Hour", "Page visits"],
+        rows: rows
+          .filter((row) => row.count > 0)
+          .map((row) => ({
+            key: String(row.hour),
+            label: spanOfHour(row.hour),
+            value: formatCount(row.count),
+          })),
+      }}
     >
-      <BarChart
-        data={rows}
-        margin={{ top: 8, right: 4, bottom: 0, left: 0 }}
-        barCategoryGap="18%"
-        onMouseMove={(state) => {
-          setHoverIndex(activeIndexOf(state));
-        }}
-        onMouseLeave={() => {
-          setHoverIndex(null);
-        }}
-      >
-        <CartesianGrid {...chartGrid(tokens)} />
-        <XAxis
-          dataKey="hour"
-          {...chartAxis(tokens)}
-          interval={5}
-          tickFormatter={(hour: number) => formatHour(hour)}
-        />
-        <YAxis
-          width={36}
-          {...chartAxis(tokens)}
-          allowDecimals={false}
-          {...countScale(peak)}
-          tickFormatter={formatCount}
-        />
-        <Tooltip
-          {...chartTooltipMotion(reduced)}
-          cursor={<FluidBandCursor fill={tokens["--hover"]} />}
-          content={({ payload }) => {
-            const row = tooltipEntry(payload);
-            if (row === null) {
-              return null;
-            }
-            const count = Number(row["count"]);
-            const hour = Number(row["hour"]);
-            return (
-              <ChartTooltipCard
-                label={`${formatHour(hour)} - ${formatHour((hour + 1) % 24)}`}
-              >
-                <ChartTooltipValue
-                  value={formatCount(count)}
-                  unit={unitFor(count, VISITS_UNIT)}
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={rows}
+          margin={{ top: 8, right: 4, bottom: 0, left: 0 }}
+          barCategoryGap="18%"
+          accessibilityLayer={false}
+        >
+          <ChartPlotProbe onPlot={input.setPlot} />
+          <CartesianGrid {...chartGrid(tokens)} />
+          <XAxis
+            dataKey="hour"
+            {...chartAxis(tokens)}
+            interval={5}
+            tickFormatter={(hour: number) => formatHour(hour)}
+          />
+          <YAxis
+            width={36}
+            {...chartAxis(tokens)}
+            allowDecimals={false}
+            {...countScale(peak)}
+            tickFormatter={formatCount}
+          />
+          <Tooltip
+            {...chartTooltipMotion(reduced)}
+            active={input.tooltipActive}
+            cursor={<FluidBandCursor fill={tokens["--hover"]} />}
+            content={({ payload }) => {
+              const row = tooltipEntry(payload);
+              if (row === null) {
+                return null;
+              }
+              return tipFor(Number(row["hour"]), Number(row["count"]));
+            }}
+          />
+          {input.cursor === null ? null : (
+            <ChartCursorBand
+              index={input.cursor}
+              count={rows.length}
+              fill={tokens["--hover"]}
+            />
+          )}
+          <Bar
+            dataKey="count"
+            radius={[3, 3, 0, 0]}
+            {...chartAnimation(reduced)}
+            fill={seriesColor(tokens)}
+            shape={(props: BarShapeProps) => {
+              const row = rows[props.originalDataIndex];
+              return (
+                <SeriesBar
+                  {...props}
+                  tokens={tokens}
+                  emphasis={row !== undefined && row.count === peak}
+                  hovered={props.originalDataIndex === input.hoverIndex}
                 />
-                {count === peak ? (
-                  <ChartTooltipNote>Busiest hour</ChartTooltipNote>
-                ) : null}
-              </ChartTooltipCard>
-            );
-          }}
-        />
-        <Bar
-          dataKey="count"
-          radius={[3, 3, 0, 0]}
-          {...chartAnimation(reduced)}
-          fill={seriesColor(tokens)}
-          shape={(props: BarShapeProps) => {
-            const row = rows[props.originalDataIndex];
-            return (
-              <SeriesBar
-                {...props}
-                tokens={tokens}
-                emphasis={row !== undefined && row.count === peak}
-                hovered={props.originalDataIndex === hoverIndex}
-              />
-            );
-          }}
-        />
-      </BarChart>
-    </ResponsiveContainer>
+              );
+            }}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
@@ -503,10 +687,12 @@ export function SegmentBar({
   const ink = seriesColor(tokens);
   return (
     <div className={cn("flex flex-col gap-2", className)}>
+      {/* A group, not an image: each segment is its own tab stop with its
+          own name, which `role="img"` would hide. */}
       <div
         ref={containerRef}
-        role="img"
-        aria-label={`${label === undefined ? "" : `${label}: `}${shown.map(describe).join("; ")}`}
+        role="group"
+        aria-label={label}
         className="relative flex h-8 items-stretch gap-0.5"
         {...hover.handlers}
       >

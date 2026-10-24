@@ -1,21 +1,9 @@
 /**
- * The Downloads widgets: bytes per day (`VolumeChart`, which drives the
- * page's date range by hand with the `ActivityBars` rules) and the file
- * kinds (`KindBreakdown`). Split out of `downloads-page.tsx`.
+ * The Downloads widgets: bytes per Case day (`VolumeChart`, the shared
+ * `DayBars`, which drives the page's date range) and the file kinds
+ * (`KindBreakdown`). Split out of `downloads-page.tsx`.
  */
-import { useCallback, useMemo, useRef, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ReferenceArea,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  type BarShapeProps,
-  type MouseHandlerDataParam,
-} from "recharts";
+import { useMemo, useRef } from "react";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
 import {
   useFluidHover,
@@ -25,31 +13,17 @@ import { useShape } from "@/lib/shape-context";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import {
-  activeIndexOf,
-  CHART_FOCUS_CLASS,
-  chartAnimation,
-  chartAxis,
-  chartGrid,
-  ChartEmpty,
-  ChartTooltipCard,
-  chartTooltipMotion,
   ChartTooltipNote,
   ChartTooltipValue,
-  chartRange,
-  FluidBandCursor,
-  SeriesBar,
-  seriesColor,
-  tooltipEntry,
   useChartTokens,
-  usePrefersReducedMotion,
 } from "./charts.js";
+import { DayBars } from "./charts-ready.js";
 import { EmptyRows } from "./data-table.js";
+import { caseDayTotals } from "./day-bounds.js";
 import {
   CHART_HEIGHT,
   ShareBar,
   formatBytes,
-  formatDay,
-  formatDayTick,
   plural,
   WeightLabel,
 } from "./page-kit.js";
@@ -94,88 +68,34 @@ export interface VolumeDay {
 }
 
 /**
- * Downloads over time. Bars show bytes transferred per recorded day — a
- * discrete reading of when data actually left the machine. Days with no
- * downloads are filled with zero (drawn as nothing) so the axis is
- * continuous calendar time, never compressed. Drag across the bars (or
- * click one) to focus the lists. The one series style: ink bars at rest,
- * one emphasis — the picked day, else the busiest — and the rest dimmed
- * outside a picked range.
+ * Downloads over time. Bars show bytes transferred per recorded Case day —
+ * a discrete reading of when data actually left the machine — on the shared
+ * `DayBars` (one per-day chart everywhere: click, tap, drag or the keyboard
+ * picks the page's range). Days with no downloads are filled with zero
+ * (drawn as nothing) so the axis is continuous calendar time, never
+ * compressed. Round byte ticks (`byteTicks`).
  */
 export function VolumeChart({
   rows,
   range,
   onRangeChange,
+  timeZone,
 }: {
   readonly rows: readonly DownloadRow[];
   readonly range: DayRange;
   readonly onRangeChange: (range: DayRange) => void;
+  /** The Case's declared timezone (`useCaseTimeZone`); null = UTC days. */
+  readonly timeZone: string | null;
 }) {
   const tokens = useChartTokens();
-  const reduced = usePrefersReducedMotion();
-  const [dragStart, setDragStart] = useState<string | null>(null);
-  const [dragCurrent, setDragCurrent] = useState<string | null>(null);
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-
-  const hasRange = range.from !== "" || range.to !== "";
-  const dragging = dragStart !== null;
-
-  // While dragging the highlight follows the pointer; once committed it is the
-  // page's own range. Bounds are kept sorted so a right-to-left drag reads the
-  // same as a left-to-right one — identical to the Timeline activity card.
-  const highlight = useMemo(() => {
-    if (dragStart !== null && dragCurrent !== null) {
-      return dragStart <= dragCurrent
-        ? { from: dragStart, to: dragCurrent }
-        : { from: dragCurrent, to: dragStart };
-    }
-    if (dragStart !== null) {
-      return { from: dragStart, to: dragStart };
-    }
-    if (!hasRange) {
-      return null;
-    }
-    // An unset bound is open-ended, exactly as the table filters: it reaches
-    // the chart's first or last day, never collapses onto the other bound.
-    return {
-      from: range.from === "" ? "" : range.from,
-      to: range.to === "" ? "\uffff" : range.to,
-    };
-  }, [dragStart, dragCurrent, hasRange, range]);
-
-  // A press on one day is a click (that day, or the full span when it is
-  // already the range — as ActivityBars reads); a drag sets the span.
-  const commitDrag = useCallback(() => {
-    if (dragStart === null) {
-      return;
-    }
-    const end = dragCurrent ?? dragStart;
-    onRangeChange(
-      dragStart === end && range.from === end && range.to === end
-        ? { from: "", to: "" }
-        : dragStart <= end
-          ? { from: dragStart, to: end }
-          : { from: end, to: dragStart },
-    );
-    setDragStart(null);
-    setDragCurrent(null);
-  }, [dragStart, dragCurrent, onRangeChange, range]);
 
   const days = useMemo<readonly VolumeDay[]>(() => {
-    const byDate = new Map<string, { bytes: number; count: number }>();
-    for (const row of rows) {
-      if (row.startUtc === null) {
-        continue;
-      }
-      const date = row.startUtc.slice(0, 10);
-      const entry = byDate.get(date) ?? { bytes: 0, count: 0 };
-      entry.bytes += row.bytes ?? 0;
-      entry.count += 1;
-      byDate.set(date, entry);
-    }
-    const recorded = [...byDate.entries()]
-      .map(([date, entry]) => ({ date, ...entry }))
-      .sort((left, right) => left.date.localeCompare(right.date));
+    const recorded = caseDayTotals(
+      rows,
+      (row) => row.startUtc,
+      timeZone,
+      (row) => row.bytes ?? 0,
+    ).map(({ date, count, weight }) => ({ date, bytes: weight, count }));
     const first = recorded[0];
     const last = recorded[recorded.length - 1];
     if (first === undefined || last === undefined) {
@@ -196,153 +116,47 @@ export function VolumeChart({
         .slice(0, 10);
       return map.get(date) ?? { date, bytes: 0, count: 0 };
     });
-  }, [rows]);
-
-  if (days.length === 0) {
-    return (
-      <div className={CHART_HEIGHT}>
-        <ChartEmpty>No dated downloads to draw.</ChartEmpty>
-      </div>
-    );
-  }
+  }, [rows, timeZone]);
 
   const peak = days.reduce((max, day) => Math.max(max, day.bytes), 0);
   const ticks = byteTicks(peak);
-  const dateAt = (state: MouseHandlerDataParam | undefined) => {
-    const index = activeIndexOf(state);
-    return index === null ? null : (days[index]?.date ?? null);
-  };
-  // One emphasis: the selection when there is one (the picked day or
-  // span), else the busiest; days outside the range dim — as ActivityBars
-  // reads.
-  const emphasisOf = (day: VolumeDay) =>
-    highlight !== null
-      ? day.bytes > 0 && day.date >= highlight.from && day.date <= highlight.to
-      : peak > 0 && day.bytes === peak;
-  const dimmedOf = (day: VolumeDay) =>
-    highlight !== null &&
-    (day.date < highlight.from || day.date > highlight.to);
-  // The shaded band, clamped to the drawn days (an open bound runs to the
-  // chart's edge).
-  const firstDay = days[0]?.date ?? "";
-  const lastDay = days[days.length - 1]?.date ?? "";
-  const band =
-    highlight === null
-      ? null
-      : {
-          from: highlight.from < firstDay ? firstDay : highlight.from,
-          to: highlight.to > lastDay ? lastDay : highlight.to,
-        };
 
   return (
-    <div
-      className={cn(
-        CHART_HEIGHT,
-        "w-full",
-        dragging && "cursor-crosshair select-none",
-      )}
-      aria-label="Bytes downloaded per day. Drag across the chart to focus the table below."
-    >
-      <ResponsiveContainer
-        width="100%"
-        height="100%"
-        className={CHART_FOCUS_CLASS}
-      >
-        <BarChart
-          data={days as VolumeDay[]}
-          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-          barCategoryGap="18%"
-          style={{ cursor: dragging ? "crosshair" : "pointer" }}
-          onMouseDown={(state) => {
-            const date = dateAt(state);
-            if (date !== null) {
-              setDragStart(date);
-              setDragCurrent(date);
-            }
-          }}
-          onMouseMove={(state) => {
-            setHoverIndex(activeIndexOf(state));
-            if (dragStart !== null) {
-              const date = dateAt(state);
-              if (date !== null) {
-                setDragCurrent(date);
-              }
-            }
-          }}
-          onMouseUp={commitDrag}
-          onMouseLeave={() => {
-            setHoverIndex(null);
-            commitDrag();
-          }}
-        >
-          <CartesianGrid {...chartGrid(tokens)} />
-          <XAxis
-            dataKey="date"
-            {...chartAxis(tokens)}
-            minTickGap={40}
-            tickFormatter={formatDayTick}
-          />
-          <YAxis
-            width={56}
-            {...chartAxis(tokens)}
-            ticks={ticks as number[]}
-            domain={[0, ticks[ticks.length - 1] ?? 0]}
-            interval={0}
-            tickFormatter={(bytes: number) => formatBytes(bytes)}
-          />
-          <Tooltip
-            {...chartTooltipMotion(reduced)}
-            cursor={<FluidBandCursor fill={tokens["--hover"]} />}
-            content={({ payload }) => {
-              const row = tooltipEntry(payload);
-              if (row === null) {
-                return null;
-              }
-              const bytes = Number(row["bytes"]);
-              const count = Number(row["count"]);
-              return (
-                <ChartTooltipCard label={formatDay(String(row["date"]))}>
-                  <ChartTooltipValue
-                    value={formatBytes(bytes)}
-                    unit="downloaded"
-                  />
-                  <ChartTooltipNote>
-                    {plural(count, "file", "files")}
-                    {peak > 0 && bytes === peak ? " · busiest day" : ""}
-                  </ChartTooltipNote>
-                </ChartTooltipCard>
-              );
-            }}
-          />
-          {band !== null && band.from < band.to ? (
-            <ReferenceArea
-              x1={band.from}
-              x2={band.to}
-              {...chartRange(tokens)}
+    <div className={cn(CHART_HEIGHT, "w-full")}>
+      <DayBars
+        days={days}
+        value={bytesOf}
+        tokens={tokens}
+        title="Bytes downloaded per day"
+        formatValue={formatBytes}
+        axis={{
+          width: 56,
+          ticks,
+          domain: [0, ticks[ticks.length - 1] ?? 0],
+          tickFormatter: formatBytes,
+        }}
+        range={range}
+        onRangeChange={onRangeChange}
+        emptyMessage="No dated downloads to draw."
+        tooltip={(day, note) => (
+          <>
+            <ChartTooltipValue
+              value={formatBytes(day.bytes)}
+              unit="downloaded"
             />
-          ) : null}
-          <Bar
-            dataKey="bytes"
-            radius={[3, 3, 0, 0]}
-            {...chartAnimation(reduced)}
-            fill={seriesColor(tokens)}
-            shape={(props: BarShapeProps) => {
-              const day = days[props.originalDataIndex];
-              return (
-                <SeriesBar
-                  {...props}
-                  tokens={tokens}
-                  emphasis={day !== undefined && emphasisOf(day)}
-                  dimmed={day !== undefined && dimmedOf(day)}
-                  hovered={props.originalDataIndex === hoverIndex}
-                />
-              );
-            }}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+            <ChartTooltipNote>
+              {plural(day.count, "file", "files")}
+              {note === null ? "" : ` · ${note.toLowerCase()}`}
+            </ChartTooltipNote>
+          </>
+        )}
+      />
     </div>
   );
+}
+
+function bytesOf(day: VolumeDay): number {
+  return day.bytes;
 }
 
 /**
