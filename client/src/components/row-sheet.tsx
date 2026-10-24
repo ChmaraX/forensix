@@ -15,7 +15,7 @@
  * "(empty)", "absent" and "unavailable" still show as they are, since none
  * of them carries a secret.
  */
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { FieldState, Finding } from "../types.js";
 import { CommitBadge } from "../terms.js";
@@ -35,38 +35,29 @@ import { fontWeights } from "@/lib/font-weight";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { AbsentWord, FieldStateText } from "./field-state.js";
-import { fieldText, profileLabel } from "./finding-fields.js";
-import { isPaymentField, PAYMENT_SECRET_FIELDS } from "./form-data.js";
+import { profileLabel } from "./finding-fields.js";
 
 export type SelectedRow = { readonly kind: "finding"; readonly row: Finding };
 
-/** Fields that hold a cookie's session secret. */
-export const COOKIE_SECRET_FIELDS: readonly string[] = ["value"];
-
-/**
- * The secret fields of one row, for `RowSheet redactedFields` and table
- * cells: a cookie's value, and a Payment form entry's value. Every other
- * row has none.
- */
-export function secretFieldsOf(row: Finding): readonly string[] {
-  if (row.findingKind === "cookie") {
-    return COOKIE_SECRET_FIELDS;
-  }
-  if (
-    row.findingKind === "autofill_entry" &&
-    isPaymentField(fieldText(row.fields.fieldName))
-  ) {
-    return PAYMENT_SECRET_FIELDS;
-  }
-  return [];
-}
+export {
+  COOKIE_SECRET_FIELDS,
+  CREDENTIAL_SECRET_FIELDS,
+  SEALED_REASON,
+  secretFieldsOf,
+} from "./secrets.js";
 
 /** "value hidden": a recorded secret withheld until "Show values" is on.
- *  No own tab stop: the row is the focus target and its sheet the reveal. */
-export function HiddenValue() {
+ *  No own tab stop: the row is the focus target and its sheet the reveal.
+ *  `hint` is the tooltip; a page without a "Show values" Switch names only
+ *  the sheet. */
+export function HiddenValue({
+  hint = "Turn on Show values, or open the row, to read it.",
+}: {
+  readonly hint?: string;
+}) {
   const size = useSize();
   return (
-    <Tooltip content="Turn on Show values, or open the row, to read it.">
+    <Tooltip content={hint}>
       <span
         className={cn(
           size.type.body,
@@ -88,14 +79,17 @@ export function HiddenValue() {
 export function SecretValueCell({
   field,
   reveal,
+  hint,
   className,
 }: {
   readonly field: FieldState | undefined;
   readonly reveal: boolean;
+  /** The hidden value's tooltip (`HiddenValue`). */
+  readonly hint?: string;
   readonly className?: string;
 }) {
   if (field?.state === "value" && field.value !== "" && !reveal) {
-    return <HiddenValue />;
+    return <HiddenValue hint={hint} />;
   }
   return (
     <span className={cn("block min-w-0", className)}>
@@ -224,6 +218,30 @@ export function RowSheet({
   const size = useSize();
   const { row } = selected;
   const fields = Object.entries(row.fields);
+  // The sheet opens from a row (focused by its click or its Enter), not from
+  // a Radix trigger, and the page unmounts it on close; so the row to return
+  // focus to is the element focused when the sheet first rendered. Escape,
+  // the close button and the overlay all hand focus back to it.
+  const [returnFocus] = useState<HTMLElement | null>(() =>
+    document.activeElement instanceof HTMLElement &&
+    document.activeElement !== document.body
+      ? document.activeElement
+      : null,
+  );
+  useEffect(
+    () => () => {
+      requestAnimationFrame(() => {
+        if (
+          returnFocus?.isConnected === true &&
+          (document.activeElement === null ||
+            document.activeElement === document.body)
+        ) {
+          returnFocus.focus({ preventScroll: true });
+        }
+      });
+    },
+    [returnFocus],
+  );
 
   return (
     <Sheet
@@ -234,7 +252,14 @@ export function RowSheet({
         }
       }}
     >
-      <SheetContent>
+      <SheetContent
+        onCloseAutoFocus={(event) => {
+          if (returnFocus?.isConnected === true) {
+            event.preventDefault();
+            returnFocus.focus({ preventScroll: true });
+          }
+        }}
+      >
         <SheetHeader className="gap-2 border-b border-border pb-4">
           <SheetTitle className="break-words">
             {title ?? row.findingKind}

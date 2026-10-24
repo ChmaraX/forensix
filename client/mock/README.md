@@ -58,11 +58,10 @@ last-used rows by timestamp, newest first - mirroring core's
 
 `site-hosts` groups history visits, cookies, saved logins, bookmarks, and top
 sites by a normalized host key (lowercased, no leading dots or `www.`), with
-per-kind counts, honoring `search`. `site-findings?host=` returns every row
-for one host, each tagged with its `artifactKind`. The real server does not
-wire these two routes yet (see `server/src/index.ts`), so against a real Case
-the Sites page shows its "could not be loaded" state; the mock serves them so
-the page can be designed.
+per-kind counts (`counts`, every Commit State, and `savedCounts`, committed
+rows only), honoring `search`, in host-name order like core's
+`querySiteHosts`. `site-findings?host=` returns every row for one host, each
+tagged with its `artifactKind`. Both page like every list route.
 
 The fixture data lives in `case-data.mjs`: one hand-authored case
 (`CASE-2024-0417`, an insider-threat/financial-fraud scenario), two Chrome
@@ -84,30 +83,39 @@ database that was not read serves no rows - its own route, the Timeline
 and the Sites routes all drop them, so an unreadable artifact's page shows
 its empty state under the banner.
 
-## Known simplification
+## Route contracts and the known simplification
 
-Three query parameters are honored:
+The mock enforces the real routes' validation, so a request the real server
+rejects is rejected here first, with the real 400 body (`{"status": "error",
+"code", "message", "details"}`):
 
-- `limit` - the first `limit` rows (the Overview's fixed-height cards rely
-  on it). `nextCursor` is always `null`, so there is never a second page.
-- `commit-state` (`committed`, `wal_resident`, `journal_resident`) - on
-  exactly the routes the real server filters by it (`history`, `cookies`,
+- `limit` - an integer from 1 through 100 (default 50); anything else is a
+  400 `INVALID_ARGUMENT` (core's `normalizeLimit` wording).
+- Pagination - every list returns at most `limit` rows and a `nextCursor`
+  while rows remain; `after=<cursor>` reads the next page. A cursor is bound
+  to its query (route and every parameter but `limit` / `after`): reusing it
+  after a filter, sort or range changed is a 400 `INVALID_CURSOR`, as on the
+  real server.
+- `sort` / `direction` - checked against core's allowed values per route
+  (and per History `view`); `view` must be `visits`, `activity`,
+  `most-visited` or `durations`; `record-type` on `cache` must be `finding`
+  or `candidate`.
+- `commit-state` (`committed`, `wal_resident`, `journal_resident`) - applied
+  on exactly the routes the real server filters by it (`history`, `cookies`,
   `credentials`, `top-sites`, `favicons`, `topic-candidates`, `metadata`,
-  `downloads`, `bookmarks`, `autofill`); any other value is a 400
-  `INVALID_ARGUMENT`, as on the real server. `cache` and `timeline` ignore
-  it, as the real server does. This is what lets the client's
-  saved / recovered split (`useCommitStateLists`) read each Commit State as
-  its own query.
-- `from` / `to` (ISO instants) - on the History `visits` view and the
-  `timeline`, so a date range picked on History, Timeline or Overview
-  narrows their lists here too.
+  `downloads`, `bookmarks`, `autofill`); any other value is a 400. `cache`
+  and `timeline` ignore it, as the real server does.
+- `from` / `to` - full ISO 8601 instants with an offset, `from` not after
+  `to`; applied on the History `visits` view and the `timeline`. On any
+  other History view they (and `transition`) are a 400.
+- `site-findings` without a `host` is a 400; an unknown route is a 400
+  "Unknown dashboard route.".
 
-Every other parameter - search, sort, direction, per-artifact extra
-filters - is accepted but **ignored**; those routes return their full static
-list. That's enough to design list/detail UI against
-realistic data; it is not a stand-in for testing filtering, sorting, or
-pagination behavior. The real server (`server/src/index.ts` + `core/`) is the
-source of truth for that logic.
+The simplification: search, the sort order itself and the per-artifact
+extra filters are not applied - rows come in the fixture's own order. That's
+enough to design list/detail UI against realistic data; it is not a
+stand-in for testing filtering or ordering. The real server
+(`server/src/index.ts` + `core/`) is the source of truth for that logic.
 
 No auth/token check is enforced (the token is a fixed constant); this never
 leaves localhost and is not part of any shipped artifact.

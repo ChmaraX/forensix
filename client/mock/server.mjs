@@ -10,12 +10,17 @@
  * and must never be imported by `server/`, `core/`, or `cli/`. It exists only
  * so the dashboard can be designed and iterated against rich, realistic data.
  *
- * Simplification (see mock/README.md): `limit` and `commit-state` are honored
- * (commit-state on exactly the routes the real server filters by it); every
- * other query param (search, sort, direction, per-artifact extra filters;
- * `from` / `to` are honored on the History visits view and the timeline) is
- * accepted but IGNORED. That is enough to design against; it is not enough to
- * test filtering/sorting/pagination behavior.
+ * Route contracts mirror the real server's validation (core's
+ * `normalizeLimit`, cursors, sort / direction / view / commit-state /
+ * `from`-`to` checks), so a client request the real server rejects is
+ * rejected here too, with the same 400 body shape (`{status:"error", code,
+ * message, details}`): `limit` must be an integer from 1 through 100
+ * (default 50), every list is paged with a `nextCursor` while rows remain,
+ * and a cursor from another query is INVALID_CURSOR. `commit-state` and
+ * `from` / `to` filter where the real server applies them. Search, sort
+ * order and the per-artifact extra filters are validated where core
+ * validates them but not applied (see mock/README.md): enough to design
+ * against, not to test ordering.
  *
  * Usage:
  *   node mock/server.mjs [--port 7799] [--bundle <path/to/index.js>] [--degraded]
@@ -190,30 +195,218 @@ function htmlShell() {
 
 /* ------------------------------ list wrapping ------------------------------ */
 
-/** Every list route: `{status:"ok", items, nextCursor:null, limit}`. Sort,
- *  direction, and per-artifact extra filters are intentionally not applied —
- *  see the module doc comment. `limit` IS honored: the Overview page relies
- *  on it to keep fixed-height side-by-side cards (Recent downloads, Top
- *  sites, most-visited) from overflowing and blowing out the CSS grid row
- *  they share, which drags every sibling card in that row to match. */
-function pageOf(items, params) {
-  const requested = Number(params?.get("limit"));
-  const limit =
-    Number.isInteger(requested) && requested > 0
-      ? Math.min(requested, items.length)
-      : items.length;
+/** A 400 the real server would send: `INVALID_ARGUMENT` or `INVALID_CURSOR`
+ *  (core's `ForensixError`, `server/src/index.ts` status mapping). */
+class MockBadRequest extends Error {
+  constructor(message, details = {}, code = "INVALID_ARGUMENT") {
+    super(message);
+    this.code = code;
+    this.details = details;
+  }
+}
+
+/** Each list route's core label (used in core's error messages). */
+const ROUTE_LABELS = {
+  history: "History",
+  timeline: "Timeline",
+  cookies: "Cookies",
+  credentials: "Credential",
+  "top-sites": "Top Sites",
+  cache: "Cache",
+  favicons: "Favicons",
+  candidates: "Candidates",
+  "topic-candidates": "Topic Candidate",
+  metadata: "Metadata",
+  downloads: "Downloads",
+  bookmarks: "Bookmarks",
+  autofill: "Autofill",
+  "site-hosts": "Sites",
+  "site-findings": "Sites",
+};
+
+/** `limit` as the real server resolves it: the HTTP layer's integer check
+ *  (`integerParameter`), then core's `normalizeLimit` (1-100, default 50). */
+function resolveLimit(params, label) {
+  const raw = params.get("limit");
+  if (raw === null) {
+    return 50;
+  }
+  if (!/^[0-9]+$/.test(raw)) {
+    throw new MockBadRequest("Query parameter limit must be an integer.", {
+      parameter: "limit",
+      value: raw,
+    });
+  }
+  const limit = Number(raw);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new MockBadRequest(
+      `${label} --limit must be an integer from 1 through 100.`,
+      { limit },
+    );
+  }
+  return limit;
+}
+
+/** The query a cursor belongs to: route and every parameter but the page
+ *  ones (`limit` is not in core's fingerprint either). */
+function fingerprintOf(route, params) {
+  const entries = [...params.entries()]
+    .filter(([name]) => name !== "limit" && name !== "after")
+    .sort(([a, av], [b, bv]) =>
+      a === b ? (av < bv ? -1 : 1) : a < b ? -1 : 1,
+    );
+  return JSON.stringify([route, entries]);
+}
+
+function encodeCursor(fingerprint, offset) {
+  return Buffer.from(
+    JSON.stringify({ version: 1, fingerprint, offset }),
+    "utf8",
+  ).toString("base64url");
+}
+
+function decodeCursor(value, fingerprint, label) {
+  let parsed;
+  try {
+    parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+  } catch {
+    parsed = undefined;
+  }
+  if (value === "" || parsed === undefined) {
+    throw new MockBadRequest(
+      `${label} cursor is not valid.`,
+      {},
+      "INVALID_CURSOR",
+    );
+  }
+  if (
+    parsed === null ||
+    typeof parsed !== "object" ||
+    parsed.version !== 1 ||
+    parsed.fingerprint !== fingerprint ||
+    !Number.isInteger(parsed.offset) ||
+    parsed.offset < 0
+  ) {
+    throw new MockBadRequest(
+      `${label} cursor does not belong to this query.`,
+      {},
+      "INVALID_CURSOR",
+    );
+  }
+  return parsed.offset;
+}
+
+/** One page of a list route, as the real server pages it: `limit` rows
+ *  after the cursor, and a `nextCursor` (bound to this exact query) while
+ *  rows remain. The fixture's own order stands in for the sort order. */
+function pageOf(items, params, route, extra = {}) {
+  const label = ROUTE_LABELS[route] ?? route;
+  const limit = resolveLimit(params, label);
+  const fingerprint = fingerprintOf(route, params);
+  const after = params.get("after");
+  const offset = after === null ? 0 : decodeCursor(after, fingerprint, label);
+  const page = items.slice(offset, offset + limit);
+  const next = offset + limit;
   return {
     status: "ok",
-    items: items.slice(0, limit),
-    nextCursor: null,
+    command: route,
+    ...extra,
+    items: page,
+    nextCursor: next < items.length ? encodeCursor(fingerprint, next) : null,
     limit,
   };
 }
 
+/** Allowed `sort` values per route (and History view) and the default
+ *  direction, as core validates them (`finding-query.ts`'s
+ *  `resolveSort`). A bad sort or direction is a 400. */
+const SORTS = {
+  "history:visits": ["visit-time", "url", "duration", "profile"],
+  "history:activity": ["local-time", "visit-count", "duration", "profile"],
+  "history:most-visited": ["visit-count", "url", "profile"],
+  "history:durations": ["duration", "visit-count", "url", "profile"],
+  cookies: [
+    "host",
+    "name",
+    "creation-time",
+    "expires-time",
+    "last-access-time",
+    "profile",
+  ],
+  credentials: [
+    "created-time",
+    "last-used-time",
+    "origin",
+    "username",
+    "profile",
+  ],
+  "top-sites": ["rank", "url", "title", "profile"],
+  "cache:finding": ["key", "last-used", "size", "entry-hash", "profile"],
+  "cache:candidate": ["key", "last-used", "profile"],
+  favicons: ["icon-url", "page-url", "last-updated", "width", "profile"],
+  candidates: ["rank", "kind", "supporting-count", "value", "profile"],
+  "topic-candidates": ["rank", "supporting", "label", "profile"],
+  metadata: ["type", "profile"],
+  downloads: [
+    "start-time",
+    "end-time",
+    "target-path",
+    "state",
+    "total-bytes",
+    "profile",
+  ],
+  bookmarks: ["name", "url", "date-added", "folder", "profile"],
+  autofill: [
+    "created-time",
+    "last-used-time",
+    "field-name",
+    "value",
+    "profile",
+  ],
+};
+
+function checkSort(params, key, label) {
+  const sort = params.get("sort");
+  const allowed = SORTS[key];
+  if (sort !== null && allowed !== undefined && !allowed.includes(sort)) {
+    throw new MockBadRequest(`${label} --sort has an unsupported value.`, {
+      value: sort,
+      allowed,
+    });
+  }
+  const direction = params.get("direction");
+  if (direction !== null && direction !== "asc" && direction !== "desc") {
+    throw new MockBadRequest(`${label} --direction has an unsupported value.`, {
+      value: direction,
+      allowed: ["asc", "desc"],
+    });
+  }
+}
+
+const INSTANT =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
+
+/** `from` / `to` as core's `normalizeInstant` accepts them (a full ISO 8601
+ *  instant with an offset), normalized to a comparable UTC string. */
+function instantParam(params, name, label) {
+  const raw = params.get(name);
+  if (raw === null || raw === "") {
+    return "";
+  }
+  const parsed = Date.parse(raw);
+  if (!INSTANT.test(raw) || Number.isNaN(parsed)) {
+    throw new MockBadRequest(
+      `${label} --${name} must be an ISO 8601 instant with an offset.`,
+      { value: raw },
+    );
+  }
+  const fraction = /\.(\d{1,6})/.exec(raw)?.[1] ?? "";
+  const micros = fraction.padEnd(6, "0").slice(3);
+  return new Date(parsed).toISOString().replace(/Z$/, `${micros}Z`);
+}
+
 /** The Commit States the real server accepts (core's `resolveCommitState`). */
 const COMMIT_STATES = ["committed", "wal_resident", "journal_resident"];
-
-class MockBadRequest extends Error {}
 
 /** The `commit-state` filter, as the real server applies it on every Finding
  *  route that accepts it: absent → every row; a known state → only rows in
@@ -224,9 +417,10 @@ function byCommitState(rows, params) {
     return rows;
   }
   if (!COMMIT_STATES.includes(state)) {
-    throw new MockBadRequest(
-      `--commit-state must be one of ${COMMIT_STATES.join(", ")}.`,
-    );
+    throw new MockBadRequest("--commit-state has an unsupported value.", {
+      value: state,
+      allowed: COMMIT_STATES,
+    });
   }
   return rows.filter((row) => row.commitState === state);
 }
@@ -289,9 +483,15 @@ function timelineSortKey(row) {
 /** The `from` / `to` instant bounds, as the real server applies them to the
  *  History `visits` view and the Timeline: rows whose time falls outside are
  *  dropped (a row with no time too, once a bound is set). */
-function byInstantRange(rows, params, timeOf) {
-  const from = params?.get("from") ?? "";
-  const to = params?.get("to") ?? "";
+function byInstantRange(rows, params, timeOf, label) {
+  const from = instantParam(params, "from", label);
+  const to = instantParam(params, "to", label);
+  if (from !== "" && to !== "" && from > to) {
+    throw new MockBadRequest(`${label} --from must not be later than --to.`, {
+      from,
+      to,
+    });
+  }
   if (from === "" && to === "") {
     return rows;
   }
@@ -398,23 +598,27 @@ function siteHosts(params, request) {
     for (const row of rowsOf(request)) {
       const host = hostKeyOf(hostOf(row));
       if (host === null) continue;
-      const counts = byHost.get(host) ?? { ...EMPTY_SITE_COUNTS };
-      counts[kind] += 1;
-      byHost.set(host, counts);
+      const entry = byHost.get(host) ?? {
+        counts: { ...EMPTY_SITE_COUNTS },
+        savedCounts: { ...EMPTY_SITE_COUNTS },
+      };
+      entry.counts[kind] += 1;
+      if (row.commitState === "committed") entry.savedCounts[kind] += 1;
+      byHost.set(host, entry);
     }
   }
+  // Host-name order (code units), as core's querySiteHosts pages them.
   const items = [...byHost.entries()]
     .filter(([host]) => search === "" || host.includes(search))
-    .map(([host, counts]) => ({ host, counts }))
-    .sort(
-      (a, b) =>
-        Object.values(b.counts).reduce((s, n) => s + n, 0) -
-        Object.values(a.counts).reduce((s, n) => s + n, 0),
-    );
-  return { status: "ok", items, nextCursor: null, limit: items.length };
+    .map(([host, entry]) => ({ host, ...entry }))
+    .sort((a, b) => (a.host < b.host ? -1 : a.host > b.host ? 1 : 0));
+  return pageOf(items, params, "site-hosts");
 }
 
 function siteFindings(params, request) {
+  if ((params.get("host") ?? "") === "") {
+    throw new MockBadRequest("Sites --host must not be empty.");
+  }
   const host = hostKeyOf(params.get("host"));
   const items = [];
   if (host !== null) {
@@ -426,7 +630,7 @@ function siteFindings(params, request) {
       }
     }
   }
-  return { status: "ok", items, nextCursor: null, limit: items.length || 1 };
+  return pageOf(items, params, "site-findings");
 }
 
 // `commit-state` is honored exactly where server/src/index.ts passes it to
@@ -434,11 +638,16 @@ function siteFindings(params, request) {
 // (one chronological stream), and not on the site-* routes.
 /** A Finding route of one Completeness artifact: its readable rows, by
  *  `commit-state`, limited. */
-const artifactRoute = (rowsOf, artifact) => (params, request) =>
-  pageOf(
+const artifactRoute = (route, rowsOf, artifact) => (params, request) => {
+  checkSort(params, route, ROUTE_LABELS[route]);
+  return pageOf(
     byCommitState(findingRows(readable(rowsOf(), artifact, request)), params),
     params,
+    route,
   );
+};
+
+const HISTORY_VIEWS = ["visits", "activity", "most-visited", "durations"];
 
 const ROUTES = {
   "site-hosts": (params, request) => siteHosts(params, request),
@@ -446,41 +655,100 @@ const ROUTES = {
   completeness: (_params, request) => completenessFor(request),
   profiles: () => caseData.profiles,
   history: (params, request) => {
-    const view = params.get("view");
+    const view = params.get("view") ?? "visits";
+    if (!HISTORY_VIEWS.includes(view)) {
+      throw new MockBadRequest("History --view has an unsupported value.", {
+        value: view,
+        allowed: HISTORY_VIEWS,
+      });
+    }
+    const sort = params.get("sort");
+    if (sort !== null && !SORTS[`history:${view}`].includes(sort)) {
+      throw new MockBadRequest(
+        `History sort ${sort} is not available for ${view}.`,
+        { sort, view },
+      );
+    }
+    checkSort(params, `history:${view}`, "History");
+    if (
+      view !== "visits" &&
+      ["from", "to", "transition"].some((name) => params.get(name) !== null)
+    ) {
+      throw new MockBadRequest(
+        "History --from, --to and --transition apply only to the visits view.",
+        { view },
+      );
+    }
     const rows = historyView(view, request);
     return pageOf(
       byCommitState(
-        view === "activity" || view === "most-visited"
-          ? rows
-          : byInstantRange(rows, params, visitTimeOf),
+        view === "visits"
+          ? byInstantRange(rows, params, visitTimeOf, "History")
+          : rows,
         params,
       ),
       params,
+      "history",
+      { view },
     );
   },
-  timeline: (params, request) =>
-    pageOf(
-      byInstantRange(timelineRows(request), params, timelineSortKey),
+  timeline: (params, request) => {
+    checkSort(params, "timeline", "Timeline");
+    return pageOf(
+      byInstantRange(
+        timelineRows(request),
+        params,
+        timelineSortKey,
+        "Timeline",
+      ),
       params,
-    ),
+      "timeline",
+    );
+  },
   "site-favicons": () => ({ status: "ok", icons: {} }),
-  cookies: artifactRoute(() => caseData.cookies, "Cookies"),
-  credentials: artifactRoute(() => caseData.credentials, "Login Data"),
-  "top-sites": artifactRoute(() => caseData.topSites, "Top Sites"),
+  cookies: artifactRoute("cookies", () => caseData.cookies, "Cookies"),
+  credentials: artifactRoute(
+    "credentials",
+    () => caseData.credentials,
+    "Login Data",
+  ),
+  "top-sites": artifactRoute("top-sites", () => caseData.topSites, "Top Sites"),
   // No commit-state filter on cache (its records carry their state mixed).
-  cache: (params, request) =>
-    pageOf(findingRows(readable(caseData.cache, "Cache", request)), params),
-  favicons: artifactRoute(() => caseData.favicons, "Favicons"),
-  candidates: (params) => pageOf(candidateRows(caseData.candidates), params),
-  "topic-candidates": (params) =>
-    pageOf(
+  cache: (params, request) => {
+    const recordType = params.get("record-type") ?? "finding";
+    if (recordType !== "finding" && recordType !== "candidate") {
+      throw new MockBadRequest(
+        "Cache --record-type has an unsupported value.",
+        {
+          value: recordType,
+        },
+      );
+    }
+    checkSort(params, `cache:${recordType}`, "Cache");
+    return pageOf(
+      findingRows(readable(caseData.cache, "Cache", request)),
+      params,
+      "cache",
+      { recordType },
+    );
+  },
+  favicons: artifactRoute("favicons", () => caseData.favicons, "Favicons"),
+  candidates: (params) => {
+    checkSort(params, "candidates", "Candidates");
+    return pageOf(candidateRows(caseData.candidates), params, "candidates");
+  },
+  "topic-candidates": (params) => {
+    checkSort(params, "topic-candidates", "Topic Candidate");
+    return pageOf(
       byCommitState(candidateRows(caseData.topicCandidates), params),
       params,
-    ),
-  metadata: artifactRoute(() => caseData.metadata, "Preferences"),
-  downloads: artifactRoute(() => caseData.downloads, "Downloads"),
-  bookmarks: artifactRoute(() => caseData.bookmarks, "Bookmarks"),
-  autofill: artifactRoute(() => caseData.autofill, "Web Data"),
+      "topic-candidates",
+    );
+  },
+  metadata: artifactRoute("metadata", () => caseData.metadata, "Preferences"),
+  downloads: artifactRoute("downloads", () => caseData.downloads, "Downloads"),
+  bookmarks: artifactRoute("bookmarks", () => caseData.bookmarks, "Bookmarks"),
+  autofill: artifactRoute("autofill", () => caseData.autofill, "Web Data"),
 };
 
 /* --------------------------------- server ---------------------------------- */
@@ -533,9 +801,12 @@ const server = createServer((request, response) => {
     const route = path.slice("/api/".length);
     const handler = ROUTES[route];
     if (handler === undefined) {
-      sendJson(response, 404, {
-        code: "NOT_FOUND",
-        message: "No such dashboard route in the design mock.",
+      // The real server: an unknown route is INVALID_ARGUMENT (400).
+      sendJson(response, 400, {
+        status: "error",
+        code: "INVALID_ARGUMENT",
+        message: "Unknown dashboard route.",
+        details: { route },
       });
       return;
     }
@@ -544,8 +815,10 @@ const server = createServer((request, response) => {
     } catch (error) {
       if (error instanceof MockBadRequest) {
         sendJson(response, 400, {
-          code: "INVALID_ARGUMENT",
+          status: "error",
+          code: error.code,
           message: error.message,
+          details: error.details,
         });
         return;
       }

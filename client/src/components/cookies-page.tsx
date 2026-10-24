@@ -24,7 +24,6 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
-import { Tooltip } from "@/components/ui/tooltip";
 import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
 import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
@@ -35,7 +34,8 @@ import {
   useCommitStateLists,
   type PaginatedList,
 } from "../use-commit-state-lists.js";
-import { ChartEmpty, SegmentBar, useChartTokens } from "./charts.js";
+import { ChartEmpty, useChartTokens } from "./charts.js";
+import { SegmentBar } from "./charts-ready.js";
 import { EmptyRows } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
@@ -49,10 +49,11 @@ import {
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
-import { MetricBand, MetricBandItem } from "./metric-band.js";
+import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import {
   COOKIE_SECRET_FIELDS,
   RowSheet,
+  SEALED_REASON,
   SecretValueCell,
   type SelectedRow,
 } from "./row-sheet.js";
@@ -89,7 +90,8 @@ interface CookieRow {
   readonly secure: boolean | null;
   readonly httpOnly: boolean | null;
   readonly sameSite: string | null;
-  /** True when `value` came back `unavailable` — the encrypted-offline case. */
+  /** True when `value` is `unavailable` for want of key material (the
+   *  encrypted-offline case). Other unavailable reasons are not "sealed". */
   readonly valueSealed: boolean;
   /** Whole days from creation to expiry, or null when a bound is missing. */
   readonly lifespanDays: number | null;
@@ -122,7 +124,9 @@ function toCookieRow(finding: Finding): CookieRow {
     secure: fieldBool(finding.fields.isSecure),
     httpOnly: fieldBool(finding.fields.isHttpOnly),
     sameSite: fieldText(finding.fields.sameSite),
-    valueSealed: finding.fields.value?.state === "unavailable",
+    valueSealed:
+      finding.fields.value?.state === "unavailable" &&
+      finding.fields.value.reason === SEALED_REASON,
     lifespanDays,
   };
 }
@@ -138,8 +142,8 @@ interface PostureSummary {
 
 /**
  * The four headline figures. Each numerator counts only rows that carry the
- * recorded flag as `true` (or, for `sealed`, whose value came back
- * unavailable): a cookie whose `isSecure` field is absent is never counted
+ * recorded flag as `true` (or, for `sealed`, whose value is unavailable for
+ * want of key material): a cookie whose `isSecure` field is absent is never counted
  * as insecure, it simply is not in the numerator.
  */
 function summarize(rows: readonly CookieRow[]): PostureSummary {
@@ -257,21 +261,6 @@ function percent(part: number, whole: number): string {
 
 /* ------------------------------ page sections ----------------------------- */
 
-/** A tile's figure, with its exact "N of M" in a tooltip. */
-function ShareFigure({
-  value,
-  detail,
-}: {
-  readonly value: string;
-  readonly detail: string;
-}) {
-  return (
-    <Tooltip content={detail}>
-      <span className="cursor-default">{value}</span>
-    </Tooltip>
-  );
-}
-
 /** The four posture figures across the top of the page (saved rows only). */
 function PostureStrip({
   summary,
@@ -291,7 +280,7 @@ function PostureStrip({
       <MetricBandItem
         label={<Term label="Secure">Sent only over HTTPS.</Term>}
         value={
-          <ShareFigure
+          <TooltipFigure
             value={percent(summary.secure, summary.total)}
             detail={of(summary.secure, "marked Secure")}
           />
@@ -300,7 +289,7 @@ function PostureStrip({
       <MetricBandItem
         label={<Term label="HttpOnly">Hidden from page scripts.</Term>}
         value={
-          <ShareFigure
+          <TooltipFigure
             value={percent(summary.httpOnly, summary.total)}
             detail={of(summary.httpOnly, "marked HttpOnly")}
           />
@@ -314,7 +303,7 @@ function PostureStrip({
           </Term>
         }
         value={
-          <ShareFigure
+          <TooltipFigure
             value={percent(summary.sealed, summary.total)}
             detail={of(summary.sealed, "with a sealed value")}
           />

@@ -68,13 +68,13 @@ The decluttered pages follow these; keep new work to them.
 
 ## What is installed
 
-| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                                                                                             |
-| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, icons-untitledui, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                                                                   |
-| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                                                                                             |
-| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                                                                                              |
-| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/responsive-rows.tsx`, `lib/app-icons.ts` (see "Icons"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/charts.tsx` + `chart-section.tsx` |
+| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                                                                                                                                                                       |
+| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, icons-untitledui, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                                                                                                                                             |
+| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                                                                                                                                                                        |
+| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/responsive-rows.tsx`, `lib/app-icons.ts` (see "Icons"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/day-bounds.ts`, `components/secrets.ts`, `components/charts.tsx` + `charts-ready.tsx` + `chart-section.tsx` |
 
 ## The shell (do not restyle it per page)
 
@@ -138,7 +138,6 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
 | Unavailable, error, or warning state                                              | FF `Banner` (`status="error" \| "warning" \| "info"`, `contrast="high"` inline). It must include `BannerTitle` + `BannerDescription` with the reason (the shell's one-line `CoverageBanner` carries its reason in the title). For a failed read with Retry, use `ErrorRows` from `list-states`                                                                           |
 | Term that needs explaining                                                        | `Term label=… technical="Technical: …"` from `@/components/term`. For a custom trigger, use `TermTooltip` + `TermExplanation`. Use FF `Tooltip content=…` for short labels                                                                                                                                                                                               |
 | Loading rows                                                                      | `ListBlock` for a whole list body; else `LoadingRows` or `Skeleton` (see Loading below)                                                                                                                                                                                                                                                                                  |
-| Keyboard caps                                                                     | `Kbd` from `ui/misc`                                                                                                                                                                                                                                                                                                                                                     |
 | Rendered prose or markdown                                                        | `.typeset` on the container                                                                                                                                                                                                                                                                                                                                              |
 
 ## Type: six roles, three weights, two colors
@@ -237,8 +236,8 @@ that way.
   - integer counts are bars (or a `type="step"` line), never `monotone`
     curves or smoothed areas: they invent values between buckets;
   - evidence series keep their hue (`--wal`, `--violet`, `--success`,
-    `--destructive`), always with a legend or label word. `--primary` is
-    no longer a series colour.
+    `--destructive`), always with a legend or label word. There is no
+    `--primary` token.
   - Ranked bars (`ShareBar`) follow the same rule: ink, peak full, the
     rest at rest.
   - A categorical distribution (Cookies' lifespans) is one `SegmentBar`:
@@ -271,7 +270,8 @@ Shared chart parts (`components/charts.tsx`, `components/chart-section.tsx`)
   duration, off under reduced motion), `chartTooltipMotion(reduced)`.
 - Tooltip: `ChartTooltipCard` + `ChartTooltipValue` + `ChartTooltipNote`.
 - Bars: `FluidBandCursor`, `FluidBar`, `activeIndexOf`, `CHART_FOCUS_CLASS`.
-- Ready charts: `ActivityBars({ days, tokens, range?, onRangeChange?,
+- Ready charts (`components/charts-ready.tsx`; the parts above stay in
+  `charts.tsx`): `ActivityBars({ days, tokens, range?, onRangeChange?,
 unit?, emptyMessage? })` (count per day: visits on Overview, History and
   Timeline, last-used entries on Cache), `HourBars` (read-only),
   `SegmentBar({ segments, tokens, unit, label? })` (a proportion bar with
@@ -282,12 +282,27 @@ unit?, emptyMessage? })` (count per day: visits on Overview, History and
   picker's clear) = the full span; drag across days = that span. Every
   figure, widget and list on the page follows the range; the chart keeps
   drawing every day, the range washed in and the days outside dimmed, the
-  picked days at full ink. Pointer cursor, fluid hover band. Pass `range`
+  picked days at full ink. Pointer cursor, fluid hover band. A day is
+  picked on pointer-up (press and release on one day), never on `click`:
+  the press re-renders the bars, so a `click` on the bar itself would never
+  fire. A count axis with a peak of 1-4 stops at `max(peak, 2)` with one
+  tick per whole count. Pass `range`
   - `onRangeChange` to `ActivityBars`; Downloads' bytes chart follows the
     same rule by hand.
 - Day labels: `formatDay` ("4 Mar 2024"), `formatDayTick` ("4 Mar"),
   `formatDaySpan` ("11 Mar - 17 Apr") and the shared `CHART_HEIGHT` come
-  from page-kit.
+  from page-kit. The cleared range reads "All recorded days" on every
+  picker.
+- **Days are Case days.** Core buckets activity in the Analysis Run's
+  declared timezone (`analyse --timezone`), and every `history`
+  `view=activity` row carries it (`fields.declaredTimezone`);
+  `fetchActivity()` returns it as `timeZone` (null when the rows carry none
+  or disagree). A picked range goes to the server through
+  `dayRangeParameters(range, timeZone)` (`components/day-bounds.ts`): the
+  first and last instant of those days on the Case's clock, so clicking
+  day D lists exactly day D. `localDayOf(utc, timeZone)` reads a loaded
+  row's day the same way. With no single declared timezone the bounds fall
+  back to UTC days. Times in tables stay UTC (their header says so).
 
 ## Forensic presentation rules (non-negotiable)
 
@@ -441,9 +456,11 @@ muted, compact and mono; `avatar` adds a `SiteAvatar`),
 (filters); `EmptyRows`, `activateOnKey`, `ROW_FOCUS_CLASS` (data-table);
 `ListBlock`, `RevealSwap`, `LoadingRows({ rows?, label? })`, `ErrorRows`,
 `ListFooter` (list-states); `figure`, `PendingFigure`, `UnavailableFigure`
-(metric-band); `useActivity`, `visitTotal`, `bucketsToDays`, `fillGaps`
+(metric-band); `useActivity`, `bucketsToDays`, `bucketsToHourTotals`, `fillGaps`
 (activity-data); `categoryOf`, `isPaymentField` (form-data);
-`secretFieldsOf`, `SecretValueCell`, `HiddenValue` (row-sheet).
+`secretFieldsOf`, `SecretValueCell`, `HiddenValue` (row-sheet);
+`TooltipFigure` (metric-band); `dayRangeParameters`, `localDayOf`
+(day-bounds).
 The readers (`fieldText` …) return `null` for absent, (empty) and
 unavailable alike - use them to compute, and `FieldCell` / `TimeCell` to
 show.
@@ -525,21 +542,37 @@ loading?, onLoadMore? })` reads "3 of 22" / "50 of 50+" (Load more while
 
 ## Secrets: hidden by default
 
-Values that are secrets (cookie values, Payment-category form data) read
-"value hidden" in tables until a page-level "Show values" `Switch` is on,
-and in the row sheet until revealed there:
+Values that are secrets (cookie values, saved-login passwords, Payment
+form data) read "value hidden" in tables until a page-level "Show values"
+`Switch` is on (where the page has one), and in the row sheet until
+revealed there:
 `<RowSheet selected={…} onClose={…} redactedFields={secretFieldsOf(row)} />`.
 Each named field that holds a recorded, non-empty value opens hidden with a
 Reveal / Hide button; (empty), absent and unavailable still show as words.
 
 - `form-data.ts`: the Form data category rule (`categoryOf`,
-  `FORM_DATA_CATEGORIES`, Payment first) and `isPaymentField(name)`.
-- `row-sheet.tsx`: `secretFieldsOf(row)` (a cookie's `value`, a Payment
-  entry's `fieldValue` / `fieldValueLower`), `SecretValueCell({ field,
-reveal })` and `HiddenValue` for table cells.
+  `FORM_DATA_CATEGORIES`, Payment first), `isPaymentField(name)` (Chrome's
+  CREDIT*CARD*\* / IBAN names and the HTML ones: `cc-number`, `cc-exp`,
+  `cc-csc`, `ccnum`, `security_code`, `exp_date`, `pan`,
+  `routing_number`, `account-number`, …) and `isSecretFormField(field)`,
+  which also **fails closed**: an entry whose `fieldName` is absent,
+  (empty), unavailable or not a string is treated as secret (it still
+  groups under "Other").
+- `secrets.ts` (re-exported by `row-sheet.tsx`): `secretFieldsOf(row)` -
+  a cookie's `value`, a saved login's `secret` (the password, in clear
+  only after `--decrypt`), a secret form entry's `fieldValue` /
+  `fieldValueLower`; `SEALED_REASON`. Unit-tested in `secrets.test.ts`
+  (`vitest run client/src`).
+- `row-sheet.tsx`: `SecretValueCell({ field, reveal, hint? })` and
+  `HiddenValue({ hint? })` for table cells (`hint` is the tooltip; a page
+  without a Switch says "Open the row to reveal it.").
 - Form data, Cookies and the Timeline (once a Payment row is loaded) carry
-  the "Show values" Switch; the Sites drill-down hides Payment values with
-  the sheet as the reveal.
+  the "Show values" Switch; the Sites drill-down and Saved logins hide
+  their secrets with the sheet as the one reveal.
+- Saved logins: the Password cell reads "sealed" only for
+  `encrypted_secret_without_key_material` (no key material); any other
+  unavailable reason shows as itself; a decrypted password reads "value
+  hidden". The Cookies "Sealed" figure counts the same reason only.
 
 ## MetricBand tone
 
@@ -554,7 +587,11 @@ the 28px page title; the label is caption, muted.
 A figure that is not yet a number: `figure(read, show)` with a
 `Read<T>` (`loading` → `PendingFigure` skeleton, `failed` →
 `UnavailableFigure` "unavailable" + dot) - never a "0" or a dash. Below
-`sm` the label, status word and detail wrap instead of truncating.
+`sm` the label, status word and detail wrap instead of truncating. A
+figure value never truncates: it wraps (a dotted value such as a Chrome
+build breaks after a dot, `<wbr>`). A figure with its exact reading in a
+tooltip ("12 of 40 …") is `TooltipFigure({ value, detail })`: its own tab
+stop with the FF focus ring, so keyboard users reach the tooltip too.
 
 ## Canonical patterns (one winner per repeated need)
 
@@ -591,9 +628,8 @@ The compat shims (`components/compat/*`), `stat-tile.tsx`,
 gone, and so are the legacy classes `.fx-hero`, `.fx-rise`,
 `.metric-band-*`, `.fx-scroll-x` and the legacy tokens
 (`primary-foreground`, `accent-border`, `inverse`, `edge-shadow`, and the
-`bg-primary` / `text-primary` utility aliases). `--primary` is no longer a
-chart series (charts are ink, see "Charts"); it stays in `app.css` only for
-page-local charts not yet converted. `ui/misc.tsx` keeps only `Skeleton`; its
+`bg-primary` / `text-primary` utility aliases), and `--primary` itself
+(charts are ink, see "Charts"). `ui/misc.tsx` keeps only `Skeleton`; its
 legacy `Input`, `SelectNative`, `Chip`, `Labeled` and `Kbd` are gone (use FF
 `InputGroup`, `Select`, `CheckboxGroup`). `ChartToggle`, `ChartLegend`,
 `CoverageDial`, `SectionHeading`, `CredentialAgeScatter`, `MeterList`,

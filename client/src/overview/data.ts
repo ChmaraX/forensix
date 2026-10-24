@@ -4,39 +4,13 @@
  * value: every figure is a recorded field or a count of recorded rows.
  */
 import { callApi } from "@/api";
-import { formatDay, formatDayTick } from "@/components/page-kit";
+import { formatDay } from "@/components/page-kit";
 import { fetchActivity, type ActivityBucket } from "@/components/activity-data";
+import { dayRangeParameters, localDayOf } from "@/components/day-bounds";
+import { fieldString, fieldUtc } from "@/components/finding-fields";
 import type { CaseProfiles, FieldState, Finding, PageOf } from "@/types";
 
-export function fieldString(field: FieldState | undefined): string | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  if (typeof field.value === "string") {
-    return field.value;
-  }
-  if (typeof field.value === "number") {
-    return String(field.value);
-  }
-  return null;
-}
-
-/**
- * The UTC instant carried by a timestamp Finding field (for example
- * `history_visit.visitTime`). Timestamp fields hold a `ForensicTimestamp`
- * object with a `utc` string; every other value shape returns `null`, the
- * same rule `formatValue` in `lib.ts` uses to detect a timestamp object.
- */
-function fieldTimestampUtc(field: FieldState | undefined): string | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  if (typeof field.value !== "object" || field.value === null) {
-    return null;
-  }
-  const utc = (field.value as Record<string, unknown>).utc;
-  return typeof utc === "string" ? utc : null;
-}
+export { fieldString };
 
 export interface TopSite {
   readonly url: string;
@@ -55,9 +29,12 @@ export interface OverviewData {
    *  the charts below cover less than the full recorded span, and the screen
    *  must say so. */
   readonly activityComplete: boolean;
-  /** The Case's true first and last recorded visit, read directly from the
-   *  `visits` view (one row each way) rather than derived from the — possibly
-   *  truncated — `activity` set. This is the span the range control and the
+  /** The declared timezone the activity days are in (`fetchActivity`), or
+   *  null (then days are UTC days). Day ranges and row days use it. */
+  readonly timeZone: string | null;
+  /** The Case's true first and last saved visit, read directly from the
+   *  `visits` view (one committed row each way) rather than derived from the
+   *  — possibly truncated — `activity` set. This is the span the range control and the
    *  span label promise the examiner, so it must never come from a set that
    *  can itself be incomplete. */
   readonly recordedSpan: {
@@ -67,6 +44,7 @@ export interface OverviewData {
   readonly mostVisited: readonly TopSite[];
   readonly profiles: readonly string[];
   readonly metadata: readonly Finding[];
+  /** The newest saved downloads (up to `RECENT_DOWNLOADS`). */
   readonly downloads: readonly Finding[];
   /** Recovered favicon for each Most visited sites host, as an inline `data:` URI —
    *  the dashboard's CSP admits no other image source, so a favicon is never
@@ -77,11 +55,12 @@ export interface OverviewData {
 }
 
 /**
- * The Case's true first and last recorded visit. Reads the `visits` view
- * directly — one row from each end — rather than deriving the span from the
- * (possibly page-capped) `activity` set, so the span the screen promises is
- * never itself truncated. An empty Case (no visits at all) returns two empty
- * pages and both bounds resolve to `null`; nothing is invented.
+ * The Case's true first and last saved visit. Reads the `visits` view
+ * directly — one committed row from each end, the same rows History's
+ * "Recorded span" counts — rather than deriving the span from the (possibly
+ * page-capped) `activity` set, so the span the screen promises is never
+ * itself truncated. An empty Case (no saved visits) returns two empty pages
+ * and both bounds resolve to `null`; nothing is invented.
  */
 async function fetchRecordedSpan(): Promise<{
   readonly first: string | null;
@@ -90,12 +69,14 @@ async function fetchRecordedSpan(): Promise<{
   const [earliest, latest] = await Promise.all([
     callApi<PageOf<Finding>>("history", [
       ["view", "visits"],
+      ["commit-state", "committed"],
       ["sort", "visit-time"],
       ["direction", "asc"],
       ["limit", "1"],
     ]),
     callApi<PageOf<Finding>>("history", [
       ["view", "visits"],
+      ["commit-state", "committed"],
       ["sort", "visit-time"],
       ["direction", "desc"],
       ["limit", "1"],
@@ -105,8 +86,8 @@ async function fetchRecordedSpan(): Promise<{
   // them: a route (or the design mock) that ignores `direction` must not
   // collapse the span onto one row's day.
   const instants = [
-    fieldTimestampUtc(earliest.items[0]?.fields.visitTime),
-    fieldTimestampUtc(latest.items[0]?.fields.visitTime),
+    fieldUtc(earliest.items[0]?.fields.visitTime),
+    fieldUtc(latest.items[0]?.fields.visitTime),
   ]
     .filter((instant): instant is string => instant !== null)
     .sort((a, b) => Date.parse(a) - Date.parse(b));
@@ -137,12 +118,19 @@ async function fetchFavicons(
   return new Map(Object.entries(result.icons));
 }
 
-/** Saved downloads the Overview reads, newest first. */
-const DOWNLOADS_READ = 200;
+/** Rows per page on every Overview read (the routes' maximum is 100). */
+const PAGE_LIMIT = 100;
 
-/** The day of a timestamp field (`YYYY-MM-DD`, UTC), or null. */
-export function fieldDay(field: FieldState | undefined): string | null {
-  return fieldTimestampUtc(field)?.slice(0, 10) ?? null;
+/** Downloads the Recent downloads panel lists. */
+export const RECENT_DOWNLOADS = 5;
+
+/** The local day (`YYYY-MM-DD`) of a timestamp field in the Case's declared
+ *  timezone (UTC without one), or null. */
+export function fieldDay(
+  field: FieldState | undefined,
+  timeZone: string | null,
+): string | null {
+  return localDayOf(fieldUtc(field), timeZone);
 }
 
 /** A day lies in a range (`""` = an open bound). */
@@ -156,33 +144,31 @@ export function dayInRange(
   );
 }
 
-/** Pages of saved visits read for a narrowed Most visited sites. */
+/** Pages of saved visits read for a narrowed Most visited sites (1,000
+ *  visits). */
 const RANGE_VISIT_PAGES = 10;
 
 /**
  * Most visited sites within a date range: the `most-visited` view is a
  * whole-Case summary, so a narrowed range reads the saved visits in it
- * (`from` / `to`, followed page by page up to `RANGE_VISIT_PAGES`) and counts
- * them per URL. `complete` is false when the read stopped at that cap.
+ * (`from` / `to` in the declared timezone, followed page by page up to
+ * `RANGE_VISIT_PAGES`) and counts them per URL. `complete` is false when the
+ * read stopped at that cap; a failed read rejects (the panel shows it, never
+ * "no visits").
  */
-export async function loadMostVisitedIn(range: {
-  readonly from: string;
-  readonly to: string;
-}): Promise<{
+export async function loadMostVisitedIn(
+  range: { readonly from: string; readonly to: string },
+  timeZone: string | null,
+): Promise<{
   readonly sites: readonly TopSite[];
   readonly complete: boolean;
 }> {
-  const parameters: [string, string][] = [
+  const parameters: (readonly [string, string])[] = [
     ["view", "visits"],
     ["commit-state", "committed"],
-    ["limit", "500"],
+    ["limit", String(PAGE_LIMIT)],
+    ...dayRangeParameters(range, timeZone),
   ];
-  if (range.from !== "") {
-    parameters.push(["from", `${range.from}T00:00:00Z`]);
-  }
-  if (range.to !== "") {
-    parameters.push(["to", `${range.to}T23:59:59.999999Z`]);
-  }
   const byUrl = new Map<string, { title: string; count: number }>();
   let cursor: string | null = null;
   for (let page = 0; page < RANGE_VISIT_PAGES; page += 1) {
@@ -191,9 +177,8 @@ export async function loadMostVisitedIn(range: {
       cursor === null ? parameters : [...parameters, ["after", cursor]],
     );
     for (const row of result.items) {
-      const day = fieldDay(row.fields.visitTime);
       const url = fieldString(row.fields.url);
-      if (day === null || url === null || !dayInRange(day, range)) {
+      if (url === null) {
         continue;
       }
       const entry = byUrl.get(url) ?? {
@@ -215,9 +200,62 @@ export async function loadMostVisitedIn(range: {
   return { sites, complete: cursor === null };
 }
 
+/** Pages of saved downloads read for a narrowed Recent downloads (2,000). */
+const RANGE_DOWNLOAD_PAGES = 20;
+
+/**
+ * The newest `RECENT_DOWNLOADS` saved downloads that started inside a date
+ * range. The downloads route has no time filter, so this follows the saved
+ * list newest first, page by page, keeping rows whose start day (in the
+ * declared timezone) is in range, and stops once it has enough, once a page
+ * reaches days before the range, or at `RANGE_DOWNLOAD_PAGES`. `complete` is
+ * false when that cap stopped it before it could tell.
+ */
+export async function loadDownloadsIn(
+  range: { readonly from: string; readonly to: string },
+  timeZone: string | null,
+): Promise<{
+  readonly downloads: readonly Finding[];
+  readonly complete: boolean;
+}> {
+  const parameters: (readonly [string, string])[] = [
+    ["commit-state", "committed"],
+    ["sort", "start-time"],
+    ["direction", "desc"],
+    ["limit", String(PAGE_LIMIT)],
+  ];
+  const found: Finding[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < RANGE_DOWNLOAD_PAGES; page += 1) {
+    const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
+      "downloads",
+      cursor === null ? parameters : [...parameters, ["after", cursor]],
+    );
+    let older = false;
+    for (const row of result.items) {
+      const day = fieldDay(row.fields.startTime, timeZone);
+      if (day === null) {
+        continue;
+      }
+      if (range.from !== "" && day < range.from) {
+        older = true;
+        continue;
+      }
+      if (dayInRange(day, range) && found.length < RECENT_DOWNLOADS) {
+        found.push(row);
+      }
+    }
+    cursor = result.nextCursor;
+    if (cursor === null || older || found.length >= RECENT_DOWNLOADS) {
+      return { downloads: found, complete: true };
+    }
+  }
+  return { downloads: found, complete: false };
+}
+
 export async function loadOverview(): Promise<OverviewData> {
   const [
-    { saved: activity, recovered, complete: activityComplete },
+    { saved: activity, recovered, complete: activityComplete, timeZone },
     recordedSpan,
     mostVisitedPage,
     caseProfiles,
@@ -247,9 +285,8 @@ export async function loadOverview(): Promise<OverviewData> {
       ["commit-state", "committed"],
       ["sort", "start-time"],
       ["direction", "desc"],
-      // Enough to fill the five-row panel under a narrowed date range too;
-      // the page keeps the newest five in range.
-      ["limit", String(DOWNLOADS_READ)],
+      // The newest five; a narrowed range reads its own (`loadDownloadsIn`).
+      ["limit", String(RECENT_DOWNLOADS)],
     ]),
   ]);
 
@@ -269,6 +306,7 @@ export async function loadOverview(): Promise<OverviewData> {
     activity,
     recoveredActivity: recovered,
     activityComplete,
+    timeZone,
     recordedSpan,
     mostVisited,
     profiles: caseProfiles.profiles,
@@ -289,7 +327,9 @@ export function domainOf(url: string): string {
 /** "4 Mar 2024" (UTC) — the shared page-kit day label. */
 export { formatDay };
 
-/** "4 Mar 2024 — 17 Apr 2024", one day, or `null` with no dated bound. */
+/** The full recorded span with years, "4 Mar 2024 - 17 Apr 2024" (one day:
+ *  "4 Mar 2024"), or `null` with no dated bound. The masthead keeps the
+ *  years that page-kit's shorter `formatDaySpan` drops within one year. */
 export function formatSpan(
   first: string | null,
   last: string | null,
@@ -310,25 +350,6 @@ export function shiftDay(date: string, days: number): string {
   }
   parsed.setUTCDate(parsed.getUTCDate() + days);
   return parsed.toISOString().slice(0, 10);
-}
-
-/** A short day range: "6 Apr", "6–10 Apr", "28 Mar – 2 Apr", or with years
- *  when the two days fall in different years ("28 Dec 2023 – 2 Jan 2024"). */
-export function formatDayRange(from: string, to: string): string {
-  if (from === to) {
-    return formatDayTick(from);
-  }
-  const [fromYear, fromMonth] = from.split("-");
-  const [toYear, toMonth] = to.split("-");
-  if (fromYear !== toYear) {
-    return `${formatDay(from)} - ${formatDay(to)}`;
-  }
-  if (fromMonth !== toMonth) {
-    return `${formatDayTick(from)} - ${formatDayTick(to)}`;
-  }
-  const [toDay, ...toRest] = formatDayTick(to).split(" ");
-  const fromDay = formatDayTick(from).split(" ")[0] ?? from;
-  return `${fromDay}-${toDay ?? ""} ${toRest.join(" ")}`.trim();
 }
 
 /** The last path segment of a target-path Field's recorded value — the plain

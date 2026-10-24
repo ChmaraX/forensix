@@ -203,10 +203,26 @@ function Fact({
 /** A recorded value as a strip figure; any other state keeps its own word. */
 function FieldFigure({ field }: { readonly field: FieldState | undefined }) {
   const text = fieldString(field);
-  return text === null ? (
-    <MaybeFieldStateText field={field} truncate />
-  ) : (
-    <span title={text}>{text}</span>
+  if (text === null) {
+    return <MaybeFieldStateText field={field} truncate />;
+  }
+  // A figure never truncates; a narrow tile wraps a dotted value (a Chrome
+  // build) after a dot rather than mid-number. `<wbr>` adds no character,
+  // so a copied value stays byte-for-byte.
+  const parts = text.split(".");
+  return (
+    <span title={text}>
+      {parts.map((part, index) => (
+        <span key={index}>
+          {part}
+          {index < parts.length - 1 ? (
+            <>
+              .<wbr />
+            </>
+          ) : null}
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -306,7 +322,11 @@ function EncryptionPanel({ browser }: { readonly browser: Finding }) {
         : "The standard key is on disk; app-bound protected data may not decrypt."
       : standard === false
         ? "No standard key on disk: encrypted values will not decrypt from this evidence."
-        : "Key presence could not be read from Local State.";
+        : browser.fields.osCryptKeyPresent?.state === "unavailable"
+          ? "Key presence could not be read from Local State."
+          : browser.fields.osCryptKeyPresent?.state === "value"
+            ? "Key presence is recorded, but not as yes or no."
+            : "Key presence is not recorded in Local State.";
   return (
     <SectionPanel
       id="metadata-encryption"

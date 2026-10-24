@@ -38,6 +38,7 @@ import type { ReactNode } from "react";
 
 import { EvidenceDot } from "@/components/evidence";
 import { Skeleton } from "@/components/ui/misc";
+import { Tooltip } from "@/components/ui/tooltip";
 import { Elevated } from "@/lib/elevated";
 import { fontWeights } from "@/lib/font-weight";
 import { useShape } from "@/lib/shape-context";
@@ -164,7 +165,9 @@ export function MetricBandItem({
       <span
         className={cn(
           FIGURE_TYPE,
-          "block truncate text-foreground tabular-nums",
+          // A figure never truncates: a long value (a Chrome build such as
+          // 123.0.6312.122 on a phone) wraps, breaking anywhere if it must.
+          "block min-w-0 text-foreground tabular-nums [overflow-wrap:anywhere]",
           valueClassName,
         )}
         style={{ fontVariationSettings: fontWeights.semibold }}
@@ -222,6 +225,31 @@ export function MetricBandItem({
 /** The figure's type: the display role's compact step (24px / 30px), the
  *  same everywhere a figure strip sits, whatever the surrounding size. */
 const FIGURE_TYPE = typeClass("display", "compact");
+
+/**
+ * A figure with its exact reading in a tooltip ("12 of 40 saved cookies
+ * marked Secure"), so the tile stays label + value. The tooltip opens on
+ * hover and on keyboard focus: the figure is its own tab stop with the FF
+ * focus ring.
+ */
+export function TooltipFigure({
+  value,
+  detail,
+}: {
+  readonly value: ReactNode;
+  readonly detail: ReactNode;
+}) {
+  return (
+    <Tooltip content={detail}>
+      <span
+        tabIndex={0}
+        className="cursor-help rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
+      >
+        {value}
+      </span>
+    </Tooltip>
+  );
+}
 
 /** A figure whose read failed: the state word with its dot, never a zero. */
 export function UnavailableFigure() {

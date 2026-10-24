@@ -2,9 +2,11 @@
  * The Saved logins page.
  *
  * Chrome's stored login entries read as an identity picture. Passwords are
- * never shown: `secret` arrives `unavailable` and the Password column only
- * states that it is sealed (the recorded reason in its tooltip), or — should
- * a value ever arrive — "value withheld", never the value itself.
+ * hidden by default: `secret` normally arrives `unavailable` (no key
+ * material) and the Password column reads "sealed" (the column header says
+ * why); any other unavailable reason shows as itself. A password decrypted
+ * with `--decrypt` reads "value hidden" in the table and opens hidden in the
+ * row sheet, revealable there one field at a time (`secretFieldsOf`).
  *
  * What the page reads instead is the shape of an account footprint: how many
  * logins and distinct usernames were saved, and which usernames repeat
@@ -28,8 +30,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
-import { ARTIFACT_ICONS, LockedIcon, SearchIcon } from "@/lib/app-icons";
-import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
+import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
+import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
@@ -51,7 +53,13 @@ import {
 import { FilterTextField } from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import {
+  HiddenValue,
+  RowSheet,
+  SEALED_REASON,
+  secretFieldsOf,
+  type SelectedRow,
+} from "./row-sheet.js";
 import { Term } from "./term.js";
 import {
   CARD_TITLE_CLEAR,
@@ -186,43 +194,37 @@ function ReusedIdentities({
 }
 
 const SEALED_NOTE =
-  "Chrome encrypts every saved password with the operating system's key. This page never shows one.";
+  "Chrome encrypts every saved password with the operating system's key, so it reads sealed unless the Case was analysed with that key. A decrypted password stays hidden until you reveal it in the row's detail.";
 
 /** The Password column header: its tooltip says why every value is sealed. */
 const PASSWORD_HEADER = <Term label="Password">{SEALED_NOTE}</Term>;
 
 /**
  * The stored password's *state*, never its contents. Chrome seals each
- * password with the OS key; the analyzer reports it `unavailable` with a
- * reason, and the cell reads a neutral "sealed" (it is the expected state of
- * every row, not an error; the column header explains it). A `value` state
- * is still withheld. No own tab stop: the row is the focus target, and its
- * sheet carries the raw field and its recorded reason.
+ * password with the OS key; without key material the analyzer reports it
+ * `unavailable` with `encrypted_secret_without_key_material`, and the cell
+ * reads a neutral "sealed" (the expected state of every row, not an error;
+ * the column header explains it). Any other unavailable reason (a failed
+ * decryption, an unsupported value) shows as itself, with its reason. A
+ * decrypted value reads "value hidden"; the row sheet reveals it. No own tab
+ * stop: the row is the focus target.
  */
 function PasswordCell({ field }: { readonly field: FieldState | undefined }) {
-  const size = useSize();
   if (field === undefined || field.state === "absent") {
     return <AbsentWord />;
   }
-  if (field.state === "value" && field.value === "") {
-    return <FieldCell field={field} />;
+  if (field.state === "unavailable" && field.reason === SEALED_REASON) {
+    return (
+      <span className="flex items-center gap-1.5 whitespace-nowrap">
+        <EvidenceDot state="neutral" />
+        sealed
+      </span>
+    );
   }
-  const sealed = field.state === "unavailable";
-  return (
-    <span className="flex items-center gap-1.5 whitespace-nowrap">
-      {sealed ? (
-        <>
-          <EvidenceDot state="neutral" />
-          sealed
-        </>
-      ) : (
-        <>
-          <LockedIcon size={size.icon} strokeWidth={1.5} className="shrink-0" />
-          value withheld
-        </>
-      )}
-    </span>
-  );
+  if (field.state === "value" && field.value !== "") {
+    return <HiddenValue hint="Open the row to reveal it." />;
+  }
+  return <FieldCell field={field} />;
 }
 
 function SiteCell({
@@ -294,7 +296,7 @@ function credentialColumns(recovered: boolean): readonly RowColumn<Finding>[] {
     {
       key: "uses",
       header: "Uses",
-      className: "tabular-nums",
+      className: "text-right tabular-nums",
       labelled: true,
       cell: (row) => (
         <FieldCell
@@ -476,7 +478,7 @@ export function CredentialsPage({
               skeleton={<CredentialsSkeleton />}
             >
               <div className="flex flex-col gap-5">
-                <MetricBand className="grid-cols-3">
+                <MetricBand className="grid-cols-2 lg:grid-cols-3">
                   <MetricBandItem
                     label="Saved logins"
                     value={summary.total.toLocaleString("en-US")}
@@ -558,6 +560,7 @@ export function CredentialsPage({
               ? "Saved login"
               : `Saved login · ${credentialHost(selected.row) ?? ""}`
           }
+          redactedFields={secretFieldsOf(selected.row)}
           onClose={() => {
             setSelected(null);
           }}

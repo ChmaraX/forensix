@@ -12,7 +12,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EmptyRows } from "@/components/data-table";
 import { FieldCell } from "@/components/finding-fields";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
-import { MetricBand, MetricBandItem } from "@/components/metric-band";
+import {
+  MetricBand,
+  MetricBandItem,
+  TooltipFigure,
+} from "@/components/metric-band";
 import { plural, ShareBar, TimeText } from "@/components/page-kit";
 import { Panel } from "@/components/panel";
 import { Button } from "@/components/ui/button";
@@ -227,11 +231,7 @@ export function CaseFigures({
                 item.valueTooltip === undefined ? (
                   value
                 ) : (
-                  <Tooltip content={item.valueTooltip}>
-                    <span tabIndex={0} className="cursor-help outline-none">
-                      {value}
-                    </span>
-                  </Tooltip>
+                  <TooltipFigure value={value} detail={item.valueTooltip} />
                 )
               }
               valueClassName={

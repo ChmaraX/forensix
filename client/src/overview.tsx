@@ -25,36 +25,46 @@
  * visited sites (re-read from the saved visits in range) and Recent
  * downloads.
  */
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
   bucketsToDays,
   bucketsToHourTotals,
   fillGaps,
 } from "@/components/activity-data";
-import { ActivityBars, HourBars, useChartTokens } from "@/components/charts";
+import { useChartTokens } from "@/components/charts";
+import { ActivityBars, HourBars } from "@/components/charts-ready";
 import { ChartSection } from "@/components/chart-section";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { ErrorRows, LoadingRows } from "@/components/list-states";
-import { plural, SectionPanel } from "@/components/page-kit";
+import { formatDaySpan, plural, SectionPanel } from "@/components/page-kit";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
+import { typeClass } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
 
 // Topic categorization: a one-line "unavailable" state with an "enable the
 // model" Sheet, until the topic-status route exists.
 import { TopicCategorizationLine } from "./overview-topic-widget.js";
+import { localDayOf } from "./components/day-bounds.js";
 import {
-  dayInRange,
-  fieldDay,
   fieldString,
   formatDay,
-  formatDayRange,
   formatSpan,
+  loadDownloadsIn,
   loadMostVisitedIn,
   loadOverview,
   shiftDay,
   type OverviewData,
   type TopSite,
 } from "./overview/data";
+import type { Finding } from "./types.js";
 import {
   CaseFigures,
   DownloadsList,
@@ -164,21 +174,20 @@ function OverviewContent({
   const [rangeTo, setRangeTo] = useState("");
 
   // The true recorded span, read directly from the Case (not from the
-  // possibly-truncated `activity` set). `recordedSpan` carries UTC instants;
-  // a plain UTC calendar-date slice can read up to a day later than the true
-  // local date at the boundaries, which only ever widens the shown span or
-  // range bounds by a day — it can never hide evidence, unlike a value derived
-  // from a capped read.
+  // possibly-truncated `activity` set). `recordedSpan` carries UTC instants,
+  // read here as days in the declared timezone: the same days the activity
+  // chart draws (UTC days when the Case has no single declared timezone).
   //
   // Every day the loaded activity rows cover is recorded evidence too, so the
   // span always contains them: "full span" can never read narrower than the
   // chart drawn under it (it once read a single day when both bound reads
   // returned the same row).
   const fullSpan = useMemo(() => {
-    const { first, last } = data.recordedSpan;
+    const first = localDayOf(data.recordedSpan.first, data.timeZone);
+    const last = localDayOf(data.recordedSpan.last, data.timeZone);
     const days = [
-      ...(first === null ? [] : [first.slice(0, 10)]),
-      ...(last === null ? [] : [last.slice(0, 10)]),
+      ...(first === null ? [] : [first]),
+      ...(last === null ? [] : [last]),
       ...data.activity.map((bucket) => bucket.date),
     ].sort();
     return {
@@ -229,54 +238,44 @@ function OverviewContent({
   );
   const rangeActive = rangeFrom !== "" || rangeTo !== "";
 
-  // Recent downloads in range: the newest five saved downloads that started
-  // inside it (the read is newest first).
-  const recentDownloads = useMemo(
-    () =>
-      (rangeActive
-        ? data.downloads.filter((row) => {
-            const day = fieldDay(row.fields.startTime);
-            return (
-              day !== null && dayInRange(day, { from: rangeFrom, to: rangeTo })
-            );
-          })
-        : data.downloads
-      ).slice(0, 5),
-    [data.downloads, rangeActive, rangeFrom, rangeTo],
+  // Under a narrowed range, Most visited sites and Recent downloads re-read
+  // the saved rows in it (in the declared timezone's days). Each read keeps
+  // its own state: a failed read shows its error with Retry, never "nothing
+  // in this range"; a read that stopped at its cap says the list is partial.
+  const range = useMemo(
+    () => ({ from: rangeFrom, to: rangeTo }),
+    [rangeFrom, rangeTo],
   );
-
-  // Most visited sites in range: the whole-Case summary, or — under a
-  // narrowed range — the saved visits in it counted per URL.
-  const [rangedSites, setRangedSites] = useState<{
-    readonly key: string;
-    readonly sites: readonly TopSite[];
-  } | null>(null);
-  const rangeKey = `${rangeFrom}|${rangeTo}`;
-  useEffect(() => {
-    if (!rangeActive) {
-      return;
-    }
-    let cancelled = false;
-    loadMostVisitedIn({ from: rangeFrom, to: rangeTo })
-      .then(({ sites }) => {
-        if (!cancelled) {
-          setRangedSites({ key: rangeKey, sites });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setRangedSites({ key: rangeKey, sites: [] });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [rangeActive, rangeFrom, rangeTo, rangeKey]);
-  const mostVisited = !rangeActive
-    ? data.mostVisited
-    : rangedSites !== null && rangedSites.key === rangeKey
-      ? rangedSites.sites
-      : null;
+  const loadSites = useCallback(
+    () => loadMostVisitedIn(range, data.timeZone),
+    [range, data.timeZone],
+  );
+  const loadDownloads = useCallback(
+    () =>
+      loadDownloadsIn(range, data.timeZone).then((result) => ({
+        items: result.downloads,
+        complete: result.complete,
+      })),
+    [range, data.timeZone],
+  );
+  const rangedSites = useRangedRead<TopSite>(
+    rangeActive,
+    useCallback(
+      () =>
+        loadSites().then((result) => ({
+          items: result.sites,
+          complete: result.complete,
+        })),
+      [loadSites],
+    ),
+  );
+  const rangedDownloads = useRangedRead<Finding>(rangeActive, loadDownloads);
+  const mostVisited: RangedState<TopSite> = rangeActive
+    ? rangedSites
+    : { state: "ready", items: data.mostVisited, complete: true };
+  const recentDownloads: RangedState<Finding> = rangeActive
+    ? rangedDownloads
+    : { state: "ready", items: data.downloads, complete: true };
 
   // The longest stretch of consecutive days with no recorded visits between
   // two active days — a derived reading of the same `days` set the activity
@@ -307,6 +306,20 @@ function OverviewContent({
     }
     return best;
   }, [windowed.days]);
+
+  const activeSpan =
+    windowed.days.length === 0
+      ? null
+      : {
+          first: windowed.days[0]?.date ?? "",
+          last: windowed.days[windowed.days.length - 1]?.date ?? "",
+        };
+  const rangeLabel = rangeActive
+    ? formatDaySpan(
+        rangeFrom === "" ? (fullSpan.first ?? rangeTo) : rangeFrom,
+        rangeTo === "" ? (fullSpan.last ?? rangeFrom) : rangeTo,
+      )
+    : null;
 
   // Metadata carries one browser_metadata Finding per Source and one
   // profile_metadata Finding per Profile. The subject readout takes the first
@@ -368,10 +381,14 @@ function OverviewContent({
             ? "No dated activity"
             : "No quiet days"
           : plural(quietGap.days, "day", "days"),
+      // Always a detail line, so the strip keeps its height when a range
+      // has no quiet stretch: the quiet days, else the active days it read.
       detail:
-        quietGap === null
-          ? undefined
-          : formatDayRange(quietGap.from, quietGap.to),
+        quietGap !== null
+          ? formatDaySpan(quietGap.from, quietGap.to)
+          : activeSpan !== null
+            ? formatDaySpan(activeSpan.first, activeSpan.last)
+            : (rangeLabel ?? "No dated visits"),
     },
     {
       key: "profiles",
@@ -417,11 +434,8 @@ function OverviewContent({
             to={rangeTo}
             min={fullSpan.first}
             max={fullSpan.last}
-            triggerLabel={
-              spanLabel === null
-                ? "Full recorded span"
-                : `${spanLabel}  ·  full span`
-            }
+            // One wording on every date picker for the cleared range.
+            triggerLabel="All recorded days"
             formatDate={formatDay}
             onChange={({ from, to }) => {
               setRangeFrom(from);
@@ -519,23 +533,39 @@ function OverviewContent({
           aside={<JumpLink label="History" onOpen={open("history")} />}
           className="col-span-12 md:col-span-6"
         >
-          {mostVisited === null ? (
+          {mostVisited.state === "loading" ? (
             <LoadingRows rows={6} label="Loading most visited sites" />
-          ) : (
-            <TopSitesList
-              sites={mostVisited}
-              emptyMessage={
-                rangeActive ? "No saved visit falls in this range." : undefined
-              }
-              favicons={data.favicons}
-              onOpenSite={
-                onOpen === undefined
-                  ? undefined
-                  : (domain) => {
-                      onOpen("sites", domain);
-                    }
-              }
+          ) : mostVisited.state === "failed" ? (
+            <ErrorRows
+              title="The most visited sites in this range could not be loaded."
+              message={mostVisited.error}
+              onRetry={mostVisited.retry}
             />
+          ) : (
+            <>
+              <TopSitesList
+                sites={mostVisited.items}
+                emptyMessage={
+                  rangeActive
+                    ? "No saved visit falls in this range."
+                    : undefined
+                }
+                favicons={data.favicons}
+                onOpenSite={
+                  onOpen === undefined
+                    ? undefined
+                    : (domain) => {
+                        onOpen("sites", domain);
+                      }
+                }
+              />
+              {mostVisited.complete ? null : (
+                <PartialNote>
+                  Counted from the first 1,000 saved visits in this range;
+                  History lists them all.
+                </PartialNote>
+              )}
+            </>
           )}
         </SectionPanel>
 
@@ -545,14 +575,35 @@ function OverviewContent({
           aside={<JumpLink label="Downloads" onOpen={open("downloads")} />}
           className="col-span-12"
         >
-          <DownloadsList
-            downloads={recentDownloads}
-            emptyMessage={
-              rangeActive
-                ? "No saved download started in this range."
-                : undefined
-            }
-          />
+          {recentDownloads.state === "loading" ? (
+            <LoadingRows rows={5} label="Loading recent downloads" />
+          ) : recentDownloads.state === "failed" ? (
+            <ErrorRows
+              title="The downloads in this range could not be loaded."
+              message={recentDownloads.error}
+              onRetry={recentDownloads.retry}
+            />
+          ) : (
+            <>
+              <DownloadsList
+                downloads={recentDownloads.items}
+                emptyMessage={
+                  recentDownloads.complete
+                    ? rangeActive
+                      ? "No saved download started in this range."
+                      : undefined
+                    : "No saved download in this range among the newest 2,000."
+                }
+              />
+              {recentDownloads.complete ||
+              recentDownloads.items.length === 0 ? null : (
+                <PartialNote>
+                  Read from the newest 2,000 saved downloads; the Downloads page
+                  lists them all.
+                </PartialNote>
+              )}
+            </>
+          )}
         </SectionPanel>
 
         {/* TODO: wire to the real topic-candidates / topic-status routes
@@ -560,5 +611,84 @@ function OverviewContent({
         <TopicCategorizationLine className="col-span-12" />
       </div>
     </div>
+  );
+}
+
+/** A ranged read: loading, failed (with Retry), or its rows and whether the
+ *  read covered the whole range. */
+type RangedState<Item> =
+  | { readonly state: "loading" }
+  | {
+      readonly state: "failed";
+      readonly error: string;
+      readonly retry: () => void;
+    }
+  | {
+      readonly state: "ready";
+      readonly items: readonly Item[];
+      readonly complete: boolean;
+    };
+
+/** Runs `load` whenever it changes while `enabled`; a stale answer (the
+ *  range moved on) is dropped. */
+function useRangedRead<Item>(
+  enabled: boolean,
+  load: () => Promise<{
+    readonly items: readonly Item[];
+    readonly complete: boolean;
+  }>,
+): RangedState<Item> {
+  // Each answer is kept with the `load` it came from, so a render after the
+  // range moved on never shows the previous range's rows.
+  const [answer, setAnswer] = useState<{
+    readonly load: typeof load;
+    readonly state: RangedState<Item>;
+  } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setAttempt((count) => count + 1);
+  }, []);
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    let cancelled = false;
+    setAnswer(null);
+    load()
+      .then(({ items, complete }) => {
+        if (!cancelled) {
+          setAnswer({ load, state: { state: "ready", items, complete } });
+        }
+      })
+      .catch((requestError: unknown) => {
+        if (!cancelled) {
+          setAnswer({
+            load,
+            state: {
+              state: "failed",
+              error:
+                requestError instanceof Error
+                  ? requestError.message
+                  : "Request failed.",
+              retry,
+            },
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, load, attempt, retry]);
+  return answer !== null && answer.load === load
+    ? answer.state
+    : { state: "loading" };
+}
+
+/** A one-line caption under a list that is not the whole set. */
+function PartialNote({ children }: { readonly children: ReactNode }) {
+  return (
+    <p className={cn(typeClass("caption"), "px-4 pb-3 text-muted-foreground")}>
+      {children}
+    </p>
   );
 }

@@ -62,10 +62,12 @@ import {
   useActivity,
   type SplitActivity,
 } from "./activity-data.js";
-import { ActivityBars, useChartTokens } from "./charts.js";
+import { useChartTokens } from "./charts.js";
+import { ActivityBars } from "./charts-ready.js";
 import { ChartSection } from "./chart-section.js";
 import { EmptyRows } from "./data-table.js";
 import { DateRangePicker } from "./date-range-picker.js";
+import { dayRangeParameters } from "./day-bounds.js";
 import {
   FieldCell,
   fieldString,
@@ -136,8 +138,13 @@ function visitsAreFiltered(filters: VisitFilters): boolean {
 }
 
 /** The `history` `view=visits` query for the filters (Commit State is added
- *  per list by `useCommitStateLists`). */
-function visitParameters(filters: VisitFilters): QueryParameters {
+ *  per list by `useCommitStateLists`). The date range is in Case days (the
+ *  chart's days), so its bounds are that day's instants in the declared
+ *  timezone (`dayRangeParameters`; UTC days without one). */
+function visitParameters(
+  filters: VisitFilters,
+  timeZone: string | null,
+): QueryParameters {
   const parameters: (readonly [string, string])[] = [
     ["view", "visits"],
     ["sort", filters.sort],
@@ -150,12 +157,9 @@ function visitParameters(filters: VisitFilters): QueryParameters {
   if (filters.transition !== "") {
     parameters.push(["transition", filters.transition]);
   }
-  if (filters.from !== "") {
-    parameters.push(["from", `${filters.from}T00:00:00Z`]);
-  }
-  if (filters.to !== "") {
-    parameters.push(["to", `${filters.to}T23:59:59.999999Z`]);
-  }
+  parameters.push(
+    ...dayRangeParameters({ from: filters.from, to: filters.to }, timeZone),
+  );
   for (const profile of filters.profiles) {
     parameters.push(["profile", profile]);
   }
@@ -165,18 +169,19 @@ function visitParameters(filters: VisitFilters): QueryParameters {
 /* ------------------------------ small format ------------------------------ */
 
 /**
- * A recorded `visitDuration` (microseconds, as a string field) read as a
- * compact human dwell — "4m 12s", "38s", "2h 05m". Returns null for a
- * non-positive value: Chrome writes 0 when it kept no dwell, so the caller
- * renders the words "not recorded" rather than a fabricated "0s".
+ * A recorded `visitDuration` (microseconds, as a string or number field)
+ * read as a compact human dwell — "4m 12s", "38s", "0s", "2h 05m". Returns
+ * null for anything that is not a non-negative number (an (empty) or
+ * non-numeric value): the caller then shows the field as recorded, its own
+ * word or its raw value, never "not recorded" over a recorded value.
  */
 function formatDwell(field: FieldState | undefined): string | null {
   const raw = fieldString(field);
-  if (raw === null) {
+  if (raw === null || raw.trim() === "") {
     return null;
   }
   const micros = Number(raw);
-  if (!Number.isFinite(micros) || micros <= 0) {
+  if (!Number.isFinite(micros) || micros < 0) {
     return null;
   }
   const totalSeconds = Math.round(micros / 1_000_000);
@@ -566,14 +571,10 @@ const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
     header: "Dwell",
     className: "whitespace-nowrap tabular-nums",
     labelled: true,
-    cell: (row) => {
-      const dwellField = row.fields.visitDuration;
-      return dwellField?.state === "value" ? (
-        (formatDwell(dwellField) ?? "not recorded")
-      ) : (
-        <FieldCell field={dwellField} />
-      );
-    },
+    cell: (row) =>
+      formatDwell(row.fields.visitDuration) ?? (
+        <FieldCell field={row.fields.visitDuration} />
+      ),
   },
 ];
 
@@ -671,7 +672,11 @@ export function HistoryPage({
 }) {
   const { activity, error: activityError, retry } = useActivity();
   const [filters, setFilters] = useState<VisitFilters>(DEFAULT_VISIT_FILTERS);
-  const parameters = useMemo(() => visitParameters(filters), [filters]);
+  const timeZone = activity?.timeZone ?? null;
+  const parameters = useMemo(
+    () => visitParameters(filters, timeZone),
+    [filters, timeZone],
+  );
   const visits = useCommitStateLists<Finding>("history", parameters);
   const [view, setView] = useState<CommitView>("saved");
   const [selected, setSelected] = useState<SelectedRow | null>(null);

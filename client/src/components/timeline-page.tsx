@@ -10,6 +10,8 @@ import { useMemo, useState } from "react";
 import type { QueryParameters } from "../api.js";
 import type { Finding } from "../types.js";
 import { usePaginatedList } from "../use-paginated-list.js";
+import { useActivity } from "./activity-data.js";
+import { dayRangeParameters } from "./day-bounds.js";
 import { RowSheet, secretFieldsOf, type SelectedRow } from "./row-sheet.js";
 import { TimelineActivityCard, type DayRange } from "./timeline-activity.js";
 import {
@@ -22,24 +24,27 @@ export function TimelinePage() {
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [range, setRange] = useState<DayRange>({ from: "", to: "" });
   const [direction, setDirection] = useState<TimelineDirection>("desc");
-  // A selected day range maps to whole-day UTC instants: local dates can read
-  // up to a day wider than the true local bounds, which only ever widens the
-  // window — it can never hide evidence.
-  const parameters = useMemo<QueryParameters>(() => {
-    const result: (readonly [string, string])[] = [["direction", direction]];
-    if (range.from !== "") {
-      result.push(["from", `${range.from}T00:00:00Z`]);
-    }
-    if (range.to !== "") {
-      result.push(["to", `${range.to}T23:59:59.999999Z`]);
-    }
-    return result;
-  }, [range, direction]);
+  // The chart's days are the Case's own days (core buckets activity in the
+  // declared timezone of the Analysis Run), so a picked range goes to the
+  // server as the first and last instant of those local days: clicking day D
+  // lists exactly day D. Without one declared timezone the bounds are UTC
+  // days (see `dayRangeBounds`). Only the bounds depend on the zone, so the
+  // unranged list does not re-read when the activity lands.
+  const activity = useActivity();
+  const timeZone = activity.activity?.timeZone ?? null;
+  const parameters = useMemo<QueryParameters>(
+    () => [["direction", direction], ...dayRangeParameters(range, timeZone)],
+    [range, direction, timeZone],
+  );
   const list = usePaginatedList<Finding>("timeline", parameters);
 
   return (
     <div className="flex flex-col gap-5">
-      <TimelineActivityCard range={range} onRangeChange={setRange} />
+      <TimelineActivityCard
+        range={range}
+        onRangeChange={setRange}
+        read={activity}
+      />
       <TimelineRecordsCard
         rows={list.rows}
         loading={list.loading}

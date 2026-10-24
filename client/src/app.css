@@ -135,9 +135,6 @@
   --wal: #d97706;
   --violet: #7c3aed;
   --journal: var(--violet);
-
-  /* The main chart series (charts read it through useChartTokens). */
-  --primary: #2563eb;
 }
 
 /* ============================================================================
@@ -234,8 +231,6 @@
 
   --wal: #fcd34d;
   --violet: #c4b5fd;
-
-  --primary: #93c5fd;
 }
 
 /* Washes and hairlines derived from each state hue, so a re-tune happens in

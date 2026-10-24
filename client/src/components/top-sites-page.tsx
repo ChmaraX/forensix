@@ -89,7 +89,7 @@ const RANK_COLUMNS: readonly RowColumn<Finding>[] = [
   {
     key: "rank",
     header: "Rank",
-    className: "w-16",
+    className: "w-16 text-right tabular-nums",
     stack: "lead",
     cell: (row) => <Rank row={row} />,
     stackedCell: (row) => {
@@ -118,7 +118,7 @@ const RANK_COLUMNS: readonly RowColumn<Finding>[] = [
     key: "profile",
     header: "Profile",
     className: "whitespace-nowrap",
-    cell: (row) => row.profile,
+    cell: (row) => profileLabel(row.profile),
     stackedCell: (row) => profileLabel(row.profile),
   },
 ];

@@ -28,7 +28,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Panel } from "@/components/panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
-import { Tooltip } from "@/components/ui/tooltip";
 import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
 import { cn } from "@/lib/utils";
 
@@ -37,12 +36,8 @@ import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
 import { fillGaps } from "./activity-data.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
-import {
-  ActivityBars,
-  useChartTokens,
-  type ChartTokens,
-  type DayCount,
-} from "./charts.js";
+import { useChartTokens, type ChartTokens, type DayCount } from "./charts.js";
+import { ActivityBars } from "./charts-ready.js";
 import { EmptyRows } from "./data-table.js";
 import { EvidenceDot, type EvidenceState } from "./evidence.js";
 import {
@@ -53,6 +48,7 @@ import {
   hostOf,
   StateWord,
   TwoLineCell,
+  profileLabel,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import {
@@ -61,7 +57,7 @@ import {
   LoadingRows,
   RevealSwap,
 } from "./list-states.js";
-import { MetricBand, MetricBandItem } from "./metric-band.js";
+import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import {
   CHART_HEIGHT,
   formatDay,
@@ -114,6 +110,10 @@ function useCacheEntries(route: string) {
           parameters.push(["after", after]);
         }
         const result = await callApi<PageOf<Finding>>(route, parameters);
+        // Unmounted, or Retry started a new read: stop following pages.
+        if (cancelled) {
+          return;
+        }
         collected.push(...result.items);
         after = result.nextCursor;
         if (after === null) {
@@ -210,24 +210,6 @@ function keyHost(row: Finding): string | null {
 
 /* --------------------------------- widgets -------------------------------- */
 
-/** A figure with its exact fraction on hover and focus ("16 of 16
- *  entries"), so the tile itself stays label + value. */
-function FractionFigure({
-  value,
-  detail,
-}: {
-  readonly value: string;
-  readonly detail: string;
-}) {
-  return (
-    <Tooltip content={detail}>
-      <span tabIndex={0} className="cursor-help rounded-sm outline-none">
-        {value}
-      </span>
-    </Tooltip>
-  );
-}
-
 /**
  * The figure strip: four readings of the loaded saved entries. Bytes are
  * added only when a size was recorded; the integrity share is over every
@@ -280,7 +262,7 @@ function CacheSummary({
           ) : summary.sizedEntries === rows.length ? (
             formatBytes(summary.totalBytes)
           ) : (
-            <FractionFigure
+            <TooltipFigure
               value={formatBytes(summary.totalBytes)}
               detail={`Summed over ${summary.sizedEntries.toLocaleString("en-US")} of ${plural(rows.length, "entry", "entries")}; the rest carry no recorded size`}
             />
@@ -293,7 +275,7 @@ function CacheSummary({
           rows.length === 0 ? (
             "not recorded"
           ) : (
-            <FractionFigure
+            <TooltipFigure
               value={`${String(verifiedShare)}%`}
               detail={`${summary.verified.toLocaleString("en-US")} of ${plural(rows.length, "entry", "entries")}`}
             />
@@ -404,41 +386,44 @@ const CACHE_ENTRY_UNIT = { one: "cache entry", many: "cache entries" };
 
 /* ---------------------------------- table --------------------------------- */
 
-/** The integrity word for the table: verified / failed / not recorded — the
- *  three states worded apart, the dot only repeating the word (warning for
- *  a failed check, which questions the evidence itself; a neutral ring for
- *  verified; absent for not recorded). */
-function integrityWord(row: Finding): {
-  readonly label: string;
-  readonly state: EvidenceState;
-} {
-  const keyHashValid = fieldBoolean(row.fields.keyHashValid);
-  const crc = fieldBoolean(row.fields.stream1Crc32Valid);
-  if (keyHashValid === false || crc === false) {
-    return { label: "failed", state: "warning" };
-  }
-  if (keyHashValid === true) {
-    return { label: "verified", state: "neutral" };
-  }
-  return { label: "not recorded", state: "absent" };
-}
-
-/** Integrity: the verdict word, or — when the key-hash signal itself could
- *  not be read — that field's own "unavailable" word and reason. */
+/**
+ * The integrity word for the table, from the two recorded checks' own
+ * states: "failed" when either check recorded false; "verified" when the key
+ * hash recorded true; "CRC verified" when only the stream-1 CRC recorded a
+ * result (true); the key-hash field's own word ("unavailable" and its
+ * reason, or its raw value) when it holds no verdict; "not recorded" only
+ * when neither check was recorded at all. Every dot is a neutral ring
+ * (absent for not recorded): amber means "recovered" on this page, not a
+ * failed check, so the word alone carries the verdict.
+ */
 function IntegrityCell({ row }: { readonly row: Finding }) {
-  const integrity = integrityWord(row);
-  if (
-    integrity.label === "not recorded" &&
-    row.fields.keyHashValid?.state === "unavailable"
-  ) {
-    return <FieldCell field={row.fields.keyHashValid} />;
-  }
-  return (
+  const keyHashField = row.fields.keyHashValid;
+  const keyHashValid = fieldBoolean(keyHashField);
+  const crc = fieldBoolean(row.fields.stream1Crc32Valid);
+  const word = (label: string, state: EvidenceState) => (
     <span className="inline-flex items-center gap-1.5">
-      <EvidenceDot state={integrity.state} />
-      {integrity.label}
+      <EvidenceDot state={state} />
+      {label}
     </span>
   );
+  if (keyHashValid === false || crc === false) {
+    return word("failed", "neutral");
+  }
+  if (keyHashValid === true) {
+    return word("verified", "neutral");
+  }
+  if (keyHashField !== undefined && keyHashField.state !== "absent") {
+    // Unavailable, (empty), or a value that is no verdict: as recorded.
+    return <FieldCell field={keyHashField} />;
+  }
+  if (crc === true) {
+    return word("CRC verified", "neutral");
+  }
+  const crcField = row.fields.stream1Crc32Valid;
+  if (crcField !== undefined && crcField.state !== "absent") {
+    return <FieldCell field={crcField} />;
+  }
+  return word("not recorded", "absent");
 }
 
 /**
@@ -502,7 +487,7 @@ const PROFILE_COLUMN: RowColumn<Finding> = {
   key: "profile",
   header: "Profile",
   className: "whitespace-nowrap",
-  cell: (row) => row.profile,
+  cell: (row) => profileLabel(row.profile),
 };
 
 const integrityColumn = (stack: "aside" | "meta"): RowColumn<Finding> => ({

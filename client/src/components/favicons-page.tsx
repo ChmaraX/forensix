@@ -36,6 +36,7 @@ import {
   hostOf,
   StateWord,
   TwoLineCell,
+  profileLabel,
 } from "./finding-fields.js";
 import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
@@ -130,7 +131,7 @@ function SummaryBand({
   }, [rows]);
 
   return (
-    <MetricBand className="grid-cols-3">
+    <MetricBand className="grid-cols-2 lg:grid-cols-3">
       <MetricBandItem
         label="Saved icons"
         value={`${rows.length.toLocaleString("en-US")}${more ? "+" : ""}`}
@@ -207,7 +208,7 @@ const RESOLUTION_COLUMN: RowColumn<Finding> = {
 const SIZE_COLUMN: RowColumn<Finding> = {
   key: "size",
   header: "Size",
-  className: "text-right whitespace-nowrap",
+  className: "text-right whitespace-nowrap tabular-nums",
   cell: (row) => {
     const bytes = faviconBytes(row);
     return bytes === null ? (
@@ -232,7 +233,7 @@ const PROFILE_COLUMN: RowColumn<Finding> = {
   key: "profile",
   header: "Profile",
   className: "whitespace-nowrap",
-  cell: (row) => row.profile,
+  cell: (row) => profileLabel(row.profile),
 };
 
 /** Saved icons carry no State column (every row is saved). */

@@ -27,7 +27,6 @@ import { useCallback, useMemo, useState } from "react";
 import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
-import { Tooltip } from "@/components/ui/tooltip";
 import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
 
 import type { QueryParameters } from "../api.js";
@@ -58,7 +57,7 @@ import {
   type FormDataCategory,
 } from "./form-data.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
-import { MetricBand, MetricBandItem } from "./metric-band.js";
+import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import { HiddenValue, RowSheet, type SelectedRow } from "./row-sheet.js";
 import { Term } from "./term.js";
 
@@ -182,7 +181,7 @@ function entryColumns(
     {
       key: "fills",
       header: "Fills",
-      className: "tabular-nums",
+      className: "text-right tabular-nums",
       labelled: true,
       cell: (entry) => (
         <FieldCell
@@ -441,11 +440,10 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
                     </Term>
                   }
                   value={
-                    <Tooltip
-                      content={`${sensitive.toLocaleString("en-US")} of ${saved.length.toLocaleString("en-US")} saved entries`}
-                    >
-                      <span className="cursor-default">{`${String(sensitiveShare)}%`}</span>
-                    </Tooltip>
+                    <TooltipFigure
+                      value={`${String(sensitiveShare)}%`}
+                      detail={`${sensitive.toLocaleString("en-US")} of ${saved.length.toLocaleString("en-US")} saved entries`}
+                    />
                   }
                 />
               </MetricBand>

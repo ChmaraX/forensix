@@ -49,7 +49,10 @@ export type SiteArtifactKind =
 
 export interface SiteHost {
   readonly host: string;
+  /** Rows per kind, every Commit State. */
   readonly counts: Readonly<Record<SiteArtifactKind, number>>;
+  /** Committed (saved) rows per kind: what the host list counts. */
+  readonly savedCounts: Readonly<Record<SiteArtifactKind, number>>;
 }
 
 export interface SiteFinding extends Finding {

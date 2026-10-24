@@ -8,7 +8,7 @@
  * and sorting only. To *show* a field, render `FieldCell` (or `TimeCell` in
  * page-kit for timestamps) with the FieldState itself, so each of the four
  * states keeps its own word: the value, "(empty)", "absent", or
- * "unavailable — reason".
+ * "unavailable - reason".
  */
 import type { ReactNode } from "react";
 
@@ -116,7 +116,7 @@ export function hostOf(url: string | null): string | null {
  * One field in a table cell, with its own state word. A recorded, non-empty
  * value renders through `format` when given (a host, a size, a link label),
  * else as the raw value (truncated). Every other state renders its word —
- * "(empty)", "absent", "unavailable — reason" — never a blank and never
+ * "(empty)", "absent", "unavailable - reason" — never a blank and never
  * "absent" for a value that was unreadable. A field the row does not carry
  * at all (`undefined`) reads "absent".
  *

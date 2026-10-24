@@ -16,8 +16,9 @@ import { useMemo } from "react";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { bucketsToDays, fillGaps, useActivity } from "./activity-data.js";
-import { ActivityBars, type DayCount, useChartTokens } from "./charts.js";
+import { bucketsToDays, fillGaps, type useActivity } from "./activity-data.js";
+import { type DayCount, useChartTokens } from "./charts.js";
+import { ActivityBars } from "./charts-ready.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { ErrorRows, RevealSwap } from "./list-states.js";
@@ -33,18 +34,21 @@ export interface DayRange {
 /**
  * The chart panel. `range` is owned by the page so the records below can
  * filter on it; the chart, the picker, and the picker's clear button all
- * read and write the same value.
+ * read and write the same value. The page also owns the activity read: its
+ * declared timezone turns the range into the records' bounds.
  */
 export function TimelineActivityCard({
   range,
   onRangeChange,
+  read,
 }: {
   readonly range: DayRange;
   readonly onRangeChange: (range: DayRange) => void;
+  readonly read: ReturnType<typeof useActivity>;
 }) {
   const tokens = useChartTokens();
   const size = useSize();
-  const { activity, error, retry } = useActivity();
+  const { activity, error, retry } = read;
 
   // Saved days, gap-filled so the x-axis is real calendar time.
   const days = useMemo<readonly DayCount[] | null>(

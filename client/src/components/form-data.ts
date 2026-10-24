@@ -1,8 +1,9 @@
 /**
  * Form data (Chrome's `Web Data` autofill) field categories, shared by every
  * place a form value can show: the Form data page, Timeline rows for form
- * entries, and the row sheet. Payment values are secrets — hidden until a
- * page-level "Show values" Switch (or the sheet's Reveal) is on.
+ * entries, and the row sheet. Payment values (and values whose field name
+ * was not recorded) are secrets — hidden until a page-level "Show values"
+ * Switch (or the sheet's Reveal) is on.
  */
 
 /**
@@ -37,12 +38,47 @@ const OTHER_CATEGORY: FormDataCategory = {
 
 export const PAYMENT_KEY = "payment";
 
+/**
+ * The Payment rule. Chrome's own names (CREDIT_CARD_NUMBER, IBAN_VALUE) and
+ * the raw HTML names sites give card and bank fields (`cc-number`, `cc-exp`,
+ * `cc-csc`, `ccnum`, `security_code`, `exp_date`, `pan`, `routing_number`,
+ * `account-number`): a short token (`cc`, `pan`, `pin`) only counts between
+ * separators. It errs towards Payment: a false hit hides a value behind a
+ * Reveal, a miss shows a card number in clear.
+ */
+const PAYMENT_PATTERN = new RegExp(
+  [
+    "card",
+    "credit",
+    "debit",
+    "cvc",
+    "cvv",
+    "csc",
+    "wallet",
+    "iban",
+    "swift",
+    "(?<![a-z0-9])bic(?![a-z0-9])",
+    "account[_\\s-]?(?:number|num|no)",
+    "acct[_\\s-]?(?:number|num|no)",
+    "routing[_\\s-]?(?:number|num|no)?",
+    "sort[_\\s-]?code",
+    "security[_\\s-]?code",
+    "(?<![a-z0-9])cc(?:[_\\s-]?(?:num|number|no|exp|expiry|month|year|csc|cvc|cvv|name|type)|(?![a-z0-9]))",
+    "exp(?:iry|iration)?[_\\s-]?(?:date|month|year|mm|yy)",
+    "(?<![a-z0-9])pan(?![a-z0-9])",
+    "(?<![a-z0-9])pin(?![a-z0-9])",
+  ].join("|"),
+);
+
+function isPaymentName(name: string): boolean {
+  return PAYMENT_PATTERN.test(name);
+}
+
 export const FORM_DATA_CATEGORIES: readonly FormDataCategory[] = [
   {
     key: PAYMENT_KEY,
     label: "Payment",
-    matches: (name) =>
-      /card|credit|cvc|cvv|wallet|iban|account_number/.test(name),
+    matches: isPaymentName,
   },
   {
     key: "identity",
@@ -84,6 +120,27 @@ export function categoryOf(fieldName: string | null): FormDataCategory {
  *  a secret, hidden by default. */
 export function isPaymentField(fieldName: string | null): boolean {
   return categoryOf(fieldName).key === PAYMENT_KEY;
+}
+
+/**
+ * True when a Form data entry's value must be treated as a secret, from its
+ * recorded `fieldName` Field: a Payment name, or no usable name at all. A
+ * name that is absent, (empty), unavailable or not a string cannot rule
+ * Payment out, so its value fails closed (hidden, revealable) while the
+ * entry still groups under "Other".
+ */
+export function isSecretFormField(
+  fieldName: { readonly state: string; readonly value?: unknown } | undefined,
+): boolean {
+  if (
+    fieldName === undefined ||
+    fieldName.state !== "value" ||
+    typeof fieldName.value !== "string" ||
+    fieldName.value.trim() === ""
+  ) {
+    return true;
+  }
+  return isPaymentField(fieldName.value);
 }
 
 /** Fields that hold a Payment entry's secret (the value and its folded copy),

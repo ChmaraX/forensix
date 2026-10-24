@@ -53,7 +53,10 @@ interface CommitStateLists<Row> {
  * out, the cap is reached, or a read fails (Retry resumes it). Returns
  * whether the list has settled with nothing more to follow.
  */
-function useDrain<Row>(list: PaginatedList<Row>, cap: number | null): boolean {
+export function useDrain<Row>(
+  list: PaginatedList<Row>,
+  cap: number | null,
+): boolean {
   const { loading, error, cursor, rows, loadMore } = list;
   const capped = cap !== null && rows.length >= cap;
   useEffect(() => {

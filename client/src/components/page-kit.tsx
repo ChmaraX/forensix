@@ -120,8 +120,8 @@ export function formatDayTick(date: string): string {
       });
 }
 
-/** A recorded span as data, shortened: "11 Mar – 17 Apr" within one year,
- *  "9 Dec 2023 – 4 Jan 2024" across years, "4 Mar 2024" for one day. */
+/** A recorded span as data, shortened: "11 Mar - 17 Apr" within one year,
+ *  "9 Dec 2023 - 4 Jan 2024" across years, "4 Mar 2024" for one day. */
 export function formatDaySpan(first: string, last: string): string {
   if (first === last) {
     return formatDay(first);
@@ -145,7 +145,7 @@ export const CHART_HEIGHT = "h-[220px]";
  *
  * Pass the FieldState as `field` (preferred): a recorded instant renders as
  * above, and every other state keeps its own word — "absent", "(empty)", or
- * "unavailable — reason" (`FieldCell`). Passing a bare `utc` string (from
+ * "unavailable - reason" (`FieldCell`). Passing a bare `utc` string (from
  * `fieldUtc`) still works, but then `null` can only read "absent".
  */
 export function TimeText({

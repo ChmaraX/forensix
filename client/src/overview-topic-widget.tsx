@@ -56,7 +56,7 @@ const REASON_COPY: Record<
   string,
   {
     readonly headline: string;
-    /** The headline as the tail of "unavailable — …" on the Overview row. */
+    /** The headline as the tail of "unavailable - …" on the Overview row. */
     readonly short: string;
     readonly steps: readonly SetupStep[];
   }

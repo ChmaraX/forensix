@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Panel, PanelHeader, PanelTitle } from "@/components/panel";
+import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -42,10 +43,11 @@ import { fontWeights } from "@/lib/font-weight";
 import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import { callApi } from "../api.js";
+import type { QueryParameters } from "../api.js";
+import { useDrain } from "../use-commit-state-lists.js";
+import { usePaginatedList } from "../use-paginated-list.js";
 import type {
   Finding,
-  PageOf,
   SiteArtifactKind,
   SiteFinding,
   SiteHost,
@@ -67,6 +69,7 @@ import {
   SiteAvatar,
   StateWord,
   TwoLineCell,
+  profileLabel,
 } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
 import { ErrorRows, LoadingRows } from "./list-states.js";
@@ -153,72 +156,56 @@ function sheetTitle(row: Finding): string | undefined {
   return kind === undefined ? undefined : KIND_SINGULAR[kind];
 }
 
-function totalOf(host: SiteHost): number {
-  return Object.values(host.counts).reduce((sum, count) => sum + count, 0);
+/** Saved rows a host carries (every kind): the host list's count. Recovered
+ *  rows are never summed in; they show in the host's own lists. */
+function savedTotalOf(host: SiteHost): number {
+  return Object.values(host.savedCounts).reduce((sum, count) => sum + count, 0);
 }
 
-/** One list read; the mock and the future real route both return one page. */
+/** Rows read per Sites page (the routes' maximum). */
+const SITE_PAGE_LIMIT = 100;
+/** Most hosts, or one host's rows, the page reads before saying it stopped. */
+const SITE_ROW_CAP = 5_000;
+
+/**
+ * One Sites list, read page after page (`nextCursor`) up to `SITE_ROW_CAP`
+ * rows so the counts and groups cover the whole set; `complete` is false
+ * when the cap stopped it. Built on `usePaginatedList`, so a stale page never
+ * lands after the host or search changed, and Retry resumes the failed page.
+ */
 function useSiteList<Row>(
   route: string,
   parameters: readonly (readonly [string, string])[],
-  enabled: boolean,
 ) {
-  const [rows, setRows] = useState<readonly Row[]>([]);
-  const [loading, setLoading] = useState(enabled);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
   const key = JSON.stringify(parameters);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!enabled) {
-      setRows([]);
-      setLoading(false);
-      setError(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-    setLoading(true);
-    setError(null);
-    callApi<PageOf<Row>>(route, parameters)
-      .then((page) => {
-        if (cancelled) {
-          return;
-        }
-        setRows(page.items);
-        setLoading(false);
-      })
-      .catch((requestError: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Request failed.",
-        );
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+  const withLimit = useMemo<QueryParameters>(
+    () => [...parameters, ["limit", String(SITE_PAGE_LIMIT)]],
     // `key` stands in for `parameters`, whose identity changes every render.
-  }, [route, key, nonce, enabled]);
-
-  const retry = useCallback(() => {
-    setNonce((value) => value + 1);
-  }, []);
-
-  return { rows, loading, error, retry };
+    [key],
+  );
+  const list = usePaginatedList<Row>(route, withLimit);
+  const settled = useDrain(list, SITE_ROW_CAP);
+  return {
+    rows: list.rows,
+    // Loading until every page is in (or the cap / a failure stops it).
+    loading: !settled && list.error === null,
+    error: list.error,
+    retry: list.retry,
+    complete: settled && list.cursor === null,
+  };
 }
 
 /* -------------------------------- host list -------------------------------- */
 
-/** "4 visits · 1 cookie" — the kinds a host carries, in reading order. */
+/** "4 visits · 1 cookie" — the saved rows a host carries, in reading order;
+ *  "Recovered rows only" when it has no saved row at all. */
 function hostSummary(host: SiteHost): string {
-  return KIND_META.filter((meta) => host.counts[meta.kind] > 0)
-    .map((meta) => plural(host.counts[meta.kind], meta.one, meta.many))
+  const saved = KIND_META.filter((meta) => host.savedCounts[meta.kind] > 0);
+  if (saved.length === 0) {
+    return "Recovered rows only";
+  }
+  return saved
+    .map((meta) => plural(host.savedCounts[meta.kind], meta.one, meta.many))
     .join(" · ");
 }
 
@@ -258,8 +245,11 @@ function HostList({
   selected,
   onSelect,
   className,
+  complete,
 }: {
   readonly hosts: readonly SiteHost[];
+  /** False when the read stopped at `SITE_ROW_CAP` hosts. */
+  readonly complete: boolean;
   readonly loading: boolean;
   readonly error: string | null;
   readonly onRetry: () => void;
@@ -278,7 +268,9 @@ function HostList({
       <PanelHeader className="items-center pb-3">
         <div className="flex items-center gap-2">
           <PanelTitle id="sites-hosts-title">Observed hosts</PanelTitle>
-          <Count>{hosts.length}</Count>
+          <Count>
+            {`${hosts.length.toLocaleString("en-US")}${complete ? "" : "+"}`}
+          </Count>
         </div>
       </PanelHeader>
       <SizeProvider size="compact">
@@ -334,7 +326,7 @@ function HostList({
                     </CardDescription>
                   </CardHeader>
                   <CardFooter className="pointer-events-none">
-                    <Count>{totalOf(item)}</Count>
+                    <Count>{savedTotalOf(item)}</Count>
                   </CardFooter>
                 </Card>
               ))}
@@ -372,7 +364,9 @@ const stackedColumn = (
 ): KindColumn => ({
   key: "main",
   header,
-  className: "max-w-[420px] min-w-[220px]",
+  // Narrow enough that the Recovered list's State word still fits beside
+  // the dates at 1440 (the detail column is about 800px).
+  className: "max-w-[320px] min-w-[180px]",
   stack: "title",
   cell: (row) => (
     <TwoLineCell
@@ -453,6 +447,7 @@ const KIND_COLUMNS: Readonly<Record<SiteArtifactKind, readonly KindColumn[]>> =
           <SecretValueCell
             field={row.fields.fieldValue}
             reveal={!secretFieldsOf(row).includes("fieldValue")}
+            hint="Open the row to reveal it."
           />
         ),
       },
@@ -464,7 +459,7 @@ const PROFILE_COLUMN: KindColumn = {
   key: "profile",
   header: "Profile",
   className: "whitespace-nowrap",
-  cell: (row) => row.profile,
+  cell: (row) => profileLabel(row.profile),
 };
 
 const STATE_COLUMN: KindColumn = {
@@ -513,15 +508,15 @@ function KindTable({
 function KindPanel({
   meta,
   rows,
-  showProfile,
   onSelect,
 }: {
   readonly meta: (typeof KIND_META)[number];
   readonly rows: readonly SiteFinding[];
-  readonly showProfile: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
   const { saved, recovered } = splitByCommit(rows);
+  // The Profile column only when this kind's rows span more than one.
+  const showProfile = new Set(rows.map((row) => row.profile)).size > 1;
   const titleId = `sites-kind-${meta.kind}`;
   return (
     <Panel role="region" aria-labelledby={titleId} className="overflow-clip">
@@ -596,11 +591,7 @@ function HostDetail({
    *  time). */
   readonly onBack: () => void;
 }) {
-  const findings = useSiteList<SiteFinding>(
-    "site-findings",
-    [["host", host]],
-    true,
-  );
+  const findings = useSiteList<SiteFinding>("site-findings", [["host", host]]);
   const [kindFilter, setKindFilter] = useState<SiteArtifactKind | null>(null);
 
   // Selecting another host resets the kind focus — the tabs describe the new
@@ -622,8 +613,11 @@ function HostDetail({
   const presentKinds = KIND_META.filter(
     (meta) => (grouped.get(meta.kind) ?? []).length > 0,
   );
-  const profileCount = new Set(findings.rows.map((row) => row.profile)).size;
-  const ready = !(findings.loading && findings.rows.length === 0);
+  const ready = !findings.loading;
+  // The tabs count saved rows, like each kind panel's count; recovered rows
+  // stay in their own lists below.
+  const savedIn = (rows: readonly SiteFinding[]) =>
+    rows.filter((row) => row.commitState === "committed").length;
 
   const tabIndex =
     kindFilter === null
@@ -679,6 +673,18 @@ function HostDetail({
           <DetailSkeleton />
           {ready ? (
             <div className="flex flex-col gap-5">
+              {findings.complete ? null : (
+                <Banner status="info" contrast="high" size="compact">
+                  <BannerTitle>
+                    Not every row of this host is listed
+                  </BannerTitle>
+                  <BannerDescription>
+                    This page read the first{" "}
+                    {SITE_ROW_CAP.toLocaleString("en-US")} rows of this host;
+                    the artifact pages list the rest.
+                  </BannerDescription>
+                </Banner>
+              )}
               {presentKinds.length > 1 ? (
                 <TabsSubtle
                   idPrefix="site-kinds"
@@ -694,14 +700,14 @@ function HostDetail({
                 >
                   <TabsSubtleItem
                     index={0}
-                    label={`All ${String(findings.rows.length)}`}
+                    label={`All ${String(savedIn(findings.rows))}`}
                   />
                   {presentKinds.map((meta, index) => (
                     <TabsSubtleItem
                       key={meta.kind}
                       index={index + 1}
                       icon={meta.icon}
-                      label={`${meta.label} ${String((grouped.get(meta.kind) ?? []).length)}`}
+                      label={`${meta.label} ${String(savedIn(grouped.get(meta.kind) ?? []))}`}
                     />
                   ))}
                 </TabsSubtle>
@@ -715,7 +721,6 @@ function HostDetail({
                     key={meta.kind}
                     meta={meta}
                     rows={grouped.get(meta.kind) ?? []}
-                    showProfile={profileCount > 1}
                     onSelect={onSelect}
                   />
                 ))}
@@ -748,7 +753,19 @@ export function SitesPage({
   const hosts = useSiteList<SiteHost>(
     "site-hosts",
     search.length === 0 ? [] : [["search", search]],
-    true,
+  );
+  // Most saved evidence first (then every row, then the name): the route
+  // pages hosts by name, so the order is set once every page is in.
+  const sortedHosts = useMemo(
+    () =>
+      [...hosts.rows].sort(
+        (left, right) =>
+          savedTotalOf(right) - savedTotalOf(left) ||
+          Object.values(right.counts).reduce((sum, n) => sum + n, 0) -
+            Object.values(left.counts).reduce((sum, n) => sum + n, 0) ||
+          (left.host < right.host ? -1 : left.host > right.host ? 1 : 0),
+      ),
+    [hosts.rows],
   );
 
   const select = useCallback((row: Finding) => {
@@ -757,22 +774,38 @@ export function SitesPage({
 
   // Below `md` the list and the detail are one screen at a time: picking a
   // host swaps the list for its evidence, from the top.
+  // Where the list was when a host was picked below `md`: "All hosts" puts
+  // the list back at that scroll position with focus on that host's card.
+  const listScroll = useRef(0);
   const pickHost = useCallback((next: string) => {
     setHost(next);
     if (narrowScreen()) {
+      listScroll.current = window.scrollY;
       requestAnimationFrame(() => {
         detailRef.current?.scrollIntoView({ block: "start" });
       });
     }
   }, []);
   const backToHosts = useCallback(() => {
+    const previous = host;
     setHost(null);
-  }, []);
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: listScroll.current });
+      if (previous !== null) {
+        document
+          .querySelector<HTMLElement>(
+            `[aria-label="${CSS.escape(`Show evidence for ${previous}`)}"]`,
+          )
+          ?.focus({ preventScroll: true });
+      }
+    });
+  }, [host]);
 
   return (
     <div className="grid items-start gap-5 md:grid-cols-[minmax(240px,0.36fr)_minmax(0,1fr)]">
       <HostList
-        hosts={hosts.rows}
+        hosts={hosts.loading ? [] : sortedHosts}
+        complete={hosts.complete}
         loading={hosts.loading}
         error={hosts.error}
         onRetry={hosts.retry}

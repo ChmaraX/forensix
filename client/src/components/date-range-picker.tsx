@@ -1,6 +1,6 @@
 /**
  * The range control shared by every chart: a single trigger that reads as a
- * sentence ("12 Jan 2024 — 3 Mar 2024") and opens a calendar on an FF popover
+ * sentence ("12 Jan 2024 - 3 Mar 2024") and opens a calendar on an FF popover
  * surface, rather than two bare native date inputs sitting side by side.
  * Selection is bounded to the Case's recorded span — a day outside it is not a
  * valid range regardless of what the OS date picker would allow — and the
