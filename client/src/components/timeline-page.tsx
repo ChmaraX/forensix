@@ -4,6 +4,8 @@
  * artifact the timeline merges is the shell's indicator by the title. The timeline route has no Commit State filter, so the
  * records panel splits the loaded stream into saved and recovered events
  * (`splitByCommit`) — two lists, each still in time order (forensic rule 4).
+ * A row's sheet opens that row on its own artifact page
+ * (`TimelineSourceLink`); the range, the tab and the open row are in the URL.
  */
 import { useMemo, useState } from "react";
 
@@ -14,11 +16,13 @@ import type { Finding } from "../types.js";
 import { usePaginatedList } from "../use-paginated-list.js";
 import { useActivity } from "./activity-data.js";
 import { dayRangeParameters } from "./day-bounds.js";
+import { formatDay, formatDaySpan } from "./page-kit.js";
 import { RowSheet, secretFieldsOf } from "./row-sheet.js";
 import { TimelineActivityCard } from "./timeline-activity.js";
+import { TimelineSourceLink } from "./timeline-source-link.js";
 import {
   TimelineRecordsCard,
-  timelineEventLabel,
+  timelineRowTitle,
   type TimelineDirection,
 } from "./timeline-table.js";
 
@@ -60,6 +64,13 @@ export function TimelinePage() {
         direction={direction}
         onDirectionChange={setDirection}
         rangeActive={range.from !== "" || range.to !== ""}
+        rangeWords={
+          range.from === "" || range.to === ""
+            ? null
+            : range.from === range.to
+              ? `on ${formatDay(range.from)}`
+              : `in ${formatDaySpan(range.from, range.to)}`
+        }
         onClearRange={() => {
           setRange({ from: "", to: "" });
         }}
@@ -67,10 +78,12 @@ export function TimelinePage() {
       {sheet.selected !== null ? (
         <RowSheet
           selected={sheet.selected}
-          title={timelineEventLabel(sheet.selected.row.findingKind)}
+          title={timelineRowTitle(sheet.selected.row)}
           redactedFields={secretFieldsOf(sheet.selected.row)}
           onClose={sheet.close}
-        />
+        >
+          <TimelineSourceLink row={sheet.selected.row} />
+        </RowSheet>
       ) : null}
     </div>
   );

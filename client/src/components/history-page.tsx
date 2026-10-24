@@ -47,10 +47,12 @@ import {
 } from "@/components/ui/select";
 import { Tooltip } from "@/components/ui/tooltip";
 import { SearchIcon, SortNewestIcon, SortOldestIcon } from "@/lib/app-icons";
-import { useSize } from "@/lib/size-context";
+import { SizeProvider, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
+import { siteKeyOf } from "../related.js";
+import { rowRefOf } from "../router.js";
 import type { FieldState, Finding } from "../types.js";
 import {
   updateView,
@@ -105,6 +107,12 @@ import {
   type RowColumn,
 } from "./page-kit.js";
 import { RowSheet } from "./row-sheet.js";
+import { Term } from "./term.js";
+import {
+  UrlWithSiteLink,
+  useSiteHosts,
+  type SiteHostLookup,
+} from "./history-host-link.js";
 
 /* ------------------------------- data reads ------------------------------- */
 
@@ -133,6 +141,30 @@ const DEFAULT_VISIT_FILTERS: VisitFilters = {
   to: "",
   profiles: [],
 };
+
+/**
+ * What an empty filtered list says: the days when the range is the only
+ * filter ("No saved visits on 12 Mar 2024."), else the days and "these
+ * filters" - so an empty day reads as that day, not as a broken filter.
+ */
+function filteredEmptyMessage(filters: VisitFilters, noun: string): string {
+  const days =
+    filters.from !== "" && filters.to !== ""
+      ? filters.from === filters.to
+        ? `on ${formatDay(filters.from)}`
+        : `in ${formatDaySpan(filters.from, filters.to)}`
+      : null;
+  const others =
+    filters.search !== "" ||
+    filters.transition !== "" ||
+    filters.profiles.length > 0;
+  if (days === null) {
+    return `No ${noun} match these filters.`;
+  }
+  return others
+    ? `No ${noun} ${days} match these filters.`
+    : `No ${noun} ${days}.`;
+}
 
 function visitsAreFiltered(filters: VisitFilters): boolean {
   return (
@@ -527,7 +559,7 @@ function asText(value: unknown): string {
   return typeof value === "string" ? value : String(value);
 }
 
-/** A visit's page: its title over its URL. */
+/** A visit's page: its title over its URL (the phone card's title). */
 function VisitPage({ row }: { readonly row: Finding }) {
   return (
     <TwoLineCell
@@ -538,33 +570,70 @@ function VisitPage({ row }: { readonly row: Finding }) {
   );
 }
 
+/** The table's page cell: the site tile, the title over the URL, and the
+ *  URL's host linked to Sites when Sites lists that exact host. */
+function VisitPageLinked({
+  row,
+  sites,
+}: {
+  readonly row: Finding;
+  readonly sites: SiteHostLookup;
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="block min-w-0 text-foreground">
+          <FieldCell field={row.fields.title} mono={false} />
+        </span>
+        <SizeProvider size="compact">
+          <span className="block min-w-0 text-muted-foreground">
+            <UrlWithSiteLink field={row.fields.url} sites={sites} />
+          </span>
+        </SizeProvider>
+      </span>
+    </span>
+  );
+}
+
 /** The visit table's columns, and where each sits in the stacked card on a
  *  phone (`ResponsiveRows`): time and (recovered only) State on the first
  *  line, the page as the card's title, transition and dwell under it. Every
  *  column but Page has a fixed width that fits its longest value, so Page
  *  takes the rest and no column moves when a day, a range or a tab changes
- *  the rows. */
-const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
-  {
-    key: "time",
-    header: "Time",
-    className: "w-[184px] whitespace-nowrap",
-    stack: "lead",
-    cell: (row) => <TimeCell field={row.fields.visitTime} />,
-  },
-  {
-    key: "page",
-    header: "Page",
-    className: "max-w-[440px]",
-    stack: "title",
-    cell: (row) => (
-      <span className="flex items-center gap-2.5">
-        <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
-        <VisitPage row={row} />
-      </span>
-    ),
-    stackedCell: (row) => <VisitPage row={row} />,
-  },
+ *  the rows. `sites` links each URL's host to Sites (table only: a phone
+ *  card is one button, and the row sheet carries the same link). */
+function visitColumns(
+  sites: SiteHostLookup,
+  recovered: boolean,
+): readonly RowColumn<Finding>[] {
+  const columns: RowColumn<Finding>[] = [
+    {
+      key: "time",
+      header: "Time (UTC)",
+      label: "Time",
+      className: "w-[184px] whitespace-nowrap",
+      stack: "lead",
+      cell: (row) => <TimeCell field={row.fields.visitTime} />,
+    },
+    {
+      key: "page",
+      header: "Page",
+      className: "max-w-[440px]",
+      stack: "title",
+      cell: (row) => <VisitPageLinked row={row} sites={sites} />,
+      stackedCell: (row) => <VisitPage row={row} />,
+    },
+    ...VISIT_DETAIL_COLUMNS,
+  ];
+  if (recovered) {
+    columns.push(STATE_COLUMN);
+  }
+  return columns;
+}
+
+/** Arrived via and Dwell: the same in both lists. */
+const VISIT_DETAIL_COLUMNS: readonly RowColumn<Finding>[] = [
   {
     key: "transition",
     header: "Arrived via",
@@ -578,7 +647,13 @@ const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
   },
   {
     key: "dwell",
-    header: "Dwell",
+    header: (
+      <Term label="Dwell">
+        How long Chrome recorded the page as open. &quot;absent&quot; means
+        Chrome kept no duration for that visit - it is not zero.
+      </Term>
+    ),
+    label: "Dwell",
     className: "w-[96px] whitespace-nowrap tabular-nums",
     labelled: true,
     cell: (row) =>
@@ -590,16 +665,23 @@ const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
 
 /** The Recovered list adds the Commit State word (unsaved vs overwritten);
  *  in the Saved list every row would read "saved", so it is left out. */
-const RECOVERED_VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
-  ...VISIT_COLUMNS,
-  {
-    key: "state",
-    header: "State",
-    className: "w-[184px]",
-    stack: "aside",
-    cell: (row) => <StateWord state={row.commitState} />,
-  },
-];
+const STATE_COLUMN: RowColumn<Finding> = {
+  key: "state",
+  header: "State",
+  className: "w-[184px]",
+  stack: "aside",
+  cell: (row) => <StateWord state={row.commitState} />,
+};
+
+/** A visit's stable key: its row reference (file, table, row id, profile,
+ *  Commit State), so a re-sort or a new page re-renders no kept row. */
+function visitKey(row: Finding, index: number): string {
+  return rowRefOf(row) ?? `${row.commitState}-${String(index)}`;
+}
+
+function visitLabel(row: Finding): string {
+  return `Open visit row detail: ${fieldText(row.fields.title) ?? fieldText(row.fields.url) ?? "page visit"}`;
+}
 
 function VisitTable({
   rows,
@@ -610,14 +692,17 @@ function VisitTable({
   readonly recovered: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
+  const sites = useSiteHosts();
+  const columns = useMemo(
+    () => visitColumns(sites, recovered),
+    [sites, recovered],
+  );
   return (
     <ResponsiveRows
       rows={rows}
-      columns={recovered ? RECOVERED_VISIT_COLUMNS : VISIT_COLUMNS}
-      rowKey={(row, index) => `${row.commitState}-${String(index)}`}
-      rowLabel={(row) =>
-        `Open visit row detail: ${fieldText(row.fields.title) ?? fieldText(row.fields.url) ?? "page visit"}`
-      }
+      columns={columns}
+      rowKey={visitKey}
+      rowLabel={visitLabel}
       onSelect={onSelect}
       tableClassName="min-w-[760px]"
     />
@@ -629,12 +714,14 @@ function VisitTable({
 function VisitList({
   list,
   recovered,
+  filters,
   filtersActive,
   onSelect,
   onClearFilters,
 }: {
   readonly list: PaginatedList<Finding>;
   readonly recovered: boolean;
+  readonly filters: VisitFilters;
   readonly filtersActive: boolean;
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
@@ -649,7 +736,10 @@ function VisitList({
       }
       skeletonRows={recovered ? 3 : 8}
       filtered={filtersActive}
-      filteredMessage={`No ${recovered ? "recovered" : "saved"} visits match these filters.`}
+      filteredMessage={filteredEmptyMessage(
+        filters,
+        recovered ? "recovered visits" : "saved visits",
+      )}
       onClearFilters={onClearFilters}
       empty={
         <EmptyRows
@@ -792,9 +882,10 @@ export function HistoryPage({
     }
     const hosts = new Set<string>();
     for (const row of saved.rows) {
-      const host = hostOf(fieldText(row.fields.url));
+      // Keyed as Sites keys a host, so the figure and Sites agree.
+      const host = siteKeyOf(fieldText(row.fields.url));
       if (host !== null) {
-        hosts.add(host.replace(/^www\./, ""));
+        hosts.add(host);
       }
     }
     return {
@@ -804,6 +895,16 @@ export function HistoryPage({
   }, [saved.rows, saved.loading, saved.error, saved.cursor]);
 
   const filtersActive = visitsAreFiltered(filters);
+  const chartRange = useMemo(
+    () => ({ from: filters.from, to: filters.to }),
+    [filters.from, filters.to],
+  );
+  const onRangeChange = useCallback(
+    ({ from, to }: { from: string; to: string }) => {
+      setFilters((current) => ({ ...current, from, to }));
+    },
+    [setFilters],
+  );
 
   const select = sheet.select;
 
@@ -822,10 +923,8 @@ export function HistoryPage({
         activity={activity}
         error={activityError}
         onRetry={retry}
-        range={{ from: filters.from, to: filters.to }}
-        onRangeChange={({ from, to }) => {
-          setFilters((current) => ({ ...current, from, to }));
-        }}
+        range={chartRange}
+        onRangeChange={onRangeChange}
         rangeMin={pickerSpan.min}
         rangeMax={pickerSpan.max}
       />
@@ -868,6 +967,7 @@ export function HistoryPage({
             <VisitList
               list={visits.saved}
               recovered={false}
+              filters={filters}
               filtersActive={filtersActive}
               onSelect={select}
               onClearFilters={clearFilters}
@@ -877,6 +977,7 @@ export function HistoryPage({
             <VisitList
               list={visits.recovered}
               recovered
+              filters={filters}
               filtersActive={filtersActive}
               onSelect={select}
               onClearFilters={clearFilters}

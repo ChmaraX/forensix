@@ -3,12 +3,15 @@
  * the shared page kit: `MetricBand` for the figure strip, `SectionPanel` /
  * `ChartSection` for every framed section (see overview.tsx), FF `Button`
  * jump links, `ShareBar` for the Most visited sites bars, one
- * `useFluidHover` highlight for that list, `EmptyRows` for empty lists, and
- * springs for the little motion there is (figure counts).
+ * `useFluidHover` highlight per link list, and `EmptyRows` for empty
+ * lists. Every row that leads somewhere is a real `<a href="#/…">` (a new
+ * tab works, Back returns here) and a `data-row-nav` stop for J / K.
  */
 import { useRef, type ReactNode } from "react";
 
 import { EmptyRows } from "@/components/data-table";
+import { toRow } from "@/components/downloads-model";
+import { DownloadSize, DownloadState } from "@/components/downloads-table";
 import { EvidenceDot } from "@/components/evidence";
 import { FieldCell } from "@/components/finding-fields";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
@@ -17,12 +20,11 @@ import {
   MetricBandItem,
   TooltipFigure,
 } from "@/components/metric-band";
-import { plural, ShareBar, TimeText } from "@/components/page-kit";
+import { plural, ShareBar, TimeText, TypeLabel } from "@/components/page-kit";
 import { Panel } from "@/components/panel";
 import { Term } from "@/components/term";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip } from "@/components/ui/tooltip";
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
@@ -30,15 +32,18 @@ import {
 import {
   ARTIFACT_ICONS,
   DownloadedFileIcon,
+  EmptyIcon,
   ExternalLinkIcon,
   UserIcon,
+  type ArtifactIconKey,
 } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
+import { COMMIT_META } from "@/terms";
 import type { FieldState, Finding } from "@/types";
 
-import { domainOf, downloadFileName, type TopSite } from "./data";
+import type { RecoveredCount, TopSite } from "./data";
 
 // ---------------------------------------------------------------------------
 // Jump link
@@ -46,30 +51,35 @@ import { domainOf, downloadFileName, type TopSite } from "./data";
 
 /**
  * A panel's jump link (the `aside` of a SectionPanel, the `action` of a
- * ChartSection): an FF ghost button that opens the section the panel
- * summarizes. The panel itself stays a plain reading surface (values can be
- * selected, chart tooltips hovered) rather than one big click target.
+ * ChartSection): an FF ghost button, a real link to the page the panel
+ * summarizes, carrying the Case's date range. The panel itself stays a
+ * plain reading surface (values can be selected, chart tooltips hovered)
+ * rather than one big click target.
  */
 export function JumpLink({
   label,
-  onOpen,
+  href,
+  description,
+  className,
 }: {
   readonly label: string;
-  readonly onOpen?: () => void;
+  readonly href: string;
+  readonly className?: string;
+  /** The accessible name when the visible label alone is not enough
+   *  ("Open 12 Mar 2024 in Timeline"). @default "Open {label}" */
+  readonly description?: string;
 }) {
-  if (onOpen === undefined) {
-    return null;
-  }
   return (
     <Button
+      asChild
       variant="ghost"
       size="compact"
       trailingIcon={ExternalLinkIcon}
-      onClick={onOpen}
-      aria-label={`Open ${label}`}
-      className="-my-1 -mr-2 shrink-0"
+      className={cn("-my-1 -mr-2 shrink-0", className)}
     >
-      {label}
+      <a href={href} aria-label={description ?? `Open ${label}`}>
+        {label}
+      </a>
     </Button>
   );
 }
@@ -134,8 +144,13 @@ export function Masthead({
           ) : null}
         </div>
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2 md:pt-1">
-        {coverage}
+      {/* Below `md` the pair sits under the subject, flush left: the
+          ghost indicator's own padding is pulled back so its words align
+          with the name above, and both fit one phone line. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-1 gap-y-2 md:gap-2 md:pt-1">
+        {coverage === undefined || coverage === null ? null : (
+          <span className="flex max-md:-ml-3">{coverage}</span>
+        )}
         {picker}
       </div>
     </header>
@@ -181,11 +196,21 @@ export function CaseFigures({
     <section aria-label="Case figures">
       <MetricBand className="grid-cols-2 lg:grid-cols-4">
         {items.map((item) => {
+          // A word for "nothing of that shape" reads at body size inside
+          // the figure's line box: muted, not dressed as a figure, and the
+          // strip keeps its height.
           const value =
             typeof item.value === "number" ? (
               <CountValue count={item.value} />
-            ) : (
+            ) : item.recorded ? (
               item.value
+            ) : (
+              <span
+                className={typeClass("body")}
+                style={{ fontVariationSettings: fontWeights.normal }}
+              >
+                {item.value}
+              </span>
             );
           return (
             <MetricBandItem
@@ -265,6 +290,60 @@ export function SubjectList({
 }
 
 // ---------------------------------------------------------------------------
+// Link lists
+// ---------------------------------------------------------------------------
+
+/** One fluid hover highlight gliding between a list's link rows (FF's
+ *  custom hover list); `null` while the list has no rows. */
+function useLinkList() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hover = useFluidHover(containerRef, { axis: "y" });
+  return { containerRef, hover };
+}
+
+type HoverRegister = (index: number, element: HTMLElement | null) => void;
+
+/** A link row's focus ring: keyboard only, inset so the panel clips none. */
+const LINK_ROW_CLASS =
+  "relative w-full cursor-pointer rounded-lg px-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset";
+
+/** One row of a link list: a real link, registered with the list's hover
+ *  highlight, and a J / K stop. */
+function LinkRow({
+  href,
+  index,
+  registerItem,
+  label,
+  title,
+  className,
+  children,
+}: {
+  readonly href: string;
+  readonly index: number;
+  readonly registerItem: HoverRegister;
+  /** The accessible name: the row's words, then where it leads. */
+  readonly label: string;
+  readonly title?: string;
+  readonly className?: string;
+  readonly children: ReactNode;
+}) {
+  const ref = useRef<HTMLAnchorElement>(null);
+  useRegisterFluidHoverItem(registerItem, index, ref);
+  return (
+    <a
+      ref={ref}
+      href={href}
+      data-row-nav=""
+      aria-label={label}
+      title={title}
+      className={cn(LINK_ROW_CLASS, className)}
+    >
+      {children}
+    </a>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Most visited sites
 // ---------------------------------------------------------------------------
 
@@ -307,90 +386,24 @@ function SiteMark({
   );
 }
 
-function TopSiteRow({
-  site,
-  index,
-  peak,
-  favicon,
-  registerItem,
-  onOpen,
-}: {
-  readonly site: TopSite;
-  readonly index: number;
-  readonly peak: number;
-  readonly favicon: string | null | undefined;
-  readonly registerItem?: (index: number, element: HTMLElement | null) => void;
-  readonly onOpen?: (domain: string) => void;
-}) {
-  const ref = useRef<HTMLButtonElement>(null);
-  useRegisterFluidHoverItem(registerItem, index, ref);
-  const domain = domainOf(site.url);
-  const content = (
-    <>
-      <span className="flex min-w-0 items-center gap-2.5">
-        <SiteMark domain={domain} favicon={favicon} />
-        <span
-          className={cn(typeClass("body"), "truncate text-foreground")}
-          title={domain}
-        >
-          {domain}
-        </span>
-      </span>
-      <ShareBar
-        fraction={peak === 0 ? 0 : site.count / peak}
-        peak={peak > 0 && site.count === peak}
-      />
-      <span
-        className={cn(
-          typeClass("body"),
-          "w-8 text-right text-foreground tabular-nums",
-        )}
-      >
-        {site.count.toLocaleString("en-US")}
-      </span>
-    </>
-  );
-  const rowClass =
-    "relative grid h-9 w-full grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] items-center gap-4 rounded-lg px-3 text-left";
-  if (onOpen === undefined) {
-    return <div className={rowClass}>{content}</div>;
-  }
-  return (
-    <button
-      ref={ref}
-      type="button"
-      onClick={() => {
-        onOpen(domain);
-      }}
-      aria-label={`${domain}, ${plural(site.count, "saved visit", "saved visits")} - open in Sites`}
-      className={cn(
-        rowClass,
-        "cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-focus-ring",
-      )}
-    >
-      {content}
-    </button>
-  );
-}
-
 /**
- * The Most visited sites list: one fluid hover highlight glides between the rows;
- * clicking a row is the same jump the panel's own link makes, pre-aimed at
- * that host on the Sites page.
+ * The Most visited sites list: hosts ranked by saved visit rows, the count
+ * Sites prints beside the same host ("4 visits"). Each row opens that host
+ * on Sites; one fluid hover highlight glides between them.
  */
 export function TopSitesList({
   sites,
   favicons,
-  onOpenSite,
-  emptyMessage = "No saved site visits are recorded in this Case.",
+  hrefOf,
+  emptyMessage = "No saved page visits are recorded in this Case.",
 }: {
   readonly emptyMessage?: string;
   readonly sites: readonly TopSite[];
   readonly favicons: ReadonlyMap<string, string | null>;
-  readonly onOpenSite?: (domain: string) => void;
+  /** The link for a host (Sites, focused on it). */
+  readonly hrefOf: (host: string) => string;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const hover = useFluidHover(containerRef, { axis: "y" });
+  const { containerRef, hover } = useLinkList();
   const peak = Math.max(...sites.map((site) => site.count), 0);
   if (sites.length === 0) {
     return (
@@ -401,29 +414,57 @@ export function TopSitesList({
       />
     );
   }
-  const clickable = onOpenSite !== undefined;
   return (
     <div
       ref={containerRef}
-      className="relative flex flex-1 flex-col justify-center px-1 pb-2"
-      {...(clickable ? hover.handlers : {})}
+      className="relative flex flex-col px-1 pb-2"
+      {...hover.handlers}
     >
-      <FluidHoverHighlight
-        hover={hover}
-        hidden={!clickable}
-        className="rounded-lg"
-      />
-      {sites.map((site, index) => (
-        <TopSiteRow
-          key={site.url}
-          site={site}
-          index={index}
-          peak={peak}
-          favicon={favicons.get(domainOf(site.url))}
-          registerItem={clickable ? hover.registerItem : undefined}
-          onOpen={onOpenSite}
-        />
-      ))}
+      <FluidHoverHighlight hover={hover} className="rounded-lg" />
+      {sites.map((site, index) => {
+        return (
+          <LinkRow
+            key={site.host}
+            href={hrefOf(site.host)}
+            index={index}
+            registerItem={hover.registerItem}
+            label={`${site.host}, ${plural(site.count, "saved visit", "saved visits")} - open in Sites`}
+            className="grid h-9 grid-cols-[minmax(0,10rem)_minmax(0,1fr)_auto] items-center gap-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto]"
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <SiteMark domain={site.host} favicon={favicons.get(site.host)} />
+              <span
+                className={cn(typeClass("body"), "truncate text-foreground")}
+                title={site.host}
+              >
+                {site.host}
+              </span>
+            </span>
+            {/* The bar keeps a reading length on the wide column. */}
+            <span className="block w-full max-w-sm">
+              <ShareBar
+                fraction={peak === 0 ? 0 : site.count / peak}
+                peak={peak > 0 && site.count === peak}
+              />
+            </span>
+            {/* "4 visits", worded as Sites words it: the count is a number
+                of saved visit rows, nothing else. */}
+            <span
+              className={cn(
+                typeClass("body"),
+                "min-w-[4.5rem] text-right whitespace-nowrap tabular-nums",
+              )}
+            >
+              <span className="text-foreground">
+                {site.count.toLocaleString("en-US")}
+              </span>
+              <span className="text-muted-foreground">
+                {site.count === 1 ? " visit" : " visits"}
+              </span>
+            </span>
+          </LinkRow>
+        );
+      })}
     </div>
   );
 }
@@ -432,58 +473,26 @@ export function TopSitesList({
 // Recent downloads
 // ---------------------------------------------------------------------------
 
-/** One recorded download on one line: the plain filename (when one can be
- *  read from the path, with the full recorded path on hover), its source URL
- *  and start time, each the exact Field State text every list page uses.
- *  Below `md` the three stack. */
-function DownloadRow({ download }: { readonly download: Finding }) {
-  const name = downloadFileName(download.fields.targetPath);
-  return (
-    <li className="flex flex-col gap-0.5 border-t border-border py-2.5 first:border-t-0 md:grid md:min-h-11 md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_auto] md:items-center md:gap-6 md:py-2">
-      <div className="min-w-0">
-        {name === null ? (
-          <FieldCell field={download.fields.targetPath} />
-        ) : (
-          <Tooltip
-            content={
-              <span className="font-mono break-all">
-                {downloadPath(download.fields.targetPath)}
-              </span>
-            }
-            className="max-w-[360px] whitespace-normal"
-          >
-            <p
-              className={cn(typeClass("body"), "truncate text-foreground")}
-              style={{ fontVariationSettings: fontWeights.semibold }}
-            >
-              {name}
-            </p>
-          </Tooltip>
-        )}
-      </div>
-      <div className="min-w-0 text-muted-foreground">
-        <FieldCell field={download.fields.originalUrl} mono />
-      </div>
-      <TimeText field={download.fields.startTime} className="md:text-right" />
-    </li>
-  );
-}
-
-function downloadPath(field: FieldState | undefined): string {
-  return field !== undefined &&
-    field.state === "value" &&
-    typeof field.value === "string"
-    ? field.value
-    : "";
-}
-
+/**
+ * The Recent downloads list: one row per saved download - the file (full
+ * recorded path on hover) over its source host, then its outcome in words,
+ * the size it actually reached and when it started. Each row opens that
+ * download's own row on the Downloads page. Below `md` the row stacks:
+ * file, host, then outcome · size · time on one line. Size and source are
+ * read as the Downloads page reads them (`toRow`, `DownloadSize`): bytes
+ * received, the expected size beside them only while they fall short.
+ */
 export function DownloadsList({
   downloads,
+  hrefOf,
   emptyMessage = "No saved downloads are recorded in this Case.",
 }: {
   readonly downloads: readonly Finding[];
+  /** The link for a download (its row on the Downloads page). */
+  readonly hrefOf: (download: Finding) => string;
   readonly emptyMessage?: string;
 }) {
+  const { containerRef, hover } = useLinkList();
   if (downloads.length === 0) {
     return (
       <EmptyRows
@@ -494,14 +503,305 @@ export function DownloadsList({
     );
   }
   return (
-    <ul className="flex flex-col px-4 pb-2">
-      {downloads.map((download, index) => (
-        <DownloadRow
-          key={`${download.profile}-${String(index)}`}
-          download={download}
-        />
+    <div
+      ref={containerRef}
+      className="relative flex flex-col px-1 pb-2"
+      {...hover.handlers}
+    >
+      <FluidHoverHighlight hover={hover} className="rounded-lg" />
+      {downloads.map((download, index) => {
+        // The Downloads page's own reading of the row: file name, source
+        // host and the received / expected sizes, so both pages agree.
+        const row = toRow(download);
+        const { name, host, state } = row;
+        return (
+          <LinkRow
+            key={download.provenance.rowId ?? String(index)}
+            href={hrefOf(download)}
+            index={index}
+            registerItem={hover.registerItem}
+            label={[
+              name ?? "Download",
+              state,
+              host === null ? null : `from ${host}`,
+              "open in Downloads",
+            ]
+              .filter((part) => part !== null)
+              .join(", ")}
+            title={row.path ?? undefined}
+            className="flex flex-col gap-1 py-2.5 md:grid md:min-h-14 md:grid-cols-[minmax(0,1fr)_7rem_9.5rem_11rem] md:items-center md:gap-4 md:py-2"
+          >
+            <span className="flex min-w-0 flex-col gap-0.5">
+              {name === null ? (
+                <FieldCell field={download.fields.targetPath} />
+              ) : (
+                <span
+                  className={cn(typeClass("body"), "truncate text-foreground")}
+                  style={{ fontVariationSettings: fontWeights.semibold }}
+                >
+                  {name}
+                </span>
+              )}
+              <span
+                className={cn(
+                  typeClass("caption"),
+                  "truncate text-muted-foreground",
+                )}
+              >
+                {host ?? "Source not recorded"}
+              </span>
+            </span>
+            <span
+              className={cn(
+                typeClass("body"),
+                "flex flex-wrap items-center gap-x-3 gap-y-1 md:contents",
+              )}
+            >
+              <span className="min-w-0">
+                <DownloadState field={download.fields.state} />
+              </span>
+              <span className="min-w-0 md:text-right">
+                <DownloadSize row={row} />
+              </span>
+              <TimeText
+                field={download.fields.startTime}
+                className="md:text-right"
+              />
+            </span>
+          </LinkRow>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Recovered
+// ---------------------------------------------------------------------------
+
+/** "1,000+" when the read stopped at its cap. */
+function countText(count: number, more: boolean): string {
+  return `${count.toLocaleString("en-US")}${more ? "+" : ""}`;
+}
+
+/** "Bookmarks", "Bookmarks or Browser profile", "A, B or C". */
+function orList(words: readonly string[]): string {
+  return words.length <= 1
+    ? (words[0] ?? "")
+    : `${words.slice(0, -1).join(", ")} or ${words[words.length - 1] ?? ""}`;
+}
+
+/** One recovered part: the state's dot, the count and its word. */
+function RecoveredPart({
+  state,
+  count,
+  more,
+}: {
+  readonly state: "wal_resident" | "journal_resident";
+  readonly count: number;
+  readonly more: boolean;
+}) {
+  // "recovered - unsaved" → "unsaved": the panel's title already says
+  // recovered; the dot repeats the word's hue, never stands in for it.
+  const meta = COMMIT_META[state];
+  const word = meta.label.replace(/^recovered - /, "");
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <EvidenceDot state={meta.badge} />
+      <span className="text-foreground tabular-nums">
+        {countText(count, more)}
+      </span>
+      <span className="text-muted-foreground">{word}</span>
+    </span>
+  );
+}
+
+/** How much of one artifact's evidence was read, from the Completeness
+ *  Statement: `null` when every database was. */
+export interface ArtifactCoverage {
+  readonly produced: number;
+  readonly attempted: number;
+}
+
+/**
+ * The Recovered panel's list: one row per evidence page holding recovered
+ * rows, in the sidebar's order, its write-ahead-log rows (unsaved) and
+ * rollback-journal rows (overwritten) counted apart, each row opening that
+ * page's Recovered tab. Pages with nothing recovered are named once,
+ * below. Counts are never summed into a figure.
+ */
+export function RecoveredList({
+  counts,
+  coverageOf,
+  hrefOf,
+}: {
+  readonly counts: readonly RecoveredCount[];
+  readonly coverageOf: (artifact: string) => ArtifactCoverage | null;
+  /** The link to a page's Recovered tab. */
+  readonly hrefOf: (page: string) => string;
+}) {
+  const { containerRef, hover } = useLinkList();
+  // A page counts as "nothing recovered" only when its databases were read:
+  // a page whose evidence was not read keeps its row and says so.
+  const listed = counts.filter(
+    (count) =>
+      count.wal + count.journal > 0 || coverageOf(count.artifact) !== null,
+  );
+  const none = counts
+    .filter((count) => !listed.includes(count))
+    .map((count) => count.label);
+  if (listed.length === 0) {
+    return (
+      <EmptyRows
+        icon={EmptyIcon}
+        message="Nothing recovered: no row was found only in Chrome's write-ahead logs or rollback journals."
+        className="flex-1 justify-center py-8"
+      />
+    );
+  }
+  return (
+    <div className="flex flex-1 flex-col">
+      <div
+        ref={containerRef}
+        className="relative flex flex-col px-1"
+        {...hover.handlers}
+      >
+        <FluidHoverHighlight hover={hover} className="rounded-lg" />
+        {listed.map((count, index) => {
+          const coverage = coverageOf(count.artifact);
+          const parts = [
+            count.wal > 0
+              ? `${countText(count.wal, count.more)} unsaved`
+              : null,
+            count.journal > 0
+              ? `${countText(count.journal, count.more)} overwritten`
+              : null,
+          ].filter((part) => part !== null);
+          // Nothing read: nothing could be recovered either, so the row
+          // says "not read" in place of counts. Partly read: the counts,
+          // with how much they come from under the page's name.
+          const unread = coverage !== null && coverage.produced === 0;
+          const read =
+            coverage === null || unread
+              ? null
+              : `${String(coverage.produced)}/${String(coverage.attempted)} read`;
+          return (
+            <LinkRow
+              key={count.page}
+              href={hrefOf(count.page)}
+              title={
+                coverage === null || unread
+                  ? undefined
+                  : `${String(coverage.produced)} of ${plural(coverage.attempted, "database", "databases")} read`
+              }
+              index={index}
+              registerItem={hover.registerItem}
+              label={`${count.label}: ${
+                unread
+                  ? "not read"
+                  : parts.length === 0
+                    ? "nothing recovered"
+                    : parts.join(", ")
+              }${
+                coverage === null || unread
+                  ? ""
+                  : ` (${String(coverage.produced)} of ${plural(coverage.attempted, "database", "databases")} read)`
+              } - open its Recovered tab`}
+              className="grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-1.5"
+            >
+              <span className="flex min-w-0 flex-col">
+                <span className={cn(typeClass("body"), "text-foreground")}>
+                  <TypeLabel
+                    icon={ARTIFACT_ICONS[count.page as ArtifactIconKey]}
+                    label={count.label}
+                  />
+                </span>
+                {read === null ? null : (
+                  // Words only: an amber dot here would read as "unsaved".
+                  <span
+                    className={cn(
+                      typeClass("caption"),
+                      "pl-6 text-muted-foreground",
+                    )}
+                  >
+                    {read}
+                  </span>
+                )}
+              </span>
+              <span
+                className={cn(
+                  typeClass("body"),
+                  "flex flex-wrap items-center justify-end gap-x-3",
+                )}
+              >
+                {count.wal > 0 ? (
+                  <RecoveredPart
+                    state="wal_resident"
+                    count={count.wal}
+                    more={count.more}
+                  />
+                ) : null}
+                {count.journal > 0 ? (
+                  <RecoveredPart
+                    state="journal_resident"
+                    count={count.journal}
+                    more={count.more}
+                  />
+                ) : null}
+                {parts.length === 0 ? (
+                  <span className="text-muted-foreground">
+                    {unread ? "not read" : "none"}
+                  </span>
+                ) : null}
+              </span>
+            </LinkRow>
+          );
+        })}
+      </div>
+      {none.length === 0 ? null : (
+        <p
+          className={cn(
+            typeClass("caption"),
+            "mt-auto px-4 pt-2 pb-3 text-muted-foreground",
+          )}
+        >
+          Nothing recovered from {orList(none)}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The panel title's explanation of "Recovered" (the words every
+ *  Recovered tab carries). */
+export function RecoveredTitle() {
+  return (
+    <Term
+      label="Recovered"
+      technical="Commit State: wal_resident (WAL) or journal_resident (rollback journal)"
+    >
+      Rows found only in Chrome&apos;s temporary database files (write-ahead log
+      or rollback journal). They can include entries that were deleted or
+      overwritten in the saved database.
+    </Term>
+  );
+}
+
+/** The Recovered panel's skeleton, the size of its rows. */
+export function LoadingRecovered() {
+  return (
+    <div
+      role="status"
+      className="reveal-items flex flex-col gap-0 px-4 pt-1 pb-3"
+    >
+      <span className="sr-only">Counting recovered rows</span>
+      {[0, 1, 2, 3, 4, 5].map((key) => (
+        <div key={key} className="flex h-9 items-center justify-between">
+          <Skeleton className="h-3.5 w-24 rounded-md" />
+          <Skeleton className="h-3.5 w-28 rounded-md" />
+        </div>
       ))}
-    </ul>
+    </div>
   );
 }
 

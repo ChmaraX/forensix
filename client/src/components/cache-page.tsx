@@ -12,8 +12,14 @@
  * Drawn with Fluid Functionalism: a MetricBand, a SectionPanel holding the
  * shared `ActivityBars`, and one "Cache entries" panel whose Saved /
  * Recovered switch (CommitStateSplit) shows one `ResponsiveRows` list at a
- * time (a table from `sm` up, stacked rows below), with the profile picker
- * and a live search on the same toolbar.
+ * time (a table from `sm` up, stacked rows below), with the sort, the
+ * profile picker and a live search on the same toolbar.
+ *
+ * Days are Case days (the declared timezone, as on History and Timeline).
+ * The date range and the profile pick are the Case-wide lens
+ * (`useViewRange` / `useViewProfiles`); the search, the tab and the open
+ * row are in the URL too, so Back and a refresh keep the view. A resource
+ * host Sites lists links to it (`HostLink`).
  *
  * Presentation rules kept: the four value states stay worded, never colour
  * alone; a row whose size or key is `unavailable`/`absent` is never counted
@@ -25,17 +31,33 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useViewTab } from "../view-state.js";
+import {
+  updateView,
+  useRowSelection,
+  useViewProfiles,
+  useViewRange,
+  useViewSearch,
+  useViewTab,
+  type DayRange,
+} from "../view-state.js";
 
 import { Panel } from "@/components/panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
+import { SizeProvider, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
 import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
 import { fillGaps, useCaseTimeZone } from "./activity-data.js";
+import { cacheResourceHost, cacheSiteKey } from "./cache-keys.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { useChartTokens, type ChartTokens, type DayCount } from "./charts.js";
@@ -47,9 +69,8 @@ import {
   fieldInteger,
   fieldText,
   fieldUtc,
-  hostOf,
+  SiteAvatar,
   StateWord,
-  TwoLineCell,
   profileLabel,
 } from "./finding-fields.js";
 import { caseDayTotals, inCaseDays } from "./day-bounds.js";
@@ -66,6 +87,7 @@ import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import {
   CHART_HEIGHT,
   formatDay,
+  formatDaySpan,
   CommitStateSplit,
   formatBytes,
   plural,
@@ -75,7 +97,8 @@ import {
   splitByCommit,
   TimeCell,
 } from "./page-kit.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { RowSheet } from "./row-sheet.js";
+import { HostLink, SitesHostKeysProvider } from "./sites-host-link.js";
 
 /**
  * Reads the whole Cache list for this Case, up to a bounded number of pages.
@@ -205,11 +228,11 @@ function integrityVerified(row: Finding): boolean {
   return keyHashValid && crc !== false;
 }
 
-/** The resource host a cache key names, or `null` when the key is not a URL
- *  or is `unavailable`. Cache keys can carry a scope prefix; the URL inside is
- *  what identifies the resource, so a bare parse is enough for grouping. */
+/** The resource host a cache key names ("www.example.com"), or `null` when
+ *  the key names no URL or is `unavailable`. A scope prefix ("_dk_…") is
+ *  read past: the resource is the key's last part (`cacheResourceUrl`). */
 function keyHost(row: Finding): string | null {
-  return hostOf(fieldText(row.fields.key));
+  return cacheResourceHost(row);
 }
 
 /* --------------------------------- widgets -------------------------------- */
@@ -241,7 +264,9 @@ function CacheSummary({
       if (integrityVerified(row)) {
         verified += 1;
       }
-      const host = keyHost(row);
+      // Hosts as Sites keys them (no `www.`), so the figure and the
+      // Sites view count one host once.
+      const host = cacheSiteKey(row);
       if (host !== null) {
         hosts.add(host);
       }
@@ -293,14 +318,6 @@ function CacheSummary({
     </MetricBand>
   );
 }
-
-/** The page's date range on the last-used day (`""` = an open bound). */
-interface DayRange {
-  readonly from: string;
-  readonly to: string;
-}
-
-const FULL_SPAN: DayRange = { from: "", to: "" };
 
 /** An entry's last-used day falls in the range; with a range set, an entry
  *  with no last-used time falls outside it. */
@@ -426,26 +443,61 @@ function IntegrityCell({ row }: { readonly row: Finding }) {
 }
 
 /**
- * The resource: the key's host over the cached URL (mono, muted, a step
- * smaller), so the list scans by site and still shows the exact key. A key
- * that names no URL host keeps the key alone — its value or its own state
- * word ("unavailable" and the reason).
+ * The resource: the key's host over the cached key (mono, muted, a step
+ * smaller), so the list scans by site and still shows the exact key. In the
+ * table the host links to Sites when Sites lists it. A key that names no
+ * URL host keeps the key alone - its value or its own state word
+ * ("unavailable" and the reason).
  */
 function ResourceCell({
   row,
-  avatar = true,
+  wide = true,
 }: {
   readonly row: Finding;
-  readonly avatar?: boolean;
+  /** The table cell (avatar and host link); off in a phone card. */
+  readonly wide?: boolean;
 }) {
+  const size = useSize();
   const host = keyHost(row);
+  if (host === null) {
+    return <FieldCell field={row.fields.key} mono />;
+  }
+  const shown = host.replace(/^www\./, "");
+  const lines = (
+    <span className="flex min-w-0 flex-col">
+      {wide ? (
+        <HostLink
+          host={cacheSiteKey(row)}
+          className={cn(
+            size.type.body,
+            "max-w-full self-start truncate text-foreground",
+          )}
+        >
+          {shown}
+        </HostLink>
+      ) : (
+        <span
+          className={cn(size.type.body, "block truncate text-foreground")}
+          title={shown}
+        >
+          {shown}
+        </span>
+      )}
+      <SizeProvider size="compact">
+        <span className="block min-w-0 text-muted-foreground">
+          <FieldCell field={row.fields.key} mono />
+        </span>
+      </SizeProvider>
+    </span>
+  );
+  if (!wide) {
+    return lines;
+  }
   return (
-    <TwoLineCell
-      primary={host === null ? row.fields.key : host.replace(/^www\./, "")}
-      secondary={host === null ? null : row.fields.key}
-      mono={host === null}
-      avatar={avatar ? host : undefined}
-    />
+    <span className="flex min-w-0 items-center gap-2.5">
+      <SiteAvatar host={host} />
+      <span className="min-w-0 flex-1">{lines}</span>
+    </span>
   );
 }
 
@@ -455,7 +507,7 @@ const RESOURCE_COLUMN: RowColumn<Finding> = {
   className: "max-w-[400px] min-w-[240px]",
   stack: "title",
   cell: (row) => <ResourceCell row={row} />,
-  stackedCell: (row) => <ResourceCell row={row} avatar={false} />,
+  stackedCell: (row) => <ResourceCell row={row} wide={false} />,
 };
 
 const SIZE_COLUMN: RowColumn<Finding> = {
@@ -533,6 +585,17 @@ const RECOVERED_COLUMNS: readonly RowColumn<Finding>[] = [
   STATE_COLUMN,
 ];
 
+/** A row's identity within its list: its source row (the Commit State
+ *  keeps a WAL copy of a saved entry apart). Stable across a sort or a
+ *  filter, so rows keep their memoised render. */
+const entryKey = (row: Finding) =>
+  `${row.commitState}:${row.profile}:${row.provenance.manifestPath ?? ""}:${row.provenance.table ?? ""}:${row.provenance.rowId ?? fieldText(row.fields.entryHash) ?? ""}`;
+
+const entryLabel = (row: Finding) => {
+  const host = keyHost(row);
+  return `Open cache entry detail${host === null ? "" : ` for ${host}`}`;
+};
+
 function EntriesTable({
   rows,
   recovered,
@@ -555,13 +618,8 @@ function EntriesTable({
             ? SAVED_COLUMNS_ALL_VERIFIED
             : SAVED_COLUMNS
       }
-      rowKey={(row, index) =>
-        `${row.commitState}:${row.profile}:${fieldText(row.fields.entryHash) ?? ""}:${String(index)}`
-      }
-      rowLabel={(row) => {
-        const host = keyHost(row);
-        return `Open cache entry detail${host === null ? "" : ` for ${host}`}`;
-      }}
+      rowKey={entryKey}
+      rowLabel={entryLabel}
       onSelect={onSelect}
       tableClassName="tabular-nums"
     />
@@ -581,6 +639,7 @@ function EntryList({
   loading,
   error,
   complete,
+  filteredMessage,
   onRetry,
   onSelect,
   onClearFilters,
@@ -591,6 +650,9 @@ function EntryList({
   readonly loading: boolean;
   readonly error: string | null;
   readonly complete: boolean;
+  /** What a filtered-empty list says ("No saved cache entries last used
+   *  12 Mar 2024."). */
+  readonly filteredMessage: string;
   readonly onRetry: () => void;
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
@@ -631,7 +693,7 @@ function EntryList({
           <EmptyRows
             message={
               filtered
-                ? `No loaded ${noun} cache entries match these filters.`
+                ? filteredMessage
                 : noun === "saved"
                   ? "No saved cache entries. Every loaded entry was recovered."
                   : "No cache entries were recovered."
@@ -689,56 +751,134 @@ function FiguresSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
+/** The list orders: most recently used first (the default), oldest used
+ *  first, or largest first. Rows without the value sort last either way,
+ *  never as a zero. */
+type EntrySort = "last-used-desc" | "last-used-asc" | "size-desc";
+
+const SORT_OPTIONS: readonly {
+  readonly value: EntrySort;
+  readonly label: string;
+}[] = [
+  { value: "last-used-desc", label: "Last used, newest" },
+  { value: "last-used-asc", label: "Last used, oldest" },
+  { value: "size-desc", label: "Size, largest" },
+];
+
+function sortEntries(
+  rows: readonly Finding[],
+  sort: EntrySort,
+): readonly Finding[] {
+  // Sorted here as well as asked of the route, so the order holds on any
+  // server (ties keep the route's order).
+  const valueOf =
+    sort === "size-desc"
+      ? (row: Finding) => entryBytes(row)
+      : (row: Finding) => fieldUtc(row.fields.lastUsed);
+  const sign = sort === "last-used-asc" ? 1 : -1;
+  return rows
+    .map((row, index) => ({ row, index, value: valueOf(row) }))
+    .sort((a, b) => {
+      if (a.value === null || b.value === null) {
+        return a.value === b.value
+          ? a.index - b.index
+          : a.value === null
+            ? 1
+            : -1;
+      }
+      const order = a.value < b.value ? -1 : a.value > b.value ? 1 : 0;
+      return order === 0 ? a.index - b.index : order * sign;
+    })
+    .map((entry) => entry.row);
+}
+
+/** "last used 12 Mar 2024", "last used from 4 Mar 2024": the range as the
+ *  empty-list sentence says it; null for every day. */
+function rangePhrase(range: DayRange): string | null {
+  if (range.from !== "" && range.to !== "") {
+    return `last used ${formatDaySpan(range.from, range.to)}`;
+  }
+  if (range.from !== "") {
+    return `last used from ${formatDay(range.from)}`;
+  }
+  if (range.to !== "") {
+    return `last used until ${formatDay(range.to)}`;
+  }
+  return null;
+}
+
 export function CachePage({ config }: { readonly config: ArtifactConfig }) {
   const list = useCacheEntries(config.route);
   const tokens = useChartTokens();
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
-  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  // Saved / Recovered, the search, the open row, and the Case-wide range
+  // and profile pick live in the URL: Back and a refresh keep them.
   const [view, setView] = useViewTab();
-  const [search, setSearch] = useState("");
-  const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
-  const [range, setRange] = useState<DayRange>(FULL_SPAN);
+  const [search, setSearch] = useViewSearch();
+  const [profileFilter, setProfileFilter] = useViewProfiles();
+  const [range, setRange] = useViewRange();
+  const [sort, setSort] = useState<EntrySort>("last-used-desc");
+  const sheet = useRowSelection(list.rows);
   // Days are Case days: entries bucket and filter on the Case's clock.
   const { timeZone, settled: zoneSettled } = useCaseTimeZone();
 
   // The Cache route cannot filter by Commit State: split the one loaded set.
   const all = useMemo(() => splitByCommit(list.rows), [list.rows]);
 
+  // The picker lists the profiles the loaded entries carry, plus any the
+  // lens already picked elsewhere (so it can be unpicked here).
   const profiles = useMemo(
-    () => [...new Set(list.rows.map((row) => row.profile))].sort(),
-    [list.rows],
+    () =>
+      [
+        ...new Set([...list.rows.map((row) => row.profile), ...profileFilter]),
+      ].sort(),
+    [list.rows, profileFilter],
+  );
+
+  const inLens = useCallback(
+    (row: Finding) =>
+      lastUsedIn(row, range, timeZone) &&
+      (profileFilter.length === 0 || profileFilter.includes(row.profile)),
+    [range, timeZone, profileFilter],
   );
 
   const narrow = useCallback(
     (rows: readonly Finding[]) => {
       const query = search.trim().toLocaleLowerCase("en-US");
-      return rows.filter((row) => {
-        if (!lastUsedIn(row, range, timeZone)) {
-          return false;
-        }
-        if (profileFilter.length > 0 && !profileFilter.includes(row.profile)) {
-          return false;
-        }
-        if (query === "") {
-          return true;
-        }
-        const haystack = [
-          fieldText(row.fields.key) ?? "",
-          keyHost(row) ?? "",
-          fieldText(row.fields.entryHash) ?? "",
-        ]
-          .join("\n")
-          .toLocaleLowerCase("en-US");
-        return haystack.includes(query);
-      });
+      return sortEntries(
+        rows.filter((row) => {
+          if (!inLens(row)) {
+            return false;
+          }
+          if (query === "") {
+            return true;
+          }
+          const haystack = [
+            fieldText(row.fields.key) ?? "",
+            keyHost(row) ?? "",
+            fieldText(row.fields.entryHash) ?? "",
+          ]
+            .join("\n")
+            .toLocaleLowerCase("en-US");
+          return haystack.includes(query);
+        }),
+        sort,
+      );
     },
-    [search, profileFilter, range, timeZone],
+    [search, inLens, sort],
   );
-  // The figures follow the date range (not the search or profile filter,
-  // which only narrow the lists).
+  // The figures follow the lens (range and profiles); the search only
+  // narrows the lists. The chart draws every day of the picked profiles,
+  // the range washed in.
+  const savedOfProfiles = useMemo(
+    () =>
+      profileFilter.length === 0
+        ? all.saved
+        : all.saved.filter((row) => profileFilter.includes(row.profile)),
+    [all.saved, profileFilter],
+  );
   const savedInRange = useMemo(
-    () => all.saved.filter((row) => lastUsedIn(row, range, timeZone)),
-    [all.saved, range, timeZone],
+    () => savedOfProfiles.filter((row) => lastUsedIn(row, range, timeZone)),
+    [savedOfProfiles, range, timeZone],
   );
   const savedVisible = useMemo(() => narrow(all.saved), [narrow, all.saved]);
   const recoveredVisible = useMemo(
@@ -746,15 +886,22 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
     [narrow, all.recovered],
   );
 
-  const select = useCallback((row: Finding) => {
-    setSelected({ kind: "finding", row });
+  const clearFilters = useCallback(() => {
+    // One history entry: Back restores the filters as they were.
+    updateView({ from: "", to: "", profiles: [], q: null });
   }, []);
 
-  const clearFilters = useCallback(() => {
-    setSearch("");
-    setProfileFilter([]);
-    setRange(FULL_SPAN);
-  }, []);
+  // What a filtered-empty list says it looked for, in words.
+  const lookedFor = (noun: "saved" | "recovered") => {
+    const parts = [
+      rangePhrase(range),
+      profileFilter.length === 0
+        ? null
+        : `in ${profileFilter.map(profileLabel).join(" or ")}`,
+      search.trim() === "" ? null : `matching "${search.trim()}"`,
+    ].filter((part): part is string => part !== null);
+    return `No ${list.complete ? "" : "loaded "}${noun} cache entries ${parts.join(" ")}.`;
+  };
 
   // Read finished without error: the counts are known.
   const settled = !list.loading && list.error === null;
@@ -772,8 +919,9 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
       loading={list.loading}
       error={list.error}
       complete={list.complete}
+      filteredMessage={lookedFor(noun)}
       onRetry={list.retry}
-      onSelect={select}
+      onSelect={sheet.select}
       onClearFilters={clearFilters}
     />
   );
@@ -798,7 +946,7 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
               <div className="flex flex-col gap-5">
                 <CacheSummary rows={savedInRange} complete={list.complete} />
                 <LastUsedPanel
-                  rows={all.saved}
+                  rows={savedOfProfiles}
                   range={range}
                   onRangeChange={setRange}
                   tokens={tokens}
@@ -809,52 +957,76 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
           ) : null}
 
           <SectionPanel id="cache-entries" title="Cache entries">
-            <CommitStateSplit
-              value={view}
-              onValueChange={setView}
-              label="Saved or recovered cache entries"
-              savedCount={settled ? all.saved.length : null}
-              recoveredCount={settled ? all.recovered.length : null}
-              savedMore={settled && !list.complete}
-              recoveredMore={settled && !list.complete}
-              toolbar={
-                <>
-                  {profiles.length > 1 ? (
-                    <FilterField label="Profiles" htmlFor="cache-profiles">
-                      <ProfilePicker
-                        id="cache-profiles"
-                        profiles={profiles}
-                        selected={profileFilter}
-                        onChange={setProfileFilter}
-                      />
+            <SitesHostKeysProvider>
+              <CommitStateSplit
+                value={view}
+                onValueChange={setView}
+                label="Saved or recovered cache entries"
+                savedCount={settled ? all.saved.length : null}
+                recoveredCount={settled ? all.recovered.length : null}
+                savedMore={settled && !list.complete}
+                recoveredMore={settled && !list.complete}
+                toolbar={
+                  <>
+                    <FilterField label="Sort" htmlFor="cache-sort">
+                      <Select
+                        value={sort}
+                        onValueChange={(next) => {
+                          setSort(
+                            SORT_OPTIONS.find((option) => option.value === next)
+                              ?.value ?? "last-used-desc",
+                          );
+                        }}
+                      >
+                        <SelectTrigger id="cache-sort" />
+                        <SelectContent>
+                          {SORT_OPTIONS.map((option, index) => (
+                            <SelectItem
+                              key={option.value}
+                              index={index}
+                              value={option.value}
+                            >
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </FilterField>
-                  ) : null}
-                  <FilterTextField
-                    commit="change"
-                    label="Search loaded cache entries"
-                    icon={SearchIcon}
-                    placeholder="Search resource or host"
-                    value={search}
-                    onCommit={setSearch}
-                  />
-                </>
-              }
-              saved={entryList("saved")}
-              recovered={entryList("recovered")}
-            />
+                    {profiles.length > 1 ? (
+                      <FilterField label="Profiles" htmlFor="cache-profiles">
+                        <ProfilePicker
+                          id="cache-profiles"
+                          profiles={profiles}
+                          selected={profileFilter}
+                          onChange={setProfileFilter}
+                        />
+                      </FilterField>
+                    ) : null}
+                    <FilterTextField
+                      commit="change"
+                      label="Search loaded cache entries"
+                      icon={SearchIcon}
+                      placeholder="Search resource or host"
+                      value={search}
+                      onCommit={setSearch}
+                    />
+                  </>
+                }
+                saved={entryList("saved")}
+                recovered={entryList("recovered")}
+              />
+            </SitesHostKeysProvider>
           </SectionPanel>
         </>
       )}
 
-      {selected !== null ? (
+      {sheet.selected === null ? null : (
         <RowSheet
-          selected={selected}
+          selected={sheet.selected}
           title="Cache entry"
-          onClose={() => {
-            setSelected(null);
-          }}
+          onClose={sheet.close}
         />
-      ) : null}
+      )}
     </div>
   );
 }

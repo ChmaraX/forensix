@@ -16,11 +16,14 @@
  * Saved logins and logins recovered from WAL / journal sidecars are separate
  * server reads (`useCommitStateLists`, every page followed so the figures
  * cover the whole set) and separate lists (the Saved / Recovered tabs). The
- * figures count saved logins only.
+ * figures count saved logins only, in the profiles the Case-wide lens
+ * picks. A site - read from the origin URL, else the sign-on realm - opens
+ * Sites on it (in the table, when Sites lists it).
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-import { useViewTab } from "../view-state.js";
+import { rowRefOf } from "../router.js";
+import { useRowSelection, useViewSearch, useViewTab } from "../view-state.js";
 
 import { Panel } from "@/components/panel";
 import {
@@ -52,7 +55,16 @@ import {
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
-import { FilterTextField } from "./filters.js";
+import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import {
+  ArtifactEmpty,
+  clearSearchAndProfiles,
+  emptyCoverageOf,
+  EmptyPivot,
+  SiteHostLink,
+  useArtifactCoverage,
+  useProfileLens,
+} from "./identity-links.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import {
@@ -60,7 +72,6 @@ import {
   RowSheet,
   SEALED_REASON,
   secretFieldsOf,
-  type SelectedRow,
 } from "./row-sheet.js";
 import { Term } from "./term.js";
 import {
@@ -234,23 +245,45 @@ function PasswordCell({ field }: { readonly field: FieldState | undefined }) {
   return <FieldCell field={field} />;
 }
 
+/** The field a login's site is read from: its origin URL, else its sign-on
+ *  realm (the realm alone on an entry Chrome saved without an origin). */
+function siteSourceOf(row: Finding): string | null {
+  return fieldText(row.fields.originUrl) ?? fieldText(row.fields.signonRealm);
+}
+
+/**
+ * The login's site. In the table it opens Sites on that host - read from
+ * the origin URL, else the sign-on realm, keyed as Sites keys it - when
+ * Sites lists it; the stacked card is itself a button, so there it stays
+ * text.
+ */
 function SiteCell({
   row,
-  avatar,
+  linked,
 }: {
   readonly row: Finding;
-  readonly avatar: boolean;
+  readonly linked: boolean;
 }) {
   const host = credentialHost(row);
   if (host === null) {
     return <FieldCell field={row.fields.signonRealm} />;
   }
-  return (
-    <span className="flex min-w-0 items-center gap-2.5">
-      {avatar ? <SiteAvatar host={host} /> : null}
-      <span className="truncate text-foreground" title={host}>
+  if (!linked) {
+    return (
+      <span className="block truncate text-foreground" title={host}>
         {host}
       </span>
+    );
+  }
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      <SiteAvatar host={host} />
+      <SiteHostLink
+        raw={siteSourceOf(row)}
+        className="truncate text-foreground"
+      >
+        {host}
+      </SiteHostLink>
     </span>
   );
 }
@@ -268,8 +301,8 @@ function credentialColumns(recovered: boolean): readonly RowColumn<Finding>[] {
       header: "Site",
       className: "max-w-[320px]",
       stack: "title",
-      cell: (row) => <SiteCell row={row} avatar />,
-      stackedCell: (row) => <SiteCell row={row} avatar={false} />,
+      cell: (row) => <SiteCell row={row} linked />,
+      stackedCell: (row) => <SiteCell row={row} linked={false} />,
     },
     {
       key: "username",
@@ -327,6 +360,16 @@ function credentialColumns(recovered: boolean): readonly RowColumn<Finding>[] {
 const SAVED_COLUMNS = credentialColumns(false);
 const RECOVERED_COLUMNS = credentialColumns(true);
 
+/** A row's key: its reference, so a search never hands one row's memoised
+ *  cells to another. */
+function credentialKey(row: Finding, index: number): string {
+  return rowRefOf(row) ?? `${row.commitState}-${String(index)}`;
+}
+
+function credentialLabel(row: Finding): string {
+  return `Open saved login for ${credentialHost(row) ?? "a site not recorded"}`;
+}
+
 /**
  * One list (saved or recovered): loading rows, its read error, its empty
  * state, the table, a failed follow-up page, and the footer.
@@ -336,21 +379,23 @@ function CredentialList({
   visible,
   noun,
   onSelect,
-  onClearSearch,
+  onClearFilters,
+  filteredMessage,
 }: {
   readonly list: PaginatedList<Finding>;
   readonly visible: readonly Finding[];
   readonly noun: "saved" | "recovered";
   readonly onSelect: (row: Finding) => void;
-  readonly onClearSearch: () => void;
+  readonly onClearFilters: () => void;
+  readonly filteredMessage: string;
 }) {
   return (
     <ListBlock
       list={list}
       noun={{ one: `${noun} login`, many: `${noun} logins` }}
       shown={visible.length}
-      filteredMessage={`No ${noun} logins match this search.`}
-      onClearFilters={onClearSearch}
+      filteredMessage={filteredMessage}
+      onClearFilters={onClearFilters}
       skeletonRows={3}
       empty={
         <EmptyRows
@@ -365,10 +410,8 @@ function CredentialList({
       <ResponsiveRows
         rows={visible}
         columns={noun === "saved" ? SAVED_COLUMNS : RECOVERED_COLUMNS}
-        rowKey={(row, index) => `${row.commitState}-${String(index)}`}
-        rowLabel={(row) =>
-          `Open saved login for ${credentialHost(row) ?? "a site not recorded"}`
-        }
+        rowKey={credentialKey}
+        rowLabel={credentialLabel}
         onSelect={onSelect}
         tableClassName={noun === "saved" ? "min-w-[860px]" : "min-w-[960px]"}
       />
@@ -406,13 +449,33 @@ export function CredentialsPage({
   );
   const savedDone = lists.drained.saved;
   const recoveredDone = lists.drained.recovered;
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
-  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  // Saved / Recovered, the search (a picked username too) and the open row
+  // live in the URL: Back and a refresh keep them. The profile pick is the
+  // Case-wide lens.
   const [view, setView] = useViewTab();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useViewSearch();
+  const coverage = useArtifactCoverage(config.completenessArtifact);
 
-  const saved = lists.saved.rows;
-  const recovered = lists.recovered.rows;
+  const allSaved = lists.saved.rows;
+  const allRecovered = lists.recovered.rows;
+  const loaded = useMemo(
+    () => [...allSaved, ...allRecovered],
+    [allSaved, allRecovered],
+  );
+  const sheet = useRowSelection(loaded);
+  const lens = useProfileLens(
+    useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
+  );
+  // The profile lens narrows the figures and the reused usernames too; the
+  // search narrows only the lists.
+  const saved = useMemo(
+    () => allSaved.filter((row) => lens.applies(row.profile)),
+    [allSaved, lens],
+  );
+  const recovered = useMemo(
+    () => allRecovered.filter((row) => lens.applies(row.profile)),
+    [allRecovered, lens],
+  );
   const summary = useMemo(() => summarize(saved), [saved]);
 
   const narrow = useCallback(
@@ -441,41 +504,43 @@ export function CredentialsPage({
     [narrow, recovered],
   );
 
-  const select = useCallback((row: Finding) => {
-    setSelected({ kind: "finding", row });
-  }, []);
+  const pickUsername = useCallback(
+    (username: string) => {
+      setSearch(search === username ? "" : username);
+    },
+    [search, setSearch],
+  );
 
-  const pickUsername = useCallback((username: string) => {
-    setSearch((current) => (current === username ? "" : username));
-  }, []);
-
-  const clearSearch = useCallback(() => {
-    setSearch("");
-  }, []);
-
-  const savedFirst = lists.saved.loading && saved.length === 0;
-  const recoveredFirst = lists.recovered.loading && recovered.length === 0;
+  const savedFirst = lists.saved.loading && allSaved.length === 0;
+  const recoveredFirst = lists.recovered.loading && allRecovered.length === 0;
   const pageEmpty =
     savedDone &&
     recoveredDone &&
     lists.saved.error === null &&
     lists.recovered.error === null &&
-    saved.length === 0 &&
-    recovered.length === 0;
+    allSaved.length === 0 &&
+    allRecovered.length === 0;
   // The figures wait for every saved page; with a failed saved read they
   // step aside and the Saved tab carries the reason.
   const figuresReady = savedDone || lists.saved.error !== null;
   const showFigures =
     !figuresReady || (lists.saved.error === null && saved.length > 0);
+  const filteredMessage = (noun: string) =>
+    search.trim() === "" && lens.words !== null
+      ? `No ${noun} logins in ${lens.words}.`
+      : `No ${noun} logins match this search.`;
 
   return (
     <div className="flex flex-col gap-5">
       {pageEmpty ? (
         <Panel>
-          <EmptyRows
+          <ArtifactEmpty
             icon={ARTIFACT_ICONS.credentials}
+            coverage={emptyCoverageOf(coverage)}
+            source={{ name: "Login Data", kind: "database" }}
             title="No saved logins"
-            message="No saved logins recorded in this Case, saved or recovered."
+            what="stored logins"
+            pivot={<EmptyPivot page="cookies">Open Cookies</EmptyPivot>}
           />
         </Panel>
       ) : (
@@ -513,35 +578,52 @@ export function CredentialsPage({
               onValueChange={setView}
               label="Saved or recovered logins"
               savedCount={
-                savedFirst || (lists.saved.error !== null && saved.length === 0)
+                savedFirst ||
+                (lists.saved.error !== null && allSaved.length === 0)
                   ? null
                   : saved.length
               }
               recoveredCount={
                 recoveredFirst ||
-                (lists.recovered.error !== null && recovered.length === 0)
+                (lists.recovered.error !== null && allRecovered.length === 0)
                   ? null
                   : recovered.length
               }
               savedMore={lists.saved.cursor !== null}
               recoveredMore={lists.recovered.cursor !== null}
               toolbar={
-                <FilterTextField
-                  commit="change"
-                  label="Search loaded logins"
-                  placeholder="Search site or username"
-                  icon={SearchIcon}
-                  value={search}
-                  onCommit={setSearch}
-                />
+                <>
+                  {lens.showPicker ? (
+                    <FilterField
+                      label="Profiles"
+                      htmlFor="credentials-profiles"
+                    >
+                      <ProfilePicker
+                        id="credentials-profiles"
+                        profiles={lens.options}
+                        selected={lens.selected}
+                        onChange={lens.setSelected}
+                      />
+                    </FilterField>
+                  ) : null}
+                  <FilterTextField
+                    commit="change"
+                    label="Search loaded logins"
+                    placeholder="Search site or username"
+                    icon={SearchIcon}
+                    value={search}
+                    onCommit={setSearch}
+                  />
+                </>
               }
               saved={
                 <CredentialList
                   list={lists.saved}
                   visible={savedVisible}
                   noun="saved"
-                  onSelect={select}
-                  onClearSearch={clearSearch}
+                  onSelect={sheet.select}
+                  onClearFilters={clearSearchAndProfiles}
+                  filteredMessage={filteredMessage("saved")}
                 />
               }
               recovered={
@@ -549,8 +631,9 @@ export function CredentialsPage({
                   list={lists.recovered}
                   visible={recoveredVisible}
                   noun="recovered"
-                  onSelect={select}
-                  onClearSearch={clearSearch}
+                  onSelect={sheet.select}
+                  onClearFilters={clearSearchAndProfiles}
+                  filteredMessage={filteredMessage("recovered")}
                 />
               }
             />
@@ -558,18 +641,13 @@ export function CredentialsPage({
         </>
       )}
 
-      {selected !== null ? (
+      {sheet.selected !== null ? (
         <RowSheet
-          selected={selected}
-          title={
-            credentialHost(selected.row) === null
-              ? "Saved login"
-              : `Saved login · ${credentialHost(selected.row) ?? ""}`
-          }
-          redactedFields={secretFieldsOf(selected.row)}
-          onClose={() => {
-            setSelected(null);
-          }}
+          selected={sheet.selected}
+          // The site names the login; the header already says "Saved login".
+          title={credentialHost(sheet.selected.row) ?? "Saved login"}
+          redactedFields={secretFieldsOf(sheet.selected.row)}
+          onClose={sheet.close}
         />
       ) : null}
     </div>

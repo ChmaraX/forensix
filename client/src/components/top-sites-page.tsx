@@ -9,21 +9,34 @@
  * Profiles (`ProfilePicker`, when more than one Profile ranked) and a live
  * search narrowing the loaded rows of either list.
  *
- * Columns: Rank (Chrome's recorded `urlRank`), Site (title over URL),
- * Profile, and — in the Recovered list only — the Commit State word (every
- * saved row would say "saved"). `ResponsiveRows` stacks each row into a
- * card below `sm`.
+ * Columns: Rank (Chrome's recorded `urlRank`), Site (title over URL, the
+ * URL's host linked to Sites when Sites lists that exact host), Profile
+ * (only when the loaded rows span more than one), and — in the Recovered
+ * list only — the Commit State word (every saved row would say "saved").
+ * `ResponsiveRows` stacks each row into a card below `sm`.
+ *
+ * The profile pick is the Case-wide lens (`useViewProfiles`); the search,
+ * the Saved / Recovered tab and the open row live in the URL, so Back and
+ * a refresh restore the view.
  *
  * Presentation rules kept: the shell's coverage indicator sits by the title,
  * before any row; states are worded, never colour alone; ranks are Chrome's
  * recorded values — never scores or bars the evidence does not contain.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-import { useViewTab } from "../view-state.js";
+import {
+  updateView,
+  useRowSelection,
+  useViewProfiles,
+  useViewSearch,
+  useViewTab,
+} from "../view-state.js";
 
 import { SearchIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
+import { SizeProvider } from "@/lib/size-context";
+import { rowRefOf } from "../router.js";
 
 import type { ArtifactConfig, Finding } from "../types.js";
 import {
@@ -49,8 +62,13 @@ import {
   SectionPanel,
   type RowColumn,
 } from "./page-kit.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { RowSheet } from "./row-sheet.js";
 import { Term } from "./term.js";
+import {
+  UrlWithSiteLink,
+  useSiteHosts,
+  type SiteHostLookup,
+} from "./history-host-link.js";
 
 /** Chrome's own order: rank ascending (Commit State is added per list). */
 const RANK_ORDER: readonly (readonly [string, string])[] = [
@@ -66,6 +84,32 @@ function SitePage({ row }: { readonly row: Finding }) {
       secondary={row.fields.url}
       mono={false}
     />
+  );
+}
+
+/** The table's site cell: the site tile, the title over the URL, and the
+ *  URL's host linked to Sites when Sites lists that exact host. */
+function SitePageLinked({
+  row,
+  sites,
+}: {
+  readonly row: Finding;
+  readonly sites: SiteHostLookup;
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="block min-w-0 text-foreground">
+          <FieldCell field={row.fields.title} mono={false} />
+        </span>
+        <SizeProvider size="compact">
+          <span className="block min-w-0 text-muted-foreground">
+            <UrlWithSiteLink field={row.fields.url} sites={sites} />
+          </span>
+        </SizeProvider>
+      </span>
+    </span>
   );
 }
 
@@ -126,9 +170,22 @@ function recoveredRankNote(
 /** The ranked table's columns. On a phone the card reads the rank (and, in
  *  the Recovered list, the State word) on its first line, the site as its
  *  title, and the Profile under it. `note` explains a gap in the ranks
- *  (the Rank header's tooltip). */
-function rankColumns(note: string | null): readonly RowColumn<Finding>[] {
-  return [
+ *  (the Rank header's tooltip); `sites` links each URL's host (table
+ *  only); `withProfile` adds the Profile column, left out when every
+ *  loaded row names the same profile (it would read the same on every
+ *  row - the row sheet keeps it). */
+function rankColumns({
+  note,
+  sites,
+  withProfile,
+  recovered,
+}: {
+  readonly note: string | null;
+  readonly sites: SiteHostLookup;
+  readonly withProfile: boolean;
+  readonly recovered: boolean;
+}): readonly RowColumn<Finding>[] {
+  const columns: RowColumn<Finding>[] = [
     {
       key: "rank",
       header: note === null ? "Rank" : <Term label="Rank">{note}</Term>,
@@ -150,34 +207,38 @@ function rankColumns(note: string | null): readonly RowColumn<Finding>[] {
       header: "Site",
       className: "max-w-[520px]",
       stack: "title",
-      cell: (row) => (
-        <span className="flex items-center gap-2.5">
-          <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
-          <SitePage row={row} />
-        </span>
-      ),
+      cell: (row) => <SitePageLinked row={row} sites={sites} />,
       stackedCell: (row) => <SitePage row={row} />,
     },
-    {
+  ];
+  if (withProfile) {
+    columns.push({
       key: "profile",
       header: "Profile",
-      className: "whitespace-nowrap",
+      className: "w-[160px] whitespace-nowrap",
       cell: (row) => profileLabel(row.profile),
-      stackedCell: (row) => profileLabel(row.profile),
-    },
-  ];
+    });
+  }
+  if (recovered) {
+    columns.push({
+      key: "state",
+      header: "State",
+      className: "w-[184px] whitespace-nowrap",
+      stack: "aside",
+      cell: (row) => <StateWord state={row.commitState} />,
+    });
+  }
+  return columns;
 }
 
-const RECOVERED_RANK_COLUMNS: readonly RowColumn<Finding>[] = [
-  ...rankColumns(null),
-  {
-    key: "state",
-    header: "State",
-    className: "whitespace-nowrap",
-    stack: "aside",
-    cell: (row) => <StateWord state={row.commitState} />,
-  },
-];
+/** A row's stable key: its row reference. */
+function topSiteKey(row: Finding, index: number): string {
+  return rowRefOf(row) ?? `${row.commitState}-${String(index)}`;
+}
+
+function topSiteLabel(row: Finding): string {
+  return `Open top site row detail: ${fieldText(row.fields.title) ?? fieldText(row.fields.url) ?? "top site"}`;
+}
 
 /** One of the two ranked lists, narrowed by the page's Profiles and search
  *  over its loaded rows. */
@@ -189,6 +250,7 @@ function RankedList({
   filtered,
   onClearFilters,
   onSelect,
+  withProfile,
 }: {
   readonly list: PaginatedList<Finding>;
   readonly recovered: boolean;
@@ -198,14 +260,23 @@ function RankedList({
   readonly filtered: boolean;
   readonly onClearFilters: () => void;
   readonly onSelect: (row: Finding) => void;
+  /** The Profile column (when the loaded rows span profiles). */
+  readonly withProfile: boolean;
 }) {
+  const sites = useSiteHosts();
   const visible = useMemo(
     () => list.rows.filter(matches),
     [list.rows, matches],
   );
   const columns = useMemo(
-    () => (recovered ? RECOVERED_RANK_COLUMNS : rankColumns(rankNote)),
-    [recovered, rankNote],
+    () =>
+      rankColumns({
+        note: recovered ? null : rankNote,
+        sites,
+        withProfile,
+        recovered,
+      }),
+    [recovered, rankNote, sites, withProfile],
   );
   return (
     <ListBlock
@@ -233,10 +304,8 @@ function RankedList({
       <ResponsiveRows
         rows={visible}
         columns={columns}
-        rowKey={(row, index) => `${row.commitState}-${String(index)}`}
-        rowLabel={(row) =>
-          `Open top site row detail: ${fieldText(row.fields.title) ?? fieldText(row.fields.url) ?? "top site"}`
-        }
+        rowKey={topSiteKey}
+        rowLabel={topSiteLabel}
         onSelect={onSelect}
         tableClassName="min-w-[560px]"
       />
@@ -252,22 +321,30 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, RANK_ORDER);
   // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
   const [view, setView] = useViewTab();
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const [search, setSearch] = useState("");
-  const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
+  // The search lives in the URL; the profile pick is the Case-wide lens.
+  const [search, setSearch] = useViewSearch();
+  const [profileFilter, setProfileFilter] = useViewProfiles();
 
   const saved = lists.saved;
   const recovered = lists.recovered;
-
-  const profiles = useMemo(
-    () =>
-      [
-        ...new Set(
-          [...saved.rows, ...recovered.rows].map((row) => row.profile),
-        ),
-      ].sort(),
+  const loaded = useMemo(
+    () => [...saved.rows, ...recovered.rows],
     [saved.rows, recovered.rows],
   );
+  // The open row lives in the URL: Back and a refresh re-open it.
+  const sheet = useRowSelection(loaded);
+
+  // The profiles the loaded rows rank, plus any the lens holds (so a pick
+  // made on another page can be undone here).
+  const ranked = useMemo(
+    () => [...new Set(loaded.map((row) => row.profile))].sort(),
+    [loaded],
+  );
+  const profiles = useMemo(
+    () => [...new Set([...ranked, ...profileFilter])].sort(),
+    [ranked, profileFilter],
+  );
+  const withProfile = ranked.length > 1;
 
   const rankNote = useMemo(
     () => recoveredRankNote(saved.rows, recovered.rows),
@@ -296,12 +373,8 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
   );
 
   const clearFilters = useCallback(() => {
-    setSearch("");
-    setProfileFilter([]);
-  }, []);
-
-  const select = useCallback((row: Finding) => {
-    setSelected({ kind: "finding", row });
+    // The search and the profiles in one history entry.
+    updateView({ q: null, profiles: [] });
   }, []);
 
   return (
@@ -344,7 +417,8 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
               matches={matches}
               filtered={filtered}
               onClearFilters={clearFilters}
-              onSelect={select}
+              onSelect={sheet.select}
+              withProfile={withProfile}
             />
           }
           recovered={
@@ -354,19 +428,18 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
               matches={matches}
               filtered={filtered}
               onClearFilters={clearFilters}
-              onSelect={select}
+              onSelect={sheet.select}
+              withProfile={withProfile}
             />
           }
         />
       </SectionPanel>
 
-      {selected !== null ? (
+      {sheet.selected !== null ? (
         <RowSheet
-          selected={selected}
-          title={fieldText(selected.row.fields.title) ?? "Top site"}
-          onClose={() => {
-            setSelected(null);
-          }}
+          selected={sheet.selected}
+          title={fieldText(sheet.selected.row.fields.title) ?? "Top site"}
+          onClose={sheet.close}
         />
       ) : null}
     </div>

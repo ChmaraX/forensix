@@ -17,11 +17,14 @@
  * Saved rows and rows recovered from WAL / journal sidecars are separate
  * server reads (`useCommitStateLists`) and separate lists (the Saved /
  * Recovered tabs). Every figure counts the loaded saved cookies only. The
- * page only reads rows back.
+ * Case-wide profile pick (the lens) narrows figures, Persistence and lists;
+ * the search narrows the lists. A host opens Sites on it (in the table,
+ * when Sites lists it). The page only reads rows back.
  */
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
-import { useViewTab } from "../view-state.js";
+import { rowRefOf } from "../router.js";
+import { useRowSelection, useViewSearch, useViewTab } from "../view-state.js";
 
 import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
@@ -53,11 +56,19 @@ import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import {
+  ArtifactEmpty,
+  clearSearchAndProfiles,
+  emptyCoverageOf,
+  EmptyPivot,
+  SiteHostLink,
+  useArtifactCoverage,
+  useProfileLens,
+} from "./identity-links.js";
+import {
   COOKIE_SECRET_FIELDS,
   RowSheet,
   SEALED_REASON,
   SecretValueCell,
-  type SelectedRow,
 } from "./row-sheet.js";
 import {
   CommitStateSplit,
@@ -309,8 +320,9 @@ function PostureStrip({
       <MetricBandItem
         label={
           <Term label="Sealed">
-            Value encrypted with the operating system's key, so it cannot be
-            read offline.
+            Value encrypted with the operating system's key, and the Case was
+            analysed without that key, so it cannot be read - the same
+            &quot;sealed&quot; as a saved password.
           </Term>
         }
         value={
@@ -407,22 +419,37 @@ function LifespanCell({ row }: { readonly row: CookieRow }) {
   return <>{formatLifespan(row.lifespanDays)}</>;
 }
 
+/**
+ * The cookie's host. In the table it opens Sites on that host (the cookie
+ * host key keyed as Sites keys it) when Sites lists it; the stacked card is
+ * itself a button, so there it stays text.
+ */
 function HostCell({
   row,
-  avatar,
+  linked,
 }: {
   readonly row: CookieRow;
-  readonly avatar: boolean;
+  readonly linked: boolean;
 }): ReactNode {
   if (row.host === null) {
     return <FieldCell field={row.finding.fields.hostKey} />;
   }
-  return (
-    <span className="flex min-w-0 items-center gap-2.5">
-      {avatar ? <SiteAvatar host={row.host} /> : null}
-      <span className="truncate text-foreground" title={row.host}>
+  if (!linked) {
+    return (
+      <span className="block truncate text-foreground" title={row.host}>
         {row.host}
       </span>
+    );
+  }
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      <SiteAvatar host={row.host} />
+      <SiteHostLink
+        raw={fieldText(row.finding.fields.hostKey)}
+        className="truncate text-foreground"
+      >
+        {row.host}
+      </SiteHostLink>
     </span>
   );
 }
@@ -477,8 +504,8 @@ function cookieColumns(
       header: "Host",
       className: "max-w-[320px]",
       stack: "lead",
-      cell: (row) => <HostCell row={row} avatar />,
-      stackedCell: (row) => <HostCell row={row} avatar={false} />,
+      cell: (row) => <HostCell row={row} linked />,
+      stackedCell: (row) => <HostCell row={row} linked={false} />,
     },
     {
       key: "name",
@@ -554,6 +581,16 @@ function cookieColumns(
   return columns;
 }
 
+/** A row's key: its reference (source chain, profile, Commit State), so a
+ *  filter never hands one row's memoised cells to another. */
+function cookieKey(row: CookieRow, index: number): string {
+  return rowRefOf(row.finding) ?? `${row.finding.commitState}-${String(index)}`;
+}
+
+function cookieLabel(row: CookieRow): string {
+  return `Open cookie ${row.name ?? "with no recorded name"} on ${row.host ?? "a host not recorded"}`;
+}
+
 /**
  * One list (saved or recovered): its loading rows, its read error, its empty
  * state, the table, a load-more failure, and the footer. Each list keeps its
@@ -567,6 +604,7 @@ function CookieList({
   reveal,
   onSelect,
   onClearFilters,
+  filteredMessage,
 }: {
   readonly list: PaginatedList<Finding>;
   readonly rows: readonly CookieRow[];
@@ -575,7 +613,14 @@ function CookieList({
   readonly reveal: boolean;
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
+  readonly filteredMessage?: string;
 }) {
+  const select = useCallback(
+    (row: CookieRow) => {
+      onSelect(row.finding);
+    },
+    [onSelect],
+  );
   // Degenerate flags are read over every loaded row of the Saved list (not
   // the visible ones), so a filter never adds or drops a column.
   const omit = useMemo(
@@ -598,13 +643,14 @@ function CookieList({
       noun={{ one: `${noun} cookie`, many: `${noun} cookies` }}
       shown={visible.length}
       filtered={visible.length !== rows.length}
+      filteredMessage={filteredMessage}
       onClearFilters={onClearFilters}
       skeletonRows={3}
       empty={
         <EmptyRows
           message={
             noun === "saved"
-              ? "No saved cookie rows in this Case."
+              ? "No saved cookies in this Case."
               : "No cookies were recovered from Chrome's temporary database files."
           }
         />
@@ -613,13 +659,9 @@ function CookieList({
       <ResponsiveRows
         rows={visible}
         columns={columns}
-        rowKey={(row, index) => `${row.finding.commitState}-${String(index)}`}
-        rowLabel={(row) =>
-          `Open cookie ${row.name ?? "with no recorded name"} on ${row.host ?? "a host not recorded"}`
-        }
-        onSelect={(row) => {
-          onSelect(row.finding);
-        }}
+        rowKey={cookieKey}
+        rowLabel={cookieLabel}
+        onSelect={select}
         tableClassName={
           noun === "recovered" ? "min-w-[1040px]" : "min-w-[900px]"
         }
@@ -646,46 +688,53 @@ function CookiesSkeleton() {
 
 export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, COOKIE_PARAMETERS);
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
-  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  // Saved / Recovered, the search and the open row live in the URL: Back
+  // and a refresh keep them. The profile pick is the Case-wide lens.
   const [view, setView] = useViewTab();
-  const [search, setSearch] = useState("");
-  const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
+  const [search, setSearch] = useViewSearch();
+  // Values open hidden on every visit (never in the URL).
   const [reveal, setReveal] = useState(false);
+  const coverage = useArtifactCoverage(config.completenessArtifact);
 
-  const savedRows = useMemo(
+  const allSaved = useMemo(
     () => lists.saved.rows.map(toCookieRow),
     [lists.saved.rows],
   );
-  const recoveredRows = useMemo(
+  const allRecovered = useMemo(
     () => lists.recovered.rows.map(toCookieRow),
     [lists.recovered.rows],
   );
-  const summary = useMemo(() => summarize(savedRows), [savedRows]);
-
-  const profiles = useMemo(
-    () =>
-      [
-        ...new Set(
-          [...savedRows, ...recoveredRows].map((row) => row.finding.profile),
-        ),
-      ].sort(),
-    [savedRows, recoveredRows],
+  const loadedFindings = useMemo(
+    () => [...lists.saved.rows, ...lists.recovered.rows],
+    [lists.saved.rows, lists.recovered.rows],
   );
+  const sheet = useRowSelection(loadedFindings);
+
+  const rowProfiles = useMemo(
+    () => [...new Set(loadedFindings.map((row) => row.profile))],
+    [loadedFindings],
+  );
+  const lens = useProfileLens(rowProfiles);
+
+  // The profile lens narrows the figures and Persistence too; the search
+  // narrows only the lists.
+  const savedRows = useMemo(
+    () => allSaved.filter((row) => lens.applies(row.finding.profile)),
+    [allSaved, lens],
+  );
+  const recoveredRows = useMemo(
+    () => allRecovered.filter((row) => lens.applies(row.finding.profile)),
+    [allRecovered, lens],
+  );
+  const summary = useMemo(() => summarize(savedRows), [savedRows]);
 
   const narrow = useCallback(
     (rows: readonly CookieRow[]) => {
       const query = search.trim().toLocaleLowerCase("en-US");
+      if (query === "") {
+        return rows;
+      }
       return rows.filter((row) => {
-        if (
-          profileFilter.length > 0 &&
-          !profileFilter.includes(row.finding.profile)
-        ) {
-          return false;
-        }
-        if (query === "") {
-          return true;
-        }
         // Never the value: a search must not reveal a hidden secret.
         const haystack = [row.host ?? "", row.name ?? "", row.sameSite ?? ""]
           .join("\n")
@@ -693,7 +742,7 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
         return haystack.includes(query);
       });
     },
-    [search, profileFilter],
+    [search],
   );
   const savedVisible = useMemo(() => narrow(savedRows), [narrow, savedRows]);
   const recoveredVisible = useMemo(
@@ -701,37 +750,36 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
     [narrow, recoveredRows],
   );
 
-  const select = useCallback((row: Finding) => {
-    setSelected({ kind: "finding", row });
-  }, []);
-
-  const clearFilters = useCallback(() => {
-    setSearch("");
-    setProfileFilter([]);
-  }, []);
-
-  const savedFirst = lists.saved.loading && savedRows.length === 0;
-  const recoveredFirst = lists.recovered.loading && recoveredRows.length === 0;
+  const savedFirst = lists.saved.loading && allSaved.length === 0;
+  const recoveredFirst = lists.recovered.loading && allRecovered.length === 0;
   const pageEmpty =
     !savedFirst &&
     !recoveredFirst &&
     lists.saved.error === null &&
     lists.recovered.error === null &&
-    savedRows.length === 0 &&
-    recoveredRows.length === 0;
+    allSaved.length === 0 &&
+    allRecovered.length === 0;
   // The figures read the saved rows only; with none (or a failed read) they
   // step aside and the Saved tab carries the reason.
   const showFigures =
     savedFirst || (lists.saved.error === null && savedRows.length > 0);
+  // A profile pick that leaves a list empty says so in its own words.
+  const filteredMessage =
+    lens.words !== null && search.trim() === ""
+      ? (noun: string) => `No ${noun} in ${lens.words ?? ""}.`
+      : () => undefined;
 
   return (
     <div className="flex flex-col gap-5">
       {pageEmpty ? (
         <Panel>
-          <EmptyRows
+          <ArtifactEmpty
             icon={ARTIFACT_ICONS.cookies}
+            coverage={emptyCoverageOf(coverage)}
+            source={{ name: "Cookies", kind: "database" }}
             title="No cookies"
-            message="No Cookies rows in this Case, saved or recovered."
+            what="cookies"
+            pivot={<EmptyPivot page="history">Open History</EmptyPivot>}
           />
         </Panel>
       ) : (
@@ -755,13 +803,13 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
               label="Saved or recovered cookies"
               savedCount={
                 savedFirst ||
-                (lists.saved.error !== null && savedRows.length === 0)
+                (lists.saved.error !== null && allSaved.length === 0)
                   ? null
                   : savedRows.length
               }
               recoveredCount={
                 recoveredFirst ||
-                (lists.recovered.error !== null && recoveredRows.length === 0)
+                (lists.recovered.error !== null && allRecovered.length === 0)
                   ? null
                   : recoveredRows.length
               }
@@ -775,15 +823,15 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
                     onToggle={() => {
                       setReveal((value) => !value);
                     }}
-                    className="mr-2"
+                    className="max-sm:-ml-2.5 sm:mr-2"
                   />
-                  {profiles.length > 1 ? (
+                  {lens.showPicker ? (
                     <FilterField label="Profiles" htmlFor="cookies-profiles">
                       <ProfilePicker
                         id="cookies-profiles"
-                        profiles={profiles}
-                        selected={profileFilter}
-                        onChange={setProfileFilter}
+                        profiles={lens.options}
+                        selected={lens.selected}
+                        onChange={lens.setSelected}
                       />
                     </FilterField>
                   ) : null}
@@ -800,23 +848,25 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
               saved={
                 <CookieList
                   list={lists.saved}
-                  rows={savedRows}
+                  rows={allSaved}
                   visible={savedVisible}
                   noun="saved"
                   reveal={reveal}
-                  onSelect={select}
-                  onClearFilters={clearFilters}
+                  onSelect={sheet.select}
+                  onClearFilters={clearSearchAndProfiles}
+                  filteredMessage={filteredMessage("saved cookies")}
                 />
               }
               recovered={
                 <CookieList
                   list={lists.recovered}
-                  rows={recoveredRows}
+                  rows={allRecovered}
                   visible={recoveredVisible}
                   noun="recovered"
                   reveal={reveal}
-                  onSelect={select}
-                  onClearFilters={clearFilters}
+                  onSelect={sheet.select}
+                  onClearFilters={clearSearchAndProfiles}
+                  filteredMessage={filteredMessage("recovered cookies")}
                 />
               }
             />
@@ -824,14 +874,12 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
         </>
       )}
 
-      {selected !== null ? (
+      {sheet.selected !== null ? (
         <RowSheet
-          selected={selected}
-          title={fieldText(selected.row.fields.name) ?? "Cookie"}
+          selected={sheet.selected}
+          title={fieldText(sheet.selected.row.fields.name) ?? "Cookie"}
           redactedFields={COOKIE_SECRET_FIELDS}
-          onClose={() => {
-            setSelected(null);
-          }}
+          onClose={sheet.close}
         />
       ) : null}
     </div>

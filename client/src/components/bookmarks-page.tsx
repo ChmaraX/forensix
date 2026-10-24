@@ -16,21 +16,25 @@
  * Saved bookmarks and bookmarks recovered from WAL / journal sidecars are
  * separate server reads (`useCommitStateLists`, every page followed so the
  * figures cover the whole set) and separate lists (the Saved / Recovered
- * tabs); every figure counts saved rows only. Columns are curated: Folder
- * (the TYPE-lead column for this artifact), Bookmark (name over URL), Added,
- * Source (live file vs. `.bak` backup), and — in the Recovered tab — the
- * Commit State word; every wire field stays reachable in the row sheet.
- * Missing values read as their own state word. This page is read-only.
+ * tabs); every figure counts saved rows only. Columns are curated:
+ * Bookmark (name over URL - the URL opens History when History holds a
+ * visit to exactly that URL), Folder, Added, Source (live file vs. `.bak`
+ * backup), and - in the Recovered tab - the Commit State word; every wire
+ * field stays reachable in the row sheet. A single-type list, so no TYPE
+ * column. Missing values read as their own state word. This page is
+ * read-only.
  */
 import { useCallback, useMemo, useState } from "react";
 
-import { useViewTab } from "../view-state.js";
+import { siteKeyOf } from "../related.js";
+import { rowRefOf } from "../router.js";
+import { useRowSelection, useViewSearch, useViewTab } from "../view-state.js";
 import { Panel } from "@/components/panel";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { ARTIFACT_ICONS, FolderIcon, SearchIcon } from "@/lib/app-icons";
-import { useSize } from "@/lib/size-context";
+import { SizeProvider, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import type { QueryParameters } from "../api.js";
 import type { ArtifactConfig, Finding } from "../types.js";
@@ -49,10 +53,19 @@ import {
   StateWord,
   TwoLineCell,
 } from "./finding-fields.js";
-import { FilterTextField } from "./filters.js";
+import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import {
+  ArtifactEmpty,
+  clearSearchAndProfiles,
+  emptyCoverageOf,
+  EmptyPivot,
+  useArtifactCoverage,
+  useProfileLens,
+  VisitedUrlLink,
+} from "./identity-links.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { RowSheet } from "./row-sheet.js";
 import {
   CommitStateSplit,
   ResponsiveRows,
@@ -61,7 +74,12 @@ import {
   type RowColumn,
 } from "./page-kit.js";
 import { Term } from "./term.js";
-import { FolderNavigator } from "./bookmarks-folders.js";
+import { FolderNavigator, FolderSelect } from "./bookmarks-folders.js";
+import { useMediaQuery } from "./use-media-query.js";
+
+/** Tailwind's `lg`: from here the folder tree stands beside the rows;
+ *  below it the folder pick is a Select in the list's toolbar. */
+const LG_UP = "(min-width: 64rem)";
 
 /* --------------------------------- reads ---------------------------------- */
 
@@ -165,7 +183,7 @@ function FolderCell({ row }: { readonly row: BookmarkRow }) {
   );
 }
 
-/** The bookmark's name over its URL. */
+/** The bookmark's name over its URL (the stacked card's title). */
 function BookmarkCell({ row }: { readonly row: BookmarkRow }) {
   return (
     <TwoLineCell
@@ -177,33 +195,64 @@ function BookmarkCell({ row }: { readonly row: BookmarkRow }) {
 }
 
 /**
- * The table's columns: Folder (the TYPE-lead column), Bookmark, Added,
- * Source, and State in the Recovered tab only. Below `sm` a row stacks:
- * folder and state, the bookmark, then added and source.
+ * The table's bookmark cell: the site's avatar, the name, and under it the
+ * URL - which opens History, searched for it, once History is known to
+ * hold a visit to exactly that URL (`VisitedUrlLink`). A URL with no such
+ * visit stays text: a bookmark is not evidence it was visited.
+ */
+function LinkedBookmarkCell({ row }: { readonly row: BookmarkRow }) {
+  if (row.url === null) {
+    return (
+      <span className="flex min-w-0 items-center gap-2.5">
+        <SiteAvatar host={row.host} />
+        <span className="min-w-0 flex-1">
+          <BookmarkCell row={row} />
+        </span>
+      </span>
+    );
+  }
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      <SiteAvatar host={row.host} />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="block min-w-0 text-foreground">
+          <FieldCell field={row.finding.fields.name} mono={false} />
+        </span>
+        <SizeProvider size="compact">
+          <span className="flex min-w-0 text-muted-foreground">
+            <VisitedUrlLink url={row.url} className="block truncate font-mono">
+              <span title={row.url}>{row.url}</span>
+            </VisitedUrlLink>
+          </span>
+        </SizeProvider>
+      </span>
+    </span>
+  );
+}
+
+/**
+ * The table's columns: Bookmark (what the person kept leads), Folder,
+ * Added, Source, and State in the Recovered tab only. Below `sm` a row
+ * stacks: folder and state, the bookmark, then added and source.
  */
 function bookmarkColumns(
   recovered: boolean,
 ): readonly RowColumn<BookmarkRow>[] {
   const columns: RowColumn<BookmarkRow>[] = [
     {
-      key: "folder",
-      header: "Folder",
-      className: "max-w-[160px]",
-      stack: "lead",
-      cell: (row) => <FolderCell row={row} />,
-    },
-    {
       key: "bookmark",
       header: "Bookmark",
-      className: "max-w-[340px]",
+      className: "max-w-[380px]",
       stack: "title",
-      cell: (row) => (
-        <span className="flex min-w-0 items-center gap-2.5">
-          <SiteAvatar host={row.host} />
-          <BookmarkCell row={row} />
-        </span>
-      ),
+      cell: (row) => <LinkedBookmarkCell row={row} />,
       stackedCell: (row) => <BookmarkCell row={row} />,
+    },
+    {
+      key: "folder",
+      header: "Folder",
+      className: "w-[160px] max-w-[160px]",
+      stack: "lead",
+      cell: (row) => <FolderCell row={row} />,
     },
     {
       key: "added",
@@ -231,6 +280,16 @@ function bookmarkColumns(
 const SAVED_COLUMNS = bookmarkColumns(false);
 const RECOVERED_COLUMNS = bookmarkColumns(true);
 
+/** A row's key: its reference, so a filter never hands one row's memoised
+ *  cells to another. */
+function bookmarkKey(row: BookmarkRow, index: number): string {
+  return rowRefOf(row.finding) ?? `${row.finding.commitState}-${String(index)}`;
+}
+
+function bookmarkLabel(row: BookmarkRow): string {
+  return `Open bookmark ${row.name ?? row.url ?? "with no recorded name or URL"}`;
+}
+
 /** One list (saved or recovered) with its loading, error, empty and footer. */
 function BookmarkList({
   list,
@@ -239,6 +298,7 @@ function BookmarkList({
   noun,
   onSelect,
   onClearFilters,
+  filteredMessage,
 }: {
   readonly list: PaginatedList<Finding>;
   readonly rows: readonly BookmarkRow[];
@@ -246,13 +306,21 @@ function BookmarkList({
   readonly noun: "saved" | "recovered";
   readonly onSelect: (finding: Finding) => void;
   readonly onClearFilters: () => void;
+  readonly filteredMessage?: string;
 }) {
+  const select = useCallback(
+    (row: BookmarkRow) => {
+      onSelect(row.finding);
+    },
+    [onSelect],
+  );
   return (
     <ListBlock
       list={list}
       noun={{ one: `${noun} bookmark`, many: `${noun} bookmarks` }}
       shown={visible.length}
       filtered={visible.length !== rows.length}
+      filteredMessage={filteredMessage}
       onClearFilters={onClearFilters}
       skeletonRows={3}
       empty={
@@ -260,7 +328,11 @@ function BookmarkList({
           message={
             noun === "saved"
               ? "No saved bookmarks in this Case."
-              : "No recovered bookmarks in this Case."
+              : // Chrome keeps bookmarks in a JSON file, not a SQLite
+                // database: there is no write-ahead log or journal to
+                // recover rows from. Rows from the backup copy are saved
+                // rows, marked Backup.
+                "Chrome keeps bookmarks in a plain file with no temporary database files, so none are recovered. Rows read from its backup copy are under Saved, marked Backup."
           }
         />
       }
@@ -268,13 +340,9 @@ function BookmarkList({
       <ResponsiveRows
         rows={visible}
         columns={noun === "saved" ? SAVED_COLUMNS : RECOVERED_COLUMNS}
-        rowKey={(row, index) => `${row.finding.commitState}-${String(index)}`}
-        rowLabel={(row) =>
-          `Open bookmark ${row.name ?? row.url ?? "with no recorded name or URL"}`
-        }
-        onSelect={(row) => {
-          onSelect(row.finding);
-        }}
+        rowKey={bookmarkKey}
+        rowLabel={bookmarkLabel}
+        onSelect={select}
         tableClassName={noun === "saved" ? "min-w-[660px]" : "min-w-[760px]"}
       />
     </ListBlock>
@@ -307,16 +375,39 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
     },
   );
   const savedDone = lists.drained.saved;
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
-  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  // Saved / Recovered, the search and the open row live in the URL: Back
+  // and a refresh keep them. The profile pick is the Case-wide lens.
   const [view, setView] = useViewTab();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useViewSearch();
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
+  const coverage = useArtifactCoverage(config.completenessArtifact);
+  const treeBeside = useMediaQuery(LG_UP);
 
-  const saved = useMemo(() => lists.saved.rows.map(toRow), [lists.saved.rows]);
-  const recovered = useMemo(
+  const allSaved = useMemo(
+    () => lists.saved.rows.map(toRow),
+    [lists.saved.rows],
+  );
+  const allRecovered = useMemo(
     () => lists.recovered.rows.map(toRow),
     [lists.recovered.rows],
+  );
+  const loaded = useMemo(
+    () => [...lists.saved.rows, ...lists.recovered.rows],
+    [lists.saved.rows, lists.recovered.rows],
+  );
+  const sheet = useRowSelection(loaded);
+  const lens = useProfileLens(
+    useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
+  );
+  // The profile lens narrows the figures and the folder tree too; the
+  // folder and the search narrow only the lists.
+  const saved = useMemo(
+    () => allSaved.filter((row) => lens.applies(row.finding.profile)),
+    [allSaved, lens],
+  );
+  const recovered = useMemo(
+    () => allRecovered.filter((row) => lens.applies(row.finding.profile)),
+    [allRecovered, lens],
   );
 
   const summary = useMemo(() => {
@@ -327,8 +418,10 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
       if (row.folderPath !== null) {
         folders.add(row.folderPath);
       }
-      if (row.host !== null) {
-        hosts.add(row.host.replace(/^www\./, ""));
+      // A site as Sites keys it (no `www.`, lower case).
+      const site = siteKeyOf(row.url);
+      if (site !== null) {
+        hosts.add(site);
       }
       if (isBackupSource(row.source)) {
         backup += 1;
@@ -366,10 +459,6 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
     [narrow, recovered],
   );
 
-  const select = useCallback((finding: Finding) => {
-    setSelected({ kind: "finding", row: finding });
-  }, []);
-
   const pickFolder = useCallback((path: string | null) => {
     setFolderFilter((current) =>
       path === null || current === path ? null : path,
@@ -377,24 +466,28 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
   }, []);
 
   const clearFilters = useCallback(() => {
-    setSearch("");
     setFolderFilter(null);
+    clearSearchAndProfiles();
   }, []);
 
-  const savedFirst = lists.saved.loading && saved.length === 0;
-  const recoveredFirst = lists.recovered.loading && recovered.length === 0;
+  const savedFirst = lists.saved.loading && allSaved.length === 0;
+  const recoveredFirst = lists.recovered.loading && allRecovered.length === 0;
   const pageEmpty =
     !savedFirst &&
     !recoveredFirst &&
     savedDone &&
     lists.saved.error === null &&
     lists.recovered.error === null &&
-    saved.length === 0 &&
-    recovered.length === 0;
+    allSaved.length === 0 &&
+    allRecovered.length === 0;
   const figuresReady = savedDone || lists.saved.error !== null;
   const showFigures =
     !figuresReady || (lists.saved.error === null && saved.length > 0);
   const capped = savedDone && lists.saved.cursor !== null;
+  const filteredMessage = (noun: string) =>
+    search.trim() === "" && folderFilter === null && lens.words !== null
+      ? `No ${noun} in ${lens.words}.`
+      : undefined;
 
   const listPanel = (
     <SectionPanel
@@ -420,46 +513,67 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
         onValueChange={setView}
         label="Saved or recovered bookmarks"
         savedCount={
-          savedFirst || (lists.saved.error !== null && saved.length === 0)
+          savedFirst || (lists.saved.error !== null && allSaved.length === 0)
             ? null
             : saved.length
         }
         recoveredCount={
           recoveredFirst ||
-          (lists.recovered.error !== null && recovered.length === 0)
+          (lists.recovered.error !== null && allRecovered.length === 0)
             ? null
             : recovered.length
         }
         savedMore={lists.saved.cursor !== null}
         recoveredMore={lists.recovered.cursor !== null}
         toolbar={
-          <FilterTextField
-            commit="change"
-            label="Search loaded bookmarks"
-            placeholder="Search name, URL, or folder"
-            icon={SearchIcon}
-            value={search}
-            onCommit={setSearch}
-          />
+          <>
+            {treeBeside || !figuresReady || saved.length === 0 ? null : (
+              <FolderSelect
+                rows={saved}
+                activePath={folderFilter}
+                onPick={pickFolder}
+              />
+            )}
+            {lens.showPicker ? (
+              <FilterField label="Profiles" htmlFor="bookmarks-profiles">
+                <ProfilePicker
+                  id="bookmarks-profiles"
+                  profiles={lens.options}
+                  selected={lens.selected}
+                  onChange={lens.setSelected}
+                />
+              </FilterField>
+            ) : null}
+            <FilterTextField
+              commit="change"
+              label="Search loaded bookmarks"
+              placeholder="Search name, URL, or folder"
+              icon={SearchIcon}
+              value={search}
+              onCommit={setSearch}
+            />
+          </>
         }
         saved={
           <BookmarkList
             list={lists.saved}
-            rows={saved}
+            rows={allSaved}
             visible={savedVisible}
             noun="saved"
-            onSelect={select}
+            onSelect={sheet.select}
             onClearFilters={clearFilters}
+            filteredMessage={filteredMessage("saved bookmarks")}
           />
         }
         recovered={
           <BookmarkList
             list={lists.recovered}
-            rows={recovered}
+            rows={allRecovered}
             visible={recoveredVisible}
             noun="recovered"
-            onSelect={select}
+            onSelect={sheet.select}
             onClearFilters={clearFilters}
+            filteredMessage={filteredMessage("recovered bookmarks")}
           />
         }
       />
@@ -470,10 +584,14 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
     <div className="flex flex-col gap-5">
       {pageEmpty ? (
         <Panel>
-          <EmptyRows
+          <ArtifactEmpty
             icon={ARTIFACT_ICONS.bookmarks}
+            coverage={emptyCoverageOf(coverage)}
+            source={{ name: "Bookmarks", kind: "file" }}
             title="No bookmarks"
-            message="No bookmarks recorded in this Case, saved or recovered."
+            what="bookmarks"
+            sidecars={false}
+            pivot={<EmptyPivot page="top-sites">Open Top sites</EmptyPivot>}
           />
         </Panel>
       ) : (
@@ -490,9 +608,10 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
                       These figures cover part of the Case
                     </BannerTitle>
                     <BannerDescription>
-                      They read the first {saved.length.toLocaleString("en-US")}{" "}
-                      saved bookmarks - the most this page loads at once. More
-                      rows exist in the Case.
+                      They read the first{" "}
+                      {allSaved.length.toLocaleString("en-US")} saved bookmarks
+                      - the most this page loads at once. More rows exist in the
+                      Case.
                     </BannerDescription>
                   </Banner>
                 ) : null}
@@ -526,10 +645,10 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
 
           {/* The folder navigator beside the rows it focuses: the structure
               the person built, next to what they filed. */}
-          {showFigures ? (
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+          {showFigures && treeBeside ? (
+            <div className="grid grid-cols-[260px_minmax(0,1fr)] items-start gap-4">
               <RevealSwap
-                className="lg:sticky lg:top-14"
+                className="sticky top-14"
                 loading={!figuresReady}
                 skeleton={
                   <div role="status" aria-label="Loading bookmark folders">
@@ -551,13 +670,11 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
         </>
       )}
 
-      {selected !== null ? (
+      {sheet.selected !== null ? (
         <RowSheet
-          selected={selected}
-          title={fieldText(selected.row.fields.name) ?? "Bookmark"}
-          onClose={() => {
-            setSelected(null);
-          }}
+          selected={sheet.selected}
+          title={fieldText(sheet.selected.row.fields.name) ?? "Bookmark"}
+          onClose={sheet.close}
         />
       ) : null}
     </div>

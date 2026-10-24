@@ -1,6 +1,6 @@
 /**
  * Overview "Topic categorization" line — one compact row saying the topic
- * Candidates are unavailable and why, with "Show me how" opening a Sheet of
+ * Candidates are unavailable and why, with "How to enable" opening a Sheet of
  * setup steps.
  *
  * Topic output is Candidate data: a ranked inference over recorded URLs, not
@@ -38,6 +38,9 @@ import { cn } from "@/lib/utils";
 /** Why the classifier is unavailable — fixed until `topic-status` exists. */
 const UNAVAILABLE_REASON =
   "model_artifact_missing" as const; /* try: model_runtime_unavailable */
+
+/** The project's setup notes (opens outside the dashboard, in a new tab). */
+const SETUP_URL = "https://github.com/ChmaraX/forensix#topic-classification";
 
 /** One setup step: what to do, and — when the step is a command, a model id
  *  or a variable name — the exact text to copy. */
@@ -161,14 +164,21 @@ function EnableModelSheet({
             ))}
           </ol>
         </SheetBody>
-        <SheetFooter>
-          <Button asChild variant="primary" trailingIcon={ExternalLinkIcon}>
-            <a
-              href="https://github.com/ChmaraX/forensix#topic-classification"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Full setup instructions on GitHub
+        {/* The one outbound link: secondary (nothing here is the page's
+            main action in a read-only tool), with its address in words. */}
+        <SheetFooter className="items-center justify-between gap-4">
+          <p
+            className={cn(
+              typeClass("caption"),
+              "min-w-0 font-mono break-all text-muted-foreground",
+            )}
+            title={SETUP_URL}
+          >
+            {SETUP_URL.replace(/^https:\/\//, "")}
+          </p>
+          <Button asChild variant="secondary" trailingIcon={ExternalLinkIcon}>
+            <a href={SETUP_URL} target="_blank" rel="noreferrer">
+              Setup instructions
             </a>
           </Button>
         </SheetFooter>
@@ -197,7 +207,7 @@ function CandidateBadge() {
 
 /**
  * The whole panel on one line: title and Candidate badge, the unavailable
- * state with its reason, and "Show me how". Wraps below `sm`.
+ * state with its reason, and "How to enable". Wraps below `sm`.
  */
 export function TopicCategorizationLine({
   className,
@@ -232,7 +242,7 @@ export function TopicCategorizationLine({
             setSheetOpen(true);
           }}
         >
-          Show me how
+          How to enable
         </Button>
       </SizeProvider>
       <EnableModelSheet open={sheetOpen} onOpenChange={setSheetOpen} />

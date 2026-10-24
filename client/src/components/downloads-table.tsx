@@ -2,6 +2,8 @@
  * The Downloads lists: columns (file kind first), sort controls, the
  * loading skeleton and one list body. Split out of `downloads-page.tsx`.
  */
+import { useMemo } from "react";
+
 import { EvidenceDot } from "@/components/evidence";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
@@ -15,6 +17,8 @@ import { Tooltip as FluidTooltip } from "@/components/ui/tooltip";
 import { SortNewestIcon, SortOldestIcon } from "@/lib/app-icons";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
+import { siteKeyOf } from "../related.js";
+import { rowRefOf } from "../router.js";
 import type { FieldState, Finding } from "../types.js";
 import { EmptyRows } from "./data-table.js";
 import {
@@ -24,6 +28,12 @@ import {
   StateWord,
 } from "./finding-fields.js";
 import { FilterField } from "./filters.js";
+import {
+  SiteHostLink,
+  useSiteHosts,
+  type SiteHostLookup,
+} from "./history-host-link.js";
+import { Term } from "./term.js";
 import { ListBlock } from "./list-states.js";
 import {
   ResponsiveRows,
@@ -79,15 +89,68 @@ export function DownloadState({
   );
 }
 
-/** The source: the host with its avatar when the URL parses, the raw URL
+/**
+ * The size, never overstated: the bytes Chrome recorded as received, with
+ * the expected size beside them while they fall short ("9.4 of 28.2 MB");
+ * the expected size alone says so ("28.2 MB expected"); neither recorded
+ * reads as the received field's own word.
+ */
+export function DownloadSize({ row }: { readonly row: DownloadRow }) {
+  const { received, expected } = row;
+  if (received === null) {
+    return expected === null ? (
+      <FieldCell field={row.finding.fields.receivedBytes} />
+    ) : (
+      <span
+        className="whitespace-nowrap"
+        title={`${expected.toLocaleString("en-US")} bytes expected; no received bytes recorded`}
+      >
+        {formatBytes(expected)}{" "}
+        <span className="text-muted-foreground">expected</span>
+      </span>
+    );
+  }
+  if (expected === null || received >= expected) {
+    return (
+      <span
+        className="whitespace-nowrap"
+        title={`${received.toLocaleString("en-US")} bytes received`}
+      >
+        {formatBytes(received)}
+      </span>
+    );
+  }
+  const shown = formatBytes(received);
+  const of = formatBytes(expected);
+  // One unit when both share it: "9.4 of 28.2 MB".
+  const unit = /\s\S+$/.exec(of)?.[0];
+  const lead =
+    unit !== undefined && shown.endsWith(unit)
+      ? shown.slice(0, -unit.length)
+      : shown;
+  return (
+    <span
+      className="whitespace-nowrap"
+      title={`${received.toLocaleString("en-US")} of ${expected.toLocaleString("en-US")} bytes received`}
+    >
+      {lead} <span className="text-muted-foreground">of {of}</span>
+    </span>
+  );
+}
+
+/** The source: the host with its avatar when the URL parses (linked to
+ *  Sites when Sites lists that exact host, table only), the raw URL
  *  (monospace) when it does not, and the URL field's state word when none
  *  was recorded. */
 export function Source({
   row,
   avatar,
+  sites = null,
 }: {
   readonly row: DownloadRow;
   readonly avatar: boolean;
+  /** Sites' host list (`useSiteHosts`); null links nothing. */
+  readonly sites?: SiteHostLookup;
 }) {
   if (row.host === null) {
     return row.sourceUrl === null ? (
@@ -98,11 +161,17 @@ export function Source({
       </span>
     );
   }
+  const key = siteKeyOf(row.sourceUrl);
+  const linked = key !== null && sites !== null && sites(key);
   return (
     <span className="flex min-w-0 items-center gap-2.5">
       {avatar ? <SiteAvatar host={row.host} /> : null}
       <span className="truncate" title={row.sourceUrl ?? row.host}>
-        {row.host}
+        {linked ? (
+          <SiteHostLink siteKey={key}>{row.host}</SiteHostLink>
+        ) : (
+          row.host
+        )}
       </span>
     </span>
   );
@@ -113,6 +182,7 @@ export function Source({
  *  the first line, the file as the title, size · source · start under it. */
 export function downloadColumns(
   recovered: boolean,
+  sites: SiteHostLookup = null,
 ): readonly RowColumn<DownloadRow>[] {
   const columns: RowColumn<DownloadRow>[] = [
     {
@@ -144,27 +214,27 @@ export function downloadColumns(
     },
     {
       key: "size",
-      header: "Size",
-      className: "w-[88px] text-right whitespace-nowrap tabular-nums",
-      cell: (row) =>
-        row.bytes === null ? (
-          <FieldCell field={row.finding.fields.totalBytes} />
-        ) : (
-          <span title={`${row.bytes.toLocaleString("en-US")} bytes`}>
-            {formatBytes(row.bytes)}
-          </span>
-        ),
+      header: (
+        <Term label="Size">
+          The bytes Chrome recorded as received. While a download fell short,
+          the size it expected follows (&quot;9.4 of 28.2 MB&quot;).
+        </Term>
+      ),
+      label: "Size",
+      className: "w-[136px] text-right whitespace-nowrap tabular-nums",
+      cell: (row) => <DownloadSize row={row} />,
     },
     {
       key: "source",
       header: "Source",
       className: "max-w-[320px]",
-      cell: (row) => <Source row={row} avatar />,
+      cell: (row) => <Source row={row} avatar sites={sites} />,
       stackedCell: (row) => <Source row={row} avatar={false} />,
     },
     {
       key: "started",
-      header: "Started",
+      header: "Started (UTC)",
+      label: "Started",
       className: "w-[184px] whitespace-nowrap",
       cell: (row) => <TimeCell field={row.finding.fields.startTime} />,
     },
@@ -188,8 +258,15 @@ export function downloadColumns(
   return columns;
 }
 
-export const SAVED_COLUMNS = downloadColumns(false);
-export const RECOVERED_COLUMNS = downloadColumns(true);
+/** A download's stable key: its row reference, so a sort, a filter or a
+ *  range re-renders no kept row. */
+function downloadKey(row: DownloadRow, index: number): string {
+  return rowRefOf(row.finding) ?? `${row.finding.commitState}-${String(index)}`;
+}
+
+function downloadLabel(row: DownloadRow): string {
+  return `Open download row detail: ${row.name ?? "download"}`;
+}
 
 /** The file kind, worded, with its icon. */
 export function FileKindLabel({ kind }: { readonly kind: FileKind }) {
@@ -292,6 +369,7 @@ export function DownloadList({
   filtered,
   onSelect,
   onClearFilters,
+  filteredMessage,
 }: {
   readonly read: {
     readonly rows: readonly Finding[] | null;
@@ -301,9 +379,16 @@ export function DownloadList({
   readonly rows: readonly DownloadRow[];
   readonly recovered: boolean;
   readonly filtered: boolean;
-  readonly onSelect: (finding: Finding) => void;
+  readonly onSelect: (row: DownloadRow) => void;
   readonly onClearFilters: () => void;
+  /** What an empty filtered list says (the days, the kind…). */
+  readonly filteredMessage?: string;
 }) {
+  const sites = useSiteHosts();
+  const columns = useMemo(
+    () => downloadColumns(recovered, sites),
+    [recovered, sites],
+  );
   return (
     <ListBlock
       list={{
@@ -321,6 +406,7 @@ export function DownloadList({
       }
       shown={rows.length}
       filtered={filtered}
+      filteredMessage={filteredMessage}
       onClearFilters={onClearFilters}
       skeletonRows={recovered ? 3 : 8}
       empty={
@@ -336,14 +422,10 @@ export function DownloadList({
     >
       <ResponsiveRows
         rows={rows}
-        columns={recovered ? RECOVERED_COLUMNS : SAVED_COLUMNS}
-        rowKey={(row, index) => `${row.finding.commitState}-${String(index)}`}
-        rowLabel={(row) =>
-          `Open download row detail: ${row.name ?? "download"}`
-        }
-        onSelect={(row) => {
-          onSelect(row.finding);
-        }}
+        columns={columns}
+        rowKey={downloadKey}
+        rowLabel={downloadLabel}
+        onSelect={onSelect}
         tableClassName="min-w-[860px]"
       />
     </ListBlock>

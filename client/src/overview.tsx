@@ -1,29 +1,36 @@
 /**
- * Overview — the Case at a glance.
+ * Overview — the Case at a glance: the first ten seconds of an examination.
  *
- * The page answers an examiner's first question before anything else: whose
- * browser is this (the subject fields, read from Metadata Findings). Every
- * other panel — activity, time of day, most visited sites, downloads — is
- * derived analyzer output. Nothing here is invented: a Metadata value renders
- * through the same Field State text every list page uses, so `absent` and
- * `unavailable` stay visibly distinct from a value. The one Candidate-backed
- * panel (Topic categorization) is labelled Candidate and never feeds a
- * figure.
+ * The page answers an examiner's first questions in reading order: whose
+ * browser is this (the masthead, from Metadata Findings) and is the evidence
+ * complete (the coverage indicator beside it); how much and when (the
+ * figures and Browsing activity); where and what (Most visited sites,
+ * Recent downloads); who exactly and at what hour (Subject, Time of day);
+ * and was anything deleted or overwritten (Recovered). Nothing here is
+ * invented: a Metadata value renders through the same Field State text
+ * every list page uses, so `absent` and `unavailable` stay visibly distinct
+ * from a value. The one Candidate-backed panel (Topic categorization) is
+ * labelled Candidate and never feeds a figure.
  *
- * Presentation is Fluid Functionalism throughout: an unframed masthead on
- * the page substrate (the shell renders no page header here), one
- * `MetricBand` of four figures, `ChartSection` for the two charts and
- * `SectionPanel` for the rest, FF ghost buttons for the jump links, and
- * `reveal-swap` for the load.
+ * Layout: an unframed masthead on the page substrate, one `MetricBand` of
+ * four figures, then a two-column grid - the evidence on the left (8 of 12
+ * columns: activity, sites, downloads) and its context on the right
+ * (subject, time of day, recovered rows).
  *
  * Saved and recovered rows: every figure and chart counts saved rows only
  * (Most visited sites and Recent downloads read `commit-state=committed`; the
- * shared activity read keeps recovered rows apart).
+ * shared activity read keeps recovered rows apart). Recovered rows are
+ * named in their own panel, per page, and never summed into a figure.
+ *
+ * Every row and jump link is a real link that carries the Case's lens: a
+ * host opens Sites on it, a download opens its own row on Downloads, the
+ * picked days open on the Timeline, a Recovered row opens that page's
+ * Recovered tab.
  *
  * The date range (the masthead's picker, or a day clicked / a span dragged
- * on Browsing activity) narrows every panel: the figures, Time of day, Most
- * visited sites (re-read from the saved visits in range) and Recent
- * downloads.
+ * on Browsing activity) narrows every panel but Recovered: the figures,
+ * Time of day, Most visited sites (re-read from the saved visits in range)
+ * and Recent downloads.
  */
 import {
   useCallback,
@@ -43,7 +50,8 @@ import { useChartTokens } from "@/components/charts";
 import { ActivityBars, HourBars } from "@/components/charts-ready";
 import { ChartSection } from "@/components/chart-section";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { ErrorRows, LoadingRows } from "@/components/list-states";
+import { coverageOf } from "@/components/completeness";
+import { ErrorRows, LoadingRows, RevealSwap } from "@/components/list-states";
 import { formatDaySpan, plural, SectionPanel } from "@/components/page-kit";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { typeClass } from "@/lib/size-context";
@@ -54,7 +62,8 @@ import { cn } from "@/lib/utils";
 import { TopicCategorizationLine } from "./overview-topic-widget.js";
 import { localDayOf } from "./components/day-bounds.js";
 import { profileLabel } from "./components/finding-fields.js";
-import { useViewRange } from "./view-state.js";
+import { rowRefOf } from "./router.js";
+import { hrefFor, useViewRange } from "./view-state.js";
 import {
   fieldString,
   formatDay,
@@ -62,8 +71,10 @@ import {
   loadDownloadsIn,
   loadMostVisitedIn,
   loadOverview,
+  loadRecovered,
   shiftDay,
   type OverviewData,
+  type RecoveredCount,
   type TopSite,
 } from "./overview/data";
 import type { Finding } from "./types.js";
@@ -72,14 +83,17 @@ import {
   DownloadsList,
   JumpLink,
   LoadingOverview,
+  LoadingRecovered,
   Masthead,
+  RecoveredList,
+  RecoveredTitle,
   SubjectList,
   TopSitesList,
+  type ArtifactCoverage,
   type CaseFigure,
 } from "./overview/parts";
 
 export function OverviewPage({
-  onOpen,
   coverage,
   caseProfiles,
 }: {
@@ -90,9 +104,9 @@ export function OverviewPage({
   /** The shell's whole-Case coverage indicator, for the masthead's right.
    *  Overview carries no coverage banner. */
   readonly coverage?: ReactNode;
-  /** Opens a nav section by key — the per-panel jump links in panel headers,
-   *  and the Most visited sites row click, which passes a second argument:
-   *  the host to preselect once the Sites tab is open. */
+  /** Unused: every link on the page is a real `<a href>` built with
+   *  `hrefFor` (a new tab works, Back returns here). Kept so the shell's
+   *  call still type-checks; the shell can stop passing it. */
   readonly onOpen?: (key: string, param?: string) => void;
 }) {
   const [data, setData] = useState<OverviewData | null>(null);
@@ -148,7 +162,6 @@ export function OverviewPage({
       {data === null ? null : (
         <OverviewContent
           data={data}
-          onOpen={onOpen}
           coverage={coverage}
           caseProfiles={caseProfiles}
         />
@@ -159,19 +172,18 @@ export function OverviewPage({
 
 function OverviewContent({
   data,
-  onOpen,
   coverage,
   caseProfiles,
 }: {
   readonly coverage?: ReactNode;
   readonly caseProfiles?: readonly string[];
   readonly data: OverviewData;
-  readonly onOpen?: (key: string, param?: string) => void;
 }) {
   const tokens = useChartTokens();
   const subjectId = useId();
   const topSitesId = useId();
   const downloadsId = useId();
+  const recoveredId = useId();
   // The date range narrows the activity panels client-side. History's `from`
   // / `to` bounds apply only to the `visits` view server-side (per-day and
   // per-hour activity is a precomputed summary), so `activity` is fetched
@@ -275,21 +287,35 @@ function OverviewContent({
       })),
     [range, data.timeZone],
   );
+  // A narrowed range's hosts bring their own recovered favicons.
+  const [rangedFavicons, setRangedFavicons] = useState<
+    ReadonlyMap<string, string | null>
+  >(() => new Map());
   const rangedSites = useRangedRead<TopSite>(
     rangeActive,
     useCallback(
       () =>
-        loadSites().then((result) => ({
-          items: result.sites,
-          complete: result.complete,
-        })),
+        loadSites().then((result) => {
+          setRangedFavicons(result.favicons);
+          return { items: result.sites, complete: result.complete };
+        }),
       [loadSites],
     ),
   );
   const rangedDownloads = useRangedRead<Finding>(rangeActive, loadDownloads);
   const mostVisited: RangedState<TopSite> = rangeActive
     ? rangedSites
-    : { state: "ready", items: data.mostVisited, complete: true };
+    : {
+        state: "ready",
+        items: data.mostVisited,
+        complete: data.mostVisitedComplete,
+      };
+  const favicons = rangeActive ? rangedFavicons : data.favicons;
+
+  // Recovered rows per page: whole Case, read once the page is up (its own
+  // block, its own skeleton), never narrowed by the range and never summed
+  // into a figure.
+  const recovered = useRecovered();
   const recentDownloads: RangedState<Finding> = rangeActive
     ? rangedDownloads
     : { state: "ready", items: data.downloads, complete: true };
@@ -331,13 +357,6 @@ function OverviewContent({
           first: windowed.days[0]?.date ?? "",
           last: windowed.days[windowed.days.length - 1]?.date ?? "",
         };
-  const rangeLabel = rangeActive
-    ? formatDaySpan(
-        rangeFrom === "" ? (fullSpan.first ?? rangeTo) : rangeFrom,
-        rangeTo === "" ? (fullSpan.last ?? rangeFrom) : rangeTo,
-      )
-    : null;
-
   // Metadata carries one browser_metadata Finding per Source and one
   // profile_metadata Finding per Profile. The subject readout takes the first
   // of each: multi-Profile and multi-Source Cases still get a single, legible
@@ -372,11 +391,22 @@ function OverviewContent({
 
   // The figures: each a plain reading of a number the page already computed
   // above, never a new query, and no caption — a sub-line appears only when
-  // it is itself data (the quiet stretch's dates). A Case (or range) with
-  // nothing of that shape says so in words, muted, rather than hiding the
+  // it is itself data (the active days' span, the quiet stretch's dates,
+  // the profiles with nothing read). A Case (or range) with nothing of that
+  // shape says so in words, muted and at body size, rather than hiding the
   // reading. Everything read from `activity` counts saved visits only.
-  // Every profile the Case knows, so the figure agrees with the coverage.
+  // Every profile the Case knows, so the figure agrees with the coverage;
+  // a profile none of whose databases was read is named as such.
   const profiles = caseProfiles ?? data.profiles;
+  const unreadProfiles = profiles.filter(
+    (profile) =>
+      !data.completeness.statements.some((statement) =>
+        statement.artifacts.some(
+          (database) =>
+            database.profile === profile && database.outcome === "produced",
+        ),
+      ),
+  );
   const figures: readonly CaseFigure[] = [
     {
       key: "visits",
@@ -389,6 +419,11 @@ function OverviewContent({
       label: "Active days",
       value: windowed.days.length,
       recorded: true,
+      // When: the first to the last active day (in the range).
+      detail:
+        activeSpan === null
+          ? undefined
+          : formatDaySpan(activeSpan.first, activeSpan.last),
     },
     {
       key: "quiet",
@@ -398,35 +433,54 @@ function OverviewContent({
         quietGap === null
           ? windowed.days.length === 0
             ? "No dated activity"
-            : "No quiet days"
+            : windowed.days.length === 1
+              ? "One active day"
+              : "No quiet days"
           : plural(quietGap.days, "day", "days"),
-      // Always a detail line, so the strip keeps its height when a range
-      // has no quiet stretch: the quiet days, else the active days it read.
       detail:
-        quietGap !== null
-          ? formatDaySpan(quietGap.from, quietGap.to)
-          : activeSpan !== null
-            ? formatDaySpan(activeSpan.first, activeSpan.last)
-            : (rangeLabel ?? "No dated visits"),
+        quietGap === null
+          ? undefined
+          : formatDaySpan(quietGap.from, quietGap.to),
     },
     {
       key: "profiles",
       label: profiles.length === 1 ? "Profile" : "Profiles",
       value: profiles.length,
       recorded: true,
+      detail:
+        unreadProfiles.length === 0
+          ? undefined
+          : `${String(unreadProfiles.length)} with nothing read`,
       valueTooltip:
         profiles.length === 0
           ? undefined
-          : profiles.map((profile) => profileLabel(profile)).join(", "),
+          : profiles
+              .map(
+                (profile) =>
+                  `${profileLabel(profile)}${
+                    unreadProfiles.includes(profile) ? " - nothing read" : ""
+                  }`,
+              )
+              .join(", "),
     },
   ];
 
-  const open = (key: string) =>
-    onOpen === undefined
-      ? undefined
-      : () => {
-          onOpen(key);
-        };
+  // How much of each artifact was read, for the Recovered rows: `null`
+  // when every database was (the row then needs no note).
+  const artifactCoverage = (artifact: string): ArtifactCoverage | null => {
+    const scope = coverageOf(data.completeness, [artifact]);
+    return scope.degraded
+      ? { produced: scope.produced, attempted: scope.attempted }
+      : null;
+  };
+
+  // The day or span picked on the chart, as the Timeline link names it.
+  const pickedDays = rangeActive
+    ? formatSpan(
+        rangeFrom === "" ? (fullSpan.first ?? rangeTo) : rangeFrom,
+        rangeTo === "" ? (fullSpan.last ?? rangeFrom) : rangeTo,
+      )
+    : null;
 
   // The activity read stopped at its page cap: both charts drawn from it say
   // so in their footer instead of silently covering less than the span.
@@ -441,6 +495,18 @@ function OverviewContent({
       </BannerDescription>
     </Banner>
   ) : undefined;
+
+  // Links carry the lens (`hrefFor`), so a page opens on the same days.
+  const sitesHref = (host: string) => hrefFor("sites", { host });
+  const downloadHref = (download: Finding) => {
+    const row = rowRefOf(download);
+    return hrefFor("downloads", row === null ? {} : { row, tab: "saved" });
+  };
+  // Recovered counts cover every day and every profile, so their links open
+  // the page without the lens: the Recovered tab then lists the rows
+  // counted here.
+  const recoveredHref = (page: string) =>
+    hrefFor(page, { from: "", to: "", profiles: [], tab: "recovered" });
 
   return (
     <div className="reveal-items flex flex-col gap-5">
@@ -465,12 +531,52 @@ function OverviewContent({
 
       <CaseFigures items={figures} />
 
+      {/* Two columns from `lg`: the evidence on the left (8), its context
+          on the right (4). Each row pairs blocks of a similar height. */}
       <div className="grid grid-cols-12 gap-4">
-        {/* Activity — the page's main chart. */}
+        {/* Activity — the page's main chart. A picked day or span gets a
+            footer naming it, with the way to that day on the Timeline. */}
         <ChartSection
           title="Browsing activity"
-          action={<JumpLink label="History" onOpen={open("history")} />}
-          footer={truncationNote}
+          action={<JumpLink label="History" href={hrefFor("history")} />}
+          footer={
+            pickedDays === null && truncationNote === undefined ? undefined : (
+              <div className="flex w-full flex-col gap-2">
+                {truncationNote}
+                {pickedDays === null ? null : (
+                  <div className="flex min-h-7 w-full flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                    <p
+                      className={cn(
+                        typeClass("body"),
+                        "min-w-0 text-foreground tabular-nums",
+                      )}
+                    >
+                      {pickedDays}
+                      <span className="text-muted-foreground">
+                        {"  ·  "}
+                        {plural(
+                          windowed.totalVisits,
+                          "page visit",
+                          "page visits",
+                        )}
+                      </span>
+                    </p>
+                    <JumpLink
+                      label={
+                        rangeFrom !== "" && rangeFrom === rangeTo
+                          ? "This day in Timeline"
+                          : "These days in Timeline"
+                      }
+                      href={hrefFor("timeline")}
+                      description={`Open ${pickedDays} in Timeline`}
+                      // Flush left when it wraps under the days (a phone).
+                      className="max-sm:-ml-3"
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          }
           className="col-span-12 lg:col-span-8"
         >
           {/* Recharts measures its parent, and a bare flex child resolves to
@@ -494,7 +600,9 @@ function OverviewContent({
         <SectionPanel
           id={subjectId}
           title="Subject"
-          aside={<JumpLink label="Metadata" onOpen={open("metadata")} />}
+          aside={
+            <JumpLink label="Browser profile" href={hrefFor("metadata")} />
+          }
           className="col-span-12 lg:col-span-4"
         >
           <SubjectList
@@ -527,11 +635,58 @@ function OverviewContent({
           />
         </SectionPanel>
 
+        {/* Ranked by saved visit rows per host - the count Sites prints
+            beside each host - so the panel opens Sites. */}
+        <SectionPanel
+          id={topSitesId}
+          title="Most visited sites"
+          aside={<JumpLink label="Sites" href={hrefFor("sites")} />}
+          className="col-span-12 md:col-span-6 lg:col-span-8"
+        >
+          {mostVisited.state === "failed" ? (
+            <ErrorRows
+              title="The most visited sites in this range could not be loaded."
+              message={mostVisited.error}
+              onRetry={mostVisited.retry}
+            />
+          ) : (
+            <RevealSwap
+              loading={mostVisited.state === "loading"}
+              skeleton={
+                <LoadingRows rows={6} label="Loading most visited sites" />
+              }
+              className="flex-1"
+            >
+              {mostVisited.state === "ready" ? (
+                <div className="flex h-full flex-col">
+                  <TopSitesList
+                    sites={mostVisited.items}
+                    emptyMessage={
+                      rangeActive
+                        ? "No saved page visit falls in this range."
+                        : undefined
+                    }
+                    favicons={favicons}
+                    hrefOf={sitesHref}
+                  />
+                  {mostVisited.complete ? null : (
+                    <PartialNote>
+                      {rangeActive
+                        ? "Counted from the first 1,000 saved visits in this range; History lists them all."
+                        : "Ranked from the first 2,000 hosts Sites lists; Sites lists them all."}
+                    </PartialNote>
+                  )}
+                </div>
+              ) : null}
+            </RevealSwap>
+          )}
+        </SectionPanel>
+
         <ChartSection
           title="Time of day"
-          action={<JumpLink label="Timeline" onOpen={open("timeline")} />}
+          action={<JumpLink label="Timeline" href={hrefFor("timeline")} />}
           footer={truncationNote}
-          className="col-span-12 md:col-span-6"
+          className="col-span-12 md:col-span-6 lg:col-span-4"
         >
           <div className="relative min-h-[220px] flex-1">
             <div className="absolute inset-0 px-2 pt-2 pb-3">
@@ -540,84 +695,81 @@ function OverviewContent({
           </div>
         </ChartSection>
 
-        {/* Ranked by this Case's saved History visits — not Chrome's own
-            Top sites ranking — so it opens History. */}
-        <SectionPanel
-          id={topSitesId}
-          title="Most visited sites"
-          aside={<JumpLink label="History" onOpen={open("history")} />}
-          className="col-span-12 md:col-span-6"
-        >
-          {mostVisited.state === "loading" ? (
-            <LoadingRows rows={6} label="Loading most visited sites" />
-          ) : mostVisited.state === "failed" ? (
-            <ErrorRows
-              title="The most visited sites in this range could not be loaded."
-              message={mostVisited.error}
-              onRetry={mostVisited.retry}
-            />
-          ) : (
-            <>
-              <TopSitesList
-                sites={mostVisited.items}
-                emptyMessage={
-                  rangeActive
-                    ? "No saved visit falls in this range."
-                    : undefined
-                }
-                favicons={data.favicons}
-                onOpenSite={
-                  onOpen === undefined
-                    ? undefined
-                    : (domain) => {
-                        onOpen("sites", domain);
-                      }
-                }
-              />
-              {mostVisited.complete ? null : (
-                <PartialNote>
-                  Counted from the first 1,000 saved visits in this range;
-                  History lists them all.
-                </PartialNote>
-              )}
-            </>
-          )}
-        </SectionPanel>
-
         <SectionPanel
           id={downloadsId}
           title="Recent downloads"
-          aside={<JumpLink label="Downloads" onOpen={open("downloads")} />}
-          className="col-span-12"
+          aside={<JumpLink label="Downloads" href={hrefFor("downloads")} />}
+          className="col-span-12 lg:col-span-8"
         >
-          {recentDownloads.state === "loading" ? (
-            <LoadingRows rows={5} label="Loading recent downloads" />
-          ) : recentDownloads.state === "failed" ? (
+          {recentDownloads.state === "failed" ? (
             <ErrorRows
               title="The downloads in this range could not be loaded."
               message={recentDownloads.error}
               onRetry={recentDownloads.retry}
             />
           ) : (
-            <>
-              <DownloadsList
-                downloads={recentDownloads.items}
-                emptyMessage={
-                  recentDownloads.complete
-                    ? rangeActive
-                      ? "No saved download started in this range."
-                      : undefined
-                    : "No saved download in this range among the newest 2,000."
-                }
-              />
-              {recentDownloads.complete ||
-              recentDownloads.items.length === 0 ? null : (
-                <PartialNote>
-                  Read from the newest 2,000 saved downloads; the Downloads page
-                  lists them all.
-                </PartialNote>
-              )}
-            </>
+            <RevealSwap
+              loading={recentDownloads.state === "loading"}
+              skeleton={
+                <LoadingRows rows={5} label="Loading recent downloads" />
+              }
+            >
+              {recentDownloads.state === "ready" ? (
+                <>
+                  <DownloadsList
+                    downloads={recentDownloads.items}
+                    hrefOf={downloadHref}
+                    emptyMessage={
+                      recentDownloads.complete
+                        ? rangeActive
+                          ? "No saved download started in this range."
+                          : undefined
+                        : "No saved download in this range among the newest 2,000."
+                    }
+                  />
+                  {recentDownloads.complete ||
+                  recentDownloads.items.length === 0 ? null : (
+                    <PartialNote>
+                      Read from the newest 2,000 saved downloads; the Downloads
+                      page lists them all.
+                    </PartialNote>
+                  )}
+                </>
+              ) : null}
+            </RevealSwap>
+          )}
+        </SectionPanel>
+
+        {/* Recovered — was anything deleted or overwritten? One row per
+            page holding recovered rows, opening its Recovered tab. Whole
+            Case: the date range does not narrow it (said when one is
+            picked). */}
+        <SectionPanel
+          id={recoveredId}
+          title={<RecoveredTitle />}
+          description={rangeActive ? "Every day, every profile" : undefined}
+          className="col-span-12 lg:col-span-4"
+        >
+          {recovered.state === "failed" ? (
+            <ErrorRows
+              title="The recovered rows could not be counted."
+              message={recovered.error}
+              onRetry={recovered.retry}
+            />
+          ) : (
+            <RevealSwap
+              loading={recovered.state === "loading"}
+              skeleton={<LoadingRecovered />}
+              className="flex flex-1 flex-col"
+            >
+              {recovered.state === "ready" ? (
+                <RecoveredList
+                  counts={recovered.counts}
+                  coverageOf={artifactCoverage}
+                  hrefOf={recoveredHref}
+                />
+              ) : null}
+            </RevealSwap>
           )}
         </SectionPanel>
 
@@ -627,6 +779,56 @@ function OverviewContent({
       </div>
     </div>
   );
+}
+
+/** The Recovered panel's read: once per page view, with Retry. */
+function useRecovered():
+  | { readonly state: "loading" }
+  | {
+      readonly state: "failed";
+      readonly error: string;
+      readonly retry: () => void;
+    }
+  | { readonly state: "ready"; readonly counts: readonly RecoveredCount[] } {
+  const [answer, setAnswer] = useState<
+    | { readonly ok: true; readonly counts: readonly RecoveredCount[] }
+    | { readonly ok: false; readonly error: string }
+    | null
+  >(null);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setAnswer(null);
+    setAttempt((count) => count + 1);
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    loadRecovered()
+      .then((counts) => {
+        if (!cancelled) {
+          setAnswer({ ok: true, counts });
+        }
+      })
+      .catch((requestError: unknown) => {
+        if (!cancelled) {
+          setAnswer({
+            ok: false,
+            error:
+              requestError instanceof Error
+                ? requestError.message
+                : "Request failed.",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+  if (answer === null) {
+    return { state: "loading" };
+  }
+  return answer.ok
+    ? { state: "ready", counts: answer.counts }
+    : { state: "failed", error: answer.error, retry };
 }
 
 /** A ranged read: loading, failed (with Retry), or its rows and whether the

@@ -21,6 +21,14 @@
  *    behind the Saved / Recovered switch; the detail sheet keeps every wire
  *    field and its provenance.
  *
+ * Profiles are named one way, as everywhere else (`profileLabel`:
+ * "Default profile", "Profile 2"); the account's own name sits under it.
+ * The Profiles panel names every profile the Case knows (`caseProfilesOf`,
+ * so it agrees with the coverage detail): a profile with no metadata row
+ * says so, with the Completeness Statement's reason. The profile pick is
+ * the Case-wide lens (`useViewProfiles`); the browser-level row belongs to
+ * no profile and always shows. The open row is in the URL.
+ *
  * Every derived badge is a reading of a value the row already carries,
  * never a new fact: an absent or unavailable source field collapses its
  * badge to the same worded state the field list shows. The strip and the
@@ -30,9 +38,14 @@
  * distinct words, never colour alone; saved and recovered rows are never
  * mixed; nothing here is inference presented as a factual summary tile.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { useViewTab } from "../view-state.js";
+import {
+  updateView,
+  useRowSelection,
+  useViewProfiles,
+  useViewTab,
+} from "../view-state.js";
 
 import { Panel } from "@/components/panel";
 import { Badge } from "@/components/ui/badge";
@@ -47,12 +60,6 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
-import {
   BrowserIcon,
   SearchIcon,
   UserIcon,
@@ -62,15 +69,22 @@ import { fontWeights } from "@/lib/font-weight";
 import { typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-import type { QueryParameters } from "../api.js";
-import type { ArtifactConfig, FieldState, Finding } from "../types.js";
+import { callApi, type QueryParameters } from "../api.js";
+import type {
+  ArtifactConfig,
+  CaseCompleteness,
+  CaseProfiles,
+  FieldState,
+  Finding,
+} from "../types.js";
 import {
   type PaginatedList,
   type RecoveredList,
   useCommitStateLists,
 } from "../use-commit-state-lists.js";
+import { caseProfilesOf } from "./completeness.js";
 import { EmptyRows } from "./data-table.js";
-import { EvidenceDot } from "./evidence.js";
+import { EvidenceDot, type EvidenceState } from "./evidence.js";
 import { MaybeFieldStateText } from "./field-state.js";
 import {
   fieldBool,
@@ -78,12 +92,12 @@ import {
   profileLabel,
   StateWord,
 } from "./finding-fields.js";
-import { FilterField, FilterTextField } from "./filters.js";
+import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { CommitStateSplit, SectionPanel, Toolbar } from "./page-kit.js";
 import { Term } from "./term.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { RowSheet } from "./row-sheet.js";
 
 /** Browser row first, then profiles; each Commit State is its own read. */
 const METADATA_PARAMETERS: QueryParameters = [
@@ -112,14 +126,21 @@ function useMediaQuery(query: string): boolean {
 
 /* ------------------------- Field readers (never invent) ------------------- */
 
-/** The best human name a row carries: full name, profile name, then its key. */
+/** A row's name, the one way the dashboard names it: "Local State" for
+ *  the browser-level row, else its profile ("Default profile",
+ *  "Profile 2"). */
 function rowHeadline(row: Finding): string {
+  return row.findingKind === "browser_metadata"
+    ? "Local State"
+    : profileLabel(row.profile);
+}
+
+/** The person behind a profile row, as recorded: the account's full name,
+ *  else Chrome's profile name; null when neither is recorded. */
+function personOf(row: Finding): string | null {
   return (
     fieldString(row.fields.accountFullName) ??
-    fieldString(row.fields.profileName) ??
-    (row.findingKind === "browser_metadata"
-      ? "Local State"
-      : profileLabel(row.profile))
+    fieldString(row.fields.profileName)
   );
 }
 
@@ -198,12 +219,29 @@ function Fact({
   );
 }
 
-/** A recorded value as a strip figure; any other state keeps its own word. */
-function FieldFigure({ field }: { readonly field: FieldState | undefined }) {
-  const text = fieldString(field);
-  if (text === null) {
+/** A recorded value as a strip figure; any other state keeps its own word.
+ *  `format` rewords a recorded value for reading (a profile directory as
+ *  its label); the recorded value stays in the tooltip. */
+function FieldFigure({
+  field,
+  format,
+}: {
+  readonly field: FieldState | undefined;
+  readonly format?: (value: string) => string;
+}) {
+  const recorded = fieldString(field);
+  if (recorded === null) {
     return <MaybeFieldStateText field={field} truncate />;
   }
+  if (format !== undefined) {
+    const shown = format(recorded);
+    return (
+      <span title={shown === recorded ? recorded : `Recorded: ${recorded}`}>
+        {shown}
+      </span>
+    );
+  }
+  const text = recorded;
   // A figure never truncates; a narrow tile wraps a dotted value (a Chrome
   // build) after a dot rather than mid-number. `<wbr>` adds no character,
   // so a copied value stays byte-for-byte.
@@ -238,13 +276,20 @@ function EnvironmentStrip({ browser }: { readonly browser: Finding }) {
         label="Chrome version"
         value={<FieldFigure field={browser.fields.chromeVersion} />}
       />
+      {/* Chrome's own count, as Local State records it: it can differ
+          from the profiles the Case knows (the Profiles panel below). */}
       <MetricBandItem
-        label="Profiles on device"
+        label="Profiles in Local State"
         value={<FieldFigure field={browser.fields.profileCount} />}
       />
       <MetricBandItem
         label="Last used profile"
-        value={<FieldFigure field={browser.fields.lastUsedProfile} />}
+        value={
+          <FieldFigure
+            field={browser.fields.lastUsedProfile}
+            format={profileLabel}
+          />
+        }
       />
       <MetricBandItem
         label="Variations region"
@@ -323,13 +368,16 @@ function ProfileCard({
   readonly index?: number;
 }) {
   const headline = rowHeadline(row);
+  const person = fieldString(row.fields.accountFullName);
   const exit = exitReading(row.fields.exitType);
   const account = accountReading(row.fields);
-  const initial = headline.trim().charAt(0).toLocaleUpperCase("en-US") || "?";
+  const initial =
+    (personOf(row) ?? headline).trim().charAt(0).toLocaleUpperCase("en-US") ||
+    "?";
   return (
     <Card
       index={index}
-      label={`Open profile detail for ${headline}`}
+      label={`Open profile detail for ${headline}${person === null ? "" : ` (${person})`}`}
       onClick={() => {
         onSelect(row);
       }}
@@ -348,14 +396,19 @@ function ProfileCard({
           </span>
           <div className="flex min-w-0 flex-col">
             <CardTitle className="truncate">{headline}</CardTitle>
-            <span
-              className={cn(
-                typeClass("caption"),
-                "truncate text-muted-foreground",
-              )}
-            >
-              {profileLabel(row.profile)}
-            </span>
+            {/* The account's own name, when recorded; the profile is the
+                title, named as on every other page. */}
+            {person === null ? null : (
+              <span
+                className={cn(
+                  typeClass("caption"),
+                  "truncate text-muted-foreground",
+                )}
+                title={person}
+              >
+                {person}
+              </span>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -399,7 +452,7 @@ const FIELD_LABELS: readonly {
   { key: "chromeVersion", label: "Chrome version" },
   { key: "lastUsedProfile", label: "Last used profile" },
   { key: "variationsCountry", label: "Variations region" },
-  { key: "profileCount", label: "Profiles on device" },
+  { key: "profileCount", label: "Profiles in Local State" },
   { key: "osCryptKeyPresent", label: "Standard OS-crypt key" },
   { key: "osCryptAppBoundKeyPresent", label: "App-bound encryption key" },
   { key: "profileName", label: "Profile name" },
@@ -506,9 +559,13 @@ function RowFields({
         >
           {rowHeadline(row)}
         </h3>
-        <span className={cn(typeClass("caption"), "text-muted-foreground")}>
-          {browserRow ? "Browser" : profileLabel(row.profile)}
-        </span>
+        {/* As on the profile card: the account's own name, when
+            recorded, under the profile's one name. */}
+        {browserRow || fieldString(row.fields.accountFullName) !== null ? (
+          <span className={cn(typeClass("caption"), "text-muted-foreground")}>
+            {browserRow ? "Browser" : fieldString(row.fields.accountFullName)}
+          </span>
+        ) : null}
         {row.commitState === "committed" ? null : (
           <StateWord state={row.commitState} />
         )}
@@ -573,39 +630,39 @@ function RowFields({
 /** No row is summarized above (the recovered list). */
 const EMPTY_SET: ReadonlySet<Finding> = new Set();
 
-/** "All rows" in the row picker. */
-const ALL_ROWS = "all";
-
 /**
  * One list (saved or recovered) of recorded fields: its loading rows, its
- * read error, its empty state, every row stacked (or the one row picked),
- * a load-more failure (Retry asks for that page again and keeps the loaded
- * rows), and the "N shown / Load more" footer.
+ * read error, its empty state, every row of the picked profiles stacked
+ * (the browser-level row always), a load-more failure (Retry asks for that
+ * page again and keeps the loaded rows), and the "N shown / Load more"
+ * footer.
  */
 function FieldsList({
   list,
   noun,
-  focus,
+  include,
   summarized,
   onSelect,
+  onClearFilters,
 }: {
   readonly list: PaginatedList<Finding> | RecoveredList<Finding>;
   readonly noun: "saved" | "recovered";
-  /** The picked row's key, or ALL_ROWS. */
-  readonly focus: string;
+  /** The profile pick: which rows the list shows. */
+  readonly include: (row: Finding) => boolean;
   /** Rows the panels above already show (their facts are not repeated). */
   readonly summarized: ReadonlySet<Finding>;
   readonly onSelect: (row: Finding) => void;
+  readonly onClearFilters: () => void;
 }) {
-  const shown = list.rows.flatMap((row, index) => {
-    const key = rowKey(row, index);
-    return focus === ALL_ROWS || focus === key ? [{ key, row }] : [];
-  });
+  const shown = list.rows.flatMap((row, index) =>
+    include(row) ? [{ key: rowKey(row, index), row }] : [],
+  );
   return (
     <ListBlock
       list={list}
       noun={{ one: `${noun} metadata row`, many: `${noun} metadata rows` }}
       shown={shown.length}
+      onClearFilters={onClearFilters}
       empty={
         <EmptyRows
           message={
@@ -630,40 +687,134 @@ function FieldsList({
   );
 }
 
-/** Picks one row of the active list to read on its own, or every row
- *  stacked ("All rows", the default). */
-function RowPicker({
-  rows,
-  value,
-  onChange,
+/* ------------------------- Profiles with no metadata ---------------------- */
+
+/** The profiles route and the Completeness Statement, read once for the
+ *  page: every profile the Case knows, and why one has no metadata row. */
+function useCaseProfileContext(): {
+  readonly profiles: readonly string[];
+  readonly completeness: CaseCompleteness | null;
+} | null {
+  const [context, setContext] = useState<{
+    readonly profiles: readonly string[];
+    readonly completeness: CaseCompleteness | null;
+  } | null>(null);
+  useEffect(() => {
+    let live = true;
+    Promise.all([
+      callApi<CaseProfiles>("profiles", []),
+      callApi<CaseCompleteness>("completeness", []),
+    ])
+      .then(([profiles, completeness]) => {
+        if (live) {
+          setContext({ profiles: profiles.profiles, completeness });
+        }
+      })
+      .catch(() => {
+        // Best effort: without it the panel lists the profiles the rows
+        // carry, as before.
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+  return context;
+}
+
+/** Why a profile has no profile-level metadata row, from the Completeness
+ *  Statement's Preferences entry for it (its outcome and reason). */
+function unreadReason(
+  profile: string,
+  completeness: CaseCompleteness | null,
+): {
+  readonly state: EvidenceState;
+  readonly word: string;
+  readonly reason: string;
+} {
+  const entry = completeness?.statements
+    .filter((statement) => statement.artifact === "Preferences")
+    .flatMap((statement) => statement.artifacts)
+    .find((database) => database.profile === profile);
+  if (entry === undefined) {
+    return {
+      state: "absent",
+      word: "not read",
+      reason: "No Preferences database was read for this profile.",
+    };
+  }
+  if (entry.outcome === "unavailable") {
+    return {
+      state: "unavailable",
+      word: "unreadable",
+      reason: entry.reason ?? "Preferences could not be read.",
+    };
+  }
+  if (entry.outcome === "absent") {
+    return {
+      state: "absent",
+      word: "not present",
+      reason: entry.reason ?? "No Preferences database in this profile.",
+    };
+  }
+  return {
+    state: "absent",
+    word: "no row",
+    reason: "Preferences was read, but holds no saved profile row.",
+  };
+}
+
+/**
+ * The profiles the Case knows that have no saved profile-level metadata
+ * row (a Guest profile whose databases were absent): each named as
+ * everywhere, with the worded state and the reason - so the panel counts
+ * every profile the coverage detail names, never fewer.
+ */
+function UnreadProfiles({
+  profiles,
+  completeness,
 }: {
-  readonly rows: readonly Finding[];
-  readonly value: string;
-  readonly onChange: (value: string) => void;
+  readonly profiles: readonly string[];
+  readonly completeness: CaseCompleteness | null;
 }) {
-  if (rows.length < 2) {
+  if (profiles.length === 0) {
     return null;
   }
   return (
-    <FilterField label="Show" htmlFor="metadata-row-picker">
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id="metadata-row-picker" />
-        <SelectContent>
-          <SelectItem index={0} value={ALL_ROWS}>
-            All rows
-          </SelectItem>
-          {rows.map((row, index) => (
-            <SelectItem
-              key={rowKey(row, index)}
-              index={index + 1}
-              value={rowKey(row, index)}
+    <ul className="flex flex-col border-t border-border px-4 py-2">
+      {profiles.map((profile) => {
+        const why = unreadReason(profile, completeness);
+        return (
+          <li
+            key={profile}
+            className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 py-1.5"
+          >
+            <span
+              className={cn(typeClass("body"), "text-foreground")}
+              style={{ fontVariationSettings: fontWeights.semibold }}
             >
-              {rowHeadline(row)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </FilterField>
+              {profileLabel(profile)}
+            </span>
+            <span
+              className={cn(
+                typeClass("caption"),
+                "inline-flex items-center gap-1.5 text-foreground",
+              )}
+            >
+              <EvidenceDot state={why.state} />
+              {why.word}
+            </span>
+            <span
+              className={cn(
+                typeClass("caption"),
+                "min-w-0 text-muted-foreground",
+              )}
+            >
+              {why.reason}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -686,15 +837,21 @@ function FiguresSkeleton() {
 
 export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
   const lists = useCommitStateLists<Finding>(config.route, METADATA_PARAMETERS);
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
-  // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
+  // Saved / Recovered, the open row and the Case-wide profile pick live in
+  // the URL: Back and a refresh keep them.
   const [view, setView] = useViewTab();
-  const [focus, setFocus] = useState<string>(ALL_ROWS);
+  const [profileFilter, setProfileFilter] = useViewProfiles();
+  const caseContext = useCaseProfileContext();
   const wide = useMediaQuery("(min-width: 768px)");
 
   const savedRows = lists.saved.rows;
   const recoveredRows = lists.recovered.rows;
+  const loadedRows = useMemo(
+    () => [...savedRows, ...recoveredRows],
+    [savedRows, recoveredRows],
+  );
+  const sheet = useRowSelection(loadedRows);
 
   const browser = useMemo(
     () =>
@@ -706,12 +863,53 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
     [savedRows],
   );
 
+  // The browser-level row belongs to no profile: the pick never hides it.
+  const include = useMemo(
+    () => (row: Finding) =>
+      row.findingKind === "browser_metadata" ||
+      profileFilter.length === 0 ||
+      profileFilter.includes(row.profile),
+    [profileFilter],
+  );
+
+  // Every profile the Case knows (the profiles route plus any the
+  // Completeness Statement names), and those with no saved profile row.
+  const knownProfiles = useMemo(() => {
+    const fromRows = loadedRows
+      .filter((row) => row.findingKind === "profile_metadata")
+      .map((row) => row.profile);
+    const known =
+      caseContext === null
+        ? fromRows
+        : caseProfilesOf(
+            [...caseContext.profiles, ...fromRows],
+            caseContext.completeness,
+          );
+    return [...new Set([...known, ...profileFilter])].sort();
+  }, [loadedRows, caseContext, profileFilter]);
+  const unread = useMemo(() => {
+    if (caseContext === null) {
+      return [];
+    }
+    const withRow = new Set(profiles.map((row) => row.profile));
+    return caseProfilesOf(caseContext.profiles, caseContext.completeness)
+      .filter(
+        (profile) =>
+          !withRow.has(profile) &&
+          (profileFilter.length === 0 || profileFilter.includes(profile)),
+      )
+      .sort();
+  }, [caseContext, profiles, profileFilter]);
+
   const visibleProfiles = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("en-US");
-    if (query === "") {
-      return profiles;
-    }
     return profiles.filter((row) => {
+      if (!include(row)) {
+        return false;
+      }
+      if (query === "") {
+        return true;
+      }
       const haystack = [
         profileLabel(row.profile),
         fieldString(row.fields.profileName) ?? "",
@@ -722,7 +920,7 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
         .toLocaleLowerCase("en-US");
       return haystack.includes(query);
     });
-  }, [profiles, search]);
+  }, [profiles, search, include]);
 
   // The saved rows the strip and the cards show: their facts are not
   // listed again under "Recorded fields".
@@ -732,21 +930,22 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
     [browser, profiles],
   );
 
-  const profilesFiltered = visibleProfiles.length !== profiles.length;
+  // Every profile the panel names: the cards and the unread ones.
+  const panelTotal =
+    caseContext === null
+      ? profiles.length
+      : new Set([
+          ...profiles.map((row) => row.profile),
+          ...caseProfilesOf(caseContext.profiles, caseContext.completeness),
+        ]).size;
+  const panelShown = visibleProfiles.length + unread.length;
+  const profilesFiltered = panelShown !== panelTotal;
   const columns = Math.max(1, Math.min(visibleProfiles.length, wide ? 2 : 1));
 
-  const select = useCallback((row: Finding) => {
-    setSelected({ kind: "finding", row });
-  }, []);
-
-  const activeRows = view === "saved" ? savedRows : recoveredRows;
-  // A picked row that is no longer in the active list (the other tab, or a
-  // retry that started the list over) falls back to every row.
-  const activeFocus = activeRows.some(
-    (row, index) => rowKey(row, index) === focus,
-  )
-    ? focus
-    : ALL_ROWS;
+  const clearProfiles = () => {
+    setSearch("");
+    updateView({ profiles: [] });
+  };
 
   const savedFirst = lists.saved.loading && savedRows.length === 0;
   const recoveredFirst = lists.recovered.loading && recoveredRows.length === 0;
@@ -785,8 +984,8 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
                   title="Profiles"
                   count={
                     profilesFiltered
-                      ? `${String(visibleProfiles.length)} of ${String(profiles.length)}`
-                      : profiles.length
+                      ? `${String(panelShown)} of ${String(panelTotal)}`
+                      : panelTotal
                   }
                   className="min-w-0"
                 >
@@ -802,11 +1001,11 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
                       />
                     </Toolbar>
                   ) : null}
-                  {visibleProfiles.length === 0 ? (
+                  {visibleProfiles.length === 0 && unread.length === 0 ? (
                     <EmptyRows
                       message={
                         profilesFiltered
-                          ? "No profiles match this search."
+                          ? "No profiles match this pick."
                           : "No saved profile-level metadata in this Case."
                       }
                       action={
@@ -814,27 +1013,33 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
                           <Button
                             variant="tertiary"
                             size="compact"
-                            onClick={() => {
-                              setSearch("");
-                            }}
+                            onClick={clearProfiles}
                           >
-                            Clear search
+                            Show every profile
                           </Button>
                         ) : undefined
                       }
                     />
                   ) : (
-                    <div className="border-t border-border p-1">
-                      <CardGroup columns={columns}>
-                        {visibleProfiles.map((row, index) => (
-                          <ProfileCard
-                            key={rowKey(row, index)}
-                            row={row}
-                            onSelect={select}
-                          />
-                        ))}
-                      </CardGroup>
-                    </div>
+                    <>
+                      {visibleProfiles.length === 0 ? null : (
+                        <div className="border-t border-border p-1">
+                          <CardGroup columns={columns}>
+                            {visibleProfiles.map((row, index) => (
+                              <ProfileCard
+                                key={rowKey(row, index)}
+                                row={row}
+                                onSelect={sheet.select}
+                              />
+                            ))}
+                          </CardGroup>
+                        </div>
+                      )}
+                      <UnreadProfiles
+                        profiles={unread}
+                        completeness={caseContext?.completeness ?? null}
+                      />
+                    </>
                   )}
                 </SectionPanel>
               </div>
@@ -844,10 +1049,7 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
           <SectionPanel id="metadata-fields" title="Recorded fields">
             <CommitStateSplit
               value={view}
-              onValueChange={(next) => {
-                setView(next);
-                setFocus(ALL_ROWS);
-              }}
+              onValueChange={setView}
               label="Saved or recovered metadata rows"
               savedCount={
                 savedFirst ||
@@ -864,28 +1066,38 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
               savedMore={lists.saved.cursor !== null}
               recoveredMore={lists.recovered.cursor !== null}
               toolbar={
-                <RowPicker
-                  rows={activeRows}
-                  value={activeFocus}
-                  onChange={setFocus}
-                />
+                knownProfiles.length > 1 ? (
+                  <FilterField
+                    label="Profiles"
+                    htmlFor="metadata-fields-profiles"
+                  >
+                    <ProfilePicker
+                      id="metadata-fields-profiles"
+                      profiles={knownProfiles}
+                      selected={profileFilter}
+                      onChange={setProfileFilter}
+                    />
+                  </FilterField>
+                ) : null
               }
               saved={
                 <FieldsList
                   list={lists.saved}
                   noun="saved"
-                  focus={activeFocus}
+                  include={include}
                   summarized={summarized}
-                  onSelect={select}
+                  onSelect={sheet.select}
+                  onClearFilters={clearProfiles}
                 />
               }
               recovered={
                 <FieldsList
                   list={lists.recovered}
                   noun="recovered"
-                  focus={activeFocus}
+                  include={include}
                   summarized={EMPTY_SET}
-                  onSelect={select}
+                  onSelect={sheet.select}
+                  onClearFilters={clearProfiles}
                 />
               }
             />
@@ -893,19 +1105,17 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
         </>
       )}
 
-      {selected !== null ? (
+      {sheet.selected === null ? null : (
         <RowSheet
-          selected={selected}
+          selected={sheet.selected}
           title={
-            selected.row.findingKind === "browser_metadata"
+            sheet.selected.row.findingKind === "browser_metadata"
               ? "Browser metadata"
-              : "Profile metadata"
+              : profileLabel(sheet.selected.row.profile)
           }
-          onClose={() => {
-            setSelected(null);
-          }}
+          onClose={sheet.close}
         />
-      ) : null}
+      )}
     </div>
   );
 }

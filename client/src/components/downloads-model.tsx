@@ -359,7 +359,12 @@ export interface DownloadRow {
   readonly path: string | null;
   readonly host: string | null;
   readonly sourceUrl: string | null;
-  readonly bytes: number | null;
+  /** Bytes Chrome recorded as received (`receivedBytes`): what reached
+   *  the disk. Every figure, bar and size reads this. */
+  readonly received: number | null;
+  /** The size Chrome expected (`totalBytes`), when it recorded one above
+   *  zero: shown beside the received bytes, never counted as received. */
+  readonly expected: number | null;
   readonly startUtc: string | null;
   readonly state: string | null;
   readonly kind: FileKind;
@@ -379,11 +384,17 @@ export function toRow(finding: Finding): DownloadRow {
     path,
     host: hostOf(sourceUrl),
     sourceUrl,
-    bytes: fieldInteger(finding.fields.totalBytes),
+    received: fieldInteger(finding.fields.receivedBytes),
+    expected: positive(fieldInteger(finding.fields.totalBytes)),
     startUtc: fieldUtc(finding.fields.startTime),
     state: fieldText(finding.fields.state),
     kind: kindOf(mime, name),
   };
+}
+
+/** Chrome writes an unknown total as 0 (or -1): no expected size. */
+function positive(value: number | null): number | null {
+  return value !== null && value > 0 ? value : null;
 }
 
 /** How a recorded `state` value reads, plain-worded. Unknown values pass
@@ -422,7 +433,10 @@ export function compareRows(
     case "file":
       return (a.name ?? "\uffff").localeCompare(b.name ?? "\uffff", "en-US");
     case "size":
-      return (a.bytes ?? -1) - (b.bytes ?? -1);
+      // The size a row shows: received bytes, else the expected size.
+      return (
+        (a.received ?? a.expected ?? -1) - (b.received ?? b.expected ?? -1)
+      );
     case "source":
       return (a.host ?? "\uffff").localeCompare(b.host ?? "\uffff", "en-US");
     case "started":

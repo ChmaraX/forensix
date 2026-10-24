@@ -12,10 +12,12 @@
  * its header; `CommitStateSplit` keeping saved and recovered (WAL / journal)
  * events in two lists (forensic rule 4) — the timeline route has no Commit
  * State filter, so the loaded stream is split with `splitByCommit`, and each
- * list stays in time order; in its toolbar, the event types as FF
- * TabsSubtle chips with their counts in the list on show ("All events 65 ·
- * Page visit 24 · …"), which give the mix at a glance and filter with one
- * click; `ResponsiveRows` (a table from `sm`, stacked cards below) with each
+ * list stays in time order; in its toolbar, the event types as page-kit
+ * `CountChips` with their counts in the list on show ("All 65 · Page visit
+ * 24 · …"), which give the mix at a glance and filter with one click. The
+ * counts are of the events loaded so far: while the stream has more pages
+ * the first chip reads "All loaded", so "Page visit 16" never passes for
+ * the Case's total; `ResponsiveRows` (a table from `sm`, stacked cards below) with each
  * row opening the sheet; the shared loading, error, empty and footer chrome.
  *
  * Presentation rules kept from the evidence tables: states are worded, never
@@ -26,6 +28,7 @@ import { useMemo, useState } from "react";
 
 import { useViewTab } from "../view-state.js";
 
+import { rowRefOf } from "../router.js";
 import type { Finding } from "../types.js";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -44,6 +47,7 @@ import {
   isCodeLike,
   StateWord,
 } from "./finding-fields.js";
+import { fileNameOf } from "./downloads-model.js";
 import { formFieldLabel } from "./form-data.js";
 import { SecretValueCell, secretFieldsOf } from "./row-sheet.js";
 import { ListBlock, type ListSource } from "./list-states.js";
@@ -118,6 +122,29 @@ export function timelineEventLabel(kind: string): string {
   return EVENT_META[kind]?.label ?? kind;
 }
 
+/**
+ * The row sheet's title: the name the row records - a visit's page title,
+ * a download's file name, a cookie's name, a form entry's field label -
+ * else the worded event kind (the sheet then names the kind once).
+ */
+export function timelineRowTitle(row: Finding): string {
+  const text = (name: string) => {
+    const value = fieldText(row.fields[name]);
+    return value === null || value.trim() === "" ? null : value;
+  };
+  const named =
+    row.findingKind === "history_visit"
+      ? text("title")
+      : row.findingKind === "download"
+        ? fileNameOf(text("targetPath"))
+        : row.findingKind === "cookie"
+          ? text("name")
+          : row.findingKind === "autofill_entry" && text("fieldName") !== null
+            ? formFieldLabel(text("fieldName"))
+            : null;
+  return named ?? timelineEventLabel(row.findingKind);
+}
+
 /** Event-type chip order: the four known kinds. */
 const FILTER_KINDS = [
   "history_visit",
@@ -183,16 +210,24 @@ function Details({
       : meta.secondary;
   // A form entry is named by the shared field-name label (the Form data
   // page's rule), never its raw type in mono; the sheet keeps the raw name.
+  // A download reads by its file name, as the Downloads table does; the
+  // full path is its tooltip and stays whole in the sheet.
+  const path =
+    row.findingKind === "download" && headline === "targetPath"
+      ? fieldText(row.fields.targetPath)
+      : null;
   const fieldLabel =
     row.findingKind === "autofill_entry" && headline === "fieldName"
       ? formFieldLabel(fieldText(row.fields.fieldName))
-      : null;
+      : path === null
+        ? null
+        : fileNameOf(path);
   return (
     <span className="flex min-w-0 flex-col">
       {fieldLabel !== null ? (
         <span
           className={cn(size.type.body, "block truncate text-foreground")}
-          title={fieldLabel}
+          title={path ?? fieldLabel}
         >
           {fieldLabel}
         </span>
@@ -271,6 +306,16 @@ function recordColumns(
   return columns;
 }
 
+/** An event's stable key: its row reference (the stream merges four
+ *  artifacts, each reference names its own file and table). */
+function recordKey(row: Finding, index: number): string {
+  return rowRefOf(row) ?? `${row.commitState}-${String(index)}`;
+}
+
+function recordLabel(row: Finding): string {
+  return `Open ${timelineEventLabel(row.findingKind)} row detail`;
+}
+
 function RecordTable({
   rows,
   recovered,
@@ -290,10 +335,8 @@ function RecordTable({
     <ResponsiveRows
       rows={rows}
       columns={columns}
-      rowKey={(row, index) => `${row.commitState}-${String(index)}`}
-      rowLabel={(row) =>
-        `Open ${timelineEventLabel(row.findingKind)} row detail`
-      }
+      rowKey={recordKey}
+      rowLabel={recordLabel}
       onSelect={onSelect}
       tableClassName="min-w-[640px]"
     />
@@ -302,17 +345,20 @@ function RecordTable({
 
 /** The event-type chips (page-kit `CountChips`): "All" or one kind, each
  *  with its count in the list on show. A kind with no event there sits out
- *  unless it is the pick. */
+ *  unless it is the pick. While the stream has more pages (`partial`) the
+ *  counts are of loaded events, and the first chip says so: "All loaded". */
 function KindChips({
   counts,
   total,
   active,
   onChange,
+  partial,
 }: {
   readonly counts: ReadonlyMap<string, number>;
   readonly total: number;
   readonly active: string | null;
   readonly onChange: (kind: string | null) => void;
+  readonly partial: boolean;
 }) {
   const chips = FILTER_KINDS.filter(
     (kind) => (counts.get(kind) ?? 0) > 0 || kind === active,
@@ -329,7 +375,8 @@ function KindChips({
   }
   return (
     <CountChips
-      label="Event type"
+      label={partial ? "Event type, counts of loaded events" : "Event type"}
+      allLabel={partial ? "All loaded" : "All"}
       total={total}
       chips={chips}
       active={active}
@@ -365,6 +412,7 @@ export function TimelineRecordsCard({
   direction,
   onDirectionChange,
   rangeActive,
+  rangeWords = null,
   onClearRange,
 }: {
   readonly rows: readonly Finding[];
@@ -377,6 +425,9 @@ export function TimelineRecordsCard({
   readonly direction: TimelineDirection;
   readonly onDirectionChange: (direction: TimelineDirection) => void;
   readonly rangeActive: boolean;
+  /** The range in words ("on 12 Mar 2024", "in 11 - 14 Mar"), for an
+   *  empty list. */
+  readonly rangeWords?: string | null;
   readonly onClearRange: () => void;
 }) {
   const [kindFilter, setKindFilter] = useState<string | null>(null);
@@ -428,9 +479,15 @@ export function TimelineRecordsCard({
         noun={noun}
         shown={visible.length}
         filtered={kindFilter !== null || rangeActive}
-        filteredMessage={`No loaded ${noun.many} match ${
-          kindFilter === null ? "the selected days" : "this event type"
-        }.${more}`}
+        filteredMessage={
+          kindFilter !== null
+            ? `No loaded ${noun.many} match this event type.${more}`
+            : // The days are a server filter: with the stream read to its
+              // end, "none on 2 Mar" is the whole answer.
+              `No ${cursor === null ? "" : "loaded "}${noun.many} ${
+                rangeWords ?? "in the selected days"
+              }.${more}`
+        }
         onClearFilters={() => {
           setKindFilter(null);
           onClearRange();
@@ -497,6 +554,7 @@ export function TimelineRecordsCard({
               total={inView.length}
               active={kindFilter}
               onChange={setKindFilter}
+              partial={cursor !== null}
             />
             {anySecret ? (
               <Switch

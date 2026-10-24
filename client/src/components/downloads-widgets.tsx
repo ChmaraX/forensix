@@ -68,8 +68,9 @@ export interface VolumeDay {
 }
 
 /**
- * Downloads over time. Bars show bytes transferred per recorded Case day —
- * a discrete reading of when data actually left the machine — on the shared
+ * Downloads over time. Bars show the bytes Chrome recorded as received per
+ * Case day the download started on (`receivedBytes`, never the expected
+ * `totalBytes`: an interrupted transfer counts what arrived) on the shared
  * `DayBars` (one per-day chart everywhere: click, tap, drag or the keyboard
  * picks the page's range). Days with no downloads are filled with zero
  * (drawn as nothing) so the axis is continuous calendar time, never
@@ -94,7 +95,7 @@ export function VolumeChart({
       rows,
       (row) => row.startUtc,
       timeZone,
-      (row) => row.bytes ?? 0,
+      (row) => row.received ?? 0,
     ).map(({ date, count, weight }) => ({ date, bytes: weight, count }));
     const first = recorded[0];
     const last = recorded[recorded.length - 1];
@@ -127,7 +128,7 @@ export function VolumeChart({
         days={days}
         value={bytesOf}
         tokens={tokens}
-        title="Bytes downloaded per day"
+        title="Bytes received per day"
         formatValue={formatBytes}
         axis={{
           width: 56,
@@ -140,10 +141,7 @@ export function VolumeChart({
         emptyMessage="No dated downloads to draw."
         tooltip={(day, note) => (
           <>
-            <ChartTooltipValue
-              value={formatBytes(day.bytes)}
-              unit="downloaded"
-            />
+            <ChartTooltipValue value={formatBytes(day.bytes)} unit="received" />
             <ChartTooltipNote>
               {plural(day.count, "file", "files")}
               {note === null ? "" : ` · ${note.toLowerCase()}`}
@@ -162,7 +160,8 @@ function bytesOf(day: VolumeDay): number {
 /**
  * File-kind breakdown. One row per kind that appears, ordered investigative
  * first (executables, archives), each with a bar sized to the busiest kind by
- * bytes and, at the row's end, its file count and total size - size last
+ * received bytes and, at the row's end, its file count and the bytes
+ * received - size last
  * and in the foreground, since the bar measures bytes. This is the lens an
  * examiner actually scans a downloads set through - "did anything
  * executable land here" - that the raw table alone buries. Picking a kind
@@ -175,10 +174,13 @@ export function KindBreakdown({
   rows,
   activeKind,
   onKind,
+  emptyMessage = "No saved downloads to classify.",
 }: {
   readonly rows: readonly DownloadRow[];
   readonly activeKind: FileKind | null;
   readonly onKind: (kind: FileKind | null) => void;
+  /** Words when no row is in scope (the range's days, say). */
+  readonly emptyMessage?: string;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const hover = useFluidHover(listRef, { axis: "y" });
@@ -188,7 +190,7 @@ export function KindBreakdown({
     for (const row of rows) {
       const entry = map.get(row.kind) ?? { count: 0, bytes: 0 };
       entry.count += 1;
-      entry.bytes += row.bytes ?? 0;
+      entry.bytes += row.received ?? 0;
       map.set(row.kind, entry);
     }
     return KIND_ORDER.flatMap((kind) => {
@@ -203,7 +205,7 @@ export function KindBreakdown({
   const peak = Math.max(...kinds.map((entry) => entry.bytes), 1);
 
   if (kinds.length === 0) {
-    return <EmptyRows message="No downloads to classify." />;
+    return <EmptyRows message={emptyMessage} />;
   }
 
   return (
@@ -261,7 +263,7 @@ function KindRow({
         ref={ref}
         type="button"
         aria-pressed={active}
-        aria-label={`${meta.label}: ${formatBytes(bytes)}, ${plural(count, "file", "files")}. ${
+        aria-label={`${meta.label}: ${formatBytes(bytes)} received, ${plural(count, "file", "files")}. ${
           active
             ? "Press to show every file kind"
             : "Press to focus the table on this kind"

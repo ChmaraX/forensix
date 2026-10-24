@@ -4,19 +4,49 @@
  * value: every figure is a recorded field or a count of recorded rows.
  */
 import { callApi } from "@/api";
+import { ARTIFACTS } from "@/artifacts";
+import { caseSiteHosts } from "@/case-reads";
 import { formatDay } from "@/components/page-kit";
 import { caseActivity, type ActivityBucket } from "@/components/activity-data";
 import { dayRangeParameters, localDayOf } from "@/components/day-bounds";
 import { fetchSiteFavicons } from "@/components/site-favicons";
 import { fieldString, fieldUtc } from "@/components/finding-fields";
-import type { CaseProfiles, FieldState, Finding, PageOf } from "@/types";
+import { siteKeyOf } from "@/related";
+import { EVIDENCE_ORDER } from "@/router";
+import type {
+  CaseCompleteness,
+  CaseProfiles,
+  FieldState,
+  Finding,
+  PageOf,
+} from "@/types";
 
 export { fieldString };
 
+/**
+ * One Most visited sites row: a host as the Sites page keys it
+ * (`siteKeyOf`: lower case, no `www.`) and its saved visit rows - the same
+ * measure, and the same number, Sites prints beside the host ("4 visits").
+ * Never Chrome's own per-URL `visit_count`, which Sites does not show.
+ */
 export interface TopSite {
-  readonly url: string;
-  readonly title: string;
+  readonly host: string;
   readonly count: number;
+}
+
+/** Hosts the Most visited sites panel lists. */
+export const MOST_VISITED = 6;
+
+/** Ranks hosts by saved visits (ties by name, so the order is stable). */
+function topHosts(counts: ReadonlyMap<string, number>): readonly TopSite[] {
+  return [...counts.entries()]
+    .filter(([, count]) => count > 0)
+    .map(([host, count]) => ({ host, count }))
+    .sort(
+      (left, right) =>
+        right.count - left.count || (left.host < right.host ? -1 : 1),
+    )
+    .slice(0, MOST_VISITED);
 }
 
 export interface OverviewData {
@@ -43,7 +73,14 @@ export interface OverviewData {
     readonly last: string | null;
   };
   readonly mostVisited: readonly TopSite[];
+  /** False when the host list stopped at its page cap, so a busier host
+   *  may be missing from Most visited sites. */
+  readonly mostVisitedComplete: boolean;
   readonly profiles: readonly string[];
+  /** The Case's Completeness Statement: which databases were read, per
+   *  profile - the Profiles figure's detail and the Recovered panel's
+   *  per-artifact note. */
+  readonly completeness: CaseCompleteness;
   readonly metadata: readonly Finding[];
   /** The newest saved downloads (up to `RECENT_DOWNLOADS`). */
   readonly downloads: readonly Finding[];
@@ -129,12 +166,13 @@ export function dayInRange(
 const RANGE_VISIT_PAGES = 10;
 
 /**
- * Most visited sites within a date range: the `most-visited` view is a
- * whole-Case summary, so a narrowed range reads the saved visits in it
- * (`from` / `to` in the declared timezone, followed page by page up to
- * `RANGE_VISIT_PAGES`) and counts them per URL. `complete` is false when the
- * read stopped at that cap; a failed read rejects (the panel shows it, never
- * "no visits").
+ * Most visited sites within a date range. Sites' per-host counts cover the
+ * whole Case, so a narrowed range reads the saved visits in it (`from` /
+ * `to` in the declared timezone, page by page up to `RANGE_VISIT_PAGES`)
+ * and counts them per host as Sites keys it - one visit row, one count,
+ * the measure Sites uses. `complete` is false when the read stopped at that
+ * cap; a failed read rejects (the panel shows it, never "no visits"). The
+ * ranged hosts' recovered favicons are read alongside.
  */
 export async function loadMostVisitedIn(
   range: { readonly from: string; readonly to: string },
@@ -142,6 +180,7 @@ export async function loadMostVisitedIn(
 ): Promise<{
   readonly sites: readonly TopSite[];
   readonly complete: boolean;
+  readonly favicons: ReadonlyMap<string, string | null>;
 }> {
   const parameters: (readonly [string, string])[] = [
     ["view", "visits"],
@@ -149,7 +188,7 @@ export async function loadMostVisitedIn(
     ["limit", String(PAGE_LIMIT)],
     ...dayRangeParameters(range, timeZone),
   ];
-  const byUrl = new Map<string, { title: string; count: number }>();
+  const byHost = new Map<string, number>();
   let cursor: string | null = null;
   for (let page = 0; page < RANGE_VISIT_PAGES; page += 1) {
     const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
@@ -157,27 +196,19 @@ export async function loadMostVisitedIn(
       cursor === null ? parameters : [...parameters, ["after", cursor]],
     );
     for (const row of result.items) {
-      const url = fieldString(row.fields.url);
-      if (url === null) {
-        continue;
+      const host = siteKeyOf(fieldString(row.fields.url));
+      if (host !== null) {
+        byHost.set(host, (byHost.get(host) ?? 0) + 1);
       }
-      const entry = byUrl.get(url) ?? {
-        title: fieldString(row.fields.title) ?? "",
-        count: 0,
-      };
-      entry.count += 1;
-      byUrl.set(url, entry);
     }
     cursor = result.nextCursor;
     if (cursor === null) {
       break;
     }
   }
-  const sites = [...byUrl.entries()]
-    .map(([url, entry]) => ({ url, title: entry.title, count: entry.count }))
-    .sort((left, right) => right.count - left.count)
-    .slice(0, 6);
-  return { sites, complete: cursor === null };
+  const sites = topHosts(byHost);
+  const favicons = await fetchSiteFavicons(sites.map((site) => site.host));
+  return { sites, complete: cursor === null, favicons };
 }
 
 /** Pages of saved downloads read for a narrowed Recent downloads (2,000). */
@@ -237,23 +268,20 @@ export async function loadOverview(): Promise<OverviewData> {
   const [
     { saved: activity, recovered, complete: activityComplete, timeZone },
     recordedSpan,
-    mostVisitedPage,
+    siteHosts,
     caseProfiles,
+    completeness,
     metadataPage,
     downloadsPage,
   ] = await Promise.all([
     caseActivity(),
     fetchRecordedSpan(),
-    callApi<PageOf<Finding>>("history", [
-      ["view", "most-visited"],
-      // Saved rows only: a leaderboard never silently sums saved and
-      // recovered (WAL / journal) visits; the panel says "saved visits".
-      ["commit-state", "committed"],
-      ["sort", "visit-count"],
-      ["direction", "desc"],
-      ["limit", "6"],
-    ]),
+    // The Sites host list (read once per session, shared with ⌘K): each
+    // host's saved visit rows rank Most visited sites, so the panel and
+    // Sites print the same number for the same host.
+    caseSiteHosts(),
     callApi<CaseProfiles>("profiles", []),
+    callApi<CaseCompleteness>("completeness", []),
     callApi<PageOf<Finding>>("metadata", [
       ["sort", "type"],
       ["direction", "asc"],
@@ -270,17 +298,15 @@ export async function loadOverview(): Promise<OverviewData> {
     ]),
   ]);
 
-  const mostVisited = mostVisitedPage.items
-    .map((row) => ({
-      url: fieldString(row.fields.url) ?? "",
-      title: fieldString(row.fields.title) ?? "",
-      count: Number(fieldString(row.fields.supportingVisitCount) ?? "0"),
-    }))
-    .filter((site) => site.url.length > 0);
+  const mostVisited = topHosts(
+    new Map(
+      siteHosts.hosts.map((host) => [host.host, host.savedCounts.visits]),
+    ),
+  );
 
-  const favicons = await fetchSiteFavicons([
-    ...new Set(mostVisited.map((site) => domainOf(site.url))),
-  ]);
+  const favicons = await fetchSiteFavicons(
+    mostVisited.map((site) => site.host),
+  );
 
   return {
     activity,
@@ -289,19 +315,127 @@ export async function loadOverview(): Promise<OverviewData> {
     timeZone,
     recordedSpan,
     mostVisited,
+    mostVisitedComplete: siteHosts.complete,
     profiles: caseProfiles.profiles,
+    completeness,
     metadata: metadataPage.items,
     favicons,
     downloads: downloadsPage.items,
   };
 }
 
-export function domainOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
+/* -------------------------------- recovered ------------------------------- */
+
+/** One evidence page's recovered rows: write-ahead-log rows (unsaved) and
+ *  rollback-journal rows (overwritten), counted apart. */
+export interface RecoveredCount {
+  /** The page (`ArtifactConfig.key`) whose Recovered tab lists them. */
+  readonly page: string;
+  readonly label: string;
+  /** The Completeness artifact, for the page's coverage. */
+  readonly artifact: string;
+  readonly wal: number;
+  readonly journal: number;
+  /** A read stopped at its cap: the counts are lower bounds ("1,000+"). */
+  readonly more: boolean;
+}
+
+/** Pages read per Commit State per artifact (1,000 rows). */
+const RECOVERED_PAGES = 10;
+/** Pages of Cache's mixed list read (2,000 rows; its route cannot filter by
+ *  Commit State, so the recovered rows are counted out of it). */
+const RECOVERED_CACHE_PAGES = 20;
+
+/** Rows of one route page by page, up to `pages`, each handed to `visit`;
+ *  true when the cap stopped the read before the list ran out. */
+async function readPages(
+  route: string,
+  parameters: readonly (readonly [string, string])[],
+  pages: number,
+  visit: (rows: readonly Finding[]) => void,
+): Promise<boolean> {
+  let cursor: string | null = null;
+  for (let page = 0; page < pages; page += 1) {
+    const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
+      route,
+      cursor === null ? parameters : [...parameters, ["after", cursor]],
+    );
+    visit(result.items);
+    cursor = result.nextCursor;
+    if (cursor === null) {
+      return false;
+    }
   }
+  return true;
+}
+
+async function countRecovered(page: string): Promise<RecoveredCount | null> {
+  const config = ARTIFACTS.find((artifact) => artifact.key === page);
+  if (config === undefined) {
+    return null;
+  }
+  const base: (readonly [string, string])[] = [
+    ...(page === "history" ? [["view", "visits"] as const] : []),
+    ["limit", String(PAGE_LIMIT)],
+  ];
+  let wal = 0;
+  let journal = 0;
+  let more: boolean;
+  if (config.combinedFindingList === true) {
+    more = await readPages(
+      config.route,
+      base,
+      RECOVERED_CACHE_PAGES,
+      (rows) => {
+        for (const row of rows) {
+          if (row.commitState === "wal_resident") {
+            wal += 1;
+          } else if (row.commitState === "journal_resident") {
+            journal += 1;
+          }
+        }
+      },
+    );
+  } else {
+    const [walMore, journalMore] = await Promise.all([
+      readPages(
+        config.route,
+        [...base, ["commit-state", "wal_resident"]],
+        RECOVERED_PAGES,
+        (rows) => {
+          wal += rows.length;
+        },
+      ),
+      readPages(
+        config.route,
+        [...base, ["commit-state", "journal_resident"]],
+        RECOVERED_PAGES,
+        (rows) => {
+          journal += rows.length;
+        },
+      ),
+    ]);
+    more = walMore || journalMore;
+  }
+  return {
+    page,
+    label: config.label,
+    artifact: config.completenessArtifact,
+    wal,
+    journal,
+    more,
+  };
+}
+
+/**
+ * Recovered rows per evidence page, in the sidebar's order: the rows each
+ * page's Recovered tab lists, whole Case (every day, every profile). Counted
+ * per Commit State and never summed into a figure. A failed read rejects:
+ * the panel says so rather than show a short count.
+ */
+export async function loadRecovered(): Promise<readonly RecoveredCount[]> {
+  const counts = await Promise.all(EVIDENCE_ORDER.map(countRecovered));
+  return counts.filter((count): count is RecoveredCount => count !== null);
 }
 
 /** "4 Mar 2024" (UTC) — the shared page-kit day label. */
@@ -330,16 +464,4 @@ export function shiftDay(date: string, days: number): string {
   }
   parsed.setUTCDate(parsed.getUTCDate() + days);
   return parsed.toISOString().slice(0, 10);
-}
-
-/** The last path segment of a target-path Field's recorded value — the plain
- *  filename an examiner scans for, never a rewrite of the value itself: the
- *  full path stays reachable on the Downloads page, byte-for-byte. */
-export function downloadFileName(field: FieldState | undefined): string | null {
-  const text = fieldString(field);
-  if (text === null || text.length === 0) {
-    return null;
-  }
-  const segments = text.split(/[/\\]/).filter((segment) => segment.length > 0);
-  return segments[segments.length - 1] ?? null;
 }

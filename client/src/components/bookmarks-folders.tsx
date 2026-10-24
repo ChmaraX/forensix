@@ -7,6 +7,12 @@
 import { motion } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
   useFluidHover,
@@ -23,6 +29,7 @@ import { typeClass, useSize } from "@/lib/size-context";
 import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 import { ChartEmpty } from "./charts.js";
+import { FilterField } from "./filters.js";
 import { plural, SectionPanel, WeightLabel } from "./page-kit.js";
 import type { BookmarkRow } from "./bookmarks-page.js";
 
@@ -290,16 +297,31 @@ export function FolderNavigator({
   readonly onPick: (path: string | null) => void;
 }) {
   const { roots, unfiled } = useMemo(() => buildFolderTree(rows), [rows]);
-  const [open, setOpen] = useState<ReadonlySet<string>>(
-    () => new Set(roots.map((node) => node.path)),
-  );
+  // Top-level folders start open, deeper ones closed; `toggled` holds the
+  // folders the examiner flipped from that default. Kept as the flips (not
+  // the open set) so a tree rebuilt for another profile pick opens its own
+  // top-level folders too.
+  const [toggled, setToggled] = useState<ReadonlySet<string>>(() => new Set());
+  const open = useMemo(() => {
+    const result = new Set<string>();
+    const walk = (nodes: readonly FolderNode[]) => {
+      for (const node of nodes) {
+        if ((node.depth === 0) !== toggled.has(node.path)) {
+          result.add(node.path);
+        }
+        walk(node.children);
+      }
+    };
+    walk(roots);
+    return result;
+  }, [roots, toggled]);
   const flat = useMemo(() => visibleFolders(roots, open), [roots, open]);
   const listRef = useRef<HTMLDivElement>(null);
   const hover = useFluidHover(listRef, { axis: "y" });
   const shape = useShape();
 
   const toggle = useCallback((path: string) => {
-    setOpen((current) => {
+    setToggled((current) => {
       const next = new Set(current);
       if (next.has(path)) {
         next.delete(path);
@@ -373,5 +395,71 @@ export function FolderNavigator({
         </p>
       ) : null}
     </SectionPanel>
+  );
+}
+
+/** "All bookmarks" as a Select value (no folder path starts with NUL). */
+const ALL_FOLDERS = "\u0000all";
+
+/**
+ * The navigator's pick for a narrow screen: one Select in the list's
+ * toolbar - "All bookmarks", then every folder in tree order by its whole
+ * path, with its count - so on a phone the rows are not pushed below a
+ * folder tree. Same counts and same rule (a folder keeps everything nested
+ * beneath it) as `FolderNavigator`.
+ */
+export function FolderSelect({
+  rows,
+  activePath,
+  onPick,
+}: {
+  readonly rows: readonly BookmarkRow[];
+  readonly activePath: string | null;
+  readonly onPick: (path: string | null) => void;
+}) {
+  const { roots } = useMemo(() => buildFolderTree(rows), [rows]);
+  const everyFolder = useMemo(() => {
+    const out: FolderNode[] = [];
+    const walk = (nodes: readonly FolderNode[]) => {
+      for (const node of nodes) {
+        out.push(node);
+        walk(node.children);
+      }
+    };
+    walk(roots);
+    return out;
+  }, [roots]);
+  if (everyFolder.length === 0) {
+    return null;
+  }
+  return (
+    <FilterField label="Folder" htmlFor="bookmarks-folder">
+      <Select
+        value={activePath ?? ALL_FOLDERS}
+        onValueChange={(path) => {
+          onPick(path === ALL_FOLDERS ? null : path);
+        }}
+      >
+        <SelectTrigger id="bookmarks-folder" />
+        <SelectContent>
+          <SelectItem index={0} value={ALL_FOLDERS}>
+            All bookmarks{" "}
+            <span className="text-muted-foreground tabular-nums">
+              {rows.length.toLocaleString("en-US")}
+            </span>
+          </SelectItem>
+          {everyFolder.map((node, index) => (
+            <SelectItem key={node.path} index={index + 1} value={node.path}>
+              {/* The whole path, so the closed Select still says where a
+                  nested folder sits (and two "Work" folders differ). */}
+              {node.path}{" "}
+              <span className="text-muted-foreground tabular-nums">
+                {node.total.toLocaleString("en-US")}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FilterField>
   );
 }
