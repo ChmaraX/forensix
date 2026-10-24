@@ -51,6 +51,7 @@ import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { FieldState, Finding } from "../types.js";
+import { focusTabWithoutRing } from "./pointer-focus.js";
 import { Term, TermTooltip } from "./term.js";
 import { SERIES } from "./charts.js";
 import {
@@ -435,6 +436,32 @@ export function SectionPanel({
   );
 }
 
+/**
+ * The TYPE column's cell, one style on every table: a bare muted icon, then
+ * the worded type in the cell's own color (no tinted tile - the row's
+ * avatar is the only tile in it).
+ */
+export function TypeLabel({
+  icon: Icon,
+  label,
+}: {
+  readonly icon: AppIcon;
+  readonly label: string;
+}) {
+  const size = useSize();
+  return (
+    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+      <Icon
+        aria-hidden="true"
+        size={size.icon}
+        strokeWidth={1.5}
+        className="shrink-0 text-muted-foreground"
+      />
+      {label}
+    </span>
+  );
+}
+
 /** A 32px tinted tile holding one muted icon (FF's CardMedia treatment). */
 export function IconTile({
   icon: Icon,
@@ -669,10 +696,15 @@ function CommitStateTabs({
       className={className}
     >
       <TabsList aria-label={label}>
-        <TabItem value="saved" label={countLabel("Saved", saved, savedMore)} />
+        <TabItem
+          value="saved"
+          label={countLabel("Saved", saved, savedMore)}
+          onMouseDown={focusTabWithoutRing}
+        />
         <RecoveredTabItem
           value="recovered"
           label={countLabel("Recovered", recovered, recoveredMore)}
+          onMouseDown={focusTabWithoutRing}
         />
       </TabsList>
     </Tabs>
@@ -812,10 +844,7 @@ function StackedSplit({
               className={cn(typeClass("body"), "text-foreground")}
               style={{ fontVariationSettings: fontWeights.semibold }}
             >
-              <Term label="Recovered">
-                Rows read from the write-ahead log or rollback journal: not part
-                of the saved database.
-              </Term>
+              <Term label="Recovered">{RECOVERED_NOTE}</Term>
             </Heading>
             <Count>
               {recoveredCount.toLocaleString("en-US")}

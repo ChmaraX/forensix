@@ -42,6 +42,7 @@ import {
   isCodeLike,
   StateWord,
 } from "./finding-fields.js";
+import { formFieldLabel } from "./form-data.js";
 import { SecretValueCell, secretFieldsOf } from "./row-sheet.js";
 import { ListBlock, type ListSource } from "./list-states.js";
 import {
@@ -51,6 +52,7 @@ import {
   SectionPanel,
   splitByCommit,
   TimeCell,
+  TypeLabel,
   type CommitView,
   type CountChip,
   type RowColumn,
@@ -125,18 +127,11 @@ const FILTER_KINDS = [
 
 function EventType({ kind }: { readonly kind: string }) {
   const meta = EVENT_META[kind];
-  const Icon = meta?.icon ?? ARTIFACT_ICONS.timeline;
-  const size = useSize();
   return (
-    <span className="inline-flex items-center gap-2.5 whitespace-nowrap text-foreground">
-      <span
-        aria-hidden="true"
-        className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-hover text-muted-foreground"
-      >
-        <Icon size={size.icon} strokeWidth={1.5} />
-      </span>
-      {meta?.label ?? kind}
-    </span>
+    <TypeLabel
+      icon={meta?.icon ?? ARTIFACT_ICONS.timeline}
+      label={meta?.label ?? kind}
+    />
   );
 }
 
@@ -145,9 +140,8 @@ function asText(value: unknown): string {
 }
 
 /** Fields that are always code-like: URLs, paths and cookie names. Any
- *  other value is monospace only when it reads as code (`isCodeLike`, e.g.
- *  a raw field type such as NAME_FULL); names, hosts and typed text stay
- *  proportional. */
+ *  other value is monospace only when it reads as code (`isCodeLike`);
+ *  names, hosts, field labels and typed text stay proportional. */
 const MONO_FIELDS: ReadonlySet<string> = new Set([
   "url",
   "tabUrl",
@@ -186,9 +180,22 @@ function Details({
     primaryRecorded || !hasValue(row, meta.secondary)
       ? meta.primary
       : meta.secondary;
+  // A form entry is named by the shared field-name label (the Form data
+  // page's rule), never its raw type in mono; the sheet keeps the raw name.
+  const fieldLabel =
+    row.findingKind === "autofill_entry" && headline === "fieldName"
+      ? formFieldLabel(fieldText(row.fields.fieldName))
+      : null;
   return (
     <span className="flex min-w-0 flex-col">
-      {hidden(headline) ? (
+      {fieldLabel !== null ? (
+        <span
+          className={cn(size.type.body, "block truncate text-foreground")}
+          title={fieldLabel}
+        >
+          {fieldLabel}
+        </span>
+      ) : hidden(headline) ? (
         <SecretValueCell field={row.fields[headline]} reveal={false} />
       ) : (
         <FieldCell
@@ -225,7 +232,9 @@ function recordColumns(
     {
       key: "type",
       header: "Type",
-      className: "whitespace-nowrap",
+      // Fixed widths on the short columns: Details takes the rest, so a
+      // range or an event-type pick never shifts the columns.
+      className: "w-[168px] whitespace-nowrap",
       stack: "lead",
       cell: (row) => <EventType kind={row.findingKind} />,
       stackedCell: (row) => timelineEventLabel(row.findingKind),
@@ -233,7 +242,7 @@ function recordColumns(
     {
       key: "time",
       header: "Time (UTC)",
-      className: "whitespace-nowrap",
+      className: "w-[184px] whitespace-nowrap",
       stack: recovered ? "meta" : "aside",
       cell: (row) => (
         <TimeCell
@@ -253,7 +262,7 @@ function recordColumns(
     columns.push({
       key: "state",
       header: "State",
-      className: "whitespace-nowrap",
+      className: "w-[184px] whitespace-nowrap",
       stack: "aside",
       cell: (row) => <StateWord state={row.commitState} />,
     });
@@ -313,6 +322,10 @@ function KindChips({
       count: counts.get(kind) ?? 0,
     }),
   );
+  // One event type on show: "All 2 · Page visit 2" would filter nothing.
+  if (chips.length < 2 && active === null) {
+    return null;
+  }
   return (
     <CountChips
       label="Event type"
@@ -370,13 +383,19 @@ export function TimelineRecordsCard({
   const [reveal, setReveal] = useState(false);
   // "Show values" appears once a loaded row holds a secret (a Payment form
   // value); Payment values stay hidden until it is on.
-  const anySecret = useMemo(
+  const loadedSecret = useMemo(
     () =>
       rows.some(
         (row) => row.findingKind !== "cookie" && secretFieldsOf(row).length > 0,
       ),
     [rows],
   );
+  // Once shown, the switch keeps its slot: a range without a Payment row
+  // must not pull it out of the toolbar (and reflow the chips beside it).
+  const [anySecret, setAnySecret] = useState(false);
+  if (loadedSecret && !anySecret) {
+    setAnySecret(true);
+  }
 
   const split = useMemo(() => splitByCommit(rows), [rows]);
   const inView = view === "saved" ? split.saved : split.recovered;

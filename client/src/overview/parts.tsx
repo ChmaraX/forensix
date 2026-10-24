@@ -10,6 +10,7 @@ import { animate, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { EmptyRows } from "@/components/data-table";
+import { EvidenceDot } from "@/components/evidence";
 import { FieldCell } from "@/components/finding-fields";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/components/metric-band";
 import { plural, ShareBar, TimeText } from "@/components/page-kit";
 import { Panel } from "@/components/panel";
+import { Term } from "@/components/term";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -277,7 +279,22 @@ export function SubjectList({
             {label}
           </dt>
           <dd className="min-w-0">
-            <FieldCell field={field} />
+            {field?.state === "unavailable" ? (
+              // The narrow value column keeps the word and its dot; the
+              // reason is the word's tooltip (a focusable Term), read whole
+              // instead of cut mid-sentence.
+              <span
+                className={cn(
+                  typeClass("body"),
+                  "inline-flex items-center gap-1.5 whitespace-nowrap text-foreground",
+                )}
+              >
+                <EvidenceDot state="unavailable" />
+                <Term label="unavailable">{field.reason}</Term>
+              </span>
+            ) : (
+              <FieldCell field={field} />
+            )}
           </dd>
         </div>
       ))}
@@ -350,7 +367,10 @@ function TopSiteRow({
     <>
       <span className="flex min-w-0 items-center gap-2.5">
         <SiteMark domain={domain} favicon={favicon} />
-        <span className={cn(typeClass("body"), "truncate text-foreground")}>
+        <span
+          className={cn(typeClass("body"), "truncate text-foreground")}
+          title={domain}
+        >
           {domain}
         </span>
       </span>
@@ -369,7 +389,7 @@ function TopSiteRow({
     </>
   );
   const rowClass =
-    "relative grid h-9 w-full grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto] items-center gap-4 rounded-lg px-3 text-left";
+    "relative grid h-9 w-full grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] items-center gap-4 rounded-lg px-3 text-left";
   if (onOpen === undefined) {
     return <div className={rowClass}>{content}</div>;
   }

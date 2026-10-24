@@ -15,7 +15,13 @@
  * server reads (`useCommitStateLists`) and separate lists, never sorted
  * together; the figures count saved rows only; nothing is inferred.
  */
-import { useCallback, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
@@ -51,6 +57,7 @@ import {
   TimeCell,
 } from "./page-kit.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { useOwnBitmaps } from "./site-favicons.js";
 
 /** Newest refresh first; each Commit State is its own read. */
 const FAVICON_PARAMETERS: QueryParameters = [
@@ -152,11 +159,17 @@ function SummaryBand({
 
 /* ---------------------------------- table ---------------------------------- */
 
+/** The recovered bitmaps on show, by SHA-256 (`useOwnBitmaps`). */
+const BitmapsContext = createContext<ReadonlyMap<string, string>>(new Map());
+
 /**
- * The site: the icon's host over its icon URL (mono, muted, a step
- * smaller). The URL line keeps its own state word, so an unavailable icon
- * URL still reads "unavailable" under the host its page URL names; with no
- * host at all, the icon URL (or its word) stands alone.
+ * The site: the icon itself in the avatar tile, then the icon's host over
+ * its icon URL (mono, muted, a step smaller). The tile holds the row's own
+ * stored bitmap only - one whose bytes hash to this row's `payloadSha256` -
+ * and otherwise the host's letter, never another bitmap of the same host.
+ * The URL line keeps its own state word, so an unavailable icon URL still
+ * reads "unavailable" under the host its page URL names; with no host at
+ * all, the icon URL (or its word) stands alone.
  */
 function SiteCell({
   row,
@@ -165,13 +178,16 @@ function SiteCell({
   readonly row: Finding;
   readonly avatar?: boolean;
 }) {
+  const bitmaps = useContext(BitmapsContext);
   const host = faviconHost(row);
+  const sha = fieldText(row.fields.payloadSha256);
   return (
     <TwoLineCell
       primary={host ?? row.fields.iconUrl}
       secondary={host === null ? null : row.fields.iconUrl}
       mono={host === null}
       avatar={avatar ? host : undefined}
+      avatarSrc={sha === null ? null : (bitmaps.get(sha) ?? null)}
     />
   );
 }
@@ -194,8 +210,8 @@ const SITE_COLUMN: RowColumn<Finding> = {
   header: "Site",
   className: "max-w-[420px] min-w-[240px]",
   stack: "title",
+  // The icon is this page's evidence, so the phone card keeps it too.
   cell: (row) => <SiteCell row={row} />,
-  stackedCell: (row) => <SiteCell row={row} avatar={false} />,
 };
 
 const RESOLUTION_COLUMN: RowColumn<Finding> = {
@@ -313,7 +329,7 @@ function IconList({
           message={
             noun === "saved"
               ? "No saved Favicons rows in this Case."
-              : "No icons were recovered from WAL or journal sidecars."
+              : "No icons were recovered from Chrome's temporary database files."
           }
         />
       }
@@ -358,6 +374,16 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
       ].sort(),
     [savedRows, recoveredRows],
   );
+
+  const hosts = useMemo(
+    () =>
+      [...savedRows, ...recoveredRows].flatMap((row) => {
+        const host = faviconHost(row);
+        return host === null ? [] : [host];
+      }),
+    [savedRows, recoveredRows],
+  );
+  const bitmaps = useOwnBitmaps(hosts);
 
   const narrow = useCallback(
     (rows: readonly Finding[]) => {
@@ -430,67 +456,69 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
             </RevealSwap>
           ) : null}
 
-          <SectionPanel id="favicons-list" title="Cached icons">
-            <CommitStateSplit
-              value={view}
-              onValueChange={setView}
-              label="Saved or recovered icons"
-              savedCount={
-                savedFirst ||
-                (lists.saved.error !== null && savedRows.length === 0)
-                  ? null
-                  : savedRows.length
-              }
-              recoveredCount={
-                recoveredFirst ||
-                (lists.recovered.error !== null && recoveredRows.length === 0)
-                  ? null
-                  : recoveredRows.length
-              }
-              savedMore={lists.saved.cursor !== null}
-              recoveredMore={lists.recovered.cursor !== null}
-              toolbar={
-                <>
-                  {profiles.length > 1 ? (
-                    <FilterField label="Profiles" htmlFor="favicons-profiles">
-                      <ProfilePicker
-                        id="favicons-profiles"
-                        profiles={profiles}
-                        selected={profileFilter}
-                        onChange={setProfileFilter}
-                      />
-                    </FilterField>
-                  ) : null}
-                  <FilterTextField
-                    commit="change"
-                    label="Search loaded favicons"
-                    icon={SearchIcon}
-                    placeholder="Search host or icon URL"
-                    value={search}
-                    onCommit={setSearch}
+          <BitmapsContext.Provider value={bitmaps}>
+            <SectionPanel id="favicons-list" title="Cached icons">
+              <CommitStateSplit
+                value={view}
+                onValueChange={setView}
+                label="Saved or recovered icons"
+                savedCount={
+                  savedFirst ||
+                  (lists.saved.error !== null && savedRows.length === 0)
+                    ? null
+                    : savedRows.length
+                }
+                recoveredCount={
+                  recoveredFirst ||
+                  (lists.recovered.error !== null && recoveredRows.length === 0)
+                    ? null
+                    : recoveredRows.length
+                }
+                savedMore={lists.saved.cursor !== null}
+                recoveredMore={lists.recovered.cursor !== null}
+                toolbar={
+                  <>
+                    {profiles.length > 1 ? (
+                      <FilterField label="Profiles" htmlFor="favicons-profiles">
+                        <ProfilePicker
+                          id="favicons-profiles"
+                          profiles={profiles}
+                          selected={profileFilter}
+                          onChange={setProfileFilter}
+                        />
+                      </FilterField>
+                    ) : null}
+                    <FilterTextField
+                      commit="change"
+                      label="Search loaded favicons"
+                      icon={SearchIcon}
+                      placeholder="Search host or icon URL"
+                      value={search}
+                      onCommit={setSearch}
+                    />
+                  </>
+                }
+                saved={
+                  <IconList
+                    list={lists.saved}
+                    visible={savedVisible}
+                    noun="saved"
+                    onSelect={select}
+                    onClearFilters={clearFilters}
                   />
-                </>
-              }
-              saved={
-                <IconList
-                  list={lists.saved}
-                  visible={savedVisible}
-                  noun="saved"
-                  onSelect={select}
-                  onClearFilters={clearFilters}
-                />
-              }
-              recovered={
-                <IconList
-                  list={lists.recovered}
-                  visible={recoveredVisible}
-                  noun="recovered"
-                  onSelect={select}
-                  onClearFilters={clearFilters}
-                />
-              }
-            />
-          </SectionPanel>
+                }
+                recovered={
+                  <IconList
+                    list={lists.recovered}
+                    visible={recoveredVisible}
+                    noun="recovered"
+                    onSelect={select}
+                    onClearFilters={clearFilters}
+                  />
+                }
+              />
+            </SectionPanel>
+          </BitmapsContext.Provider>
         </>
       )}
 

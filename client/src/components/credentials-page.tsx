@@ -141,8 +141,10 @@ function summarize(rows: readonly Finding[]): CredentialSummary {
 
 /**
  * Reused usernames — the same stored username on more than one site, read
- * from the saved logins. Each username is an FF Card; picking one narrows
- * both lists to it (a second pick clears).
+ * from the saved logins; the title's count is how many (the page's one
+ * place for that fact, so the figure strip leaves it out). Each username
+ * is an FF Card; picking one narrows both lists to it (a second pick
+ * clears).
  */
 function ReusedIdentities({
   reused,
@@ -157,7 +159,11 @@ function ReusedIdentities({
     return null;
   }
   return (
-    <SectionPanel id="credentials-reused" title="Reused usernames">
+    <SectionPanel
+      id="credentials-reused"
+      title="Reused usernames"
+      count={reused.length}
+    >
       <div className="p-1">
         <SizeProvider size="compact">
           <CardGroup orientation="inline">
@@ -259,7 +265,7 @@ function credentialColumns(recovered: boolean): readonly RowColumn<Finding>[] {
     {
       key: "site",
       header: "Site",
-      className: "max-w-[240px]",
+      className: "max-w-[320px]",
       stack: "title",
       cell: (row) => <SiteCell row={row} avatar />,
       stackedCell: (row) => <SiteCell row={row} avatar={false} />,
@@ -350,7 +356,7 @@ function CredentialList({
           message={
             noun === "saved"
               ? "No saved logins in this Case."
-              : "No logins were recovered from WAL or journal sidecars."
+              : "No logins were recovered from Chrome's temporary database files."
           }
         />
       }
@@ -478,7 +484,9 @@ export function CredentialsPage({
               skeleton={<CredentialsSkeleton />}
             >
               <div className="flex flex-col gap-5">
-                <MetricBand className="grid-cols-2 lg:grid-cols-3">
+                {/* The reused-username count is the widget's own count, not
+                    a third figure: one fact, one place. */}
+                <MetricBand className="grid-cols-2">
                   <MetricBandItem
                     label="Saved logins"
                     value={summary.total.toLocaleString("en-US")}
@@ -486,10 +494,6 @@ export function CredentialsPage({
                   <MetricBandItem
                     label="Distinct usernames"
                     value={summary.identities.toLocaleString("en-US")}
-                  />
-                  <MetricBandItem
-                    label="Reused usernames"
-                    value={summary.reused.length.toLocaleString("en-US")}
                   />
                 </MetricBand>
                 <ReusedIdentities

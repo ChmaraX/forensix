@@ -191,13 +191,24 @@ function DetailRow({ row }: { readonly row: CompletenessArtifact }) {
  * popover.
  */
 export function CoverageDetail({ scope }: { readonly scope: CoverageScope }) {
-  const groups = scope.statements.map((statement) => ({
-    key: statement.artifact,
-    label: artifactLabel(statement.artifact),
-    rows: [...statement.artifacts].sort(
-      (a, b) => OUTCOME_ORDER[a.outcome] - OUTCOME_ORDER[b.outcome],
-    ),
-  }));
+  // Unread first at both levels: the databases in a group, and the groups
+  // by their worst database (ties keep the scope's own order).
+  const groups = scope.statements
+    .map((statement) => {
+      const rows = [...statement.artifacts].sort(
+        (a, b) => OUTCOME_ORDER[a.outcome] - OUTCOME_ORDER[b.outcome],
+      );
+      return {
+        key: statement.artifact,
+        label: artifactLabel(statement.artifact),
+        rows,
+        worst: Math.min(
+          ...rows.map((row) => OUTCOME_ORDER[row.outcome]),
+          Number.POSITIVE_INFINITY,
+        ),
+      };
+    })
+    .sort((a, b) => a.worst - b.worst);
   return (
     <div className="flex flex-col">
       <div className="flex flex-col gap-0.5 px-2.5 pt-2 pb-1.5">

@@ -533,12 +533,15 @@ function VisitPage({ row }: { readonly row: Finding }) {
 
 /** The visit table's columns, and where each sits in the stacked card on a
  *  phone (`ResponsiveRows`): time and (recovered only) State on the first
- *  line, the page as the card's title, transition and dwell under it. */
+ *  line, the page as the card's title, transition and dwell under it. Every
+ *  column but Page has a fixed width that fits its longest value, so Page
+ *  takes the rest and no column moves when a day, a range or a tab changes
+ *  the rows. */
 const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
   {
     key: "time",
     header: "Time",
-    className: "whitespace-nowrap",
+    className: "w-[184px] whitespace-nowrap",
     stack: "lead",
     cell: (row) => <TimeCell field={row.fields.visitTime} />,
   },
@@ -558,7 +561,7 @@ const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
   {
     key: "transition",
     header: "Arrived via",
-    className: "whitespace-nowrap",
+    className: "w-[168px] whitespace-nowrap",
     cell: (row) => (
       <FieldCell
         field={row.fields.transitionCore}
@@ -569,7 +572,7 @@ const VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
   {
     key: "dwell",
     header: "Dwell",
-    className: "whitespace-nowrap tabular-nums",
+    className: "w-[96px] whitespace-nowrap tabular-nums",
     labelled: true,
     cell: (row) =>
       formatDwell(row.fields.visitDuration) ?? (
@@ -585,6 +588,7 @@ const RECOVERED_VISIT_COLUMNS: readonly RowColumn<Finding>[] = [
   {
     key: "state",
     header: "State",
+    className: "w-[184px]",
     stack: "aside",
     cell: (row) => <StateWord state={row.commitState} />,
   },

@@ -65,7 +65,9 @@ export function HiddenValue({
         )}
       >
         <HideIcon size={size.icon} strokeWidth={1.5} className="shrink-0" />
-        value hidden
+        {/* The words give the element its baseline (not the icon's box),
+            so it sits on a caption line's baseline beside other text. */}
+        <span className="self-baseline">value hidden</span>
       </span>
     </Tooltip>
   );
@@ -80,12 +82,16 @@ export function SecretValueCell({
   field,
   reveal,
   hint,
+  mono = "auto",
   className,
 }: {
   readonly field: FieldState | undefined;
   readonly reveal: boolean;
   /** The hidden value's tooltip (`HiddenValue`). */
   readonly hint?: string;
+  /** The revealed value's monospace rule (`FieldStateText`'s), e.g. `true`
+   *  for cookie values, which are tokens. @default "auto" */
+  readonly mono?: boolean | "auto";
   readonly className?: string;
 }) {
   if (field?.state === "value" && field.value !== "" && !reveal) {
@@ -96,7 +102,7 @@ export function SecretValueCell({
       {field === undefined ? (
         <AbsentWord />
       ) : (
-        <FieldStateText field={field} truncate />
+        <FieldStateText field={field} truncate mono={mono} />
       )}
     </span>
   );
@@ -117,6 +123,16 @@ function SectionTitle({ children }: { readonly children: ReactNode }) {
 /** Name / value rows sharing one two-column grid (stacked when narrow). */
 const PROPERTY_ROW =
   "grid grid-cols-1 items-center gap-x-4 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]";
+
+/**
+ * A wire field that holds an id, hash or key (`visitId`, `bitmapId`,
+ * `payloadSha256`, `entryHash`): its value is monospace whatever it looks
+ * like, so "visitId 500106" reads in the same face as the source chain's
+ * "Row id 500106" above it.
+ */
+function isIdField(name: string): boolean {
+  return /(?:^id$|Ids?$|ID$|Hash$|Sha256$|Guid$|Uuid$)/.test(name);
+}
 
 /** One source-chain line: an FF InputCopy, or the word "absent". */
 function ProvenanceLine({
@@ -158,17 +174,23 @@ function ProvenanceLine({
 
 /** A redacted field: "value hidden" until revealed, then the value with a
  *  Hide button. Only a recorded, non-empty value is ever withheld. */
-function RedactedValue({ field }: { readonly field: FieldState }) {
+function RedactedValue({
+  field,
+  mono,
+}: {
+  readonly field: FieldState;
+  readonly mono: boolean | "auto";
+}) {
   const size = useSize();
   const [revealed, setRevealed] = useState(false);
   if (field.state !== "value" || field.value === "") {
-    return <FieldStateText field={field} />;
+    return <FieldStateText field={field} mono={mono} />;
   }
   return (
     <div className="flex min-w-0 items-start justify-between gap-3">
       {revealed ? (
         <span className="min-w-0">
-          <FieldStateText field={field} />
+          <FieldStateText field={field} mono={mono} />
         </span>
       ) : (
         <span
@@ -328,9 +350,15 @@ export function RowSheet({
                     </dt>
                     <dd className="min-w-0 text-foreground">
                       {redactedFields?.includes(name) === true ? (
-                        <RedactedValue field={field} />
+                        <RedactedValue
+                          field={field}
+                          mono={isIdField(name) ? true : "auto"}
+                        />
                       ) : (
-                        <FieldStateText field={field} />
+                        <FieldStateText
+                          field={field}
+                          mono={isIdField(name) ? true : "auto"}
+                        />
                       )}
                     </dd>
                   </div>

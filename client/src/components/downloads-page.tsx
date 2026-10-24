@@ -312,7 +312,9 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
             {/* Volume over time beside the file kinds. Dragging across the
                 bars (or picking a range) and picking a kind both focus the
                 lists below; the picker carries its own clear. */}
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+            {/* The two panels share one height (the row's), so their
+                bottoms line up whatever the range leaves in the kinds. */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <ChartSection
                 title="Downloads over time"
                 className="lg:col-span-2"

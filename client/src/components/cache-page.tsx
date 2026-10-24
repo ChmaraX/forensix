@@ -462,7 +462,9 @@ const RESOURCE_COLUMN: RowColumn<Finding> = {
 const SIZE_COLUMN: RowColumn<Finding> = {
   key: "size",
   header: "Size",
-  className: "text-right whitespace-nowrap tabular-nums",
+  // Fixed widths on the short columns (Resource takes the rest), so a
+  // range, a filter or the Integrity column leaving never shifts them.
+  className: "w-[96px] text-right whitespace-nowrap tabular-nums",
   cell: (row) => {
     const bytes = entryBytes(row);
     return bytes === null ? (
@@ -478,7 +480,7 @@ const SIZE_COLUMN: RowColumn<Finding> = {
 const LAST_USED_COLUMN: RowColumn<Finding> = {
   key: "last-used",
   header: "Last used",
-  className: "whitespace-nowrap",
+  className: "w-[184px] whitespace-nowrap",
   stack: "lead",
   cell: (row) => <TimeCell field={row.fields.lastUsed} />,
 };
@@ -486,14 +488,14 @@ const LAST_USED_COLUMN: RowColumn<Finding> = {
 const PROFILE_COLUMN: RowColumn<Finding> = {
   key: "profile",
   header: "Profile",
-  className: "whitespace-nowrap",
+  className: "w-[136px] whitespace-nowrap",
   cell: (row) => profileLabel(row.profile),
 };
 
 const integrityColumn = (stack: "aside" | "meta"): RowColumn<Finding> => ({
   key: "integrity",
   header: "Integrity",
-  className: "whitespace-nowrap",
+  className: "w-[136px] whitespace-nowrap",
   stack,
   cell: (row) => <IntegrityCell row={row} />,
 });
@@ -501,6 +503,7 @@ const integrityColumn = (stack: "aside" | "meta"): RowColumn<Finding> => ({
 const STATE_COLUMN: RowColumn<Finding> = {
   key: "state",
   header: "State",
+  className: "w-[184px]",
   stack: "aside",
   cell: (row) => <StateWord state={row.commitState} />,
 };
@@ -516,6 +519,12 @@ const SAVED_COLUMNS: readonly RowColumn<Finding>[] = [
   PROFILE_COLUMN,
 ];
 
+/** Saved entries that all read "verified": the Integrity column would say
+ *  the same word on every row, and the "Integrity verified 100%" figure
+ *  already does, so the list leaves it out (the sheet keeps both checks). */
+const SAVED_COLUMNS_ALL_VERIFIED: readonly RowColumn<Finding>[] =
+  SAVED_COLUMNS.filter((column) => column.key !== "integrity");
+
 const RECOVERED_COLUMNS: readonly RowColumn<Finding>[] = [
   RESOURCE_COLUMN,
   SIZE_COLUMN,
@@ -528,16 +537,25 @@ const RECOVERED_COLUMNS: readonly RowColumn<Finding>[] = [
 function EntriesTable({
   rows,
   recovered,
+  allVerified,
   onSelect,
 }: {
   readonly rows: readonly Finding[];
   readonly recovered: boolean;
+  /** Every saved entry of the list reads "verified". */
+  readonly allVerified: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
   return (
     <ResponsiveRows
       rows={rows}
-      columns={recovered ? RECOVERED_COLUMNS : SAVED_COLUMNS}
+      columns={
+        recovered
+          ? RECOVERED_COLUMNS
+          : allVerified
+            ? SAVED_COLUMNS_ALL_VERIFIED
+            : SAVED_COLUMNS
+      }
       rowKey={(row, index) =>
         `${row.commitState}:${row.profile}:${fieldText(row.fields.entryHash) ?? ""}:${String(index)}`
       }
@@ -619,6 +637,9 @@ function EntryList({
           <EntriesTable
             rows={visible}
             recovered={noun === "recovered"}
+            // Read over the whole list, not the filtered rows, so a filter
+            // never adds or drops the column.
+            allVerified={rows.length > 0 && rows.every(integrityVerified)}
             onSelect={onSelect}
           />
         )}

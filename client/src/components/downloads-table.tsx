@@ -28,6 +28,7 @@ import { ListBlock } from "./list-states.js";
 import {
   ResponsiveRows,
   TimeCell,
+  TypeLabel,
   formatBytes,
   plural,
   type RowColumn,
@@ -117,7 +118,9 @@ export function downloadColumns(
     {
       key: "type",
       header: "Type",
-      className: "whitespace-nowrap",
+      // Fixed widths on every column but Source (it takes the rest), so a
+      // range or a kind pick never shifts the columns.
+      className: "w-[148px] whitespace-nowrap",
       stack: "lead",
       cell: (row) => <FileKindLabel kind={row.kind} />,
       stackedCell: (row) => KIND_META[row.kind].label,
@@ -125,7 +128,7 @@ export function downloadColumns(
     {
       key: "file",
       header: "File",
-      className: "max-w-[300px]",
+      className: "w-[260px] max-w-[260px]",
       stack: "title",
       cell: (row) =>
         row.name === null ? (
@@ -142,7 +145,7 @@ export function downloadColumns(
     {
       key: "size",
       header: "Size",
-      className: "text-right whitespace-nowrap tabular-nums",
+      className: "w-[88px] text-right whitespace-nowrap tabular-nums",
       cell: (row) =>
         row.bytes === null ? (
           <FieldCell field={row.finding.fields.totalBytes} />
@@ -155,20 +158,20 @@ export function downloadColumns(
     {
       key: "source",
       header: "Source",
-      className: "max-w-[240px]",
+      className: "max-w-[320px]",
       cell: (row) => <Source row={row} avatar />,
       stackedCell: (row) => <Source row={row} avatar={false} />,
     },
     {
       key: "started",
       header: "Started",
-      className: "whitespace-nowrap",
+      className: "w-[184px] whitespace-nowrap",
       cell: (row) => <TimeCell field={row.finding.fields.startTime} />,
     },
     {
       key: "outcome",
       header: "Outcome",
-      className: "whitespace-nowrap",
+      className: "w-[112px] whitespace-nowrap",
       stack: recovered ? "meta" : "aside",
       cell: (row) => <DownloadState field={row.finding.fields.state} />,
     },
@@ -177,7 +180,7 @@ export function downloadColumns(
     columns.push({
       key: "state",
       header: "State",
-      className: "whitespace-nowrap",
+      className: "w-[184px] whitespace-nowrap",
       stack: "aside",
       cell: (row) => <StateWord state={row.finding.commitState} />,
     });
@@ -190,20 +193,8 @@ export const RECOVERED_COLUMNS = downloadColumns(true);
 
 /** The file kind, worded, with its icon. */
 export function FileKindLabel({ kind }: { readonly kind: FileKind }) {
-  const size = useSize();
   const meta = KIND_META[kind];
-  const Icon = meta.icon;
-  return (
-    <span className="inline-flex items-center gap-2">
-      <Icon
-        aria-hidden="true"
-        size={size.icon}
-        strokeWidth={1.5}
-        className="shrink-0"
-      />
-      {meta.label}
-    </span>
-  );
+  return <TypeLabel icon={meta.icon} label={meta.label} />;
 }
 
 /** Sort and direction for both lists, as on History: an FF Select and a

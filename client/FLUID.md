@@ -30,6 +30,12 @@ hand). The installed source has the final say: `src/components/ui/*`,
   the CLI wants to overwrite first. If it rewrites `src/lib/utils.ts` to
   shadcn's stock version, run `pnpm dlx shadcn@latest add @fluid/utils --overwrite`
   afterwards. Run the CLI only from `client/`.
+- **Focus rings are for the keyboard:** every ring is `:focus-visible`
+  only. Radix Tabs focus a tab from their own mousedown (a scripted
+  focus Chrome counts as keyboard-like), so every `TabItem` takes
+  `onMouseDown={focusTabWithoutRing}` (`components/pointer-focus.ts`);
+  check a ring with a real mouse press (`agent-browser mouse down/up`),
+  not `click()`.
 - **Don't add hand-written timings,** apart from the 80ms color/weight
   transitions FF itself uses (`duration-80`). For anything else, use
   `spring.fast | moderate | slow`, with `.exit` for dismissals.
@@ -65,16 +71,31 @@ The decluttered pages follow these; keep new work to them.
   toolbar control.
 - **Plain hyphens in copy:** user-visible text uses "-" (" - " between
   phrases, "6-10 Apr" in a range), never an em or en dash.
+- **Each fact once, in its best place.** A count a widget already titles
+  (Saved logins' "Reused usernames 1") is no figure too; a field a figure
+  or card shows is not listed again below it (Browser profile's recorded
+  fields list what the strip and the cards do not).
+- **No degenerate column.** A column that reads the same on every row of
+  a list, with a figure already saying so (Cookies' Secure at 100%,
+  Cache's Integrity all "verified"), is left out of that list; decide it
+  over the list's loaded rows, never the filtered ones, so a filter never
+  adds or drops a column. The row sheet keeps the field.
+- **Stable columns.** Short-valued columns (times, flags, words) carry a
+  fixed width that fits their longest value; one flexible column (the
+  page, the host) takes the rest, so a day click, a range, a reveal or a
+  tab never shifts the columns.
+- **Hosts are read whole** where the table has room: host columns get the
+  width, flag columns stay narrow.
 
 ## What is installed
 
-| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                                                                                                                                                                       |
-| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, icons-untitledui, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                                                                                                                                             |
-| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                                                                                                                                                                        |
-| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/responsive-rows.tsx`, `lib/app-icons.ts` (see "Icons"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/day-bounds.ts`, `components/secrets.ts`, `components/charts.tsx` + `charts-ready.tsx` + `chart-section.tsx` |
+| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                                                                                                                                                                                                                                     |
+| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, icons-untitledui, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                                                                                                                                                                                                           |
+| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                                                                                                                                                                                                                                      |
+| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/responsive-rows.tsx`, `lib/app-icons.ts` (see "Icons"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/day-bounds.ts`, `components/secrets.ts`, `components/site-favicons.ts`, `components/pointer-focus.ts`, `components/charts.tsx` + `charts-ready.tsx` + `chart-section.tsx` |
 
 ## The shell (do not restyle it per page)
 
@@ -175,6 +196,10 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
   `mono` (URL, path) or `mono={false}`. Outside a field, use
   `codeClass(text)` (→ `"font-mono"` or `""`) or a literal `font-mono` on a
   column you know is code. Monospace sits at the cell's role size.
+  Pinned: cookie values (tokens, `SecretValueCell mono`), and in the row
+  sheet every id / hash field's value (`visitId`, `payloadSha256`), so it
+  reads in the same face as the source chain's "Row id". Form field names
+  are labels (`formFieldLabel`), never mono.
 
 ## Spacing, radius, surfaces
 
@@ -288,7 +313,8 @@ unit?, emptyMessage? })` (count per day: visits on Overview, History and
   fire. A count axis with a peak of 1-4 stops at `max(peak, 2)` with one
   tick per whole count. Pass `range`
   - `onRangeChange` to `ActivityBars`; Downloads' bytes chart follows the
-    same rule by hand.
+    same rule by hand, with round byte ticks (`byteTicks`: 10 / 20 / 30 /
+    40 MB, the last at or above the peak).
 - Day labels: `formatDay` ("4 Mar 2024"), `formatDayTick` ("4 Mar"),
   `formatDaySpan` ("11 Mar - 17 Apr") and the shared `CHART_HEIGHT` come
   from page-kit. The cleared range reads "All recorded days" on every
@@ -372,7 +398,8 @@ The shell owns it (`components/completeness.tsx`); pages render nothing.
   analyzed, red when anything is unreadable. It opens an FF popover with the
   per-database detail: outcome word (dot repeats it), database file (mono),
   and the reason; grouped by artifact when more than one is in scope, unread
-  databases first.
+  databases first - within a group, and the groups themselves (a group
+  holding an unread database sorts above the fully read ones).
 - **`CoverageBanner({ completeness, artifacts?, className? })`** - renders
   only when something in scope was not read: one line in an FF Banner
   (`error` when anything is unreadable, else `warning`; compact, low
@@ -437,7 +464,8 @@ Shared presentation parts. Import from `./page-kit.js` (or
 | `ResponsiveRows({ rows, columns: RowColumn[], rowKey, onSelect?, rowLabel?, tableClassName?, size? })` | An evidence list: FF Table from `sm` up, stacked row cards below (390px). Each column has `header` (a string, or a node such as a `Term` whose tooltip explains the values; then `label` gives the card its words), `cell`, `className`, and a card role `stack`: `lead` (first line left - TYPE or time), `aside` (first line right - State), `title`, `meta` (default; caption line, `labelled` adds the header), `hidden`. Reference: History's `VISIT_COLUMNS` |
 | `SectionPanel({ id?, title, headingAs?, description?, count?, aside?, className?, children })`         | A Panel with `PanelHeader` (title, Count, description) and a trailing `aside` (compact, 28px); `role="region"` + `aria-labelledby` when `id` is given                                                                                                                                                                                                                                                                                                              |
 | `Toolbar({ start?, children?, placement? })`                                                           | The list toolbar in one compact SizeProvider. `placement="panel"` (default): under the list's `PanelHeader`, `px-4 pt-1 pb-3`, `start` (the saved/recovered switch) left, `children` pushed right (FilterField + Select, ProfilePicker, `FilterTextField` last). `placement="inline"`: unpadded row for another container's slot                                                                                                                                   |
-| `IconTile({ icon })`                                                                                   | 32px tinted tile with a muted icon                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `IconTile({ icon })`                                                                                   | 32px tinted tile with a muted icon (panel headings only, never a table cell)                                                                                                                                                                                                                                                                                                                                                                                       |
+| `TypeLabel({ icon, label })`                                                                           | The TYPE column's cell on every table: bare muted icon + the worded type in the cell's color                                                                                                                                                                                                                                                                                                                                                                       |
 | `ShareBar({ fraction, peak?, className? })`                                                            | One share-of-peak pill in the series style: ink, peak full / others at rest (translateX)                                                                                                                                                                                                                                                                                                                                                                           |
 | `CountChips({ label, allLabel?, total, chips, active, onChange })`                                     | The one chip filter with counts (Timeline event types, Form data categories): FF parts, 28px pills, muted tabular counts, fluid hover on both axes; wraps from `sm`, scrolls sideways with no scrollbar (`scroll-fade-x`) below                                                                                                                                                                                                                                    |
 | `formatDaySpan(first, last)`                                                                           | "11 Mar - 17 Apr" (one year), "9 Dec 2023 - 4 Jan 2024", "4 Mar 2024" (one day): a span as figure data                                                                                                                                                                                                                                                                                                                                                             |
@@ -445,20 +473,30 @@ Shared presentation parts. Import from `./page-kit.js` (or
 | `CommitStateSplit`, `CommitView`, `splitByCommit`                                                      | Saved / recovered (below)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 Also shared: `FieldCell({ field, format?, truncate?, mono? })`,
-`TwoLineCell({ primary, secondary?, mono?, avatar? })` (the one two-line
-cell: a name, title or host over its URL / path / realm, the second line
-muted, compact and mono; `avatar` adds a `SiteAvatar`),
+`TwoLineCell({ primary, secondary?, mono?, avatar?, avatarSrc? })` (the
+one two-line cell: a name, title or host over its URL / path / realm, the
+second line muted, compact and mono; `avatar` adds a `SiteAvatar`,
+`avatarSrc` puts a recovered favicon in it),
 `isCodeLike`, `codeClass`, `profileLabel` ("Default" → "Default profile",
 "Profile 2" stays - never print "Profile " before it), `fieldString`,
 `fieldBool`, `fieldText`, `fieldUtc`, `fieldInteger`, `AbsentWord`,
-`StateWord({ state, focusable? })`, `SiteAvatar` (finding-fields);
+`StateWord({ state, focusable? })`, `SiteAvatar({ host, size?, src? })`
+(finding-fields; `src` is a recovered favicon `data:` URI, drawn 16px in
+the same 28px tile as the letter, so rows with and without one align);
 `FilterField`, `FilterTextField({ …, commit? })`, `ProfilePicker`
 (filters); `EmptyRows`, `activateOnKey`, `ROW_FOCUS_CLASS` (data-table);
 `ListBlock`, `RevealSwap`, `LoadingRows({ rows?, label? })`, `ErrorRows`,
 `ListFooter` (list-states); `figure`, `PendingFigure`, `UnavailableFigure`
 (metric-band); `useActivity`, `bucketsToDays`, `bucketsToHourTotals`, `fillGaps`
-(activity-data); `categoryOf`, `isPaymentField` (form-data);
-`secretFieldsOf`, `SecretValueCell`, `HiddenValue` (row-sheet);
+(activity-data); `categoryOf`, `isPaymentField`, `formFieldLabel`
+(form-data: the one field-name label - "NAME_FULL" → "Full name",
+"search-query" → "Search query" - on Form data, the Timeline and Sites;
+the sheet keeps the raw name); `secretFieldsOf`,
+`SecretValueCell({ field, reveal, hint?, mono? })`, `HiddenValue`
+(row-sheet); `fetchSiteFavicons`, `useOwnBitmaps` (site-favicons: the
+`site-favicons` route's per-host icon; on Favicons a thumbnail is shown
+only when its bytes hash to the row's own `payloadSha256`);
+`focusTabWithoutRing` (pointer-focus, below);
 `TooltipFigure` (metric-band); `dayRangeParameters`, `localDayOf`
 (day-bounds).
 The readers (`fieldText` …) return `null` for absent, (empty) and

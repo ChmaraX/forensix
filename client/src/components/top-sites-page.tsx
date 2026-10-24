@@ -49,6 +49,7 @@ import {
   type RowColumn,
 } from "./page-kit.js";
 import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { Term } from "./term.js";
 
 /** Chrome's own order: rank ascending (Commit State is added per list). */
 const RANK_ORDER: readonly (readonly [string, string])[] = [
@@ -82,49 +83,92 @@ function Rank({ row }: { readonly row: Finding }) {
   );
 }
 
+/**
+ * Ranks the saved list skips because only a recovered row holds them (per
+ * Profile), as the Rank header's note - "Ranks 1 and 7 are recovered rows" -
+ * so a saved list starting at 2 reads as the evidence, not a bug. Null when
+ * the saved ranks have no such gap.
+ */
+function recoveredRankNote(
+  saved: readonly Finding[],
+  recovered: readonly Finding[],
+): string | null {
+  const keyOf = (row: Finding, rank: number) =>
+    `${row.profile}\n${String(rank)}`;
+  const savedKeys = new Set(
+    saved.flatMap((row) => {
+      const rank = fieldInteger(row.fields.urlRank);
+      return rank === null ? [] : [keyOf(row, rank)];
+    }),
+  );
+  const missing = [
+    ...new Set(
+      recovered.flatMap((row) => {
+        const rank = fieldInteger(row.fields.urlRank);
+        return rank === null || savedKeys.has(keyOf(row, rank)) ? [] : [rank];
+      }),
+    ),
+  ].sort((left, right) => left - right);
+  if (missing.length === 0) {
+    return null;
+  }
+  const words = missing.map(String);
+  const list =
+    words.length === 1
+      ? words[0]
+      : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1] ?? ""}`;
+  return missing.length === 1
+    ? `Chrome's own rank. Rank ${list ?? ""} is a recovered row, in the Recovered tab.`
+    : `Chrome's own rank. Ranks ${list ?? ""} are recovered rows, in the Recovered tab.`;
+}
+
 /** The ranked table's columns. On a phone the card reads the rank (and, in
  *  the Recovered list, the State word) on its first line, the site as its
- *  title, and the Profile under it. */
-const RANK_COLUMNS: readonly RowColumn<Finding>[] = [
-  {
-    key: "rank",
-    header: "Rank",
-    className: "w-16 text-right tabular-nums",
-    stack: "lead",
-    cell: (row) => <Rank row={row} />,
-    stackedCell: (row) => {
-      const rank = fieldInteger(row.fields.urlRank);
-      return rank === null ? (
-        <FieldCell field={row.fields.urlRank} />
-      ) : (
-        `#${String(rank)}`
-      );
+ *  title, and the Profile under it. `note` explains a gap in the ranks
+ *  (the Rank header's tooltip). */
+function rankColumns(note: string | null): readonly RowColumn<Finding>[] {
+  return [
+    {
+      key: "rank",
+      header: note === null ? "Rank" : <Term label="Rank">{note}</Term>,
+      label: "Rank",
+      className: "w-16 text-right tabular-nums",
+      stack: "lead",
+      cell: (row) => <Rank row={row} />,
+      stackedCell: (row) => {
+        const rank = fieldInteger(row.fields.urlRank);
+        return rank === null ? (
+          <FieldCell field={row.fields.urlRank} />
+        ) : (
+          `#${String(rank)}`
+        );
+      },
     },
-  },
-  {
-    key: "site",
-    header: "Site",
-    className: "max-w-[520px]",
-    stack: "title",
-    cell: (row) => (
-      <span className="flex items-center gap-2.5">
-        <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
-        <SitePage row={row} />
-      </span>
-    ),
-    stackedCell: (row) => <SitePage row={row} />,
-  },
-  {
-    key: "profile",
-    header: "Profile",
-    className: "whitespace-nowrap",
-    cell: (row) => profileLabel(row.profile),
-    stackedCell: (row) => profileLabel(row.profile),
-  },
-];
+    {
+      key: "site",
+      header: "Site",
+      className: "max-w-[520px]",
+      stack: "title",
+      cell: (row) => (
+        <span className="flex items-center gap-2.5">
+          <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
+          <SitePage row={row} />
+        </span>
+      ),
+      stackedCell: (row) => <SitePage row={row} />,
+    },
+    {
+      key: "profile",
+      header: "Profile",
+      className: "whitespace-nowrap",
+      cell: (row) => profileLabel(row.profile),
+      stackedCell: (row) => profileLabel(row.profile),
+    },
+  ];
+}
 
 const RECOVERED_RANK_COLUMNS: readonly RowColumn<Finding>[] = [
-  ...RANK_COLUMNS,
+  ...rankColumns(null),
   {
     key: "state",
     header: "State",
@@ -139,6 +183,7 @@ const RECOVERED_RANK_COLUMNS: readonly RowColumn<Finding>[] = [
 function RankedList({
   list,
   recovered,
+  rankNote = null,
   matches,
   filtered,
   onClearFilters,
@@ -146,6 +191,8 @@ function RankedList({
 }: {
   readonly list: PaginatedList<Finding>;
   readonly recovered: boolean;
+  /** Why the saved ranks skip numbers (the Rank header's tooltip). */
+  readonly rankNote?: string | null;
   readonly matches: (row: Finding) => boolean;
   readonly filtered: boolean;
   readonly onClearFilters: () => void;
@@ -154,6 +201,10 @@ function RankedList({
   const visible = useMemo(
     () => list.rows.filter(matches),
     [list.rows, matches],
+  );
+  const columns = useMemo(
+    () => (recovered ? RECOVERED_RANK_COLUMNS : rankColumns(rankNote)),
+    [recovered, rankNote],
   );
   return (
     <ListBlock
@@ -180,7 +231,7 @@ function RankedList({
     >
       <ResponsiveRows
         rows={visible}
-        columns={recovered ? RECOVERED_RANK_COLUMNS : RANK_COLUMNS}
+        columns={columns}
         rowKey={(row, index) => `${row.commitState}-${String(index)}`}
         rowLabel={(row) =>
           `Open top site row detail: ${fieldText(row.fields.title) ?? fieldText(row.fields.url) ?? "top site"}`
@@ -213,6 +264,11 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
           [...saved.rows, ...recovered.rows].map((row) => row.profile),
         ),
       ].sort(),
+    [saved.rows, recovered.rows],
+  );
+
+  const rankNote = useMemo(
+    () => recoveredRankNote(saved.rows, recovered.rows),
     [saved.rows, recovered.rows],
   );
 
@@ -282,6 +338,7 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
             <RankedList
               list={saved}
               recovered={false}
+              rankNote={rankNote}
               matches={matches}
               filtered={filtered}
               onClearFilters={clearFilters}

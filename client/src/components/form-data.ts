@@ -149,3 +149,84 @@ export const PAYMENT_SECRET_FIELDS: readonly string[] = [
   "fieldValue",
   "fieldValueLower",
 ];
+
+/**
+ * Chrome's own autofill field types (SCREAMING_SNAKE_CASE) as the names a
+ * person uses. Only Chrome's fixed type names are mapped; any other name
+ * falls through to `formFieldLabel`'s word rule.
+ */
+const CHROME_FIELD_NAMES: Readonly<Record<string, string>> = {
+  NAME_FIRST: "First name",
+  NAME_MIDDLE: "Middle name",
+  NAME_MIDDLE_INITIAL: "Middle initial",
+  NAME_LAST: "Last name",
+  NAME_FULL: "Full name",
+  NAME_SUFFIX: "Name suffix",
+  NAME_HONORIFIC_PREFIX: "Title",
+  EMAIL_ADDRESS: "Email address",
+  USERNAME: "Username",
+  COMPANY_NAME: "Company",
+  PHONE_HOME_NUMBER: "Phone number",
+  PHONE_HOME_CITY_CODE: "Area code",
+  PHONE_HOME_COUNTRY_CODE: "Phone country code",
+  PHONE_HOME_CITY_AND_NUMBER: "Phone number with area code",
+  PHONE_HOME_WHOLE_NUMBER: "Phone number",
+  PHONE_HOME_EXTENSION: "Phone extension",
+  ADDRESS_HOME_LINE1: "Address line 1",
+  ADDRESS_HOME_LINE2: "Address line 2",
+  ADDRESS_HOME_LINE3: "Address line 3",
+  ADDRESS_HOME_APT_NUM: "Apartment number",
+  ADDRESS_HOME_STREET_ADDRESS: "Street address",
+  ADDRESS_HOME_CITY: "City",
+  ADDRESS_HOME_STATE: "State",
+  ADDRESS_HOME_ZIP: "Postal code",
+  ADDRESS_HOME_COUNTRY: "Country",
+  ADDRESS_HOME_DEPENDENT_LOCALITY: "Locality",
+  ADDRESS_HOME_SORTING_CODE: "Sorting code",
+  CREDIT_CARD_NAME_FULL: "Name on card",
+  CREDIT_CARD_NAME_FIRST: "First name on card",
+  CREDIT_CARD_NAME_LAST: "Last name on card",
+  CREDIT_CARD_NUMBER: "Card number",
+  CREDIT_CARD_EXP_MONTH: "Card expiry month",
+  CREDIT_CARD_EXP_2_DIGIT_YEAR: "Card expiry year",
+  CREDIT_CARD_EXP_4_DIGIT_YEAR: "Card expiry year",
+  CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR: "Card expiry date",
+  CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR: "Card expiry date",
+  CREDIT_CARD_TYPE: "Card type",
+  CREDIT_CARD_VERIFICATION_CODE: "Card security code",
+  IBAN_VALUE: "IBAN",
+};
+
+/**
+ * A recorded form field name as a label, the one rule for every place a
+ * form entry is named (the Form data table and sheet title, the Timeline,
+ * the Sites drill-down): Chrome's own type names read as people say them
+ * ("NAME_FULL" → "Full name"); any other name - a site's raw HTML
+ * `name`/`id` - has its separators and camelCase turned into spaces and its
+ * first letter capitalized ("search-query" → "Search query",
+ * "wallet_address" → "Wallet address"). A label, never a claim: the exact
+ * recorded name stays byte for byte in the row sheet. Null for no name.
+ */
+export function formFieldLabel(fieldName: string | null): string | null {
+  if (fieldName === null || fieldName.trim() === "") {
+    return null;
+  }
+  const known = CHROME_FIELD_NAMES[fieldName];
+  if (known !== undefined) {
+    return known;
+  }
+  const words = fieldName
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[\s_\-.]+/)
+    .filter(Boolean)
+    .map((word) =>
+      /^[A-Z0-9]+$/.test(word) && word.length > 3 ? word.toLowerCase() : word,
+    );
+  if (words.length === 0) {
+    return fieldName;
+  }
+  const sentence = words
+    .map((word, index) => (index === 0 ? word : word.toLowerCase()))
+    .join(" ");
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+}

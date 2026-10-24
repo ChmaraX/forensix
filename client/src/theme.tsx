@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { focusTabWithoutRing } from "./components/pointer-focus.js";
 import { TabItem, Tabs, TabsList } from "./components/ui/tabs.js";
 import {
   DarkThemeIcon,
@@ -150,6 +151,7 @@ export function ThemeToggle({ className }: { readonly className?: string }) {
             label={LABELS[option]}
             title={DESCRIPTIONS[option]}
             className="flex-1 justify-center"
+            onMouseDown={focusTabWithoutRing}
           />
         ))}
       </TabsList>

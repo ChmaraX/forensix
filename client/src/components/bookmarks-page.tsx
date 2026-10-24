@@ -259,7 +259,7 @@ function BookmarkList({
           message={
             noun === "saved"
               ? "No saved bookmarks in this Case."
-              : "No bookmarks were recovered from WAL or journal sidecars."
+              : "No recovered bookmarks in this Case."
           }
         />
       }

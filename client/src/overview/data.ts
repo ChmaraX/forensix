@@ -7,6 +7,7 @@ import { callApi } from "@/api";
 import { formatDay } from "@/components/page-kit";
 import { fetchActivity, type ActivityBucket } from "@/components/activity-data";
 import { dayRangeParameters, localDayOf } from "@/components/day-bounds";
+import { fetchSiteFavicons } from "@/components/site-favicons";
 import { fieldString, fieldUtc } from "@/components/finding-fields";
 import type { CaseProfiles, FieldState, Finding, PageOf } from "@/types";
 
@@ -95,27 +96,6 @@ async function fetchRecordedSpan(): Promise<{
     first: instants[0] ?? null,
     last: instants[instants.length - 1] ?? null,
   };
-}
-
-/**
- * Recovered favicons for a set of hosts, read from the Case's own evidence
- * via the `site-favicons` route — never fetched live. Empty input skips the
- * request rather than asking the route to resolve nothing.
- */
-async function fetchFavicons(
-  hosts: readonly string[],
-): Promise<ReadonlyMap<string, string | null>> {
-  if (hosts.length === 0) {
-    return new Map();
-  }
-  const result = await callApi<{
-    readonly status: "ok";
-    readonly icons: Readonly<Record<string, string | null>>;
-  }>(
-    "site-favicons",
-    hosts.map((host) => ["host", host] as const),
-  );
-  return new Map(Object.entries(result.icons));
 }
 
 /** Rows per page on every Overview read (the routes' maximum is 100). */
@@ -298,7 +278,7 @@ export async function loadOverview(): Promise<OverviewData> {
     }))
     .filter((site) => site.url.length > 0);
 
-  const favicons = await fetchFavicons([
+  const favicons = await fetchSiteFavicons([
     ...new Set(mostVisited.map((site) => domainOf(site.url))),
   ]);
 

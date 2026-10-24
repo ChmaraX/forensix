@@ -8,22 +8,23 @@
  *  - the one browser-level Finding (Local State) — the environment: which
  *    Chrome, how many profiles, which was last used, which variations
  *    region — read as the page's figure strip;
- *  - the encryption posture the whole Case inherits, read straight off the
- *    two OS-crypt key-presence booleans, each a worded state;
  *  - one profile-level Finding per Profile (Preferences + info_cache) — the
  *    account behind each profile — as a grid of FF cards (fluid hover), each
  *    with two plain-language badges: how the profile last shut down and
- *    whether it is a signed-in account or a local profile.
+ *    whether it is a signed-in account or a local profile;
+ *  - "Recorded fields": every curated field of every row, one row after
+ *    another (or one row picked from the toolbar), each fact once - a saved
+ *    row the strip or a card already shows lists only what they do not
+ *    (Local State's two OS-crypt key readings, "present" / "not present",
+ *    with the encryption posture in their tooltip). Saved rows and rows
+ *    recovered from the WAL / rollback journal are separate server reads
+ *    behind the Saved / Recovered switch; the detail sheet keeps every wire
+ *    field and its provenance.
  *
  * Every derived badge is a reading of a value the row already carries,
  * never a new fact: an absent or unavailable source field collapses its
- * badge to the same worded state the field list shows. The strip, the
- * posture and the cards read the saved rows only. "All recorded fields"
- * keeps every curated field of every row verbatim, one row after another
- * (or one row picked from the toolbar), with saved rows and rows recovered
- * from the WAL / rollback journal as separate server reads behind the
- * Saved / Recovered switch; the detail sheet keeps every wire field and its
- * provenance.
+ * badge to the same worded state the field list shows. The strip and the
+ * cards read the saved rows only.
  *
  * Presentation rules kept: value / (empty) / absent / unavailable stay
  * distinct words, never colour alone; saved and recovered rows are never
@@ -67,7 +68,7 @@ import {
   useCommitStateLists,
 } from "../use-commit-state-lists.js";
 import { EmptyRows } from "./data-table.js";
-import { EvidenceDot, type EvidenceState } from "./evidence.js";
+import { EvidenceDot } from "./evidence.js";
 import { MaybeFieldStateText } from "./field-state.js";
 import {
   fieldBool,
@@ -256,96 +257,51 @@ function EnvironmentStrip({ browser }: { readonly browser: Finding }) {
   );
 }
 
-/* ------------------------- Encryption posture panel ----------------------- */
+/* ----------------------------- Encryption keys ---------------------------- */
 
 /**
- * One key-presence reading. A recorded `true` means the key material is on
- * disk; `false` means it is not; an absent/unavailable source field keeps
- * its own worded state and no yes/no is claimed. What the key protects is
- * the label's tooltip.
+ * The two OS-crypt key-presence booleans Local State records. Each reads as
+ * a worded state - a recorded `true` "present", `false` "not present" - in
+ * the recorded fields (their one place on the page); an absent or
+ * unavailable source field keeps its own word and no yes/no is claimed.
+ * What each key protects, and what the pair decides, is the label's
+ * tooltip.
  */
-function KeyState({
-  label,
-  detail,
-  field,
-}: {
-  readonly label: string;
-  readonly detail: string;
-  readonly field: FieldState | undefined;
-}) {
-  const present = fieldBool(field);
-  const reading: {
-    readonly word: string;
-    readonly state: EvidenceState;
-  } | null =
-    present === true
-      ? { word: "present", state: "neutral" }
-      : present === false
-        ? { word: "not present", state: "neutral" }
-        : null;
-  return (
-    <li
-      className={cn(
-        typeClass("body"),
-        "flex min-h-11 items-center justify-between gap-3 py-2",
-      )}
-    >
-      <span className="min-w-0 text-foreground">
-        <Term label={label}>{detail}</Term>
-      </span>
-      <span className="shrink-0">
-        {reading === null ? (
-          <MaybeFieldStateText field={field} />
-        ) : (
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground">
-            <EvidenceDot state={reading.state} />
-            {reading.word}
-          </span>
-        )}
-      </span>
-    </li>
-  );
+const KEY_FIELDS: Readonly<Record<string, string>> = {
+  osCryptKeyPresent: "Protects cookies, saved logins, and autofill values.",
+  osCryptAppBoundKeyPresent:
+    "Newer, app-scoped key for the most sensitive values.",
+};
+
+/** What the recorded key pair means for decryption, from the standard key
+ *  first (the app-bound key only matters beside it). */
+function postureOf(fields: Finding["fields"]): string {
+  const standard = fieldBool(fields.osCryptKeyPresent);
+  const appBound = fieldBool(fields.osCryptAppBoundKeyPresent);
+  return standard === true
+    ? appBound === true
+      ? "Both encryption keys are on disk: the strongest decryption position."
+      : "The standard key is on disk; app-bound protected data may not decrypt."
+    : standard === false
+      ? "No standard key on disk: encrypted values will not decrypt from this evidence."
+      : fields.osCryptKeyPresent?.state === "unavailable"
+        ? "Key presence could not be read from Local State."
+        : fields.osCryptKeyPresent?.state === "value"
+          ? "Key presence is recorded, but not as yes or no."
+          : "Key presence is not recorded in Local State.";
 }
 
-/**
- * The encryption posture — the two OS-crypt key-presence booleans, each a
- * worded state. What the pair decides (whether this Case's cookies,
- * passwords and payment data can be decrypted) is the title's tooltip.
- */
-function EncryptionPanel({ browser }: { readonly browser: Finding }) {
-  const standard = fieldBool(browser.fields.osCryptKeyPresent);
-  const appBound = fieldBool(browser.fields.osCryptAppBoundKeyPresent);
-  const summary =
-    standard === true
-      ? appBound === true
-        ? "Both encryption keys are on disk: the strongest decryption position."
-        : "The standard key is on disk; app-bound protected data may not decrypt."
-      : standard === false
-        ? "No standard key on disk: encrypted values will not decrypt from this evidence."
-        : browser.fields.osCryptKeyPresent?.state === "unavailable"
-          ? "Key presence could not be read from Local State."
-          : browser.fields.osCryptKeyPresent?.state === "value"
-            ? "Key presence is recorded, but not as yes or no."
-            : "Key presence is not recorded in Local State.";
+/** A key-presence field as "present" / "not present", else its own word. */
+function KeyPresence({ field }: { readonly field: FieldState | undefined }) {
+  const present = fieldBool(field);
+  if (present === null) {
+    return <MaybeFieldStateText field={field} />;
+  }
   return (
-    <SectionPanel
-      id="metadata-encryption"
-      title={<Term label="Encryption posture">{summary}</Term>}
-      className="min-w-0"
-    >
-      <ul className="flex flex-col divide-y divide-border px-4 pb-2">
-        <KeyState
-          label="Standard OS-crypt key"
-          detail="Protects cookies, saved logins, and autofill values."
-          field={browser.fields.osCryptKeyPresent}
-        />
-        <KeyState
-          label="App-bound encryption key"
-          detail="Newer, app-scoped key for the most sensitive values."
-          field={browser.fields.osCryptAppBoundKeyPresent}
-        />
-      </ul>
-    </SectionPanel>
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <EvidenceDot state="neutral" />
+      {present ? "present" : "not present"}
+    </span>
   );
 }
 
@@ -443,13 +399,12 @@ const FIELD_LABELS: readonly {
   readonly key: string;
   readonly label: string;
 }[] = [
-  { key: "scope", label: "Scope" },
   { key: "chromeVersion", label: "Chrome version" },
   { key: "lastUsedProfile", label: "Last used profile" },
   { key: "variationsCountry", label: "Variations region" },
   { key: "profileCount", label: "Profiles on device" },
   { key: "osCryptKeyPresent", label: "Standard OS-crypt key" },
-  { key: "osCryptAppBoundKeyPresent", label: "App-bound key" },
+  { key: "osCryptAppBoundKeyPresent", label: "App-bound encryption key" },
   { key: "profileName", label: "Profile name" },
   { key: "createdByVersion", label: "Created by version" },
   { key: "exitType", label: "Last exit type" },
@@ -470,6 +425,37 @@ const FIELD_LABELS: readonly {
 
 const LISTED_KEYS = new Set(FIELD_LABELS.map(({ key }) => key));
 
+/**
+ * The fields of a saved row that the panels above already show - the
+ * browser row's four figures, a profile card's facts and readings - so the
+ * recorded fields list each fact once. Recovered rows have no panel and
+ * list every field; the detail sheet keeps every wire field of every row.
+ */
+function shownAbove(row: Finding): ReadonlySet<string> {
+  if (row.findingKind === "browser_metadata") {
+    return new Set([
+      "chromeVersion",
+      "profileCount",
+      "lastUsedProfile",
+      "variationsCountry",
+    ]);
+  }
+  const keys = new Set([
+    "accountEmail",
+    "profileName",
+    "accountLocale",
+    "createdByVersion",
+  ]);
+  // The card's badge and headline carry these only when recorded.
+  if (exitReading(row.fields.exitType) !== null) {
+    keys.add("exitType");
+  }
+  if (fieldString(row.fields.accountFullName) !== null) {
+    keys.add("accountFullName");
+  }
+  return keys;
+}
+
 /** A stable key for one Metadata row within its list. */
 function rowKey(row: Finding, index: number): string {
   return `${row.commitState}:${row.findingKind}:${row.profile}:${String(index)}`;
@@ -487,13 +473,19 @@ function rowKey(row: Finding, index: number): string {
  */
 function RowFields({
   row,
+  summarized,
   onSelect,
 }: {
   readonly row: Finding;
+  /** The figure strip or a profile card shows this row above. */
+  readonly summarized: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
   const size = useSize();
-  const present = FIELD_LABELS.filter(({ key }) => key in row.fields);
+  const above = summarized ? shownAbove(row) : new Set<string>();
+  const present = FIELD_LABELS.filter(
+    ({ key }) => key in row.fields && !above.has(key),
+  );
   const unlisted = Object.keys(row.fields).filter(
     (key) => !LISTED_KEYS.has(key),
   ).length;
@@ -541,10 +533,23 @@ function RowFields({
             className="grid grid-cols-1 gap-x-6 gap-y-0.5 border-b border-border py-2 last:border-b-0 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]"
           >
             <dt className={cn(typeClass("body"), "text-muted-foreground")}>
-              {label}
+              {key in KEY_FIELDS ? (
+                <Term label={label}>
+                  {KEY_FIELDS[key]}
+                  {key === "osCryptKeyPresent"
+                    ? ` ${postureOf(row.fields)}`
+                    : null}
+                </Term>
+              ) : (
+                label
+              )}
             </dt>
             <dd className={cn(typeClass("body"), "min-w-0 text-foreground")}>
-              <MaybeFieldStateText field={row.fields[key]} />
+              {key in KEY_FIELDS ? (
+                <KeyPresence field={row.fields[key]} />
+              ) : (
+                <MaybeFieldStateText field={row.fields[key]} />
+              )}
             </dd>
           </div>
         ))}
@@ -568,6 +573,9 @@ function RowFields({
   );
 }
 
+/** No row is summarized above (the recovered list). */
+const EMPTY_SET: ReadonlySet<Finding> = new Set();
+
 /** "All rows" in the row picker. */
 const ALL_ROWS = "all";
 
@@ -581,12 +589,15 @@ function FieldsList({
   list,
   noun,
   focus,
+  summarized,
   onSelect,
 }: {
   readonly list: PaginatedList<Finding> | RecoveredList<Finding>;
   readonly noun: "saved" | "recovered";
   /** The picked row's key, or ALL_ROWS. */
   readonly focus: string;
+  /** Rows the panels above already show (their facts are not repeated). */
+  readonly summarized: ReadonlySet<Finding>;
   readonly onSelect: (row: Finding) => void;
 }) {
   const shown = list.rows.flatMap((row, index) => {
@@ -603,14 +614,19 @@ function FieldsList({
           message={
             noun === "saved"
               ? "No saved Metadata rows in this Case."
-              : "No Metadata rows were recovered from WAL or journal sidecars."
+              : "No recovered Metadata rows in this Case."
           }
         />
       }
     >
       <div className="reveal-items flex flex-col">
         {shown.map(({ key, row }) => (
-          <RowFields key={key} row={row} onSelect={onSelect} />
+          <RowFields
+            key={key}
+            row={row}
+            summarized={summarized.has(row)}
+            onSelect={onSelect}
+          />
         ))}
       </div>
     </ListBlock>
@@ -654,8 +670,8 @@ function RowPicker({
   );
 }
 
-/** Stands in for the figure strip, the encryption posture and the profile
- *  grid while the first saved page loads, at their size. */
+/** Stands in for the figure strip and the profile grid while the first
+ *  saved page loads, at their size. */
 function FiguresSkeleton() {
   return (
     <div
@@ -664,10 +680,7 @@ function FiguresSkeleton() {
       aria-label="Loading browser profile metadata"
     >
       <Skeleton className="h-[148px] w-full rounded-xl lg:h-[74px]" />
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Skeleton className="h-[150px] w-full rounded-xl" />
-        <Skeleton className="h-[260px] w-full rounded-xl lg:col-span-2" />
-      </div>
+      <Skeleton className="h-[260px] w-full rounded-xl" />
     </div>
   );
 }
@@ -712,6 +725,14 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
       return haystack.includes(query);
     });
   }, [profiles, search]);
+
+  // The saved rows the strip and the cards show: their facts are not
+  // listed again under "Recorded fields".
+  const summarized = useMemo(
+    () =>
+      new Set<Finding>(browser === null ? profiles : [browser, ...profiles]),
+    [browser, profiles],
+  );
 
   const profilesFiltered = visibleProfiles.length !== profiles.length;
   const columns = Math.max(1, Math.min(visibleProfiles.length, wide ? 2 : 1));
@@ -761,76 +782,68 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
                 {browser === null ? null : (
                   <EnvironmentStrip browser={browser} />
                 )}
-                <div className="grid items-start gap-4 lg:grid-cols-3">
-                  {browser === null ? null : (
-                    <EncryptionPanel browser={browser} />
-                  )}
-                  <SectionPanel
-                    id="metadata-profiles"
-                    title="Profiles"
-                    count={
-                      profilesFiltered
-                        ? `${String(visibleProfiles.length)} of ${String(profiles.length)}`
-                        : profiles.length
-                    }
-                    className={cn(
-                      "min-w-0",
-                      browser === null ? "lg:col-span-3" : "lg:col-span-2",
-                    )}
-                  >
-                    {profiles.length > 3 ? (
-                      <Toolbar>
-                        <FilterTextField
-                          commit="change"
-                          label="Search loaded profiles"
-                          icon={SearchIcon}
-                          placeholder="Search profile or account"
-                          value={search}
-                          onCommit={setSearch}
-                        />
-                      </Toolbar>
-                    ) : null}
-                    {visibleProfiles.length === 0 ? (
-                      <EmptyRows
-                        message={
-                          profilesFiltered
-                            ? "No profiles match this search."
-                            : "No saved profile-level metadata in this Case."
-                        }
-                        action={
-                          profilesFiltered ? (
-                            <Button
-                              variant="tertiary"
-                              size="compact"
-                              onClick={() => {
-                                setSearch("");
-                              }}
-                            >
-                              Clear search
-                            </Button>
-                          ) : undefined
-                        }
+                <SectionPanel
+                  id="metadata-profiles"
+                  title="Profiles"
+                  count={
+                    profilesFiltered
+                      ? `${String(visibleProfiles.length)} of ${String(profiles.length)}`
+                      : profiles.length
+                  }
+                  className="min-w-0"
+                >
+                  {profiles.length > 3 ? (
+                    <Toolbar>
+                      <FilterTextField
+                        commit="change"
+                        label="Search loaded profiles"
+                        icon={SearchIcon}
+                        placeholder="Search profile or account"
+                        value={search}
+                        onCommit={setSearch}
                       />
-                    ) : (
-                      <div className="border-t border-border p-1">
-                        <CardGroup columns={columns}>
-                          {visibleProfiles.map((row, index) => (
-                            <ProfileCard
-                              key={rowKey(row, index)}
-                              row={row}
-                              onSelect={select}
-                            />
-                          ))}
-                        </CardGroup>
-                      </div>
-                    )}
-                  </SectionPanel>
-                </div>
+                    </Toolbar>
+                  ) : null}
+                  {visibleProfiles.length === 0 ? (
+                    <EmptyRows
+                      message={
+                        profilesFiltered
+                          ? "No profiles match this search."
+                          : "No saved profile-level metadata in this Case."
+                      }
+                      action={
+                        profilesFiltered ? (
+                          <Button
+                            variant="tertiary"
+                            size="compact"
+                            onClick={() => {
+                              setSearch("");
+                            }}
+                          >
+                            Clear search
+                          </Button>
+                        ) : undefined
+                      }
+                    />
+                  ) : (
+                    <div className="border-t border-border p-1">
+                      <CardGroup columns={columns}>
+                        {visibleProfiles.map((row, index) => (
+                          <ProfileCard
+                            key={rowKey(row, index)}
+                            row={row}
+                            onSelect={select}
+                          />
+                        ))}
+                      </CardGroup>
+                    </div>
+                  )}
+                </SectionPanel>
               </div>
             </RevealSwap>
           ) : null}
 
-          <SectionPanel id="metadata-fields" title="All recorded fields">
+          <SectionPanel id="metadata-fields" title="Recorded fields">
             <CommitStateSplit
               value={view}
               onValueChange={(next) => {
@@ -864,6 +877,7 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
                   list={lists.saved}
                   noun="saved"
                   focus={activeFocus}
+                  summarized={summarized}
                   onSelect={select}
                 />
               }
@@ -872,6 +886,7 @@ export function MetadataPage({ config }: { readonly config: ArtifactConfig }) {
                   list={lists.recovered}
                   noun="recovered"
                   focus={activeFocus}
+                  summarized={EMPTY_SET}
                   onSelect={select}
                 />
               }

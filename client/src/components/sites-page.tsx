@@ -26,13 +26,11 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
-  CardFooter,
   CardGroup,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
-import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle";
 import {
   ARTIFACT_ICONS,
   ChevronLeftIcon,
@@ -40,6 +38,7 @@ import {
   type AppIcon,
 } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
+import { useShape } from "@/lib/shape-context";
 import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +55,8 @@ import {
   CARD_TITLE_CLEAR,
   CommitStateSplit,
   Count,
+  CountChips,
+  type CountChip,
   IconTile,
   plural,
   ResponsiveRows,
@@ -66,12 +67,14 @@ import {
 import { EmptyRows } from "./data-table.js";
 import {
   FieldCell,
+  fieldText,
   SiteAvatar,
   StateWord,
   TwoLineCell,
   profileLabel,
 } from "./finding-fields.js";
 import { FilterTextField } from "./filters.js";
+import { formFieldLabel } from "./form-data.js";
 import { ErrorRows, LoadingRows } from "./list-states.js";
 import {
   RowSheet,
@@ -259,6 +262,7 @@ function HostList({
   readonly onSelect: (host: string) => void;
   readonly className?: string;
 }) {
+  const shape = useShape();
   return (
     <Panel
       role="region"
@@ -308,26 +312,31 @@ function HostList({
               {hosts.map((item) => (
                 <Card
                   key={item.host}
-                  label={`Show evidence for ${item.host}`}
+                  label={`Show evidence for ${item.host}: ${plural(savedTotalOf(item), "saved row", "saved rows")}`}
                   selected={selected === item.host}
                   onClick={() => {
                     onSelect(item.host);
                   }}
+                  // A card in a group has no corner of its own, so its
+                  // keyboard ring was square around the rounded selection
+                  // fill; the fill's radius gives the ring the same corner.
+                  className={shape.container}
                 >
                   <SiteAvatar host={item.host} />
+                  {/* The total (the list's order) is no unlabelled number
+                      beside the card: it leads the summary's tooltip, and
+                      the summary gets the width. */}
                   <CardHeader>
                     <CardTitle className={CARD_TITLE_CLEAR} title={item.host}>
                       {item.host}
                     </CardTitle>
                     <CardDescription
                       className={cn(typeClass("caption"), "truncate")}
+                      title={`${plural(savedTotalOf(item), "saved row", "saved rows")}: ${hostSummary(item)}`}
                     >
                       {hostSummary(item)}
                     </CardDescription>
                   </CardHeader>
-                  <CardFooter className="pointer-events-none">
-                    <Count>{savedTotalOf(item)}</Count>
-                  </CardFooter>
                 </Card>
               ))}
             </CardGroup>
@@ -435,7 +444,18 @@ const KIND_COLUMNS: Readonly<Record<SiteArtifactKind, readonly KindColumn[]>> =
         header: "Field",
         className: "max-w-[220px] text-foreground",
         stack: "title",
-        cell: (row) => <FieldCell field={row.fields.fieldName} />,
+        // The shared field-name label (as on Form data and the Timeline);
+        // the row sheet keeps the raw recorded name.
+        cell: (row) => {
+          const label = formFieldLabel(fieldText(row.fields.fieldName));
+          return label === null ? (
+            <FieldCell field={row.fields.fieldName} />
+          ) : (
+            <span className="block truncate" title={label}>
+              {label}
+            </span>
+          );
+        },
       },
       {
         key: "value",
@@ -545,10 +565,16 @@ function KindPanel({
               onSelect={onSelect}
             />
           ) : (
-            <EmptyRows
-              className="py-6"
-              message="No saved rows: every row of this kind for this host was recovered."
-            />
+            // Recovered rows only: one line, not a full empty state, so
+            // the recovered list below stays the panel's content.
+            <p
+              className={cn(
+                typeClass("body"),
+                "px-4 pb-3 text-muted-foreground",
+              )}
+            >
+              No saved rows for this host.
+            </p>
           )
         }
         recovered={
@@ -619,11 +645,6 @@ function HostDetail({
   const savedIn = (rows: readonly SiteFinding[]) =>
     rows.filter((row) => row.commitState === "committed").length;
 
-  const tabIndex =
-    kindFilter === null
-      ? 0
-      : presentKinds.findIndex((meta) => meta.kind === kindFilter) + 1;
-
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <section
@@ -686,31 +707,26 @@ function HostDetail({
                 </Banner>
               )}
               {presentKinds.length > 1 ? (
-                <TabsSubtle
-                  idPrefix="site-kinds"
-                  size="compact"
-                  selectedIndex={Math.max(0, tabIndex)}
-                  onSelect={(index) => {
-                    setKindFilter(
-                      index === 0
-                        ? null
-                        : (presentKinds[index - 1]?.kind ?? null),
-                    );
-                  }}
-                >
-                  <TabsSubtleItem
-                    index={0}
-                    label={`All ${String(savedIn(findings.rows))}`}
+                <SizeProvider size="compact">
+                  <CountChips
+                    label="Evidence kind"
+                    total={savedIn(findings.rows)}
+                    chips={presentKinds.map(
+                      (meta): CountChip => ({
+                        key: meta.kind,
+                        label: meta.label,
+                        count: savedIn(grouped.get(meta.kind) ?? []),
+                      }),
+                    )}
+                    active={kindFilter}
+                    onChange={(key) => {
+                      setKindFilter(
+                        presentKinds.find((meta) => meta.kind === key)?.kind ??
+                          null,
+                      );
+                    }}
                   />
-                  {presentKinds.map((meta, index) => (
-                    <TabsSubtleItem
-                      key={meta.kind}
-                      index={index + 1}
-                      icon={meta.icon}
-                      label={`${meta.label} ${String(savedIn(grouped.get(meta.kind) ?? []))}`}
-                    />
-                  ))}
-                </TabsSubtle>
+                </SizeProvider>
               ) : null}
               {presentKinds
                 .filter(

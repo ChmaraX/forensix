@@ -51,6 +51,7 @@ import { FilterTextField } from "./filters.js";
 import {
   categoryOf,
   FORM_DATA_CATEGORIES,
+  formFieldLabel,
   isPaymentField,
   PAYMENT_KEY,
   PAYMENT_SECRET_FIELDS,
@@ -74,30 +75,6 @@ const AUTOFILL_PARAMETERS: QueryParameters = [
  *  every page is read rather than the first screen. */
 const AUTOFILL_ROW_CAP = 6000;
 
-/**
- * A field type read back for display: Chrome's SCREAMING_SNAKE_CASE names are
- * turned into "Email address", "Address home zip" so the table scans as
- * language, while the exact recorded name stays reachable byte-for-byte in the
- * row detail sheet. A raw HTML field name (search-query) is left as-is.
- */
-function readableFieldType(fieldName: string | null): string | null {
-  if (fieldName === null || fieldName === "") {
-    return null;
-  }
-  if (!/^[A-Z0-9_]+$/.test(fieldName)) {
-    return fieldName;
-  }
-  const words = fieldName.toLowerCase().split("_").filter(Boolean);
-  if (words.length === 0) {
-    return fieldName;
-  }
-  return words
-    .map((word, index) =>
-      index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word,
-    )
-    .join(" ");
-}
-
 /** True for a Payment entry that carries a recorded, non-empty value — the
  *  secret the page withholds until "Show values" is on. */
 function holdsSecret(entry: Entry): boolean {
@@ -119,7 +96,7 @@ function toEntry(row: Finding): Entry {
   return {
     row,
     value: fieldText(row.fields.fieldValue),
-    type: readableFieldType(type),
+    type: formFieldLabel(type),
     category: categoryOf(type),
   };
 }
@@ -243,7 +220,7 @@ function EntryList({
           message={
             noun === "saved"
               ? "No saved Form data rows in this Case."
-              : "No form entries were recovered from WAL or journal sidecars."
+              : "No form entries were recovered from Chrome's temporary database files."
           }
         />
       }
@@ -529,7 +506,7 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
         <RowSheet
           selected={selected}
           title={
-            readableFieldType(fieldText(selected.row.fields.fieldName)) ??
+            formFieldLabel(fieldText(selected.row.fields.fieldName)) ??
             "Form entry"
           }
           redactedFields={selectedIsPayment ? PAYMENT_SECRET_FIELDS : undefined}

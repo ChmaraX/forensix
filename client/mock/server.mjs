@@ -365,6 +365,80 @@ const SORTS = {
   ],
 };
 
+/** A field's comparable value for the mock's sorts: a timestamp's UTC
+ *  instant, an integer string as a number, any other string as itself;
+ *  null when the field holds no recorded value (such rows sort last, as
+ *  core's keyset order puts them). */
+function sortValue(field) {
+  if (field === undefined || field.state !== "value") return null;
+  const value = field.value;
+  if (value !== null && typeof value === "object" && "utc" in value) {
+    return value.utc;
+  }
+  if (typeof value === "string") {
+    if (value === "") return null;
+    return /^-?\d+$/.test(value) ? Number(value) : value;
+  }
+  if (Array.isArray(value)) {
+    const first = value.find((entry) => typeof entry === "string");
+    return first ?? null;
+  }
+  return typeof value === "number" ? value : null;
+}
+
+/** The sort keys the mock honours, per route (and History view): each
+ *  maps a `sort` value to the row value it orders by, and names the
+ *  route's default sort and direction. Routes not listed keep the
+ *  fixture's own order. */
+const SORT_KEYS = {
+  "history:visits": {
+    default: ["visit-time", "desc"],
+    keys: {
+      "visit-time": (row) => sortValue(row.fields.visitTime),
+      url: (row) => sortValue(row.fields.url),
+      duration: (row) => sortValue(row.fields.visitDuration),
+      profile: (row) => row.profile,
+    },
+  },
+  favicons: {
+    default: ["last-updated", "desc"],
+    keys: {
+      "icon-url": (row) => sortValue(row.fields.iconUrl),
+      "page-url": (row) => sortValue(row.fields.pageUrls),
+      "last-updated": (row) => sortValue(row.fields.lastUpdated),
+      width: (row) => sortValue(row.fields.width),
+      profile: (row) => row.profile,
+    },
+  },
+};
+
+/** Orders rows by the request's `sort` / `direction` as the real server
+ *  does for the routes in `SORT_KEYS` (stable: ties keep fixture order;
+ *  a row without the value sorts last in either direction). */
+function sortedRows(rows, params, key) {
+  const spec = SORT_KEYS[key];
+  if (spec === undefined) return rows;
+  const sort = params.get("sort") ?? spec.default[0];
+  const direction = params.get("direction") ?? spec.default[1];
+  const read = spec.keys[sort];
+  if (read === undefined) return rows;
+  const sign = direction === "asc" ? 1 : -1;
+  return rows
+    .map((row, index) => ({ row, index, value: read(row) }))
+    .sort((a, b) => {
+      if (a.value === null || b.value === null) {
+        return a.value === b.value
+          ? a.index - b.index
+          : a.value === null
+            ? 1
+            : -1;
+      }
+      const order = a.value < b.value ? -1 : a.value > b.value ? 1 : 0;
+      return order === 0 ? a.index - b.index : order * sign;
+    })
+    .map((entry) => entry.row);
+}
+
 function checkSort(params, key, label) {
   const sort = params.get("sort");
   const allowed = SORTS[key];
@@ -615,6 +689,42 @@ function siteHosts(params, request) {
   return pageOf(items, params, "site-hosts");
 }
 
+/** The `site-favicons` route as the real server resolves it: per asked
+ *  host, the largest readable favicon whose icon URL or page URL names
+ *  that host (`www.` dropped), as an inline `data:` URI; `null` when none. */
+function siteFavicons(params, request) {
+  const hostOfUrl = (url) => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return null;
+    }
+  };
+  const best = new Map();
+  for (const row of readable(caseData.favicons, "Favicons", request)) {
+    if (typeof row._dataUri !== "string") continue;
+    const width = Number(textField(row, "width") ?? "0");
+    const pages = row.fields.pageUrls?.value;
+    const hosts = new Set(
+      [textField(row, "iconUrl"), ...(Array.isArray(pages) ? pages : [])]
+        .filter((url) => typeof url === "string")
+        .map(hostOfUrl)
+        .filter((host) => host !== null),
+    );
+    for (const host of hosts) {
+      const current = best.get(host);
+      if (current === undefined || width > current.width) {
+        best.set(host, { width, uri: row._dataUri });
+      }
+    }
+  }
+  const icons = {};
+  for (const host of params.getAll("host")) {
+    icons[host] = best.get(host)?.uri ?? null;
+  }
+  return { status: "ok", icons };
+}
+
 function siteFindings(params, request) {
   if ((params.get("host") ?? "") === "") {
     throw new MockBadRequest("Sites --host must not be empty.");
@@ -641,7 +751,11 @@ function siteFindings(params, request) {
 const artifactRoute = (route, rowsOf, artifact) => (params, request) => {
   checkSort(params, route, ROUTE_LABELS[route]);
   return pageOf(
-    byCommitState(findingRows(readable(rowsOf(), artifact, request)), params),
+    sortedRows(
+      byCommitState(findingRows(readable(rowsOf(), artifact, request)), params),
+      params,
+      route,
+    ),
     params,
     route,
   );
@@ -683,7 +797,11 @@ const ROUTES = {
     return pageOf(
       byCommitState(
         view === "visits"
-          ? byInstantRange(rows, params, visitTimeOf, "History")
+          ? sortedRows(
+              byInstantRange(rows, params, visitTimeOf, "History"),
+              params,
+              "history:visits",
+            )
           : rows,
         params,
       ),
@@ -694,9 +812,10 @@ const ROUTES = {
   },
   timeline: (params, request) => {
     checkSort(params, "timeline", "Timeline");
+    const stream = timelineRows(request);
     return pageOf(
       byInstantRange(
-        timelineRows(request),
+        params.get("direction") === "asc" ? stream.reverse() : stream,
         params,
         timelineSortKey,
         "Timeline",
@@ -705,7 +824,7 @@ const ROUTES = {
       "timeline",
     );
   },
-  "site-favicons": () => ({ status: "ok", icons: {} }),
+  "site-favicons": (params, request) => siteFavicons(params, request),
   cookies: artifactRoute("cookies", () => caseData.cookies, "Cookies"),
   credentials: artifactRoute(
     "credentials",

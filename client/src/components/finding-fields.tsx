@@ -189,7 +189,8 @@ export function FieldCell({
  *    for a cookie name, `false` for a title. Text is never mono unless
  *    `true`. @default "auto"
  *  - `avatar`: a host for a leading `SiteAvatar` tile (`null` draws "?");
- *    omit for none (a stacked phone card).
+ *    omit for none (a stacked phone card). `avatarSrc` puts a recovered
+ *    favicon (`data:` URI) in that tile instead of the letter.
  *
  *   <TwoLineCell primary={row.fields.title} secondary={row.fields.url} mono={false} />
  */
@@ -198,11 +199,13 @@ export function TwoLineCell({
   secondary = null,
   mono = "auto",
   avatar,
+  avatarSrc,
 }: {
   readonly primary: FieldState | string | undefined;
   readonly secondary?: FieldState | undefined | null;
   readonly mono?: boolean | "auto";
   readonly avatar?: string | null;
+  readonly avatarSrc?: string | null;
 }) {
   const size = useSize();
   const first =
@@ -240,7 +243,7 @@ export function TwoLineCell({
   }
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      <SiteAvatar host={avatar} />
+      <SiteAvatar host={avatar} src={avatarSrc} />
       <span className="min-w-0 flex-1">{lines}</span>
     </span>
   );
@@ -268,24 +271,46 @@ export function profileLabel(profile: string): string {
 export { AbsentWord } from "./field-state.js";
 
 const AVATAR_SIZE = {
-  md: { box: "size-7 rounded-md", type: typeClass("caption") },
-  lg: { box: "size-10 rounded-lg", type: typeClass("subtitle") },
-  xl: { box: "size-13 rounded-xl", type: typeClass("title") },
+  md: { box: "size-7 rounded-md", type: typeClass("caption"), image: "size-4" },
+  lg: {
+    box: "size-10 rounded-lg",
+    type: typeClass("subtitle"),
+    image: "size-6",
+  },
+  xl: { box: "size-13 rounded-xl", type: typeClass("title"), image: "size-8" },
 } as const;
 
 /**
  * Neutral letter tile standing in for a favicon; identity is the text. The
  * fill is FF's hover overlay (it reads on any surface level), the letter
- * muted at semibold.
+ * muted at semibold. With `src` (a recovered favicon as an inline `data:`
+ * URI) the same tile holds that bitmap instead of the letter, so rows with
+ * and without an icon keep one size and alignment.
  */
 export function SiteAvatar({
   host,
   size = "md",
+  src,
 }: {
   readonly host: string | null;
   readonly size?: "md" | "lg" | "xl";
+  /** A recovered favicon (`data:` URI); omit or null for the letter. */
+  readonly src?: string | null;
 }) {
   const style = AVATAR_SIZE[size];
+  if (src !== undefined && src !== null) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center overflow-hidden bg-hover",
+          style.box,
+        )}
+      >
+        <img src={src} alt="" className={cn("object-contain", style.image)} />
+      </span>
+    );
+  }
   const letter = host
     ?.replace(/^www\./, "")
     .charAt(0)

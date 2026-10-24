@@ -30,8 +30,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { codeClass } from "@/components/field-state";
-import { ARTIFACT_ICONS } from "@/lib/app-icons";
+import { ExternalLinkIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
@@ -58,12 +57,17 @@ const REASON_COPY: Record<
     readonly headline: string;
     /** The headline as the tail of "unavailable - …" on the Overview row. */
     readonly short: string;
+    /** What the reason means for this Case, in words (the banner's
+     *  description; the raw reason code stays out of the copy). */
+    readonly consequence: string;
     readonly steps: readonly SetupStep[];
   }
 > = {
   model_artifact_missing: {
     headline: "Topic model not downloaded",
     short: "model not downloaded",
+    consequence:
+      "No topic suggestions until the model is downloaded and the analysis re-run.",
     steps: [
       { label: "Download the model", value: "minishlab/potion-base-8M" },
       {
@@ -76,6 +80,8 @@ const REASON_COPY: Record<
   model_runtime_unavailable: {
     headline: "Topic runtime not installed",
     short: "runtime not installed",
+    consequence:
+      "No topic suggestions until the runtime is installed and the analysis re-run.",
     steps: [
       {
         label: "Install the runtime",
@@ -87,6 +93,8 @@ const REASON_COPY: Record<
   model_load_failed: {
     headline: "Topic model failed to load",
     short: "model failed to load",
+    consequence:
+      "No topic suggestions until the model loads and the analysis is re-run.",
     steps: [
       {
         label: "Check this variable points at a valid model.onnx",
@@ -98,6 +106,7 @@ const REASON_COPY: Record<
   inference_failed: {
     headline: "Topic classification failed mid-run",
     short: "classification failed mid-run",
+    consequence: "No topic suggestions until the analysis is re-run.",
     steps: [RERUN],
   },
 };
@@ -124,9 +133,7 @@ function EnableModelSheet({
         <SheetBody className="flex flex-col gap-6 pt-1">
           <Banner status="info">
             <BannerTitle>{copy?.headline}</BannerTitle>
-            <BannerDescription>
-              Reason: <span className={codeClass(reason)}>{reason}</span>
-            </BannerDescription>
+            <BannerDescription>{copy?.consequence}</BannerDescription>
           </Banner>
           <ol className="flex flex-col gap-5">
             {copy?.steps.map((step, index) => (
@@ -155,11 +162,7 @@ function EnableModelSheet({
           </ol>
         </SheetBody>
         <SheetFooter>
-          <Button
-            asChild
-            variant="primary"
-            leadingIcon={ARTIFACT_ICONS.downloads}
-          >
+          <Button asChild variant="primary" trailingIcon={ExternalLinkIcon}>
             <a
               href="https://github.com/ChmaraX/forensix#topic-classification"
               target="_blank"

@@ -238,7 +238,16 @@ function lifespanBuckets(rows: readonly CookieRow[]): {
   };
 }
 
-/** "3 years" / "12 days" / "session" style label for a lifespan in days. */
+/** Days in an average month (365.25 / 12). */
+const MONTH_DAYS = 30.4375;
+
+/**
+ * A lifespan in days as words, on the Persistence buckets' boundaries so a
+ * row never reads across one: "session" (≤ 1 day), "N days" (under a
+ * month), "N months" up to two years - at most "12 months" within a year
+ * (the "≤ 1 year" bucket), at least "13 months" past it ("> 1 year") - then
+ * "N years" (one decimal).
+ */
 function formatLifespan(days: number): string {
   if (days <= 1) {
     return "session";
@@ -246,12 +255,13 @@ function formatLifespan(days: number): string {
   if (days < 31) {
     return `${String(days)} days`;
   }
-  if (days < 365) {
-    const months = Math.round(days / 30);
-    return `${String(months)} month${months === 1 ? "" : "s"}`;
+  if (days < 730) {
+    const months = Math.round(days / MONTH_DAYS);
+    const bounded = days <= 365 ? Math.min(12, months) : Math.max(13, months);
+    return `${String(bounded)} month${bounded === 1 ? "" : "s"}`;
   }
-  const years = Math.round((days / 365) * 10) / 10;
-  return `${String(years)} year${years === 1 ? "" : "s"}`;
+  const years = Math.floor((days / 365.25) * 10) / 10;
+  return `${String(years)} years`;
 }
 
 /** A share as a whole percent; the figures only render with rows loaded. */
@@ -429,20 +439,42 @@ function NameCell({ row }: { readonly row: CookieRow }) {
   );
 }
 
+/** A scope flag every row of a list records the same way (all Yes or all
+ *  No) - a degenerate column. */
+function uniformFlag(
+  rows: readonly CookieRow[],
+  flag: (row: CookieRow) => boolean | null,
+): boolean {
+  const first = rows[0];
+  if (first === undefined) {
+    return false;
+  }
+  const value = flag(first);
+  return value !== null && rows.every((row) => flag(row) === value);
+}
+
 /**
  * The table's columns. The State column only shows in the Recovered tab —
- * every saved row would read "saved". Below `sm` a row stacks: host and
- * state on the first line, the cookie name, then value, lifespan and time.
+ * every saved row would read "saved". A Secure or HttpOnly column that
+ * reads the same on every saved row is left out of the Saved tab: its
+ * figure above (100% or 0%) already says so, and the sheet keeps the field.
+ * Below `sm` a row stacks: host and state on the first line, the cookie
+ * name, then value, lifespan and time. Columns with short values have a
+ * fixed width, so revealing values or loading rows never shifts them.
  */
 function cookieColumns(
   reveal: boolean,
   recovered: boolean,
+  omit: { readonly secure: boolean; readonly httpOnly: boolean } = {
+    secure: false,
+    httpOnly: false,
+  },
 ): readonly RowColumn<CookieRow>[] {
   const columns: RowColumn<CookieRow>[] = [
     {
       key: "host",
       header: "Host",
-      className: "max-w-[180px]",
+      className: "max-w-[320px]",
       stack: "lead",
       cell: (row) => <HostCell row={row} avatar />,
       stackedCell: (row) => <HostCell row={row} avatar={false} />,
@@ -450,51 +482,63 @@ function cookieColumns(
     {
       key: "name",
       header: "Cookie",
-      className: "max-w-[180px]",
+      className: "w-[160px] max-w-[160px]",
       stack: "title",
       cell: (row) => <NameCell row={row} />,
     },
     {
       key: "value",
       header: "Value",
+      // Cookie values are tokens: monospace, at a fixed width.
+      className: "w-[160px] max-w-[160px]",
       cell: (row) => (
         <SecretValueCell
           field={row.finding.fields.value}
           reveal={reveal}
-          className="max-w-[180px]"
+          mono
         />
       ),
     },
-    {
-      key: "secure",
-      header: "Secure",
-      stack: "hidden",
-      cell: (row) => <FlagCell field={row.finding.fields.isSecure} />,
-    },
-    {
-      key: "httpOnly",
-      header: "HttpOnly",
-      stack: "hidden",
-      cell: (row) => <FlagCell field={row.finding.fields.isHttpOnly} />,
-    },
+    ...(omit.secure
+      ? []
+      : [
+          {
+            key: "secure",
+            header: "Secure",
+            className: "w-[88px]",
+            stack: "hidden",
+            cell: (row) => <FlagCell field={row.finding.fields.isSecure} />,
+          } satisfies RowColumn<CookieRow>,
+        ]),
+    ...(omit.httpOnly
+      ? []
+      : [
+          {
+            key: "httpOnly",
+            header: "HttpOnly",
+            className: "w-[88px]",
+            stack: "hidden",
+            cell: (row) => <FlagCell field={row.finding.fields.isHttpOnly} />,
+          } satisfies RowColumn<CookieRow>,
+        ]),
     {
       key: "sameSite",
       header: SAME_SITE_HEADER,
       label: "SameSite",
-      className: "whitespace-nowrap",
+      className: "w-[104px] whitespace-nowrap",
       stack: "hidden",
       cell: (row) => <SameSiteCell field={row.finding.fields.sameSite} />,
     },
     {
       key: "lifespan",
       header: "Lifespan",
-      className: "whitespace-nowrap tabular-nums",
+      className: "w-[96px] whitespace-nowrap tabular-nums",
       cell: (row) => <LifespanCell row={row} />,
     },
     {
       key: "created",
       header: "Created",
-      className: "whitespace-nowrap",
+      className: "w-[176px] whitespace-nowrap",
       cell: (row) => <TimeCell field={row.finding.fields.creationTime} />,
     },
   ];
@@ -531,9 +575,21 @@ function CookieList({
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
 }) {
+  // Degenerate flags are read over every loaded row of the Saved list (not
+  // the visible ones), so a filter never adds or drops a column.
+  const omit = useMemo(
+    () =>
+      noun === "saved"
+        ? {
+            secure: uniformFlag(rows, (row) => row.secure),
+            httpOnly: uniformFlag(rows, (row) => row.httpOnly),
+          }
+        : { secure: false, httpOnly: false },
+    [rows, noun],
+  );
   const columns = useMemo(
-    () => cookieColumns(reveal, noun === "recovered"),
-    [reveal, noun],
+    () => cookieColumns(reveal, noun === "recovered", omit),
+    [reveal, noun, omit],
   );
   return (
     <ListBlock
@@ -548,7 +604,7 @@ function CookieList({
           message={
             noun === "saved"
               ? "No saved cookie rows in this Case."
-              : "No cookie rows were recovered from WAL or journal sidecars."
+              : "No cookies were recovered from Chrome's temporary database files."
           }
         />
       }

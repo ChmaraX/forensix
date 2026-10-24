@@ -166,7 +166,8 @@ export function FolderRow({
   readonly depth: number;
   readonly label: string;
   readonly count: number;
-  /** Rows filed directly here, shown when it differs from `count`. */
+  /** Rows filed directly here: the count's tooltip when it differs from
+   *  `count` (never a bare "(1)" beside it). */
   readonly direct?: number;
   readonly icon: "library" | "folder";
   readonly active: boolean;
@@ -255,7 +256,7 @@ export function FolderRow({
                 "shrink-0 text-muted-foreground tabular-nums",
               )}
             >
-              {count.toLocaleString("en-US")} ({direct.toLocaleString("en-US")})
+              {count.toLocaleString("en-US")}
             </span>
           </Tooltip>
         ) : (

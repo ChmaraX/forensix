@@ -111,8 +111,13 @@ rejects is rejected here first, with the real 400 body (`{"status": "error",
 - `site-findings` without a `host` is a 400; an unknown route is a 400
   "Unknown dashboard route.".
 
-The simplification: search, the sort order itself and the per-artifact
-extra filters are not applied - rows come in the fixture's own order. That's
+- Order - the History `visits` view and `favicons` are sorted by `sort` /
+  `direction` (stable; rows without the value last), and the `timeline`
+  follows `direction`, so those lists read in the order their toolbars say.
+
+The simplification: search, the sort order on the other routes and the
+per-artifact extra filters are not applied - those rows come in the
+fixture's own order. That's
 enough to design list/detail UI against realistic data; it is not a
 stand-in for testing filtering or ordering. The real server
 (`server/src/index.ts` + `core/`) is the source of truth for that logic.

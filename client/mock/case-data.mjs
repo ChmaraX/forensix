@@ -11,6 +11,8 @@
  * "Profile 2") on a company-issued laptop, acquired from a full-disk image.
  */
 
+import { createHash } from "node:crypto";
+
 const CASE_ID = "CASE-2024-0417";
 
 const PROFILE_DEFAULT = "Default";
@@ -43,6 +45,10 @@ const UNAVAILABLE_REASONS = [
   "value present but not a recognized encoding",
   "related row missing from this database",
 ];
+
+/** The reason core gives an encrypted value analysed without the OS key
+ *  material (the dashboard words it "sealed"). */
+const SEALED_REASON = "encrypted_secret_without_key_material";
 
 function reasonFor(seed) {
   return UNAVAILABLE_REASONS[seed % UNAVAILABLE_REASONS.length];
@@ -431,7 +437,7 @@ function buildCookies() {
               synthetic: false,
             })
           : encrypted
-            ? unavailable("value could not be decrypted offline")
+            ? unavailable(SEALED_REASON)
             : value(""),
         isEncrypted: value(encrypted),
         encryptedValueScheme: encrypted ? value("v10") : absent(),
@@ -521,7 +527,6 @@ function buildCredentials() {
     const lastUsed = isoAtSeeded(rand, Math.max(0, daysAgo - 25), 14, 0);
     const sidecar = i % 4 === 0;
     const commitState = sidecar ? "wal_resident" : "committed";
-    const decryptable = i % 3 !== 0;
     rows.push({
       recordType: "finding",
       findingKind: "login_credential",
@@ -542,9 +547,7 @@ function buildCredentials() {
         passwordElement: value("password"),
         // Passwords stay encrypted and are never shown, per product rule —
         // the mock mirrors that: secret is always unavailable, never a value.
-        secret: decryptable
-          ? unavailable("value could not be decrypted offline")
-          : unavailable("value could not be decrypted offline"),
+        secret: unavailable(SEALED_REASON),
         secretEncryptionScheme: value("v10"),
         secretByteLength: value(String(48 + i)),
         dateCreated: timestamp(created),
@@ -951,6 +954,43 @@ function buildCache() {
 
 /* -------------------------------- Favicons -------------------------------- */
 
+/** Mock favicon hues: muted brand-like fills, picked per host. */
+const FAVICON_FILLS = [
+  "#1f6feb",
+  "#0f766e",
+  "#b45309",
+  "#7c3aed",
+  "#be123c",
+  "#334155",
+  "#15803d",
+  "#c2410c",
+];
+
+/**
+ * A stand-in favicon bitmap for a host: a small SVG (a rounded square in a
+ * host-picked hue with its initial), with the SHA-256 and byte length a
+ * real recovered payload carries, so the Favicons page can match a
+ * `site-favicons` icon to its own row exactly as it does on a real Case.
+ */
+function faviconPayload(host) {
+  const name = host.replace(/^www\./, "");
+  const hash = createHash("sha256").update(name).digest();
+  const fill = FAVICON_FILLS[hash[0] % FAVICON_FILLS.length];
+  const letter = name.charAt(0).toUpperCase();
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">` +
+    `<title>${name}</title>` +
+    `<rect width="32" height="32" rx="7" fill="${fill}"/>` +
+    `<text x="16" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#fff">${letter}</text>` +
+    `</svg>`;
+  const bytes = Buffer.from(svg, "utf8");
+  return {
+    bytes,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    dataUri: `data:image/svg+xml;base64,${bytes.toString("base64")}`,
+  };
+}
+
 function buildFavicons() {
   const rand = prng(1010);
   const hosts = ALL_HOSTS.slice(0, 18);
@@ -959,6 +999,7 @@ function buildFavicons() {
     const updated = isoAtSeeded(rand, daysAgo, 8, 0);
     const sidecar = i % 6 === 0;
     const missing = i % 9 === 0;
+    const payload = faviconPayload(host);
     return {
       recordType: "finding",
       findingKind: "favicon",
@@ -980,18 +1021,13 @@ function buildFavicons() {
         height: value(String(pick(rand, [16, 32, 48]))),
         lastUpdated: timestamp(updated),
         lastRequested: value(""),
-        payloadSha256: missing
-          ? absent()
-          : value(
-              Array.from({ length: 12 }, () =>
-                Math.floor(rand() * 16).toString(16),
-              ).join(""),
-            ),
-        payloadBytes: missing
-          ? absent()
-          : value(String(200 + Math.floor(rand() * 4000))),
+        payloadSha256: missing ? absent() : value(payload.sha256),
+        payloadBytes: missing ? absent() : value(String(payload.bytes.length)),
         pageUrls: value([urlFor(rand, host)]),
       },
+      // The stored bitmap, for the mock's `site-favicons` route (stripped
+      // from the wire row like every `_` helper field).
+      _dataUri: missing ? null : payload.dataUri,
     };
   });
 }

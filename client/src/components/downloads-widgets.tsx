@@ -3,7 +3,7 @@
  * page's date range by hand with the `ActivityBars` rules) and the file
  * kinds (`KindBreakdown`). Split out of `downloads-page.tsx`.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -16,15 +16,13 @@ import {
   type BarShapeProps,
   type MouseHandlerDataParam,
 } from "recharts";
+import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
 import {
-  Card,
-  CardFooter,
-  CardGroup,
-  CardHeader,
-  CardMedia,
-  CardTitle,
-} from "@/components/ui/card";
-import { SizeProvider, useSize } from "@/lib/size-context";
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@/hooks/use-fluid-hover";
+import { useShape } from "@/lib/shape-context";
+import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import {
   activeIndexOf,
@@ -47,13 +45,13 @@ import {
 } from "./charts.js";
 import { EmptyRows } from "./data-table.js";
 import {
-  CARD_TITLE_CLEAR,
   CHART_HEIGHT,
   ShareBar,
   formatBytes,
   formatDay,
   formatDayTick,
   plural,
+  WeightLabel,
 } from "./page-kit.js";
 import {
   type FileKind,
@@ -64,6 +62,30 @@ import {
 } from "./downloads-model.js";
 
 /* -------------------------------- widgets --------------------------------- */
+
+/**
+ * Round byte ticks for a peak: a 1, 2, 2.5 or 5 step (×10ⁿ) of the
+ * peak's own unit (B, KB, MB, …, base 1024 as `formatBytes` reads them), at
+ * most five ticks from zero, the last one at or above the peak - so the axis
+ * reads "10 MB / 20 MB / 30 MB / 40 MB" instead of "9.5 / 19.1 / 28.6 MB".
+ */
+export function byteTicks(peak: number): readonly number[] {
+  if (peak <= 0) {
+    return [0];
+  }
+  let unit = 1;
+  while (peak / unit >= 1024 && unit < 1024 ** 4) {
+    unit *= 1024;
+  }
+  const scaled = peak / unit;
+  const magnitude = 10 ** Math.floor(Math.log10(scaled / 4));
+  const step =
+    [1, 2, 2.5, 5, 10]
+      .map((factor) => factor * magnitude)
+      .find((candidate) => scaled / candidate <= 4) ?? 10 * magnitude;
+  const count = Math.ceil(scaled / step - 1e-9);
+  return Array.from({ length: count + 1 }, (_, index) => index * step * unit);
+}
 
 export interface VolumeDay {
   readonly date: string;
@@ -185,6 +207,7 @@ export function VolumeChart({
   }
 
   const peak = days.reduce((max, day) => Math.max(max, day.bytes), 0);
+  const ticks = byteTicks(peak);
   const dateAt = (state: MouseHandlerDataParam | undefined) => {
     const index = activeIndexOf(state);
     return index === null ? null : (days[index]?.date ?? null);
@@ -262,6 +285,9 @@ export function VolumeChart({
           <YAxis
             width={56}
             {...chartAxis(tokens)}
+            ticks={ticks as number[]}
+            domain={[0, ticks[ticks.length - 1] ?? 0]}
+            interval={0}
             tickFormatter={(bytes: number) => formatBytes(bytes)}
           />
           <Tooltip
@@ -320,12 +346,16 @@ export function VolumeChart({
 }
 
 /**
- * File-kind breakdown. One card per kind that appears, ordered investigative
+ * File-kind breakdown. One row per kind that appears, ordered investigative
  * first (executables, archives), each with a bar sized to the busiest kind by
- * bytes and its count and total size beside it. This is the lens an examiner
- * actually scans a downloads set through — "did anything executable land
- * here" — that the raw table alone buries. Picking a kind focuses the table;
- * the picked card holds FF's selected fill and its title turns semibold.
+ * bytes and, at the row's end, its file count and total size - size last
+ * and in the foreground, since the bar measures bytes. This is the lens an
+ * examiner actually scans a downloads set through - "did anything
+ * executable land here" - that the raw table alone buries. Picking a kind
+ * focuses the table (picking it again clears); the picked row holds the
+ * selection fill and its label turns semibold. A fluid-hover list of 40px
+ * button rows (FLUID's clickable-list pattern) keeps the panel no taller
+ * than the chart beside it.
  */
 export function KindBreakdown({
   rows,
@@ -336,7 +366,9 @@ export function KindBreakdown({
   readonly activeKind: FileKind | null;
   readonly onKind: (kind: FileKind | null) => void;
 }) {
-  const size = useSize();
+  const listRef = useRef<HTMLDivElement>(null);
+  const hover = useFluidHover(listRef, { axis: "y" });
+  const shape = useShape();
   const kinds = useMemo(() => {
     const map = new Map<FileKind, { count: number; bytes: number }>();
     for (const row of rows) {
@@ -361,51 +393,109 @@ export function KindBreakdown({
   }
 
   return (
-    <SizeProvider size="compact">
-      <CardGroup orientation="inline" className="px-1 pb-1">
-        {kinds.map((entry) => {
-          const meta = KIND_META[entry.kind];
-          const active = activeKind === entry.kind;
-          return (
-            <Card
-              key={entry.kind}
-              selected={active}
-              onClick={() => {
-                onKind(active ? null : entry.kind);
-              }}
-              label={`${meta.label}: ${plural(entry.count, "file", "files")}, ${formatBytes(entry.bytes)}. ${
-                active
-                  ? "Press to show every file kind"
-                  : "Press to focus the table on this kind"
-              }`}
-            >
-              <CardMedia icon={meta.icon} />
-              <CardHeader className="w-28 flex-none">
-                <CardTitle className={CARD_TITLE_CLEAR}>{meta.label}</CardTitle>
-              </CardHeader>
-              <span className="min-w-0 flex-1">
-                <ShareBar fraction={entry.bytes / peak} />
-              </span>
-              {/* Text only: let a click on it fall through to the card. */}
-              <CardFooter className="pointer-events-none w-20 flex-col items-end gap-0">
-                <span
-                  className={cn(size.type.body, "text-foreground tabular-nums")}
-                >
-                  {plural(entry.count, "file", "files")}
-                </span>
-                <span
-                  className={cn(
-                    size.type.caption,
-                    "text-muted-foreground tabular-nums",
-                  )}
-                >
-                  {formatBytes(entry.bytes)}
-                </span>
-              </CardFooter>
-            </Card>
-          );
-        })}
-      </CardGroup>
-    </SizeProvider>
+    <div ref={listRef} {...hover.handlers} className="relative px-1 pb-1">
+      <FluidHoverHighlight hover={hover} className={shape.item} />
+      <ul className="flex flex-col">
+        {kinds.map((entry, index) => (
+          <KindRow
+            key={entry.kind}
+            index={index}
+            registerItem={hover.registerItem}
+            kind={entry.kind}
+            count={entry.count}
+            bytes={entry.bytes}
+            fraction={entry.bytes / peak}
+            active={activeKind === entry.kind}
+            onPick={() => {
+              onKind(activeKind === entry.kind ? null : entry.kind);
+            }}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function KindRow({
+  index,
+  registerItem,
+  kind,
+  count,
+  bytes,
+  fraction,
+  active,
+  onPick,
+}: {
+  readonly index: number;
+  readonly registerItem: (index: number, element: HTMLElement | null) => void;
+  readonly kind: FileKind;
+  readonly count: number;
+  readonly bytes: number;
+  readonly fraction: number;
+  readonly active: boolean;
+  readonly onPick: () => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const shape = useShape();
+  const size = useSize();
+  useRegisterFluidHoverItem(registerItem, index, ref);
+  const meta = KIND_META[kind];
+  const Icon = meta.icon;
+  return (
+    <li>
+      <button
+        ref={ref}
+        type="button"
+        aria-pressed={active}
+        aria-label={`${meta.label}: ${formatBytes(bytes)}, ${plural(count, "file", "files")}. ${
+          active
+            ? "Press to show every file kind"
+            : "Press to focus the table on this kind"
+        }`}
+        onClick={onPick}
+        className={cn(
+          "relative grid h-10 w-full cursor-pointer grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_auto] items-center gap-3 px-3 text-left transition-colors duration-80",
+          "outline-none focus-visible:ring-1 focus-visible:ring-focus-ring",
+          shape.item,
+          active && "bg-active",
+        )}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <Icon
+            aria-hidden="true"
+            size={size.icon}
+            strokeWidth={active ? 2 : 1.5}
+            className={cn(
+              "shrink-0 transition-colors duration-80",
+              active ? "text-foreground" : "text-muted-foreground",
+            )}
+          />
+          <WeightLabel
+            text={meta.label}
+            active={active}
+            className={cn(size.type.body, "text-foreground")}
+          />
+        </span>
+        <ShareBar fraction={fraction} />
+        <span className="flex items-baseline justify-end gap-2 whitespace-nowrap">
+          <span
+            className={cn(
+              size.type.caption,
+              "text-muted-foreground tabular-nums",
+            )}
+          >
+            {plural(count, "file", "files")}
+          </span>
+          <span
+            className={cn(
+              size.type.body,
+              "w-16 text-right text-foreground tabular-nums",
+            )}
+          >
+            {formatBytes(bytes)}
+          </span>
+        </span>
+      </button>
+    </li>
   );
 }

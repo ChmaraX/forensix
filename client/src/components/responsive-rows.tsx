@@ -289,30 +289,44 @@ function StackedRow<Row>({
         ))}
         {meta.length === 0 ? null : (
           <SizeProvider size="compact">
-            <div
-              className={cn(
-                size.type.caption,
-                "flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-muted-foreground",
-              )}
-            >
-              {meta.map((column, position) => (
-                <Fragment key={column.key}>
-                  {position === 0 ? null : <span aria-hidden="true">·</span>}
-                  <span className="inline-flex min-w-0 items-baseline gap-1">
-                    {column.labelled === true ? (
-                      <span>
-                        {column.label ??
-                          (typeof column.header === "string"
-                            ? column.header
-                            : null)}
+            {/* Every item carries its own leading " · " in a fixed 16px
+                slot, and the row is pulled 16px left inside a clipping
+                box: the separator that would start a wrapped line falls
+                in the clipped strip, so a line never ends or starts on a
+                dangling dot, and a segment never splits from its dot. */}
+            <div className="min-w-0 overflow-hidden">
+              <div
+                className={cn(
+                  size.type.caption,
+                  "-ml-4 flex min-w-0 flex-wrap items-baseline text-muted-foreground",
+                )}
+              >
+                {meta.map((column) => (
+                  <Fragment key={column.key}>
+                    <span className="inline-flex min-w-0 max-w-full items-baseline">
+                      <span
+                        aria-hidden="true"
+                        className="w-4 shrink-0 text-center"
+                      >
+                        ·
                       </span>
-                    ) : null}
-                    <span className="min-w-0 text-foreground">
-                      {show(column)}
+                      <span className="inline-flex min-w-0 items-baseline gap-1">
+                        {column.labelled === true ? (
+                          <span>
+                            {column.label ??
+                              (typeof column.header === "string"
+                                ? column.header
+                                : null)}
+                          </span>
+                        ) : null}
+                        <span className="min-w-0 text-foreground">
+                          {show(column)}
+                        </span>
+                      </span>
                     </span>
-                  </span>
-                </Fragment>
-              ))}
+                  </Fragment>
+                ))}
+              </div>
             </div>
           </SizeProvider>
         )}
