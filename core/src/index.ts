@@ -175,6 +175,7 @@ export {
 export {
   querySiteFindings,
   querySiteHosts,
+  siteHostKey,
   type SiteArtifactKind,
   type SiteFinding,
   type SiteFindingsPage,

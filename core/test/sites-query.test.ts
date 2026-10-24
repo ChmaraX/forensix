@@ -164,6 +164,62 @@ describe("Sites queries", () => {
     expect(findings.items[0]?.provenance.rowId).toBe("2");
   });
 
+  it("keys host-only and domain cookie host keys and URL hostnames without domain expansion", async () => {
+    const directory = await caseDirectory();
+    const cookie = (hostValue: string, id: number) => {
+      insert(
+        directory,
+        "cookie_findings",
+        "cookie_artifact_results",
+        "cookie",
+        "host_key",
+        hostValue,
+        id,
+      );
+    };
+    const visit = (url: string, id: number) => {
+      insert(
+        directory,
+        "forensic_findings",
+        "history_artifact_results",
+        "history_visit",
+        "sort_url",
+        url,
+        id,
+      );
+    };
+    // Host-only cookie: Chrome records the host key with no leading dot.
+    cookie("example.com", 1);
+    // Domain cookie: a leading dot.
+    cookie(".Example.com", 2);
+    // A host-only cookie on www stays its own host.
+    cookie("www.example.com", 3);
+    visit("https://www.example.com/a", 4);
+    // A port is not part of the key.
+    visit("http://example.com:8080/b", 5);
+    // Not hosts: no host key and no URL hostname.
+    visit("about:blank", 6);
+    cookie("not a host", 7);
+
+    const hosts = querySiteHosts({ caseDirectory: directory }).items;
+    expect(
+      hosts.map((item) => [item.host, item.counts.cookies, item.counts.visits]),
+    ).toEqual([
+      ["example.com", 2, 1],
+      ["www.example.com", 1, 1],
+    ]);
+    expect(
+      querySiteFindings({ caseDirectory: directory, host: "example.com" })
+        .items.map((item) => item.provenance.rowId)
+        .sort(),
+    ).toEqual(["1", "2", "5"]);
+    expect(
+      querySiteFindings({ caseDirectory: directory, host: "www.example.com" })
+        .items.map((item) => item.provenance.rowId)
+        .sort(),
+    ).toEqual(["3", "4"]);
+  });
+
   it("filters host names by search and returns an empty page when nothing matches", async () => {
     const directory = await caseDirectory();
     insert(

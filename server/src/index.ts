@@ -25,6 +25,7 @@ import {
   queryProfiles,
   querySiteFindings,
   querySiteHosts,
+  siteHostKey,
   queryTimeline,
   queryTopSites,
   queryTopicCandidates,
@@ -268,12 +269,11 @@ function findingFieldStringArray(
   );
 }
 
+/** A favicon URL's host as Sites keys hosts (core's `siteHostKey`: the
+ *  hostname, lower case, no domain expansion), so a Sites host key finds
+ *  its icon. */
 function hostOf(url: string): string | null {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
+  return siteHostKey(url);
 }
 
 /**

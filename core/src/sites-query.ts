@@ -138,13 +138,29 @@ function normalizeLimit(value: number | undefined, label: string): number {
   return limit;
 }
 
-function hostKey(value: string | null): string | null {
-  if (value === null || value.length === 0) return null;
-  // A URL hostname and Chrome's cookie host key name the recorded host; no
-  // domain expansion or relationship scoring is performed here.
-  if (value.startsWith(".")) return value.slice(1).toLocaleLowerCase("en-US");
+/**
+ * A bare host key: a host with no scheme, port, path, query, fragment,
+ * userinfo or whitespace ("example.com", "www.example.com"), or a bracketed
+ * IPv6 literal ("[::1]").
+ */
+const BARE_HOST = /^(?:[^\s/?#:@\\[\]]+|\[[0-9a-f:.]+\])$/i;
+
+/**
+ * The key Sites groups a recorded host under. A URL is keyed by its
+ * hostname (no port, userinfo or path); a Chrome cookie host key - a domain
+ * cookie's ".example.com" or a host-only cookie's bare "example.com" - by
+ * itself. One leading dot is removed and the result lower-cased. Nothing
+ * else: no domain expansion ("www.example.com" stays apart from
+ * "example.com") and no relationship scoring. Exported for the server's favicon lookup; the client's `siteKeyOf`
+ * (client/src/related.ts) applies this same transform.
+ */
+export function siteHostKey(value: string | null): string | null {
+  if (value === null) return null;
+  const text = value.startsWith(".") ? value.slice(1) : value;
+  if (text.length === 0) return null;
+  if (BARE_HOST.test(text)) return text.toLocaleLowerCase("en-US");
   try {
-    return new URL(value).hostname.toLocaleLowerCase("en-US") || null;
+    return new URL(text).hostname.toLocaleLowerCase("en-US") || null;
   } catch {
     return null;
   }
@@ -283,7 +299,7 @@ export function querySiteHosts(input: SiteHostQuery): SiteHostPage {
       }
     >();
     for (const row of rows(database)) {
-      const host = hostKey(row.host_value);
+      const host = siteHostKey(row.host_value);
       if (host === null || (search !== null && !host.includes(search)))
         continue;
       const entry = grouped.get(host) ?? {
@@ -339,7 +355,7 @@ export function querySiteFindings(input: SiteFindingsQuery): SiteFindingsPage {
         "Sites cursor does not belong to this query.",
       );
     const all = rows(database)
-      .filter((row) => hostKey(row.host_value) === host)
+      .filter((row) => siteHostKey(row.host_value) === host)
       .sort(
         (a, b) =>
           compareCodeUnits(a.artifact_kind, b.artifact_kind) ||
