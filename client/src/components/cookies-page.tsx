@@ -10,37 +10,76 @@
  * exactly those recorded flags as proportions, plus one honest interpolation:
  * a cookie's lifespan, computed from its own `creationTime` and `expiresTime`.
  *
- * Presentation rules kept: the Completeness Statement ("Evidence coverage")
- * renders before any row; every derived proportion is a reading of recorded
- * flags, never an inference; `absent` / `unavailable` stay worded and are
- * never conveyed by color alone; and no control here writes, re-runs, or
- * mutates anything — the page only reads the loaded rows back.
+ * Cookie values are session secrets, so the table keeps them **hidden by
+ * default**: a recorded value reads as the words "value hidden" until the
+ * examiner turns on "Show values" (the row detail sheet always carries the
+ * full field). A value that could not be decrypted offline reads
+ * "unavailable" with its reason, an empty one "(empty)", a missing one
+ * "absent" — four distinct words, never a colour alone.
+ *
+ * Presentation rules kept: every derived proportion is a reading of recorded
+ * flags, never an inference; saved rows and rows recovered from WAL / journal
+ * sidecars are separate lists (the Saved / Recovered switch), never sorted
+ * together; `absent` / `unavailable` stay worded; and no control here writes,
+ * re-runs, or mutates anything — the page only reads the loaded rows back.
  */
-import { Lock, Search, ShieldCheck } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Cookie, EyeOff, Lock, Search, ShieldCheck } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+
+import {
+  Panel,
+  PanelDescription,
+  PanelHeader,
+  PanelTitle,
+} from "@/components/panel";
+import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
+import { Badge, badgeColors, type BadgeColor } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/misc";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { Tooltip } from "@/components/ui/tooltip";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@/hooks/use-fluid-hover";
+import { fontWeights } from "@/lib/font-weight";
+import { useShape } from "@/lib/shape-context";
+import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import { cn } from "../lib.js";
-import type {
-  ArtifactConfig,
-  FieldState,
-  Finding,
-  PageOf,
-} from "../types.js";
-import { EmptyRows } from "./data-table.js";
+import type { ArtifactConfig, FieldState, Finding, PageOf } from "../types.js";
+import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
+import { EvidenceDot } from "./evidence.js";
+import { FieldStateText } from "./field-state.js";
 import {
   AbsentWord,
   fieldText,
   fieldUtc,
   formatInstant,
-  hostOf,
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import { ErrorRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { Button } from "./compat/button.js";
-import { Skeleton } from "./ui/misc.js";
+import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
 /* ------------------------------ data reading ------------------------------ */
 
@@ -69,6 +108,8 @@ interface CookieRow {
   readonly sameSite: string | null;
   readonly created: string | null;
   readonly expires: string | null;
+  /** The recorded `value` field as-is; the table decides how much to show. */
+  readonly value: FieldState | undefined;
   /** True when `value` came back `unavailable` — the encrypted-offline case. */
   readonly valueSealed: boolean;
   /** Whole days from creation to expiry, or null when a bound is missing. */
@@ -104,6 +145,7 @@ function toCookieRow(finding: Finding): CookieRow {
     sameSite: fieldText(finding.fields.sameSite),
     created,
     expires,
+    value: finding.fields.value,
     valueSealed: finding.fields.value?.state === "unavailable",
     lifespanDays,
   };
@@ -231,20 +273,28 @@ const SAME_SITE_LABEL: Readonly<Record<string, string>> = {
   unspecified: "Unspecified",
 };
 
-/** Bar tint per SameSite value: more permissive reads warmer, stricter cooler.
- *  Hue is never the only signal — every segment is labelled in the legend. */
-const SAME_SITE_TINT: Readonly<Record<string, string>> = {
-  no_restriction: "bg-warning",
-  lax: "bg-primary/55",
-  strict: "bg-success",
-  unspecified: "bg-muted-foreground/45",
+/** Segment hue per SameSite value: more permissive reads warmer, stricter
+ *  cooler. Hue is never the only signal — every segment is named and counted
+ *  in the legend beside it. */
+const SAME_SITE_COLOR: Readonly<Record<string, BadgeColor>> = {
+  no_restriction: "amber",
+  lax: "blue",
+  strict: "green",
+  unspecified: "gray",
+};
+
+const SAME_SITE_HINT: Readonly<Record<string, string>> = {
+  no_restriction: "Sent on every cross-site request",
+  lax: "Sent on top-level navigations only",
+  strict: "Never sent cross-site",
+  unspecified: "No policy set; the browser default applies",
 };
 
 interface SameSiteSlice {
   readonly key: string;
   readonly label: string;
   readonly count: number;
-  readonly tint: string;
+  readonly color: BadgeColor;
 }
 
 function sameSiteSlices(rows: readonly CookieRow[]): {
@@ -260,14 +310,14 @@ function sameSiteSlices(rows: readonly CookieRow[]): {
     known += 1;
     counts.set(row.sameSite, (counts.get(row.sameSite) ?? 0) + 1);
   }
-  const slices = SAME_SITE_ORDER.filter((key) => (counts.get(key) ?? 0) > 0).map(
-    (key) => ({
-      key,
-      label: SAME_SITE_LABEL[key] ?? key,
-      count: counts.get(key) ?? 0,
-      tint: SAME_SITE_TINT[key] ?? "bg-muted-foreground/45",
-    }),
-  );
+  const slices = SAME_SITE_ORDER.filter(
+    (key) => (counts.get(key) ?? 0) > 0,
+  ).map((key) => ({
+    key,
+    label: SAME_SITE_LABEL[key] ?? key,
+    count: counts.get(key) ?? 0,
+    color: SAME_SITE_COLOR[key] ?? "gray",
+  }));
   return { slices, known };
 }
 
@@ -328,7 +378,10 @@ interface HostTally {
 }
 
 /** The busiest cookie hosts, most cookies first, capped for the leaderboard. */
-function topHosts(rows: readonly CookieRow[], limit: number): {
+function topHosts(
+  rows: readonly CookieRow[],
+  limit: number,
+): {
   readonly hosts: readonly HostTally[];
   readonly distinct: number;
 } {
@@ -371,49 +424,91 @@ function formatLifespan(days: number | null): string | null {
   return `${String(years)} year${years === 1 ? "" : "s"}`;
 }
 
-/* -------------------------------- widgets --------------------------------- */
+function percent(part: number, whole: number): string {
+  return whole === 0 ? "—" : `${String(Math.round((part / whole) * 100))}%`;
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
+}
+
+/* ------------------------------ page sections ----------------------------- */
+
+/** A framed widget: Panel with a subtitle-role title, a body-role line under
+ *  it, and an optional trailing badge. */
+function WidgetPanel({
+  title,
+  description,
+  aside,
+  children,
+}: {
+  readonly title: string;
+  readonly description: string;
+  readonly aside?: ReactNode;
+  readonly children: ReactNode;
+}) {
+  return (
+    <Panel className="h-full">
+      <PanelHeader className="flex-nowrap">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <PanelTitle>{title}</PanelTitle>
+          <PanelDescription>{description}</PanelDescription>
+        </div>
+        {aside}
+      </PanelHeader>
+      {children}
+    </Panel>
+  );
+}
+
+/** A quiet sentence under a widget — what the figures above leave out. */
+function Footnote({ children }: { readonly children: ReactNode }) {
+  return (
+    <p className={cn(typeClass("caption"), "px-4 pb-4 text-muted-foreground")}>
+      {children}
+    </p>
+  );
+}
 
 /** The four posture figures across the top of the page. */
 function PostureStrip({ summary }: { readonly summary: PostureSummary }) {
+  const of = (part: number) =>
+    `${part.toLocaleString("en-US")} of ${summary.total.toLocaleString("en-US")}`;
   return (
     <MetricBand className="grid-cols-2 xl:grid-cols-4">
       <MetricBandItem
         label="Cookies loaded"
         value={summary.total.toLocaleString("en-US")}
-        detail="Rows read for the charts below"
+        detail="Rows read for the figures below"
       />
       <MetricBandItem
         label="Secure"
-        value={
-          summary.total === 0
-            ? "—"
-            : `${String(Math.round((summary.secure / summary.total) * 100))}%`
-        }
-        detail={`${summary.secure.toLocaleString("en-US")} of ${summary.total.toLocaleString("en-US")} · Sent only over HTTPS`}
+        value={percent(summary.secure, summary.total)}
+        detail={`${of(summary.secure)} · Sent only over HTTPS`}
         icon={<ShieldCheck aria-hidden="true" className="size-3.5" />}
-        progress={{ value: summary.secure, max: summary.total, tone: "success" }}
+        progress={{
+          value: summary.secure,
+          max: summary.total,
+          tone: "success",
+        }}
       />
       <MetricBandItem
         label="HttpOnly"
-        value={
-          summary.total === 0
-            ? "—"
-            : `${String(Math.round((summary.httpOnly / summary.total) * 100))}%`
-        }
-        detail={`${summary.httpOnly.toLocaleString("en-US")} of ${summary.total.toLocaleString("en-US")} · Hidden from page scripts`}
+        value={percent(summary.httpOnly, summary.total)}
+        detail={`${of(summary.httpOnly)} · Hidden from page scripts`}
         progress={{ value: summary.httpOnly, max: summary.total }}
       />
       <MetricBandItem
         label="Value sealed"
-        value={
-          summary.total === 0
-            ? "—"
-            : `${String(Math.round((summary.sealed / summary.total) * 100))}%`
-        }
-        detail={`${summary.sealed.toLocaleString("en-US")} of ${summary.total.toLocaleString("en-US")} · Encrypted, unreadable offline`}
+        value={percent(summary.sealed, summary.total)}
+        detail={`${of(summary.sealed)} · Encrypted, unreadable offline`}
         icon={<Lock aria-hidden="true" className="size-3.5" />}
         tone="destructive"
-        progress={{ value: summary.sealed, max: summary.total, tone: "destructive" }}
+        progress={{
+          value: summary.sealed,
+          max: summary.total,
+          tone: "destructive",
+        }}
       />
     </MetricBand>
   );
@@ -422,79 +517,114 @@ function PostureStrip({ summary }: { readonly summary: PostureSummary }) {
 /**
  * The SameSite exposure bar: a single stacked proportion of the cross-site
  * behaviour Chrome recorded for each cookie, most permissive on the left. The
- * legend carries the count and word for every segment, so no reading depends
- * on the tint alone. Cookies without a recorded SameSite are named under the
- * bar as an explicit "not recorded" figure, never dropped.
+ * legend carries the word, count, and share for every segment, so no reading
+ * depends on the hue alone. Cookies without a recorded SameSite are named
+ * under the legend as an explicit figure, never dropped.
  */
 function SameSiteCard({ rows }: { readonly rows: readonly CookieRow[] }) {
   const { slices, known } = useMemo(() => sameSiteSlices(rows), [rows]);
   const unknown = rows.length - known;
   return (
-    <section className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-      <header className="flex flex-col gap-0.5 border-b border-border px-4 py-3">
-        <h2 className="text-[13px] font-semibold">Cross-site behaviour</h2>
-        <p className="text-[12px] text-muted-foreground">
-          Each cookie's recorded SameSite policy — how it travels between sites.
+    <WidgetPanel
+      title="Cross-site behaviour"
+      description="Each cookie's recorded SameSite policy."
+    >
+      {known === 0 ? (
+        <p
+          className={cn(
+            typeClass("body"),
+            "px-4 pt-2 pb-4 text-muted-foreground",
+          )}
+        >
+          No cookie carries a recorded SameSite policy.
         </p>
-      </header>
-      <div className="flex flex-1 flex-col justify-center gap-4 px-4 py-4">
-        {known === 0 ? (
-          <p className="py-4 text-[13px] text-muted-foreground">
-            No cookie carries a recorded SameSite policy.
-          </p>
-        ) : (
-          <>
-            <div
-              className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
-              role="img"
-              aria-label="SameSite policy distribution"
-            >
-              {slices.map((slice) => (
+      ) : (
+        <div className="flex flex-col gap-4 px-4 pt-2 pb-4">
+          <div
+            className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full"
+            role="img"
+            aria-label={slices
+              .map((slice) => `${slice.label} ${String(slice.count)}`)
+              .join(", ")}
+          >
+            {slices.map((slice) => (
+              <span
+                key={slice.key}
+                className="h-full first:rounded-l-full last:rounded-r-full"
+                style={{
+                  width: `${String((slice.count / known) * 100)}%`,
+                  backgroundColor: badgeColors[slice.color],
+                }}
+              />
+            ))}
+          </div>
+          <ul className="flex flex-col">
+            {slices.map((slice) => (
+              <li
+                key={slice.key}
+                className="grid h-9 grid-cols-[auto_minmax(0,1fr)_auto_2.5rem] items-center gap-3 border-b border-border last:border-b-0"
+              >
                 <span
-                  key={slice.key}
-                  className={cn("h-full first:rounded-l-full last:rounded-r-full", slice.tint)}
-                  style={{ width: `${String((slice.count / known) * 100)}%` }}
-                  title={`${slice.label}: ${String(slice.count)}`}
+                  aria-hidden="true"
+                  className="size-2 rounded-full"
+                  style={{ backgroundColor: badgeColors[slice.color] }}
                 />
-              ))}
-            </div>
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
-              {slices.map((slice) => (
-                <li key={slice.key} className="flex items-center gap-2">
+                <span className="flex min-w-0 items-baseline gap-2">
                   <span
-                    aria-hidden="true"
-                    className={cn("size-2.5 shrink-0 rounded-full", slice.tint)}
-                  />
-                  <span className="text-[12.5px] text-foreground/80">
+                    className={cn(
+                      typeClass("body"),
+                      "shrink-0 text-foreground",
+                    )}
+                  >
                     {slice.label}
                   </span>
-                  <span className="ml-auto text-[12.5px] font-medium tabular-nums">
-                    {slice.count.toLocaleString("en-US")}
+                  <span
+                    className={cn(
+                      typeClass("caption"),
+                      "truncate text-muted-foreground",
+                    )}
+                    title={SAME_SITE_HINT[slice.key]}
+                  >
+                    {SAME_SITE_HINT[slice.key] ?? ""}
                   </span>
-                  <span className="w-10 text-right text-[11.5px] text-muted-foreground tabular-nums">
-                    {Math.round((slice.count / known) * 100)}%
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-        {unknown > 0 ? (
-          <p className="text-[12px] text-muted-foreground">
-            {unknown.toLocaleString("en-US")} cookie
-            {unknown === 1 ? "" : "s"} with no recorded SameSite policy.
-          </p>
-        ) : null}
-      </div>
-    </section>
+                </span>
+                <span
+                  className={cn(
+                    typeClass("body"),
+                    "text-foreground tabular-nums",
+                  )}
+                  style={{ fontVariationSettings: fontWeights.semibold }}
+                >
+                  {slice.count.toLocaleString("en-US")}
+                </span>
+                <span
+                  className={cn(
+                    typeClass("caption"),
+                    "text-right text-muted-foreground tabular-nums",
+                  )}
+                >
+                  {Math.round((slice.count / known) * 100)}%
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {unknown > 0 ? (
+        <Footnote>
+          {plural(unknown, "cookie", "cookies")} with no recorded SameSite
+          policy.
+        </Footnote>
+      ) : null}
+    </WidgetPanel>
   );
 }
 
 /**
  * The lifespan histogram: how long each cookie was set to live, from its own
- * creation-to-expiry span. Bars are drawn as CSS rows (not a chart library)
- * because the buckets are few and fixed; every bar carries its count in
- * words. Cookies missing a creation or expiry bound are reported as an
+ * creation-to-expiry span. Bars are drawn as plain rows (not a chart library)
+ * because the buckets are few and fixed; every bar carries its count as a
+ * number. Cookies missing a creation or expiry bound are reported as an
  * explicit "no dated span" figure below the bars.
  */
 function LifespanCard({ rows }: { readonly rows: readonly CookieRow[] }) {
@@ -502,128 +632,242 @@ function LifespanCard({ rows }: { readonly rows: readonly CookieRow[] }) {
   const peak = Math.max(...buckets.map((bucket) => bucket.count), 0);
   const undated = rows.length - dated;
   return (
-    <section className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-      <header className="flex flex-col gap-0.5 border-b border-border px-4 py-3">
-        <h2 className="text-[13px] font-semibold">Persistence</h2>
-        <p className="text-[12px] text-muted-foreground">
-          How long each cookie was set to live — expiry minus creation.
+    <WidgetPanel
+      title="Persistence"
+      description="How long each cookie was set to live."
+    >
+      {dated === 0 ? (
+        <p
+          className={cn(
+            typeClass("body"),
+            "px-4 pt-2 pb-4 text-muted-foreground",
+          )}
+        >
+          No cookie carries both a creation and an expiry time.
         </p>
-      </header>
-      <div className="flex flex-1 flex-col justify-center gap-2.5 px-4 py-4">
-        {dated === 0 ? (
-          <p className="py-4 text-[13px] text-muted-foreground">
-            No cookie carries both a creation and an expiry time.
-          </p>
-        ) : (
-          buckets.map((bucket) => (
-            <div key={bucket.key} className="flex items-center gap-3">
-              <span className="w-20 shrink-0 text-[12px] text-muted-foreground">
+      ) : (
+        <ul className="flex flex-col px-4 pt-1 pb-3">
+          {buckets.map((bucket) => (
+            <li
+              key={bucket.key}
+              className="grid h-8 grid-cols-[4.5rem_minmax(0,1fr)_2rem] items-center gap-3"
+            >
+              <span
+                className={cn(typeClass("caption"), "text-muted-foreground")}
+              >
                 {bucket.label}
               </span>
-              <span className="h-4 flex-1 overflow-hidden rounded-md bg-muted">
+              <span className="h-1.5 overflow-hidden rounded-full bg-active">
                 <span
                   className={cn(
-                    "block h-full rounded-md transition-[width] duration-500",
-                    bucket.key === "expired" ? "bg-destructive/70" : "bg-primary/60",
+                    "block h-full rounded-full",
+                    bucket.key === "expired"
+                      ? "bg-destructive"
+                      : "bg-foreground",
+                    bucket.count === peak ? "opacity-90" : "opacity-45",
                   )}
                   style={{
                     width:
-                      peak === 0
+                      peak === 0 || bucket.count === 0
                         ? "0%"
-                        : `${String(Math.max(bucket.count === 0 ? 0 : 6, (bucket.count / peak) * 100))}%`,
+                        : `${String(Math.max(4, (bucket.count / peak) * 100))}%`,
                   }}
                 />
               </span>
-              <span className="w-8 shrink-0 text-right text-[12.5px] font-medium tabular-nums">
+              <span
+                className={cn(
+                  typeClass("body"),
+                  "text-right tabular-nums",
+                  bucket.count === 0
+                    ? "text-muted-foreground"
+                    : "text-foreground",
+                )}
+              >
                 {bucket.count.toLocaleString("en-US")}
               </span>
-            </div>
-          ))
-        )}
-        {undated > 0 ? (
-          <p className="pt-1 text-[12px] text-muted-foreground">
-            {undated.toLocaleString("en-US")} cookie
-            {undated === 1 ? "" : "s"} with no dated span.
-          </p>
-        ) : null}
-      </div>
-    </section>
+            </li>
+          ))}
+        </ul>
+      )}
+      {undated > 0 ? (
+        <Footnote>
+          {plural(undated, "cookie", "cookies")} with no dated span.
+        </Footnote>
+      ) : null}
+    </WidgetPanel>
   );
 }
 
-/** The busiest cookie hosts, as a bar leaderboard sized to the top host. */
-function HostBoardCard({ rows }: { readonly rows: readonly CookieRow[] }) {
+/**
+ * The busiest cookie hosts. Each row narrows the table to that host (a second
+ * click clears it), so the list is a real set of choices and takes FF's fluid
+ * hover; the bar is the host's count against the busiest host.
+ */
+function HostBoardCard({
+  rows,
+  activeHost,
+  onPick,
+}: {
+  readonly rows: readonly CookieRow[];
+  readonly activeHost: string | null;
+  readonly onPick: (host: string) => void;
+}) {
   const { hosts, distinct } = useMemo(() => topHosts(rows, 6), [rows]);
   const peak = hosts[0]?.count ?? 0;
+  const listRef = useRef<HTMLUListElement>(null);
+  const hover = useFluidHover(listRef, { axis: "y" });
+  const shape = useShape();
   return (
-    <section className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-      <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <h2 className="text-[13px] font-semibold">Cookies by host</h2>
-          <p className="text-[12px] text-muted-foreground">
-            Which sites left the most cookies.
-          </p>
-        </div>
-        <span className="ml-auto shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">
-          {distinct} host{distinct === 1 ? "" : "s"}
-        </span>
-      </header>
-      <div className="flex flex-1 flex-col justify-evenly gap-1 px-3 py-3">
-        {hosts.length === 0 ? (
-          <p className="px-1 py-4 text-[13px] text-muted-foreground">
-            No cookie carries a recorded host.
-          </p>
-        ) : (
-          hosts.map((entry) => (
-            <div
+    <WidgetPanel
+      title="Cookies by host"
+      description="Pick a host to narrow the table."
+      aside={
+        <Badge size="compact" className="tabular-nums">
+          {plural(distinct, "host", "hosts")}
+        </Badge>
+      }
+    >
+      {hosts.length === 0 ? (
+        <p
+          className={cn(
+            typeClass("body"),
+            "px-4 pt-2 pb-4 text-muted-foreground",
+          )}
+        >
+          No cookie carries a recorded host.
+        </p>
+      ) : (
+        <ul
+          ref={listRef}
+          {...hover.handlers}
+          className="relative flex flex-col px-1 pb-1"
+        >
+          <FluidHoverHighlight hover={hover} className={shape.item} />
+          {hosts.map((entry, index) => (
+            <HostBoardRow
               key={entry.host}
-              className="grid grid-cols-[minmax(0,150px)_1fr_auto] items-center gap-3 rounded-md px-1.5 py-1.5"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <SiteAvatar host={entry.host} />
-                <span className="truncate text-[12.5px] font-medium" title={entry.host}>
-                  {entry.host}
-                </span>
-              </span>
-              <span className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <span
-                  className={cn(
-                    "block h-full rounded-full transition-[width] duration-500",
-                    entry.count === peak ? "bg-primary" : "bg-primary/45",
-                  )}
-                  style={{
-                    width: peak === 0 ? "0%" : `${String((entry.count / peak) * 100)}%`,
-                  }}
-                />
-              </span>
-              <span className="font-mono text-[12px] tabular-nums">
-                {entry.count.toLocaleString("en-US")}
-              </span>
-            </div>
-          ))
+              index={index}
+              registerItem={hover.registerItem}
+              entry={entry}
+              peak={peak}
+              active={activeHost === entry.host}
+              onPick={onPick}
+            />
+          ))}
+        </ul>
+      )}
+    </WidgetPanel>
+  );
+}
+
+function HostBoardRow({
+  index,
+  registerItem,
+  entry,
+  peak,
+  active,
+  onPick,
+}: {
+  readonly index: number;
+  readonly registerItem: (index: number, element: HTMLElement | null) => void;
+  readonly entry: HostTally;
+  readonly peak: number;
+  readonly active: boolean;
+  readonly onPick: (host: string) => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const shape = useShape();
+  useRegisterFluidHoverItem(registerItem, index, ref);
+  return (
+    <li>
+      <button
+        ref={ref}
+        type="button"
+        aria-pressed={active}
+        onClick={() => {
+          onPick(entry.host);
+        }}
+        className={cn(
+          "relative grid h-9 w-full cursor-pointer grid-cols-[minmax(0,1fr)_5rem_2rem] items-center gap-3 px-3 text-left transition-colors duration-80",
+          shape.item,
+          active && "bg-active",
         )}
-      </div>
-    </section>
+      >
+        <span className="flex min-w-0 items-center gap-2.5">
+          <SiteAvatar host={entry.host} />
+          <WeightLabel
+            text={entry.host}
+            active={active}
+            className={cn(typeClass("body"), "text-foreground")}
+          />
+        </span>
+        <span className="h-1.5 overflow-hidden rounded-full bg-active">
+          <span
+            className={cn(
+              "block h-full rounded-full bg-foreground",
+              entry.count === peak ? "opacity-90" : "opacity-45",
+            )}
+            style={{
+              width:
+                peak === 0 ? "0%" : `${String((entry.count / peak) * 100)}%`,
+            }}
+          />
+        </span>
+        <span
+          className={cn(
+            typeClass("body"),
+            "text-right text-muted-foreground tabular-nums",
+          )}
+        >
+          {entry.count.toLocaleString("en-US")}
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/** A label that turns semibold when active without moving its neighbours:
+ *  FF's ghost-span pattern, truncating inside a grid cell. */
+function WeightLabel({
+  text,
+  active,
+  className,
+}: {
+  readonly text: string;
+  readonly active: boolean;
+  readonly className?: string;
+}) {
+  return (
+    <span className={cn("inline-grid min-w-0", className)} title={text}>
+      <span
+        className="col-start-1 row-start-1 truncate transition-[font-variation-settings] duration-80"
+        style={{
+          fontVariationSettings: active
+            ? fontWeights.semibold
+            : fontWeights.normal,
+        }}
+      >
+        {text}
+      </span>
+      <span
+        aria-hidden="true"
+        className="invisible col-start-1 row-start-1 truncate"
+        style={{ fontVariationSettings: fontWeights.semibold }}
+      >
+        {text}
+      </span>
+    </span>
   );
 }
 
 /* ------------------------------ curated table ----------------------------- */
 
-/** A worded Yes/No/absent for a recorded boolean scope flag. Never color-only. */
+/** A worded Yes/No/absent for a recorded boolean scope flag. Never colour-only. */
 function FlagWord({ on }: { readonly on: boolean | null }) {
   if (on === null) {
     return <AbsentWord />;
   }
-  return (
-    <span
-      className={cn(
-        "text-[12.5px] tabular-nums",
-        on ? "font-medium text-foreground/90" : "text-muted-foreground",
-      )}
-    >
-      {on ? "Yes" : "No"}
-    </span>
-  );
+  return on ? <span className="text-foreground">Yes</span> : <span>No</span>;
 }
 
 function TimeCell({ utc }: { readonly utc: string | null }) {
@@ -633,10 +877,44 @@ function TimeCell({ utc }: { readonly utc: string | null }) {
   }
   return (
     <span className="whitespace-nowrap tabular-nums" title={`${utc} (UTC)`}>
-      <span className="text-[12.5px] font-medium">{parts.date}</span>
-      <span className="ml-2 text-[12px] text-muted-foreground">
-        {parts.time}
-      </span>
+      {parts.date}
+      <span className="ml-2 text-muted-foreground">{parts.time}</span>
+    </span>
+  );
+}
+
+/**
+ * The cookie value, redacted by default. The four states stay four words:
+ * a recorded value reads "value hidden" (the value exists, and is withheld
+ * here) until "Show values" is on; "(empty)", "absent", and "unavailable"
+ * with its reason are shown as they are, since none of them carries a secret.
+ */
+function CookieValueCell({
+  field,
+  reveal,
+}: {
+  readonly field: FieldState | undefined;
+  readonly reveal: boolean;
+}) {
+  if (field === undefined) {
+    return <AbsentWord />;
+  }
+  if (field.state === "value" && field.value !== "" && !reveal) {
+    return (
+      <Tooltip content="A value was recorded. Turn on Show values, or open the row, to read it.">
+        <span
+          tabIndex={0}
+          className="flex cursor-help items-center gap-1.5 whitespace-nowrap"
+        >
+          <EyeOff aria-hidden="true" className="size-3.5 shrink-0" />
+          value hidden
+        </span>
+      </Tooltip>
+    );
+  }
+  return (
+    <span className="block max-w-[220px]">
+      <FieldStateText field={field} truncate />
     </span>
   );
 }
@@ -644,6 +922,7 @@ function TimeCell({ utc }: { readonly utc: string | null }) {
 const TABLE_COLUMNS = [
   "Host",
   "Cookie",
+  "Value",
   "Secure",
   "HttpOnly",
   "SameSite",
@@ -654,68 +933,68 @@ const TABLE_COLUMNS = [
 
 function CookieTable({
   rows,
+  reveal,
   onSelect,
 }: {
   readonly rows: readonly CookieRow[];
+  readonly reveal: boolean;
   readonly onSelect: (row: Finding) => void;
 }) {
   return (
-    <div className="fx-scroll-x">
-      <table className="w-full text-left text-[13px]">
-        <thead>
-          <tr>
+    <div className="scroll-fade-x overflow-x-auto px-1 pb-1">
+      <Table className="min-w-[1080px]">
+        <TableHeader>
+          <TableRow>
             {TABLE_COLUMNS.map((label) => (
-              <th
-                key={label}
-                className="sticky top-0 z-10 border-b border-border bg-muted/80 px-3 py-2 text-left text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase backdrop-blur"
-              >
+              <TableHead key={label} className="whitespace-nowrap">
                 {label}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((row, index) => (
-            <tr
+            <TableRow
               key={index}
+              index={index}
               tabIndex={0}
-              aria-label="Open cookie row detail"
+              aria-label={`Open cookie ${row.name ?? ""} on ${row.host ?? "unknown host"}`}
               onClick={() => {
                 onSelect(row.finding);
               }}
               onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
+                activateOnKey(event, () => {
                   onSelect(row.finding);
-                }
+                });
               }}
-              className="cursor-pointer border-b border-border/70 transition-colors duration-100 last:border-b-0 hover:bg-accent/40"
+              className={ROW_FOCUS_CLASS}
             >
-              <td className="max-w-[200px] px-3 py-2.5">
-                <span className="flex items-center gap-2.5">
-                  <SiteAvatar host={row.host} />
+              <TableCell className="max-w-[220px]">
+                {row.host === null ? (
+                  <AbsentWord />
+                ) : (
                   <span
-                    className="truncate text-[12.5px] text-foreground/90"
-                    title={row.host ?? undefined}
+                    className="block truncate text-foreground"
+                    title={row.host}
                   >
-                    {row.host ?? <AbsentWord />}
+                    {row.host}
                   </span>
-                </span>
-              </td>
-              <td className="max-w-[240px] px-3 py-2.5">
+                )}
+              </TableCell>
+              <TableCell className="max-w-[220px]">
                 {row.name === null ? (
                   <AbsentWord />
                 ) : (
                   <span className="flex min-w-0 flex-col">
-                    <span
-                      className="truncate font-mono text-[12.5px] text-foreground/90"
-                      title={row.name}
-                    >
+                    <span className="truncate font-mono" title={row.name}>
                       {row.name}
                     </span>
                     {row.path === null || row.path === "/" ? null : (
                       <span
-                        className="truncate font-mono text-[11.5px] text-muted-foreground"
+                        className={cn(
+                          typeClass("caption"),
+                          "truncate font-mono text-muted-foreground",
+                        )}
                         title={row.path}
                       >
                         {row.path}
@@ -723,73 +1002,101 @@ function CookieTable({
                     )}
                   </span>
                 )}
-              </td>
-              <td className="px-3 py-2.5">
+              </TableCell>
+              <TableCell>
+                <CookieValueCell field={row.value} reveal={reveal} />
+              </TableCell>
+              <TableCell>
                 <FlagWord on={row.secure} />
-              </td>
-              <td className="px-3 py-2.5">
+              </TableCell>
+              <TableCell>
                 <FlagWord on={row.httpOnly} />
-              </td>
-              <td className="px-3 py-2.5 whitespace-nowrap text-[12.5px] text-muted-foreground">
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
                 {row.sameSite === null ? (
                   <AbsentWord />
                 ) : (
                   (SAME_SITE_LABEL[row.sameSite] ?? row.sameSite)
                 )}
-              </td>
-              <td className="px-3 py-2.5 whitespace-nowrap">
+              </TableCell>
+              <TableCell className="whitespace-nowrap tabular-nums">
                 {row.lifespanDays === null ? (
                   <AbsentWord />
-                ) : (
-                  <span
-                    className={cn(
-                      "text-[12.5px] tabular-nums",
-                      row.lifespanDays < 0
-                        ? "font-medium text-destructive"
-                        : "text-foreground/80",
-                    )}
-                  >
-                    {formatLifespan(row.lifespanDays)}
+                ) : row.lifespanDays < 0 ? (
+                  <span className="inline-flex items-center gap-1.5 text-foreground">
+                    <EvidenceDot state="unavailable" />
+                    expired
                   </span>
+                ) : (
+                  formatLifespan(row.lifespanDays)
                 )}
-              </td>
-              <td className="px-3 py-2.5">
+              </TableCell>
+              <TableCell>
                 <TimeCell utc={row.created} />
-              </td>
-              <td className="px-3 py-2.5">
+              </TableCell>
+              <TableCell>
                 <StateWord state={row.finding.commitState} />
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }
 
-/* ---------------------------------- page ---------------------------------- */
+type View = "saved" | "recovered";
 
-export function CookiesPage({
-  config,
+/**
+ * The table section: Saved / Recovered as two separate lists (sidecar rows
+ * are never sorted in among saved ones), a profile pick when the Case holds
+ * more than one, a search, the value-redaction switch, then the rows and the
+ * "N shown / Load more" footer.
+ */
+function CookieListPanel({
+  rows,
+  cursor,
+  loading,
+  onLoadMore,
+  search,
+  onSearch,
+  onSelect,
 }: {
-  readonly config: ArtifactConfig;
+  readonly rows: readonly CookieRow[];
+  readonly cursor: string | null;
+  readonly loading: boolean;
+  readonly onLoadMore: () => void;
+  readonly search: string;
+  readonly onSearch: (value: string) => void;
+  readonly onSelect: (row: Finding) => void;
 }) {
-  const list = useCookies(config.route);
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
-  const [search, setSearch] = useState("");
-  const [profileFilter, setProfileFilter] = useState<string | null>(null);
+  const [view, setView] = useState<View>("saved");
+  const [profileFilter, setProfileFilter] = useState<readonly string[]>([]);
+  const [reveal, setReveal] = useState(false);
+  const size = useSize("compact");
 
   const profiles = useMemo(
-    () => [...new Set(list.rows.map((row) => row.finding.profile))].sort(),
-    [list.rows],
+    () => [...new Set(rows.map((row) => row.finding.profile))].sort(),
+    [rows],
   );
 
-  const summary = useMemo(() => summarize(list.rows), [list.rows]);
+  const saved = useMemo(
+    () => rows.filter((row) => row.finding.commitState === "committed"),
+    [rows],
+  );
+  const recovered = useMemo(
+    () => rows.filter((row) => row.finding.commitState !== "committed"),
+    [rows],
+  );
+  const base = view === "saved" ? saved : recovered;
 
   const visible = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("en-US");
-    return list.rows.filter((row) => {
-      if (profileFilter !== null && row.finding.profile !== profileFilter) {
+    return base.filter((row) => {
+      if (
+        profileFilter.length > 0 &&
+        !profileFilter.includes(row.finding.profile)
+      ) {
         return false;
       }
       if (query === "") {
@@ -800,144 +1107,212 @@ export function CookiesPage({
         .toLocaleLowerCase("en-US");
       return haystack.includes(query);
     });
-  }, [list.rows, search, profileFilter]);
+  }, [base, search, profileFilter]);
 
-  const filtered = visible.length !== list.rows.length;
+  const filtered = visible.length !== base.length;
+  const noun = view === "saved" ? "saved" : "recovered";
+
+  return (
+    <Panel className="overflow-clip">
+      <PanelHeader className="items-center">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <PanelTitle>All loaded cookies</PanelTitle>
+          <PanelDescription>
+            Saved rows and rows recovered from WAL or journal sidecars are kept
+            as separate lists.
+          </PanelDescription>
+        </div>
+      </PanelHeader>
+      <SizeProvider size="compact">
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-y-2 px-4 pt-1 pb-3",
+            size.gap,
+          )}
+        >
+          <Tabs
+            value={view}
+            onValueChange={(next) => {
+              setView(next === "recovered" ? "recovered" : "saved");
+            }}
+          >
+            <TabsList aria-label="Saved or recovered rows">
+              <TabItem
+                value="saved"
+                label={`Saved ${saved.length.toLocaleString("en-US")}`}
+              />
+              <TabItem
+                value="recovered"
+                label={`Recovered ${recovered.length.toLocaleString("en-US")}`}
+              />
+            </TabsList>
+          </Tabs>
+          <div className={cn("ml-auto flex flex-wrap items-center", size.gap)}>
+            <Switch
+              label="Show values"
+              checked={reveal}
+              onToggle={() => {
+                setReveal((value) => !value);
+              }}
+              className="mr-2"
+            />
+            {profiles.length > 1 ? (
+              <FilterField label="Profiles" htmlFor="cookies-profiles">
+                <ProfilePicker
+                  id="cookies-profiles"
+                  profiles={profiles}
+                  selected={profileFilter}
+                  onChange={setProfileFilter}
+                />
+              </FilterField>
+            ) : null}
+            <FilterTextField
+              label="Search loaded cookies"
+              placeholder="Search host or name"
+              icon={Search}
+              value={search}
+              onCommit={onSearch}
+            />
+          </div>
+        </div>
+      </SizeProvider>
+
+      <div className="border-t border-border">
+        {visible.length === 0 ? (
+          <EmptyRows
+            message={
+              filtered
+                ? `No ${noun} cookies match this filter.`
+                : view === "saved"
+                  ? "No saved cookie rows are loaded."
+                  : "No cookie rows were recovered from WAL or journal sidecars."
+            }
+          />
+        ) : (
+          <CookieTable rows={visible} reveal={reveal} onSelect={onSelect} />
+        )}
+      </div>
+
+      <div className="flex items-center gap-3 border-t border-border px-4 py-2.5">
+        <p
+          className={cn(
+            typeClass("caption"),
+            "text-muted-foreground tabular-nums",
+          )}
+          aria-live="polite"
+        >
+          {filtered
+            ? `${visible.length.toLocaleString("en-US")} of ${base.length.toLocaleString("en-US")} ${noun} cookies shown`
+            : `${plural(base.length, `${noun} cookie`, `${noun} cookies`)} shown`}
+          {cursor === null ? "" : " · more available"}
+        </p>
+        {cursor !== null ? (
+          <Button
+            variant="tertiary"
+            size="compact"
+            onClick={onLoadMore}
+            loading={loading}
+            disabled={loading}
+            className="ml-auto"
+          >
+            Load more
+          </Button>
+        ) : null}
+      </div>
+    </Panel>
+  );
+}
+
+/** Placeholder at the size of the figure strip and the three widgets. */
+function CookiesSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-hidden="true">
+      <Skeleton className="h-[112px] w-full rounded-xl" />
+      <div className="grid grid-cols-12 gap-4">
+        <Skeleton className="col-span-12 h-[300px] rounded-xl lg:col-span-4" />
+        <Skeleton className="col-span-12 h-[300px] rounded-xl lg:col-span-4" />
+        <Skeleton className="col-span-12 h-[300px] rounded-xl lg:col-span-4" />
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------- page ---------------------------------- */
+
+export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
+  const list = useCookies(config.route);
+  const [selected, setSelected] = useState<SelectedRow | null>(null);
+  const [search, setSearch] = useState("");
+
+  const summary = useMemo(() => summarize(list.rows), [list.rows]);
 
   const select = useCallback((row: Finding) => {
     setSelected({ kind: "finding", row });
   }, []);
 
+  const pickHost = useCallback((host: string) => {
+    setSearch((current) => (current === host ? "" : host));
+  }, []);
+
+  const firstLoad = list.loading && list.rows.length === 0;
+
   return (
     <div className="flex flex-col gap-4">
-
       {list.error !== null ? (
-        <div
-          role="alert"
-          className="flex items-start gap-2.5 rounded-md border border-destructive-border bg-destructive-wash px-3.5 py-3"
-        >
-          <div className="flex-1">
-            <p className="text-[13px] font-medium text-destructive">
-              The rows could not be loaded.
-            </p>
-            <p className="text-[12.5px] text-destructive/80">{list.error}</p>
-          </div>
-          <Button onClick={list.retry} size="sm" className="shrink-0">
-            Retry
-          </Button>
-        </div>
-      ) : list.loading && list.rows.length === 0 ? (
-        <div className="flex flex-col gap-3" aria-label="Loading cookies">
-          <Skeleton className="h-[104px] w-full" />
-          <Skeleton className="h-[220px] w-full" />
-          <Skeleton className="h-[320px] w-full" />
-        </div>
-      ) : list.rows.length === 0 ? (
-        <section className="overflow-hidden rounded-lg border border-border bg-card">
-          <EmptyRows message="No Cookies rows in this Case." />
-        </section>
+        <ErrorRows
+          message={list.error}
+          onRetry={list.retry}
+          className="px-0 py-0"
+        />
+      ) : !firstLoad && list.rows.length === 0 ? (
+        <Panel>
+          <EmptyRows
+            icon={Cookie}
+            title="No cookies"
+            message="No Cookies rows in this Case."
+          />
+        </Panel>
       ) : (
-        <>
-          <PostureStrip summary={summary} />
+        <div className="reveal-swap">
+          <CookiesSkeleton />
+          {firstLoad ? null : (
+            <div className="flex flex-col gap-4">
+              <PostureStrip summary={summary} />
 
-          <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-12 lg:col-span-4">
-              <SameSiteCard rows={list.rows} />
-            </div>
-            <div className="col-span-12 lg:col-span-4">
-              <LifespanCard rows={list.rows} />
-            </div>
-            <div className="col-span-12 lg:col-span-4">
-              <HostBoardCard rows={list.rows} />
-            </div>
-          </div>
-
-          <section className="overflow-hidden rounded-lg border border-border bg-card">
-            <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2.5">
-              <h2 className="text-[13px] font-semibold">All loaded cookies</h2>
-              <span className="text-[12px] text-muted-foreground tabular-nums">
-                {list.rows.length}
-              </span>
-              <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                {profiles.length > 1
-                  ? profiles.map((profile) => (
-                      <button
-                        key={profile}
-                        type="button"
-                        aria-pressed={profileFilter === profile}
-                        onClick={() => {
-                          setProfileFilter(
-                            profileFilter === profile ? null : profile,
-                          );
-                        }}
-                        className={cn(
-                          "inline-flex h-7 cursor-pointer items-center rounded-full border px-2.5 text-[12px] font-medium transition-colors duration-150",
-                          profileFilter === profile
-                            ? "border-accent-border bg-accent text-accent-foreground"
-                            : "border-border bg-card text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        {profile}
-                      </button>
-                    ))
-                  : null}
-                <label className="relative">
-                  <Search
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+              <div className="grid grid-cols-12 gap-4">
+                <div className="col-span-12 lg:col-span-4">
+                  <SameSiteCard rows={list.rows} />
+                </div>
+                <div className="col-span-12 lg:col-span-4">
+                  <LifespanCard rows={list.rows} />
+                </div>
+                <div className="col-span-12 lg:col-span-4">
+                  <HostBoardCard
+                    rows={list.rows}
+                    activeHost={search === "" ? null : search}
+                    onPick={pickHost}
                   />
-                  <input
-                    value={search}
-                    onChange={(event) => {
-                      setSearch(event.target.value);
-                    }}
-                    placeholder="Search host or name"
-                    aria-label="Search loaded cookies"
-                    className="h-8 w-[200px] rounded-md border border-input bg-background pl-8 pr-3 text-[12.5px] outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </label>
+                </div>
               </div>
-            </header>
 
-            {visible.length === 0 ? (
-              <EmptyRows
-                message={
-                  filtered
-                    ? "No loaded cookies match this filter."
-                    : "No Cookies rows in this Case."
-                }
+              <CookieListPanel
+                rows={list.rows}
+                cursor={list.cursor}
+                loading={list.loading}
+                onLoadMore={list.loadMore}
+                search={search}
+                onSearch={setSearch}
+                onSelect={select}
               />
-            ) : (
-              <CookieTable rows={visible} onSelect={select} />
-            )}
-
-            <div className="flex items-center gap-3 border-t border-border/70 px-4 py-2.5">
-              <p
-                className="text-[12.5px] text-muted-foreground tabular-nums"
-                aria-live="polite"
-              >
-                {filtered
-                  ? `${String(visible.length)} of ${String(list.rows.length)} loaded cookies shown`
-                  : `${String(list.rows.length)} cookie${list.rows.length === 1 ? "" : "s"} shown`}
-                {list.cursor === null ? "" : " · more available"}
-              </p>
-              {list.cursor !== null ? (
-                <Button
-                  onClick={list.loadMore}
-                  disabled={list.loading}
-                  size="sm"
-                >
-                  {list.loading ? "Loading…" : "Load more"}
-                </Button>
-              ) : null}
             </div>
-          </section>
-        </>
+          )}
+        </div>
       )}
 
       {selected !== null ? (
         <RowSheet
           selected={selected}
+          title={`Cookie ${fieldText(selected.row.fields.name) ?? ""}`.trim()}
           onClose={() => {
             setSelected(null);
           }}

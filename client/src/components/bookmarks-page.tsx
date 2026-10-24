@@ -5,48 +5,90 @@
  * page they chose to keep and a folder they chose to file it under. So this
  * page reads them as a collection, not a log: the folder tree they built, the
  * cadence at which they saved, and which sites they returned to often, then
- * the full row table underneath. Every figure is a plain reading of fields the
- * evidence already carries (`name`, `url`, `dateAdded`, `folderPath`,
- * `sourceFile`); nothing is smoothed, projected, or scored.
+ * the full row table. Every figure is a plain reading of fields the evidence
+ * already carries (`name`, `url`, `dateAdded`, `folderPath`, `sourceFile`);
+ * nothing is smoothed, projected, or scored.
  *
- * Widgets, each a direct grouping of the returned rows:
- *  1. A calm figure strip (saved pages, folders used, distinct sites,
- *     recovered-from-backup) in the Overview's masthead-readout voice.
- *  2. A folder map — the subject's own bookmark hierarchy rebuilt from
- *     `folderPath`, with per-branch counts and weight bars. Clicking a branch
- *     focuses the table on it. This is the reading unique to bookmarks: it
- *     shows the *structure* the person imposed, which no flat table carries.
- *  3. Saved over time — bookmarks added per calendar month from `dateAdded`,
+ * Sections, each a direct grouping of the returned rows:
+ *  1. A figure strip (saved pages, folders used, distinct sites,
+ *     recovered-from-backup).
+ *  2. Saved over time — bookmarks added per calendar month from `dateAdded`,
  *     zero-filled between the first and last month so cadence reads as real
  *     calendar time; the busiest month is marked. Undated rows are disclosed
  *     as their own worded figure, never folded silently into a month.
- *  4. Most-bookmarked sites — a host-frequency leaderboard, the same bar
- *     treatment the Downloads page uses for its sources.
+ *  3. Most-bookmarked sites — a host-frequency leaderboard; picking a site
+ *     narrows the table to it.
+ *  4. The folder navigator beside the table — the subject's own bookmark
+ *     hierarchy rebuilt from `folderPath`, with per-branch counts. Picking a
+ *     folder focuses the table on that folder and everything beneath it. This
+ *     is the reading unique to bookmarks: it shows the *structure* the person
+ *     imposed, which no flat table carries.
  *
- * The raw table keeps every wire field reachable through the row detail sheet.
- * Columns are curated, not the sparse union grid: Folder (the TYPE-lead column
- * for this artifact — the curated bucket each row belongs to), Bookmark (name
- * over URL), Added, Source (primary file vs. recovered backup), and the Commit
- * State word.
+ * The table keeps every wire field reachable through the row detail sheet.
+ * Columns are curated: Folder (the TYPE-lead column for this artifact — the
+ * curated bucket each row belongs to), Bookmark (name over URL), Added, Source
+ * (primary file vs. recovered backup), and the Commit State word. Saved rows
+ * and rows recovered from WAL / journal sidecars are separate lists (the
+ * Saved / Recovered switch), never sorted together.
  *
- * Presentation rules kept (see app.tsx's header): the Completeness Statement
- * ("Evidence coverage") renders before any row; the four value states stay
+ * Presentation rules kept (see app.tsx's header): the four value states stay
  * worded ("absent" for a missing value), never colour alone; the recovered
- * source keeps its own word; no month is invented past the last recorded save.
- * This page is read-only: it starts no ingest, reruns no analysis, and writes
- * nothing back to the Case.
+ * source keeps its own word; no month is invented past the last recorded
+ * save. This page is read-only: it starts no ingest, reruns no analysis, and
+ * writes nothing back to the Case.
  */
-import { ChevronRight, Folder, FolderOpen, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Bookmark,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  Library,
+  Search,
+} from "lucide-react";
+import { motion } from "motion/react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+
+import {
+  Panel,
+  PanelDescription,
+  PanelHeader,
+  PanelTitle,
+} from "@/components/panel";
+import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
+import { Badge } from "@/components/ui/badge";
+import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/misc";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { Tooltip } from "@/components/ui/tooltip";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@/hooks/use-fluid-hover";
+import { fontWeights } from "@/lib/font-weight";
+import { useShape } from "@/lib/shape-context";
+import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
+import { spring } from "@/lib/springs";
+import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import { cn } from "../lib.js";
-import type {
-  ArtifactConfig,
-  Finding,
-  PageOf,
-} from "../types.js";
-import { EmptyRows } from "./data-table.js";
+import type { ArtifactConfig, Finding, PageOf } from "../types.js";
+import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
   AbsentWord,
   fieldText,
@@ -56,10 +98,10 @@ import {
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { FilterTextField } from "./filters.js";
+import { ErrorRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { Button } from "./compat/button.js";
-import { Skeleton } from "./ui/misc.js";
+import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
 /* --------------------------------- reads ---------------------------------- */
 
@@ -160,6 +202,10 @@ function formatMonthShort(monthKey: string): string {
   return `${month} '${monthKey.slice(2, 4)}`;
 }
 
+function plural(count: number, one: string, many: string): string {
+  return `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
+}
+
 /* ----------------------------- derived model ------------------------------ */
 
 interface BookmarkRow {
@@ -208,41 +254,72 @@ function isBackupSource(source: string | null): boolean {
   return source !== null && source.toLowerCase().includes(".bak");
 }
 
-/* -------------------------------- widgets --------------------------------- */
+/* --------------------------------- frame ---------------------------------- */
 
-
-function SectionCard({
+function SectionPanel({
   title,
   description,
-  count,
+  aside,
+  className,
   children,
 }: {
   readonly title: string;
   readonly description?: string;
-  readonly count?: number;
-  readonly children: React.ReactNode;
+  readonly aside?: ReactNode;
+  readonly className?: string;
+  readonly children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-      <header className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-border px-4 py-2.5">
-        <h2 className="text-[13px] font-semibold">{title}</h2>
-        {count === undefined ? null : (
-          <span className="text-[12px] text-muted-foreground tabular-nums">
-            {count}
-          </span>
-        )}
-        {description === undefined ? null : (
-          <p className="w-full text-[12px] text-muted-foreground sm:w-auto sm:flex-1">
-            {description}
-          </p>
-        )}
-      </header>
+    <Panel className={className}>
+      <PanelHeader className="flex-nowrap items-center">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <PanelTitle>{title}</PanelTitle>
+          {description === undefined ? null : (
+            <PanelDescription>{description}</PanelDescription>
+          )}
+        </div>
+        {aside}
+      </PanelHeader>
       {children}
-    </section>
+    </Panel>
   );
 }
 
-/* ------------------------------- folder map ------------------------------- */
+/** A label that turns semibold when active without moving its neighbours:
+ *  FF's ghost-span pattern, truncating inside a grid cell. */
+function WeightLabel({
+  text,
+  active,
+  className,
+}: {
+  readonly text: string;
+  readonly active: boolean;
+  readonly className?: string;
+}) {
+  return (
+    <span className={cn("inline-grid min-w-0", className)} title={text}>
+      <span
+        className="col-start-1 row-start-1 truncate transition-[font-variation-settings] duration-80"
+        style={{
+          fontVariationSettings: active
+            ? fontWeights.semibold
+            : fontWeights.normal,
+        }}
+      >
+        {text}
+      </span>
+      <span
+        aria-hidden="true"
+        className="invisible col-start-1 row-start-1 truncate"
+        style={{ fontVariationSettings: fontWeights.semibold }}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
+/* ------------------------------- folder tree ------------------------------ */
 
 interface FolderNode {
   readonly name: string;
@@ -260,7 +337,7 @@ interface FolderNode {
  * Rebuilds the subject's bookmark folder hierarchy from the `folderPath` of
  * every row. `direct` is bookmarks filed straight in a folder; `total` rolls
  * up the subtree. Rows with no recorded folder are excluded here and surfaced
- * as their own worded line in the card, so absence stays visible.
+ * as their own worded line under the tree, so absence stays visible.
  */
 function buildFolderTree(rows: readonly BookmarkRow[]): {
   readonly roots: readonly FolderNode[];
@@ -327,155 +404,246 @@ function buildFolderTree(rows: readonly BookmarkRow[]): {
   };
 }
 
-function FolderBranch({
-  node,
-  peak,
-  activePath,
-  onPick,
-}: {
-  readonly node: FolderNode;
-  readonly peak: number;
-  readonly activePath: string | null;
-  readonly onPick: (path: string) => void;
-}) {
-  const [open, setOpen] = useState(node.depth === 0);
-  const hasChildren = node.children.length > 0;
-  const active = activePath === node.path;
-  const share = peak === 0 ? 0 : Math.round((node.total / peak) * 100);
-  const Icon = open && hasChildren ? FolderOpen : Folder;
+/** The tree as the rows currently on screen: a node's children follow it
+ *  only while it is open. One flat list keeps the fluid hover indices
+ *  contiguous, so the highlight walks the visible rows in reading order. */
+function visibleFolders(
+  roots: readonly FolderNode[],
+  open: ReadonlySet<string>,
+): readonly FolderNode[] {
+  const out: FolderNode[] = [];
+  const walk = (nodes: readonly FolderNode[]) => {
+    for (const node of nodes) {
+      out.push(node);
+      if (node.children.length > 0 && open.has(node.path)) {
+        walk(node.children);
+      }
+    }
+  };
+  walk(roots);
+  return out;
+}
 
+/** Indent per tree level, and the inset of the first level, in px. */
+const TREE_STEP = 16;
+const TREE_INSET = 8;
+
+/**
+ * One navigator row. The row itself is the choice (it focuses the table on
+ * the folder and is what the fluid hover registers); the chevron is its own
+ * small button laid over the row's leading edge, so opening a branch never
+ * changes the focus.
+ */
+function FolderRow({
+  index,
+  registerItem,
+  depth,
+  label,
+  count,
+  direct,
+  icon,
+  active,
+  open,
+  onPick,
+  onToggle,
+}: {
+  readonly index: number;
+  readonly registerItem: (index: number, element: HTMLElement | null) => void;
+  readonly depth: number;
+  readonly label: string;
+  readonly count: number;
+  /** Rows filed directly here, shown when it differs from `count`. */
+  readonly direct?: number;
+  readonly icon: "library" | "folder";
+  readonly active: boolean;
+  /** Undefined for a row with no children. */
+  readonly open?: boolean;
+  readonly onPick: () => void;
+  readonly onToggle?: () => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const shape = useShape();
+  useRegisterFluidHoverItem(registerItem, index, ref);
+  const lead = TREE_INSET + depth * TREE_STEP;
+  const Icon =
+    icon === "library" ? Library : open === true ? FolderOpen : Folder;
   return (
-    <li>
-      <div
+    // One grid cell holds both buttons, so the chevron sits over the row's
+    // leading edge without a positioned <li> — a positioned ancestor would
+    // become the row's offsetParent and throw off the fluid hover measure.
+    <li className="grid">
+      <button
+        ref={ref}
+        type="button"
+        aria-pressed={active}
+        onClick={onPick}
         className={cn(
-          "group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md py-1.5 pr-2 transition-colors duration-150",
-          active ? "bg-accent" : "hover:bg-muted",
+          "relative col-start-1 row-start-1 flex h-9 w-full cursor-pointer items-center gap-2 pr-3 text-left transition-colors duration-80",
+          shape.item,
+          active ? "bg-active text-foreground" : "text-muted-foreground",
         )}
-        style={{ paddingLeft: `${String(8 + node.depth * 16)}px` }}
+        style={{ paddingLeft: `${String(lead + 22)}px` }}
       >
-        <span className="flex items-center gap-1">
-          {hasChildren ? (
-            <button
-              type="button"
-              aria-label={open ? "Collapse folder" : "Expand folder"}
-              aria-expanded={open}
-              onClick={() => {
-                setOpen((value) => !value);
-              }}
-              className="inline-flex size-4 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors duration-150 hover:text-foreground"
-            >
-              <ChevronRight
-                aria-hidden="true"
-                className={cn(
-                  "size-3.5 transition-transform duration-150",
-                  open && "rotate-90",
-                )}
-              />
-            </button>
-          ) : (
-            <span aria-hidden="true" className="inline-block size-4 shrink-0" />
+        <Icon
+          aria-hidden="true"
+          className={cn(
+            "size-4 shrink-0 transition-colors duration-80",
+            active ? "text-foreground" : "text-muted-foreground",
           )}
-          <Icon
-            aria-hidden="true"
-            className={cn(
-              "size-3.5 shrink-0",
-              active ? "text-accent-foreground" : "text-foreground/45",
-            )}
-          />
-        </span>
-        <button
-          type="button"
-          aria-pressed={active}
-          onClick={() => {
-            onPick(node.path);
-          }}
-          className="flex min-w-0 items-center gap-2 text-left"
-          title={`Focus the table on "${node.path}"`}
+          strokeWidth={active ? 2 : 1.5}
+        />
+        <WeightLabel
+          text={label}
+          active={active}
+          className={cn(typeClass("body"), "flex-1 text-foreground")}
+        />
+        <span
+          className={cn(
+            typeClass("caption"),
+            "shrink-0 text-muted-foreground tabular-nums",
+          )}
         >
-          <span
-            className={cn(
-              "truncate text-[12.5px] font-medium",
-              active && "text-accent-foreground",
-            )}
-          >
-            {node.name}
-          </span>
-          <span className="hidden h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-muted sm:block">
-            <span
-              className={cn(
-                "block h-full rounded-full",
-                node.total === peak ? "bg-primary" : "bg-primary/45",
-              )}
-              style={{ width: `${String(share)}%` }}
-            />
-          </span>
-        </button>
-        <span className="shrink-0 font-mono text-[12px] tabular-nums text-muted-foreground">
-          {node.total.toLocaleString("en-US")}
-          {node.direct !== node.total ? (
-            <span className="ml-1 text-[11px] opacity-70">
-              ({node.direct.toLocaleString("en-US")})
-            </span>
+          {count.toLocaleString("en-US")}
+          {direct !== undefined && direct !== count ? (
+            <span> ({direct.toLocaleString("en-US")})</span>
           ) : null}
         </span>
-      </div>
-      {hasChildren && open ? (
-        <ul>
-          {node.children.map((child) => (
-            <FolderBranch
-              key={child.path}
-              node={child}
-              peak={peak}
-              activePath={activePath}
-              onPick={onPick}
-            />
-          ))}
-        </ul>
-      ) : null}
+      </button>
+      {onToggle === undefined ? null : (
+        <button
+          type="button"
+          aria-label={open === true ? `Collapse ${label}` : `Expand ${label}`}
+          aria-expanded={open === true}
+          onClick={onToggle}
+          className="relative z-10 col-start-1 row-start-1 inline-flex size-5 cursor-pointer items-center justify-center self-center justify-self-start rounded-md text-muted-foreground transition-colors duration-80 hover:text-foreground"
+          style={{ marginLeft: `${String(lead)}px` }}
+        >
+          <motion.span
+            className="inline-flex"
+            initial={false}
+            animate={{ rotate: open === true ? 90 : 0 }}
+            transition={spring.fast}
+          >
+            <ChevronRight aria-hidden="true" className="size-3.5" />
+          </motion.span>
+        </button>
+      )}
     </li>
   );
 }
 
-function FolderMap({
+/**
+ * The folder navigator: "All bookmarks", then the subject's own hierarchy.
+ * Top-level folders start open. Picking a folder focuses the table on it and
+ * everything nested beneath it; picking it again (or "All bookmarks") clears
+ * the focus.
+ */
+function FolderNavigator({
   rows,
   activePath,
   onPick,
 }: {
   readonly rows: readonly BookmarkRow[];
   readonly activePath: string | null;
-  readonly onPick: (path: string) => void;
+  readonly onPick: (path: string | null) => void;
 }) {
   const { roots, unfiled } = useMemo(() => buildFolderTree(rows), [rows]);
-  const peak = useMemo(
-    () => roots.reduce((max, node) => Math.max(max, node.total), 0),
-    [roots],
+  const [open, setOpen] = useState<ReadonlySet<string>>(
+    () => new Set(roots.map((node) => node.path)),
   );
+  const flat = useMemo(() => visibleFolders(roots, open), [roots, open]);
+  const listRef = useRef<HTMLUListElement>(null);
+  const hover = useFluidHover(listRef, { axis: "y" });
+  const shape = useShape();
 
-  if (roots.length === 0 && unfiled === 0) {
-    return <EmptyRows message="No folders recorded on these bookmarks." />;
-  }
+  const toggle = useCallback((path: string) => {
+    setOpen((current) => {
+      const next = new Set(current);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  }, []);
 
   return (
-    <div className="flex flex-col">
-      <ul className="flex flex-col gap-0.5 p-2">
-        {roots.map((node) => (
-          <FolderBranch
-            key={node.path}
-            node={node}
-            peak={peak}
-            activePath={activePath}
-            onPick={onPick}
-          />
-        ))}
-      </ul>
-      <p className="border-t border-border/70 px-4 py-2 text-[11.5px] text-muted-foreground">
-        Count is the folder and everything beneath it; the value in{" "}
-        <span className="font-mono">(brackets)</span> is filed directly here.
+    <SectionPanel
+      title="Folders"
+      description="Pick a folder to focus the table."
+    >
+      {roots.length === 0 ? (
+        <p
+          className={cn(
+            typeClass("body"),
+            "px-4 pt-1 pb-4 text-muted-foreground",
+          )}
+        >
+          No folders recorded on these bookmarks.
+        </p>
+      ) : (
+        <nav aria-label="Bookmark folders">
+          <ul
+            ref={listRef}
+            {...hover.handlers}
+            className="relative flex flex-col px-1 pb-1"
+          >
+            <FluidHoverHighlight hover={hover} className={shape.item} />
+            <FolderRow
+              index={0}
+              registerItem={hover.registerItem}
+              depth={0}
+              label="All bookmarks"
+              count={rows.length}
+              icon="library"
+              active={activePath === null}
+              onPick={() => {
+                onPick(null);
+              }}
+            />
+            {flat.map((node, index) => (
+              <FolderRow
+                key={node.path}
+                index={index + 1}
+                registerItem={hover.registerItem}
+                depth={node.depth}
+                label={node.name}
+                count={node.total}
+                direct={node.direct}
+                icon="folder"
+                active={activePath === node.path}
+                open={
+                  node.children.length > 0 ? open.has(node.path) : undefined
+                }
+                onPick={() => {
+                  onPick(node.path);
+                }}
+                onToggle={
+                  node.children.length > 0
+                    ? () => {
+                        toggle(node.path);
+                      }
+                    : undefined
+                }
+              />
+            ))}
+          </ul>
+        </nav>
+      )}
+      <p
+        className={cn(
+          typeClass("caption"),
+          "border-t border-border px-4 py-2.5 text-muted-foreground",
+        )}
+      >
+        Count is the folder and everything beneath it; the figure in (brackets)
+        is filed directly there.
         {unfiled > 0
-          ? ` ${unfiled.toLocaleString("en-US")} bookmark${unfiled === 1 ? "" : "s"} had no recorded folder.`
+          ? ` ${plural(unfiled, "bookmark", "bookmarks")} had no recorded folder.`
           : ""}
       </p>
-    </div>
+    </SectionPanel>
   );
 }
 
@@ -542,6 +710,10 @@ function buildMonths(rows: readonly BookmarkRow[]): {
   return { months, undated };
 }
 
+/** Column track height, in px. A percentage height on a flex child does not
+ *  resolve against a flex-basis parent, so bar heights are computed here. */
+const CADENCE_TRACK = 160;
+
 function SaveCadence({ rows }: { readonly rows: readonly BookmarkRow[] }) {
   const { months, undated } = useMemo(() => buildMonths(rows), [rows]);
   const peak = useMemo(
@@ -555,80 +727,103 @@ function SaveCadence({ rows }: { readonly rows: readonly BookmarkRow[] }) {
 
   if (months.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center px-4 py-10">
-        <p className="text-center text-[13px] text-muted-foreground">
-          No dated bookmarks to chart.
-          {undated > 0
-            ? ` ${undated.toLocaleString("en-US")} had no recorded date.`
-            : ""}
-        </p>
-      </div>
+      <p
+        className={cn(
+          typeClass("body"),
+          "px-4 pt-1 pb-4 text-muted-foreground",
+        )}
+      >
+        No dated bookmarks to chart.
+        {undated > 0
+          ? ` ${plural(undated, "bookmark", "bookmarks")} had no recorded date.`
+          : ""}
+      </p>
     );
   }
 
-  // Bars are drawn at explicit pixel heights off a fixed track — a percentage
-  // height on a flex child does not resolve against a flex-basis parent, so
-  // the column height is computed here instead of deferred to CSS.
-  const TRACK = 150;
-
+  const lastIndex = months.length - 1;
   return (
-    <div className="flex flex-1 flex-col justify-between gap-3 px-4 py-4">
+    <div className="flex flex-1 flex-col gap-3 px-4 pt-2 pb-4">
       <div
-        className="flex items-end gap-[3px]"
-        style={{ height: `${String(TRACK)}px` }}
         role="img"
-        aria-label="Bookmarks added per month"
+        aria-label={`Bookmarks added per month, ${formatMonth(months[0]?.month ?? "")} to ${formatMonth(months[lastIndex]?.month ?? "")}`}
+        className="flex flex-col gap-2"
       >
-        {months.map((bucket) => {
-          const filled =
-            peak === 0 ? 0 : Math.max(Math.round((bucket.count / peak) * TRACK), 6);
-          const isBusiest = busiest !== null && bucket.month === busiest.month;
-          return (
-            <div
-              key={bucket.month}
-              className="group relative flex min-w-0 flex-1 flex-col justify-end"
-              title={`${formatMonth(bucket.month)}: ${bucket.count.toLocaleString("en-US")} saved`}
-            >
-              <span
-                className={cn(
-                  "w-full rounded-t-[3px] transition-colors duration-150",
-                  bucket.count === 0
-                    ? "bg-muted"
-                    : isBusiest
-                      ? "bg-primary"
-                      : "bg-primary/45 group-hover:bg-primary/70",
-                )}
-                style={{ height: `${String(bucket.count === 0 ? 2 : filled)}px` }}
-              />
-            </div>
-          );
-        })}
-      </div>
+        <div
+          className="flex items-end gap-1"
+          style={{ height: `${String(CADENCE_TRACK)}px` }}
+        >
+          {months.map((bucket) => {
+            const height =
+              bucket.count === 0 || peak === 0
+                ? 2
+                : Math.max(
+                    Math.round((bucket.count / peak) * CADENCE_TRACK),
+                    6,
+                  );
+            const isBusiest =
+              busiest !== null && bucket.month === busiest.month;
+            return (
+              <Tooltip
+                key={bucket.month}
+                content={`${formatMonth(bucket.month)} · ${bucket.count.toLocaleString("en-US")} saved`}
+              >
+                <span className="flex h-full min-w-0 flex-1 flex-col items-center justify-end">
+                  <span
+                    className={cn(
+                      "w-full max-w-12 rounded-t-[4px]",
+                      bucket.count === 0
+                        ? "bg-active"
+                        : isBusiest
+                          ? "bg-foreground opacity-90"
+                          : "bg-foreground opacity-35",
+                    )}
+                    style={{ height: `${String(height)}px` }}
+                  />
+                </span>
+              </Tooltip>
+            );
+          })}
+        </div>
 
-      {/* A sparse month axis — first, busiest, and last, so the row stays
-          readable however many columns there are. */}
-      <div className="flex items-center justify-between text-[10.5px] text-muted-foreground tabular-nums">
-        <span>{formatMonthShort(months[0]?.month ?? "")}</span>
-        {busiest !== null &&
-        months.length > 2 &&
-        busiest.month !== months[0]?.month &&
-        busiest.month !== months[months.length - 1]?.month ? (
-          <span className="font-medium text-foreground/70">
-            {formatMonthShort(busiest.month)}
-          </span>
-        ) : null}
-        <span>{formatMonthShort(months[months.length - 1]?.month ?? "")}</span>
+        {/* A sparse month axis — first, busiest, and last, each centred
+            under its own column, so the row stays readable however many
+            columns there are. */}
+        <div
+          aria-hidden="true"
+          className={cn(
+            typeClass("caption"),
+            "flex gap-1 text-muted-foreground tabular-nums",
+          )}
+        >
+          {months.map((bucket, index) => {
+            const isBusiest =
+              busiest !== null && bucket.month === busiest.month;
+            const shown = index === 0 || index === lastIndex || isBusiest;
+            return (
+              <span
+                key={bucket.month}
+                className={cn(
+                  "flex min-w-0 flex-1 justify-center overflow-visible whitespace-nowrap",
+                  months.length > 6 && index === 0 && "justify-start",
+                  months.length > 6 && index === lastIndex && "justify-end",
+                  isBusiest && "text-foreground",
+                )}
+              >
+                {shown ? formatMonthShort(bucket.month) : null}
+              </span>
+            );
+          })}
+        </div>
       </div>
 
       {busiest !== null ? (
-        <p className="text-[11.5px] text-muted-foreground">
+        <p className={cn(typeClass("caption"), "text-muted-foreground")}>
           Busiest month:{" "}
-          <span className="font-medium text-foreground/80">
-            {formatMonth(busiest.month)}
-          </span>{" "}
+          <span className="text-foreground">{formatMonth(busiest.month)}</span>{" "}
           — {busiest.count.toLocaleString("en-US")} saved.
           {undated > 0
-            ? ` ${undated.toLocaleString("en-US")} bookmark${undated === 1 ? "" : "s"} had no recorded date.`
+            ? ` ${plural(undated, "bookmark", "bookmarks")} had no recorded date.`
             : ""}
         </p>
       ) : null}
@@ -644,9 +839,17 @@ const HOST_LIMIT = 6;
 /**
  * Which sites the subject bookmarked most — a host-frequency leaderboard.
  * The one reading that surfaces "this person kept coming back to save pages
- * from here" out of a flat list.
+ * from here" out of a flat list. Picking a site narrows the table to it.
  */
-function SiteLeaders({ rows }: { readonly rows: readonly BookmarkRow[] }) {
+function SiteLeaders({
+  rows,
+  activeHost,
+  onPick,
+}: {
+  readonly rows: readonly BookmarkRow[];
+  readonly activeHost: string | null;
+  readonly onPick: (host: string) => void;
+}) {
   const hosts = useMemo(() => {
     const map = new Map<string, number>();
     for (const row of rows) {
@@ -660,54 +863,132 @@ function SiteLeaders({ rows }: { readonly rows: readonly BookmarkRow[] }) {
       .map(([host, count]) => ({ host, count }))
       .sort((left, right) => right.count - left.count);
   }, [rows]);
+  const listRef = useRef<HTMLOListElement>(null);
+  const hover = useFluidHover(listRef, { axis: "y" });
+  const shape = useShape();
 
   if (hosts.length === 0) {
-    return <EmptyRows message="No parseable site on these bookmarks." />;
+    return (
+      <p
+        className={cn(
+          typeClass("body"),
+          "px-4 pt-1 pb-4 text-muted-foreground",
+        )}
+      >
+        No parseable site on these bookmarks.
+      </p>
+    );
   }
   const peak = hosts[0]?.count ?? 0;
 
   return (
-    <ol className="flex flex-col p-2">
-      {hosts.slice(0, HOST_LIMIT).map((entry, index) => {
-        const share = peak === 0 ? 0 : Math.round((entry.count / peak) * 100);
-        return (
-          <li key={entry.host}>
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2.5 py-2">
-              <span className="flex min-w-0 items-center gap-2.5">
-                <span className="w-4 shrink-0 text-center text-[12px] font-semibold text-muted-foreground tabular-nums">
-                  {index + 1}
-                </span>
-                <SiteAvatar host={entry.host} />
-                <span
-                  className="truncate text-[12.5px] font-medium"
-                  title={entry.host}
-                >
-                  {entry.host}
-                </span>
-              </span>
-              <span className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <span
-                  className={cn(
-                    "block h-full rounded-full transition-[width] duration-500",
-                    index === 0 ? "bg-primary" : "bg-primary/45",
-                  )}
-                  style={{ width: `${String(share)}%` }}
-                />
-              </span>
-              <span className="shrink-0 font-mono text-[12px] tabular-nums">
-                {entry.count.toLocaleString("en-US")}
-              </span>
-            </div>
-          </li>
-        );
-      })}
+    <>
+      <ol
+        ref={listRef}
+        {...hover.handlers}
+        className="relative flex flex-col px-1 pb-1"
+      >
+        <FluidHoverHighlight hover={hover} className={shape.item} />
+        {hosts.slice(0, HOST_LIMIT).map((entry, index) => (
+          <SiteRow
+            key={entry.host}
+            index={index}
+            registerItem={hover.registerItem}
+            host={entry.host}
+            count={entry.count}
+            peak={peak}
+            active={activeHost === entry.host}
+            onPick={onPick}
+          />
+        ))}
+      </ol>
       {hosts.length > HOST_LIMIT ? (
-        <li className="border-t border-border/70 px-4 py-2 text-[12px] text-muted-foreground">
-          and {hosts.length - HOST_LIMIT} more site
-          {hosts.length - HOST_LIMIT === 1 ? "" : "s"} in the table below
-        </li>
+        <p
+          className={cn(
+            typeClass("caption"),
+            "border-t border-border px-4 py-2.5 text-muted-foreground",
+          )}
+        >
+          and {plural(hosts.length - HOST_LIMIT, "more site", "more sites")} in
+          the table
+        </p>
       ) : null}
-    </ol>
+    </>
+  );
+}
+
+function SiteRow({
+  index,
+  registerItem,
+  host,
+  count,
+  peak,
+  active,
+  onPick,
+}: {
+  readonly index: number;
+  readonly registerItem: (index: number, element: HTMLElement | null) => void;
+  readonly host: string;
+  readonly count: number;
+  readonly peak: number;
+  readonly active: boolean;
+  readonly onPick: (host: string) => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const shape = useShape();
+  useRegisterFluidHoverItem(registerItem, index, ref);
+  return (
+    <li>
+      <button
+        ref={ref}
+        type="button"
+        aria-pressed={active}
+        onClick={() => {
+          onPick(host);
+        }}
+        className={cn(
+          "relative grid h-9 w-full cursor-pointer grid-cols-[1rem_minmax(0,1fr)_6rem_2rem] items-center gap-3 px-3 text-left transition-colors duration-80",
+          shape.item,
+          active && "bg-active",
+        )}
+      >
+        <span
+          className={cn(
+            typeClass("caption"),
+            "text-center text-muted-foreground tabular-nums",
+          )}
+        >
+          {index + 1}
+        </span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          <SiteAvatar host={host} />
+          <WeightLabel
+            text={host}
+            active={active}
+            className={cn(typeClass("body"), "text-foreground")}
+          />
+        </span>
+        <span className="h-1.5 overflow-hidden rounded-full bg-active">
+          <span
+            className={cn(
+              "block h-full rounded-full bg-foreground",
+              index === 0 ? "opacity-90" : "opacity-45",
+            )}
+            style={{
+              width: peak === 0 ? "0%" : `${String((count / peak) * 100)}%`,
+            }}
+          />
+        </span>
+        <span
+          className={cn(
+            typeClass("body"),
+            "text-right text-muted-foreground tabular-nums",
+          )}
+        >
+          {count.toLocaleString("en-US")}
+        </span>
+      </button>
+    </li>
   );
 }
 
@@ -719,22 +1000,17 @@ function TimeCell({ utc }: { readonly utc: string | null }) {
     return <AbsentWord />;
   }
   return (
-    <span
-      className="whitespace-nowrap text-[12.5px] tabular-nums"
-      title={`${utc} (UTC)`}
-    >
-      <span className="font-medium">{parts.date}</span>
-      <span className="ml-2 text-[12px] text-muted-foreground">
-        {parts.time}
-      </span>
+    <span className="whitespace-nowrap tabular-nums" title={`${utc} (UTC)`}>
+      {parts.date}
+      <span className="ml-2 text-muted-foreground">{parts.time}</span>
     </span>
   );
 }
 
 /**
- * The source file as a plain word: the live `Bookmarks` file is the boring
- * default and sits muted; a row recovered from the `.bak` copy keeps its own
- * hue *and* the word "Backup" so the source never rides on colour alone.
+ * The source file as a plain word: the live `Bookmarks` file is the quiet
+ * default; a row recovered from the `.bak` copy keeps its own dot *and* the
+ * word "Backup" in the foreground, so the source never rides on colour alone.
  */
 function SourceWord({ source }: { readonly source: string | null }) {
   if (source === null) {
@@ -744,16 +1020,16 @@ function SourceWord({ source }: { readonly source: string | null }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap text-[12px]",
-        backup ? "font-medium text-violet" : "text-muted-foreground",
+        "flex items-center gap-1.5 whitespace-nowrap",
+        backup && "text-foreground",
       )}
       title={source}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "size-1.5 rounded-full",
-          backup ? "bg-violet" : "bg-muted-foreground/50",
+          "size-1.5 shrink-0 rounded-full",
+          backup ? "bg-violet" : "bg-muted-foreground",
         )}
       />
       {backup ? "Backup" : "Primary"}
@@ -769,45 +1045,40 @@ function BookmarksTable({
   readonly onSelect: (finding: Finding) => void;
 }) {
   return (
-    <div className="fx-scroll-x">
-      <table className="w-full text-left text-[13px]">
-        <thead>
-          <tr>
+    <div className="scroll-fade-x overflow-x-auto px-1 pb-1">
+      <Table className="min-w-[720px]">
+        <TableHeader>
+          <TableRow>
             {["Folder", "Bookmark", "Added", "Source", "State"].map((label) => (
-              <th
-                key={label}
-                className="sticky top-0 z-10 border-b border-border bg-muted/80 px-3 py-2 text-left text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase backdrop-blur"
-              >
+              <TableHead key={label} className="whitespace-nowrap">
                 {label}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((row, index) => (
-            <tr
+            <TableRow
               key={index}
+              index={index}
               tabIndex={0}
-              aria-label="Open bookmark row detail"
+              aria-label={`Open bookmark ${row.name ?? row.url ?? ""}`}
               onClick={() => {
                 onSelect(row.finding);
               }}
               onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
+                activateOnKey(event, () => {
                   onSelect(row.finding);
-                }
+                });
               }}
-              className="cursor-pointer border-b border-border/70 transition-colors duration-100 last:border-b-0 hover:bg-accent/40"
+              className={ROW_FOCUS_CLASS}
             >
-              <td className="max-w-[200px] px-3 py-2.5">
+              <TableCell className="max-w-[150px]">
                 {row.folderPath === null ? (
-                  <span className="text-muted-foreground italic">
-                    no folder
-                  </span>
+                  <span className="whitespace-nowrap">no folder</span>
                 ) : (
                   <span
-                    className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground"
+                    className="flex min-w-0 items-center gap-1.5"
                     title={row.folderPath}
                   >
                     <Folder aria-hidden="true" className="size-3.5 shrink-0" />
@@ -817,50 +1088,204 @@ function BookmarksTable({
                     </span>
                   </span>
                 )}
-              </td>
-              <td className="max-w-[380px] px-3 py-2.5">
-                <span className="flex items-center gap-2.5">
-                  <SiteAvatar host={row.host} />
-                  <span className="flex min-w-0 flex-col">
-                    <span
-                      className="truncate text-[13px] font-medium text-foreground/90"
-                      title={row.name ?? undefined}
-                    >
-                      {row.name ?? row.host ?? "(untitled)"}
-                    </span>
-                    <span
-                      className="truncate font-mono text-[11.5px] text-muted-foreground"
-                      title={row.url ?? undefined}
-                    >
-                      {row.url ?? ""}
-                    </span>
+              </TableCell>
+              <TableCell className="max-w-[280px]">
+                <span className="flex min-w-0 flex-col">
+                  <span
+                    className="truncate text-foreground"
+                    title={row.name ?? undefined}
+                  >
+                    {row.name ?? row.host ?? "(untitled)"}
                   </span>
+                  {row.url === null ? null : (
+                    <span
+                      className={cn(
+                        typeClass("caption"),
+                        "truncate font-mono text-muted-foreground",
+                      )}
+                      title={row.url}
+                    >
+                      {row.url}
+                    </span>
+                  )}
                 </span>
-              </td>
-              <td className="px-3 py-2.5">
+              </TableCell>
+              <TableCell>
                 <TimeCell utc={row.addedUtc} />
-              </td>
-              <td className="px-3 py-2.5">
+              </TableCell>
+              <TableCell>
                 <SourceWord source={row.source} />
-              </td>
-              <td className="px-3 py-2.5">
+              </TableCell>
+              <TableCell>
                 <StateWord state={row.finding.commitState} />
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+type View = "saved" | "recovered";
+
+function BookmarkListPanel({
+  rows,
+  folderFilter,
+  onClearFolder,
+  search,
+  onSearch,
+  onSelect,
+}: {
+  readonly rows: readonly BookmarkRow[];
+  readonly folderFilter: string | null;
+  readonly onClearFolder: () => void;
+  readonly search: string;
+  readonly onSearch: (value: string) => void;
+  readonly onSelect: (finding: Finding) => void;
+}) {
+  const [view, setView] = useState<View>("saved");
+  const size = useSize("compact");
+
+  const saved = useMemo(
+    () => rows.filter((row) => row.finding.commitState === "committed"),
+    [rows],
+  );
+  const recovered = useMemo(
+    () => rows.filter((row) => row.finding.commitState !== "committed"),
+    [rows],
+  );
+  const base = view === "saved" ? saved : recovered;
+
+  // Focusing a folder shows that folder and everything nested beneath it —
+  // the path prefix match — so focusing "Bookmarks Bar" keeps its subfolders
+  // visible rather than only its direct rows.
+  const visible = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("en-US");
+    return base.filter((row) => {
+      if (folderFilter !== null) {
+        const path = row.folderPath;
+        if (
+          path === null ||
+          !(path === folderFilter || path.startsWith(`${folderFilter} /`))
+        ) {
+          return false;
+        }
+      }
+      if (query === "") {
+        return true;
+      }
+      const haystack = [row.name ?? "", row.url ?? "", row.folderPath ?? ""]
+        .join("\n")
+        .toLocaleLowerCase("en-US");
+      return haystack.includes(query);
+    });
+  }, [base, search, folderFilter]);
+
+  const filtered = visible.length !== base.length;
+  const noun = view === "saved" ? "saved" : "recovered";
+
+  return (
+    <Panel className="min-w-0 overflow-clip">
+      <PanelHeader>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <PanelTitle>{folderFilter ?? "All bookmarks"}</PanelTitle>
+          <PanelDescription>
+            {folderFilter === null
+              ? "Saved bookmarks and bookmarks recovered from WAL or journal sidecars are kept as separate lists."
+              : "This folder and everything filed beneath it."}
+          </PanelDescription>
+        </div>
+        {folderFilter === null ? null : (
+          <Button variant="tertiary" size="compact" onClick={onClearFolder}>
+            Show all folders
+          </Button>
+        )}
+      </PanelHeader>
+      <SizeProvider size="compact">
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-y-2 px-4 pt-1 pb-3",
+            size.gap,
+          )}
+        >
+          <Tabs
+            value={view}
+            onValueChange={(next) => {
+              setView(next === "recovered" ? "recovered" : "saved");
+            }}
+          >
+            <TabsList aria-label="Saved or recovered bookmarks">
+              <TabItem
+                value="saved"
+                label={`Saved ${saved.length.toLocaleString("en-US")}`}
+              />
+              <TabItem
+                value="recovered"
+                label={`Recovered ${recovered.length.toLocaleString("en-US")}`}
+              />
+            </TabsList>
+          </Tabs>
+          <FilterTextField
+            label="Search loaded bookmarks"
+            placeholder="Search name, URL, or folder"
+            icon={Search}
+            value={search}
+            onCommit={onSearch}
+            className="ml-auto w-60"
+          />
+        </div>
+      </SizeProvider>
+
+      <div className="border-t border-border">
+        {visible.length === 0 ? (
+          <EmptyRows
+            message={
+              filtered
+                ? `No ${noun} bookmarks match this filter.`
+                : view === "saved"
+                  ? "No saved bookmarks in this Case."
+                  : "No bookmarks were recovered from WAL or journal sidecars."
+            }
+          />
+        ) : (
+          <BookmarksTable rows={visible} onSelect={onSelect} />
+        )}
+      </div>
+
+      <div className="flex items-center gap-3 border-t border-border px-4 py-2.5">
+        <p
+          className={cn(
+            typeClass("caption"),
+            "text-muted-foreground tabular-nums",
+          )}
+          aria-live="polite"
+        >
+          {filtered
+            ? `${visible.length.toLocaleString("en-US")} of ${base.length.toLocaleString("en-US")} ${noun} bookmarks shown`
+            : `${plural(base.length, `${noun} bookmark`, `${noun} bookmarks`)} shown`}
+        </p>
+      </div>
+    </Panel>
+  );
+}
+
+/** Placeholder at the size of the strip and the two charts. */
+function BookmarksSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-hidden="true">
+      <Skeleton className="h-[112px] w-full rounded-xl" />
+      <div className="grid grid-cols-12 gap-4">
+        <Skeleton className="col-span-12 h-[300px] rounded-xl lg:col-span-7" />
+        <Skeleton className="col-span-12 h-[300px] rounded-xl lg:col-span-5" />
+      </div>
     </div>
   );
 }
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function BookmarksPage({
-  config,
-}: {
-  readonly config: ArtifactConfig;
-}) {
+export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
   const { rows, complete, error, retry } = useBookmarks(config.route);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
@@ -891,203 +1316,137 @@ export function BookmarksPage({
     };
   }, [model]);
 
-  // Focusing a folder branch shows that folder and everything nested beneath
-  // it — the path prefix match — so clicking "Bookmarks Bar" keeps its
-  // subfolders visible rather than only its direct rows.
-  const visible = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("en-US");
-    return model.filter((row) => {
-      if (folderFilter !== null) {
-        const path = row.folderPath;
-        if (
-          path === null ||
-          !(path === folderFilter || path.startsWith(`${folderFilter} /`))
-        ) {
-          return false;
-        }
-      }
-      if (query === "") {
-        return true;
-      }
-      const haystack = [row.name ?? "", row.url ?? "", row.folderPath ?? ""]
-        .join("\n")
-        .toLocaleLowerCase("en-US");
-      return haystack.includes(query);
-    });
-  }, [model, search, folderFilter]);
-
-  const filtered = visible.length !== model.length;
-
   const select = useCallback((finding: Finding) => {
     setSelected({ kind: "finding", row: finding });
   }, []);
 
-  const pickFolder = useCallback((path: string) => {
-    setFolderFilter((current) => (current === path ? null : path));
+  const pickFolder = useCallback((path: string | null) => {
+    setFolderFilter((current) =>
+      path === null || current === path ? null : path,
+    );
+  }, []);
+
+  const pickHost = useCallback((host: string) => {
+    setSearch((current) => (current === host ? "" : host));
   }, []);
 
   return (
     <div className="flex flex-col gap-4">
-
       {error !== null ? (
-        <div
-          role="alert"
-          className="flex items-start gap-2.5 rounded-md border border-destructive-border bg-destructive-wash px-3.5 py-3"
-        >
-          <div className="flex-1">
-            <p className="text-[13px] font-medium text-destructive">
-              The bookmarks could not be loaded.
-            </p>
-            <p className="text-[12.5px] text-destructive/80">{error}</p>
-          </div>
-          <Button onClick={retry} size="sm" className="shrink-0">
-            Retry
-          </Button>
-        </div>
-      ) : rows === null ? (
-        <div className="flex flex-col gap-3" aria-label="Loading bookmarks">
-          <Skeleton className="h-[92px] w-full rounded-lg" />
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Skeleton className="h-[320px] rounded-lg" />
-            <Skeleton className="h-[320px] rounded-lg" />
-          </div>
-          <Skeleton className="h-[300px] w-full rounded-lg" />
-        </div>
-      ) : model.length === 0 ? (
-        <SectionCard title="Bookmarks">
-          <EmptyRows message="No bookmarks recorded in this Case." />
-        </SectionCard>
+        <ErrorRows
+          title="The bookmarks could not be loaded."
+          message={error}
+          onRetry={retry}
+          className="px-0 py-0"
+        />
+      ) : rows !== null && model.length === 0 ? (
+        <Panel>
+          <EmptyRows
+            icon={Bookmark}
+            title="No bookmarks"
+            message="No bookmarks recorded in this Case."
+          />
+        </Panel>
       ) : (
-        <>
-          {!complete ? (
-            <div
-              role="alert"
-              className="rounded-md border border-warning-border bg-warning-wash px-3 py-2 text-[12.5px] text-warning"
-            >
-              These figures cover the first{" "}
-              {model.length.toLocaleString("en-US")} bookmarks read — the most
-              this page loads at once. More rows exist in the Case.
-            </div>
-          ) : null}
+        <div className="reveal-swap">
+          <BookmarksSkeleton />
+          {rows === null ? null : (
+            <div className="flex flex-col gap-4">
+              {!complete ? (
+                <Banner status="warning" contrast="high">
+                  <BannerTitle>
+                    These figures cover part of the Case
+                  </BannerTitle>
+                  <BannerDescription>
+                    They read the first {model.length.toLocaleString("en-US")}{" "}
+                    bookmarks — the most this page loads at once. More rows
+                    exist in the Case.
+                  </BannerDescription>
+                </Banner>
+              ) : null}
 
-          {/* Figure strip — the collection at a glance, in the Overview's
-              calm masthead-readout voice. Every figure is a direct read of
-              the rows below, never a new query or an invented number. */}
-          <MetricBand className="grid-cols-2 lg:grid-cols-4">
-            <MetricBandItem
-              label="Saved pages"
-              value={summary.total.toLocaleString("en-US")}
-            />
-            <MetricBandItem
-              label="Folders used"
-              value={summary.folders.toLocaleString("en-US")}
-            />
-            <MetricBandItem
-              label="Distinct sites"
-              value={summary.hosts.toLocaleString("en-US")}
-            />
-            <MetricBandItem
-              label="From backup"
-              value={summary.backup.toLocaleString("en-US")}
-              detail="recovered from Bookmarks.bak"
-              tone="warning"
-            />
-          </MetricBand>
+              {/* Figure strip — the collection at a glance. Every figure is
+                  a direct read of the rows below, never a new query or an
+                  invented number. */}
+              <MetricBand className="grid-cols-2 lg:grid-cols-4">
+                <MetricBandItem
+                  label="Saved pages"
+                  value={summary.total.toLocaleString("en-US")}
+                />
+                <MetricBandItem
+                  label="Folders used"
+                  value={summary.folders.toLocaleString("en-US")}
+                />
+                <MetricBandItem
+                  label="Distinct sites"
+                  value={summary.hosts.toLocaleString("en-US")}
+                />
+                <MetricBandItem
+                  label="From backup"
+                  value={summary.backup.toLocaleString("en-US")}
+                  detail="recovered from Bookmarks.bak"
+                  tone="warning"
+                />
+              </MetricBand>
 
-          {/* Folder map + save cadence — the two readings that turn a flat
-              list into the curated collection it is: the structure the person
-              built, and the rhythm at which they built it. */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <SectionCard
-              title="Folder map"
-              description="Click a folder to focus the table."
-            >
-              <FolderMap
-                rows={model}
-                activePath={folderFilter}
-                onPick={pickFolder}
-              />
-            </SectionCard>
-            <SectionCard
-              title="Saved over time"
-              description="Bookmarks added per month."
-            >
-              <SaveCadence rows={model} />
-            </SectionCard>
-          </div>
+              {/* Cadence + sites — the rhythm at which the collection was
+                  built, and where the subject kept returning to save. */}
+              <div className="grid grid-cols-12 gap-4">
+                <SectionPanel
+                  title="Saved over time"
+                  description="Bookmarks added per month."
+                  className="col-span-12 lg:col-span-7"
+                >
+                  <SaveCadence rows={model} />
+                </SectionPanel>
+                <SectionPanel
+                  title="Most-bookmarked sites"
+                  description="Pick a site to narrow the table."
+                  className="col-span-12 lg:col-span-5"
+                  aside={
+                    <Badge size="compact" className="tabular-nums">
+                      {plural(summary.hosts, "site", "sites")}
+                    </Badge>
+                  }
+                >
+                  <SiteLeaders
+                    rows={model}
+                    activeHost={search === "" ? null : search}
+                    onPick={pickHost}
+                  />
+                </SectionPanel>
+              </div>
 
-          {/* Most-bookmarked sites — where the subject kept returning to save. */}
-          <SectionCard
-            title="Most-bookmarked sites"
-            description="By number of saved pages."
-          >
-            <SiteLeaders rows={model} />
-          </SectionCard>
-
-          {/* The raw rows. */}
-          <SectionCard title="All bookmarks" count={model.length}>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/70 px-4 py-2.5">
-              {folderFilter !== null ? (
-                <button
-                  type="button"
-                  onClick={() => {
+              {/* The folder navigator beside the rows it focuses: the
+                  structure the person built, next to what they filed. */}
+              <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
+                <div className="lg:sticky lg:top-14">
+                  <FolderNavigator
+                    rows={model}
+                    activePath={folderFilter}
+                    onPick={pickFolder}
+                  />
+                </div>
+                <BookmarkListPanel
+                  rows={model}
+                  folderFilter={folderFilter}
+                  onClearFolder={() => {
                     setFolderFilter(null);
                   }}
-                  className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-accent-border bg-accent px-2.5 text-[12px] font-medium text-accent-foreground transition-colors duration-150"
-                  title={folderFilter}
-                >
-                  <Folder aria-hidden="true" className="size-3" />
-                  <span className="max-w-[220px] truncate">{folderFilter}</span>
-                  <span aria-hidden="true">×</span>
-                  <span className="sr-only">Clear the folder filter</span>
-                </button>
-              ) : null}
-              <label className="relative ml-auto">
-                <Search
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  search={search}
+                  onSearch={setSearch}
+                  onSelect={select}
                 />
-                <input
-                  value={search}
-                  onChange={(event) => {
-                    setSearch(event.target.value);
-                  }}
-                  placeholder="Search name, URL, or folder"
-                  aria-label="Search loaded bookmarks"
-                  className="h-8 w-[240px] rounded-md border border-input bg-background pr-3 pl-8 text-[12.5px] outline-none focus:ring-2 focus:ring-ring"
-                />
-              </label>
+              </div>
             </div>
-
-            {visible.length === 0 ? (
-              <EmptyRows
-                message={
-                  filtered
-                    ? "No loaded bookmarks match this filter."
-                    : "No bookmarks in this Case."
-                }
-              />
-            ) : (
-              <BookmarksTable rows={visible} onSelect={select} />
-            )}
-
-            <div className="flex items-center gap-3 border-t border-border/70 px-4 py-2.5">
-              <p
-                className="text-[12.5px] text-muted-foreground tabular-nums"
-                aria-live="polite"
-              >
-                {filtered
-                  ? `${String(visible.length)} of ${String(model.length)} bookmarks shown`
-                  : `${String(model.length)} bookmark${model.length === 1 ? "" : "s"} shown`}
-              </p>
-            </div>
-          </SectionCard>
-        </>
+          )}
+        </div>
       )}
 
       {selected !== null ? (
         <RowSheet
           selected={selected}
+          title={fieldText(selected.row.fields.name) ?? "Bookmark"}
           onClose={() => {
             setSelected(null);
           }}

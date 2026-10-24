@@ -195,7 +195,7 @@ const SheetContent = forwardRef<HTMLDivElement, SheetContentProps>(
                 <DialogPrimitive.Close asChild>
                   <Button
                     variant="ghost"
-                    size="icon-sm"
+                    size="icon-compact"
                     className="absolute top-3 right-3"
                   >
                     <XIcon />

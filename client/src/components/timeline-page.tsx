@@ -11,6 +11,7 @@ import { RowSheet, type SelectedRow } from "./row-sheet.js";
 import { TimelineActivityCard, type DayRange } from "./timeline-activity.js";
 import {
   TimelineRecordsCard,
+  timelineEventLabel,
   type TimelineDirection,
 } from "./timeline-table.js";
 
@@ -34,7 +35,7 @@ export function TimelinePage() {
   const list = usePaginatedList<Finding>("timeline", parameters);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <TimelineActivityCard range={range} onRangeChange={setRange} />
       {/* This stays one stream: splitting commit states would hide chronology. */}
       <TimelineRecordsCard
@@ -54,6 +55,7 @@ export function TimelinePage() {
       {selected !== null ? (
         <RowSheet
           selected={selected}
+          title={timelineEventLabel(selected.row.findingKind)}
           onClose={() => {
             setSelected(null);
           }}

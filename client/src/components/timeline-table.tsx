@@ -1,17 +1,25 @@
 /**
- * The Timeline page's chronological records card.
+ * The Timeline page's chronological records panel.
  *
  * The generic FindingsTable unions every wire field across four record kinds
  * into one sparse grid of mostly "absent" cells. This table reads instead:
- * one Time column, one worded Event column, one Details column with the
- * field the row is about, and a quiet Commit State word. Every technical
- * field the row carries stays reachable through the row detail sheet.
+ * one worded Event column (the row's TYPE, first), one Time column, one
+ * Details column with the field the row is about, and a quiet Commit State
+ * word. Every technical field the row carries stays reachable through the
+ * row detail sheet.
+ *
+ * Drawn with FF parts: a Panel; FF Tabs (segmented) for Newest/Oldest first;
+ * FF TabsSubtle for the event-kind filter; FF Table with one fluid hover
+ * highlight over the rows (each row opens the sheet); the shared loading,
+ * error, empty and footer chrome from list-states / data-table.
  *
  * Presentation rules kept from the evidence tables: states are worded, never
  * color alone; nothing is inferred — an event without its own recorded
- * timestamp shows the word "absent", not a guessed time.
+ * timestamp shows the word "absent", not a guessed time. This stays one
+ * chronological stream: Commit States are never split out of it.
  */
 import {
+  Activity,
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
   ClipboardList,
@@ -22,9 +30,22 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { cn } from "../lib.js";
 import type { Finding } from "../types.js";
-import { EmptyRows } from "./data-table.js";
+import { Panel } from "@/components/panel";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle";
+import { fontWeights } from "@/lib/font-weight";
+import { SizeProvider, useSize } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
+import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
   AbsentWord,
   fieldText,
@@ -32,8 +53,7 @@ import {
   formatInstant,
   StateWord,
 } from "./finding-fields.js";
-import { Button } from "./compat/button.js";
-import { Skeleton } from "./ui/misc.js";
+import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
 
 export type TimelineDirection = "asc" | "desc";
 
@@ -42,7 +62,7 @@ export type TimelineDirection = "asc" | "desc";
  * icon, the field holding the event's own recorded instant, and the fields
  * that say what the row is about. `primary` falls back to `secondary` when
  * the primary field is empty or missing (a visit with no page title shows
- * its URL large rather than an italic "(empty)" as the headline).
+ * its URL large rather than an "(empty)" as the headline).
  */
 const EVENT_META: Readonly<
   Record<
@@ -86,7 +106,13 @@ const EVENT_META: Readonly<
   },
 };
 
-/** Chip order for the event filter; "all" first, then the four known kinds. */
+/** The worded event label for a timeline record kind (falls back to the
+ *  raw kind), e.g. for the row sheet's title. */
+export function timelineEventLabel(kind: string): string {
+  return EVENT_META[kind]?.label ?? kind;
+}
+
+/** Filter order: "All events" first, then the four known kinds. */
 const FILTER_KINDS = [
   "history_visit",
   "download",
@@ -94,50 +120,53 @@ const FILTER_KINDS = [
   "autofill_entry",
 ] as const;
 
+function EventCell({ kind }: { readonly kind: string }) {
+  const meta = EVENT_META[kind];
+  const Icon = meta?.icon ?? Globe;
+  const size = useSize();
+  return (
+    <TableCell className="whitespace-nowrap text-foreground">
+      <span className="inline-flex items-center gap-2.5">
+        <span
+          aria-hidden="true"
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-hover text-muted-foreground"
+        >
+          <Icon size={size.icon - 2} strokeWidth={1.5} />
+        </span>
+        {meta?.label ?? kind}
+      </span>
+    </TableCell>
+  );
+}
+
 function TimeCell({ utc }: { readonly utc: string | null }) {
   const parts = utc === null ? null : formatInstant(utc);
   if (utc === null || parts === null) {
     return (
-      <td className="px-3 py-2.5 whitespace-nowrap">
+      <TableCell className="whitespace-nowrap">
         <AbsentWord />
-      </td>
+      </TableCell>
     );
   }
   return (
-    <td
-      className="px-3 py-2.5 whitespace-nowrap tabular-nums"
+    <TableCell
+      className="whitespace-nowrap tabular-nums"
       title={`${utc} (UTC)`}
     >
-      <span className="text-[12.5px] font-medium">{parts.date}</span>
-      <span className="ml-2 text-[12px] text-muted-foreground">
-        {parts.time}
-      </span>
-    </td>
-  );
-}
-
-function EventCell({ kind }: { readonly kind: string }) {
-  const meta = EVENT_META[kind];
-  const Icon = meta?.icon ?? Globe;
-  return (
-    <td className="px-3 py-2.5 whitespace-nowrap">
-      <span className="inline-flex items-center gap-2 text-[12.5px] font-medium">
-        <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-muted">
-          <Icon aria-hidden="true" className="size-3.5 text-foreground/60" />
-        </span>
-        {meta?.label ?? kind}
-      </span>
-    </td>
+      <span>{parts.date}</span>
+      <span className="ml-2 text-muted-foreground">{parts.time}</span>
+    </TableCell>
   );
 }
 
 function DetailsCell({ row }: { readonly row: Finding }) {
+  const size = useSize();
   const meta = EVENT_META[row.findingKind];
   if (meta === undefined) {
     return (
-      <td className="px-3 py-2.5">
+      <TableCell>
         <AbsentWord />
-      </td>
+      </TableCell>
     );
   }
   const primary = fieldText(row.fields[meta.primary]);
@@ -145,20 +174,20 @@ function DetailsCell({ row }: { readonly row: Finding }) {
   const headline = primary ?? secondary;
   const subline = primary === null ? null : secondary;
   return (
-    <td className="max-w-[440px] px-3 py-2.5">
+    <TableCell className="max-w-[460px]">
       {headline === null ? (
         <AbsentWord />
       ) : (
         <span className="flex min-w-0 flex-col">
-          <span
-            className="truncate text-[13px] text-foreground/90"
-            title={headline}
-          >
+          <span className="truncate" title={headline}>
             {headline}
           </span>
           {subline === null || subline === headline ? null : (
             <span
-              className="truncate font-mono text-[11.5px] text-muted-foreground"
+              className={cn(
+                size.type.caption,
+                "truncate font-mono text-muted-foreground",
+              )}
               title={subline}
             >
               {subline}
@@ -166,62 +195,16 @@ function DetailsCell({ row }: { readonly row: Finding }) {
           )}
         </span>
       )}
-    </td>
-  );
-}
-
-function StateCell({ state }: { readonly state: Finding["commitState"] }) {
-  return (
-    <td className="px-3 py-2.5 whitespace-nowrap">
-      <StateWord state={state} />
-    </td>
-  );
-}
-
-function FilterChip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  readonly label: string;
-  readonly count: number | null;
-  readonly active: boolean;
-  readonly onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-colors duration-150",
-        active
-          ? "border-accent-border bg-accent text-accent-foreground"
-          : "border-border bg-card text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {label}
-      {count === null ? null : (
-        <span
-          className={cn(
-            "tabular-nums",
-            active ? "opacity-70" : "text-muted-foreground/70",
-          )}
-        >
-          {count}
-        </span>
-      )}
-    </button>
+    </TableCell>
   );
 }
 
 /**
- * The card. The event chips filter the rows already loaded from the timeline
- * route — the route itself has no kind parameter — so the footer states "of
- * N loaded" whenever a chip hides rows, and "Load more" keeps fetching the
- * unfiltered stream underneath. Direction is a real query parameter and is
- * owned by the page.
+ * The panel. The event filter narrows the rows already loaded from the
+ * timeline route — the route itself has no kind parameter — so the footer
+ * states "of N loaded" whenever a filter hides rows, and "Load more" keeps
+ * fetching the unfiltered stream underneath. Direction is a real query
+ * parameter and is owned by the page.
  */
 export function TimelineRecordsCard({
   rows,
@@ -246,6 +229,7 @@ export function TimelineRecordsCard({
   readonly onDirectionChange: (direction: TimelineDirection) => void;
   readonly rangeActive: boolean;
 }) {
+  const size = useSize();
   const [kindFilter, setKindFilter] = useState<string | null>(null);
 
   const counts = useMemo(() => {
@@ -264,73 +248,82 @@ export function TimelineRecordsCard({
     [rows, kindFilter],
   );
 
-  const DirectionIcon =
-    direction === "desc" ? ArrowDownWideNarrow : ArrowUpNarrowWide;
+  const filterIndex =
+    kindFilter === null
+      ? 0
+      : FILTER_KINDS.indexOf(kindFilter as (typeof FILTER_KINDS)[number]) + 1;
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2.5">
-        <h2 className="text-[13px] font-semibold">Chronological records</h2>
-        {rangeActive ? (
-          <span className="text-[12px] text-muted-foreground">
-            filtered to the selected days
-          </span>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => {
-            onDirectionChange(direction === "desc" ? "asc" : "desc");
-          }}
-          className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-[12px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground"
-        >
-          <DirectionIcon aria-hidden="true" className="size-3.5" />
-          {direction === "desc" ? "Newest first" : "Oldest first"}
-        </button>
-      </header>
-
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-border/70 px-4 py-2.5">
-        <FilterChip
-          label="All events"
-          count={rows.length}
-          active={kindFilter === null}
-          onClick={() => {
-            setKindFilter(null);
-          }}
-        />
-        {FILTER_KINDS.map((kind) => (
-          <FilterChip
-            key={kind}
-            label={EVENT_META[kind]?.label ?? kind}
-            count={counts.get(kind) ?? 0}
-            active={kindFilter === kind}
-            onClick={() => {
-              setKindFilter(kindFilter === kind ? null : kind);
+    <Panel className="overflow-clip">
+      <SizeProvider size="compact">
+        <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pt-3.5 pb-2">
+          <div className="flex min-w-0 flex-col">
+            <h2
+              className={cn(size.type.subtitle, "text-foreground")}
+              style={{ fontVariationSettings: fontWeights.semibold }}
+            >
+              Chronological records
+            </h2>
+            <p className={cn(size.type.caption, "text-muted-foreground")}>
+              {rangeActive
+                ? "Filtered to the selected days."
+                : "Every recorded event in one stream."}
+            </p>
+          </div>
+          <Tabs
+            value={direction}
+            onValueChange={(next) => {
+              onDirectionChange(next as TimelineDirection);
             }}
-          />
-        ))}
-      </div>
+            className="ml-auto"
+          >
+            <TabsList aria-label="Order">
+              <TabItem
+                value="desc"
+                icon={ArrowDownWideNarrow}
+                label="Newest first"
+              />
+              <TabItem
+                value="asc"
+                icon={ArrowUpNarrowWide}
+                label="Oldest first"
+              />
+            </TabsList>
+          </Tabs>
+        </header>
+
+        <div className="scroll-fade-x overflow-x-auto border-b border-border px-3 pb-2">
+          <TabsSubtle
+            selectedIndex={filterIndex}
+            onSelect={(index) => {
+              setKindFilter(
+                index === 0 ? null : (FILTER_KINDS[index - 1] ?? null),
+              );
+            }}
+            aria-label="Event kind"
+            className="w-max"
+          >
+            <TabsSubtleItem
+              index={0}
+              icon={Activity}
+              label={`All events ${String(rows.length)}`}
+            />
+            {FILTER_KINDS.map((kind, index) => (
+              <TabsSubtleItem
+                key={kind}
+                index={index + 1}
+                icon={EVENT_META[kind]?.icon}
+                label={`${EVENT_META[kind]?.label ?? kind} ${String(counts.get(kind) ?? 0)}`}
+              />
+            ))}
+          </TabsSubtle>
+        </div>
+      </SizeProvider>
 
       {error !== null ? (
-        <div
-          role="alert"
-          className="mx-4 my-4 flex items-start gap-2.5 rounded-md border border-destructive-border bg-destructive-wash px-3.5 py-3"
-        >
-          <div className="flex-1">
-            <p className="text-[13px] font-medium text-destructive">
-              The rows could not be loaded.
-            </p>
-            <p className="text-[12.5px] text-destructive/80">{error}</p>
-          </div>
-          <Button onClick={onRetry} size="sm" className="shrink-0">
-            Retry
-          </Button>
-        </div>
+        <ErrorRows message={error} onRetry={onRetry} />
       ) : loading && rows.length === 0 ? (
-        <div className="flex flex-col gap-2 px-4 py-4" aria-label="Loading rows">
-          {[0, 1, 2, 3, 4].map((index) => (
-            <Skeleton key={index} className="h-7 w-full" />
-          ))}
-        </div>
+        <LoadingRows rows={6} />
       ) : visible.length === 0 ? (
         <EmptyRows
           message={
@@ -340,66 +333,65 @@ export function TimelineRecordsCard({
           }
         />
       ) : (
-        <div className="fx-scroll-x">
-          <table className="w-full text-left text-[13px]">
-            <thead>
-              <tr>
-                {["Time", "Event", "Details", "State"].map((label) => (
-                  <th
-                    key={label}
-                    className="sticky top-0 z-10 border-b border-border bg-muted/80 px-3 py-2 text-left text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase backdrop-blur"
-                  >
+        <div className="scroll-fade-x overflow-x-auto px-2 py-1 [&_tbody>tr:last-child]:border-transparent">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {["Event", "Time (UTC)", "Details", "State"].map((label) => (
+                  <TableHead key={label} className="whitespace-nowrap">
                     {label}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((row, index) => (
-                <tr
-                  key={index}
-                  tabIndex={0}
-                  aria-label={`Open ${row.findingKind} row detail`}
-                  onClick={() => {
-                    onSelect(row);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onSelect(row);
-                    }
-                  }}
-                  className="cursor-pointer border-b border-border/70 transition-colors duration-100 last:border-b-0 hover:bg-accent/40"
-                >
-                  <TimeCell utc={fieldUtc(row.fields[EVENT_META[row.findingKind]?.timeField ?? ""])} />
-                  <EventCell kind={row.findingKind} />
-                  <DetailsCell row={row} />
-                  <StateCell state={row.commitState} />
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((row, index) => {
+                const open = () => {
+                  onSelect(row);
+                };
+                return (
+                  <TableRow
+                    key={index}
+                    index={index}
+                    tabIndex={0}
+                    aria-label={`Open ${row.findingKind} row detail`}
+                    onClick={open}
+                    onKeyDown={(event) => {
+                      activateOnKey(event, open);
+                    }}
+                    className={ROW_FOCUS_CLASS}
+                  >
+                    <EventCell kind={row.findingKind} />
+                    <TimeCell
+                      utc={fieldUtc(
+                        row.fields[
+                          EVENT_META[row.findingKind]?.timeField ?? ""
+                        ],
+                      )}
+                    />
+                    <DetailsCell row={row} />
+                    <TableCell className="whitespace-nowrap">
+                      <StateWord state={row.commitState} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
 
-      {rows.length === 0 && cursor === null ? null : (
-        <div className="flex items-center gap-3 border-t border-border/70 px-4 py-2.5">
-          <p
-            className="text-[12.5px] text-muted-foreground tabular-nums"
-            aria-live="polite"
-          >
-            {kindFilter === null
-              ? `${String(rows.length)} row${rows.length === 1 ? "" : "s"} shown`
-              : `${String(visible.length)} of ${String(rows.length)} loaded rows shown`}
-            {cursor === null ? "" : " · more available"}
-          </p>
-          {cursor !== null ? (
-            <Button onClick={onLoadMore} disabled={loading} size="sm">
-              {loading ? "Loading…" : "Load more"}
-            </Button>
-          ) : null}
-        </div>
-      )}
-    </section>
+      <ListFooter
+        count={rows.length}
+        cursor={cursor}
+        loading={loading}
+        onLoadMore={onLoadMore}
+        summary={
+          kindFilter === null
+            ? undefined
+            : `${String(visible.length)} of ${String(rows.length)} loaded rows shown`
+        }
+      />
+    </Panel>
   );
 }

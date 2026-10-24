@@ -4,50 +4,79 @@
  * Chrome's own most-visited ranking, read as a ranking rather than a generic
  * evidence dump. Chrome records one ordered list per Browser Profile
  * (`urlRank` 1..N, its own placement — nothing this page re-ranks), and the
- * page reads that ordering back four ways before the raw table:
+ * page reads that ordering back in a column of FF Panels:
  *
- *  1. A small stat strip — ranked sites, distinct hosts, Profiles covered,
- *     and how many rows were recovered from sidecars rather than committed.
- *  2. A leaderboard card per Profile — Chrome's recorded top placements.
- *  3. A "top of the list" composition read — which registrable domains hold
+ *  1. Evidence coverage — the Completeness Statement, before any row.
+ *  2. A MetricBand of recorded figures — ranked sites, distinct hosts,
+ *     Profiles covered, and how many rows were recovered from sidecars rather
+ *     than committed.
+ *  3. A leaderboard per Profile — Chrome's recorded top placements, as an FF
+ *     CardGroup of inline cards (one fluid hover highlight; a card opens its
+ *     row detail).
+ *  4. A "top of the list" composition read — which registrable domains hold
  *     the highest-ranked slots, and how the ranking splits between committed
  *     and recovered (sidecar) rows.
- *  4. The full ranked table, searchable and profile-filterable.
+ *  5. The full ranked table on FF's Table, searchable and Profile-filterable
+ *     (TabsSubtle) over the loaded rows.
  *
  * Presentation rules kept: the Completeness Statement renders before any row;
  * states are worded, never colour alone; ranks are Chrome's recorded `urlRank`
- * values — never scores or bars the evidence does not contain. The one bar in
- * the composition read is a share of *counts this page tallied* (how many of
+ * values — never scores or bars the evidence does not contain. The bars in
+ * the composition read are shares of *counts this page tallied* (how many of
  * the loaded rows fall in a domain / a commit state), labelled as such — never
  * a fabricated ranking of the sites themselves.
  */
 import { Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { EvidenceDot, type EvidenceState } from "@/components/evidence";
 import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+  Panel,
+  PanelDescription,
+  PanelFooter,
+  PanelHeader,
+  PanelTitle,
+} from "@/components/panel";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardDescription,
+  CardFooter,
+  CardGroup,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { InputField, InputGroup } from "@/components/ui/input-group";
+import { Skeleton } from "@/components/ui/misc";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle";
+import { fontWeights } from "@/lib/font-weight";
+import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import { cn } from "../lib.js";
-import type {
-  ArtifactConfig,
-  Finding,
-  PageOf,
-} from "../types.js";
-import { EmptyRows } from "./data-table.js";
+import { COMMIT_META } from "../terms.js";
+import type { ArtifactConfig, CommitState, Finding, PageOf } from "../types.js";
+import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
+  AbsentWord,
   fieldInteger as fieldRank,
   fieldText,
   hostOf,
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { Coverage } from "./history-coverage.js";
+import { ErrorRows, ListFooter } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { Button } from "./compat/button.js";
-import { Skeleton } from "./ui/misc.js";
+import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
 /** One rank-sorted read across every Commit State, paginated by the route. */
 function useTopSites(route: string) {
@@ -174,7 +203,7 @@ function summarize(rows: readonly Finding[]): TopSitesStats {
 
 function StatStrip({ stats }: { readonly stats: TopSitesStats }) {
   return (
-    <MetricBand className="grid-cols-2 xl:grid-cols-4">
+    <MetricBand className="grid-cols-2 lg:grid-cols-4">
       <MetricBandItem
         label="Ranked sites"
         value={stats.rankedCount.toLocaleString("en-US")}
@@ -199,7 +228,7 @@ function StatStrip({ stats }: { readonly stats: TopSitesStats }) {
         value={stats.recoveredCount.toLocaleString("en-US")}
         detail={
           stats.recoveredCount === 0
-            ? "all rows committed"
+            ? "all rows saved"
             : "rows from WAL / journal"
         }
         tone={stats.recoveredCount === 0 ? "neutral" : "warning"}
@@ -208,8 +237,28 @@ function StatStrip({ stats }: { readonly stats: TopSitesStats }) {
   );
 }
 
+/** Inline CardTitle trims its line box to cap height and clips; this pads
+ *  the clip box (and pulls the layout back) so descenders aren't cut. */
+const CARD_TITLE_CLEAR = "whitespace-nowrap [&>span]:-my-1 [&>span]:py-1";
+
 /** How many leaderboard rows each Profile card shows before "and N more". */
 const BOARD_LIMIT = 5;
+
+/** The rank slot: Chrome's recorded `urlRank`, or the word "absent". */
+function RankSlot({ rank }: { readonly rank: number | null }) {
+  const size = useSize();
+  return (
+    <span
+      className={cn(
+        size.type.body,
+        "min-w-6 shrink-0 text-center text-muted-foreground tabular-nums",
+      )}
+      style={{ fontVariationSettings: fontWeights.semibold }}
+    >
+      {rank ?? <AbsentWord />}
+    </span>
+  );
+}
 
 function Leaderboard({
   rows,
@@ -241,66 +290,83 @@ function Leaderboard({
     return null;
   }
   return (
-    <div className={cn("grid gap-4", byProfile.length > 1 && "md:grid-cols-2")}>
+    <div
+      className={cn(
+        "grid items-start gap-5",
+        byProfile.length > 1 && "lg:grid-cols-2",
+      )}
+    >
       {byProfile.map(([profile, group]) => (
-        <section
+        <Panel
           key={profile}
-          className="overflow-hidden rounded-lg border border-border bg-card"
+          role="region"
+          aria-label={`Chrome's ranking for ${profile}`}
+          className="overflow-clip"
         >
-          <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-            <h2 className="text-[13px] font-semibold">Chrome's ranking</h2>
-            <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-              {profile}
-            </span>
-          </header>
-          <ol className="flex flex-col p-2">
-            {group.slice(0, BOARD_LIMIT).map((row, index) => {
-              const url = fieldText(row.fields.url);
-              const host = hostOf(url);
-              const title = fieldText(row.fields.title);
-              const rank = fieldRank(row.fields.urlRank);
-              return (
-                <li key={index}>
-                  <button
-                    type="button"
+          <PanelHeader className="items-center pb-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <PanelTitle>Chrome&apos;s ranking</PanelTitle>
+              <Badge variant="dot" color="gray" size="compact">
+                {profile}
+              </Badge>
+            </div>
+          </PanelHeader>
+          <SizeProvider size="compact">
+            <CardGroup orientation="inline" className="px-1 pb-1">
+              {group.slice(0, BOARD_LIMIT).map((row, index) => {
+                const url = fieldText(row.fields.url);
+                const host = hostOf(url);
+                const title = fieldText(row.fields.title);
+                const name = title ?? host ?? url ?? "(untitled)";
+                return (
+                  <Card
+                    key={index}
                     onClick={() => {
                       onSelect(row);
                     }}
-                    className="flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors duration-100 hover:bg-accent/40"
+                    label={`Open ${name} row detail`}
+                    className="min-h-14"
                   >
-                    <span
-                      className={cn(
-                        "w-6 shrink-0 text-center text-[13px] font-semibold tabular-nums",
-                        rank === 1 ? "text-primary" : "text-muted-foreground",
-                      )}
-                    >
-                      {rank ?? "—"}
-                    </span>
+                    <RankSlot rank={fieldRank(row.fields.urlRank)} />
                     <SiteAvatar host={host} />
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-[13px] font-medium">
-                        {title ?? host ?? url ?? "(untitled)"}
-                      </span>
-                      <span className="truncate font-mono text-[11.5px] text-muted-foreground">
+                    <CardHeader className="gap-0.5 pr-3">
+                      <CardTitle className={CARD_TITLE_CLEAR}>{name}</CardTitle>
+                      <CardDescription
+                        className={cn(
+                          typeClass("caption", "compact"),
+                          "truncate font-mono",
+                        )}
+                      >
                         {host ?? url ?? ""}
-                      </span>
-                    </span>
+                      </CardDescription>
+                    </CardHeader>
                     {row.commitState === "committed" ? null : (
-                      <StateWord state={row.commitState} />
+                      <CardFooter>
+                        <StateWord state={row.commitState} />
+                      </CardFooter>
                     )}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+                  </Card>
+                );
+              })}
+            </CardGroup>
+          </SizeProvider>
           {group.length > BOARD_LIMIT ? (
-            <p className="border-t border-border/70 px-4 py-2 text-[12px] text-muted-foreground">
-              and {group.length - BOARD_LIMIT} more in the table below
-            </p>
+            <PanelFooter>
+              <BoardMore count={group.length - BOARD_LIMIT} />
+            </PanelFooter>
           ) : null}
-        </section>
+        </Panel>
       ))}
     </div>
+  );
+}
+
+function BoardMore({ count }: { readonly count: number }) {
+  const size = useSize();
+  return (
+    <p className={cn(size.type.caption, "text-muted-foreground tabular-nums")}>
+      and {count.toLocaleString("en-US")} more in the table below
+    </p>
   );
 }
 
@@ -343,7 +409,10 @@ function domainShares(rows: readonly Finding[], topN: number): DomainShare[] {
       count: value.count,
       bestRank: value.bestRank,
     }))
-    .sort((left, right) => right.count - left.count || left.bestRank - right.bestRank);
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.bestRank - right.bestRank,
+    );
 }
 
 /** How many domains the composition read lists before folding the rest into
@@ -370,10 +439,8 @@ const COMPOSITION_TOP_N = 30;
  * every state hue keeps its word.
  */
 function CompositionCard({ rows }: { readonly rows: readonly Finding[] }) {
-  const shares = useMemo(
-    () => domainShares(rows, COMPOSITION_TOP_N),
-    [rows],
-  );
+  const size = useSize();
+  const shares = useMemo(() => domainShares(rows, COMPOSITION_TOP_N), [rows]);
   const shown = shares.slice(0, DOMAIN_ROWS);
   const remainder = shares.slice(DOMAIN_ROWS);
   const remainderCount = remainder.reduce((sum, share) => sum + share.count, 0);
@@ -397,187 +464,331 @@ function CompositionCard({ rows }: { readonly rows: readonly Finding[] }) {
   }, [rows]);
 
   return (
-    <div className="grid grid-cols-12 gap-4">
-      <section className="col-span-12 overflow-hidden rounded-lg border border-border bg-card lg:col-span-7">
-        <header className="flex flex-col gap-0.5 border-b border-border px-4 py-2.5">
-          <h2 className="text-[13px] font-semibold">Domains at the top</h2>
-          <p className="text-[12px] text-muted-foreground">
-            Of the {consideredCount} highest-ranked rows, how many slots each
-            site's domain holds.
-          </p>
-        </header>
+    <div className="grid grid-cols-12 items-start gap-5">
+      <Panel
+        role="region"
+        aria-labelledby="top-sites-domains-title"
+        className="col-span-12 overflow-clip lg:col-span-7"
+      >
+        <PanelHeader>
+          <div className="min-w-0">
+            <PanelTitle id="top-sites-domains-title">
+              Domains at the top
+            </PanelTitle>
+            <PanelDescription>
+              Of the {consideredCount} highest-ranked rows, how many slots each
+              site&apos;s domain holds.
+            </PanelDescription>
+          </div>
+        </PanelHeader>
         {shown.length === 0 ? (
-          <p className="px-4 py-6 text-[13px] text-muted-foreground">
-            No ranked rows with a readable host to group.
-          </p>
+          <EmptyRows message="No ranked rows with a readable host to group." />
         ) : (
-          <ol className="flex flex-col gap-1 p-3">
-            {shown.map((share) => {
-              const width = Math.round((share.count / peak) * 100);
-              return (
-                <li
-                  key={share.domain}
-                  className="grid grid-cols-[minmax(0,150px)_1fr_auto] items-center gap-3 rounded-md px-1.5 py-1.5"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <SiteAvatar host={share.domain} />
-                    <span className="min-w-0">
-                      <span className="block truncate text-[12.5px] font-medium">
-                        {share.domain}
-                      </span>
-                      {share.bestRank !== null ? (
-                        <span className="block truncate text-[11px] text-muted-foreground tabular-nums">
-                          best rank #{share.bestRank}
-                        </span>
-                      ) : null}
-                    </span>
-                  </span>
-                  <span className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+          <ol className="flex flex-col px-4 pt-1 pb-3">
+            {shown.map((share) => (
+              <li
+                key={share.domain}
+                className="grid min-h-12 grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto] items-center gap-4 border-b border-border last:border-b-0"
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <SiteAvatar host={share.domain} />
+                  <span className="flex min-w-0 flex-col">
                     <span
-                      className={cn(
-                        "block h-full rounded-full transition-[width] duration-500",
-                        share.count === peak ? "bg-primary" : "bg-primary/45",
-                      )}
-                      style={{ width: `${String(width)}%` }}
-                    />
+                      className={cn(size.type.body, "truncate text-foreground")}
+                    >
+                      {share.domain}
+                    </span>
+                    {share.bestRank !== null ? (
+                      <span
+                        className={cn(
+                          size.type.caption,
+                          "truncate text-muted-foreground tabular-nums",
+                        )}
+                      >
+                        best rank #{share.bestRank}
+                      </span>
+                    ) : null}
                   </span>
-                  <span className="font-mono text-[12px] whitespace-nowrap text-muted-foreground tabular-nums">
-                    {share.count} slot{share.count === 1 ? "" : "s"}
-                  </span>
-                </li>
-              );
-            })}
-            {remainderCount > 0 ? (
-              <li className="px-1.5 pt-1 text-[12px] text-muted-foreground">
-                and {remainder.length} more domain
-                {remainder.length === 1 ? "" : "s"} sharing {remainderCount}{" "}
-                slot{remainderCount === 1 ? "" : "s"}
+                </span>
+                <ShareBar fraction={share.count / peak} />
+                <span
+                  className={cn(
+                    size.type.caption,
+                    "text-right whitespace-nowrap text-muted-foreground tabular-nums",
+                  )}
+                >
+                  {share.count} slot{share.count === 1 ? "" : "s"}
+                </span>
               </li>
-            ) : null}
+            ))}
           </ol>
         )}
-      </section>
+        {remainderCount > 0 ? (
+          <PanelFooter>
+            <p className={cn(size.type.caption, "text-muted-foreground")}>
+              and {remainder.length} more domain
+              {remainder.length === 1 ? "" : "s"} sharing {remainderCount} slot
+              {remainderCount === 1 ? "" : "s"}
+            </p>
+          </PanelFooter>
+        ) : null}
+      </Panel>
 
-      <section className="col-span-12 overflow-hidden rounded-lg border border-border bg-card lg:col-span-5">
-        <header className="flex flex-col gap-0.5 border-b border-border px-4 py-2.5">
-          <h2 className="text-[13px] font-semibold">Where the ranking came from</h2>
-          <p className="text-[12px] text-muted-foreground">
-            How the loaded rows split between the committed database and
-            recovered sidecars.
-          </p>
-        </header>
-        <div className="flex flex-col gap-4 p-4">
+      <Panel
+        role="region"
+        aria-labelledby="top-sites-split-title"
+        className="col-span-12 overflow-clip lg:col-span-5"
+      >
+        <PanelHeader>
+          <div className="min-w-0">
+            <PanelTitle id="top-sites-split-title">
+              Where the ranking came from
+            </PanelTitle>
+            <PanelDescription>
+              How the loaded rows split between the saved database and recovered
+              sidecars.
+            </PanelDescription>
+          </div>
+        </PanelHeader>
+        <div className="flex flex-col gap-4 px-4 pt-2 pb-4">
           {commitSplit.total === 0 ? (
-            <p className="text-[13px] text-muted-foreground">
+            <p className={cn(size.type.body, "text-muted-foreground")}>
               No rows loaded to split.
             </p>
           ) : (
             <>
+              {/* The stacked bar only repeats the legend below, which carries
+                  every state's word and count. */}
               <div
                 aria-hidden="true"
-                className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
+                className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full"
               >
-                {commitSplit.committed > 0 ? (
-                  <span
-                    className="h-full bg-muted-foreground/45"
-                    style={{
-                      width: `${String((commitSplit.committed / commitSplit.total) * 100)}%`,
-                    }}
-                  />
-                ) : null}
-                {commitSplit.wal > 0 ? (
-                  <span
-                    className="h-full bg-wal"
-                    style={{
-                      width: `${String((commitSplit.wal / commitSplit.total) * 100)}%`,
-                    }}
-                  />
-                ) : null}
-                {commitSplit.journal > 0 ? (
-                  <span
-                    className="h-full bg-violet"
-                    style={{
-                      width: `${String((commitSplit.journal / commitSplit.total) * 100)}%`,
-                    }}
-                  />
-                ) : null}
+                {(
+                  [
+                    ["committed", commitSplit.committed],
+                    ["wal_resident", commitSplit.wal],
+                    ["journal_resident", commitSplit.journal],
+                  ] as const
+                ).map(([state, count]) =>
+                  count === 0 ? null : (
+                    <span
+                      key={state}
+                      className={cn("h-full", SPLIT_FILL[state])}
+                      style={{ flexGrow: count, flexBasis: 0 }}
+                    />
+                  ),
+                )}
               </div>
-              <dl className="flex flex-col gap-2.5">
+              <dl className="flex flex-col">
                 <CommitLegendRow
-                  dotClass="bg-muted-foreground/50"
-                  label="Committed"
+                  state="committed"
                   hint="read from the saved database"
                   count={commitSplit.committed}
                   total={commitSplit.total}
                 />
                 <CommitLegendRow
-                  dotClass="bg-wal"
-                  label="WAL-resident"
+                  state="wal_resident"
                   hint="recovered from the write-ahead log"
                   count={commitSplit.wal}
                   total={commitSplit.total}
-                  toneClass="text-wal"
                 />
                 <CommitLegendRow
-                  dotClass="bg-violet"
-                  label="Journal-resident"
+                  state="journal_resident"
                   hint="recovered from the rollback journal"
                   count={commitSplit.journal}
                   total={commitSplit.total}
-                  toneClass="text-violet"
                 />
               </dl>
             </>
           )}
         </div>
-      </section>
+      </Panel>
     </div>
+  );
+}
+
+/** Commit State fills for the split bar: the evidence hues, never alone. */
+const SPLIT_FILL: Readonly<Record<CommitState, string>> = {
+  committed: "bg-muted-foreground",
+  wal_resident: "bg-wal",
+  journal_resident: "bg-violet",
+};
+
+/**
+ * A share of the busiest entry's count: a full-width pill slid in from the
+ * left inside a clipping track (never a scaled or width-animated bar).
+ */
+function ShareBar({ fraction }: { readonly fraction: number }) {
+  const clamped = Math.min(1, Math.max(0, fraction));
+  return (
+    <span
+      aria-hidden="true"
+      className="block h-1.5 w-full overflow-hidden rounded-full bg-hover"
+    >
+      <span
+        className="block h-full w-full rounded-full bg-muted-foreground"
+        style={{ transform: `translateX(${String((clamped - 1) * 100)}%)` }}
+      />
+    </span>
   );
 }
 
 function CommitLegendRow({
-  dotClass,
-  label,
+  state,
   hint,
   count,
   total,
-  toneClass,
 }: {
-  readonly dotClass: string;
-  readonly label: string;
+  readonly state: CommitState;
   readonly hint: string;
   readonly count: number;
   readonly total: number;
-  readonly toneClass?: string;
 }) {
+  const size = useSize();
+  const meta = COMMIT_META[state];
+  const dot: EvidenceState = meta.badge;
   const percent = total === 0 ? 0 : Math.round((count / total) * 100);
   return (
-    <div className="flex items-center gap-2.5">
-      <span
-        aria-hidden="true"
-        className={cn("size-2 shrink-0 rounded-full", dotClass)}
-      />
+    <div className="flex min-h-12 items-center gap-3 border-b border-border last:border-b-0">
+      <EvidenceDot state={dot} />
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className={cn("text-[12.5px] font-medium", toneClass)}>
-          {label}
-        </span>
-        <span className="truncate text-[11.5px] text-muted-foreground">
+        <dt className={cn(size.type.body, "text-foreground")}>{meta.label}</dt>
+        <span
+          className={cn(size.type.caption, "truncate text-muted-foreground")}
+        >
           {hint}
         </span>
       </span>
-      <span className="text-right font-mono text-[12px] tabular-nums">
-        <span className="font-medium">{count.toLocaleString("en-US")}</span>
-        <span className="ml-1.5 text-muted-foreground">{percent}%</span>
-      </span>
+      <dd
+        className={cn(
+          size.type.body,
+          "flex items-baseline gap-2 text-right tabular-nums",
+        )}
+      >
+        <span
+          className="text-foreground"
+          style={{ fontVariationSettings: fontWeights.semibold }}
+        >
+          {count.toLocaleString("en-US")}
+        </span>
+        <span className={cn(size.type.caption, "w-9 text-muted-foreground")}>
+          {percent}%
+        </span>
+      </dd>
     </div>
   );
 }
 
-export function TopSitesPage({
-  config,
+/* --------------------------------- table ---------------------------------- */
+
+const ALL_PROFILES = "All profiles";
+
+function RankedTable({
+  rows,
+  onSelect,
 }: {
-  readonly config: ArtifactConfig;
+  readonly rows: readonly Finding[];
+  readonly onSelect: (row: Finding) => void;
 }) {
+  const size = useSize();
+  return (
+    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
+      <Table className="min-w-[640px]">
+        <TableHeader>
+          <TableRow>
+            {["Rank", "Site", "Profile", "State"].map((label) => (
+              <TableHead key={label} className="whitespace-nowrap">
+                {label}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody className="reveal-items">
+          {rows.map((row, index) => {
+            const url = fieldText(row.fields.url);
+            const host = hostOf(url);
+            const title = fieldText(row.fields.title);
+            const rank = fieldRank(row.fields.urlRank);
+            const open = () => {
+              onSelect(row);
+            };
+            return (
+              <TableRow
+                key={index}
+                index={index}
+                tabIndex={0}
+                aria-label="Open top site row detail"
+                onClick={open}
+                onKeyDown={(event) => {
+                  activateOnKey(event, open);
+                }}
+                className={ROW_FOCUS_CLASS}
+              >
+                <TableCell className="w-16 tabular-nums">
+                  {rank === null ? (
+                    <AbsentWord />
+                  ) : (
+                    <span
+                      className="text-foreground"
+                      style={{ fontVariationSettings: fontWeights.semibold }}
+                    >
+                      {rank}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="max-w-[520px]">
+                  <span className="flex items-center gap-2.5">
+                    <SiteAvatar host={host} />
+                    <span className="flex min-w-0 flex-col">
+                      <span
+                        className="truncate text-foreground"
+                        title={title ?? undefined}
+                      >
+                        {title ?? host ?? "(untitled)"}
+                      </span>
+                      <span
+                        className={cn(size.type.caption, "truncate font-mono")}
+                        title={url ?? undefined}
+                      >
+                        {url ?? ""}
+                      </span>
+                    </span>
+                  </span>
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {row.profile}
+                </TableCell>
+                <TableCell>
+                  <StateWord state={row.commitState} />
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/** Placeholder at the size of the loaded page's first blocks. */
+function TopSitesSkeleton() {
+  return (
+    <div
+      className="flex flex-col gap-5"
+      aria-label="Loading rows"
+      role="status"
+    >
+      <Skeleton className="h-[86px] rounded-xl" />
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Skeleton className="h-[352px] rounded-xl" />
+        <Skeleton className="h-[352px] rounded-xl" />
+      </div>
+      <Skeleton className="h-[320px] rounded-xl" />
+    </div>
+  );
+}
+
+export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
   const list = useTopSites(config.route);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
   const [search, setSearch] = useState("");
@@ -615,39 +826,26 @@ export function TopSitesPage({
     setSelected({ kind: "finding", row });
   }, []);
 
+  const profileTabs = [ALL_PROFILES, ...profiles];
+  const profileIndex =
+    profileFilter === null
+      ? 0
+      : Math.max(0, profiles.indexOf(profileFilter) + 1);
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
+      <Coverage artifact={config.completenessArtifact} />
 
       {list.error !== null ? (
-        <div
-          role="alert"
-          className="flex items-start gap-2.5 rounded-md border border-destructive-border bg-destructive-wash px-3.5 py-3"
-        >
-          <div className="flex-1">
-            <p className="text-[13px] font-medium text-destructive">
-              The rows could not be loaded.
-            </p>
-            <p className="text-[12.5px] text-destructive/80">{list.error}</p>
-          </div>
-          <Button onClick={list.retry} size="sm" className="shrink-0">
-            Retry
-          </Button>
-        </div>
+        <Panel>
+          <ErrorRows message={list.error} onRetry={list.retry} />
+        </Panel>
       ) : list.loading && list.rows.length === 0 ? (
-        <div className="flex flex-col gap-3" aria-label="Loading rows">
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <Skeleton className="h-[118px] rounded-lg" />
-            <Skeleton className="h-[118px] rounded-lg" />
-            <Skeleton className="h-[118px] rounded-lg" />
-            <Skeleton className="h-[118px] rounded-lg" />
-          </div>
-          <Skeleton className="h-[220px] w-full rounded-lg" />
-          <Skeleton className="h-[280px] w-full rounded-lg" />
-        </div>
+        <TopSitesSkeleton />
       ) : list.rows.length === 0 ? (
-        <section className="overflow-hidden rounded-lg border border-border bg-card">
+        <Panel>
           <EmptyRows message="No Top sites rows in this Case." />
-        </section>
+        </Panel>
       ) : (
         <>
           <StatStrip stats={stats} />
@@ -656,167 +854,113 @@ export function TopSitesPage({
 
           <CompositionCard rows={list.rows} />
 
-          <section className="overflow-hidden rounded-lg border border-border bg-card">
-            <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2.5">
-              <h2 className="text-[13px] font-semibold">All ranked sites</h2>
-              <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                {profiles.length > 1
-                  ? profiles.map((profile) => (
-                      <button
-                        key={profile}
-                        type="button"
-                        aria-pressed={profileFilter === profile}
-                        onClick={() => {
-                          setProfileFilter(
-                            profileFilter === profile ? null : profile,
-                          );
-                        }}
-                        className={cn(
-                          "inline-flex h-7 cursor-pointer items-center rounded-full border px-2.5 text-[12px] font-medium transition-colors duration-150",
-                          profileFilter === profile
-                            ? "border-accent-border bg-accent text-accent-foreground"
-                            : "border-border bg-card text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        {profile}
-                      </button>
-                    ))
-                  : null}
-                <label className="relative">
-                  <Search
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-                  />
-                  <input
-                    value={search}
-                    onChange={(event) => {
-                      setSearch(event.target.value);
-                    }}
-                    placeholder="Search site or title"
-                    aria-label="Search loaded top sites"
-                    className="h-8 w-[200px] rounded-md border border-input bg-background pl-8 pr-3 text-[12.5px] outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </label>
+          <Panel
+            role="region"
+            aria-labelledby="top-sites-all-title"
+            className="overflow-clip"
+          >
+            <PanelHeader className="items-center pb-3">
+              <div className="flex min-w-0 items-baseline gap-2.5">
+                <PanelTitle id="top-sites-all-title">
+                  All ranked sites
+                </PanelTitle>
+                <RowCount count={visible.length} />
               </div>
-            </header>
-
-            {visible.length === 0 ? (
-              <EmptyRows
-                message={
-                  filtered
-                    ? "No loaded rows match this filter."
-                    : "No Top sites rows in this Case."
-                }
-              />
-            ) : (
-              <div className="fx-scroll-x">
-                <table className="w-full text-left text-[13px]">
-                  <thead>
-                    <tr>
-                      {["Rank", "Site", "Profile", "State"].map((label) => (
-                        <th
-                          key={label}
-                          className="sticky top-0 z-10 border-b border-border bg-muted/80 px-3 py-2 text-left text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase backdrop-blur"
-                        >
-                          {label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visible.map((row, index) => {
-                      const url = fieldText(row.fields.url);
-                      const host = hostOf(url);
-                      const title = fieldText(row.fields.title);
-                      const rank = fieldRank(row.fields.urlRank);
-                      return (
-                        <tr
-                          key={index}
-                          tabIndex={0}
-                          aria-label="Open top site row detail"
-                          onClick={() => {
-                            select(row);
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              select(row);
-                            }
-                          }}
-                          className="cursor-pointer border-b border-border/70 transition-colors duration-100 last:border-b-0 hover:bg-accent/40"
-                        >
-                          <td className="w-14 px-3 py-2.5 text-[13px] font-semibold text-muted-foreground tabular-nums">
-                            {rank ?? (
-                              <span className="font-normal italic">absent</span>
-                            )}
-                          </td>
-                          <td className="max-w-[480px] px-3 py-2.5">
-                            <span className="flex items-center gap-2.5">
-                              <SiteAvatar host={host} />
-                              <span className="flex min-w-0 flex-col">
-                                <span
-                                  className="truncate text-[13px] text-foreground/90"
-                                  title={title ?? undefined}
-                                >
-                                  {title ?? host ?? "(untitled)"}
-                                </span>
-                                <span
-                                  className="truncate font-mono text-[11.5px] text-muted-foreground"
-                                  title={url ?? undefined}
-                                >
-                                  {url ?? ""}
-                                </span>
-                              </span>
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 whitespace-nowrap text-[12.5px] text-muted-foreground">
-                            {row.profile}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <StateWord state={row.commitState} />
-                          </td>
-                        </tr>
+            </PanelHeader>
+            <SizeProvider size="compact">
+              <div
+                role="group"
+                aria-label="Filter loaded top sites"
+                className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 pb-3"
+              >
+                {profiles.length > 1 ? (
+                  <TabsSubtle
+                    idPrefix="top-sites-profile"
+                    selectedIndex={profileIndex}
+                    onSelect={(index) => {
+                      setProfileFilter(
+                        index === 0 ? null : (profiles[index - 1] ?? null),
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {list.rows.length === 0 && list.cursor === null ? null : (
-              <div className="flex items-center gap-3 border-t border-border/70 px-4 py-2.5">
-                <p
-                  className="text-[12.5px] text-muted-foreground tabular-nums"
-                  aria-live="polite"
-                >
-                  {filtered
-                    ? `${String(visible.length)} of ${String(list.rows.length)} loaded rows shown`
-                    : `${String(list.rows.length)} row${list.rows.length === 1 ? "" : "s"} shown`}
-                  {list.cursor === null ? "" : " · more available"}
-                </p>
-                {list.cursor !== null ? (
-                  <Button
-                    onClick={list.loadMore}
-                    disabled={list.loading}
-                    size="sm"
+                    }}
+                    aria-label="Profile"
                   >
-                    {list.loading ? "Loading…" : "Load more"}
-                  </Button>
-                ) : null}
+                    {profileTabs.map((label, index) => (
+                      <TabsSubtleItem key={label} index={index} label={label} />
+                    ))}
+                  </TabsSubtle>
+                ) : (
+                  <span />
+                )}
+                {/* Narrows the rows already loaded, live as you type — no
+                    new query, so there is nothing to commit. Keeps the
+                    toolbar field's hairline at rest like FilterTextField. */}
+                <InputGroup className="w-60 max-sm:w-full [&_label+div]:ring-border">
+                  <InputField
+                    index={0}
+                    label="Search loaded top sites"
+                    labelHidden
+                    icon={Search}
+                    value={search}
+                    placeholder="Search site or title…"
+                    onChange={setSearch}
+                  />
+                </InputGroup>
               </div>
-            )}
-          </section>
+            </SizeProvider>
+
+            <div className="border-t border-border">
+              {visible.length === 0 ? (
+                <EmptyRows
+                  message={
+                    filtered
+                      ? "No loaded rows match this filter."
+                      : "No Top sites rows in this Case."
+                  }
+                />
+              ) : (
+                <RankedTable rows={visible} onSelect={select} />
+              )}
+            </div>
+
+            <ListFooter
+              count={list.rows.length}
+              cursor={list.cursor}
+              loading={list.loading}
+              onLoadMore={list.loadMore}
+              summary={
+                filtered
+                  ? `${String(visible.length)} of ${String(list.rows.length)} loaded rows shown`
+                  : undefined
+              }
+            />
+          </Panel>
         </>
       )}
 
       {selected !== null ? (
         <RowSheet
           selected={selected}
+          title={
+            fieldText(selected.row.fields.title) ??
+            hostOf(fieldText(selected.row.fields.url)) ??
+            "Top site"
+          }
           onClose={() => {
             setSelected(null);
           }}
         />
       ) : null}
     </div>
+  );
+}
+
+function RowCount({ count }: { readonly count: number }) {
+  const size = useSize();
+  return (
+    <span
+      className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
+    >
+      {count.toLocaleString("en-US")}
+    </span>
   );
 }

@@ -3,8 +3,9 @@
  * Top sites, Sites). These never invent data: a missing or non-value field
  * reads as `null` and renders as the word "absent" at the call site.
  */
-import { cn } from "../lib.js";
-import { typeClass } from "@/lib/size-context";
+import { fontWeights } from "@/lib/font-weight";
+import { typeClass, useSize } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
 import { COMMIT_META } from "../terms.js";
 import type { CommitState, FieldState } from "../types.js";
 import { EvidenceDot } from "./evidence.js";
@@ -79,13 +80,29 @@ export function hostOf(url: string | null): string | null {
   }
 }
 
+/** The word "absent", at the surrounding body size, always muted. */
 export function AbsentWord() {
+  const size = useSize();
   return (
-    <span className="text-[12.5px] text-muted-foreground italic">absent</span>
+    <span
+      className={cn(size.type.body, "whitespace-nowrap text-muted-foreground")}
+    >
+      absent
+    </span>
   );
 }
 
-/** Neutral letter tile standing in for a favicon; identity is the text. */
+const AVATAR_SIZE = {
+  md: { box: "size-7 rounded-md", type: typeClass("caption") },
+  lg: { box: "size-10 rounded-lg", type: typeClass("subtitle") },
+  xl: { box: "size-13 rounded-xl", type: typeClass("title") },
+} as const;
+
+/**
+ * Neutral letter tile standing in for a favicon; identity is the text. The
+ * fill is FF's hover overlay (it reads on any surface level), the letter
+ * muted at semibold.
+ */
 export function SiteAvatar({
   host,
   size = "md",
@@ -93,18 +110,21 @@ export function SiteAvatar({
   readonly host: string | null;
   readonly size?: "md" | "lg" | "xl";
 }) {
+  const style = AVATAR_SIZE[size];
+  const letter = host
+    ?.replace(/^www\./, "")
+    .charAt(0)
+    .toLocaleUpperCase("en-US");
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-md bg-muted font-semibold text-foreground/60 uppercase",
-        size === "xl"
-          ? "size-13 text-[20px]"
-          : size === "lg"
-            ? "size-10 text-[16px]"
-            : "size-7 text-[12px]",
+        "inline-flex shrink-0 items-center justify-center bg-hover text-muted-foreground",
+        style.box,
+        style.type,
       )}
+      style={{ fontVariationSettings: fontWeights.semibold }}
     >
-      {host?.replace(/^www\./, "").charAt(0) ?? "?"}
+      {letter === undefined || letter === "" ? "?" : letter}
     </span>
   );
 }
@@ -116,6 +136,7 @@ export function SiteAvatar({
  * the plain-language tooltip.
  */
 export function StateWord({ state }: { readonly state: CommitState }) {
+  const size = useSize();
   const meta = COMMIT_META[state];
   return (
     <TermTooltip
@@ -128,8 +149,8 @@ export function StateWord({ state }: { readonly state: CommitState }) {
       <span
         tabIndex={0}
         className={cn(
-          "inline-flex cursor-help items-center gap-1.5 whitespace-nowrap",
-          typeClass("caption"),
+          "inline-flex cursor-help items-center gap-1.5 whitespace-nowrap rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+          size.type.caption,
           state === "committed" ? "text-muted-foreground" : "text-foreground",
         )}
       >

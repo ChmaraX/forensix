@@ -2,26 +2,27 @@
  * The History page.
  *
  * Chrome's recorded page visits, read as browsing *behavior* rather than a
- * generic evidence dump. One activity band sits above the raw visit table,
- * a direct reading of what the analyzer produced — never a smoothed trend, a
- * projection, or an invented figure:
+ * generic evidence dump. The page is a column of FF Panels, read top-down:
  *
- *  1. An activity-over-time bar chart (visits per local day) — the same
+ *  1. Evidence coverage — the Completeness Statement, before any row.
+ *  2. Four headline figures (recorded visits, active days, recorded span,
+ *     distinct sites) in one MetricBand: direct reads of what the analyzer
+ *     produced — never a smoothed trend, a projection, or an invented figure.
+ *  3. An activity-over-time bar chart (visits per local day) — the same
  *     chart component the Overview masthead uses for the identical dataset,
  *     so the two pages never draw the same evidence two different shapes.
  *     Clicking a bar pins the visit table (and the date-range control in the
  *     chart's own header) to that one day; clicking it again clears back to
  *     the whole recorded span.
- *  2. Four headline figures (recorded visits, active days, recorded span,
- *     distinct sites) dock on the chart panel's bottom edge as attached
- *     subcards, echoing the Overview masthead's own layout (see
- *     `ActivityHero`).
- *
- * The raw visit table underneath keeps every wire field reachable through the
- * row detail sheet. Its columns are curated, not the sparse union grid: Time,
- * Page (title over URL), Arrived via (the worded transition), Dwell (recorded
- * `visitDuration`, shown as the word "not recorded" when absent — never zero),
- * and the Commit State word.
+ *  4. The raw visit table, on FF's Table (one fluid hover highlight; the lit
+ *     row is the row a click opens), with the app's shared toolbar parts:
+ *     a search field that commits on Enter/blur, Sort (FF Select + a
+ *     direction toggle), Arrived via (FF Select), and the Profiles picker.
+ *     Its columns are curated, not the sparse
+ *     union grid: Time, Page (title over URL), Arrived via (the worded
+ *     transition), Dwell (recorded `visitDuration`, shown as the words "not
+ *     recorded" when absent — never zero), and the Commit State word. Every
+ *     wire field stays reachable through the row detail sheet.
  *
  * Presentation rules kept: the Completeness Statement ("Evidence coverage")
  * renders before any row; the four value states stay worded, never colour
@@ -32,12 +33,39 @@
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { Panel, PanelHeader, PanelTitle } from "@/components/panel";
+import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/misc";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tooltip } from "@/components/ui/tooltip";
+import { fontWeights } from "@/lib/font-weight";
+import { SizeProvider, useSize } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
+
 import { callApi } from "../api.js";
 import type { FieldState, Finding, PageOf } from "../types.js";
-import { bucketsToDays, fillGaps, useActivityBuckets } from "./activity-data.js";
+import {
+  bucketsToDays,
+  fillGaps,
+  useActivityBuckets,
+} from "./activity-data.js";
 import { ActivityBars, type DayCount, useChartTokens } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
-import { EmptyRows } from "./data-table.js";
+import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import {
   AbsentWord,
@@ -48,10 +76,11 @@ import {
   SiteAvatar,
   StateWord,
 } from "./finding-fields.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { Coverage } from "./history-coverage.js";
+import { FilterField, FilterTextField, ProfilePicker } from "./filters.js";
+import { ErrorRows, ListFooter, LoadingRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { Button } from "./compat/button.js";
-import { Chip, Input, Labeled, SelectNative, Skeleton } from "./ui/misc.js";
+import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
 /* ------------------------------- data reads ------------------------------- */
 
@@ -285,23 +314,84 @@ const SORT_LABELS: Readonly<Record<string, string>> = {
   profile: "Profile",
 };
 
+/* ------------------------------- figures ---------------------------------- */
 
-/* --------------------------- activity + figures ---------------------------- */
+function spanDays(first: string, last: string): number | null {
+  const start = new Date(`${first}T00:00:00Z`).getTime();
+  const end = new Date(`${last}T00:00:00Z`).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return null;
+  }
+  return Math.round((end - start) / 86_400_000) + 1;
+}
 
 /**
- * The chart-and-headline-figures band, styled after the Overview masthead's
- * own trick: the four headline figures dock on the chart panel's bottom edge
- * as attached subcards, instead of sitting in a separate band above it. The
- * panel itself stays this app's plain evidentiary white card — Overview's
- * blue "Punctuation Tile" is deliberately the one saturated panel in the app
- * (DESIGN.md), so this borrows its docking layout, not its colour.
+ * The four headline figures. Recorded visits and active days come from the
+ * authoritative `activity` set (the same one the chart draws); the recorded
+ * span is the calendar distance between its first and last day; distinct
+ * sites is a floor read off the loaded visit rows and labelled as such.
  */
-function ActivityHero({
+function HistoryFigures({
+  loading,
+  totalVisits,
+  activeDays,
+  span,
+  distinctHosts,
+}: {
+  readonly loading: boolean;
+  readonly totalVisits: number;
+  readonly activeDays: number;
+  readonly span: { readonly first: string; readonly last: string } | null;
+  readonly distinctHosts: number;
+}) {
+  const days = span === null ? null : spanDays(span.first, span.last);
+  const spanDetail =
+    span === null
+      ? "no dated activity"
+      : span.first === span.last
+        ? formatDayShort(span.first)
+        : `${formatDayShort(span.first)} — ${formatDayShort(span.last)}`;
+  return (
+    <MetricBand className="grid-cols-2 lg:grid-cols-4">
+      <MetricBandItem
+        label="Recorded visits"
+        value={loading ? "—" : totalVisits.toLocaleString("en-US")}
+        detail="page visits in the activity set"
+      />
+      <MetricBandItem
+        label="Active days"
+        value={loading ? "—" : activeDays.toLocaleString("en-US")}
+        detail="days with at least one visit"
+      />
+      <MetricBandItem
+        label="Recorded span"
+        value={
+          loading
+            ? "—"
+            : days === null
+              ? "none"
+              : `${days.toLocaleString("en-US")} day${days === 1 ? "" : "s"}`
+        }
+        detail={loading ? "\u00a0" : spanDetail}
+      />
+      <MetricBandItem
+        label="Distinct sites"
+        value={distinctHosts.toLocaleString("en-US")}
+        detail="in loaded visits"
+      />
+    </MetricBand>
+  );
+}
+
+/* ------------------------------- activity --------------------------------- */
+
+/** Height of the plot, shared by the chart and its skeleton. */
+const CHART_HEIGHT = "h-[220px]";
+
+function ActivityPanel({
   days,
   loading,
   error,
-  figures,
-  spanLabel,
   range,
   onRangeChange,
   rangeMin,
@@ -312,12 +402,6 @@ function ActivityHero({
   readonly days: readonly DayCount[];
   readonly loading: boolean;
   readonly error: string | null;
-  readonly figures: {
-    readonly totalVisits: number;
-    readonly activeDays: number;
-    readonly distinctHosts: number;
-  };
-  readonly spanLabel: string;
   /** ISO `YYYY-MM-DD`, or `""` when that bound is unset — the same filter
    *  state the visit table below reads, so this is the one date control for
    *  the whole page, not a second one competing with it. */
@@ -329,86 +413,213 @@ function ActivityHero({
   readonly onSelectDay: (date: string) => void;
 }) {
   const tokens = useChartTokens();
+  return (
+    <ChartSection
+      title="Browsing activity"
+      description="Recorded page visits per day. Choose a range or select a bar."
+      action={
+        <DateRangePicker
+          from={range.from}
+          to={range.to}
+          min={rangeMin}
+          max={rangeMax}
+          triggerLabel="All recorded days"
+          formatDate={formatDayShort}
+          onChange={onRangeChange}
+          presets
+        />
+      }
+    >
+      <div className="px-2 pt-2 pb-3">
+        {error !== null ? (
+          <div className="px-2 py-2">
+            <Banner status="error" contrast="high">
+              <BannerTitle>The activity chart could not be loaded.</BannerTitle>
+              <BannerDescription>{error}</BannerDescription>
+            </Banner>
+          </div>
+        ) : (
+          <div className="reveal-swap">
+            <Skeleton
+              className={cn(
+                CHART_HEIGHT,
+                "mx-2 w-[calc(100%-1rem)] rounded-lg",
+              )}
+            />
+            {loading ? null : (
+              <div className={cn(CHART_HEIGHT, "w-full")}>
+                <ActivityBars
+                  days={days}
+                  tokens={tokens}
+                  selectedDate={selectedDate}
+                  onSelectDay={onSelectDay}
+                  range={range}
+                  onRangeChange={onRangeChange}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </ChartSection>
+  );
+}
+
+/* ------------------------------- toolbar ---------------------------------- */
+
+/** Select can't hold an empty value; this stands for "any transition". */
+const ANY_TRANSITION = "\u0000any";
+
+/** What the direction toggle says, per sort field, so the tooltip reads as
+ *  what the order is ("newest first"), not as an abstract "descending". */
+const DIRECTION_WORDS: Readonly<
+  Record<string, { readonly desc: string; readonly asc: string }>
+> = {
+  "visit-time": { desc: "newest first", asc: "oldest first" },
+  url: { desc: "Z to A", asc: "A to Z" },
+  duration: { desc: "longest first", asc: "shortest first" },
+  profile: { desc: "Z to A", asc: "A to Z" },
+};
+
+/**
+ * The visit toolbar, from the same shared parts as every artifact page's
+ * FilterBar (FilterTextField, FilterField + FF Select, ProfilePicker), so all
+ * toolbars in the app read and behave alike. Every control maps to a real
+ * server-side parameter `queryHistory` accepts.
+ */
+function VisitToolbar({
+  filters,
+  setFilters,
+  profiles,
+}: {
+  readonly filters: VisitFilters;
+  readonly setFilters: (filters: VisitFilters) => void;
+  readonly profiles: readonly string[];
+}) {
+  const descending = filters.direction === "desc";
+  const words = DIRECTION_WORDS[filters.sort] ?? {
+    desc: "descending",
+    asc: "ascending",
+  };
+  const DirectionIcon = descending ? ArrowDownWideNarrow : ArrowUpNarrowWide;
+  const flip = `Sorted ${descending ? words.desc : words.asc} — switch to ${
+    descending ? words.asc : words.desc
+  }`;
 
   return (
-    <div className="flex flex-col">
-      <ChartSection
-        title="Browsing activity"
-        description="Recorded page visits per day. Choose a range or select a bar."
-        action={
-          <DateRangePicker
-            from={range.from}
-            to={range.to}
-            min={rangeMin}
-            max={rangeMax}
-            triggerLabel="All recorded days"
-            formatDate={formatDayShort}
-            onChange={onRangeChange}
-            className="h-8 rounded-md"
-          />
-        }
-      >
-        {/* Extra bottom padding is the ledge the figure tiles sit on. */}
-        <div className="px-2 pt-3 pb-16">
-          {error !== null ? (
-            <p className="py-10 text-center text-[13px] text-muted-foreground">
-              The activity chart could not be loaded: {error}
-            </p>
-          ) : loading ? (
-            <Skeleton className="mx-2 h-[220px] w-[calc(100%-1rem)]" />
-          ) : (
-            <div className="h-[220px] w-full">
-              <ActivityBars
-                days={days}
-                tokens={tokens}
-                selectedDate={selectedDate}
-                onSelectDay={onSelectDay}
-                range={range}
-                onRangeChange={onRangeChange}
-              />
-            </div>
-          )}
-        </div>
-      </ChartSection>
+    <div
+      role="group"
+      aria-label="Filter recorded visits"
+      className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 pb-3"
+    >
+      <FilterTextField
+        id="history-visits-search"
+        label="Search recorded visits"
+        icon={Search}
+        value={filters.search}
+        placeholder="Search page or URL…"
+        onCommit={(search) => {
+          setFilters({ ...filters, search });
+        }}
+        className="w-60 max-sm:w-full"
+      />
 
-      <MetricBand
-        variant="accent"
-        className="relative z-10 -mt-10 grid-cols-2 px-3 sm:grid-cols-4 sm:px-4"
-      >
-        <MetricBandItem
-          label="Recorded visits"
-          value={loading ? "—" : figures.totalVisits.toLocaleString("en-US")}
-        />
-        <MetricBandItem
-          label="Active days"
-          value={loading ? "—" : figures.activeDays.toLocaleString("en-US")}
-        />
-        <MetricBandItem
-          label="Recorded span"
-          value={loading ? "—" : spanLabel}
-          valueClassName="text-[24px]"
-        />
-        <MetricBandItem
-          label="Distinct sites"
-          value={figures.distinctHosts.toLocaleString("en-US")}
-          detail="in loaded visits"
-        />
-      </MetricBand>
+      <FilterField label="Sort" htmlFor="history-visits-sort">
+        <div className="flex items-center gap-1 max-sm:[&>*:first-child]:flex-1">
+          <Select
+            value={filters.sort}
+            onValueChange={(sort) => {
+              setFilters({ ...filters, sort });
+            }}
+          >
+            <SelectTrigger id="history-visits-sort" className="min-w-[120px]" />
+            <SelectContent>
+              {VISIT_SORTS.map((sort, index) => (
+                <SelectItem key={sort} index={index} value={sort}>
+                  {SORT_LABELS[sort] ?? sort}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Tooltip content={flip}>
+            <Button
+              variant="ghost"
+              size="icon-compact"
+              aria-label={flip}
+              onClick={() => {
+                setFilters({
+                  ...filters,
+                  direction: descending ? "asc" : "desc",
+                });
+              }}
+            >
+              <DirectionIcon />
+            </Button>
+          </Tooltip>
+        </div>
+      </FilterField>
+
+      <FilterField label="Arrived via" htmlFor="history-visits-transition">
+        <Select
+          value={
+            filters.transition === "" ? ANY_TRANSITION : filters.transition
+          }
+          onValueChange={(value) => {
+            setFilters({
+              ...filters,
+              transition: value === ANY_TRANSITION ? "" : value,
+            });
+          }}
+        >
+          <SelectTrigger
+            id="history-visits-transition"
+            className="min-w-[168px]"
+          />
+          <SelectContent>
+            <SelectItem index={0} value={ANY_TRANSITION}>
+              Any transition
+            </SelectItem>
+            {Object.entries(TRANSITION_LABELS).map(([value, label], index) => (
+              <SelectItem key={value} index={index + 1} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FilterField>
+
+      {profiles.length === 0 ? null : (
+        <FilterField label="Profiles" htmlFor="history-visits-profiles">
+          <ProfilePicker
+            id="history-visits-profiles"
+            profiles={profiles}
+            selected={filters.profiles}
+            onChange={(selected) => {
+              setFilters({ ...filters, profiles: selected });
+            }}
+          />
+        </FilterField>
+      )}
     </div>
   );
 }
 
 /* ------------------------------- visit table ------------------------------- */
 
+const VISIT_COLUMNS = ["Time", "Page", "Arrived via", "Dwell", "State"];
+
 function VisitTable({
   rows,
   filtersActive,
   onSelect,
+  onClearFilters,
 }: {
   readonly rows: readonly Finding[];
   readonly filtersActive: boolean;
   readonly onSelect: (row: Finding) => void;
+  readonly onClearFilters: () => void;
 }) {
+  const size = useSize();
   if (rows.length === 0) {
     return (
       <EmptyRows
@@ -417,25 +628,29 @@ function VisitTable({
             ? "No recorded visits match these filters."
             : "No recorded visits in this Case."
         }
+        action={
+          filtersActive ? (
+            <Button variant="tertiary" size="compact" onClick={onClearFilters}>
+              Clear filters
+            </Button>
+          ) : undefined
+        }
       />
     );
   }
   return (
-    <div className="fx-scroll-x">
-      <table className="w-full text-left text-[13px]">
-        <thead>
-          <tr>
-            {["Time", "Page", "Arrived via", "Dwell", "State"].map((label) => (
-              <th
-                key={label}
-                className="sticky top-0 z-10 border-b border-border bg-muted/60 px-3 py-2.5 text-left text-[11.5px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase backdrop-blur"
-              >
+    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
+      <Table className="min-w-[760px]">
+        <TableHeader>
+          <TableRow>
+            {VISIT_COLUMNS.map((label) => (
+              <TableHead key={label} className="whitespace-nowrap">
                 {label}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="reveal-items">
           {rows.map((row, index) => {
             const utc = fieldUtc(row.fields.visitTime);
             const parts = utc === null ? null : formatInstant(utc);
@@ -444,84 +659,71 @@ function VisitTable({
             const title = fieldText(row.fields.title);
             const transition = fieldText(row.fields.transitionCore);
             const dwell = formatDwell(row.fields.visitDuration);
+            const open = () => {
+              onSelect(row);
+            };
             return (
-              <tr
+              <TableRow
                 key={index}
+                index={index}
                 tabIndex={0}
                 aria-label="Open visit row detail"
-                onClick={() => {
-                  onSelect(row);
-                }}
+                onClick={open}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onSelect(row);
-                  }
+                  activateOnKey(event, open);
                 }}
-                className="cursor-pointer border-b border-border/70 transition-colors duration-100 last:border-b-0 hover:bg-accent/40"
+                className={ROW_FOCUS_CLASS}
               >
-                <td
-                  className="px-3 py-2.5 whitespace-nowrap tabular-nums"
+                <TableCell
+                  className="whitespace-nowrap tabular-nums"
                   title={utc === null ? undefined : `${utc} (UTC)`}
                 >
                   {parts === null ? (
                     <AbsentWord />
                   ) : (
                     <>
-                      <span className="text-[12.5px] font-medium">
-                        {parts.date}
-                      </span>
-                      <span className="ml-2 text-[12px] text-muted-foreground">
-                        {parts.time}
-                      </span>
+                      <span className="text-foreground">{parts.date}</span>
+                      <span className="ml-2">{parts.time}</span>
                     </>
                   )}
-                </td>
-                <td className="max-w-[440px] px-3 py-2.5">
+                </TableCell>
+                <TableCell className="max-w-[440px]">
                   <span className="flex items-center gap-2.5">
                     <SiteAvatar host={host} />
                     <span className="flex min-w-0 flex-col">
                       <span
-                        className="truncate text-[13px] text-foreground/90"
+                        className="truncate text-foreground"
                         title={title ?? undefined}
                       >
                         {title ?? host ?? "(untitled)"}
                       </span>
                       <span
-                        className="truncate font-mono text-[11.5px] text-muted-foreground"
+                        className={cn(size.type.caption, "truncate font-mono")}
                         title={url ?? undefined}
                       >
                         {url ?? ""}
                       </span>
                     </span>
                   </span>
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-[12.5px]">
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
                   {transition === null ? (
                     <AbsentWord />
                   ) : (
-                    <span className="text-foreground/80">
-                      {TRANSITION_LABELS[transition] ?? transition}
-                    </span>
+                    (TRANSITION_LABELS[transition] ?? transition)
                   )}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-[12.5px] tabular-nums">
-                  {dwell === null ? (
-                    <span className="text-muted-foreground italic">
-                      not recorded
-                    </span>
-                  ) : (
-                    <span className="text-foreground/80">{dwell}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2.5">
+                </TableCell>
+                <TableCell className="whitespace-nowrap tabular-nums">
+                  {dwell ?? "not recorded"}
+                </TableCell>
+                <TableCell>
                   <StateWord state={row.commitState} />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -531,14 +733,13 @@ function VisitTable({
 export function HistoryPage({
   profiles = [],
 }: {
-  /** Every Profile the Case has, for the filter row's chips. Omitted (or
+  /** Every Profile the Case has, for the toolbar's Profiles menu. Omitted (or
    *  empty) simply hides the Profiles filter — a single-Profile Case has
    *  nothing to filter there. */
   readonly profiles?: readonly string[];
 }) {
   const { buckets, error: activityError } = useActivityBuckets();
   const [filters, setFilters] = useState<VisitFilters>(DEFAULT_VISIT_FILTERS);
-  const [draftSearch, setDraftSearch] = useState("");
   const visits = useVisits(filters);
   const [selected, setSelected] = useState<SelectedRow | null>(null);
 
@@ -563,13 +764,10 @@ export function HistoryPage({
   const figures = useMemo(() => {
     const totalVisits = days.reduce((sum, day) => sum + day.count, 0);
     const activeDays = days.length;
+    const first = days[0]?.date;
+    const last = days[days.length - 1]?.date;
     const span =
-      days.length === 0
-        ? null
-        : {
-            first: days[0]?.date ?? null,
-            last: days[days.length - 1]?.date ?? null,
-          };
+      first === undefined || last === undefined ? null : { first, last };
     const hosts = new Set<string>();
     for (const row of visits.rows) {
       const host = hostOf(fieldText(row.fields.url));
@@ -587,258 +785,144 @@ export function HistoryPage({
     setSelected({ kind: "finding", row });
   }, []);
 
+  const clearFilters = useCallback(() => {
+    setFilters(DEFAULT_VISIT_FILTERS);
+  }, []);
+
   // A bar is "selected" only when the filter is pinned to that one exact
   // day — a wider picked range highlights no single bar, since no one bar
   // speaks for it. Clicking the already-selected day clears back to the
   // whole span; clicking any other day pins to it.
   const selectedDate =
     filters.from !== "" && filters.from === filters.to ? filters.from : null;
-  const onSelectDay = useCallback(
-    (date: string) => {
-      setFilters((current) =>
-        current.from === date && current.to === date
-          ? { ...current, from: "", to: "" }
-          : { ...current, from: date, to: date },
-      );
-    },
-    [setFilters],
-  );
-
-  const spanLabel =
-    figures.span === null ||
-    figures.span.first === null ||
-    figures.span.last === null
-      ? "No dated activity"
-      : figures.span.first === figures.span.last
-        ? formatDayShort(figures.span.first)
-        : `${formatDayShort(figures.span.first)} — ${formatDayShort(figures.span.last)}`;
-
-  const DirectionIcon =
-    filters.direction === "desc" ? ArrowDownWideNarrow : ArrowUpNarrowWide;
+  const onSelectDay = useCallback((date: string) => {
+    setFilters((current) =>
+      current.from === date && current.to === date
+        ? { ...current, from: "", to: "" }
+        : { ...current, from: date, to: date },
+    );
+  }, []);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
+      <Coverage artifact="History" />
 
-      {/* Activity + figures — the Case's browsing at a glance. The four
-          headline figures dock on the chart panel's bottom edge, echoing the
-          Overview masthead's own layout (see ActivityHero). Every figure is
-          a direct read of the activity/visit sets below, never a new query
-          or an invented number. */}
-      <ActivityHero
+      {/* The Case's browsing at a glance: four figures, then the per-day
+          chart. Every figure is a direct read of the activity/visit sets
+          below, never a new query or an invented number. */}
+      <HistoryFigures
+        loading={activityLoading}
+        totalVisits={figures.totalVisits}
+        activeDays={figures.activeDays}
+        span={figures.span}
+        distinctHosts={figures.distinctHosts}
+      />
+
+      <ActivityPanel
         days={chartDays}
         loading={activityLoading}
         error={activityError}
-        figures={figures}
         range={{ from: filters.from, to: filters.to }}
         onRangeChange={({ from, to }) => {
-          setFilters({ ...filters, from, to });
+          setFilters((current) => ({ ...current, from, to }));
         }}
         rangeMin={figures.span?.first ?? null}
         rangeMax={figures.span?.last ?? null}
         selectedDate={selectedDate}
         onSelectDay={onSelectDay}
-        spanLabel={spanLabel}
       />
 
       {/* The raw visit stream. Curated columns; every wire field stays
           reachable through the row detail sheet. */}
-      <section className="overflow-hidden rounded-lg border border-border bg-card">
-        <header className="flex flex-col gap-4 border-b border-border px-4 py-4">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h2 className="text-[16px] font-semibold tracking-[-0.01em]">
-              Recorded visits
-            </h2>
-            {filtersActive ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setFilters(DEFAULT_VISIT_FILTERS);
-                  setDraftSearch("");
-                }}
-                className="cursor-pointer text-[12px] font-medium text-primary transition-colors duration-150 hover:text-primary/80"
-              >
-                Clear filters
-              </button>
-            ) : null}
+      <Panel
+        role="region"
+        aria-labelledby="history-visits-title"
+        className="overflow-clip"
+      >
+        <PanelHeader className="items-center pb-3">
+          <div className="flex min-w-0 items-baseline gap-2.5">
+            <PanelTitle id="history-visits-title">Recorded visits</PanelTitle>
+            <VisitCount
+              count={visits.rows.length}
+              more={visits.cursor !== null}
+              loading={visits.loading && visits.rows.length === 0}
+            />
           </div>
-          <div className="flex flex-wrap items-end gap-x-5 gap-y-3.5">
-            <Labeled label="Search" htmlFor="history-visits-search">
-              <div className="relative">
-                <Search
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
-                />
-                <Input
-                  id="history-visits-search"
-                  type="search"
-                  value={draftSearch}
-                  placeholder="Search page or URL"
-                  aria-label="Search recorded visits"
-                  onChange={(event) => {
-                    setDraftSearch(event.target.value);
-                  }}
-                  onBlur={() => {
-                    if (draftSearch !== filters.search) {
-                      setFilters({ ...filters, search: draftSearch });
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && draftSearch !== filters.search) {
-                      setFilters({ ...filters, search: draftSearch });
-                    }
-                  }}
-                  className="w-52 pl-8"
-                />
-              </div>
-            </Labeled>
-
-            <Labeled label="Sort" htmlFor="history-visits-sort">
-              <div className="flex items-center gap-1">
-                <SelectNative
-                  id="history-visits-sort"
-                  value={filters.sort}
-                  onChange={(event) => {
-                    setFilters({ ...filters, sort: event.target.value });
-                  }}
-                >
-                  {VISIT_SORTS.map((sort) => (
-                    <option key={sort} value={sort}>
-                      {SORT_LABELS[sort] ?? sort}
-                    </option>
-                  ))}
-                </SelectNative>
-                <button
-                  type="button"
-                  aria-label={
-                    filters.direction === "desc"
-                      ? "Sorted descending — switch to ascending"
-                      : "Sorted ascending — switch to descending"
-                  }
-                  onClick={() => {
-                    setFilters({
-                      ...filters,
-                      direction: filters.direction === "desc" ? "asc" : "desc",
-                    });
-                  }}
-                  className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 hover:border-muted-foreground/40 hover:text-foreground"
-                >
-                  <DirectionIcon aria-hidden="true" className="size-4" />
-                </button>
-              </div>
-            </Labeled>
-
-            <Labeled label="Transition" htmlFor="history-visits-transition">
-              <SelectNative
-                id="history-visits-transition"
-                value={filters.transition}
-                onChange={(event) => {
-                  setFilters({ ...filters, transition: event.target.value });
-                }}
-              >
-                <option value="">any</option>
-                {Object.entries(TRANSITION_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </SelectNative>
-            </Labeled>
-
-            {profiles.length === 0 ? null : (
-              <Labeled label="Profiles">
-                <div className="flex min-h-8 flex-wrap items-center gap-1.5">
-                  {profiles.map((profile) => {
-                    const active = filters.profiles.includes(profile);
-                    return (
-                      <Chip
-                        key={profile}
-                        active={active}
-                        onClick={() => {
-                          setFilters({
-                            ...filters,
-                            profiles: active
-                              ? filters.profiles.filter(
-                                  (entry) => entry !== profile,
-                                )
-                              : [...filters.profiles, profile],
-                          });
-                        }}
-                      >
-                        {profile}
-                      </Chip>
-                    );
-                  })}
-                </div>
-              </Labeled>
-            )}
-          </div>
-        </header>
-
-        {visits.error !== null ? (
-          <div
-            role="alert"
-            className="mx-4 my-4 flex items-start gap-2.5 rounded-md border border-destructive-border bg-destructive-wash px-3.5 py-3"
-          >
-            <div className="flex-1">
-              <p className="text-[13px] font-medium text-destructive">
-                The rows could not be loaded.
-              </p>
-              <p className="text-[12.5px] text-destructive/80">
-                {visits.error}
-              </p>
-            </div>
-            <Button onClick={visits.retry} size="sm" className="shrink-0">
-              Retry
+          {filtersActive ? (
+            <Button variant="ghost" size="compact" onClick={clearFilters}>
+              Clear filters
             </Button>
-          </div>
-        ) : visits.loading && visits.rows.length === 0 ? (
-          <div
-            className="flex flex-col gap-2 px-4 py-4"
-            aria-label="Loading rows"
-          >
-            {[0, 1, 2, 3, 4].map((index) => (
-              <Skeleton key={index} className="h-7 w-full" />
-            ))}
-          </div>
-        ) : (
-          <VisitTable
-            rows={visits.rows}
-            filtersActive={filtersActive}
-            onSelect={select}
-          />
-        )}
+          ) : null}
+        </PanelHeader>
 
-        {visits.rows.length === 0 && visits.cursor === null ? null : (
-          <div className="flex items-center gap-3 border-t border-border/70 px-4 py-2.5">
-            <p
-              className="text-[12.5px] text-muted-foreground tabular-nums"
-              aria-live="polite"
-            >
-              {visits.rows.length.toLocaleString("en-US")} row
-              {visits.rows.length === 1 ? "" : "s"} shown
-              {visits.cursor === null ? "" : " · more available"}
-            </p>
-            {visits.cursor !== null ? (
-              <Button
-                onClick={visits.loadMore}
-                disabled={visits.loading}
-                size="sm"
-              >
-                {visits.loading ? "Loading…" : "Load more"}
-              </Button>
-            ) : null}
-          </div>
-        )}
-      </section>
+        <SizeProvider size="compact">
+          <VisitToolbar
+            filters={filters}
+            setFilters={setFilters}
+            profiles={profiles}
+          />
+        </SizeProvider>
+
+        <div className="border-t border-border">
+          {visits.error !== null ? (
+            <ErrorRows message={visits.error} onRetry={visits.retry} />
+          ) : visits.loading && visits.rows.length === 0 ? (
+            <LoadingRows rows={8} />
+          ) : (
+            <VisitTable
+              rows={visits.rows}
+              filtersActive={filtersActive}
+              onSelect={select}
+              onClearFilters={clearFilters}
+            />
+          )}
+        </div>
+
+        <ListFooter
+          count={visits.rows.length}
+          cursor={visits.cursor}
+          loading={visits.loading}
+          onLoadMore={visits.loadMore}
+        />
+      </Panel>
 
       {selected !== null ? (
         <RowSheet
           selected={selected}
+          title={
+            fieldText(selected.row.fields.title) ??
+            hostOf(fieldText(selected.row.fields.url)) ??
+            "Page visit"
+          }
           onClose={() => {
             setSelected(null);
           }}
         />
       ) : null}
     </div>
+  );
+}
+
+function VisitCount({
+  count,
+  more,
+  loading,
+}: {
+  readonly count: number;
+  readonly more: boolean;
+  readonly loading: boolean;
+}) {
+  const size = useSize();
+  if (loading) {
+    return null;
+  }
+  return (
+    <span
+      className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
+      style={{ fontVariationSettings: fontWeights.normal }}
+    >
+      {count.toLocaleString("en-US")}
+      {more ? " loaded" : ""}
+    </span>
   );
 }

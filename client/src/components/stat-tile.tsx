@@ -1,15 +1,34 @@
 /**
- * A single stat "highlight" tile: bordered card, a soft top wash, a
- * label/value/optional-note stack, and an `fx-rise` entrance stagger.
+ * A single stat "highlight" tile: a recorded figure with its label and an
+ * optional note, on its own FF surface.
  *
- * Born as the Overview masthead's own highlight strip (the four tiles that
- * dock over the masthead's bottom edge) and pulled out here so any chart
- * panel can dock the same kind of stat readouts on its own bottom edge,
- * instead of every page inventing its own stat-card recipe.
+ * Born as the Overview masthead's highlight strip (the tiles that dock over
+ * the masthead's bottom edge) and shared so any chart panel can dock the
+ * same readouts on its own bottom edge. Drawn from FF parts: an `Elevated`
+ * surface two steps up with the popup shadow (it floats over the edge it
+ * docks on), the shape system's container radius, a caption label, the
+ * figure in the compact display role (the masthead's own scale) at
+ * semibold, and a caption note.
+ *
+ * Entrance: the shell's `reveal-product` column already fades the page in;
+ * the tile adds no animation of its own. `delay` / `riseDelay` are kept so
+ * existing call sites compile; they no longer drive anything visible.
+ *
+ * Forensic rule: tiles show recorded facts only — never a Candidate value.
  */
 import type { CSSProperties, ReactNode } from "react";
 
-/** Per-tile entrance offset for the `fx-rise` stagger, 70ms a step. */
+import { Elevated } from "@/lib/elevated";
+import { fontWeights } from "@/lib/font-weight";
+import { useShape } from "@/lib/shape-context";
+import { typeClass, useSize } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
+
+/**
+ * @deprecated The legacy `fx-rise` stagger offset. Still returns the
+ * `--fx-delay` custom property so older call sites type-check; new code
+ * relies on the shell's `reveal-product` (or `reveal-items`) instead.
+ */
 export function riseDelay(step: number): CSSProperties {
   return { "--fx-delay": `${String(step * 70)}ms` } as CSSProperties;
 }
@@ -18,42 +37,55 @@ export function StatTile({
   label,
   value,
   note,
-  delay = 0,
   children,
+  className,
 }: {
   readonly label: string;
   readonly value: string;
-  /** Omit when the figure has nothing more to say \u2014 the note line still
+  /** Omit when the figure has nothing more to say — the note line still
    *  reserves its height (a non-breaking space) so tiles in the same row
    *  keep equal height whether or not each one has a note. */
   readonly note?: string;
+  /** @deprecated No longer animates; kept for call-site compatibility. */
   readonly delay?: number;
   readonly children?: ReactNode;
+  readonly className?: string;
 }) {
+  const shape = useShape();
+  const size = useSize();
   return (
-    <div
-      className="fx-rise relative overflow-hidden rounded-xl border border-border bg-card p-3.5 shadow-[0_16px_32px_-18px_var(--edge-shadow)]"
-      style={riseDelay(delay)}
+    <Elevated
+      offset={2}
+      shadowLevel={3}
+      className={cn(
+        "flex min-w-0 flex-col gap-1 px-4 py-3.5 text-foreground",
+        shape.container,
+        className,
+      )}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-11 bg-gradient-to-b from-accent/70 to-transparent"
-      />
-      <div className="relative flex h-full flex-col gap-2">
-        <span className="truncate text-[11px] leading-none font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-          {label}
-        </span>
-        <p className="truncate text-[27px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
-          {value}
-        </p>
-        {children}
-        <p
-          className="mt-auto truncate text-[12px] leading-none text-muted-foreground"
-          title={note}
-        >
-          {note ?? "\u00a0"}
-        </p>
-      </div>
-    </div>
+      <span className={cn(size.type.caption, "truncate text-muted-foreground")}>
+        {label}
+      </span>
+      <p
+        className={cn(
+          typeClass("display", "compact"),
+          "truncate text-foreground tabular-nums",
+        )}
+        style={{ fontVariationSettings: fontWeights.semibold }}
+        title={value}
+      >
+        {value}
+      </p>
+      {children}
+      <p
+        className={cn(
+          size.type.caption,
+          "mt-auto truncate text-muted-foreground",
+        )}
+        title={note}
+      >
+        {note ?? "\u00a0"}
+      </p>
+    </Elevated>
   );
 }

@@ -8,11 +8,18 @@
  * (`totalBytes`, `startTime`, `mimeType`, `state`, `originalUrl`); nothing is
  * smoothed, projected, or ranked by a score the rows do not contain.
  *
+ * Layout, top-down, as FF Panels: Evidence coverage → a MetricBand of
+ * recorded figures → bytes per day (Recharts on the shared chart helpers:
+ * fluid band cursor, FluidBar, FF tooltip card; drag across it to focus the
+ * table on a range) → file kinds (an FF CardGroup: one fluid hover highlight,
+ * a picked kind holds the selected fill) beside the top sources → the
+ * sortable table on FF's Table.
+ *
  * Presentation rules kept (see app.tsx's header): the Completeness Statement
  * renders before any row; download states are worded, never colour alone; a
  * field without a recorded value reads as the word "absent"; TYPE — here the
- * file-kind column — comes first in the table. This page is read-only: it starts no
- * ingest, reruns no analysis, and writes nothing back to the Case.
+ * file-kind column — comes first in the table. This page is read-only: it
+ * starts no ingest, reruns no analysis, and writes nothing back to the Case.
  */
 import {
   Archive,
@@ -30,29 +37,75 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  type BarShapeProps,
+  type MouseHandlerDataParam,
 } from "recharts";
 
+import { EvidenceDot } from "@/components/evidence";
+import {
+  Panel,
+  PanelDescription,
+  PanelFooter,
+  PanelHeader,
+  PanelTitle,
+} from "@/components/panel";
+import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardFooter,
+  CardGroup,
+  CardHeader,
+  CardMedia,
+  CardTitle,
+} from "@/components/ui/card";
+import { InputField, InputGroup } from "@/components/ui/input-group";
+import { Skeleton } from "@/components/ui/misc";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { fontWeights } from "@/lib/font-weight";
+import { SizeProvider, useSize } from "@/lib/size-context";
+import { spring } from "@/lib/springs";
+import { cn } from "@/lib/utils";
+
 import { callApi } from "../api.js";
-import { cn } from "../lib.js";
-import type {
-  ArtifactConfig,
-  Finding,
-  PageOf,
-} from "../types.js";
-import { useChartTokens, usePrefersReducedMotion } from "./charts.js";
+import type { ArtifactConfig, Finding, PageOf } from "../types.js";
+import {
+  activeIndexOf,
+  CHART_FOCUS_CLASS,
+  chartAnimation,
+  chartAxis,
+  chartGrid,
+  ChartEmpty,
+  ChartTooltipCard,
+  chartTooltipMotion,
+  ChartTooltipNote,
+  ChartTooltipValue,
+  FluidBandCursor,
+  FluidBar,
+  tooltipEntry,
+  useChartTokens,
+  usePrefersReducedMotion,
+} from "./charts.js";
 import { ChartSection } from "./chart-section.js";
-import { EmptyRows } from "./data-table.js";
+import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import {
   AbsentWord,
@@ -63,10 +116,10 @@ import {
   hostOf,
   SiteAvatar,
 } from "./finding-fields.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { Coverage } from "./history-coverage.js";
+import { ErrorRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { Button } from "./compat/button.js";
-import { Skeleton } from "./ui/misc.js";
+import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
 /* --------------------------------- reads ---------------------------------- */
 
@@ -461,47 +514,91 @@ function compareRows(a: DownloadRow, b: DownloadRow, key: SortKey): number {
 
 /* -------------------------------- widgets --------------------------------- */
 
-function SectionCard({
+/** A framed section: title, optional count and description, optional action. */
+function SectionPanel({
+  id,
   title,
   description,
   count,
   action,
   children,
+  className,
 }: {
+  readonly id: string;
   readonly title: string;
   readonly description?: string;
   readonly count?: number;
   readonly action?: React.ReactNode;
   readonly children: React.ReactNode;
+  readonly className?: string;
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
-      <header className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-border px-4 py-2.5">
-        <h2 className="text-[13px] font-semibold">{title}</h2>
-        {count === undefined ? null : (
-          <span className="text-[12px] text-muted-foreground tabular-nums">
-            {count}
-          </span>
-        )}
-        {description === undefined ? null : (
-          <p className="w-full text-[12px] text-muted-foreground sm:w-auto sm:flex-1">
-            {description}
-          </p>
-        )}
-        {action === undefined ? null : (
-          <div className="ml-auto flex items-center">{action}</div>
-        )}
-      </header>
+    <Panel
+      role="region"
+      aria-labelledby={id}
+      className={cn("overflow-clip", className)}
+    >
+      <PanelHeader className="items-center pb-3">
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-2.5">
+            <PanelTitle id={id}>{title}</PanelTitle>
+            {count === undefined ? null : <Count value={count} />}
+          </div>
+          {description === undefined ? null : (
+            <PanelDescription>{description}</PanelDescription>
+          )}
+        </div>
+        {action}
+      </PanelHeader>
       {children}
-    </section>
+    </Panel>
   );
+}
+
+function Count({ value }: { readonly value: number }) {
+  const size = useSize();
+  return (
+    <span
+      className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
+    >
+      {value.toLocaleString("en-US")}
+    </span>
+  );
+}
+
+/**
+ * A share of the busiest entry: a full-width pill slid in from the left
+ * inside a clipping track (never a scaled or width-animated bar).
+ */
+function ShareBar({ fraction }: { readonly fraction: number }) {
+  const clamped = Math.min(1, Math.max(0, fraction));
+  return (
+    <span
+      aria-hidden="true"
+      className="block h-1.5 w-full overflow-hidden rounded-full bg-hover"
+    >
+      <span
+        className="block h-full w-full rounded-full bg-muted-foreground"
+        style={{ transform: `translateX(${String((clamped - 1) * 100)}%)` }}
+      />
+    </span>
+  );
+}
+
+/** Height of the volume plot, shared by the chart and its skeleton. */
+const CHART_HEIGHT = "h-[220px]";
+
+interface VolumeDay {
+  readonly date: string;
+  readonly bytes: number;
+  readonly count: number;
 }
 
 /**
  * Downloads over time. Bars show bytes transferred per recorded day — a
  * discrete reading of when data actually left the machine. Days with no
  * downloads are filled with zero so the axis is continuous calendar time,
- * never compressed.
+ * never compressed. Drag across the bars (or click one) to focus the table.
  */
 function VolumeChart({
   rows,
@@ -516,6 +613,7 @@ function VolumeChart({
   const reduced = usePrefersReducedMotion();
   const [dragStart, setDragStart] = useState<string | null>(null);
   const [dragCurrent, setDragCurrent] = useState<string | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const hasRange = range.from !== "" || range.to !== "";
   const dragging = dragStart !== null;
@@ -532,7 +630,13 @@ function VolumeChart({
     if (dragStart !== null) {
       return { from: dragStart, to: dragStart };
     }
-    return hasRange ? range : null;
+    if (!hasRange) {
+      return null;
+    }
+    return {
+      from: range.from === "" ? range.to : range.from,
+      to: range.to === "" ? range.from : range.to,
+    };
   }, [dragStart, dragCurrent, hasRange, range]);
 
   const commitDrag = useCallback(() => {
@@ -549,7 +653,7 @@ function VolumeChart({
     setDragCurrent(null);
   }, [dragStart, dragCurrent, onRangeChange]);
 
-  const days = useMemo(() => {
+  const days = useMemo<readonly VolumeDay[]>(() => {
     const byDate = new Map<string, { bytes: number; count: number }>();
     for (const row of rows) {
       if (row.startUtc === null) {
@@ -588,92 +692,104 @@ function VolumeChart({
 
   if (days.length === 0) {
     return (
-      <p className="px-4 py-10 text-center text-[13px] text-muted-foreground">
-        No dated downloads to draw.
-      </p>
+      <div className={CHART_HEIGHT}>
+        <ChartEmpty>No dated downloads to draw.</ChartEmpty>
+      </div>
     );
   }
+
+  const peak = days.reduce((max, day) => Math.max(max, day.bytes), 0);
+  const dateAt = (state: MouseHandlerDataParam | undefined) => {
+    const index = activeIndexOf(state);
+    return index === null ? null : (days[index]?.date ?? null);
+  };
+  // The busiest day holds full strength, the rest sit lower; days outside
+  // the focused range fade right back — the same reading as Activity bars.
+  const strengthOf = (day: VolumeDay) => {
+    if (
+      highlight !== null &&
+      (day.date < highlight.from || day.date > highlight.to)
+    ) {
+      return 0.2;
+    }
+    return peak > 0 && day.bytes === peak ? 1 : 0.55;
+  };
 
   return (
     <div
       className={cn(
-        "h-[190px] w-full px-2 py-3",
+        CHART_HEIGHT,
+        "w-full",
         dragging && "cursor-crosshair select-none",
       )}
       aria-label="Bytes downloaded per day. Drag across the chart to focus the table below."
     >
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        className={CHART_FOCUS_CLASS}
+      >
         <BarChart
-          data={days}
-          margin={{ top: 8, right: 10, bottom: 0, left: 0 }}
+          data={days as VolumeDay[]}
+          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          barCategoryGap="18%"
+          style={{ cursor: dragging ? "crosshair" : "pointer" }}
           onMouseDown={(state) => {
-            if (typeof state?.activeLabel === "string") {
-              setDragStart(state.activeLabel);
-              setDragCurrent(state.activeLabel);
+            const date = dateAt(state);
+            if (date !== null) {
+              setDragStart(date);
+              setDragCurrent(date);
             }
           }}
           onMouseMove={(state) => {
-            if (dragStart !== null && typeof state?.activeLabel === "string") {
-              setDragCurrent(state.activeLabel);
+            setHoverIndex(activeIndexOf(state));
+            if (dragStart !== null) {
+              const date = dateAt(state);
+              if (date !== null) {
+                setDragCurrent(date);
+              }
             }
           }}
           onMouseUp={commitDrag}
-          onMouseLeave={commitDrag}
+          onMouseLeave={() => {
+            setHoverIndex(null);
+            commitDrag();
+          }}
         >
-          <CartesianGrid
-            vertical={false}
-            stroke={tokens["--border"]}
-            strokeDasharray="3 3"
-          />
+          <CartesianGrid {...chartGrid(tokens)} />
           <XAxis
             dataKey="date"
-            tickLine={false}
-            axisLine={false}
-            minTickGap={44}
+            {...chartAxis(tokens)}
+            minTickGap={40}
             tickFormatter={formatTick}
-            tick={{ fill: tokens["--muted-foreground"], fontSize: 11 }}
           />
           <YAxis
-            width={46}
-            tickLine={false}
-            axisLine={false}
+            width={56}
+            {...chartAxis(tokens)}
             tickFormatter={(bytes: number) => formatBytes(bytes)}
-            tick={{ fill: tokens["--muted-foreground"], fontSize: 11 }}
           />
           <Tooltip
-            cursor={{ stroke: tokens["--border"], strokeWidth: 1 }}
+            {...chartTooltipMotion(reduced)}
+            cursor={<FluidBandCursor fill={tokens["--hover"]} />}
             content={({ payload }) => {
-              const entry = Array.isArray(payload)
-                ? (payload[0] as
-                    | {
-                        payload?: {
-                          date: string;
-                          bytes: number;
-                          count: number;
-                        };
-                      }
-                    | undefined)
-                : undefined;
-              const row = entry?.payload;
-              return row === undefined ? null : (
-                <div
-                  className="rounded-md border px-3 py-2 text-[12px] shadow-md"
-                  style={{
-                    backgroundColor: tokens["--card"],
-                    borderColor: tokens["--border"],
-                    color: tokens["--foreground"],
-                  }}
-                >
-                  <p className="font-medium">{formatDay(row.date)}</p>
-                  <p
-                    className="tabular-nums"
-                    style={{ color: tokens["--muted-foreground"] }}
-                  >
-                    {formatBytes(row.bytes)} ·{" "}
-                    {row.count.toLocaleString("en-US")} file
-                    {row.count === 1 ? "" : "s"}
-                  </p>
-                </div>
+              const row = tooltipEntry(payload);
+              if (row === null) {
+                return null;
+              }
+              const bytes = Number(row["bytes"]);
+              const count = Number(row["count"]);
+              return (
+                <ChartTooltipCard label={formatDay(String(row["date"]))}>
+                  <ChartTooltipValue
+                    value={formatBytes(bytes)}
+                    unit="downloaded"
+                  />
+                  <ChartTooltipNote>
+                    {count.toLocaleString("en-US")} file
+                    {count === 1 ? "" : "s"}
+                    {peak > 0 && bytes === peak ? " · busiest day" : ""}
+                  </ChartTooltipNote>
+                </ChartTooltipCard>
               );
             }}
           />
@@ -682,43 +798,45 @@ function VolumeChart({
               x1={highlight.from}
               x2={highlight.to}
               fill={tokens["--primary"]}
-              fillOpacity={0.08}
-              stroke={tokens["--primary"]}
-              strokeOpacity={0.25}
+              fillOpacity={0.07}
+              strokeOpacity={0}
+              radius={6}
             />
           ) : null}
           <Bar
             dataKey="bytes"
-            radius={[4, 4, 0, 0]}
-            maxBarSize={18}
-            isAnimationActive={!reduced}
-            animationDuration={500}
-          >
-            {days.map((day) => {
-              const selected =
-                highlight === null ||
-                (day.date >= highlight.from && day.date <= highlight.to);
+            radius={[3, 3, 0, 0]}
+            {...chartAnimation(reduced)}
+            fill={tokens["--primary"]}
+            shape={(props: BarShapeProps) => {
+              const day = days[props.originalDataIndex];
               return (
-                <Cell
-                  key={day.date}
+                <FluidBar
+                  {...props}
                   fill={tokens["--primary"]}
-                  fillOpacity={selected ? 0.9 : 0.2}
+                  opacity={day === undefined ? 0.55 : strengthOf(day)}
+                  hovered={props.originalDataIndex === hoverIndex}
                 />
               );
-            })}
-          </Bar>
+            }}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
+/** Inline CardTitle trims its line box to cap height and clips; this pads
+ *  the clip box (and pulls the layout back) so descenders aren't cut. */
+const CARD_TITLE_CLEAR = "whitespace-nowrap [&>span]:-my-1 [&>span]:py-1";
+
 /**
- * File-kind breakdown. One row per kind that appears, ordered investigative
- * first (executables, archives), each a bar sized to the busiest kind by
- * count with its total size beside it. This is the lens an examiner actually
- * scans a downloads set through — "did anything executable land here" — that
- * the raw table alone buries.
+ * File-kind breakdown. One card per kind that appears, ordered investigative
+ * first (executables, archives), each with a bar sized to the busiest kind by
+ * bytes and its count and total size beside it. This is the lens an examiner
+ * actually scans a downloads set through — "did anything executable land
+ * here" — that the raw table alone buries. Picking a kind focuses the table;
+ * the picked card holds FF's selected fill and its title turns semibold.
  */
 function KindBreakdown({
   rows,
@@ -729,6 +847,7 @@ function KindBreakdown({
   readonly activeKind: FileKind | null;
   readonly onKind: (kind: FileKind | null) => void;
 }) {
+  const size = useSize();
   const kinds = useMemo(() => {
     const map = new Map<FileKind, { count: number; bytes: number }>();
     for (const row of rows) {
@@ -753,68 +872,54 @@ function KindBreakdown({
   }
 
   return (
-    <ul className="flex flex-col gap-1 p-2">
-      {kinds.map((entry) => {
-        const meta = KIND_META[entry.kind];
-        const Icon = meta.icon;
-        const active = activeKind === entry.kind;
-        const share = Math.max(2, Math.round((entry.bytes / peak) * 100));
-        return (
-          <li key={entry.kind}>
-            <button
-              type="button"
-              aria-pressed={active}
+    <SizeProvider size="compact">
+      <CardGroup orientation="inline" className="px-1 pb-1">
+        {kinds.map((entry) => {
+          const meta = KIND_META[entry.kind];
+          const active = activeKind === entry.kind;
+          return (
+            <Card
+              key={entry.kind}
+              selected={active}
               onClick={() => {
                 onKind(active ? null : entry.kind);
               }}
-              className={cn(
-                "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors duration-150",
-                active ? "bg-accent" : "hover:bg-muted",
-              )}
+              label={
+                active
+                  ? `Show every file kind (now: ${meta.label})`
+                  : `Focus the table on ${meta.label}`
+              }
+              className="min-h-14"
             >
-              <span className="flex items-center gap-2.5">
-                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
-                  <Icon
-                    aria-hidden="true"
-                    className={cn(
-                      "size-3.5",
-                      active ? "text-accent-foreground" : "text-foreground/60",
-                    )}
-                  />
+              <CardMedia icon={meta.icon} />
+              <CardHeader className="w-28 flex-none">
+                <CardTitle className={CARD_TITLE_CLEAR}>{meta.label}</CardTitle>
+              </CardHeader>
+              <span className="min-w-0 flex-1">
+                <ShareBar fraction={entry.bytes / peak} />
+              </span>
+              {/* Text only: let a click on it fall through to the card. */}
+              <CardFooter className="pointer-events-none w-20 flex-col items-end gap-0">
+                <span
+                  className={cn(size.type.body, "text-foreground tabular-nums")}
+                >
+                  {entry.count.toLocaleString("en-US")} file
+                  {entry.count === 1 ? "" : "s"}
                 </span>
                 <span
                   className={cn(
-                    "w-[104px] truncate text-[12.5px] font-medium",
-                    active && "text-accent-foreground",
+                    size.type.caption,
+                    "text-muted-foreground tabular-nums",
                   )}
                 >
-                  {meta.label}
-                </span>
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                  <span
-                    className={cn(
-                      "block h-full rounded-full transition-[width] duration-500",
-                      entry.bytes === peak ? "bg-primary" : "bg-primary/45",
-                    )}
-                    style={{ width: `${String(share)}%` }}
-                  />
-                </span>
-              </span>
-              <span className="flex shrink-0 flex-col items-end">
-                <span className="font-mono text-[12px] tabular-nums">
-                  {entry.count.toLocaleString("en-US")}
-                </span>
-                <span className="text-[11px] text-muted-foreground tabular-nums">
                   {formatBytes(entry.bytes)}
                 </span>
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+              </CardFooter>
+            </Card>
+          );
+        })}
+      </CardGroup>
+    </SizeProvider>
   );
 }
 
@@ -824,9 +929,12 @@ const SOURCE_LIMIT = 6;
 /**
  * Where the files came from. Hosts ranked by total bytes pulled from each,
  * with the file count beside the size — the "which site did this machine pull
- * the most data from" question the flat table cannot answer at a glance.
+ * the most data from" question the flat table cannot answer at a glance. Not
+ * clickable, so no hover: a highlight would promise a click with nowhere to
+ * land.
  */
 function SourceHosts({ rows }: { readonly rows: readonly DownloadRow[] }) {
+  const size = useSize();
   const hosts = useMemo(() => {
     const map = new Map<string, { count: number; bytes: number }>();
     for (const row of rows) {
@@ -849,53 +957,62 @@ function SourceHosts({ rows }: { readonly rows: readonly DownloadRow[] }) {
   const peak = hosts[0]?.bytes ?? 0;
 
   return (
-    <ol className="flex flex-col p-2">
-      {hosts.slice(0, SOURCE_LIMIT).map((entry, index) => {
-        const share = peak === 0 ? 0 : Math.round((entry.bytes / peak) * 100);
-        return (
-          <li key={entry.host}>
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2.5 py-2">
-              <span className="flex min-w-0 items-center gap-2.5">
-                <span className="w-4 shrink-0 text-center text-[12px] font-semibold text-muted-foreground tabular-nums">
-                  {index + 1}
-                </span>
-                <SiteAvatar host={entry.host} />
-                <span
-                  className="truncate text-[12.5px] font-medium"
-                  title={entry.host}
-                >
-                  {entry.host}
-                </span>
+    <>
+      <ol className="flex flex-col px-4 pb-2">
+        {hosts.slice(0, SOURCE_LIMIT).map((entry, index) => (
+          <li
+            key={entry.host}
+            className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[auto_minmax(0,1fr)_minmax(48px,0.6fr)_auto] items-center gap-3 border-b border-border last:border-b-0"
+          >
+            <span
+              className={cn(
+                size.type.caption,
+                "w-4 text-center text-muted-foreground tabular-nums",
+              )}
+              style={{ fontVariationSettings: fontWeights.semibold }}
+            >
+              {index + 1}
+            </span>
+            <span className="flex min-w-0 items-center gap-2.5">
+              <SiteAvatar host={entry.host} />
+              <span
+                className={cn(size.type.body, "truncate text-foreground")}
+                title={entry.host}
+              >
+                {entry.host}
               </span>
-              <span className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <span
-                  className={cn(
-                    "block h-full rounded-full transition-[width] duration-500",
-                    index === 0 ? "bg-primary" : "bg-primary/45",
-                  )}
-                  style={{ width: `${String(share)}%` }}
-                />
+            </span>
+            <span className="max-sm:hidden">
+              <ShareBar fraction={peak === 0 ? 0 : entry.bytes / peak} />
+            </span>
+            <span className="flex w-20 flex-col items-end">
+              <span
+                className={cn(size.type.body, "text-foreground tabular-nums")}
+              >
+                {formatBytes(entry.bytes)}
               </span>
-              <span className="flex shrink-0 flex-col items-end">
-                <span className="font-mono text-[12px] tabular-nums">
-                  {formatBytes(entry.bytes)}
-                </span>
-                <span className="text-[11px] text-muted-foreground tabular-nums">
-                  {entry.count.toLocaleString("en-US")} file
-                  {entry.count === 1 ? "" : "s"}
-                </span>
+              <span
+                className={cn(
+                  size.type.caption,
+                  "text-muted-foreground tabular-nums",
+                )}
+              >
+                {entry.count.toLocaleString("en-US")} file
+                {entry.count === 1 ? "" : "s"}
               </span>
-            </div>
+            </span>
           </li>
-        );
-      })}
+        ))}
+      </ol>
       {hosts.length > SOURCE_LIMIT ? (
-        <li className="border-t border-border/70 px-4 py-2 text-[12px] text-muted-foreground">
-          and {hosts.length - SOURCE_LIMIT} more source host
-          {hosts.length - SOURCE_LIMIT === 1 ? "" : "s"} in the table below
-        </li>
+        <PanelFooter>
+          <p className={cn(size.type.caption, "text-muted-foreground")}>
+            and {hosts.length - SOURCE_LIMIT} more source host
+            {hosts.length - SOURCE_LIMIT === 1 ? "" : "s"} in the table below
+          </p>
+        </PanelFooter>
       ) : null}
-    </ol>
+    </>
   );
 }
 
@@ -907,62 +1024,90 @@ function TimeCell({ utc }: { readonly utc: string | null }) {
     return <AbsentWord />;
   }
   return (
-    <span
-      className="whitespace-nowrap text-[12.5px] tabular-nums"
-      title={`${utc} (UTC)`}
-    >
-      <span className="font-medium">{parts.date}</span>
-      <span className="ml-2 text-[12px] text-muted-foreground">
-        {parts.time}
-      </span>
+    <span className="whitespace-nowrap tabular-nums" title={`${utc} (UTC)`}>
+      <span className="text-foreground">{parts.date}</span>
+      <span className="ml-2">{parts.time}</span>
     </span>
   );
 }
 
 /**
- * The download state as a plain word with a quiet dot: "Complete" sits muted
- * (the boring default), the two unfinished states carry the same non-green
- * hues the rest of the app reserves for "recovered" so state never rides on
- * colour alone — the word is always present.
+ * The download state as a plain word with a dot: "Complete" sits muted (the
+ * boring default), the two unfinished states read in the foreground with the
+ * warning hue on the dot alone — state never rides on colour; the word is
+ * always present.
  */
 function DownloadState({ state }: { readonly state: string | null }) {
+  const size = useSize();
   const unfinished = isUnfinished(state);
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap text-[12px]",
-        state === null
-          ? "text-muted-foreground italic"
-          : unfinished
-            ? "font-medium text-warning"
-            : "text-muted-foreground",
+        size.type.caption,
+        "inline-flex items-center gap-1.5 whitespace-nowrap",
+        unfinished ? "text-foreground" : "text-muted-foreground",
       )}
     >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "size-1.5 rounded-full",
-          state === null
-            ? "bg-muted-foreground/40"
-            : unfinished
-              ? "bg-warning"
-              : "bg-muted-foreground/50",
-        )}
+      <EvidenceDot
+        state={state === null ? "absent" : unfinished ? "warning" : "committed"}
       />
       {stateLabel(state)}
     </span>
   );
 }
 
-const TABLE_COLUMNS: readonly { readonly label: string; readonly key: SortKey }[] =
-  [
-    { label: "Type", key: "type" },
-    { label: "File", key: "file" },
-    { label: "Size", key: "size" },
-    { label: "Source", key: "source" },
-    { label: "Started", key: "started" },
-    { label: "State", key: "state" },
-  ];
+const TABLE_COLUMNS: readonly {
+  readonly label: string;
+  readonly key: SortKey;
+}[] = [
+  { label: "Type", key: "type" },
+  { label: "File", key: "file" },
+  { label: "Size", key: "size" },
+  { label: "Source", key: "source" },
+  { label: "Started", key: "started" },
+  { label: "State", key: "state" },
+];
+
+/** A sortable column header: the label is the button; the active column
+ *  reads in the foreground with its direction arrow, the rest stay muted. */
+function SortHead({
+  label,
+  active,
+  dir,
+  onSort,
+}: {
+  readonly label: string;
+  readonly active: boolean;
+  readonly dir: "asc" | "desc";
+  readonly onSort: () => void;
+}) {
+  const size = useSize();
+  const Arrow = dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <TableHead
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+      className="whitespace-nowrap"
+    >
+      <button
+        type="button"
+        onClick={onSort}
+        className={cn(
+          "-mx-1 inline-flex cursor-pointer items-center gap-1 rounded-md px-1 outline-none transition-colors duration-80 hover:text-foreground focus-visible:ring-1 focus-visible:ring-focus-ring",
+          active ? "text-foreground" : "text-muted-foreground",
+        )}
+        style={{ fontVariationSettings: fontWeights.semibold }}
+      >
+        {label}
+        <Arrow
+          aria-hidden="true"
+          size={size.icon - 2}
+          strokeWidth={2}
+          className={cn("shrink-0", active ? "opacity-100" : "opacity-0")}
+        />
+      </button>
+    </TableHead>
+  );
+}
 
 function DownloadsTable({
   rows,
@@ -975,128 +1120,135 @@ function DownloadsTable({
   readonly onSort: (key: SortKey) => void;
   readonly onSelect: (finding: Finding) => void;
 }) {
+  const size = useSize();
   return (
-    <div className="fx-scroll-x">
-      <table className="w-full text-left text-[13px]">
-        <thead>
-          <tr>
-            {TABLE_COLUMNS.map(({ label, key }) => {
-              const active = sort.key === key;
-              const Arrow = sort.dir === "asc" ? ArrowUp : ArrowDown;
-              return (
-                <th
-                  key={key}
-                  aria-sort={
-                    active
-                      ? sort.dir === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : "none"
-                  }
-                  className="sticky top-0 z-10 border-b border-border bg-muted/80 p-0 text-left text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase backdrop-blur"
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSort(key);
-                    }}
-                    className={cn(
-                      "flex w-full cursor-pointer items-center gap-1 px-3 py-2 uppercase transition-colors duration-150 hover:text-foreground",
-                      active && "text-foreground",
-                    )}
-                  >
-                    {label}
-                    <Arrow
-                      aria-hidden="true"
-                      className={cn(
-                        "size-3 shrink-0",
-                        active ? "opacity-100" : "opacity-0",
-                      )}
-                    />
-                  </button>
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
+    <div className="scroll-fade-x overflow-x-auto px-1 py-1 [&_tbody>tr:last-child]:border-transparent">
+      <Table className="min-w-[860px]">
+        <TableHeader>
+          <TableRow>
+            {TABLE_COLUMNS.map(({ label, key }) => (
+              <SortHead
+                key={key}
+                label={label}
+                active={sort.key === key}
+                dir={sort.dir}
+                onSort={() => {
+                  onSort(key);
+                }}
+              />
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody className="reveal-items">
           {rows.map((row, index) => {
             const meta = KIND_META[row.kind];
             const Icon = meta.icon;
+            const open = () => {
+              onSelect(row.finding);
+            };
             return (
-              <tr
+              <TableRow
                 key={index}
+                index={index}
                 tabIndex={0}
                 aria-label="Open download row detail"
-                onClick={() => {
-                  onSelect(row.finding);
-                }}
+                onClick={open}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onSelect(row.finding);
-                  }
+                  activateOnKey(event, open);
                 }}
-                className="cursor-pointer border-b border-border/70 transition-colors duration-100 last:border-b-0 hover:bg-accent/40"
+                className={ROW_FOCUS_CLASS}
               >
-                <td className="px-3 py-2.5 whitespace-nowrap">
-                  <span className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
-                    <Icon aria-hidden="true" className="size-3.5" />
+                <TableCell className="whitespace-nowrap">
+                  <span className="inline-flex items-center gap-2">
+                    <Icon
+                      aria-hidden="true"
+                      size={size.icon}
+                      strokeWidth={1.5}
+                      className="shrink-0"
+                    />
                     {meta.label}
                   </span>
-                </td>
-                <td className="max-w-[300px] px-3 py-2.5">
+                </TableCell>
+                <TableCell className="max-w-[300px]">
                   {row.name === null ? (
                     <AbsentWord />
                   ) : (
                     <span
-                      className="block truncate font-medium text-foreground/90"
+                      className="block truncate text-foreground"
                       title={row.path ?? row.name}
                     >
                       {row.name}
                     </span>
                   )}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-[12.5px] tabular-nums">
+                </TableCell>
+                <TableCell className="whitespace-nowrap tabular-nums">
                   {row.bytes === null ? <AbsentWord /> : formatBytes(row.bytes)}
-                </td>
-                <td className="max-w-[220px] px-3 py-2.5">
+                </TableCell>
+                <TableCell className="max-w-[240px]">
                   {row.host === null ? (
                     <AbsentWord />
                   ) : (
-                    <span className="flex min-w-0 items-center gap-2">
+                    <span className="flex min-w-0 items-center gap-2.5">
                       <SiteAvatar host={row.host} />
                       <span
-                        className="truncate text-[12.5px] text-muted-foreground"
+                        className="truncate"
                         title={row.sourceUrl ?? row.host}
                       >
                         {row.host}
                       </span>
                     </span>
                   )}
-                </td>
-                <td className="px-3 py-2.5">
+                </TableCell>
+                <TableCell>
                   <TimeCell utc={row.startUtc} />
-                </td>
-                <td className="px-3 py-2.5">
+                </TableCell>
+                <TableCell>
                   <DownloadState state={row.state} />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/* --------------------------------- loading --------------------------------- */
+
+/** The read in flight: how far the cursor walk has got, over placeholders at
+ *  the size of the blocks they stand in for. */
+function DownloadsLoading({ pages }: { readonly pages: number }) {
+  const size = useSize();
+  return (
+    <div
+      className="flex flex-col gap-5"
+      role="status"
+      aria-label="Loading downloads"
+    >
+      <p
+        className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
+        aria-live="polite"
+      >
+        {pages === 0
+          ? "Reading downloads…"
+          : `Reading downloads… ${pages.toLocaleString("en-US")} page${
+              pages === 1 ? "" : "s"
+            } loaded`}
+      </p>
+      <Skeleton className="h-[86px] rounded-xl" />
+      <Skeleton className="h-[318px] rounded-xl" />
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Skeleton className="h-[340px] rounded-xl" />
+        <Skeleton className="h-[340px] rounded-xl" />
+      </div>
     </div>
   );
 }
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function DownloadsPage({
-  config,
-}: {
-  readonly config: ArtifactConfig;
-}) {
+export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
   const { rows, complete, error, pages, retry } = useDownloads(config.route);
   const reduced = usePrefersReducedMotion();
   const [selected, setSelected] = useState<SelectedRow | null>(null);
@@ -1107,7 +1259,9 @@ export function DownloadsPage({
 
   // Clicking a file kind (or picking a day range) narrows the table that sits
   // below the fold on a tall monitor; without this the table would change
-  // silently. A brief ring pulse plus a scroll-into-view draws the eye down.
+  // silently. A brief focus-ring pulse plus a scroll-into-view draws the eye
+  // down. The timer only decides how long the ring is shown; the ring itself
+  // fades in and out on the spring tokens.
   const tableRef = useRef<HTMLDivElement | null>(null);
   const [pulse, setPulse] = useState(0);
   const [pulsing, setPulsing] = useState(false);
@@ -1234,103 +1388,44 @@ export function DownloadsPage({
         ? formatDay(summary.firstUtc.slice(0, 10))
         : `${formatDay(summary.firstUtc.slice(0, 10))} — ${formatDay(summary.lastUtc.slice(0, 10))}`;
 
+  const clearAll = () => {
+    setKindFilter(null);
+    setRange({ from: "", to: "" });
+    setSearch("");
+  };
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
+      <Coverage artifact={config.completenessArtifact} />
 
       {error !== null ? (
-        <div
-          role="alert"
-          className="flex items-start gap-2.5 rounded-md border border-destructive-border bg-destructive-wash px-3.5 py-3"
-        >
-          <div className="flex-1">
-            <p className="text-[13px] font-medium text-destructive">
-              The downloads could not be loaded.
-            </p>
-            <p className="text-[12.5px] text-destructive/80">{error}</p>
-          </div>
-          <Button onClick={retry} size="sm" className="shrink-0">
-            Retry
-          </Button>
-        </div>
+        <Panel>
+          <ErrorRows
+            title="The downloads could not be loaded."
+            message={error}
+            onRetry={retry}
+          />
+        </Panel>
       ) : rows === null ? (
-        <div className="flex flex-col gap-3" aria-label="Loading downloads">
-          <p
-            className="text-[12.5px] text-muted-foreground tabular-nums"
-            aria-live="polite"
-          >
-            {pages === 0
-              ? "Reading downloads…"
-              : `Reading downloads… ${pages.toLocaleString("en-US")} page${
-                  pages === 1 ? "" : "s"
-                } loaded`}
-          </p>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <Skeleton className="h-[104px] rounded-xl" />
-            <Skeleton className="h-[104px] rounded-xl" />
-            <Skeleton className="h-[104px] rounded-xl" />
-            <Skeleton className="h-[104px] rounded-xl" />
-          </div>
-          <Skeleton className="h-[250px] w-full rounded-lg" />
-          <Skeleton className="h-[300px] w-full rounded-lg" />
-        </div>
+        <DownloadsLoading pages={pages} />
       ) : model.length === 0 ? (
-        <SectionCard title="Downloads">
+        <SectionPanel id="downloads-empty-title" title="Downloads">
           <EmptyRows message="No downloads recorded in this Case." />
-        </SectionCard>
+        </SectionPanel>
       ) : (
         <>
           {!complete ? (
-            <div
-              role="alert"
-              className="rounded-md border border-warning-border bg-warning-wash px-3 py-2 text-[12.5px] text-warning"
-            >
-              These figures cover the first{" "}
-              {model.length.toLocaleString("en-US")} downloads read — the most
-              this page loads at once. More rows exist in the Case.
-            </div>
+            <Banner status="warning" contrast="high">
+              <BannerTitle>These figures cover part of the Case.</BannerTitle>
+              <BannerDescription>
+                They cover the first {model.length.toLocaleString("en-US")}{" "}
+                downloads read — the most this page loads at once. More rows
+                exist in the Case.
+              </BannerDescription>
+            </Banner>
           ) : null}
 
-          {/* Volume over time — the hero, full width. Drag across it to focus
-              the table below on a date range, the same gesture the Timeline
-              and History activity charts use. */}
-          <ChartSection
-            title="Downloads over time"
-            description="Bytes transferred per day. Choose a range or drag across the bars."
-            action={
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <DateRangePicker
-                  from={range.from}
-                  to={range.to}
-                  min={summary.firstUtc?.slice(0, 10) ?? null}
-                  max={summary.lastUtc?.slice(0, 10) ?? null}
-                  triggerLabel="All recorded days"
-                  formatDate={formatDay}
-                  onChange={setRange}
-                  className="h-8"
-                />
-                {hasRange ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRange({ from: "", to: "" });
-                    }}
-                    className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 text-[12px] font-medium text-foreground/80 transition-colors duration-150 hover:text-foreground"
-                  >
-                    Clear
-                    <X aria-hidden="true" className="size-3" />
-                    <span className="sr-only">Clear the date range</span>
-                  </button>
-                ) : null}
-              </div>
-            }
-          >
-            <VolumeChart rows={model} range={range} onRangeChange={setRange} />
-          </ChartSection>
-
-          <MetricBand
-            variant="accent"
-            className="relative z-10 -mt-6 grid-cols-2 px-3 sm:grid-cols-4 sm:px-4"
-          >
+          <MetricBand className="grid-cols-2 lg:grid-cols-4">
             <MetricBandItem
               label="Files downloaded"
               value={summary.total.toLocaleString("en-US")}
@@ -1357,107 +1452,163 @@ export function DownloadsPage({
             />
           </MetricBand>
 
+          {/* Volume over time. Drag across it (or pick a range) to focus the
+              table below, the same gesture the Timeline and History activity
+              charts use. The picker carries its own clear. */}
+          <ChartSection
+            title="Downloads over time"
+            description="Bytes transferred per day. Choose a range or drag across the bars."
+            action={
+              <DateRangePicker
+                from={range.from}
+                to={range.to}
+                min={summary.firstUtc?.slice(0, 10) ?? null}
+                max={summary.lastUtc?.slice(0, 10) ?? null}
+                triggerLabel="All recorded days"
+                formatDate={formatDay}
+                onChange={setRange}
+                presets
+              />
+            }
+          >
+            <div className="px-2 pt-2 pb-3">
+              <VolumeChart
+                rows={model}
+                range={range}
+                onRangeChange={setRange}
+              />
+            </div>
+          </ChartSection>
+
           {/* File kinds + sources — the two lenses an examiner scans a
-              downloads set through, side by side. Clicking a file kind
+              downloads set through, side by side. Picking a file kind
               focuses the table below on it. */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <SectionCard
+          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+            <SectionPanel
+              id="downloads-kinds-title"
               title="By file kind"
-              description="Click a kind to focus the table."
+              description="Pick a kind to focus the table."
             >
               <KindBreakdown
                 rows={model}
                 activeKind={kindFilter}
                 onKind={onKind}
               />
-            </SectionCard>
-            <SectionCard title="Top sources" description="By total bytes.">
+            </SectionPanel>
+            <SectionPanel
+              id="downloads-sources-title"
+              title="Top sources"
+              description="By total bytes."
+            >
               <SourceHosts rows={model} />
-            </SectionCard>
+            </SectionPanel>
           </div>
 
           {/* The raw rows. */}
-          <div
-            ref={tableRef}
-            className={cn(
-              "scroll-mt-4 rounded-lg transition-shadow duration-300",
-              pulsing && "ring-2 ring-primary/60",
-            )}
-          >
-          <SectionCard title="All downloads" count={visible.length}>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/70 px-4 py-2.5">
-              {kindFilter !== null ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setKindFilter(null);
-                  }}
-                  className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-accent-border bg-accent px-2.5 text-[12px] font-medium text-accent-foreground transition-colors duration-150"
-                >
-                  {KIND_META[kindFilter].label}
-                  <span aria-hidden="true">×</span>
-                  <span className="sr-only">Clear the file-kind filter</span>
-                </button>
-              ) : null}
-              {hasRange ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRange({ from: "", to: "" });
-                  }}
-                  className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 text-[12px] font-medium text-foreground/80 transition-colors duration-150 hover:text-foreground"
-                >
-                  {range.from === "" ? "…" : formatTick(range.from)} —{" "}
-                  {range.to === "" ? "…" : formatTick(range.to)}
-                  <X aria-hidden="true" className="size-3" />
-                  <span className="sr-only">Clear the date range</span>
-                </button>
-              ) : null}
-              <label className="relative ml-auto">
-                <Search
+          <div ref={tableRef} className="relative scroll-mt-4">
+            <SectionPanel
+              id="downloads-all-title"
+              title="All downloads"
+              count={visible.length}
+              action={
+                <SizeProvider size="compact">
+                  <div
+                    role="group"
+                    aria-label="Filter loaded downloads"
+                    className="flex flex-wrap items-center gap-2 max-sm:w-full"
+                  >
+                    {kindFilter !== null ? (
+                      <Button
+                        variant="tertiary"
+                        trailingIcon={X}
+                        aria-label={`File kind: ${KIND_META[kindFilter].label}. Clear the file-kind filter`}
+                        onClick={() => {
+                          setKindFilter(null);
+                        }}
+                      >
+                        {KIND_META[kindFilter].label}
+                      </Button>
+                    ) : null}
+                    {hasRange ? (
+                      <Button
+                        variant="tertiary"
+                        trailingIcon={X}
+                        aria-label="Clear the date range"
+                        onClick={() => {
+                          setRange({ from: "", to: "" });
+                        }}
+                      >
+                        {range.from === "" ? "…" : formatTick(range.from)} —{" "}
+                        {range.to === "" ? "…" : formatTick(range.to)}
+                      </Button>
+                    ) : null}
+                    {/* Narrows the rows already loaded, live as you type — no
+                        new query, so there is nothing to commit. */}
+                    <InputGroup className="w-64 max-sm:w-full [&_label+div]:ring-border">
+                      <InputField
+                        index={0}
+                        label="Search loaded downloads"
+                        labelHidden
+                        icon={Search}
+                        value={search}
+                        placeholder="Search file, path, or source…"
+                        onChange={setSearch}
+                      />
+                    </InputGroup>
+                  </div>
+                </SizeProvider>
+              }
+            >
+              <div className="border-t border-border">
+                {visible.length === 0 ? (
+                  <EmptyRows
+                    message={
+                      filtered
+                        ? "No loaded downloads match these filters."
+                        : "No downloads in this Case."
+                    }
+                    action={
+                      filtered ? (
+                        <Button
+                          variant="tertiary"
+                          size="compact"
+                          onClick={clearAll}
+                        >
+                          Clear filters
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                ) : (
+                  <DownloadsTable
+                    rows={visible}
+                    sort={sort}
+                    onSort={onSort}
+                    onSelect={select}
+                  />
+                )}
+              </div>
+
+              <PanelFooter className="min-h-12">
+                <TableSummary
+                  shown={visible.length}
+                  total={model.length}
+                  filtered={filtered}
+                />
+              </PanelFooter>
+            </SectionPanel>
+            <AnimatePresence>
+              {pulsing ? (
+                <motion.span
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-focus-ring"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, transition: spring.slow.exit }}
+                  transition={spring.moderate}
                 />
-                <input
-                  value={search}
-                  onChange={(event) => {
-                    setSearch(event.target.value);
-                  }}
-                  placeholder="Search file, path, or source"
-                  aria-label="Search loaded downloads"
-                  className="h-8 w-[240px] rounded-md border border-input bg-background pr-3 pl-8 text-[12.5px] outline-none focus:ring-2 focus:ring-ring"
-                />
-              </label>
-            </div>
-
-            {visible.length === 0 ? (
-              <EmptyRows
-                message={
-                  filtered
-                    ? "No loaded downloads match these filters."
-                    : "No downloads in this Case."
-                }
-              />
-            ) : (
-              <DownloadsTable
-                rows={visible}
-                sort={sort}
-                onSort={onSort}
-                onSelect={select}
-              />
-            )}
-
-            <div className="flex items-center gap-3 border-t border-border/70 px-4 py-2.5">
-              <p
-                className="text-[12.5px] text-muted-foreground tabular-nums"
-                aria-live="polite"
-              >
-                {filtered
-                  ? `${String(visible.length)} of ${String(model.length)} downloads shown`
-                  : `${String(model.length)} download${model.length === 1 ? "" : "s"} shown`}
-              </p>
-            </div>
-          </SectionCard>
+              ) : null}
+            </AnimatePresence>
           </div>
         </>
       )}
@@ -1465,11 +1616,36 @@ export function DownloadsPage({
       {selected !== null ? (
         <RowSheet
           selected={selected}
+          title={
+            fileNameOf(fieldText(selected.row.fields.targetPath)) ?? "Download"
+          }
           onClose={() => {
             setSelected(null);
           }}
         />
       ) : null}
     </div>
+  );
+}
+
+function TableSummary({
+  shown,
+  total,
+  filtered,
+}: {
+  readonly shown: number;
+  readonly total: number;
+  readonly filtered: boolean;
+}) {
+  const size = useSize();
+  return (
+    <p
+      className={cn(size.type.caption, "text-muted-foreground tabular-nums")}
+      aria-live="polite"
+    >
+      {filtered
+        ? `${String(shown)} of ${String(total)} downloads shown`
+        : `${String(total)} download${total === 1 ? "" : "s"} shown`}
+    </p>
   );
 }

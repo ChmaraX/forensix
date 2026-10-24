@@ -7,23 +7,46 @@
  * keyboard/exact-date precision. The chart states only what the evidence
  * contains: recorded visit counts per local date from the `activity` view,
  * with no smoothing and no projection past the recorded span.
+ *
+ * Drawn from the shared FF chart parts in `charts.tsx`: quiet axes, the
+ * gliding hover band, bars that gain strength under the pointer, and the FF
+ * surface tooltip.
  */
-import { X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
-  Cell,
+  CartesianGrid,
   ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  type BarShapeProps,
+  type MouseHandlerDataParam,
 } from "recharts";
 
-import { cn } from "../lib.js";
+import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
+import { typeClass } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
+
 import { useActivityDays } from "./activity-data.js";
-import { useChartTokens, usePrefersReducedMotion } from "./charts.js";
+import {
+  activeIndexOf,
+  chartAnimation,
+  chartAxis,
+  chartGrid,
+  ChartTooltipCard,
+  ChartTooltipNote,
+  ChartTooltipValue,
+  FluidBandCursor,
+  FluidBar,
+  tooltipEntry,
+  useChartTokens,
+  usePrefersReducedMotion,
+  chartTooltipMotion,
+  CHART_FOCUS_CLASS,
+} from "./charts.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
@@ -38,6 +61,8 @@ export interface DayRange {
 /** Same shape as `charts.js`'s `DayCount` — aliased here so the rest of this
  *  file (written before the two were unified) doesn't need a rename. */
 type ActivityDay = import("./charts.js").DayCount;
+
+const CHART_HEIGHT = "h-[220px]";
 
 function formatDay(date: string): string {
   const parsed = new Date(`${date}T00:00:00Z`);
@@ -66,8 +91,8 @@ function formatTick(date: string): string {
 
 /**
  * The widget. `range` is owned by the page so the table below can filter on
- * it; the chart, the picker, and the clear pill all read and write the same
- * value.
+ * it; the chart, the picker, and the picker's clear button all read and write
+ * the same value.
  */
 export function TimelineActivityCard({
   range,
@@ -81,6 +106,7 @@ export function TimelineActivityCard({
   const { days, error } = useActivityDays();
   const [dragStart, setDragStart] = useState<string | null>(null);
   const [dragCurrent, setDragCurrent] = useState<string | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const hasRange = range.from !== "" || range.to !== "";
   const dragging = dragStart !== null;
@@ -114,10 +140,6 @@ export function TimelineActivityCard({
     setDragCurrent(null);
   }, [dragStart, dragCurrent, onRangeChange]);
 
-  const clear = useCallback(() => {
-    onRangeChange({ from: "", to: "" });
-  }, [onRangeChange]);
-
   const inHighlight = useCallback(
     (date: string) =>
       highlight === null ||
@@ -148,162 +170,184 @@ export function TimelineActivityCard({
           stats.busiest.count === 1 ? "" : "s"
         }`;
 
+  const dateAt = (state: MouseHandlerDataParam | undefined) => {
+    const index = activeIndexOf(state);
+    return index === null || days === null ? null : (days[index]?.date ?? null);
+  };
+
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-3">
       <ChartSection
         title="Activity"
         description="Recorded page visits per day. Choose a range or drag across the chart."
         action={
-          <div className="flex flex-wrap items-center gap-2">
-            {hasRange ? (
-              <button
-                type="button"
-                onClick={clear}
-                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 text-[12px] font-medium text-foreground/80 transition-colors duration-150 hover:text-foreground"
-              >
-                {range.from === "" ? "…" : formatTick(range.from)} —{" "}
-                {range.to === "" ? "…" : formatTick(range.to)}
-                <X aria-hidden="true" className="size-3" />
-                <span className="sr-only">Clear the date range</span>
-              </button>
-            ) : null}
-            {days !== null && days.length > 0 ? (
-              <DateRangePicker
-                from={range.from}
-                to={range.to}
-                min={days[0]?.date ?? null}
-                max={days[days.length - 1]?.date ?? null}
-                triggerLabel="All recorded days"
-                formatDate={formatDay}
-                onChange={onRangeChange}
-                className="h-8 rounded-md"
-              />
-            ) : null}
-          </div>
+          days !== null && days.length > 0 ? (
+            <DateRangePicker
+              from={range.from}
+              to={range.to}
+              min={days[0]?.date ?? null}
+              max={days[days.length - 1]?.date ?? null}
+              triggerLabel="All recorded days"
+              formatDate={formatDay}
+              onChange={onRangeChange}
+              presets
+            />
+          ) : undefined
         }
       >
-
-        {/* Extra bottom padding is the ledge the figure tiles sit on. */}
-        <div className="px-2 pt-3 pb-16">
+        <div className="px-2 pt-2 pb-3">
           {error !== null ? (
-            <p className="py-10 text-center text-[13px] text-muted-foreground">
-              The activity chart could not be loaded: {error}
-            </p>
-          ) : days === null ? (
-            <Skeleton className="mx-2 h-[220px] w-[calc(100%-1rem)]" />
-          ) : days.length === 0 ? (
-            <p className="py-10 text-center text-[13px] text-muted-foreground">
-              No dated visits to draw.
-            </p>
+            <div className="px-2 pb-1">
+              <Banner status="error" contrast="high">
+                <BannerTitle>
+                  The activity chart could not be loaded
+                </BannerTitle>
+                <BannerDescription>{error}</BannerDescription>
+              </Banner>
+            </div>
           ) : (
-            <div
-              className={cn("h-[220px] w-full", dragging && "cursor-crosshair")}
-              aria-label="Recorded page visits per day"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={days as ActivityDay[]}
-                  margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
-                  onMouseDown={(state) => {
-                    if (typeof state?.activeLabel === "string") {
-                      setDragStart(state.activeLabel);
-                      setDragCurrent(state.activeLabel);
-                    }
-                  }}
-                  onMouseMove={(state) => {
-                    if (
-                      dragStart !== null &&
-                      typeof state?.activeLabel === "string"
-                    ) {
-                      setDragCurrent(state.activeLabel);
-                    }
-                  }}
-                  onMouseUp={commitDrag}
-                  onMouseLeave={commitDrag}
+            <div className="reveal-swap">
+              <div aria-hidden="true" className="px-2">
+                <Skeleton className={cn(CHART_HEIGHT, "w-full rounded-lg")} />
+              </div>
+              {days === null ? null : days.length === 0 ? (
+                <p
+                  className={cn(
+                    typeClass("body"),
+                    CHART_HEIGHT,
+                    "flex items-center justify-center text-muted-foreground",
+                  )}
                 >
-                  <XAxis
-                    dataKey="date"
-                    tickLine={false}
-                    axisLine={false}
-                    minTickGap={48}
-                    tickFormatter={formatTick}
-                    tick={{ fill: tokens["--muted-foreground"], fontSize: 11 }}
-                  />
-                  <YAxis
-                    width={34}
-                    tickLine={false}
-                    axisLine={false}
-                    allowDecimals={false}
-                    tick={{ fill: tokens["--muted-foreground"], fontSize: 11 }}
-                  />
-                  <Tooltip
-                    cursor={{ fill: tokens["--muted"], opacity: 0.5 }}
-                    content={({ payload }) => {
-                      const entry = Array.isArray(payload)
-                        ? (payload[0] as
-                            | { payload?: ActivityDay }
-                            | undefined)
-                        : undefined;
-                      const row = entry?.payload;
-                      return row === undefined ? null : (
-                        <div
-                          className="rounded-md border px-3 py-2 text-[12px] shadow-md"
-                          style={{
-                            backgroundColor: tokens["--card"],
-                            borderColor: tokens["--border"],
-                            color: tokens["--foreground"],
-                          }}
-                        >
-                          <p className="font-medium">{formatDay(row.date)}</p>
-                          <p
-                            className="tabular-nums"
-                            style={{ color: tokens["--muted-foreground"] }}
-                          >
-                            {row.count.toLocaleString("en-US")} page visits
-                          </p>
-                        </div>
-                      );
-                    }}
-                  />
-                  {dragging &&
-                  highlight !== null &&
-                  highlight.from !== highlight.to ? (
-                    <ReferenceArea
-                      x1={highlight.from}
-                      x2={highlight.to}
-                      fill={tokens["--primary"]}
-                      fillOpacity={0.08}
-                      stroke={tokens["--primary"]}
-                      strokeOpacity={0.25}
-                    />
-                  ) : null}
-                  <Bar
-                    dataKey="count"
-                    radius={[3, 3, 0, 0]}
-                    isAnimationActive={!reduced}
-                    animationDuration={500}
-                    minPointSize={1}
+                  No dated visits to draw.
+                </p>
+              ) : (
+                <div
+                  className={cn(
+                    CHART_HEIGHT,
+                    "w-full select-none",
+                    dragging ? "cursor-col-resize" : "cursor-pointer",
+                  )}
+                  role="img"
+                  aria-label="Recorded page visits per day"
+                >
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                    className={CHART_FOCUS_CLASS}
                   >
-                    {days.map((day) => (
-                      <Cell
-                        key={day.date}
-                        fill={tokens["--primary"]}
-                        fillOpacity={inHighlight(day.date) ? 0.9 : 0.18}
+                    <BarChart
+                      data={days as ActivityDay[]}
+                      margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+                      barCategoryGap="18%"
+                      onMouseDown={(state) => {
+                        const date = dateAt(state);
+                        if (date !== null) {
+                          setDragStart(date);
+                          setDragCurrent(date);
+                        }
+                      }}
+                      onMouseMove={(state) => {
+                        setHoverIndex(activeIndexOf(state));
+                        if (dragStart !== null) {
+                          const date = dateAt(state);
+                          if (date !== null) {
+                            setDragCurrent(date);
+                          }
+                        }
+                      }}
+                      onMouseUp={commitDrag}
+                      onMouseLeave={() => {
+                        setHoverIndex(null);
+                        commitDrag();
+                      }}
+                    >
+                      <CartesianGrid {...chartGrid(tokens)} />
+                      <XAxis
+                        dataKey="date"
+                        {...chartAxis(tokens)}
+                        minTickGap={48}
+                        tickFormatter={formatTick}
                       />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                      <YAxis
+                        width={40}
+                        {...chartAxis(tokens)}
+                        allowDecimals={false}
+                        tickFormatter={(value: number) =>
+                          value.toLocaleString("en-US")
+                        }
+                      />
+                      <Tooltip
+                        {...chartTooltipMotion(reduced)}
+                        cursor={<FluidBandCursor fill={tokens["--hover"]} />}
+                        content={({ payload }) => {
+                          const row = tooltipEntry(payload);
+                          if (row === null) {
+                            return null;
+                          }
+                          const count = Number(row["count"]);
+                          const date = String(row["date"]);
+                          return (
+                            <ChartTooltipCard label={formatDay(date)}>
+                              <ChartTooltipValue
+                                value={count.toLocaleString("en-US")}
+                                unit={
+                                  count === 1 ? "page visit" : "page visits"
+                                }
+                              />
+                              {dragging ? null : (
+                                <ChartTooltipNote>
+                                  Click to focus this day, drag for a range
+                                </ChartTooltipNote>
+                              )}
+                            </ChartTooltipCard>
+                          );
+                        }}
+                      />
+                      {dragging &&
+                      highlight !== null &&
+                      highlight.from !== highlight.to ? (
+                        <ReferenceArea
+                          x1={highlight.from}
+                          x2={highlight.to}
+                          fill={tokens["--primary"]}
+                          fillOpacity={0.07}
+                          strokeOpacity={0}
+                          radius={6}
+                        />
+                      ) : null}
+                      <Bar
+                        dataKey="count"
+                        radius={[3, 3, 0, 0]}
+                        {...chartAnimation(reduced)}
+                        minPointSize={1}
+                        fill={tokens["--primary"]}
+                        shape={(props: BarShapeProps) => {
+                          const day = days[props.originalDataIndex];
+                          return (
+                            <FluidBar
+                              {...props}
+                              fill={tokens["--primary"]}
+                              opacity={
+                                day === undefined || inHighlight(day.date)
+                                  ? 0.9
+                                  : 0.18
+                              }
+                              hovered={props.originalDataIndex === hoverIndex}
+                            />
+                          );
+                        }}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           )}
         </div>
       </ChartSection>
 
       {days !== null && days.length > 0 && stats !== null ? (
-        <MetricBand
-          variant="accent"
-          className="relative z-10 -mt-10 grid-cols-2 px-3 sm:grid-cols-3 sm:px-4"
-        >
+        <MetricBand className="grid-cols-2 sm:grid-cols-3">
           <MetricBandItem
             label={hasRange ? "Visits in range" : "Recorded visits"}
             value={stats.visits.toLocaleString("en-US")}
@@ -314,10 +358,7 @@ export function TimelineActivityCard({
           />
           <MetricBandItem
             label="Busiest day"
-            value={
-              stats.busiest === null ? "—" : formatDay(stats.busiest.date)
-            }
-            valueClassName="text-[24px]"
+            value={stats.busiest === null ? "—" : formatDay(stats.busiest.date)}
             detail={busiestNote}
           />
         </MetricBand>

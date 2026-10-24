@@ -64,24 +64,25 @@ export function CommitBadge({ state }: { readonly state: CommitState }) {
 }
 
 /**
- * Completeness outcomes. The word is the state; `className` colors it with
- * the outcome's theme token (legacy pages) and `evidence` names the FF Badge
- * / dot to use instead (see evidence.tsx).
+ * Completeness outcomes. The word is the state; `evidence` names the FF
+ * Badge / dot that repeats it in color (see evidence.tsx). `className` is
+ * the text color for the bare word — one of FF's two text colors; the hue
+ * belongs on the dot or Badge, never on the word.
  */
 export const OUTCOME_META = {
   produced: {
     label: "available",
-    className: "text-success font-medium",
+    className: "text-foreground",
     evidence: "produced",
   },
   absent: {
     label: "not present",
-    className: "text-muted-foreground italic",
+    className: "text-muted-foreground",
     evidence: "absent",
   },
   unavailable: {
     label: "unreadable",
-    className: "text-destructive font-medium",
+    className: "text-foreground",
     evidence: "unavailable",
   },
 } as const satisfies Record<

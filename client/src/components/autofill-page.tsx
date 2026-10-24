@@ -14,33 +14,82 @@
  *    ADDRESS_HOME_ZIP, search-query, …) into the plain-language classes an
  *    examiner reasons in (Identity, Contact, Address, Payment, Searches,
  *    Other). The mapping is a fixed rule stated below, not a guess: the field
- *    name Chrome recorded fully determines the class;
+ *    name Chrome recorded fully determines the class. Each class doubles as a
+ *    filter for the table;
  *  - a reuse leaderboard, ranked by the browser's own `timesUsed` count — the
  *    values the person filled most often;
  *  - a creation-over-time area, one point per week, drawn only across weeks
  *    the evidence actually spans.
  *
- * Presentation rules kept: the Completeness Statement ("Evidence coverage")
- * renders before any row; TYPE (the field type) is the first table column;
- * `absent` renders as the word, never a blank; state is a worded dot, never
- * color alone. No control here can start or rerun ingest, analysis, or export.
+ * Presentation rules kept: TYPE (the field type) is the first table column;
+ * saved entries and entries recovered from WAL / journal sidecars are
+ * separate lists (the Saved / Recovered switch), never sorted together;
+ * `absent` and `(empty)` render as words, never a blank; state is a worded
+ * dot, never colour alone. No control here can start or rerun ingest,
+ * analysis, or export.
  */
-import { Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ClipboardList, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip as ChartTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+import {
+  Panel,
+  PanelDescription,
+  PanelHeader,
+  PanelTitle,
+} from "@/components/panel";
+import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
+import { badgeColors, type BadgeColor } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/misc";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@/hooks/use-fluid-hover";
+import { fontWeights } from "@/lib/font-weight";
+import { useShape } from "@/lib/shape-context";
+import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
 
 import { callApi } from "../api.js";
-import { cn } from "../lib.js";
-import type {
-  ArtifactConfig,
-  Finding,
-  PageOf,
-} from "../types.js";
+import type { ArtifactConfig, Finding, PageOf } from "../types.js";
 import {
+  CHART_FOCUS_CLASS,
+  chartAnimation,
+  chartAxis,
+  chartGrid,
+  ChartEmpty,
+  ChartTooltipCard,
+  ChartTooltipValue,
+  chartTooltipMotion,
+  tooltipEntry,
   useChartTokens,
   usePrefersReducedMotion,
   type ChartTokens,
 } from "./charts.js";
-import { EmptyRows } from "./data-table.js";
+import { activateOnKey, EmptyRows, ROW_FOCUS_CLASS } from "./data-table.js";
 import {
   AbsentWord,
   fieldInteger,
@@ -49,19 +98,10 @@ import {
   formatInstant,
   StateWord,
 } from "./finding-fields.js";
-import { RowSheet, type SelectedRow } from "./row-sheet.js";
+import { FilterField, FilterTextField } from "./filters.js";
+import { ErrorRows } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
-import { Button } from "./compat/button.js";
-import { Skeleton } from "./ui/misc.js";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { RowSheet, type SelectedRow } from "./row-sheet.js";
 
 /** One read of the whole Form data set across every Commit State, paginated
  *  by the route until the cursor runs out or the page cap is hit. The derived
@@ -150,13 +190,15 @@ function useAutofill(route: string) {
  * ADDRESS_HOME_ZIP, CREDIT_CARD_NUMBER); free-text form fields the person
  * typed into keep their raw HTML `name`/`id` (search-query, q, email). Both
  * are matched case-insensitively.
+ *
+ * Each class carries one hue (an FF Badge colour), used on its dot and its
+ * bar segment; the class name always sits beside it.
  */
 interface Category {
   readonly key: string;
   readonly label: string;
   readonly hint: string;
-  readonly dot: string;
-  readonly fill: string;
+  readonly color: BadgeColor;
   readonly matches: (name: string) => boolean;
 }
 
@@ -168,8 +210,7 @@ const OTHER_CATEGORY: Category = {
   key: "other",
   label: "Other",
   hint: "Everything Chrome did not label as the above",
-  dot: "bg-muted-foreground/60",
-  fill: "var(--muted-foreground)",
+  color: "gray",
   matches: () => true,
 };
 
@@ -178,24 +219,21 @@ const CATEGORIES: readonly Category[] = [
     key: "identity",
     label: "Identity",
     hint: "Names and who the person is",
-    dot: "bg-primary",
-    fill: "var(--primary)",
+    color: "blue",
     matches: (name) => /\bname\b|company|first|last|middle/.test(name),
   },
   {
     key: "contact",
     label: "Contact",
     hint: "E-mail and phone",
-    dot: "bg-success",
-    fill: "var(--success)",
+    color: "green",
     matches: (name) => /email|e_mail|phone|tel\b|mobile|fax/.test(name),
   },
   {
     key: "address",
     label: "Address",
     hint: "Postal and location fields",
-    dot: "bg-warning",
-    fill: "var(--warning)",
+    color: "amber",
     matches: (name) =>
       /address|street|city|state|zip|postal|country|province|region/.test(name),
   },
@@ -203,16 +241,15 @@ const CATEGORIES: readonly Category[] = [
     key: "payment",
     label: "Payment",
     hint: "Card and wallet fields",
-    dot: "bg-destructive",
-    fill: "var(--destructive)",
-    matches: (name) => /card|credit|cvc|cvv|wallet|iban|account_number/.test(name),
+    color: "red",
+    matches: (name) =>
+      /card|credit|cvc|cvv|wallet|iban|account_number/.test(name),
   },
   {
     key: "searches",
     label: "Searches",
     hint: "Free text typed into search and query boxes",
-    dot: "bg-violet",
-    fill: "var(--violet)",
+    color: "violet",
     matches: (name) => /search|query|\bq\b|find|lookup|keyword/.test(name),
   },
   OTHER_CATEGORY,
@@ -221,7 +258,9 @@ const CATEGORIES: readonly Category[] = [
 /** The class of one Chrome field name, resolved once by the fixed rule above. */
 function categoryOf(fieldName: string | null): Category {
   const name = (fieldName ?? "").toLowerCase();
-  return CATEGORIES.find((category) => category.matches(name)) ?? OTHER_CATEGORY;
+  return (
+    CATEGORIES.find((category) => category.matches(name)) ?? OTHER_CATEGORY
+  );
 }
 
 /**
@@ -371,37 +410,69 @@ function useDerived(rows: readonly Finding[]): Derived {
   }, [rows]);
 }
 
+/** A category's dot: its hue, always beside its name. */
+function CategoryDot({
+  category,
+  className,
+}: {
+  readonly category: Category;
+  readonly className?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("inline-block size-2 shrink-0 rounded-full", className)}
+      style={{ backgroundColor: badgeColors[category.color] }}
+    />
+  );
+}
 
 /**
  * The category breakdown: one stacked bar showing each class's share of the
- * whole set, then a legend that doubles as the exact counts. This is the
- * page's headline read — "what kinds of personal data does this browser hold"
- * — so it ranks first. The bar is a proportion of counts the rows carry, never a
- * score or a projection.
+ * whole set, then the classes themselves as a grid of choices — each names
+ * its class, says what it covers, and gives the exact count. Picking a class
+ * narrows the table below to it (a second pick clears), so the grid takes
+ * FF's 2-D fluid hover. The bar is a proportion of counts the rows carry,
+ * never a score or a projection.
  */
 function CategoryBreakdown({
   categories,
   total,
+  activeKey,
+  onPick,
 }: {
   readonly categories: Derived["categories"];
   readonly total: number;
+  readonly activeKey: string | null;
+  readonly onPick: (key: string) => void;
 }) {
+  const gridRef = useRef<HTMLUListElement>(null);
+  const hover = useFluidHover(gridRef, {
+    axis: "xy",
+    gapClick: { maxDistance: 16 },
+  });
+  const shape = useShape();
   if (total === 0 || categories.length === 0) {
     return null;
   }
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
-      <header className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b border-border px-4 py-2.5">
-        <h2 className="text-[13px] font-semibold">Saved data by category</h2>
-        <p className="text-[12px] text-muted-foreground">
-          Chrome's field types, grouped into what they describe.
-        </p>
-      </header>
-      <div className="flex flex-col gap-4 px-4 py-4">
+    <Panel>
+      <PanelHeader>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <PanelTitle>Saved data by category</PanelTitle>
+          <PanelDescription>
+            Chrome's field types, grouped into what they describe. Pick one to
+            narrow the table.
+          </PanelDescription>
+        </div>
+      </PanelHeader>
+      <div className="flex flex-col gap-3 px-4 pt-2 pb-1">
         <div
-          className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
+          className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full"
           role="img"
-          aria-label="Share of saved form entries by category"
+          aria-label={categories
+            .map((entry) => `${entry.category.label} ${String(entry.count)}`)
+            .join(", ")}
         >
           {categories.map((entry) => (
             <span
@@ -409,47 +480,129 @@ function CategoryBreakdown({
               className="h-full first:rounded-l-full last:rounded-r-full"
               style={{
                 width: `${String((entry.count / total) * 100)}%`,
-                backgroundColor: entry.category.fill,
+                backgroundColor: badgeColors[entry.category.color],
               }}
-              title={`${entry.category.label}: ${String(entry.count)}`}
             />
           ))}
         </div>
-        <ul className="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((entry) => (
-            <li
-              key={entry.category.key}
-              className="flex items-center gap-2.5"
-            >
-              <span
-                aria-hidden="true"
-                className={cn("size-2.5 shrink-0 rounded-full", entry.category.dot)}
-              />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-[13px] font-medium">
-                  {entry.category.label}
-                </span>
-                <span className="truncate text-[11.5px] text-muted-foreground">
-                  {entry.category.hint}
-                </span>
-              </span>
-              <span className="shrink-0 font-mono text-[13px] font-semibold tabular-nums">
-                {entry.count}
-              </span>
-            </li>
-          ))}
-        </ul>
       </div>
-    </section>
+      <ul
+        ref={gridRef}
+        {...hover.handlers}
+        className="relative grid grid-cols-1 gap-x-1 px-1 pb-1 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        <FluidHoverHighlight hover={hover} className={shape.item} />
+        {categories.map((entry, index) => (
+          <CategoryChoice
+            key={entry.category.key}
+            index={index}
+            registerItem={hover.registerItem}
+            category={entry.category}
+            count={entry.count}
+            share={Math.round((entry.count / total) * 100)}
+            active={activeKey === entry.category.key}
+            onPick={onPick}
+          />
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+function CategoryChoice({
+  index,
+  registerItem,
+  category,
+  count,
+  share,
+  active,
+  onPick,
+}: {
+  readonly index: number;
+  readonly registerItem: (index: number, element: HTMLElement | null) => void;
+  readonly category: Category;
+  readonly count: number;
+  readonly share: number;
+  readonly active: boolean;
+  readonly onPick: (key: string) => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const shape = useShape();
+  useRegisterFluidHoverItem(registerItem, index, ref);
+  return (
+    <li>
+      <button
+        ref={ref}
+        type="button"
+        aria-pressed={active}
+        onClick={() => {
+          onPick(category.key);
+        }}
+        className={cn(
+          "relative flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition-colors duration-80",
+          shape.item,
+          active && "bg-active",
+        )}
+      >
+        <CategoryDot category={category} />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span
+            className={cn(typeClass("body"), "inline-grid text-foreground")}
+          >
+            <span
+              className="col-start-1 row-start-1 transition-[font-variation-settings] duration-80"
+              style={{
+                fontVariationSettings: active
+                  ? fontWeights.semibold
+                  : fontWeights.normal,
+              }}
+            >
+              {category.label}
+            </span>
+            <span
+              aria-hidden="true"
+              className="invisible col-start-1 row-start-1"
+              style={{ fontVariationSettings: fontWeights.semibold }}
+            >
+              {category.label}
+            </span>
+          </span>
+          <span
+            className={cn(
+              typeClass("caption"),
+              "truncate text-muted-foreground",
+            )}
+          >
+            {category.hint}
+          </span>
+        </span>
+        <span className="flex shrink-0 flex-col items-end">
+          <span
+            className={cn(typeClass("body"), "text-foreground tabular-nums")}
+            style={{ fontVariationSettings: fontWeights.semibold }}
+          >
+            {count.toLocaleString("en-US")}
+          </span>
+          <span
+            className={cn(
+              typeClass("caption"),
+              "text-muted-foreground tabular-nums",
+            )}
+          >
+            {share}%
+          </span>
+        </span>
+      </button>
+    </li>
   );
 }
 
 /**
  * The reuse leaderboard: the entries with the highest recorded `timesUsed`,
- * i.e. the values the person filled most often. Each row is clickable through
- * to its full record. A value with no recorded use count sits out of this
- * list entirely rather than being ranked at zero — the list is "most reused",
- * and an unfilled count is not a zero.
+ * i.e. the values the person filled most often. Each row opens its full
+ * record. A value with no recorded use count sits out of this list entirely
+ * rather than being ranked at zero — the list is "most reused", and an
+ * unfilled count is not a zero.
  */
 const REUSE_LIMIT = 6;
 
@@ -460,79 +613,137 @@ function ReuseLeaderboard({
   readonly reuse: Derived["reuse"];
   readonly onSelect: (row: Finding) => void;
 }) {
-  const ranked = reuse.filter((entry) => entry.timesUsed > 0).slice(0, REUSE_LIMIT);
+  const ranked = reuse
+    .filter((entry) => entry.timesUsed > 0)
+    .slice(0, REUSE_LIMIT);
   const peak = ranked[0]?.timesUsed ?? 0;
-  if (ranked.length === 0) {
-    return null;
-  }
+  const listRef = useRef<HTMLOListElement>(null);
+  const hover = useFluidHover(listRef, { axis: "y" });
+  const shape = useShape();
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
-      <header className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b border-border px-4 py-2.5">
-        <h2 className="text-[13px] font-semibold">Most-used entries</h2>
-        <p className="text-[12px] text-muted-foreground">
-          By how many times Chrome recorded the value being filled.
+    <Panel className="h-full">
+      <PanelHeader>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <PanelTitle>Most-used entries</PanelTitle>
+          <PanelDescription>
+            By how many times Chrome recorded the value being filled.
+          </PanelDescription>
+        </div>
+      </PanelHeader>
+      {ranked.length === 0 ? (
+        <p
+          className={cn(
+            typeClass("body"),
+            "px-4 pt-2 pb-4 text-muted-foreground",
+          )}
+        >
+          No entry carries a recorded fill count.
         </p>
-      </header>
-      <ol className="flex flex-col p-2">
-        {ranked.map((entry, index) => {
-          const share = peak === 0 ? 0 : Math.round((entry.timesUsed / peak) * 100);
-          return (
-            <li key={`${entry.category.key}-${String(index)}`}>
-              <button
-                type="button"
-                onClick={() => {
-                  onSelect(entry.row);
-                }}
-                className="grid w-full grid-cols-[1.25rem_1fr_auto] items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors duration-100 hover:bg-accent/40"
-              >
-                <span
-                  className={cn(
-                    "text-center text-[13px] font-semibold tabular-nums",
-                    index === 0 ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  {index + 1}
-                </span>
-                <span className="flex min-w-0 flex-col gap-1">
-                  <span className="flex items-center gap-2">
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "size-1.5 shrink-0 rounded-full",
-                        entry.category.dot,
-                      )}
-                    />
-                    <span
-                      className="truncate text-[13px] font-medium"
-                      title={entry.value ?? undefined}
-                    >
-                      {entry.value ?? "(empty)"}
-                    </span>
-                  </span>
-                  <span className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <span
-                      className={cn(
-                        "block h-full rounded-full",
-                        index === 0 ? "bg-primary" : "bg-primary/45",
-                      )}
-                      style={{ width: `${String(share)}%` }}
-                    />
-                  </span>
-                </span>
-                <span className="flex shrink-0 flex-col items-end">
-                  <span className="font-mono text-[13px] font-semibold tabular-nums">
-                    {entry.timesUsed.toLocaleString("en-US")}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {entry.timesUsed === 1 ? "fill" : "fills"}
-                  </span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+      ) : (
+        <ol
+          ref={listRef}
+          {...hover.handlers}
+          className="relative flex flex-col px-1 pb-1"
+        >
+          <FluidHoverHighlight hover={hover} className={shape.item} />
+          {ranked.map((entry, index) => (
+            <ReuseRow
+              key={`${entry.category.key}-${String(index)}`}
+              index={index}
+              registerItem={hover.registerItem}
+              value={entry.value}
+              category={entry.category}
+              timesUsed={entry.timesUsed}
+              peak={peak}
+              onOpen={() => {
+                onSelect(entry.row);
+              }}
+            />
+          ))}
+        </ol>
+      )}
+    </Panel>
+  );
+}
+
+function ReuseRow({
+  index,
+  registerItem,
+  value,
+  category,
+  timesUsed,
+  peak,
+  onOpen,
+}: {
+  readonly index: number;
+  readonly registerItem: (index: number, element: HTMLElement | null) => void;
+  readonly value: string | null;
+  readonly category: Category;
+  readonly timesUsed: number;
+  readonly peak: number;
+  readonly onOpen: () => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const shape = useShape();
+  useRegisterFluidHoverItem(registerItem, index, ref);
+  const share = peak === 0 ? 0 : (timesUsed / peak) * 100;
+  return (
+    <li>
+      <button
+        ref={ref}
+        type="button"
+        onClick={onOpen}
+        aria-label={`Open ${value ?? "(empty)"}, filled ${String(timesUsed)} times`}
+        className={cn(
+          "relative grid w-full cursor-pointer grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-left",
+          shape.item,
+        )}
+      >
+        <span
+          className={cn(
+            typeClass("caption"),
+            "text-center text-muted-foreground tabular-nums",
+          )}
+        >
+          {index + 1}
+        </span>
+        <span className="flex min-w-0 flex-col gap-1.5">
+          <span className="flex min-w-0 items-center gap-2">
+            <CategoryDot category={category} className="size-1.5" />
+            <span
+              className={cn(
+                typeClass("body"),
+                "truncate",
+                value === null ? "text-muted-foreground" : "text-foreground",
+              )}
+              title={value ?? undefined}
+            >
+              {value ?? "(empty)"}
+            </span>
+          </span>
+          <span className="h-1 overflow-hidden rounded-full bg-active">
+            <span
+              className={cn(
+                "block h-full rounded-full bg-foreground",
+                index === 0 ? "opacity-90" : "opacity-45",
+              )}
+              style={{ width: `${String(share)}%` }}
+            />
+          </span>
+        </span>
+        <span className="flex shrink-0 items-baseline gap-1">
+          <span
+            className={cn(typeClass("body"), "text-foreground tabular-nums")}
+            style={{ fontVariationSettings: fontWeights.semibold }}
+          >
+            {timesUsed.toLocaleString("en-US")}
+          </span>
+          <span className={cn(typeClass("caption"), "text-muted-foreground")}>
+            {timesUsed === 1 ? "fill" : "fills"}
+          </span>
+        </span>
+      </button>
+    </li>
   );
 }
 
@@ -551,74 +762,53 @@ function CreationArea({
 }) {
   const reduced = usePrefersReducedMotion();
   if (weeks.length === 0) {
-    return (
-      <div className="flex h-full min-h-[120px] items-center justify-center text-[13px] text-muted-foreground">
-        No dated entries to draw.
-      </div>
-    );
+    return <ChartEmpty>No dated entries to draw.</ChartEmpty>;
   }
   const rows = weeks.map((entry) => ({
     ...entry,
     label: formatWeek(entry.week),
   }));
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer
+      width="100%"
+      height="100%"
+      className={CHART_FOCUS_CLASS}
+    >
       <AreaChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id="fxAutofillFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={tokens["--primary"]} stopOpacity={0.3} />
-            <stop offset="100%" stopColor={tokens["--primary"]} stopOpacity={0} />
+            <stop
+              offset="0%"
+              stopColor={tokens["--primary"]}
+              stopOpacity={0.24}
+            />
+            <stop
+              offset="100%"
+              stopColor={tokens["--primary"]}
+              stopOpacity={0}
+            />
           </linearGradient>
         </defs>
-        <CartesianGrid
-          vertical={false}
-          stroke={tokens["--border"]}
-          strokeDasharray="3 3"
-        />
-        <XAxis
-          dataKey="label"
-          tickLine={false}
-          axisLine={false}
-          minTickGap={40}
-          tick={{ fill: tokens["--muted-foreground"], fontSize: 11 }}
-        />
-        <YAxis
-          width={30}
-          tickLine={false}
-          axisLine={false}
-          allowDecimals={false}
-          tick={{ fill: tokens["--muted-foreground"], fontSize: 11 }}
-        />
-        <Tooltip
+        <CartesianGrid {...chartGrid(tokens)} />
+        <XAxis dataKey="label" minTickGap={40} {...chartAxis(tokens)} />
+        <YAxis width={30} allowDecimals={false} {...chartAxis(tokens)} />
+        <ChartTooltip
+          {...chartTooltipMotion(reduced)}
           cursor={{ stroke: tokens["--border"], strokeWidth: 1 }}
           content={({ payload }) => {
-            if (!Array.isArray(payload) || payload.length === 0) {
-              return null;
-            }
-            const datum = (payload[0] as { payload?: Record<string, unknown> })
-              .payload;
-            if (datum === undefined) {
+            const datum = tooltipEntry(payload);
+            if (datum === null) {
               return null;
             }
             const count = Number(datum["count"]);
             return (
-              <div
-                className="rounded-md border px-3 py-2 text-[12px] shadow-md"
-                style={{
-                  backgroundColor: tokens["--card"],
-                  borderColor: tokens["--border"],
-                  color: tokens["--foreground"],
-                }}
-              >
-                <p className="font-medium">Week of {String(datum["label"])}</p>
-                <p
-                  className="tabular-nums"
-                  style={{ color: tokens["--muted-foreground"] }}
-                >
-                  {count.toLocaleString("en-US")}{" "}
-                  {count === 1 ? "entry saved" : "entries saved"}
-                </p>
-              </div>
+              <ChartTooltipCard label={`Week of ${String(datum["label"])}`}>
+                <ChartTooltipValue
+                  value={count.toLocaleString("en-US")}
+                  unit={count === 1 ? "entry saved" : "entries saved"}
+                  color={tokens["--primary"]}
+                />
+              </ChartTooltipCard>
             );
           }}
         />
@@ -626,14 +816,13 @@ function CreationArea({
           type="monotone"
           dataKey="count"
           stroke={tokens["--primary"]}
-          strokeWidth={2}
+          strokeWidth={1.5}
           fill="url(#fxAutofillFill)"
-          isAnimationActive={!reduced}
-          animationDuration={650}
+          {...chartAnimation(reduced)}
           activeDot={{
-            r: 4,
+            r: 3.5,
             fill: tokens["--primary"],
-            stroke: tokens["--card"],
+            stroke: tokens["--background"],
             strokeWidth: 2,
           }}
         />
@@ -642,42 +831,61 @@ function CreationArea({
   );
 }
 
-/** A quiet chip stating which category a row's field type falls in — the same
- *  fixed rule the breakdown uses, restated inline so the table reads without
- *  cross-referencing the bar above. */
-function CategoryChip({ category }: { readonly category: Category }) {
+/** The class a row's field type falls in — the same fixed rule the breakdown
+ *  uses, restated inline so the table reads without cross-referencing. */
+function CategoryWord({ category }: { readonly category: Category }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
-      <span
-        aria-hidden="true"
-        className={cn("size-1.5 rounded-full", category.dot)}
-      />
+    <span className="flex items-center gap-1.5 whitespace-nowrap">
+      <CategoryDot category={category} className="size-1.5" />
       {category.label}
     </span>
   );
 }
 
-export function AutofillPage({
-  config,
+type View = "saved" | "recovered";
+
+const ALL_CATEGORIES = "__all__";
+
+/**
+ * Raw table — every loaded entry, with the fields an examiner reads first.
+ * TYPE (the field type) is the first column, per the app's presentation
+ * rule; the full untranslated Chrome name and every other wire field stay
+ * reachable in the row detail sheet.
+ */
+function EntryListPanel({
+  derived,
+  complete,
+  categoryFilter,
+  onCategory,
+  onSelect,
 }: {
-  readonly config: ArtifactConfig;
+  readonly derived: Derived;
+  readonly complete: boolean;
+  readonly categoryFilter: string | null;
+  readonly onCategory: (key: string | null) => void;
+  readonly onSelect: (row: Finding) => void;
 }) {
-  const list = useAutofill(config.route);
-  const derived = useDerived(list.rows);
-  const tokens = useChartTokens();
-  const [selected, setSelected] = useState<SelectedRow | null>(null);
+  const [view, setView] = useState<View>("saved");
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const size = useSize("compact");
 
-  const select = useCallback((row: Finding) => {
-    setSelected({ kind: "finding", row });
-  }, []);
+  const saved = useMemo(
+    () =>
+      derived.reuse.filter((entry) => entry.row.commitState === "committed"),
+    [derived.reuse],
+  );
+  const recovered = useMemo(
+    () =>
+      derived.reuse.filter((entry) => entry.row.commitState !== "committed"),
+    [derived.reuse],
+  );
+  const base = view === "saved" ? saved : recovered;
 
-  // The table reads from the same reuse set (already last-used-first ordered)
-  // so a row's derived type/category/value is computed once, not per cell.
+  // The table reads from the same reuse set so a row's derived
+  // type/category/value is computed once, not per cell.
   const tableRows = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("en-US");
-    return derived.reuse.filter((entry) => {
+    return base.filter((entry) => {
       if (categoryFilter !== null && entry.category.key !== categoryFilter) {
         return false;
       }
@@ -689,9 +897,242 @@ export function AutofillPage({
         .toLocaleLowerCase("en-US");
       return haystack.includes(query);
     });
-  }, [derived.reuse, search, categoryFilter]);
+  }, [base, search, categoryFilter]);
 
-  const filtered = tableRows.length !== derived.reuse.length;
+  const filtered = tableRows.length !== base.length;
+  const noun = view === "saved" ? "saved" : "recovered";
+
+  return (
+    <Panel className="overflow-clip">
+      <PanelHeader>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <PanelTitle>All saved entries</PanelTitle>
+          <PanelDescription>
+            Saved entries and entries recovered from WAL or journal sidecars are
+            kept as separate lists.
+          </PanelDescription>
+        </div>
+      </PanelHeader>
+      <SizeProvider size="compact">
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-y-2 px-4 pt-1 pb-3",
+            size.gap,
+          )}
+        >
+          <Tabs
+            value={view}
+            onValueChange={(next) => {
+              setView(next === "recovered" ? "recovered" : "saved");
+            }}
+          >
+            <TabsList aria-label="Saved or recovered entries">
+              <TabItem
+                value="saved"
+                label={`Saved ${saved.length.toLocaleString("en-US")}`}
+              />
+              <TabItem
+                value="recovered"
+                label={`Recovered ${recovered.length.toLocaleString("en-US")}`}
+              />
+            </TabsList>
+          </Tabs>
+          <div className={cn("ml-auto flex flex-wrap items-center", size.gap)}>
+            {derived.categories.length > 1 ? (
+              <FilterField label="Category" htmlFor="autofill-category">
+                <Select
+                  value={categoryFilter ?? ALL_CATEGORIES}
+                  onValueChange={(next) => {
+                    onCategory(next === ALL_CATEGORIES ? null : next);
+                  }}
+                >
+                  <SelectTrigger id="autofill-category" />
+                  <SelectContent>
+                    <SelectItem index={0} value={ALL_CATEGORIES}>
+                      All categories
+                    </SelectItem>
+                    {derived.categories.map((entry, index) => (
+                      <SelectItem
+                        key={entry.category.key}
+                        index={index + 1}
+                        value={entry.category.key}
+                      >
+                        {entry.category.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
+            ) : null}
+            <FilterTextField
+              label="Search loaded form entries"
+              placeholder="Search value or type"
+              icon={Search}
+              value={search}
+              onCommit={setSearch}
+            />
+          </div>
+        </div>
+      </SizeProvider>
+
+      <div className="border-t border-border">
+        {tableRows.length === 0 ? (
+          <EmptyRows
+            message={
+              filtered
+                ? `No ${noun} entries match this filter.`
+                : view === "saved"
+                  ? "No saved Form data rows are loaded."
+                  : "No form entries were recovered from WAL or journal sidecars."
+            }
+          />
+        ) : (
+          <div className="scroll-fade-x overflow-x-auto px-1 pb-1">
+            <Table className="min-w-[900px]">
+              <TableHeader>
+                <TableRow>
+                  {[
+                    "Type",
+                    "Value",
+                    "Category",
+                    "Fills",
+                    "Last used",
+                    "State",
+                  ].map((label) => (
+                    <TableHead key={label} className="whitespace-nowrap">
+                      {label}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tableRows.map((entry, index) => {
+                  const lastUsed = fieldUtc(entry.row.fields.dateLastUsed);
+                  const lastUsedParts =
+                    lastUsed === null ? null : formatInstant(lastUsed);
+                  return (
+                    <TableRow
+                      key={index}
+                      index={index}
+                      tabIndex={0}
+                      aria-label={`Open form entry ${entry.type ?? ""}`}
+                      onClick={() => {
+                        onSelect(entry.row);
+                      }}
+                      onKeyDown={(event) => {
+                        activateOnKey(event, () => {
+                          onSelect(entry.row);
+                        });
+                      }}
+                      className={ROW_FOCUS_CLASS}
+                    >
+                      <TableCell className="max-w-[220px]">
+                        {entry.type === null ? (
+                          <AbsentWord />
+                        ) : (
+                          <span
+                            className="block truncate text-foreground"
+                            title={entry.type}
+                          >
+                            {entry.type}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-[340px]">
+                        {entry.value === null ? (
+                          <span className="whitespace-nowrap">(empty)</span>
+                        ) : (
+                          <span
+                            className="block truncate font-mono"
+                            title={entry.value}
+                          >
+                            {entry.value}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <CategoryWord category={entry.category} />
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {fieldInteger(entry.row.fields.timesUsed) === null ? (
+                          <AbsentWord />
+                        ) : (
+                          entry.timesUsed.toLocaleString("en-US")
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {lastUsed === null || lastUsedParts === null ? (
+                          <AbsentWord />
+                        ) : (
+                          <span
+                            className="whitespace-nowrap tabular-nums"
+                            title={`${lastUsed} (UTC)`}
+                          >
+                            {lastUsedParts.date}
+                            <span className="ml-2 text-muted-foreground">
+                              {lastUsedParts.time}
+                            </span>
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <StateWord state={entry.row.commitState} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3 border-t border-border px-4 py-2.5">
+        <p
+          className={cn(
+            typeClass("caption"),
+            "text-muted-foreground tabular-nums",
+          )}
+          aria-live="polite"
+        >
+          {filtered
+            ? `${tableRows.length.toLocaleString("en-US")} of ${base.length.toLocaleString("en-US")} ${noun} entries shown`
+            : `${base.length.toLocaleString("en-US")} ${noun} ${base.length === 1 ? "entry" : "entries"} shown`}
+          {complete ? "" : " · more available"}
+        </p>
+      </div>
+    </Panel>
+  );
+}
+
+/** Placeholder at the size of the strip, the breakdown, and the chart row. */
+function AutofillSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-hidden="true">
+      <Skeleton className="h-[112px] w-full rounded-xl" />
+      <Skeleton className="h-[200px] w-full rounded-xl" />
+      <div className="grid grid-cols-12 gap-4">
+        <Skeleton className="col-span-12 h-[320px] rounded-xl lg:col-span-7" />
+        <Skeleton className="col-span-12 h-[320px] rounded-xl lg:col-span-5" />
+      </div>
+    </div>
+  );
+}
+
+export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
+  const list = useAutofill(config.route);
+  const derived = useDerived(list.rows);
+  const tokens = useChartTokens();
+  const [selected, setSelected] = useState<SelectedRow | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+
+  const select = useCallback((row: Finding) => {
+    setSelected({ kind: "finding", row });
+  }, []);
+
+  const pickCategory = useCallback((key: string) => {
+    setCategoryFilter((current) => (current === key ? null : key));
+  }, []);
 
   const sensitiveShare =
     derived.total === 0
@@ -700,271 +1141,121 @@ export function AutofillPage({
 
   return (
     <div className="flex flex-col gap-4">
-
       {list.error !== null ? (
-        <div
-          role="alert"
-          className="flex items-start gap-2.5 rounded-md border border-destructive-border bg-destructive-wash px-3.5 py-3"
-        >
-          <div className="flex-1">
-            <p className="text-[13px] font-medium text-destructive">
-              The rows could not be loaded.
-            </p>
-            <p className="text-[12.5px] text-destructive/80">{list.error}</p>
-          </div>
-          <Button onClick={list.retry} size="sm" className="shrink-0">
-            Retry
-          </Button>
-        </div>
-      ) : list.loading && list.rows.length === 0 ? (
-        <div className="flex flex-col gap-3" aria-label="Loading rows">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Skeleton className="h-[92px] rounded-lg" />
-            <Skeleton className="h-[92px] rounded-lg" />
-            <Skeleton className="h-[92px] rounded-lg" />
-            <Skeleton className="h-[92px] rounded-lg" />
-          </div>
-          <Skeleton className="h-[160px] w-full rounded-lg" />
-          <Skeleton className="h-[300px] w-full rounded-lg" />
-        </div>
-      ) : derived.total === 0 ? (
-        <section className="overflow-hidden rounded-lg border border-border bg-card">
-          <EmptyRows message="No Form data rows in this Case." />
-        </section>
-      ) : (
-        <>
-          {/* Summary strip — four plain readings of the loaded set. "Sensitive"
-              is Identity + Contact + Address + Payment: entries that carry
-              directly identifying or financial data, as opposed to search
-              text. Every figure is a count the rows already carry. */}
-          <MetricBand className="grid-cols-2 sm:grid-cols-4">
-            <MetricBandItem
-              label="Saved entries"
-              value={derived.total.toLocaleString("en-US")}
-              detail={
-                list.complete ? "across all profiles" : "first pages loaded"
-              }
-            />
-            <MetricBandItem
-              label="Field types"
-              value={derived.distinctTypes.toLocaleString("en-US")}
-              detail={derived.distinctTypes === 1 ? "distinct type" : "distinct types"}
-            />
-            <MetricBandItem
-              label="Sensitive"
-              value={`${String(sensitiveShare)}%`}
-              detail={`${derived.sensitive.toLocaleString("en-US")} identity, contact, address or payment`}
-              progress={{ value: derived.sensitive, max: derived.total, tone: "warning", label: `${String(sensitiveShare)}% of saved entries` }}
-            />
-            <MetricBandItem
-              label="Most reused"
-              value={
-                derived.topReused === null
-                  ? "—"
-                  : derived.topReused.timesUsed.toLocaleString("en-US")
-              }
-              detail={
-                derived.topReused === null
-                  ? "no recorded fills"
-                  : (derived.topReused.value ?? "(empty)")
-              }
-            />
-          </MetricBand>
-
-          <CategoryBreakdown
-            categories={derived.categories}
-            total={derived.total}
+        <ErrorRows
+          message={list.error}
+          onRetry={list.retry}
+          className="px-0 py-0"
+        />
+      ) : !list.loading && derived.total === 0 ? (
+        <Panel>
+          <EmptyRows
+            icon={ClipboardList}
+            title="No form data"
+            message="No Form data rows in this Case."
           />
+        </Panel>
+      ) : (
+        <div className="reveal-swap">
+          <AutofillSkeleton />
+          {list.loading ? null : (
+            <div className="flex flex-col gap-4">
+              {/* Summary strip — four plain readings of the loaded set.
+                  "Sensitive" is Identity + Contact + Address + Payment:
+                  entries that carry directly identifying or financial data,
+                  as opposed to search text. Every figure is a count the rows
+                  already carry. */}
+              <MetricBand className="grid-cols-2 sm:grid-cols-4">
+                <MetricBandItem
+                  label="Saved entries"
+                  value={derived.total.toLocaleString("en-US")}
+                  detail={
+                    list.complete ? "across all profiles" : "first pages loaded"
+                  }
+                />
+                <MetricBandItem
+                  label="Field types"
+                  value={derived.distinctTypes.toLocaleString("en-US")}
+                  detail={
+                    derived.distinctTypes === 1
+                      ? "distinct type"
+                      : "distinct types"
+                  }
+                />
+                <MetricBandItem
+                  label="Sensitive"
+                  value={`${String(sensitiveShare)}%`}
+                  detail={`${derived.sensitive.toLocaleString("en-US")} identity, contact, address or payment`}
+                  progress={{
+                    value: derived.sensitive,
+                    max: derived.total,
+                    tone: "warning",
+                    label: `${String(sensitiveShare)}% of saved entries`,
+                  }}
+                />
+                <MetricBandItem
+                  label="Most reused"
+                  value={
+                    derived.topReused === null
+                      ? "—"
+                      : derived.topReused.timesUsed.toLocaleString("en-US")
+                  }
+                  detail={
+                    derived.topReused === null
+                      ? "no recorded fills"
+                      : (derived.topReused.value ?? "(empty)")
+                  }
+                />
+              </MetricBand>
 
-          <div className="grid grid-cols-12 gap-4">
-            <section className="col-span-12 overflow-hidden rounded-lg border border-border bg-card lg:col-span-7">
-              <header className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b border-border px-4 py-2.5">
-                <h2 className="text-[13px] font-semibold">First saved over time</h2>
-                <p className="text-[12px] text-muted-foreground">
-                  When each entry was first remembered, per week.
-                </p>
-              </header>
-              <div className="relative min-h-[220px] p-1">
-                <div className="absolute inset-0 pt-3 pr-4 pb-3 pl-2">
-                  <CreationArea weeks={derived.weeks} tokens={tokens} />
+              <CategoryBreakdown
+                categories={derived.categories}
+                total={derived.total}
+                activeKey={categoryFilter}
+                onPick={pickCategory}
+              />
+
+              <div className="grid grid-cols-12 gap-4">
+                <Panel className="col-span-12 lg:col-span-7">
+                  <PanelHeader>
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <PanelTitle>First saved over time</PanelTitle>
+                      <PanelDescription>
+                        When each entry was first remembered, per week.
+                      </PanelDescription>
+                    </div>
+                  </PanelHeader>
+                  <div className="relative min-h-[240px] flex-1">
+                    <div className="absolute inset-0 pt-2 pr-4 pb-3 pl-2">
+                      <CreationArea weeks={derived.weeks} tokens={tokens} />
+                    </div>
+                  </div>
+                </Panel>
+
+                <div className="col-span-12 lg:col-span-5">
+                  <ReuseLeaderboard reuse={derived.reuse} onSelect={select} />
                 </div>
               </div>
-            </section>
 
-            <div className="col-span-12 lg:col-span-5">
-              <ReuseLeaderboard reuse={derived.reuse} onSelect={select} />
+              <EntryListPanel
+                derived={derived}
+                complete={list.complete}
+                categoryFilter={categoryFilter}
+                onCategory={setCategoryFilter}
+                onSelect={select}
+              />
             </div>
-          </div>
-
-          {/* Raw table — every loaded entry, with the fields an examiner reads
-              first. TYPE (the field type) is the first column, per the app's
-              presentation rule; the full untranslated Chrome name and every
-              other wire field stay reachable in the row detail sheet. */}
-          <section className="overflow-hidden rounded-lg border border-border bg-card">
-            <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2.5">
-              <h2 className="text-[13px] font-semibold">All saved entries</h2>
-              <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                {derived.categories.length > 1
-                  ? derived.categories.map((entry) => (
-                      <button
-                        key={entry.category.key}
-                        type="button"
-                        aria-pressed={categoryFilter === entry.category.key}
-                        onClick={() => {
-                          setCategoryFilter(
-                            categoryFilter === entry.category.key
-                              ? null
-                              : entry.category.key,
-                          );
-                        }}
-                        className={cn(
-                          "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-colors duration-150",
-                          categoryFilter === entry.category.key
-                            ? "border-accent-border bg-accent text-accent-foreground"
-                            : "border-border bg-card text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={cn("size-1.5 rounded-full", entry.category.dot)}
-                        />
-                        {entry.category.label}
-                      </button>
-                    ))
-                  : null}
-                <label className="relative">
-                  <Search
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-                  />
-                  <input
-                    value={search}
-                    onChange={(event) => {
-                      setSearch(event.target.value);
-                    }}
-                    placeholder="Search value or type"
-                    aria-label="Search loaded form entries"
-                    className="h-8 w-[200px] rounded-md border border-input bg-background pr-3 pl-8 text-[12.5px] outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </label>
-              </div>
-            </header>
-
-            {tableRows.length === 0 ? (
-              <EmptyRows message="No loaded rows match this filter." />
-            ) : (
-              <div className="fx-scroll-x">
-                <table className="w-full text-left text-[13px]">
-                  <thead>
-                    <tr>
-                      {["Type", "Value", "Category", "Fills", "Last used", "State"].map(
-                        (label) => (
-                          <th
-                            key={label}
-                            className="sticky top-0 z-10 border-b border-border bg-muted/80 px-3 py-2 text-left text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase backdrop-blur"
-                          >
-                            {label}
-                          </th>
-                        ),
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tableRows.map((entry, index) => {
-                      const lastUsed = fieldUtc(entry.row.fields.dateLastUsed);
-                      const lastUsedParts =
-                        lastUsed === null ? null : formatInstant(lastUsed);
-                      return (
-                        <tr
-                          key={index}
-                          tabIndex={0}
-                          aria-label="Open form entry detail"
-                          onClick={() => {
-                            select(entry.row);
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              select(entry.row);
-                            }
-                          }}
-                          className="cursor-pointer border-b border-border/70 transition-colors duration-100 last:border-b-0 hover:bg-accent/40"
-                        >
-                          <td className="max-w-[200px] px-3 py-2.5">
-                            <span
-                              className="block truncate font-medium text-foreground/90"
-                              title={entry.type ?? undefined}
-                            >
-                              {entry.type ?? <AbsentWord />}
-                            </span>
-                          </td>
-                          <td className="max-w-[340px] px-3 py-2.5">
-                            {entry.value === null ? (
-                              <span className="text-[12.5px] text-muted-foreground italic">
-                                (empty)
-                              </span>
-                            ) : (
-                              <span
-                                className="block truncate font-mono text-[12.5px] text-foreground/85"
-                                title={entry.value}
-                              >
-                                {entry.value}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <CategoryChip category={entry.category} />
-                          </td>
-                          <td className="px-3 py-2.5 font-mono text-[12.5px] tabular-nums">
-                            {fieldInteger(entry.row.fields.timesUsed) === null ? (
-                              <AbsentWord />
-                            ) : (
-                              entry.timesUsed.toLocaleString("en-US")
-                            )}
-                          </td>
-                          <td className="px-3 py-2.5 whitespace-nowrap">
-                            {lastUsedParts === null ? (
-                              <AbsentWord />
-                            ) : (
-                              <span className="flex flex-col leading-tight">
-                                <span className="text-[12.5px] text-foreground/85">
-                                  {lastUsedParts.date}
-                                </span>
-                                <span className="font-mono text-[11px] text-muted-foreground">
-                                  {lastUsedParts.time}
-                                </span>
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <StateWord state={entry.row.commitState} />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div className="flex items-center gap-3 border-t border-border/70 px-4 py-2.5">
-              <p
-                className="text-[12.5px] text-muted-foreground tabular-nums"
-                aria-live="polite"
-              >
-                {filtered
-                  ? `${String(tableRows.length)} of ${String(derived.reuse.length)} loaded rows shown`
-                  : `${String(derived.total)} row${derived.total === 1 ? "" : "s"} shown`}
-                {list.complete ? "" : " · more available"}
-              </p>
-            </div>
-          </section>
-        </>
+          )}
+        </div>
       )}
 
       {selected !== null ? (
         <RowSheet
           selected={selected}
+          title={
+            readableFieldType(fieldText(selected.row.fields.fieldName)) ??
+            "Form entry"
+          }
           onClose={() => {
             setSelected(null);
           }}

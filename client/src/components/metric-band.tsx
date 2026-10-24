@@ -1,6 +1,31 @@
+/**
+ * MetricBand — a strip of recorded figures in one framed surface.
+ *
+ * Built from FF parts: the band is an `Elevated` surface (a Panel's level by
+ * default; `variant="accent"` floats it two steps up with the popup shadow,
+ * so a band docked over a chart's bottom edge reads as lifted, not as a
+ * second panel). Items are separated by hairlines that each item draws on
+ * its own top/left edge; the band clips the ones on its outer edge, so the
+ * rules stay right whatever `grid-cols-*` the caller wraps the items into.
+ *
+ * Text follows FF's roles: a caption label (no eyebrow caps), the figure in
+ * the title role at semibold with tabular digits, and caption detail. The
+ * optional progress bar fills by sliding a pill (transform) on
+ * `spring.moderate`.
+ *
+ * API is unchanged: `className` still takes the grid columns
+ * (`grid-cols-2 sm:grid-cols-4`), and the inner grid inherits them.
+ * Forensic rule: tiles show recorded facts only — never a Candidate value.
+ */
+import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
-import { cn } from "../lib.js";
+import { Elevated } from "@/lib/elevated";
+import { fontWeights } from "@/lib/font-weight";
+import { useShape } from "@/lib/shape-context";
+import { useSize } from "@/lib/size-context";
+import { spring } from "@/lib/springs";
+import { cn } from "@/lib/utils";
 
 export type MetricBandTone =
   | "neutral"
@@ -22,26 +47,34 @@ export function MetricBand({
   variant = "default",
 }: {
   readonly children: ReactNode;
+  /** Grid columns (e.g. `grid-cols-2 sm:grid-cols-4`) and placement. */
   readonly className?: string;
+  /** `accent` lifts the band above its neighbours (docked over a chart). */
   readonly variant?: "default" | "accent";
 }) {
+  const shape = useShape();
+  const accent = variant === "accent";
   return (
-    <div
+    <Elevated
+      offset={accent ? 2 : 1}
+      shadowLevel={accent ? 3 : undefined}
       className={cn(
-        "grid overflow-hidden rounded-lg border border-border bg-card",
-        variant === "accent"
-          ? "metric-band-accent fx-hero border-white/10 text-white"
-          : undefined,
+        "block min-w-0 text-foreground",
+        shape.container,
         className,
       )}
     >
-      {children}
-    </div>
+      {/* The caller's grid-cols-* land on the outer box; this grid inherits
+          them, and its clip trims the hairlines on the band's outer edge. */}
+      <div className="grid [grid-template-columns:inherit] overflow-hidden">
+        {children}
+      </div>
+    </Elevated>
   );
 }
 
 const PROGRESS_TONE: Record<MetricBandTone, string> = {
-  neutral: "bg-primary",
+  neutral: "bg-foreground",
   success: "bg-success",
   warning: "bg-warning",
   destructive: "bg-destructive",
@@ -65,53 +98,74 @@ export function MetricBandItem({
   readonly status?: ReactNode;
   readonly progress?: MetricBandProgress;
   readonly tone?: MetricBandTone;
+  /** Extra classes for the figure. Prefer none: the title role is the
+   *  band's one figure size. */
   readonly valueClassName?: string;
 }) {
-  const progressPercent =
+  const size = useSize();
+  const fraction =
     progress === undefined || progress.max <= 0
       ? 0
-      : Math.min(100, Math.max(0, (progress.value / progress.max) * 100));
+      : Math.min(1, Math.max(0, progress.value / progress.max));
 
   return (
-    <div className="metric-band-item flex min-h-[104px] min-w-0 flex-col px-4 py-4 sm:min-h-[112px] sm:px-5">
-      <div className="flex items-start justify-between gap-3">
-        <span className="metric-band-label flex min-w-0 items-center gap-1.5 truncate text-[10px] font-semibold tracking-[0.11em] text-muted-foreground uppercase">
+    <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3 shadow-[-1px_0_0_0_var(--border),0_-1px_0_0_var(--border)] sm:px-5 sm:py-3.5">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <span
+          className={cn(
+            size.type.caption,
+            "flex min-w-0 items-center gap-1.5 text-muted-foreground [&_svg]:size-3.5 [&_svg]:shrink-0",
+          )}
+        >
           {icon}
           <span className="truncate">{label}</span>
         </span>
         {status === undefined ? null : (
-          <span className="metric-band-status shrink-0 text-[11px] text-muted-foreground">
+          <span
+            className={cn(size.type.caption, "shrink-0 text-muted-foreground")}
+          >
             {status}
           </span>
         )}
       </div>
       <span
         className={cn(
-          "metric-band-value mt-3 block truncate text-[32px] leading-none font-semibold tracking-[-0.045em] tabular-nums",
+          size.type.title,
+          "block truncate text-foreground tabular-nums",
           valueClassName,
         )}
+        style={{ fontVariationSettings: fontWeights.semibold }}
       >
         {value}
       </span>
       {progress === undefined ? null : (
-        <div className="mt-3 flex flex-col gap-1.5">
+        <div className="mt-1.5 flex flex-col gap-1.5">
           <div
-            className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+            className="h-1 w-full overflow-hidden rounded-full bg-hover"
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={progress.max}
             aria-valuenow={Math.min(progress.max, Math.max(0, progress.value))}
           >
-            <span
+            {/* A full-width pill slid in from the left (never scaled, which
+                would squash its rounded end); the track clips it. */}
+            <motion.span
               className={cn(
-                "block h-full rounded-full transition-[width] duration-500",
+                "block h-full w-full rounded-full",
                 PROGRESS_TONE[progress.tone ?? tone],
               )}
-              style={{ width: `${String(progressPercent)}%` }}
+              initial={{ x: "-100%" }}
+              animate={{ x: `${String((fraction - 1) * 100)}%` }}
+              transition={spring.moderate}
             />
           </div>
           {progress.label === undefined ? null : (
-            <span className="metric-band-progress-label truncate text-[11px] text-muted-foreground">
+            <span
+              className={cn(
+                size.type.caption,
+                "truncate text-muted-foreground",
+              )}
+            >
               {progress.label}
             </span>
           )}
@@ -119,7 +173,7 @@ export function MetricBandItem({
       )}
       {detail === undefined ? null : (
         <span
-          className="metric-band-detail mt-2 truncate text-[12px] text-muted-foreground"
+          className={cn(size.type.caption, "truncate text-muted-foreground")}
           title={typeof detail === "string" ? detail : undefined}
         >
           {detail}

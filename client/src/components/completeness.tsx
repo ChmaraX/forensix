@@ -2,142 +2,187 @@
  * Evidence coverage (the Completeness Statement) — always rendered before any
  * rows, so absence is visible, not silent. Plain words; the technical term
  * lives in the tooltip.
+ *
+ * A Panel with the title and the four counts on one line (each count is a
+ * number + its word; the state hue rides a dot beside the word, never alone),
+ * then an FF Accordion row that opens the per-database detail as a compact
+ * FF Table whose Outcome column is a worded EvidenceBadge.
  */
-import { ChevronDown } from "lucide-react";
-import { useState } from "react";
-
-import { cn } from "../lib.js";
+import { Panel } from "@/components/panel";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { fontWeights } from "@/lib/font-weight";
+import { useSize } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
 import { CoverageTerm, OUTCOME_META } from "../terms.js";
 import type { CompletenessStatement } from "../types.js";
+import { EvidenceBadge, EvidenceDot, type EvidenceState } from "./evidence.js";
 
-function Stat({
+function CoverageStat({
   label,
   count,
-  dotClass,
+  state,
 }: {
   readonly label: string;
   readonly count: number;
-  readonly dotClass?: string;
+  readonly state?: EvidenceState;
+}) {
+  const size = useSize();
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      {state === undefined ? null : <EvidenceDot state={state} />}
+      <span
+        className={cn(size.type.body, "text-foreground tabular-nums")}
+        style={{ fontVariationSettings: fontWeights.semibold }}
+      >
+        {count.toLocaleString("en-US")}
+      </span>
+      <span className={cn(size.type.body, "text-muted-foreground")}>
+        {label}
+      </span>
+    </span>
+  );
+}
+
+function DetailTable({
+  statement,
+}: {
+  readonly statement: CompletenessStatement;
 }) {
   return (
-    <span className="inline-flex items-baseline gap-1.5">
-      {dotClass !== undefined ? (
-        <span
-          aria-hidden="true"
-          className={cn("size-2 self-center rounded-full", dotClass)}
-        />
-      ) : null}
-      <span className="text-[13px] text-muted-foreground">{label}</span>
-      <span className="text-[13px] font-semibold tabular-nums">{count}</span>
-    </span>
+    <div className="scroll-fade-x overflow-x-auto [&_tbody>tr:last-child]:border-transparent">
+      <Table size="compact">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="whitespace-nowrap">Outcome</TableHead>
+            <TableHead className="whitespace-nowrap">Source</TableHead>
+            <TableHead className="whitespace-nowrap">Profile</TableHead>
+            <TableHead className="whitespace-nowrap">Database</TableHead>
+            <TableHead className="whitespace-nowrap">Reason</TableHead>
+            <TableHead className="whitespace-nowrap">Run</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {statement.artifacts.map((artifact, index) => {
+            const outcome = OUTCOME_META[artifact.outcome];
+            return (
+              <TableRow
+                key={`${artifact.sourceId}-${artifact.profile}-${String(index)}`}
+                index={index}
+              >
+                <TableCell className="whitespace-nowrap">
+                  <EvidenceBadge state={outcome.evidence}>
+                    {outcome.label}
+                  </EvidenceBadge>
+                </TableCell>
+                <TableCell className="font-mono whitespace-nowrap">
+                  {artifact.sourceId}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {artifact.profile}
+                </TableCell>
+                <TableCell className="max-w-[280px]">
+                  <span
+                    title={artifact.databasePath}
+                    className="block truncate font-mono"
+                  >
+                    {artifact.databasePath}
+                  </span>
+                </TableCell>
+                <TableCell className="min-w-[160px]">
+                  {artifact.reason ?? "—"}
+                </TableCell>
+                <TableCell className="font-mono whitespace-nowrap">
+                  {artifact.runId}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
 export function CompletenessPanel({
   statement,
+  className,
 }: {
   readonly statement: CompletenessStatement | undefined;
+  readonly className?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const size = useSize();
   const empty = statement === undefined || statement.attempted === 0;
 
   return (
-    <section
+    <Panel
+      role="region"
       aria-label="Evidence coverage"
-      className="rounded-lg border border-border bg-card"
+      className={cn("overflow-clip", className)}
     >
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
-        <h2 className="text-[13px] font-semibold">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+        <h2
+          className={cn(size.type.subtitle, "text-foreground")}
+          style={{ fontVariationSettings: fontWeights.semibold }}
+        >
           <CoverageTerm>Evidence coverage</CoverageTerm>
         </h2>
         {empty ? (
-          <p className="text-[13px] text-muted-foreground">
+          <p className={cn(size.type.body, "text-muted-foreground")}>
             Nothing analyzed for this Case yet.
           </p>
         ) : (
-          <>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <Stat label="attempted" count={statement.attempted} />
-              <Stat
-                label="available"
-                count={statement.produced}
-                dotClass="bg-success"
-              />
-              <Stat label="not present" count={statement.absent} />
-              <Stat
-                label="unreadable"
-                count={statement.unavailable}
-                dotClass="bg-destructive"
-              />
-            </div>
-            <button
-              type="button"
-              aria-expanded={expanded}
-              onClick={() => {
-                setExpanded((value) => !value);
-              }}
-              className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[12px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
-            >
-              {expanded ? "Hide detail" : "Per-database detail"}
-              <ChevronDown
-                aria-hidden="true"
-                className={cn(
-                  "size-3.5 transition-transform duration-150",
-                  expanded && "rotate-180",
-                )}
-              />
-            </button>
-          </>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            <CoverageStat label="attempted" count={statement.attempted} />
+            <CoverageStat
+              label={OUTCOME_META.produced.label}
+              count={statement.produced}
+              state="produced"
+            />
+            <CoverageStat
+              label={OUTCOME_META.absent.label}
+              count={statement.absent}
+              state="absent"
+            />
+            <CoverageStat
+              label={OUTCOME_META.unavailable.label}
+              count={statement.unavailable}
+              state="unavailable"
+            />
+          </div>
         )}
       </div>
-      {expanded && !empty ? (
-        <div className="overflow-x-auto border-t border-border/70">
-          <table className="w-full text-left text-[13px]">
-            <thead>
-              <tr className="text-[11px] tracking-wide text-muted-foreground uppercase">
-                <th className="px-4 py-2 font-medium">Outcome</th>
-                <th className="px-4 py-2 font-medium">Source</th>
-                <th className="px-4 py-2 font-medium">Profile</th>
-                <th className="px-4 py-2 font-medium">Database</th>
-                <th className="px-4 py-2 font-medium">Reason</th>
-                <th className="px-4 py-2 font-medium">Run</th>
-              </tr>
-            </thead>
-            <tbody>
-              {statement.artifacts.map((artifact, index) => (
-                <tr
-                  key={`${artifact.sourceId}-${artifact.profile}-${String(index)}`}
-                  className="border-t border-border/70"
-                >
-                  <td
-                    className={cn(
-                      "px-4 py-2",
-                      OUTCOME_META[artifact.outcome].className,
-                    )}
-                  >
-                    {OUTCOME_META[artifact.outcome].label}
-                  </td>
-                  <td className="px-4 py-2 font-mono text-[12px] text-muted-foreground">
-                    {artifact.sourceId}
-                  </td>
-                  <td className="px-4 py-2">{artifact.profile}</td>
-                  <td className="max-w-[280px] truncate px-4 py-2 font-mono text-[12px] text-muted-foreground">
-                    <span title={artifact.databasePath}>
-                      {artifact.databasePath}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {artifact.reason ?? "—"}
-                  </td>
-                  <td className="px-4 py-2 font-mono text-[12px] text-muted-foreground">
-                    {artifact.runId}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {empty ? null : (
+        <div className="border-t border-border p-1">
+          <Accordion
+            type="single"
+            collapsible
+            size="compact"
+            className="w-full"
+          >
+            <AccordionItem value="detail" highlight="trigger">
+              <AccordionTrigger>Per-database detail</AccordionTrigger>
+              <AccordionContent>
+                <div className="px-1 pt-1 pb-2">
+                  <DetailTable statement={statement} />
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
-      ) : null}
-    </section>
+      )}
+    </Panel>
   );
 }
