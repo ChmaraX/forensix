@@ -13,3 +13,6 @@ tools/
 PRODUCT.md
 DESIGN.md
 .impeccable/
+
+# PR Lens writes its previews here. They are rebuilt on demand.
+.pr-lens/
