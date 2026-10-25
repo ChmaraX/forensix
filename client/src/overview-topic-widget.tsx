@@ -1,19 +1,18 @@
 /**
- * Overview "Topic categorization" line — one compact row saying the topic
- * Candidates are unavailable and why, with "How to enable" opening a Sheet of
- * setup steps.
+ * Overview "Topic categorization" line — one compact row saying whether the
+ * Case holds topic Candidates (one `topic-candidates` row, `limit=1`):
+ * available, none, or unavailable when the read failed. With none, "How to
+ * enable" opens a Sheet of setup steps. The Case records no reason for an
+ * empty result, so the line names none.
  *
  * Topic output is Candidate data: a ranked inference over recorded URLs, not
  * a recorded fact. The row says so with a "Candidate" badge and its
  * explanation, and none of it ever feeds a figure elsewhere on the Overview.
  *
- * NOT WIRED YET: the classifier's state is fixed to "unavailable" with
- * `UNAVAILABLE_REASON` until the server exposes a `topic-status` route
- * backed by `TopicCandidateSummary` (see
- * `core/src/history-topic-classification.ts`). A real result then needs its
- * own ranked list here — the old donut drew example data and is gone.
+ * The ranked list itself (and a classifier status with its reason) needs its
+ * own route and panel; until then the line says only what one row proves.
  */
-import { useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 import { TermExplanation, TermTooltip } from "@/components/term";
 import { Badge } from "@/components/ui/badge";
@@ -34,10 +33,8 @@ import { ExternalLinkIcon } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
-
-/** Why the classifier is unavailable — fixed until `topic-status` exists. */
-const UNAVAILABLE_REASON =
-  "model_artifact_missing" as const; /* try: model_runtime_unavailable */
+import { callApi, isAbortError } from "./api.js";
+import type { PageOf } from "./types.js";
 
 /** The project's setup notes (opens outside the dashboard, in a new tab). */
 const SETUP_URL = "https://github.com/ChmaraX/forensix#topic-classification";
@@ -49,69 +46,69 @@ interface SetupStep {
   readonly value?: string;
 }
 
-const RERUN: SetupStep = {
-  label: "Re-run the analysis",
-  value: "forensix analyse --case <dir>",
-};
-
-const REASON_COPY: Record<
-  string,
+/** Everything the on-device classifier needs (core's
+ *  `topic-candidates-onnx.ts`), in order. The Case does not record which
+ *  step was missing, so the Sheet lists them all and names none. */
+const SETUP_STEPS: readonly SetupStep[] = [
   {
-    readonly headline: string;
-    /** The headline as the tail of "unavailable - …" on the Overview row. */
-    readonly short: string;
-    /** What the reason means for this Case, in words (the banner's
-     *  description; the raw reason code stays out of the copy). */
-    readonly consequence: string;
-    readonly steps: readonly SetupStep[];
-  }
-> = {
-  model_artifact_missing: {
-    headline: "Topic model not downloaded",
-    short: "model not downloaded",
-    consequence:
-      "No topic suggestions until the model is downloaded and the analysis re-run.",
-    steps: [
-      { label: "Download the model", value: "minishlab/potion-base-8M" },
-      {
-        label: "Point this variable at the model folder",
-        value: "FORENSIX_TOPIC_MODEL_DIR",
-      },
-      RERUN,
-    ],
+    label: "Install the runtime",
+    value: "npm install onnxruntime-node @huggingface/transformers",
   },
-  model_runtime_unavailable: {
-    headline: "Topic runtime not installed",
-    short: "runtime not installed",
-    consequence:
-      "No topic suggestions until the runtime is installed and the analysis re-run.",
-    steps: [
-      {
-        label: "Install the runtime",
-        value: "npm install onnxruntime-node @huggingface/transformers",
-      },
-      RERUN,
-    ],
+  { label: "Download the model", value: "minishlab/potion-base-8M" },
+  {
+    label: "Point this variable at the model folder",
+    value: "FORENSIX_TOPIC_MODEL_DIR",
   },
-  model_load_failed: {
-    headline: "Topic model failed to load",
-    short: "model failed to load",
-    consequence:
-      "No topic suggestions until the model loads and the analysis is re-run.",
-    steps: [
-      {
-        label: "Check this variable points at a valid model.onnx",
-        value: "FORENSIX_TOPIC_MODEL_DIR",
-      },
-      RERUN,
-    ],
+  {
+    label: "Re-run the analysis",
+    value: "forensix analyse --case <dir>",
   },
-  inference_failed: {
-    headline: "Topic classification failed mid-run",
-    short: "classification failed mid-run",
-    consequence: "No topic suggestions until the analysis is re-run.",
-    steps: [RERUN],
-  },
+];
+
+/**
+ * What the Case says about topic Candidates, from one `topic-candidates`
+ * row (`limit=1`, every Commit State): `available` (at least one), `none`
+ * (the read answered with none) or `unavailable` (the read failed - the
+ * state is unknown, never "none").
+ */
+type TopicState = "loading" | "available" | "none" | "unavailable";
+
+function useTopicState(): {
+  readonly state: TopicState;
+  readonly retry: () => void;
+} {
+  const [state, setState] = useState<TopicState>("loading");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const abort = new AbortController();
+    setState("loading");
+    callApi<PageOf<unknown>>("topic-candidates", [["limit", "1"]], {
+      signal: abort.signal,
+    })
+      .then((page) => {
+        setState(page.items.length > 0 ? "available" : "none");
+      })
+      .catch((error: unknown) => {
+        if (!isAbortError(error)) {
+          setState("unavailable");
+        }
+      });
+    return () => {
+      abort.abort();
+    };
+  }, [attempt]);
+  const retry = useCallback(() => {
+    setAttempt((count) => count + 1);
+  }, []);
+  return { state, retry };
+}
+
+/** The line's words for each state: what the Case holds, never why. */
+const STATE_TEXT: Record<TopicState, string> = {
+  loading: "checking…",
+  available: "available",
+  none: "none in this Case",
+  unavailable: "unavailable - the topic read failed",
 };
 
 function EnableModelSheet({
@@ -121,8 +118,6 @@ function EnableModelSheet({
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 }) {
-  const reason = UNAVAILABLE_REASON;
-  const copy = REASON_COPY[reason] ?? REASON_COPY.model_artifact_missing;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent>
@@ -135,11 +130,15 @@ function EnableModelSheet({
         </SheetHeader>
         <SheetBody className="flex flex-col gap-6 pt-1">
           <Banner status="info">
-            <BannerTitle>{copy?.headline}</BannerTitle>
-            <BannerDescription>{copy?.consequence}</BannerDescription>
+            <BannerTitle>No topic Candidates in this Case</BannerTitle>
+            <BannerDescription>
+              The Case does not record why: the classifier may not have been set
+              up for the analysis, or it ran and suggested nothing. These steps
+              produce topic Candidates on the next analysis.
+            </BannerDescription>
           </Banner>
           <ol className="flex flex-col gap-5">
-            {copy?.steps.map((step, index) => (
+            {SETUP_STEPS.map((step, index) => (
               <li key={step.label} className="flex items-start gap-3">
                 <span
                   aria-hidden="true"
@@ -206,8 +205,9 @@ function CandidateBadge() {
 }
 
 /**
- * The whole panel on one line: title and Candidate badge, the unavailable
- * state with its reason, and "How to enable". Wraps below `sm`.
+ * The whole panel on one line: title and Candidate badge, what the Case
+ * holds (available / none / unavailable), and "How to enable" when it holds
+ * none, or Retry when the read failed. Wraps below `sm`.
  */
 export function TopicCategorizationLine({
   className,
@@ -216,13 +216,13 @@ export function TopicCategorizationLine({
 }) {
   const titleId = useId();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const reason =
-    REASON_COPY[UNAVAILABLE_REASON] ?? REASON_COPY.model_artifact_missing;
+  const { state, retry } = useTopicState();
   return (
     // No jump link: there is no Topic page to open yet.
     <Panel
       role="region"
       aria-labelledby={titleId}
+      aria-busy={state === "loading"}
       className={cn(
         "flex-row flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3",
         className,
@@ -230,21 +230,30 @@ export function TopicCategorizationLine({
     >
       <PanelTitle id={titleId}>Topic categorization</PanelTitle>
       <CandidateBadge />
-      <p className={cn(typeClass("body"), "min-w-0 text-muted-foreground")}>
-        unavailable - {reason?.short ?? "model not available"}
+      <p
+        className={cn(typeClass("body"), "min-w-0 text-muted-foreground")}
+        aria-live="polite"
+      >
+        {STATE_TEXT[state]}
       </p>
-      <SizeProvider size="compact">
-        <Button
-          variant="secondary"
-          size="compact"
-          className="ml-auto"
-          onClick={() => {
-            setSheetOpen(true);
-          }}
-        >
-          How to enable
-        </Button>
-      </SizeProvider>
+      {state === "none" || state === "unavailable" ? (
+        <SizeProvider size="compact">
+          <Button
+            variant="secondary"
+            size="compact"
+            className="ml-auto"
+            onClick={() => {
+              if (state === "none") {
+                setSheetOpen(true);
+              } else {
+                retry();
+              }
+            }}
+          >
+            {state === "none" ? "How to enable" : "Retry"}
+          </Button>
+        </SizeProvider>
+      ) : null}
       <EnableModelSheet open={sheetOpen} onOpenChange={setSheetOpen} />
     </Panel>
   );

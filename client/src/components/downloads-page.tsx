@@ -48,12 +48,13 @@ import {
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { CloseIcon, SearchIcon } from "@/lib/app-icons";
+import { typeClass } from "@/lib/size-context";
+import { cn } from "@/lib/utils";
 import type { ArtifactConfig } from "../types.js";
-import { useCaseTimeZone } from "./activity-data.js";
 import { usePrefersReducedMotion } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
-import { caseDayOf, inCaseDays } from "./day-bounds.js";
+import { caseDayOf, inCaseDays, zonesNote } from "./day-bounds.js";
 import { fieldText } from "./finding-fields.js";
 import { CompactFilters, FilterTextField, ProfilePicker } from "./filters.js";
 import { DrainNote, RevealSwap } from "./list-states.js";
@@ -101,8 +102,8 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
   // The Case-wide lens: the range (Case days) and the profile pick.
   const [range, setRange] = useViewRange();
   const [profiles, setProfiles] = useViewProfiles();
-  // Days are Case days: downloads bucket and filter on the Case's clock.
-  const { timeZone, settled: zoneSettled } = useCaseTimeZone();
+  // Days are Case days: each download buckets and filters on the clock its
+  // own start time declares (`row.startZone`), with no wait for History.
   const [sort, setSort] = useState<SortState>({ key: "started", dir: "desc" });
 
   // Clicking a file kind narrows the table, which can sit below the fold on
@@ -191,10 +192,10 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
     () =>
       hasRange
         ? modelInProfiles.filter((row) =>
-            inCaseDays(row.startUtc, range, timeZone),
+            inCaseDays(row.startUtc, range, row.startZone),
           )
         : modelInProfiles,
-    [modelInProfiles, hasRange, range, timeZone],
+    [modelInProfiles, hasRange, range],
   );
 
   const summary = useMemo(() => {
@@ -203,8 +204,8 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
     let expected = 0;
     let unfinished = 0;
     const hosts = new Set<string>();
-    let firstUtc: string | null = null;
-    let lastUtc: string | null = null;
+    let firstDay: string | null = null;
+    let lastDay: string | null = null;
     for (const row of modelInRange) {
       if (row.received !== null) {
         received += row.received;
@@ -221,12 +222,13 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
       if (row.host !== null) {
         hosts.add(row.host);
       }
-      if (row.startUtc !== null) {
-        if (firstUtc === null || row.startUtc < firstUtc) {
-          firstUtc = row.startUtc;
+      const day = caseDayOf(row.startUtc, row.startZone);
+      if (day !== null) {
+        if (firstDay === null || day < firstDay) {
+          firstDay = day;
         }
-        if (lastUtc === null || row.startUtc > lastUtc) {
-          lastUtc = row.startUtc;
+        if (lastDay === null || day > lastDay) {
+          lastDay = day;
         }
       }
     }
@@ -237,8 +239,8 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
       expected,
       unfinished,
       hosts: hosts.size,
-      firstUtc,
-      lastUtc,
+      firstDay,
+      lastDay,
     };
   }, [modelInRange]);
 
@@ -253,7 +255,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
         if (!inProfiles(row)) {
           return false;
         }
-        if (hasRange && !inCaseDays(row.startUtc, range, timeZone)) {
+        if (hasRange && !inCaseDays(row.startUtc, range, row.startZone)) {
           return false;
         }
         if (query === "") {
@@ -269,7 +271,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
         return sort.dir === "asc" ? order : -order;
       });
     },
-    [search, kindFilter, hasRange, range, sort, timeZone, inProfiles],
+    [search, kindFilter, hasRange, range, sort, inProfiles],
   );
   const visibleSaved = useMemo(() => narrow(model), [narrow, model]);
   // The tabs and footers count the rows in the lens (range, profiles) -
@@ -280,9 +282,9 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
       recoveredModel.filter(
         (row) =>
           inProfiles(row) &&
-          (!hasRange || inCaseDays(row.startUtc, range, timeZone)),
+          (!hasRange || inCaseDays(row.startUtc, range, row.startZone)),
       ),
-    [recoveredModel, inProfiles, hasRange, range, timeZone],
+    [recoveredModel, inProfiles, hasRange, range],
   );
   const visibleRecovered = useMemo(
     () => narrow(recoveredModel),
@@ -316,24 +318,34 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
   const lensEmptyMessage = (noun: string) => describe(noun, hasProfiles);
 
   const spanLabel =
-    summary.firstUtc === null || summary.lastUtc === null
+    summary.firstDay === null || summary.lastDay === null
       ? undefined
-      : formatDaySpan(
-          caseDayOf(summary.firstUtc, timeZone) ?? "",
-          caseDayOf(summary.lastUtc, timeZone) ?? "",
-        );
+      : formatDaySpan(summary.firstDay, summary.lastDay);
 
   // The date picker spans every dated download, saved or recovered: its
   // range filters both lists.
   const pickerSpan = useMemo(() => {
     const days = [...model, ...recoveredModel]
-      .flatMap((row) => (row.startUtc === null ? [] : [row.startUtc]))
+      .flatMap((row) => {
+        const day = caseDayOf(row.startUtc, row.startZone);
+        return day === null ? [] : [day];
+      })
       .sort();
     return {
-      min: caseDayOf(days[0] ?? null, timeZone),
-      max: caseDayOf(days[days.length - 1] ?? null, timeZone),
+      min: days[0] ?? null,
+      max: days[days.length - 1] ?? null,
     };
-  }, [model, recoveredModel, timeZone]);
+  }, [model, recoveredModel]);
+  // The rows' own zones: more than one gets one quiet line under the chart.
+  const zoneNote = useMemo(
+    () =>
+      zonesNote(
+        [...model, ...recoveredModel].flatMap((row) =>
+          row.startUtc === null ? [] : [row.startZone],
+        ),
+      ),
+    [model, recoveredModel],
+  );
 
   const clearAll = useCallback(() => {
     setKindFilter(null);
@@ -358,7 +370,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
           failed it steps aside and the Saved tab carries the error. */}
       {savedRead.error !== null ? null : (
         <RevealSwap
-          loading={savedRead.rows === null || !zoneSettled}
+          loading={savedRead.rows === null}
           skeleton={<DownloadsLoading pages={savedRead.pages} />}
         >
           <div className="flex flex-col gap-5">
@@ -407,6 +419,18 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
               <ChartSection
                 title="Data received per day"
                 className="lg:col-span-2"
+                footer={
+                  zoneNote === null ? undefined : (
+                    <p
+                      className={cn(
+                        typeClass("caption"),
+                        "text-muted-foreground",
+                      )}
+                    >
+                      {zoneNote}
+                    </p>
+                  )
+                }
                 action={
                   <DateRangePicker
                     from={range.from}
@@ -425,7 +449,6 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
                     rows={modelInProfiles}
                     range={range}
                     onRangeChange={setRange}
-                    timeZone={timeZone}
                   />
                 </div>
               </ChartSection>

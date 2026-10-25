@@ -13,15 +13,20 @@
  *
  * With no single declared timezone (no activity rows, or runs that declared
  * different zones) the bounds are UTC days: the only clock left that does not
- * pick one run's zone over another's.
+ * pick one run's zone over another's. That one Case zone is for server
+ * `from` / `to` bounds only.
  *
- * Pages that bucket or filter *loaded* rows by day (Downloads, Cache) use
- * `caseDayOf` / `inCaseDays` / `caseDayTotals` with the same zone
- * (`useCaseTimeZone()` in activity-data), so a moment falls on the same day
- * on every page.
+ * Pages that bucket or filter *loaded* rows by day (Downloads, Cache) read
+ * each row's day in the zone its own timestamp declares
+ * (`ForensicTimestamp.declaredTimezone`, read by `fieldZone`): pass it to
+ * `caseDayOf` / `inCaseDays`, and a `zoneOf` to `caseDayTotals`. No wait for
+ * the History activity read. When the loaded rows declare more than one
+ * zone, the page says so in one quiet line (`zonesNote`).
  *
  * Pure (no React), unit-tested in `day-bounds.test.ts`.
  */
+
+import type { FieldState } from "../types.js";
 
 const DAY_MS = 86_400_000;
 
@@ -193,10 +198,42 @@ interface DayRange {
 }
 
 /**
+ * The zone a timestamp field declares (`declaredTimezone` of its
+ * `{utc, declaredTimezone, ...}` value), or null when it records none: the
+ * clock a loaded row's day is read on.
+ */
+export function fieldZone(field: FieldState | undefined): string | null {
+  if (
+    field === undefined ||
+    field.state !== "value" ||
+    typeof field.value !== "object" ||
+    field.value === null
+  ) {
+    return null;
+  }
+  const zone = (field.value as Record<string, unknown>).declaredTimezone;
+  return typeof zone === "string" && zone !== "" ? zone : null;
+}
+
+/**
+ * The one quiet line for loaded rows whose timestamps declare different
+ * zones (each row's day is read in its own), or null when they agree. A
+ * row that declares none is read in UTC days and named so.
+ */
+export function zonesNote(zones: Iterable<string | null>): string | null {
+  const names = [
+    ...new Set([...zones].map((zone) => zone ?? "UTC (none declared)")),
+  ].sort();
+  return names.length > 1
+    ? `Days follow each row's own declared timezone: ${names.join(", ")}.`
+    : null;
+}
+
+/**
  * The Case day of a loaded row's instant: `localDayOf` under the name pages
- * read it by. `timeZone` is the Case's declared zone
- * (`useCaseTimeZone().timeZone`); null falls back to UTC days, the same rule
- * as `dayRangeBounds`.
+ * read it by. `timeZone` is the zone the row's timestamp declares
+ * (`fieldZone`); null falls back to UTC days, the same rule as
+ * `dayRangeBounds`.
  */
 export function caseDayOf(
   utc: string | null,
@@ -236,21 +273,21 @@ export interface CaseDayTotal {
 }
 
 /**
- * Loaded rows bucketed by Case day: per day, the number of rows and the sum
- * of `weightOf` (bytes, say; 0 without it). Rows with no recorded instant
- * are left out. Sorted by day; days with no rows are absent (`fillGaps` in
- * activity-data makes the axis continuous).
+ * Loaded rows bucketed by Case day, each row on the clock its own timestamp
+ * declares (`zoneOf`; null = UTC days): per day, the number of rows and the
+ * sum of `weightOf` (bytes, say; 0 without it). Rows with no recorded
+ * instant are left out. Sorted by day; days with no rows are absent
+ * (`fillGaps` in activity-data makes the axis continuous).
  *
- *   caseDayTotals(downloads, (row) => row.startUtc, timeZone,
- *     (row) => row.receivedBytes ?? 0)
+ *   caseDayTotals(downloads, (row) => row.startUtc,
+ *     (row) => row.startZone, (row) => row.receivedBytes ?? 0)
  */
 export function caseDayTotals<Row>(
   rows: readonly Row[],
   utcOf: (row: Row) => string | null,
-  timeZone: string | null,
+  zoneOf: (row: Row) => string | null,
   weightOf?: (row: Row) => number,
 ): CaseDayTotal[] {
-  const zone = usableZone(timeZone);
   const byDay = new Map<string, { count: number; weight: number }>();
   for (const row of rows) {
     const utc = utcOf(row);
@@ -261,7 +298,7 @@ export function caseDayTotals<Row>(
     if (Number.isNaN(instant)) {
       continue;
     }
-    const day = dayAt(instant, zone);
+    const day = dayAt(instant, usableZone(zoneOf(row)));
     const entry = byDay.get(day) ?? { count: 0, weight: 0 };
     entry.count += 1;
     entry.weight += weightOf?.(row) ?? 0;

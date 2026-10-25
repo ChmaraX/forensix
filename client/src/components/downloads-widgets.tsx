@@ -80,13 +80,10 @@ export function VolumeChart({
   rows,
   range,
   onRangeChange,
-  timeZone,
 }: {
   readonly rows: readonly DownloadRow[];
   readonly range: DayRange;
   readonly onRangeChange: (range: DayRange) => void;
-  /** The Case's declared timezone (`useCaseTimeZone`); null = UTC days. */
-  readonly timeZone: string | null;
 }) {
   const tokens = useChartTokens();
 
@@ -94,7 +91,8 @@ export function VolumeChart({
     const recorded = caseDayTotals(
       rows,
       (row) => row.startUtc,
-      timeZone,
+      // Each row's day on the clock its own start time declares.
+      (row) => row.startZone,
       (row) => row.received ?? 0,
     ).map(({ date, count, weight }) => ({ date, bytes: weight, count }));
     const first = recorded[0];
@@ -117,7 +115,7 @@ export function VolumeChart({
         .slice(0, 10);
       return map.get(date) ?? { date, bytes: 0, count: 0 };
     });
-  }, [rows, timeZone]);
+  }, [rows]);
 
   const peak = days.reduce((max, day) => Math.max(max, day.bytes), 0);
   const ticks = byteTicks(peak);

@@ -267,8 +267,13 @@ export function UrlWithSiteLink({
 /* ------------------------------ URL → History ----------------------------- */
 
 /** Where History's visits to one URL are: none, or the tab to open on (the
- *  Saved tab when any exact visit is saved). */
-type VisitPresence = { readonly tab: "saved" | "recovered" } | null;
+ *  Saved tab when any exact visit is saved). `exact` is false when the
+ *  exact-visit read was cut off before finding one: the link then opens
+ *  History searched for the URL, which proves neither a visit nor none. */
+type VisitPresence = {
+  readonly tab: "saved" | "recovered";
+  readonly exact: boolean;
+} | null;
 
 const presence = new Map<string, VisitPresence>();
 const pending = new Map<string, Promise<VisitPresence>>();
@@ -294,14 +299,19 @@ function visitPresenceOf(url: string): Promise<VisitPresence> {
     queue.push(() => {
       running += 1;
       exactVisitsOf(url)
-        .then(({ visits }) => {
+        .then(({ visits, more, savedMore }) => {
+          // Only a read that ran out proves "no visit"; a cut-off one with
+          // no exact match offers the search on the tab that was cut off.
           const value: VisitPresence =
             visits.length === 0
-              ? null
+              ? more
+                ? { tab: savedMore ? "saved" : "recovered", exact: false }
+                : null
               : {
                   tab: visits.some((visit) => visit.commitState === "committed")
                     ? "saved"
                     : "recovered",
+                  exact: true,
                 };
           presence.set(url, value);
           resolve(value);
@@ -324,8 +334,9 @@ function visitPresenceOf(url: string): Promise<VisitPresence> {
 
 /**
  * A recorded URL that opens History searched for it, on the tab that holds
- * its visits, once History is known to hold a visit to exactly that URL;
- * plain text until then, and for good when it holds none.
+ * its visits, once History is known to hold a visit to exactly that URL (or
+ * the exact-visit read was cut off, so one may exist); plain text until
+ * then, and for good when a complete read holds none.
  */
 export function VisitedUrlLink({
   url,
@@ -372,7 +383,11 @@ export function VisitedUrlLink({
     <CellLink
       page="history"
       extras={extras}
-      label="Open the visits to this URL in History"
+      label={
+        found?.exact === false
+          ? "Open History searched for this URL"
+          : "Open the visits to this URL in History"
+      }
       className={className}
     >
       {children}

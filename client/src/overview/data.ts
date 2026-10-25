@@ -8,7 +8,11 @@ import { ARTIFACTS } from "@/artifacts";
 import { caseSiteHosts } from "@/case-reads";
 import { formatDay } from "@/components/page-kit";
 import { caseActivity, type ActivityBucket } from "@/components/activity-data";
-import { dayRangeParameters, localDayOf } from "@/components/day-bounds";
+import {
+  dayRangeParameters,
+  fieldZone,
+  localDayOf,
+} from "@/components/day-bounds";
 import { fetchSiteFavicons } from "@/components/site-favicons";
 import { fieldString, fieldUtc } from "@/components/finding-fields";
 import { siteKeyOf } from "@/related";
@@ -130,13 +134,11 @@ const PAGE_LIMIT = 100;
 /** Downloads the Recent downloads panel lists. */
 export const RECENT_DOWNLOADS = 5;
 
-/** The local day (`YYYY-MM-DD`) of a timestamp field in the Case's declared
- *  timezone (UTC without one), or null. */
-export function fieldDay(
-  field: FieldState | undefined,
-  timeZone: string | null,
-): string | null {
-  return localDayOf(fieldUtc(field), timeZone);
+/** The local day (`YYYY-MM-DD`) of a timestamp field in the zone the
+ *  timestamp itself declares (UTC without one), or null - the day the
+ *  Downloads page buckets the same row on. */
+export function fieldDay(field: FieldState | undefined): string | null {
+  return localDayOf(fieldUtc(field), fieldZone(field));
 }
 
 /** A day lies in a range (`""` = an open bound). */
@@ -207,14 +209,14 @@ const RANGE_DOWNLOAD_PAGES = 20;
  * The newest `RECENT_DOWNLOADS` saved downloads that started inside a date
  * range. The downloads route has no time filter, so this follows the saved
  * list newest first, page by page, keeping rows whose start day (in the
- * declared timezone) is in range, and stops once it has enough, once a page
+ * zone each start time declares, `fieldDay`) is in range, and stops once it has enough, once a page
  * reaches days before the range, or at `RANGE_DOWNLOAD_PAGES`. `complete` is
  * false when that cap stopped it before it could tell.
  */
-export async function loadDownloadsIn(
-  range: { readonly from: string; readonly to: string },
-  timeZone: string | null,
-): Promise<{
+export async function loadDownloadsIn(range: {
+  readonly from: string;
+  readonly to: string;
+}): Promise<{
   readonly downloads: readonly Finding[];
   readonly complete: boolean;
 }> {
@@ -233,7 +235,7 @@ export async function loadDownloadsIn(
     );
     let older = false;
     for (const row of result.items) {
-      const day = fieldDay(row.fields.startTime, timeZone);
+      const day = fieldDay(row.fields.startTime);
       if (day === null) {
         continue;
       }

@@ -220,12 +220,24 @@ export function visitedUrlsOf(
 /** At most this many visits are linked one by one under a URL. */
 export const VISIT_LINKS = 3;
 
+/** "2 more saved visits and 1 more recovered visit": each Commit State
+ *  counted on its own (a zero is left out). */
+function moreVisitsText(saved: number, recovered: number): string {
+  const part = (count: number, state: string) =>
+    `${String(count)} more ${state} ${count === 1 ? "visit" : "visits"}`;
+  return [
+    ...(saved > 0 ? [part(saved, "saved")] : []),
+    ...(recovered > 0 ? [part(recovered, "recovered")] : []),
+  ].join(" and ");
+}
+
 /**
  * Links to the visits of `url`: only the visits whose `url` field equals it
  * exactly. Up to `VISIT_LINKS` open their own row (History, searched for
  * the URL so the row is loaded, on the visit's Saved / Recovered tab);
  * past that - or when the read was cut short (`more`) - one link opens
- * History searched for the URL.
+ * History searched for the URL. A cut-off read with no exact match still
+ * offers that search: it proves neither a visit nor none.
  */
 export function visitLinksOf(
   source: { readonly field: string; readonly url: string },
@@ -262,18 +274,39 @@ export function visitLinksOf(
       action: "Open visit",
     });
   }
-  const rest = exact.length - VISIT_LINKS;
-  if (rest > 0 || (more && exact.length > 0)) {
+  // Past the first few, one search link, its count split by Commit State
+  // (saved and recovered visits are never summed into one number).
+  const rest = exact.slice(VISIT_LINKS);
+  const restSaved = rest.filter(
+    (visit) => visit.commitState === "committed",
+  ).length;
+  const restRecovered = rest.length - restSaved;
+  if (more && exact.length === 0) {
+    // The read was cut off before an exact match: unknown, not "no visit".
+    links.push({
+      key: `visits:${source.url}`,
+      label: `Search for ${fieldLabel(source.field, kind)}`,
+      field: source.field,
+      value: "Searched for this URL",
+      mono: false,
+      page: "history",
+      extras: { q: source.url },
+      action: "Open History searched for this URL",
+    });
+  } else if (more || rest.length > 0) {
     links.push({
       key: `visits:${source.url}`,
       label: `Visits to ${fieldLabel(source.field, kind)}`,
       field: source.field,
       value: more
         ? "Every visit to this URL"
-        : `${String(rest)} more ${rest === 1 ? "visit" : "visits"} to this URL`,
+        : `${moreVisitsText(restSaved, restRecovered)} to this URL`,
       mono: false,
       page: "history",
-      extras: { q: source.url },
+      extras:
+        !more && restSaved === 0
+          ? { q: source.url, tab: "recovered" }
+          : { q: source.url },
       action: "Open in History",
     });
   }

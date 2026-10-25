@@ -37,6 +37,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { artifactLabelOfKind, FINDING_KINDS } from "../artifacts.js";
 import { fieldLabel } from "../field-labels.js";
 import { citationOf } from "../related.js";
+import { rowRefOf } from "../router.js";
 import type { FieldState, Finding } from "../types.js";
 import { CommitBadge } from "../terms.js";
 import { Button } from "@/components/ui/button";
@@ -432,6 +433,26 @@ function FieldValue({
   return <FieldStateText field={field} mono={mono} />;
 }
 
+/** Rows with no reference, each given its own key (by object identity). */
+const unreferencedKeys = new WeakMap<Finding, string>();
+let unreferencedCount = 0;
+
+/** A key that differs for every row: its reference, or - fail closed - a
+ *  key of its own when it has none. */
+function rowKeyOf(row: Finding): string {
+  const ref = rowRefOf(row);
+  if (ref !== null) {
+    return `ref:${ref}`;
+  }
+  let key = unreferencedKeys.get(row);
+  if (key === undefined) {
+    unreferencedCount += 1;
+    key = `object:${String(unreferencedCount)}`;
+    unreferencedKeys.set(row, key);
+  }
+  return key;
+}
+
 export function RowSheet({
   selected,
   onClose,
@@ -456,6 +477,7 @@ export function RowSheet({
 }) {
   const size = useSize();
   const { row } = selected;
+  const rowKey = rowKeyOf(row);
   const fields = Object.entries(row.fields);
   const kindNoun = FINDING_KINDS[row.findingKind]?.noun ?? row.findingKind;
   const citation = citationOf(row, {
@@ -566,7 +588,10 @@ export function RowSheet({
                 This row carries no fields.
               </p>
             ) : (
-              <dl className="flex flex-col divide-y divide-border">
+              // Keyed by the row: a revealed secret never carries over to
+              // the next row the open sheet shows (a click, ⌘K) - its fields mount
+              // afresh, hidden.
+              <dl key={rowKey} className="flex flex-col divide-y divide-border">
                 {fields.map(([name, field]) => (
                   <div
                     key={name}

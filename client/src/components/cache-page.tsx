@@ -51,11 +51,11 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
-import { SizeProvider, useSize } from "@/lib/size-context";
+import { SizeProvider, typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { ArtifactConfig, FieldState, Finding } from "../types.js";
-import { fillGaps, useCaseTimeZone } from "./activity-data.js";
+import { fillGaps } from "./activity-data.js";
 import { cacheResourceHost, cacheSiteKey } from "./cache-keys.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
@@ -72,7 +72,12 @@ import {
   StateWord,
   profileLabel,
 } from "./finding-fields.js";
-import { caseDayTotals, inCaseDays } from "./day-bounds.js";
+import {
+  caseDayTotals,
+  fieldZone,
+  inCaseDays,
+  zonesNote,
+} from "./day-bounds.js";
 import {
   CompactFilters,
   FilterField,
@@ -204,7 +209,9 @@ function keyHost(row: Finding): string | null {
 /**
  * The figure strip: four readings of the loaded saved entries. Bytes are
  * added only when a size was recorded; the integrity share is over every
- * saved entry, a missing signal counting as not verified.
+ * saved entry, a missing signal counting as not verified. While the list is
+ * not wholly read the counts and the byte sum are floors ("+") and the
+ * share names its base ("of the first N loaded").
  */
 function CacheSummary({
   rows,
@@ -240,23 +247,22 @@ function CacheSummary({
 
   const verifiedShare =
     rows.length === 0 ? 0 : Math.round((summary.verified / rows.length) * 100);
+  const floor = complete ? "" : "+";
+  const loaded = rows.length.toLocaleString("en-US");
 
   return (
     <MetricBand className="grid-cols-2 lg:grid-cols-4">
-      <MetricBandItem
-        label="Saved entries"
-        value={`${rows.length.toLocaleString("en-US")}${complete ? "" : "+"}`}
-      />
+      <MetricBandItem label="Saved entries" value={`${loaded}${floor}`} />
       <MetricBandItem
         label="Cached on disk"
         value={
           summary.sizedEntries === 0 ? (
             "not recorded"
           ) : summary.sizedEntries === rows.length ? (
-            formatBytes(summary.totalBytes)
+            `${formatBytes(summary.totalBytes)}${floor}`
           ) : (
             <TooltipFigure
-              value={formatBytes(summary.totalBytes)}
+              value={`${formatBytes(summary.totalBytes)}${floor}`}
               detail={`Summed over ${summary.sizedEntries.toLocaleString("en-US")} of ${plural(rows.length, "entry", "entries")}; the rest carry no recorded size`}
             />
           )
@@ -274,10 +280,15 @@ function CacheSummary({
             />
           )
         }
+        detail={
+          complete || rows.length === 0
+            ? undefined
+            : `of the first ${loaded} loaded`
+        }
       />
       <MetricBandItem
         label="Distinct hosts"
-        value={summary.hosts.toLocaleString("en-US")}
+        value={`${summary.hosts.toLocaleString("en-US")}${floor}`}
       />
     </MetricBand>
   );
@@ -285,13 +296,14 @@ function CacheSummary({
 
 /** An entry's last-used day falls in the range; with a range set, an entry
  *  with no last-used time falls outside it. */
-function lastUsedIn(
-  row: Finding,
-  range: DayRange,
-  timeZone: string | null,
-): boolean {
-  // Days are Case days: the same clock as History and Timeline.
-  return inCaseDays(fieldUtc(row.fields.lastUsed), range, timeZone);
+function lastUsedIn(row: Finding, range: DayRange): boolean {
+  // Days are Case days: read on the clock the entry's own last-used time
+  // declares.
+  return inCaseDays(
+    fieldUtc(row.fields.lastUsed),
+    range,
+    fieldZone(row.fields.lastUsed),
+  );
 }
 
 /**
@@ -306,14 +318,11 @@ function LastUsedPanel({
   range,
   onRangeChange,
   tokens,
-  timeZone,
 }: {
   readonly rows: readonly Finding[];
   readonly range: DayRange;
   readonly onRangeChange: (range: DayRange) => void;
   readonly tokens: ChartTokens;
-  /** The Case's declared timezone (`useCaseTimeZone`); null = UTC days. */
-  readonly timeZone: string | null;
 }) {
   const days = useMemo(
     () =>
@@ -321,15 +330,34 @@ function LastUsedPanel({
         caseDayTotals(
           rows,
           (row) => fieldUtc(row.fields.lastUsed),
-          timeZone,
+          (row) => fieldZone(row.fields.lastUsed),
         ).map(({ date, count }): DayCount => ({ date, count })),
       ),
-    [rows, timeZone],
+    [rows],
+  );
+  // More than one declared zone among the entries: one quiet line says so.
+  const zoneNote = useMemo(
+    () =>
+      zonesNote(
+        rows.flatMap((row) =>
+          fieldUtc(row.fields.lastUsed) === null
+            ? []
+            : [fieldZone(row.fields.lastUsed)],
+        ),
+      ),
+    [rows],
   );
 
   return (
     <ChartSection
       title="Last used over time"
+      footer={
+        zoneNote === null ? undefined : (
+          <p className={cn(typeClass("caption"), "text-muted-foreground")}>
+            {zoneNote}
+          </p>
+        )
+      }
       action={
         days.length === 0 ? undefined : (
           <DateRangePicker
@@ -792,8 +820,6 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
     route: config.route,
     byCommitState: false,
   });
-  // Days are Case days: entries bucket and filter on the Case's clock.
-  const { timeZone, settled: zoneSettled } = useCaseTimeZone();
 
   // The Cache route cannot filter by Commit State: split the one loaded set.
   const all = useMemo(() => splitByCommit(list.rows), [list.rows]);
@@ -810,9 +836,9 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
 
   const inLens = useCallback(
     (row: Finding) =>
-      lastUsedIn(row, range, timeZone) &&
+      lastUsedIn(row, range) &&
       (profileFilter.length === 0 || profileFilter.includes(row.profile)),
-    [range, timeZone, profileFilter],
+    [range, profileFilter],
   );
 
   const narrow = useCallback(
@@ -851,8 +877,8 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
     [all.saved, profileFilter],
   );
   const savedInRange = useMemo(
-    () => savedOfProfiles.filter((row) => lastUsedIn(row, range, timeZone)),
-    [savedOfProfiles, range, timeZone],
+    () => savedOfProfiles.filter((row) => lastUsedIn(row, range)),
+    [savedOfProfiles, range],
   );
   const savedVisible = useMemo(() => narrow(all.saved), [narrow, all.saved]);
   const recoveredVisible = useMemo(
@@ -926,10 +952,7 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
       ) : (
         <>
           {showFigures ? (
-            <RevealSwap
-              loading={list.loading || !zoneSettled}
-              skeleton={<FiguresSkeleton />}
-            >
+            <RevealSwap loading={list.loading} skeleton={<FiguresSkeleton />}>
               <div className="flex flex-col gap-5">
                 <DrainNote
                   draining={list.draining}
@@ -941,7 +964,6 @@ export function CachePage({ config }: { readonly config: ArtifactConfig }) {
                   range={range}
                   onRangeChange={setRange}
                   tokens={tokens}
-                  timeZone={timeZone}
                 />
               </div>
             </RevealSwap>

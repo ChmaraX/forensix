@@ -344,8 +344,12 @@ function RankedList({
   );
 }
 
+/** The tab's count: unknown (null) until a page lands - and after a failed
+ *  first read, which proves nothing about how many rows exist. */
 function countOf(list: PaginatedList<unknown>): number | null {
-  return list.loading && list.rows.length === 0 ? null : list.rows.length;
+  return list.rows.length === 0 && (list.loading || list.error !== null)
+    ? null
+    : list.rows.length;
 }
 
 export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {

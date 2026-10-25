@@ -5,8 +5,10 @@ import {
   caseDayTotals,
   dayRangeBounds,
   dayRangeParameters,
+  fieldZone,
   inCaseDays,
   localDayOf,
+  zonesNote,
 } from "./day-bounds.js";
 
 describe("dayRangeBounds", () => {
@@ -122,16 +124,54 @@ describe("Case-day bucketing of loaded rows", () => {
       caseDayTotals(
         rows,
         (row) => row.utc,
-        "America/New_York",
+        () => "America/New_York",
         (row) => row.bytes,
       ),
     ).toEqual([
       { date: "2024-03-04", count: 1, weight: 100 },
       { date: "2024-03-05", count: 1, weight: 50 },
     ]);
-    expect(caseDayTotals(rows, (row) => row.utc, null)).toEqual([
-      { date: "2024-03-05", count: 2, weight: 0 },
+    expect(
+      caseDayTotals(
+        rows,
+        (row) => row.utc,
+        () => null,
+      ),
+    ).toEqual([{ date: "2024-03-05", count: 2, weight: 0 }]);
+  });
+
+  it("buckets each row on the clock its own timestamp declares", () => {
+    // The same instant falls on 4 Mar for a New York run, 5 Mar for a UTC
+    // one: no single Case zone is applied to both.
+    const mixed = [
+      { utc: late, zone: "America/New_York" },
+      { utc: late, zone: null },
+    ];
+    expect(
+      caseDayTotals(
+        mixed,
+        (row) => row.utc,
+        (row) => row.zone,
+      ),
+    ).toEqual([
+      { date: "2024-03-04", count: 1, weight: 0 },
+      { date: "2024-03-05", count: 1, weight: 0 },
     ]);
+    expect(zonesNote(mixed.map((row) => row.zone))).toContain(
+      "America/New_York",
+    );
+    expect(zonesNote(["Europe/Warsaw", "Europe/Warsaw"])).toBeNull();
+  });
+
+  it("reads the zone a timestamp field declares, null when none", () => {
+    expect(
+      fieldZone({
+        state: "value",
+        value: { utc: late, raw: "1", declaredTimezone: "Asia/Tokyo" },
+      }),
+    ).toBe("Asia/Tokyo");
+    expect(fieldZone({ state: "value", value: { utc: late } })).toBeNull();
+    expect(fieldZone({ state: "absent" })).toBeNull();
   });
 
   it("filters by the same days the chart draws", () => {

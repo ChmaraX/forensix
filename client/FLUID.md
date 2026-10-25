@@ -401,7 +401,14 @@ unit?, emptyMessage? })` (count per day: visits on Overview, History and
   first and last instant of those days on the Case's clock, so clicking
   day D lists exactly day D. `localDayOf(utc, timeZone)` reads a loaded
   row's day the same way. With no single declared timezone the bounds fall
-  back to UTC days. Times in tables stay UTC (their header says so).
+  back to UTC days. That one Case zone is for server `from` / `to` bounds
+  only: a page that buckets or filters _loaded_ rows by day (Downloads,
+  Cache, Overview's ranged Recent downloads) reads each row's day in the
+  zone its own timestamp declares (`fieldZone(field)`, the
+  `ForensicTimestamp.declaredTimezone`; UTC when none) and never waits for
+  the History activity read. When the loaded rows declare more than one
+  zone the chart's footer says so in one quiet line (`zonesNote`). Times in
+  tables stay UTC (their header says so).
 
 ## URL state and the lens (`src/router.ts`, `src/view-state.tsx`)
 
@@ -502,8 +509,9 @@ onClose={sheet.close} />`.
   another page by a value the row records exactly - never an inferred
   relationship.
   - host → Sites (`hostLinkOf`; `siteKeyOf` keys it as the Sites route
-    does: URL host or cookie host key, lower case, no leading dot or
-    `www.`), only when Sites lists that host (`siteHostListed`, the one
+    does: a URL by its hostname, a cookie host key by itself, one leading
+    dot removed, lower case; nothing else, so `www.example.com` stays a
+    host apart from `example.com`), only when Sites lists that host (`siteHostListed`, the one
     rule the cell links share). Host fields per kind (`HOST_FIELDS`): a
     visit's / bookmark's / top site's `url`, a cookie's `hostKey`, a
     login's `originUrl` then `signonRealm`, a download's `tabUrl` then
@@ -951,7 +959,10 @@ loading?, onLoadMore? })` reads "3 of 22" / "50 loaded" / "3 of 50+" (Load more 
 - Activity (visits per day / hour): `useActivity()` / `fetchActivity()`
   (activity-data) return `{ saved, recovered, complete }` buckets; charts
   and figures draw `saved`, never summed with `recovered`, and say
-  nothing about it (no "Saved only" tag, no footnote).
+  nothing about it (no "Saved only" tag, no footnote). When `complete` is
+  false (the page cap stopped the read) every figure built from it is a
+  floor: counts read "+" (History's and Overview's figures), a share names
+  its base ("of the first N loaded", Cache's integrity share).
 
 ## Secrets: hidden by default
 
@@ -962,6 +973,9 @@ revealed there:
 `<RowSheet selected={…} onClose={…} redactedFields={secretFieldsOf(row)} />`.
 Each named field that holds a recorded, non-empty value opens hidden with a
 Reveal / Hide button; (empty), absent and unavailable still show as words.
+The sheet's fields are keyed by the row (its reference, or a key of its own
+when it has none), so a reveal never carries over when the open sheet
+switches to another row (a click behind it, ⌘K): the next row's secrets open hidden.
 
 - `form-data.ts`: the Form data category rule (`categoryOf`,
   `FORM_DATA_CATEGORIES`, Payment first), `isPaymentField(name)` (Chrome's

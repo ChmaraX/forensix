@@ -10,11 +10,12 @@ import { recordedText } from "./related.js";
 import type { Finding, PageOf, SiteHost } from "./types.js";
 
 /** The Case's activity, read once. One read for the whole app: the same
- *  shared read History, Timeline and `useCaseTimeZone` use
- *  (`caseActivity` in components/activity-data). */
+ *  shared read History and Timeline use (`caseActivity` in
+ *  components/activity-data). */
 export { caseActivity };
 
-/** The Case's declared timezone (null: UTC days), read once. */
+/** The Case's declared timezone (null: UTC days), read once: the one zone
+ *  for server `from` / `to` bounds (a day link into the Timeline). */
 export async function caseTimeZone(): Promise<string | null> {
   try {
     return (await caseActivity()).timeZone;
@@ -70,11 +71,14 @@ const VISIT_LOOKUP_LIMIT = 100;
  * Visits to exactly `url`, saved and recovered: History's own search (which
  * matches any part of the URL or title) narrowed to rows whose URL is the
  * same string. Reads one page per Commit State; `more` says a page was full,
- * so further exact matches may exist.
+ * so further exact matches may exist (`savedMore`: the saved one was). A
+ * cut-off read with no exact match proves nothing: callers then offer
+ * History searched for the URL, never "no visit".
  */
 export async function exactVisitsOf(url: string): Promise<{
   readonly visits: readonly Finding[];
   readonly more: boolean;
+  readonly savedMore: boolean;
 }> {
   const states = ["committed", "wal_resident", "journal_resident"] as const;
   const pages = await Promise.all(
@@ -94,6 +98,8 @@ export async function exactVisitsOf(url: string): Promise<{
       page.items.filter((visit) => recordedText(visit.fields.url) === url),
     ),
     more: pages.some((page) => page.nextCursor !== null),
+    // `states[0]` is the saved (committed) read.
+    savedMore: (pages[0]?.nextCursor ?? null) !== null,
   };
 }
 

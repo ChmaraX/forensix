@@ -289,6 +289,9 @@ interface ActivityFigures {
   readonly savedVisits: number;
   readonly activeDays: number;
   readonly span: { readonly first: string; readonly last: string } | null;
+  /** The activity read ran out (false: stopped at its page cap, so each
+   *  figure is a floor and reads "+"). */
+  readonly complete: boolean;
 }
 
 /**
@@ -298,6 +301,7 @@ interface ActivityFigures {
  * in. The recorded span is the calendar distance between the first and last
  * saved day, with those days as its one data line. Distinct sites is read
  * off the loaded saved visit rows; while more rows exist it reads "N+".
+ * An activity read cut off at its page cap marks its three figures "+" too.
  */
 function HistoryFigures({
   activity,
@@ -311,14 +315,18 @@ function HistoryFigures({
     <MetricBand className="grid-cols-2 lg:grid-cols-4">
       <MetricBandItem
         label="Saved visits"
-        value={figure(activity, (value) =>
-          value.savedVisits.toLocaleString("en-US"),
+        value={figure(
+          activity,
+          (value) =>
+            `${value.savedVisits.toLocaleString("en-US")}${value.complete ? "" : "+"}`,
         )}
       />
       <MetricBandItem
         label="Active days"
-        value={figure(activity, (value) =>
-          value.activeDays.toLocaleString("en-US"),
+        value={figure(
+          activity,
+          (value) =>
+            `${value.activeDays.toLocaleString("en-US")}${value.complete ? "" : "+"}`,
         )}
       />
       <MetricBandItem
@@ -328,7 +336,12 @@ function HistoryFigures({
             value.span === null
               ? null
               : spanDays(value.span.first, value.span.last);
-          return days === null ? "none" : plural(days, "day", "days");
+          if (days === null) {
+            return value.complete ? "none" : "none loaded";
+          }
+          return value.complete
+            ? plural(days, "day", "days")
+            : `${days.toLocaleString("en-US")}+ days`;
         })}
         detail={
           span === null ? undefined : formatDaySpan(span.first, span.last)
@@ -763,8 +776,12 @@ function VisitList({
 
 /* --------------------------------- page ----------------------------------- */
 
+/** The tab's count: unknown (null) until a page lands - and after a failed
+ *  first read, which proves nothing about how many rows exist. */
 function countOf(list: PaginatedList<unknown>): number | null {
-  return list.loading && list.rows.length === 0 ? null : list.rows.length;
+  return list.rows.length === 0 && (list.loading || list.error !== null)
+    ? null
+    : list.rows.length;
 }
 
 /** The Saved / Recovered switch, the date range, the profile pick and the
@@ -878,6 +895,7 @@ export function HistoryPage({
         activeDays: days.length,
         span:
           first === undefined || last === undefined ? null : { first, last },
+        complete: activity.complete,
       },
     };
   }, [activity, activityError, filters.from, filters.to]);

@@ -226,9 +226,12 @@ describe("visitedUrlsOf / visitLinksOf", () => {
 
   it("links the rest through one History search past the first few", () => {
     const url = "https://a.example/";
-    const visits = Array.from({ length: VISIT_LINKS + 2 }, (_, index) =>
-      visitTo(url, String(index)),
-    );
+    const visits = [
+      ...Array.from({ length: VISIT_LINKS + 2 }, (_, index) =>
+        visitTo(url, String(index)),
+      ),
+      visitTo(url, "r1", "wal_resident"),
+    ];
     const links = visitLinksOf(
       { field: "url", url },
       "bookmark",
@@ -236,10 +239,46 @@ describe("visitedUrlsOf / visitLinksOf", () => {
       String,
     );
     expect(links).toHaveLength(VISIT_LINKS + 1);
-    expect(links[links.length - 1]).toMatchObject({
-      value: "2 more visits to this URL",
-      extras: { q: url },
+    const rest = links[links.length - 1];
+    expect(rest?.extras).toEqual({ q: url });
+    // Saved and recovered visits are counted apart, never summed.
+    expect(rest?.value).toContain("2 more saved visits");
+    expect(rest?.value).toContain("1 more recovered visit");
+    expect(rest?.value).not.toContain("3 more");
+  });
+
+  it("opens the Recovered tab when only recovered visits are left", () => {
+    const url = "https://a.example/";
+    const visits = [
+      ...Array.from({ length: VISIT_LINKS }, (_, index) =>
+        visitTo(url, String(index)),
+      ),
+      visitTo(url, "r1", "journal_resident"),
+    ];
+    const links = visitLinksOf(
+      { field: "url", url },
+      "bookmark",
+      visits,
+      String,
+    );
+    expect(links[links.length - 1]?.extras).toEqual({
+      q: url,
+      tab: "recovered",
     });
+  });
+
+  it("offers History searched for the URL when a cut-off read found no exact visit", () => {
+    const url = "https://a.example/";
+    const links = visitLinksOf(
+      { field: "url", url },
+      "bookmark",
+      [visitTo(`${url}page`, "1")],
+      String,
+      true,
+    );
+    expect(links).toHaveLength(1);
+    expect(links[0]?.extras).toEqual({ q: url });
+    expect(links[0]?.page).toBe("history");
   });
 
   it("links nothing when no visit matches exactly", () => {

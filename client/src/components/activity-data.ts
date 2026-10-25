@@ -1,8 +1,10 @@
 /**
  * The shared `history` `view=activity` read (Overview, History, Timeline):
  * one fetch loop, read once per Case (`caseActivity`), one gap-fill
- * algorithm, used everywhere this data appears; and the Case's declared
- * timezone for pages that bucket loaded rows by day (`useCaseTimeZone`).
+ * algorithm, used everywhere this data appears. Its `timeZone` is the one
+ * Case zone, for server `from` / `to` bounds only: pages that bucket loaded
+ * rows by day read each row's own declared zone (day-bounds `fieldZone`)
+ * and never wait for this read.
  *
  * Saved and recovered stay apart (forensic rule 4). Core writes one activity
  * row per Profile, Commit State, local date and hour, so the read keeps each
@@ -195,44 +197,6 @@ export function useActivity(): {
   }, []);
 
   return { activity, error, retry };
-}
-
-/**
- * The Case's declared timezone — the clock every per-day chart and day
- * filter reads (FLUID.md, "Days are Case days") — for pages that bucket
- * loaded rows themselves (Downloads, Cache): pass it to `caseDayTotals` /
- * `inCaseDays` (day-bounds). `settled` is false while the shared activity
- * read is in flight; draw the per-day chart only once it is true, so days
- * never jump from UTC to Case days under the reader. `timeZone` null (no
- * single declared zone, or the read failed) means UTC days, the same
- * fallback as `dayRangeBounds`.
- */
-export function useCaseTimeZone(): {
-  readonly timeZone: string | null;
-  readonly settled: boolean;
-} {
-  const [state, setState] = useState<{
-    readonly timeZone: string | null;
-    readonly settled: boolean;
-  }>({ timeZone: null, settled: false });
-  useEffect(() => {
-    let cancelled = false;
-    caseActivity()
-      .then((result) => {
-        if (!cancelled) {
-          setState({ timeZone: result.timeZone, settled: true });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setState({ timeZone: null, settled: true });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return state;
 }
 
 function inRange(

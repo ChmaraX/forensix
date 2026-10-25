@@ -10,6 +10,7 @@ import {
   type AppIcon,
 } from "@/lib/app-icons";
 import type { CommitState, Finding } from "../types.js";
+import { fieldZone } from "./day-bounds.js";
 import { fieldInteger, fieldText, fieldUtc, hostOf } from "./finding-fields.js";
 import { useDrainedRead } from "./use-drained-read.js";
 
@@ -314,6 +315,9 @@ export interface DownloadRow {
    *  zero: shown beside the received bytes, never counted as received. */
   readonly expected: number | null;
   readonly startUtc: string | null;
+  /** The zone the start time declares (`fieldZone`): the clock the row's
+   *  day is read on; null = UTC days. */
+  readonly startZone: string | null;
   readonly state: string | null;
   readonly kind: FileKind;
 }
@@ -335,6 +339,7 @@ export function toRow(finding: Finding): DownloadRow {
     received: fieldInteger(finding.fields.receivedBytes),
     expected: positive(fieldInteger(finding.fields.totalBytes)),
     startUtc: fieldUtc(finding.fields.startTime),
+    startZone: fieldZone(finding.fields.startTime),
     state: fieldText(finding.fields.state),
     kind: kindOf(mime, name),
   };

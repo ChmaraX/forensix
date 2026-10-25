@@ -57,8 +57,8 @@ import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
-// Topic categorization: a one-line "unavailable" state with an "enable the
-// model" Sheet, until the topic-status route exists.
+// Topic categorization: one line saying whether the Case holds topic
+// Candidates (available / none / unavailable).
 import { TopicCategorizationLine } from "./overview-topic-widget.js";
 import { localDayOf } from "./components/day-bounds.js";
 import { profileLabel } from "./components/finding-fields.js";
@@ -269,7 +269,8 @@ function OverviewContent({
   const rangeActive = rangeFrom !== "" || rangeTo !== "";
 
   // Under a narrowed range, Most visited sites and Recent downloads re-read
-  // the saved rows in it (in the declared timezone's days). Each read keeps
+  // the saved rows in it (visits by the Case zone's server bounds, loaded
+  // downloads by each start time's own declared zone). Each read keeps
   // its own state: a failed read shows its error with Retry, never "nothing
   // in this range"; a read that stopped at its cap says the list is partial.
   const range = useMemo(
@@ -282,11 +283,11 @@ function OverviewContent({
   );
   const loadDownloads = useCallback(
     () =>
-      loadDownloadsIn(range, data.timeZone).then((result) => ({
+      loadDownloadsIn(range).then((result) => ({
         items: result.downloads,
         complete: result.complete,
       })),
-    [range, data.timeZone],
+    [range],
   );
   // A narrowed range's hosts bring their own recovered favicons.
   const [rangedFavicons, setRangedFavicons] = useState<
@@ -408,17 +409,23 @@ function OverviewContent({
         ),
       ),
   );
+  // An activity read cut off at its page cap makes each activity figure a
+  // floor: "+" on the counts, "+" on the longest stretch found so far.
   const figures: readonly CaseFigure[] = [
     {
       key: "visits",
       label: "Page visits",
-      value: windowed.totalVisits,
+      value: truncated
+        ? `${windowed.totalVisits.toLocaleString("en-US")}+`
+        : windowed.totalVisits,
       recorded: true,
     },
     {
       key: "active-days",
       label: "Active days",
-      value: windowed.days.length,
+      value: truncated
+        ? `${windowed.days.length.toLocaleString("en-US")}+`
+        : windowed.days.length,
       recorded: true,
       // When: the first to the last active day (in the range).
       detail:
@@ -432,12 +439,16 @@ function OverviewContent({
       recorded: quietGap !== null,
       value:
         quietGap === null
-          ? windowed.days.length === 0
-            ? "No dated activity"
-            : windowed.days.length === 1
-              ? "One active day"
-              : "No quiet days"
-          : plural(quietGap.days, "day", "days"),
+          ? truncated
+            ? "None in the days loaded"
+            : windowed.days.length === 0
+              ? "No dated activity"
+              : windowed.days.length === 1
+                ? "One active day"
+                : "No quiet days"
+          : truncated
+            ? `${quietGap.days.toLocaleString("en-US")}+ days`
+            : plural(quietGap.days, "day", "days"),
       detail:
         quietGap === null
           ? undefined
@@ -782,8 +793,7 @@ function OverviewContent({
           )}
         </SectionPanel>
 
-        {/* TODO: wire to the real topic-candidates / topic-status routes
-            once they exist; until then the panel states it is unavailable. */}
+        {/* Reads one topic-candidates row: available, none or unavailable. */}
         <TopicCategorizationLine className="col-span-12" />
       </div>
     </div>
