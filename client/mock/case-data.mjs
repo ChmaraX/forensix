@@ -2,16 +2,21 @@
  * Design-only mock Case data for the ForensiX dashboard client.
  *
  * This is NOT analyzer test data and is never read by core/cli/server. It
- * exists purely so the client can be designed and iterated against a rich,
- * plausible dataset without a real analyzed Case. All names, emails, hosts,
- * and IDs below are fictional.
+ * exists so the client can be designed, iterated and photographed against a
+ * rich, plausible Case without a real analyzed one. The scenario (subject,
+ * sites, page titles, dated story events) is in scenario.mjs; this file turns
+ * it into rows of core's shapes. All people, companies and accounts are
+ * fictional.
  *
- * Scenario: a corporate insider-threat / financial-fraud investigation into
- * a former employee's Chrome usage across two profiles ("Default" and
- * "Profile 2") on a company-issued laptop, acquired from a full-disk image.
+ * Two Chrome Profiles on a company MacBook: "Default" (the work Profile) and
+ * "Profile 1" (personal browsing). Six weeks of browsing, with a four-day
+ * gap for a trip, and a cleared last week whose visits, downloads and one
+ * favicon survive only in WAL files (recovered rows). The rows keep every
+ * Field State in use (value, empty, absent, unavailable) at a realistic rate.
  */
 
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import {
   buildCandidates,
@@ -20,7 +25,6 @@ import {
   buildTopicCandidates,
 } from "./case-context-data.mjs";
 import {
-  ALL_HOSTS,
   CASE_ID,
   DECLARED_TIMEZONE,
   PROFILES,
@@ -30,95 +34,289 @@ import {
   SOURCE_IMAGE,
   SOURCE_USER_DATA,
   absent,
-  isoAtSeeded,
   pick,
   prng,
   provenance,
-  reasonFor,
   timestamp,
-  titleFor,
   unavailable,
-  urlFor,
   value,
 } from "./case-kit.mjs";
+import {
+  AUTOFILL_ITEMS,
+  BOOKMARK_ITEMS,
+  CLEARED_AT,
+  CLEARED_FROM,
+  COOKIE_NAMES,
+  DOWNLOADS_DIR,
+  DOWNLOAD_ITEMS,
+  FICTIONAL_MARKS,
+  FIRST_DAY,
+  LAST_DAY,
+  LOGIN_ITEMS,
+  SITES,
+  STORY_SEARCH,
+  STORY_VISITS,
+  TRIP_DAYS,
+  siteOf,
+} from "./scenario.mjs";
+
+/** True when an instant falls in the cleared window: its rows were removed
+ *  from the saved databases and survive only in their WAL files. */
+function cleared(iso) {
+  return iso >= CLEARED_FROM && iso <= CLEARED_AT;
+}
+
+function isoAt(day, minutes) {
+  const base = new Date(`${day}T00:00:00.000Z`);
+  base.setUTCSeconds(Math.round(minutes * 60));
+  return base.toISOString();
+}
+
+function addSeconds(iso, seconds) {
+  return new Date(new Date(iso).getTime() + seconds * 1000).toISOString();
+}
+
+function daysOfCase() {
+  const days = [];
+  const day = new Date(`${FIRST_DAY}T00:00:00.000Z`);
+  const last = new Date(`${LAST_DAY}T00:00:00.000Z`);
+  while (day <= last) {
+    days.push(day.toISOString().slice(0, 10));
+    day.setUTCDate(day.getUTCDate() + 1);
+  }
+  return days;
+}
+
+function weighted(rand, sites) {
+  const total = sites.reduce((sum, site) => sum + site.weight, 0);
+  let roll = rand() * total;
+  for (const site of sites) {
+    roll -= site.weight;
+    if (roll < 0) return site;
+  }
+  return sites[sites.length - 1];
+}
 
 /* --------------------------------- History -------------------------------- */
 
-const TRANSITIONS = ["link", "typed", "auto_bookmark", "reload", "form_submit"];
+const WORK_SITES = SITES.filter((s) => s.kind === "work" || s.kind === "both");
+const PERSONAL_SITES = SITES.filter(
+  (s) => s.kind === "personal" || s.kind === "both",
+);
+
+/** Core's transition names and the raw core value Chrome stores for each. */
+const TRANSITION_RAW = {
+  link: 0,
+  typed: 1,
+  auto_bookmark: 2,
+  form_submit: 7,
+  reload: 8,
+};
+
+/** One browsing session: `count` visits spread over `[from, to)` minutes of
+ *  the day, picked from `sites`. */
+function session(rand, day, from, to, count, sites, profile) {
+  const visits = [];
+  for (let i = 0; i < count; i += 1) {
+    const site = weighted(rand, sites);
+    const [path, title] = pick(rand, site.pages);
+    visits.push({
+      iso: isoAt(day, from + rand() * (to - from)),
+      host: site.host,
+      path,
+      title,
+      profile,
+    });
+  }
+  return visits;
+}
+
+function scheduledVisits() {
+  const rand = prng(2024);
+  const visits = [];
+  for (const day of daysOfCase()) {
+    if (TRIP_DAYS.includes(day)) continue;
+    const weekday = new Date(`${day}T00:00:00.000Z`).getUTCDay();
+    const workday = weekday >= 1 && weekday <= 5;
+    const between = (low, high) => low + Math.floor(rand() * (high - low + 1));
+    if (day === LAST_DAY) {
+      // The last morning: Slack, mail and calendar, then the laptop goes back.
+      visits.push(
+        ...session(
+          rand,
+          day,
+          8 * 60 + 50,
+          12 * 60 + 20,
+          14,
+          WORK_SITES.slice(0, 1).concat(
+            siteOf("mail.google.com"),
+            siteOf("calendar.google.com"),
+          ),
+          PROFILE_DEFAULT,
+        ),
+      );
+      continue;
+    }
+    if (workday) {
+      visits.push(
+        ...session(
+          rand,
+          day,
+          8 * 60 + 40,
+          12 * 60 + 30,
+          between(13, 20),
+          WORK_SITES,
+          PROFILE_DEFAULT,
+        ),
+        ...session(
+          rand,
+          day,
+          13 * 60 + 20,
+          18 * 60 + 15,
+          between(14, 22),
+          WORK_SITES,
+          PROFILE_DEFAULT,
+        ),
+      );
+      if (rand() < 0.75) {
+        visits.push(
+          ...session(
+            rand,
+            day,
+            19 * 60 + 30,
+            23 * 60,
+            between(3, 9),
+            PERSONAL_SITES,
+            rand() < 0.6 ? PROFILE_SECOND : PROFILE_DEFAULT,
+          ),
+        );
+      }
+    } else {
+      visits.push(
+        ...session(
+          rand,
+          day,
+          10 * 60 + 15,
+          13 * 60,
+          between(3, 8),
+          PERSONAL_SITES,
+          PROFILE_SECOND,
+        ),
+        ...session(
+          rand,
+          day,
+          17 * 60,
+          23 * 60 + 30,
+          between(4, 10),
+          PERSONAL_SITES,
+          PROFILE_SECOND,
+        ),
+      );
+    }
+  }
+  for (const [iso, host, pageIndex] of STORY_VISITS) {
+    const [path, title] =
+      pageIndex < 0 ? STORY_SEARCH : siteOf(host).pages[pageIndex];
+    visits.push({ iso, host, path, title, profile: PROFILE_DEFAULT });
+  }
+  return visits.sort((a, b) => (a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : 0));
+}
 
 function buildHistoryVisits() {
   const rand = prng(101);
-  const rows = [];
-  let visitId = 500100;
-  let urlId = 900200;
-  for (let i = 0; i < 34; i += 1) {
-    const profile = i % 5 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT;
-    const host = pick(rand, ALL_HOSTS);
-    const url = urlFor(rand, host);
-    const title = titleFor(host);
-    const daysAgo = Math.floor(rand() * 45);
-    const hour = Math.floor(rand() * 24);
-    const minute = Math.floor(rand() * 60);
-    const visitTimeIso = isoAtSeeded(rand, daysAgo, hour, minute);
-    const sidecar = i % 6 === 0 || i % 6 === 1;
-    const commitState =
-      i % 6 === 0
-        ? "wal_resident"
-        : i % 6 === 1
-          ? "journal_resident"
-          : "committed";
-    const withDuration = i % 3 !== 2;
-    const fields = {
-      visitId: value(String(visitId)),
-      urlId: value(String(urlId)),
-      urlRecordId: value(String(urlId)),
-      url: value(url),
-      title: i % 11 === 0 ? { state: "value", value: "" } : value(title),
-      urlVisitCount: value(String(1 + Math.floor(rand() * 40))),
-      typedCount: value(String(Math.floor(rand() * 5))),
-      lastVisitTime: timestamp(visitTimeIso),
-      hidden: value(false),
-      visitTime: timestamp(visitTimeIso),
-      fromVisit: i > 0 && i % 4 === 0 ? value(String(visitId - 1)) : absent(),
-      externalReferrerUrl: i % 9 === 0 ? unavailable(reasonFor(i)) : absent(),
-      transitionRaw: value(String(805306368 + i)),
-      transitionCore: value(pick(rand, TRANSITIONS)),
-      transitionQualifiers: value(i % 4 === 0 ? ["client_redirect"] : []),
-      redirectFromVisitId: absent(),
-      redirectToVisitIds: value([]),
-      segmentId: sidecar
-        ? unavailable("row deleted, recovered from WAL without this field")
-        : absent(),
-      visitDuration: withDuration
-        ? value(String(15_000_000 + Math.floor(rand() * 900_000_000)), {
-            synthetic: false,
-          })
-        : absent(),
-      visitSource:
-        i % 7 === 0 ? unavailable("missing_column") : value("SOURCE_BROWSED"),
-    };
-    rows.push({
+  const plan = scheduledVisits();
+  const visitCount = new Map();
+  const lastVisit = new Map();
+  for (const visit of plan) {
+    const url = `https://${visit.host}${visit.path}`;
+    visitCount.set(url, (visitCount.get(url) ?? 0) + 1);
+    lastVisit.set(url, visit.iso);
+  }
+  const urlIds = new Map();
+  let nextUrlId = 4100;
+  let visitId = 61_200;
+  let previous = null;
+  return plan.map((visit, index) => {
+    const url = `https://${visit.host}${visit.path}`;
+    if (!urlIds.has(url)) urlIds.set(url, nextUrlId++);
+    const urlId = urlIds.get(url);
+    const sameSession =
+      previous !== null &&
+      previous.profile === visit.profile &&
+      new Date(visit.iso) - new Date(previous.iso) < 20 * 60_000;
+    const transition = visit.path.startsWith("/search")
+      ? "form_submit"
+      : !sameSession
+        ? rand() < 0.3
+          ? "auto_bookmark"
+          : "typed"
+        : rand() < 0.05
+          ? "reload"
+          : "link";
+    const commitState = cleared(visit.iso) ? "wal_resident" : "committed";
+    const recovered = commitState !== "committed";
+    const durationSeconds =
+      visit.host === "www.figma.com" || visit.host === "app.slack.com"
+        ? 120 + Math.floor(rand() * 1500)
+        : 8 + Math.floor(rand() * 420);
+    const emptyTitle = visit.host === "www.google.com" && index % 37 === 0;
+    const row = {
       recordType: "finding",
       findingKind: "history_visit",
-      profile,
+      profile: visit.profile,
       commitState,
       provenance: provenance(
-        sidecar ? "visits" : "visits",
+        "visits",
         visitId,
-        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+        recovered ? SOURCE_USER_DATA : SOURCE_IMAGE,
       ),
-      fields,
-      _sortTime: visitTimeIso,
-      _sortUrl: url,
-      _sortDuration: withDuration ? 1 : 0,
-    });
+      fields: {
+        visitId: value(String(visitId)),
+        urlId: value(String(urlId)),
+        urlRecordId: value(String(urlId)),
+        url: value(url),
+        title: value(emptyTitle ? "" : visit.title),
+        urlVisitCount: value(String(visitCount.get(url))),
+        typedCount: value(
+          String(transition === "typed" ? 1 + Math.floor(rand() * 6) : 0),
+        ),
+        lastVisitTime: timestamp(lastVisit.get(url)),
+        hidden: value(false),
+        visitTime: timestamp(visit.iso),
+        fromVisit: sameSession ? value(String(visitId - 1)) : value("0"),
+        externalReferrerUrl:
+          index % 97 === 0
+            ? unavailable("column not present in this Chrome version")
+            : absent(),
+        transitionRaw: value(String(TRANSITION_RAW[transition])),
+        transitionCore: value(transition),
+        transitionQualifiers: value(
+          sameSession ? [] : ["chain_start", "chain_end"],
+        ),
+        redirectFromVisitId: absent(),
+        redirectToVisitIds: value([]),
+        segmentId: recovered
+          ? unavailable("row deleted, recovered from WAL without this field")
+          : value(String(300 + (urlId % 40))),
+        visitDuration: value(String(durationSeconds * 1_000_000)),
+        visitSource:
+          index % 151 === 0
+            ? unavailable("missing_column")
+            : value("SOURCE_BROWSED"),
+      },
+    };
     visitId += 1;
-    urlId += 1;
-  }
-  return rows;
+    previous = visit;
+    return row;
+  });
 }
 
 const HISTORY_VISITS = buildHistoryVisits();
+
+function utcOf(row, field) {
+  const state = row.fields[field];
+  return state?.state === "value" ? state.value.utc : null;
+}
 
 function buildHistoryActivity() {
   // One Finding per Profile per Commit State per local date/hour bucket,
@@ -127,18 +325,20 @@ function buildHistoryActivity() {
   // recovered visits never share a bucket.
   const buckets = new Map();
   for (const visit of HISTORY_VISITS) {
-    const dt = new Date(visit._sortTime);
-    const date = dt.toISOString().slice(0, 10);
-    const hour = String(dt.getUTCHours()).padStart(2, "0");
+    const utc = utcOf(visit, "visitTime");
+    const date = utc.slice(0, 10);
+    const hour = utc.slice(11, 13);
     const key = `${visit.profile}|${visit.commitState}|${date}|${hour}`;
     const bucket = buckets.get(key) ?? {
       profile: visit.profile,
       date,
       hour,
       count: 0,
+      durationMicros: 0,
       commitState: visit.commitState,
     };
     bucket.count += 1;
+    bucket.durationMicros += Number(visit.fields.visitDuration.value);
     buckets.set(key, bucket);
   }
   return [...buckets.values()].map((bucket, index) => ({
@@ -152,132 +352,123 @@ function buildHistoryActivity() {
       localHour: value(bucket.hour),
       declaredTimezone: value(DECLARED_TIMEZONE),
       supportingVisitCount: value(String(bucket.count)),
-      visitsWithDurationCount: value(String(Math.max(0, bucket.count - 1))),
-      visitsWithoutDurationCount: value("1"),
-      totalDurationMicros: value(String(bucket.count * 240_000_000)),
+      visitsWithDurationCount: value(String(bucket.count)),
+      visitsWithoutDurationCount: value("0"),
+      totalDurationMicros: value(String(bucket.durationMicros)),
     },
   }));
 }
 
 function buildHistoryMostVisited() {
-  const rand = prng(202);
   const counts = new Map();
   for (const visit of HISTORY_VISITS) {
-    if (visit.fields.url.state !== "value") continue;
+    if (visit.commitState !== "committed") continue;
     const url = visit.fields.url.value;
-    counts.set(url, (counts.get(url) ?? 0) + 1 + Math.floor(rand() * 6));
-  }
-  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-  return ranked.map(([url, count], index) => {
-    let host = url;
-    try {
-      host = new URL(url).hostname;
-    } catch {
-      /* keep raw */
-    }
-    return {
-      recordType: "finding",
-      findingKind: "history_most_visited",
-      profile: PROFILE_DEFAULT,
-      commitState: "committed",
-      provenance: provenance("urls", `most-visited-${index}`),
-      fields: {
-        url: value(url),
-        title: value(titleFor(host)),
-        supportingVisitCount: value(String(count)),
-      },
+    const entry = counts.get(url) ?? {
+      count: 0,
+      title: visit.fields.title.value,
     };
-  });
+    entry.count += 1;
+    counts.set(url, entry);
+  }
+  const ranked = [...counts.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 12);
+  return ranked.map(([url, entry], index) => ({
+    recordType: "finding",
+    findingKind: "history_most_visited",
+    profile: PROFILE_DEFAULT,
+    commitState: "committed",
+    provenance: provenance("urls", `most-visited-${index}`),
+    fields: {
+      url: value(url),
+      title: value(entry.title),
+      supportingVisitCount: value(String(entry.count)),
+    },
+  }));
 }
+
+/** First and last visit instant per host, from the History rows. */
+const HOST_SPAN = (() => {
+  const span = new Map();
+  for (const visit of HISTORY_VISITS) {
+    const host = new URL(visit.fields.url.value).hostname;
+    const utc = utcOf(visit, "visitTime");
+    const entry = span.get(host) ?? { first: utc, last: utc, count: 0 };
+    entry.last = utc;
+    entry.count += 1;
+    span.set(host, entry);
+  }
+  return span;
+})();
 
 /* -------------------------------- Cookies -------------------------------- */
 
-const SAME_SITE = ["no_restriction", "lax", "strict", "unspecified"];
+const SAME_SITE = ["lax", "lax", "no_restriction", "strict"];
 
 function buildCookies() {
   const rand = prng(303);
   const rows = [];
-  for (let i = 0; i < 28; i += 1) {
-    const profile = i % 4 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT;
-    const host = pick(rand, ALL_HOSTS);
-    const daysAgo = Math.floor(rand() * 60);
-    const created = isoAtSeeded(rand, daysAgo, Math.floor(rand() * 24), 0);
-    const expires = isoAtSeeded(
-      rand,
-      daysAgo - 365,
-      Math.floor(rand() * 24),
-      0,
-    );
-    const lastAccess = isoAtSeeded(
-      rand,
-      Math.max(0, daysAgo - 3),
-      Math.floor(rand() * 24),
-      0,
-    );
-    const sidecar = i % 5 === 0;
-    const commitState = sidecar
-      ? i % 10 === 0
-        ? "journal_resident"
-        : "wal_resident"
-      : "committed";
-    const encrypted = i % 3 !== 0;
-    const decryptable = encrypted && i % 9 !== 0;
-    const names = [
-      "session_id",
-      "auth_token",
-      "_ga",
-      "csrf_token",
-      "remember_me",
-      "cf_clearance",
-    ];
-    rows.push({
-      recordType: "finding",
-      findingKind: "cookie",
-      profile,
-      commitState,
-      provenance: provenance(
-        "cookies",
-        700_000 + i,
-        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
-      ),
-      fields: {
-        cookieId: value(String(700_000 + i)),
-        // Chrome records a domain cookie's host key with a leading dot and
-        // a host-only cookie's (most real cookies) without one.
-        hostKey: value(i % 2 === 0 ? host : `.${host}`),
-        name: value(pick(rand, names)),
-        path: value("/"),
-        topFrameSiteKey:
-          i % 6 === 0
-            ? unavailable("column not present in this Chrome version")
-            : absent(),
-        value: decryptable
-          ? value(`${Math.random().toString(36).slice(2, 18)}`, {
-              synthetic: false,
-            })
-          : encrypted
-            ? unavailable(SEALED_REASON)
-            : value(""),
-        isEncrypted: value(encrypted),
-        encryptedValueScheme: encrypted ? value("v10") : absent(),
-        isSecure: value(true),
-        isHttpOnly: value(i % 2 === 0),
-        isPersistent: value(true),
-        hasExpires: value(true),
-        priority: value(pick(rand, ["low", "medium", "high"])),
-        sameSite: value(pick(rand, SAME_SITE)),
-        sourceScheme: value("secure"),
-        sourcePort: value("443"),
-        sourceType: value("http"),
-        creationTime: timestamp(created),
-        expiresTime: timestamp(expires),
-        lastAccessTime: timestamp(lastAccess),
-        lastUpdateTime: sidecar
-          ? unavailable("row deleted, recovered from WAL without this field")
-          : timestamp(lastAccess),
-      },
-      _host: host,
-      _sortName: pick(rand, names),
+  let cookieId = 70_400;
+  for (const [host, names] of Object.entries(COOKIE_NAMES)) {
+    const span = HOST_SPAN.get(host);
+    if (span === undefined) continue;
+    names.forEach((name, i) => {
+      const created = addSeconds(span.first, 2 + i);
+      const lastAccess = span.last;
+      const recent = lastAccess >= CLEARED_FROM;
+      const commitState = recent && i === 0 ? "wal_resident" : "committed";
+      const decrypted = cookieId % 3 !== 0;
+      rows.push({
+        recordType: "finding",
+        findingKind: "cookie",
+        profile:
+          siteOf(host).kind === "personal" ? PROFILE_SECOND : PROFILE_DEFAULT,
+        commitState,
+        provenance: provenance(
+          "cookies",
+          cookieId,
+          commitState === "committed" ? SOURCE_IMAGE : SOURCE_USER_DATA,
+        ),
+        fields: {
+          cookieId: value(String(cookieId)),
+          // Chrome records a domain cookie's host key with a leading dot and
+          // a host-only cookie's without one.
+          hostKey: value(i === 0 ? host : `.${host.replace(/^www\./, "")}`),
+          name: value(name),
+          path: value("/"),
+          topFrameSiteKey: value(""),
+          value: decrypted
+            ? value(
+                createHash("sha256")
+                  .update(`${host}/${name}`)
+                  .digest("base64url")
+                  .slice(0, 32),
+              )
+            : unavailable(SEALED_REASON),
+          isEncrypted: value(true),
+          encryptedValueScheme: value("v10"),
+          isSecure: value(true),
+          isHttpOnly: value(i === 0),
+          isPersistent: value(true),
+          hasExpires: value(true),
+          priority: value("medium"),
+          sameSite: value(pick(rand, SAME_SITE)),
+          sourceScheme: value("secure"),
+          sourcePort: value("443"),
+          sourceType: value("http"),
+          creationTime: timestamp(created),
+          expiresTime: timestamp(addSeconds(created, 400 * 86_400)),
+          lastAccessTime: timestamp(lastAccess),
+          lastUpdateTime:
+            commitState === "committed"
+              ? timestamp(lastAccess)
+              : unavailable(
+                  "row deleted, recovered from WAL without this field",
+                ),
+        },
+      });
+      cookieId += 1;
     });
   }
   return rows;
@@ -286,150 +477,73 @@ function buildCookies() {
 /* ------------------------------ Credentials ------------------------------ */
 
 function buildCredentials() {
-  const rand = prng(404);
-  const rows = [];
-  const sites = [
-    {
-      origin: "https://hr-portal.northfieldpartners.internal/login",
-      realm: "https://hr-portal.northfieldpartners.internal/",
-      user: "msandoval",
+  return LOGIN_ITEMS.map(
+    ([host, loginPath, user, created, lastUsed, timesUsed], i) => {
+      const origin = `https://${host}${loginPath}`;
+      const commitState = cleared(created) ? "wal_resident" : "committed";
+      return {
+        recordType: "finding",
+        findingKind: "login_credential",
+        profile: host === "www.amazon.com" ? PROFILE_SECOND : PROFILE_DEFAULT,
+        commitState,
+        provenance: provenance(
+          "logins",
+          210 + i,
+          commitState === "committed" ? SOURCE_IMAGE : SOURCE_USER_DATA,
+        ),
+        fields: {
+          credentialId: value(String(210 + i)),
+          originUrl: value(origin),
+          actionUrl: value(origin),
+          signonRealm: value(`https://${host}/`),
+          usernameElement: value(user.includes("@") ? "email" : "username"),
+          usernameValue: value(user),
+          passwordElement: value("password"),
+          // Passwords stay encrypted and are never shown, per product rule.
+          secret: unavailable(SEALED_REASON),
+          secretEncryptionScheme: value("v10"),
+          secretByteLength: value(String(32 + ((i * 7) % 24))),
+          dateCreated: timestamp(created),
+          dateLastUsed: timestamp(lastUsed),
+          datePasswordModified:
+            i === 4
+              ? unavailable("column not present in this Chrome version")
+              : timestamp(created),
+          timesUsed: value(String(timesUsed)),
+          blacklistedByUser: value(false),
+          scheme: value("0"),
+          displayName: absent(),
+          iconUrl: absent(),
+          federationUrl: absent(),
+          skipZeroClick: value(false),
+        },
+      };
     },
-    {
-      origin: "https://intranet.northfieldpartners.internal/login",
-      realm: "https://intranet.northfieldpartners.internal/",
-      user: "msandoval",
-    },
-    {
-      origin: "https://www.coinbase.com/signin",
-      realm: "https://www.coinbase.com/",
-      user: "m.sandoval83@gmail.com",
-    },
-    {
-      origin: "https://www.kraken.com/sign-in",
-      realm: "https://www.kraken.com/",
-      user: "msandoval_fin",
-    },
-    {
-      origin: "https://onlinebanking.chase.com/login",
-      realm: "https://onlinebanking.chase.com/",
-      user: "msandoval1985",
-    },
-    {
-      origin: "https://www.dropbox.com/login",
-      realm: "https://www.dropbox.com/",
-      user: "m.sandoval83@gmail.com",
-    },
-    {
-      origin: "https://account.protonvpn.com/login",
-      realm: "https://account.protonvpn.com/",
-      user: "msandoval_priv",
-    },
-    {
-      origin: "https://mail.protonmail.com/login",
-      realm: "https://mail.protonmail.com/",
-      user: "m.sandoval.priv@protonmail.com",
-    },
-    {
-      origin: "https://www.linkedin.com/login",
-      realm: "https://www.linkedin.com/",
-      user: "m.sandoval83@gmail.com",
-    },
-    {
-      origin: "https://www.teamviewer.com/login",
-      realm: "https://www.teamviewer.com/",
-      user: "msandoval@northfieldpartners.com",
-    },
-  ];
-  sites.forEach((site, i) => {
-    const daysAgo = 20 + i * 8;
-    const created = isoAtSeeded(rand, daysAgo, 9, 0);
-    const lastUsed = isoAtSeeded(rand, Math.max(0, daysAgo - 25), 14, 0);
-    const sidecar = i % 4 === 0;
-    const commitState = sidecar ? "wal_resident" : "committed";
-    rows.push({
-      recordType: "finding",
-      findingKind: "login_credential",
-      profile: i % 3 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
-      commitState,
-      provenance: provenance(
-        "logins",
-        800_000 + i,
-        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
-      ),
-      fields: {
-        credentialId: value(String(800_000 + i)),
-        originUrl: value(site.origin),
-        actionUrl: value(site.origin),
-        signonRealm: value(site.realm),
-        usernameElement: value("username"),
-        usernameValue: value(site.user),
-        passwordElement: value("password"),
-        // Passwords stay encrypted and are never shown, per product rule —
-        // the mock mirrors that: secret is always unavailable, never a value.
-        secret: unavailable(SEALED_REASON),
-        secretEncryptionScheme: value("v10"),
-        secretByteLength: value(String(48 + i)),
-        dateCreated: timestamp(created),
-        dateLastUsed: timestamp(lastUsed),
-        datePasswordModified:
-          i % 5 === 0
-            ? unavailable("column not present in this Chrome version")
-            : timestamp(created),
-        timesUsed: value(String(2 + i)),
-        blacklistedByUser: value(false),
-        scheme: value("0"),
-        displayName: i % 2 === 0 ? absent() : value(site.user),
-        iconUrl: absent(),
-        federationUrl: absent(),
-        skipZeroClick: value(false),
-      },
-      _origin: site.origin,
-      _user: site.user,
-    });
-  });
-  return rows;
+  );
 }
 
 /* -------------------------------- Top sites -------------------------------- */
 
 function buildTopSites() {
-  const rand = prng(505);
-  const hosts = [
-    "www.coinbase.com",
-    "mail.google.com",
-    "intranet.northfieldpartners.internal",
-    "www.linkedin.com",
-    "www.google.com",
-    "onlinebanking.chase.com",
-    "www.dropbox.com",
-    "www.kraken.com",
-    "sharepoint.northfieldpartners.internal",
-    "www.indeed.com",
-    "account.protonvpn.com",
-    "www.teamviewer.com",
-    "www.bloomberg.com",
-  ];
+  const hosts = [...HOST_SPAN.entries()]
+    .filter(([host]) => siteOf(host).kind !== "story")
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 10)
+    .map(([host]) => host);
   return hosts.map((host, i) => {
-    const sidecar = i % 6 === 0;
+    const [path, title] = siteOf(host).pages[0];
     return {
       recordType: "finding",
       findingKind: "top_site",
-      profile: i % 5 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
-      commitState: sidecar ? "wal_resident" : "committed",
-      provenance: provenance(
-        "top_sites",
-        900 + i,
-        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
-      ),
+      profile: PROFILE_DEFAULT,
+      commitState: "committed",
+      provenance: provenance("top_sites", 30 + i, SOURCE_IMAGE),
       fields: {
-        topSiteId: value(String(900 + i)),
-        url: value(urlFor(rand, host)),
-        title: value(titleFor(host)),
-        urlRank: value(String(i + 1)),
-        redirects:
-          i % 8 === 0
-            ? unavailable("column not present in this Chrome version")
-            : value(""),
+        topSiteId: value(String(30 + i)),
+        url: value(`https://${host}${path}`),
+        title: value(title),
+        urlRank: value(String(i)),
+        redirects: value(""),
       },
     };
   });
@@ -437,235 +551,110 @@ function buildTopSites() {
 
 /* -------------------------------- Downloads -------------------------------- */
 
-const DOWNLOAD_STATES = ["complete", "interrupted", "cancelled"];
-
 function buildDownloads() {
-  const rand = prng(606);
-  const items = [
-    {
-      name: "Q1_wire_transfer_log.xlsx",
-      host: "onlinebanking.chase.com",
-      mime: "application/vnd.ms-excel",
-    },
-    {
-      name: "client_ledger_export.csv",
-      host: "sharepoint.northfieldpartners.internal",
-      mime: "text/csv",
-    },
-    {
-      name: "resume_msandoval_2024.pdf",
-      host: "www.linkedin.com",
-      mime: "application/pdf",
-    },
-    {
-      name: "coinbase_statement_march.pdf",
-      host: "www.coinbase.com",
-      mime: "application/pdf",
-    },
-    {
-      name: "company_financials_backup.zip",
-      host: "drive.google.com",
-      mime: "application/zip",
-    },
-    {
-      name: "anydesk.exe",
-      host: "www.anydesk.com",
-      mime: "application/x-msdownload",
-    },
-    {
-      name: "vpn_config.ovpn",
-      host: "www.nordvpn.com",
-      mime: "application/octet-stream",
-    },
-    {
-      name: "offer_letter_rivermark.pdf",
-      host: "www.indeed.com",
-      mime: "application/pdf",
-    },
-    {
-      name: "customer_contacts_export.xlsx",
-      host: "intranet.northfieldpartners.internal",
-      mime: "application/vnd.ms-excel",
-    },
-    {
-      name: "usb_transfer_notes.txt",
-      host: "www.google.com",
-      mime: "text/plain",
-    },
-    {
-      name: "kraken_2fa_backup_codes.pdf",
-      host: "www.kraken.com",
-      mime: "application/pdf",
-    },
-    {
-      name: "teamviewer_setup.exe",
-      host: "www.teamviewer.com",
-      mime: "application/x-msdownload",
-    },
-  ];
-  return items.map((item, i) => {
-    const daysAgo = 3 + i * 4;
-    const start = isoAtSeeded(rand, daysAgo, 10 + (i % 8), 0);
-    const end = isoAtSeeded(rand, daysAgo, 10 + (i % 8), 4);
-    const sidecar = i % 5 === 0;
-    const state = pick(rand, DOWNLOAD_STATES);
-    const totalBytes = 50_000 + Math.floor(rand() * 40_000_000);
+  return DOWNLOAD_ITEMS.map(([start, file, host, mime, bytes, state], i) => {
+    const pageUrl = `https://${host}${siteOf(host).pages[0][0]}`;
+    const fileUrl = `https://${host}/download/${encodeURIComponent(file)}`;
+    const seconds = Math.max(2, Math.round(bytes / 9_000_000));
+    const interrupted = state === "interrupted";
+    const received = interrupted ? Math.round(bytes * 0.38) : bytes;
+    const end = addSeconds(start, interrupted ? seconds * 0.38 : seconds);
+    const commitState = cleared(start) ? "wal_resident" : "committed";
+    const path = `${DOWNLOADS_DIR}/${file}`;
     return {
       recordType: "finding",
       findingKind: "download",
-      profile: i % 4 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
-      commitState: sidecar ? "wal_resident" : "committed",
+      profile: PROFILE_DEFAULT,
+      commitState,
       provenance: provenance(
         "downloads",
-        1000 + i,
-        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+        40 + i,
+        commitState === "committed" ? SOURCE_IMAGE : SOURCE_USER_DATA,
       ),
       fields: {
-        downloadId: value(String(1000 + i)),
-        guid: value(`b2a1${i}-${i}c3d-4e5f-${1000 + i}`),
-        targetPath: value(`C:\\Users\\msandoval\\Downloads\\${item.name}`),
-        currentPath:
-          state === "complete"
-            ? value(`C:\\Users\\msandoval\\Downloads\\${item.name}`)
-            : absent(),
-        startTime: timestamp(start),
-        endTime: state === "interrupted" ? absent() : timestamp(end),
-        lastAccessTime: timestamp(end),
-        receivedBytes: value(
-          String(
-            state === "interrupted" ? Math.floor(totalBytes / 3) : totalBytes,
-          ),
+        downloadId: value(String(40 + i)),
+        guid: value(
+          createHash("sha256")
+            .update(`${start}${file}`)
+            .digest("hex")
+            .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12}).*$/, "$1-$2-$3-$4-$5"),
         ),
-        totalBytes: value(String(totalBytes)),
+        targetPath: value(path),
+        currentPath: interrupted ? value(`${path}.crdownload`) : value(path),
+        startTime: timestamp(start),
+        endTime: interrupted ? absent() : timestamp(end),
+        lastAccessTime: interrupted ? absent() : timestamp(end),
+        receivedBytes: value(String(received)),
+        totalBytes: value(String(bytes)),
         state: value(state),
         dangerType: value("not_dangerous"),
-        interruptReason:
-          state === "interrupted" ? value("network_failed") : absent(),
-        opened: value(i % 3 === 0),
+        interruptReason: interrupted ? value("network_failed") : absent(),
+        opened: value(mime === "application/pdf"),
         transient: value(false),
-        referrer: value(`https://${item.host}/`),
-        siteUrl: value(`https://${item.host}/`),
-        tabUrl: value(`https://${item.host}/`),
+        referrer: value(pageUrl),
+        siteUrl: value(`https://${host}/`),
+        tabUrl: value(pageUrl),
+        tabReferrerUrl: absent(),
         httpMethod: value("GET"),
-        mimeType: value(item.mime),
-        originalMimeType: value(item.mime),
+        mimeType: value(mime),
+        originalMimeType: value(mime),
         etag:
-          i % 4 === 0
+          i === 2
             ? unavailable("column not present in this Chrome version")
             : absent(),
         lastModified: absent(),
-        originalUrl: value(
-          `https://${item.host}/files/${encodeURIComponent(item.name)}`,
-        ),
-        finalUrl: value(
-          `https://${item.host}/files/${encodeURIComponent(item.name)}`,
-        ),
-        urlChain: value([
-          `https://${item.host}/files/${encodeURIComponent(item.name)}`,
-        ]),
+        originalUrl: value(fileUrl),
+        finalUrl: value(fileUrl),
+        urlChain: value([fileUrl]),
         urlChainLength: value("1"),
       },
-      _targetPath: `C:\\Users\\msandoval\\Downloads\\${item.name}`,
-      _startTime: start,
     };
   });
 }
 
 /* -------------------------------- Bookmarks -------------------------------- */
 
+/** Bookmarks the subject deleted before the image: they survive only in
+ *  `Bookmarks.bak`. */
+const DELETED_BOOKMARKS = new Set([
+  "Lead Product Designer — Lumenworks",
+  "WeTransfer",
+]);
+
 function buildBookmarks() {
-  const rand = prng(707);
-  const items = [
-    {
-      name: "Chase Online Banking",
-      url: "https://onlinebanking.chase.com/login",
-      folder: "Bookmarks Bar / Finance",
-    },
-    {
-      name: "Coinbase",
-      url: "https://www.coinbase.com/dashboard",
-      folder: "Bookmarks Bar / Finance",
-    },
-    {
-      name: "Kraken Pro",
-      url: "https://www.kraken.com/dashboard",
-      folder: "Bookmarks Bar / Finance",
-    },
-    {
-      name: "LinkedIn Jobs - Finance Director",
-      url: "https://www.linkedin.com/jobs/view/394021",
-      folder: "Bookmarks Bar / Job Search",
-    },
-    {
-      name: "Indeed - Saved Searches",
-      url: "https://www.indeed.com/jobs?q=finance+director",
-      folder: "Bookmarks Bar / Job Search",
-    },
-    {
-      name: "NordVPN Setup Guide",
-      url: "https://www.nordvpn.com/setup/windows",
-      folder: "Other Bookmarks",
-    },
-    {
-      name: "Company Intranet",
-      url: "https://intranet.northfieldpartners.internal/",
-      folder: "Bookmarks Bar",
-    },
-    {
-      name: "Wire Transfer Policy",
-      url: "https://intranet.northfieldpartners.internal/policies/data-handling",
-      folder: "Bookmarks Bar / Work",
-    },
-    {
-      name: "Personal Gmail",
-      url: "https://mail.google.com/mail/u/0/#inbox",
-      folder: "Other Bookmarks",
-    },
-    {
-      name: "ProtonVPN Account",
-      url: "https://account.protonvpn.com/account",
-      folder: "Other Bookmarks",
-    },
-    {
-      name: "Glassdoor - Company Reviews",
-      url: "https://www.glassdoor.com/",
-      folder: "Bookmarks Bar / Job Search",
-    },
-    {
-      name: "Dropbox - Exports",
-      url: "https://www.dropbox.com/home/exports",
-      folder: "Bookmarks Bar / Work",
-    },
-  ];
-  return items.map((item, i) => {
-    const daysAgo = 5 + i * 6;
-    const added = isoAtSeeded(rand, daysAgo, 12, 0);
-    const source = i % 7 === 0 ? "backup" : "primary";
+  return BOOKMARK_ITEMS.map(([name, url, folder, added], i) => {
+    const backup = DELETED_BOOKMARKS.has(name);
     return {
       recordType: "finding",
       findingKind: "bookmark",
-      profile: i % 3 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
+      profile: PROFILE_DEFAULT,
       commitState: "committed",
       provenance: provenance(
-        source === "backup" ? "Bookmarks.bak" : "Bookmarks",
-        1100 + i,
+        backup ? "Bookmarks.bak" : "Bookmarks",
+        120 + i,
         SOURCE_USER_DATA,
       ),
       fields: {
-        bookmarkId: value(String(1100 + i)),
-        guid: value(`c3d${i}e-4f${i}5-6a7b-8c9d-${1100 + i}0e1f`),
-        name: value(item.name),
-        url: value(item.url),
-        dateAdded: timestamp(added),
-        dateLastUsed: i % 3 === 0 ? timestamp(added) : absent(),
-        sourceFile: value(source === "backup" ? "Bookmarks.bak" : "Bookmarks"),
-        rootFolder: value(
-          item.folder.startsWith("Bookmarks Bar") ? "bookmark_bar" : "other",
+        bookmarkId: value(String(120 + i)),
+        guid: value(
+          createHash("sha256")
+            .update(url)
+            .digest("hex")
+            .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12}).*$/, "$1-$2-$3-$4-$5"),
         ),
-        parentFolder: value(item.folder.split(" / ").pop()),
-        folderPath: value(item.folder, { synthetic: true }),
+        name: value(name),
+        url: value(url),
+        dateAdded: timestamp(added),
+        dateLastUsed: HOST_SPAN.has(new URL(url).hostname)
+          ? timestamp(HOST_SPAN.get(new URL(url).hostname).last)
+          : absent(),
+        sourceFile: value(backup ? "Bookmarks.bak" : "Bookmarks"),
+        rootFolder: value(
+          folder.startsWith("Bookmarks Bar") ? "bookmark_bar" : "other",
+        ),
+        parentFolder: value(folder.split(" / ").pop()),
+        folderPath: value(folder, { synthetic: true }),
       },
-      _source: source,
     };
   });
 }
@@ -673,50 +662,34 @@ function buildBookmarks() {
 /* -------------------------------- Autofill -------------------------------- */
 
 function buildAutofill() {
-  const rand = prng(808);
-  const items = [
-    { name: "EMAIL_ADDRESS", value: "m.sandoval83@gmail.com" },
-    { name: "NAME_FULL", value: "Marcus Sandoval" },
-    { name: "PHONE_HOME_WHOLE_NUMBER", value: "+1 415 555 0142" },
-    { name: "ADDRESS_HOME_STREET_ADDRESS", value: "482 Alder Street" },
-    { name: "ADDRESS_HOME_CITY", value: "San Mateo" },
-    { name: "ADDRESS_HOME_ZIP", value: "94401" },
-    { name: "ADDRESS_HOME_COUNTRY", value: "US" },
-    { name: "search-query", value: "how to wire transfer internationally" },
-    { name: "search-query", value: "resignation letter template finance" },
-    { name: "search-query", value: "usb data transfer speed comparison" },
-    {
-      name: "wallet_address",
-      value: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-    },
-    { name: "EMAIL_ADDRESS", value: "m.sandoval.priv@protonmail.com" },
-    { name: "NAME_FIRST", value: "Marcus" },
-    { name: "COMPANY_NAME", value: "Rivermark Capital" },
-    { name: "CREDIT_CARD_NAME_FULL", value: "MARCUS SANDOVAL" },
-  ];
-  return items.map((item, i) => {
-    const daysAgo = 8 + i * 5;
-    const created = isoAtSeeded(rand, daysAgo, 11, 0);
-    const lastUsed = isoAtSeeded(rand, Math.max(0, daysAgo - 10), 15, 0);
-    const sidecar = i % 5 === 0;
+  const queryTimes = {
+    "figma auto layout wrap": "2024-03-07T10:41:00.000Z",
+    "lumenworks lead product designer salary": "2024-03-14T21:20:00.000Z",
+    "wetransfer max file size free": "2024-04-11T00:43:00.000Z",
+    "clear chrome history mac": "2024-04-12T21:40:00.000Z",
+  };
+  return AUTOFILL_ITEMS.map(([name, text], i) => {
+    const used = queryTimes[text] ?? "2024-04-02T09:15:00.000Z";
+    const created = queryTimes[text] ?? "2023-06-12T15:58:00.000Z";
+    const commitState = cleared(used) ? "wal_resident" : "committed";
     return {
       recordType: "finding",
       findingKind: "autofill_entry",
-      profile: i % 4 === 1 ? PROFILE_SECOND : PROFILE_DEFAULT,
-      commitState: sidecar ? "journal_resident" : "committed",
+      profile: PROFILE_DEFAULT,
+      commitState,
       provenance: provenance(
         "autofill",
-        1200 + i,
-        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+        500 + i,
+        commitState === "committed" ? SOURCE_IMAGE : SOURCE_USER_DATA,
       ),
       fields: {
-        autofillId: value(String(1200 + i)),
-        fieldName: value(item.name),
-        fieldValue: value(item.value),
-        fieldValueLower: value(item.value.toLowerCase()),
-        timesUsed: value(String(1 + Math.floor(rand() * 12))),
+        autofillId: value(String(500 + i)),
+        fieldName: value(name),
+        fieldValue: value(text),
+        fieldValueLower: value(text.toLowerCase()),
+        timesUsed: value(String(name === "q" ? 1 : 3 + (i % 9))),
         dateCreated: timestamp(created),
-        dateLastUsed: timestamp(lastUsed),
+        dateLastUsed: timestamp(used),
       },
     };
   });
@@ -726,46 +699,46 @@ function buildAutofill() {
 
 function buildCache() {
   const rand = prng(909);
+  const committed = HISTORY_VISITS.filter((v) => v.profile === PROFILE_DEFAULT);
   const rows = [];
-  for (let i = 0; i < 22; i += 1) {
-    const host = pick(rand, ALL_HOSTS);
-    const daysAgo = Math.floor(rand() * 40);
-    const lastUsed = isoAtSeeded(rand, daysAgo, Math.floor(rand() * 24), 0);
-    const hash = Array.from({ length: 16 }, () =>
-      Math.floor(rand() * 16).toString(16),
-    ).join("");
-    const readable = i % 8 !== 0;
-    const sidecar = i % 4 === 0;
+  for (let i = 0; i < 40; i += 1) {
+    const visit = committed[Math.floor(rand() * committed.length)];
+    const url = visit.fields.url.value;
+    const lastUsed = utcOf(visit, "visitTime");
+    const hash = createHash("sha1")
+      .update(`${url}#${i}`)
+      .digest("hex")
+      .slice(0, 16);
+    const recovered = visit.commitState !== "committed";
     rows.push({
       recordType: "finding",
       findingKind: "cache_entry",
-      profile: i % 5 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
-      commitState: sidecar ? "wal_resident" : "committed",
+      profile: PROFILE_DEFAULT,
+      commitState: recovered ? "wal_resident" : "committed",
       provenance: provenance(
         "simple_cache",
         `entry-${hash}`,
-        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+        recovered ? SOURCE_USER_DATA : SOURCE_IMAGE,
       ),
       fields: {
         backend: value("simple"),
         entryHash: value(hash),
-        key: readable
-          ? value(urlFor(rand, host))
-          : unavailable("value present but not a recognized encoding"),
-        keyLength: value(String(30 + Math.floor(rand() * 60))),
+        key:
+          i === 17
+            ? unavailable("value present but not a recognized encoding")
+            : value(`1/0/_dk_https://${new URL(url).hostname} ${url}`),
+        keyLength: value(String(url.length + 30)),
         // Core writes the cache's integrity flags as "true" / "false".
         keyHashValid: value("true"),
         entryHashMatchesFilename: value("true"),
         keySha256: value(
-          Array.from({ length: 8 }, () =>
-            Math.floor(rand() * 16).toString(16),
-          ).join(""),
+          createHash("sha256").update(url).digest("hex").slice(0, 16),
         ),
         version: value("8.0"),
         lastUsed: timestamp(lastUsed),
-        entrySizeBytes: value(String(500 + Math.floor(rand() * 900_000))),
-        stream0Size: value(String(120 + Math.floor(rand() * 400))),
-        stream1Size: value(String(200 + Math.floor(rand() * 800_000))),
+        entrySizeBytes: value(String(2_000 + Math.floor(rand() * 600_000))),
+        stream0Size: value(String(180 + Math.floor(rand() * 400))),
+        stream1Size: value(String(1_500 + Math.floor(rand() * 580_000))),
       },
     });
   }
@@ -774,84 +747,86 @@ function buildCache() {
 
 /* -------------------------------- Favicons -------------------------------- */
 
-/** Mock favicon hues: muted brand-like fills, picked per host. */
-const FAVICON_FILLS = [
-  "#1f6feb",
-  "#0f766e",
-  "#b45309",
-  "#7c3aed",
-  "#be123c",
-  "#334155",
-  "#15803d",
-  "#c2410c",
-];
-
-/**
- * A stand-in favicon bitmap for a host: a small SVG (a rounded square in a
- * host-picked hue with its initial), with the SHA-256 and byte length a
- * real recovered payload carries, so a row's own bitmap is found by its
- * `payloadSha256` (`favicon-bitmaps`) exactly as on a real Case.
- */
-function faviconPayload(host) {
-  const name = host.replace(/^www\./, "");
-  const hash = createHash("sha256").update(name).digest();
-  const fill = FAVICON_FILLS[hash[0] % FAVICON_FILLS.length];
-  const letter = name.charAt(0).toUpperCase();
+/** An SVG mark for a fictional company (no real favicon exists). */
+function fictionalMark(host) {
+  const mark = FICTIONAL_MARKS[host];
+  const shape =
+    host === "lumenworks.io"
+      ? `<circle cx="32" cy="32" r="13" fill="#fff"/>` +
+        Array.from({ length: 8 }, (_, k) => {
+          const angle = (k * Math.PI) / 4;
+          const x1 = 32 + Math.cos(angle) * 18;
+          const y1 = 32 + Math.sin(angle) * 18;
+          const x2 = 32 + Math.cos(angle) * 24;
+          const y2 = 32 + Math.sin(angle) * 24;
+          return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#fff" stroke-width="4" stroke-linecap="round"/>`;
+        }).join("")
+      : `<rect x="18" y="16" width="8" height="32" rx="2" fill="#fff"/>` +
+        `<rect x="38" y="16" width="8" height="32" rx="2" fill="#fff"/>` +
+        `<rect x="18" y="29" width="28" height="6" rx="2" fill="#fff"/>`;
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">` +
-    `<title>${name}</title>` +
-    `<rect width="32" height="32" rx="7" fill="${fill}"/>` +
-    `<text x="16" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#fff">${letter}</text>` +
-    `</svg>`;
-  const bytes = Buffer.from(svg, "utf8");
+    `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">` +
+    `<rect width="64" height="64" rx="14" fill="${mark.fill}"/>${shape}</svg>`;
+  return { bytes: Buffer.from(svg, "utf8"), mime: "image/svg+xml" };
+}
+
+/** The stored bitmap of a host's favicon: the PNG in `favicons/`, or a mark
+ *  drawn for a fictional company. */
+function faviconPayload(host) {
+  const { bytes, mime } =
+    host in FICTIONAL_MARKS
+      ? fictionalMark(host)
+      : {
+          bytes: readFileSync(
+            new URL(`./favicons/${host}.png`, import.meta.url),
+          ),
+          mime: "image/png",
+        };
   return {
     bytes,
     sha256: createHash("sha256").update(bytes).digest("hex"),
-    dataUri: `data:image/svg+xml;base64,${bytes.toString("base64")}`,
+    dataUri: `data:${mime};base64,${bytes.toString("base64")}`,
   };
 }
 
 function buildFavicons() {
-  const rand = prng(1010);
-  const hosts = ALL_HOSTS.slice(0, 18);
-  return hosts.map((host, i) => {
-    const daysAgo = Math.floor(rand() * 30);
-    const updated = isoAtSeeded(rand, daysAgo, 8, 0);
-    const sidecar = i % 6 === 0;
-    const missing = i % 9 === 0;
-    const payload = faviconPayload(host);
+  return SITES.filter((site) => HOST_SPAN.has(site.host)).map((site, i) => {
+    const span = HOST_SPAN.get(site.host);
+    const payload = faviconPayload(site.host);
+    // Clearing history also cleared the private mailbox's icon: it
+    // survives only in the WAL.
+    const commitState =
+      site.host === "mail.proton.me" ? "wal_resident" : "committed";
     return {
       recordType: "finding",
       findingKind: "favicon",
-      profile: i % 5 === 0 ? PROFILE_SECOND : PROFILE_DEFAULT,
-      commitState: sidecar ? "wal_resident" : "committed",
+      profile: site.kind === "personal" ? PROFILE_SECOND : PROFILE_DEFAULT,
+      commitState,
       provenance: provenance(
         "favicon_bitmaps",
-        1300 + i,
-        sidecar ? SOURCE_USER_DATA : SOURCE_IMAGE,
+        800 + i,
+        commitState === "committed" ? SOURCE_IMAGE : SOURCE_USER_DATA,
       ),
       fields: {
-        bitmapId: value(String(1300 + i)),
-        iconId: value(String(1400 + i)),
-        iconUrl: missing
-          ? unavailable("related row missing from this database")
-          : value(`https://${host}/favicon.ico`),
+        bitmapId: value(String(800 + i)),
+        iconId: value(String(600 + i)),
+        iconUrl: value(`https://${site.host}/favicon.ico`),
         iconType: value("favicon"),
-        width: value(String(pick(rand, [16, 32, 48]))),
-        height: value(String(pick(rand, [16, 32, 48]))),
-        lastUpdated: timestamp(updated),
+        width: value("64"),
+        height: value("64"),
+        lastUpdated: timestamp(span.first),
         lastRequested: value(""),
-        payloadSha256: missing ? absent() : value(payload.sha256),
-        payloadBytes: missing ? absent() : value(String(payload.bytes.length)),
-        payloadPath: missing
-          ? absent()
-          : value(`favicon-payloads/${payload.sha256}`),
-        pageUrls: value([urlFor(rand, host)]),
+        payloadSha256: value(payload.sha256),
+        payloadBytes: value(String(payload.bytes.length)),
+        payloadPath: value(`favicon-payloads/${payload.sha256}`),
+        pageUrls: value(
+          site.pages.slice(0, 2).map(([path]) => `https://${site.host}${path}`),
+        ),
       },
       // The stored bitmap, for the mock's `site-favicons` and
       // `favicon-bitmaps` routes (stripped from the wire row like every `_`
       // helper field).
-      _dataUri: missing ? null : payload.dataUri,
+      _dataUri: payload.dataUri,
     };
   });
 }
@@ -859,6 +834,10 @@ function buildFavicons() {
 /* --------------------------------------------------------------------------
  * Assembled export
  * ------------------------------------------------------------------------ */
+
+const hostCounts = Object.fromEntries(
+  [...HOST_SPAN.entries()].map(([host, span]) => [host, span.count]),
+);
 
 export const caseData = {
   caseId: CASE_ID,
@@ -883,6 +862,6 @@ export const caseData = {
   cache: buildCache(),
   favicons: buildFavicons(),
   metadata: buildMetadata(),
-  candidates: buildCandidates(),
-  topicCandidates: buildTopicCandidates(),
+  candidates: buildCandidates(hostCounts),
+  topicCandidates: buildTopicCandidates(hostCounts),
 };

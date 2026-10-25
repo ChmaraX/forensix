@@ -1,15 +1,15 @@
 /**
  * The design mock Case's shared fixture kit: the Case's identity and
  * profiles, the FieldState builders (core's shapes: `value`, `absent`,
- * `unavailable`, `timestamp` as a `ForensicTimestamp`), the seeded random
- * helpers and the scenario's hosts, URLs and titles. Design-only, like
- * case-data.mjs.
+ * `unavailable`, `timestamp` as a `ForensicTimestamp`) and the seeded random
+ * helpers. The scenario (people, sites, story) is in scenario.mjs.
+ * Design-only, like case-data.mjs.
  */
 
-export const CASE_ID = "CASE-2024-0417";
+export const CASE_ID = "CASE-2024-0416";
 
 export const PROFILE_DEFAULT = "Default";
-export const PROFILE_SECOND = "Profile 2";
+export const PROFILE_SECOND = "Profile 1";
 export const PROFILES = [PROFILE_DEFAULT, PROFILE_SECOND];
 
 export const SOURCE_IMAGE = "src-01-disk-image";
@@ -103,147 +103,4 @@ export function provenance(table, rowId, sourceId = SOURCE_USER_DATA, extra) {
     rowId: String(rowId),
     ...extra,
   };
-}
-
-/* -------------------------------- Domains -------------------------------- */
-
-export const EMAIL_DOMAINS = ["gmail.com", "outlook.com", "protonmail.com"];
-export const BANKING_HOSTS = [
-  "onlinebanking.chase.com",
-  "secure.bankofamerica.com",
-  "www.wellsfargo.com",
-];
-export const CRYPTO_HOSTS = [
-  "www.coinbase.com",
-  "www.binance.com",
-  "www.kraken.com",
-];
-export const CLOUD_HOSTS = [
-  "drive.google.com",
-  "www.dropbox.com",
-  "onedrive.live.com",
-];
-export const JOB_HOSTS = [
-  "www.linkedin.com",
-  "www.indeed.com",
-  "www.glassdoor.com",
-];
-export const VPN_HOSTS = [
-  "www.nordvpn.com",
-  "www.expressvpn.com",
-  "account.protonvpn.com",
-];
-export const INTERNAL_HOSTS = [
-  "intranet.northfieldpartners.internal",
-  "vpn-gateway.northfieldpartners.internal",
-  "sharepoint.northfieldpartners.internal",
-  "hr-portal.northfieldpartners.internal",
-];
-export const SOCIAL_HOSTS = [
-  "twitter.com",
-  "www.reddit.com",
-  "www.facebook.com",
-];
-export const NEWS_HOSTS = [
-  "www.bloomberg.com",
-  "www.reuters.com",
-  "www.wsj.com",
-];
-export const SEARCH_HOSTS = [
-  "www.google.com",
-  "www.bing.com",
-  "duckduckgo.com",
-];
-export const REMOTE_ACCESS_HOSTS = [
-  "www.teamviewer.com",
-  "www.anydesk.com",
-  "remotedesktop.google.com",
-];
-export const WEBMAIL_HOSTS = [
-  "mail.google.com",
-  "outlook.office.com",
-  "mail.protonmail.com",
-];
-
-export const ALL_HOSTS = [
-  ...EMAIL_DOMAINS,
-  ...BANKING_HOSTS,
-  ...CRYPTO_HOSTS,
-  ...CLOUD_HOSTS,
-  ...JOB_HOSTS,
-  ...VPN_HOSTS,
-  ...INTERNAL_HOSTS,
-  ...SOCIAL_HOSTS,
-  ...NEWS_HOSTS,
-  ...SEARCH_HOSTS,
-  ...REMOTE_ACCESS_HOSTS,
-  ...WEBMAIL_HOSTS,
-];
-
-export const PATHS_BY_CATEGORY = {
-  banking: [
-    "/login",
-    "/accounts/transfer",
-    "/statements/2024-03",
-    "/wires/new",
-  ],
-  crypto: ["/dashboard", "/trade/BTC-USD", "/withdraw", "/portfolio"],
-  cloud: ["/drive/folders/exports", "/s/company-financials", "/download"],
-  job: ["/jobs/view/394021", "/in/msandoval-finance", "/company/rivermark"],
-  vpn: ["/download", "/account/servers", "/setup/windows"],
-  internal: [
-    "/",
-    "/policies/data-handling",
-    "/finance/wire-approvals",
-    "/hr/offboarding",
-  ],
-  social: ["/", "/messages", "/search?q=resume%20tips"],
-  news: ["/markets", "/technology", "/business/deals"],
-  search: [
-    "/search?q=how+to+wire+transfer+internationally",
-    "/search?q=resign+notice+period",
-    "/search?q=usb+data+transfer+speed",
-  ],
-  remote: ["/download", "/session/new", "/support"],
-  webmail: ["/mail/u/0/#inbox", "/mail/u/0/#sent", "/owa/"],
-};
-
-export function categoryOf(host) {
-  if (EMAIL_DOMAINS.includes(host)) return "webmail";
-  if (BANKING_HOSTS.includes(host)) return "banking";
-  if (CRYPTO_HOSTS.includes(host)) return "crypto";
-  if (CLOUD_HOSTS.includes(host)) return "cloud";
-  if (JOB_HOSTS.includes(host)) return "job";
-  if (VPN_HOSTS.includes(host)) return "vpn";
-  if (INTERNAL_HOSTS.includes(host)) return "internal";
-  if (SOCIAL_HOSTS.includes(host)) return "social";
-  if (NEWS_HOSTS.includes(host)) return "news";
-  if (SEARCH_HOSTS.includes(host)) return "search";
-  if (REMOTE_ACCESS_HOSTS.includes(host)) return "remote";
-  if (WEBMAIL_HOSTS.includes(host)) return "webmail";
-  return "internal";
-}
-
-export function urlFor(rand, host) {
-  const category = categoryOf(host);
-  const paths = PATHS_BY_CATEGORY[category] ?? ["/"];
-  return `https://${host}${pick(rand, paths)}`;
-}
-
-export const TITLES_BY_CATEGORY = {
-  banking: "Online Banking - Accounts",
-  crypto: "Trade - Portfolio",
-  cloud: "My Drive",
-  job: "LinkedIn - Jobs",
-  vpn: "VPN - Account",
-  internal: "Northfield Partners Intranet",
-  social: "Home",
-  news: "Markets",
-  search: "Search results",
-  remote: "Remote Desktop",
-  webmail: "Inbox",
-};
-
-export function titleFor(host) {
-  return TITLES_BY_CATEGORY[categoryOf(host)] ?? host;
 }

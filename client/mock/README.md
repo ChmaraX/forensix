@@ -72,13 +72,32 @@ row's own stored bitmap by the hash it records, any Commit State.
 Timestamps are core's `ForensicTimestamp` (`raw`, `epochFamily`, `utc`,
 `declaredTimezone`, `resolution`), all in the mock Case's declared timezone.
 
-The fixture data lives in `case-data.mjs` (with its shared builders in
-`case-kit.mjs` and the metadata, Candidates and Completeness data in
-`case-context-data.mjs`): one hand-authored case
-(`CASE-2024-0417`, an insider-threat/financial-fraud scenario), two Chrome
-profiles, both committed and sidecar (WAL/rollback-journal) rows for every
-Finding-backed artifact, all four `FieldState` variants in use across the
-data, and completeness outcomes covering produced/absent/unavailable.
+The scenario lives in `scenario.mjs`: the subject, every site with its
+page titles, and the dated story events. `case-data.mjs` turns it into rows
+of core's shapes (with its shared builders in `case-kit.mjs` and the
+metadata, Candidates and Completeness data in `case-context-data.mjs`).
+
+The Case (`CASE-2024-0416`) is a departing-employee investigation. Olivia
+Bennett, a product designer at Halden, accepts an offer from Lumenworks
+(both companies are fictional). The Case holds six weeks of browsing in two
+Chrome Profiles (work and personal), with a four-day trip in the middle. In
+her last week she downloads design files, customer research and a customer
+export late at night, sends them through WeTransfer and Dropbox, and clears
+her history. The cleared visits, downloads, a cookie, a saved login and a
+favicon survive only in WAL files, so they show as recovered rows. Two
+deleted bookmarks survive in `Bookmarks.bak`. Every Field State is in use
+(value, empty, absent, unavailable), and the Completeness Statement has one
+genuine absence (the personal Profile has no Web Data database).
+
+Favicons of public sites are 64x64 PNGs in `favicons/`, fetched once from
+the sites' own icons. They belong to their owners and are used here only to
+illustrate the dashboard. The fictional companies get an SVG mark drawn in
+`case-data.mjs`.
+
+### README screenshots
+
+`npm run screenshots` (after `npm run build`) starts the mock and writes
+`docs/media/overview.png` and `docs/media/sites.png` at 1440x900, scale 2.
 
 ### Degraded coverage
 
