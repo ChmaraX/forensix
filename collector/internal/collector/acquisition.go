@@ -115,7 +115,17 @@ func unavailableEntry(manifestPath, source string, node conformance.NodeType, in
 
 func (plan *acquisitionPlan) walk(root string, includeTier2 bool) error {
 	entryIndex := map[string]int{}
-	return filepath.WalkDir(root, func(source string, dirEntry fs.DirEntry, walkErr error) error {
+	// Walk the root with a trailing separator. Since Go 1.23, a Windows
+	// junction is neither a symlink to EvalSymlinks nor a directory to Lstat
+	// (it reports ModeIrregular), so WalkDir would not descend into a
+	// junctioned root. Lstat follows the last path element when the path ends
+	// with a separator, on every platform, so the root itself is entered while
+	// links below it are still not followed.
+	walkRoot := root
+	if !strings.HasSuffix(walkRoot, string(filepath.Separator)) {
+		walkRoot += string(filepath.Separator)
+	}
+	return filepath.WalkDir(walkRoot, func(source string, dirEntry fs.DirEntry, walkErr error) error {
 		relative, err := filepath.Rel(root, source)
 		if err != nil {
 			return err
