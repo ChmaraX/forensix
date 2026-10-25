@@ -112,7 +112,7 @@ function readSchema(database: DatabaseSync): FaviconSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       "Favicons meta.version is missing or unsupported.",
-      { recorded_version: versionText ?? null },
+      { recordedVersion: versionText ?? null },
     );
   }
 
@@ -128,7 +128,7 @@ function readSchema(database: DatabaseSync): FaviconSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       `Favicons schema version ${version} is missing required columns.`,
-      { version, missing_columns: missing },
+      { version, missingColumns: missing },
     );
   }
 

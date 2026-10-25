@@ -572,8 +572,9 @@ describe("compiled analyzer CLI History Finding pipeline", () => {
     ]);
     expect(analysis.status).toBe(0);
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
-      status: "verified",
+      status: "ok",
       command: "analyse",
+      workingCopyVerification: "verified",
       analysisStatus: "ready",
       artifactCount: 2,
       history: {

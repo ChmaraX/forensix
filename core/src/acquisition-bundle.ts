@@ -352,7 +352,7 @@ export async function inspectAcquisitionBundle(
     throw new ForensixError(
       "INGEST_FAILED",
       "Acquisition Bundle could not be opened.",
-      { source_path: bundleRoot, bundle_status: "failed_to_open" },
+      { sourcePath: bundleRoot, bundleStatus: "failed_to_open" },
       { cause: error },
     );
   }

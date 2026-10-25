@@ -1,16 +1,21 @@
 import { createHash } from "node:crypto";
-import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
+import type { DatabaseSync } from "node:sqlite";
 
-import { CASE_FILENAME } from "./case.js";
+import { openCaseReadOnly } from "./case.js";
 import { ForensixError } from "./errors.js";
 import {
   createFinding,
+  type CommitState,
   type Finding,
   type ForensicFields,
   type Provenance,
 } from "./forensic-model.js";
+import { resolveCommitState, resolveProfiles } from "./finding-query.js";
+import {
+  recordStoreForTable,
+  withRecordId,
+  type Identified,
+} from "./record-store.js";
 import {
   SITE_HOST_FIELDS,
   siteHostsOf,
@@ -49,6 +54,11 @@ export interface SiteHostQuery {
 export interface SiteFindingsQuery {
   readonly caseDirectory: string;
   readonly host: string;
+  /** Only these artifact kinds (`visits`, `cookies`, ...). */
+  readonly kinds?: readonly string[];
+  /** Only rows of these Profiles. */
+  readonly profiles?: readonly string[];
+  readonly commitState?: CommitState;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -71,7 +81,7 @@ export interface SiteFinding extends Finding {
 export interface SiteFindingsPage {
   readonly status: "ok";
   readonly command: "site-findings";
-  readonly items: readonly SiteFinding[];
+  readonly items: readonly Identified<SiteFinding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -151,6 +161,9 @@ const ARTIFACT_KINDS: readonly SiteArtifactKind[] = TABLES.map(
   (table) => table.artifactKind,
 );
 
+/** The artifact kinds `querySiteFindings` accepts in `kinds`. */
+export const SITE_ARTIFACT_KINDS: readonly SiteArtifactKind[] = ARTIFACT_KINDS;
+
 /** A row as the host pass reads it: identity, Commit State, and each host
  *  it is on with the fields that put it there. */
 interface HostRow {
@@ -170,9 +183,7 @@ interface StoredRow {
 }
 
 export function openSitesCase(caseDirectory: string): DatabaseSync {
-  const url = pathToFileURL(join(resolve(caseDirectory), CASE_FILENAME));
-  url.searchParams.set("immutable", "1");
-  return new DatabaseSync(url.href, { readOnly: true, readBigInts: true });
+  return openCaseReadOnly(caseDirectory, { readBigInts: true });
 }
 
 function normalizeLimit(value: number | undefined, label: string): number {
@@ -247,11 +258,23 @@ export function readingJson<T>(table: string, read: () => T): T {
   }
 }
 
+/** Optional row filters of a site-findings read. */
+interface HostRowFilter {
+  readonly kinds: readonly string[];
+  readonly profiles: readonly string[];
+  readonly commitState: CommitState | null;
+}
+
+const NO_FILTER: HostRowFilter = { kinds: [], profiles: [], commitState: null };
+
 /**
  * Every active row of every Sites table, read for its hosts only: id,
  * Commit State and the host fields (no provenance, no whole fields JSON).
  */
-function hostRows(database: DatabaseSync): HostRow[] {
+function hostRows(
+  database: DatabaseSync,
+  filter: HostRowFilter = NO_FILTER,
+): HostRow[] {
   const available = TABLES.filter(
     (table) =>
       schemaExists(database, table.table) &&
@@ -262,7 +285,23 @@ function hostRows(database: DatabaseSync): HostRow[] {
       "ANALYSIS_NOT_FOUND",
       "Case has no Sites analysis. Run analyse first.",
     );
-  return available.flatMap((table) => {
+  const filterSql: string[] = [];
+  const filterParameters: string[] = [];
+  if (filter.profiles.length > 0) {
+    filterSql.push(
+      `f.profile_path IN (${filter.profiles.map(() => "?").join(", ")})`,
+    );
+    filterParameters.push(...filter.profiles);
+  }
+  if (filter.commitState !== null) {
+    filterSql.push("f.commit_state = ?");
+    filterParameters.push(filter.commitState);
+  }
+  const selected =
+    filter.kinds.length === 0
+      ? available
+      : available.filter((table) => filter.kinds.includes(table.artifactKind));
+  return selected.flatMap((table) => {
     const entries = SITE_HOST_FIELDS[table.findingKind] ?? [];
     const reads = entries.map((entry, index) => {
       const column = table.columns[entry.field];
@@ -277,9 +316,9 @@ function hostRows(database: DatabaseSync): HostRow[] {
     const stored = readingJson(table.table, () =>
       database
         .prepare(
-          `SELECT f.finding_id, f.commit_state${reads.map((read) => `, ${read.sql}`).join("")} FROM ${table.table} f JOIN ${table.results} r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = ?`,
+          `SELECT f.finding_id, f.commit_state${reads.map((read) => `, ${read.sql}`).join("")} FROM ${table.table} f JOIN ${table.results} r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = ?${filterSql.map((condition) => ` AND ${condition}`).join("")}`,
         )
-        .all(table.findingKind),
+        .all(table.findingKind, ...filterParameters),
     );
     return stored.flatMap((row) => {
       const fields: Record<string, SiteHostFieldState | undefined> = {};
@@ -373,7 +412,7 @@ function parseFinding(row: StoredRow): Finding {
     throw new ForensixError(
       "CASE_INVALID",
       "Case contains invalid Finding JSON.",
-      { finding_id: row.finding_id.toString() },
+      { findingId: row.finding_id.toString() },
       { cause: error },
     );
   }
@@ -471,9 +510,26 @@ export function querySiteFindings(input: SiteFindingsQuery): SiteFindingsPage {
       "INVALID_ARGUMENT",
       "Sites --host must not be empty.",
     );
+  const kinds = [...new Set(input.kinds ?? [])].sort();
+  for (const kind of kinds) {
+    if (!(ARTIFACT_KINDS as readonly string[]).includes(kind)) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "Sites --kind has an unsupported value.",
+        { value: kind, allowed: ARTIFACT_KINDS },
+      );
+    }
+  }
+  const profiles = resolveProfiles(input.profiles, "Sites");
+  const commitState = resolveCommitState(input.commitState, "Sites");
   const database = openSitesCase(input.caseDirectory);
   try {
-    const fingerprintValue = fingerprint(database, { host });
+    const fingerprintValue = fingerprint(database, {
+      host,
+      kinds,
+      profiles,
+      commitState,
+    });
     const after = cursor(input.after, fingerprintValue, "Sites");
     const position = after === null ? null : findingPosition(after);
     if (after !== null && position === null)
@@ -483,7 +539,7 @@ export function querySiteFindings(input: SiteFindingsQuery): SiteFindingsPage {
       );
     // Keyset on (artifact kind, numeric finding id), the sort order itself:
     // comparing the joined key as a string would put id 10 before id 9.
-    const filtered = hostRows(database)
+    const filtered = hostRows(database, { kinds, profiles, commitState })
       .filter((row) => row.hosts.has(host))
       .filter(
         (row) =>
@@ -498,7 +554,7 @@ export function querySiteFindings(input: SiteFindingsQuery): SiteFindingsPage {
       );
     const page = filtered.slice(0, limit);
     const stored = storedRows(database, page);
-    const items = page.map((row): SiteFinding => {
+    const items = page.map((row): Identified<SiteFinding> => {
       const key = `${row.table.artifactKind}:${String(row.id)}`;
       const full = stored.get(key);
       if (full === undefined)
@@ -506,7 +562,11 @@ export function querySiteFindings(input: SiteFindingsQuery): SiteFindingsPage {
           key,
         });
       return {
-        ...parseFinding(full),
+        ...withRecordId(
+          recordStoreForTable(row.table.table).key,
+          row.id,
+          parseFinding(full),
+        ),
         artifactKind: row.table.artifactKind,
         hostFields: row.hosts.get(host) ?? [],
       };

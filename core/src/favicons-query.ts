@@ -12,6 +12,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified } from "./record-store.js";
 import {
   createFinding,
   type CommitState,
@@ -40,7 +41,7 @@ export interface FaviconQuery {
 export interface FaviconPage {
   readonly status: "ok";
   readonly command: "favicons";
-  readonly items: readonly Finding[];
+  readonly items: readonly Identified<Finding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -71,6 +72,7 @@ const SORTS: Readonly<Record<FaviconSort, SortDefinition>> = {
 
 const FAVICON_SPEC: FindingQuerySpec<FaviconQuery, Finding> = {
   label: "Favicons",
+  store: "favicons",
   analysisNotFound: "Case has no Favicons analysis. Run analyse first.",
   schemaTable: "favicon_findings",
   mainTable: "favicon_findings",
@@ -82,11 +84,11 @@ const FAVICON_SPEC: FindingQuerySpec<FaviconQuery, Finding> = {
     const { provenance, fields } = decodeRecordJson(
       row,
       "Case contains invalid Favicon Finding JSON.",
-      "finding_id",
+      "findingId",
     );
     const commitState = assertCommitState(
       row.commit_state,
-      "finding_id",
+      "findingId",
       row.entity_id.toString(),
     );
     return createFinding({

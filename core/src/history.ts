@@ -135,7 +135,7 @@ export function validateDeclaredTimezone(timezone: string): string {
     throw new ForensixError(
       "INVALID_ARGUMENT",
       `Declared Timezone is not supported: ${timezone}`,
-      { declared_timezone: timezone },
+      { declaredTimezone: timezone },
       { cause: error },
     );
   }
@@ -989,7 +989,7 @@ export async function analyseProfile(options: {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Recovery content has no resolvable sidecar Manifest entry.",
-        { database_path: databasePath },
+        { databasePath: databasePath },
       );
     }
     const redirectRelationships = redirectRelationshipsForRows([

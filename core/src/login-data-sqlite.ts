@@ -113,7 +113,7 @@ function readSchema(database: DatabaseSync): LoginSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       "Login Data meta.version is missing or unsupported.",
-      { recorded_version: versionText ?? null },
+      { recordedVersion: versionText ?? null },
     );
   }
 
@@ -125,7 +125,7 @@ function readSchema(database: DatabaseSync): LoginSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       `Login Data schema version ${version} is missing required logins columns.`,
-      { version, missing_columns: missing },
+      { version, missingColumns: missing },
     );
   }
 

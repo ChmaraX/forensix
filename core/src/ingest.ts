@@ -199,7 +199,7 @@ async function assertCaseOutsideSource(
     throw new ForensixError(
       "INGEST_FAILED",
       `Case Directory cannot be resolved: ${caseDirectory}`,
-      { case_directory: caseDirectory },
+      { caseDirectory: caseDirectory },
       { cause: error },
     );
   }
@@ -208,9 +208,9 @@ async function assertCaseOutsideSource(
       "CASE_INSIDE_SOURCE",
       "Case Directory cannot be inside the Source.",
       {
-        source_path: sourcePath,
-        case_directory: caseDirectory,
-        resolved_case_directory: physicalCaseDirectory,
+        sourcePath: sourcePath,
+        caseDirectory: caseDirectory,
+        resolvedCaseDirectory: physicalCaseDirectory,
       },
     );
   }
@@ -368,8 +368,8 @@ async function prepareDirectoryInput(
       "INGEST_FAILED",
       `${sourceKind === "IMAGE_CONTAINER" ? "Image Container" : "Filesystem Root"} contains no supported Chrome Source.`,
       {
-        source_path: sourcePath,
-        discovery_unavailable_paths: discovery.unavailablePaths,
+        sourcePath: sourcePath,
+        discoveryUnavailablePaths: discovery.unavailablePaths,
       },
     );
   }
@@ -485,9 +485,9 @@ async function prepareAcquisitionBundle(
       "INGEST_FAILED",
       "Acquisition Bundle contains no readable collected Source.",
       {
-        source_path: bundleRoot,
-        bundle_status: "verified_with_divergence",
-        source_errors: inspection.sourceErrors,
+        sourcePath: bundleRoot,
+        bundleStatus: "verified_with_divergence",
+        sourceErrors: inspection.sourceErrors,
       },
     );
   }
@@ -576,7 +576,7 @@ export async function* ingestSource(
     throw new ForensixError(
       "SOURCE_NOT_FOUND",
       `Source does not exist: ${requestedSource}`,
-      { source_path: requestedSource },
+      { sourcePath: requestedSource },
       { cause: error },
     );
   }
@@ -588,7 +588,7 @@ export async function* ingestSource(
     throw new ForensixError(
       "SOURCE_NOT_DIRECTORY",
       `Source is not ${description}: ${requestedSource}`,
-      { source_path: requestedSource, source_kind: sourceKind },
+      { sourcePath: requestedSource, sourceKind: sourceKind },
     );
   }
 
@@ -599,7 +599,7 @@ export async function* ingestSource(
     throw new ForensixError(
       "CASE_ALREADY_EXISTS",
       `Case Directory already exists: ${caseDirectory}`,
-      { case_directory: caseDirectory },
+      { caseDirectory: caseDirectory },
     );
   } catch (error) {
     if (error instanceof ForensixError) {
@@ -609,7 +609,7 @@ export async function* ingestSource(
       throw new ForensixError(
         "INGEST_FAILED",
         `Case Directory cannot be inspected: ${caseDirectory}`,
-        { case_directory: caseDirectory },
+        { caseDirectory: caseDirectory },
         { cause: error },
       );
     }

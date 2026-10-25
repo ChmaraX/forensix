@@ -11,6 +11,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified } from "./record-store.js";
 import {
   createCandidate,
   type Candidate,
@@ -48,7 +49,7 @@ export interface TopicCandidateQuery {
 export interface TopicCandidatePage {
   readonly status: "ok";
   readonly command: "topic-candidates";
-  readonly items: readonly Candidate[];
+  readonly items: readonly Identified<Candidate>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -65,6 +66,7 @@ const SORT_DEFINITIONS: Readonly<Record<TopicCandidateSort, SortDefinition>> = {
 
 const TOPIC_CANDIDATE_SPEC: FindingQuerySpec<TopicCandidateQuery, Candidate> = {
   label: "Topic Candidate",
+  store: "topic-candidates",
   analysisNotFound: "Case has no analysis. Run analyse first.",
   schemaTable: "forensic_candidates",
   mainTable: "forensic_candidates",
@@ -76,7 +78,7 @@ const TOPIC_CANDIDATE_SPEC: FindingQuerySpec<TopicCandidateQuery, Candidate> = {
     const { provenance, fields } = decodeRecordJson(
       row,
       "Case contains invalid Candidate JSON.",
-      "candidate_id",
+      "candidateId",
     );
     return createCandidate({
       candidateKind: row.candidate_kind as string,

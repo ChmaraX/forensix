@@ -83,7 +83,7 @@ function readSchema(database: DatabaseSync): TopSiteSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       "Top Sites meta.version is missing or unsupported.",
-      { recorded_version: versionText ?? null },
+      { recordedVersion: versionText ?? null },
     );
   }
 
@@ -95,7 +95,7 @@ function readSchema(database: DatabaseSync): TopSiteSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       `Top Sites schema version ${version} is missing required columns.`,
-      { version, missing_columns: missing },
+      { version, missingColumns: missing },
     );
   }
 

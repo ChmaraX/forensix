@@ -1,16 +1,24 @@
 import { createHash } from "node:crypto";
-import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
 
-import { CASE_FILENAME } from "./case.js";
+import { openCaseReadOnly } from "./case.js";
 import { ForensixError } from "./errors.js";
 import {
   createFinding,
+  type CommitState,
   type Finding,
   type ForensicFields,
   type Provenance,
 } from "./forensic-model.js";
+import {
+  resolveCommitState,
+  resolveProfiles,
+  resolveSearch,
+} from "./finding-query.js";
+import {
+  withRecordId,
+  type Identified,
+  type RecordStoreKey,
+} from "./record-store.js";
 
 export type TimelineDirection = "asc" | "desc";
 
@@ -21,12 +29,27 @@ export interface TimelineQuery {
   readonly from?: string;
   readonly to?: string;
   readonly direction?: TimelineDirection;
+  /** Only Findings of these Profiles. */
+  readonly profiles?: readonly string[];
+  /** Only these Finding kinds (see {@link TIMELINE_KINDS}). */
+  readonly kinds?: readonly string[];
+  /** Case-insensitive substring over each Finding's search text. */
+  readonly search?: string;
+  readonly commitState?: CommitState;
 }
+
+/** The Finding kinds the Timeline merges, one per timestamped table. */
+export const TIMELINE_KINDS = [
+  "history_visit",
+  "download",
+  "cookie",
+  "autofill_entry",
+] as const;
 
 export interface TimelinePage {
   readonly status: "ok";
   readonly command: "timeline";
-  readonly items: readonly Finding[];
+  readonly items: readonly Identified<Finding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -40,6 +63,7 @@ interface CursorPayload {
 }
 
 interface QueryRow {
+  readonly store: RecordStoreKey;
   readonly finding_id: bigint;
   readonly finding_kind: string;
   readonly profile_path: string;
@@ -102,12 +126,6 @@ function normalizeInstant(
   return `${milliseconds.slice(0, -5)}.${milliseconds.slice(-4, -1)}${fraction.slice(3)}Z`;
 }
 
-function openCase(caseDirectory: string): DatabaseSync {
-  const url = pathToFileURL(join(resolve(caseDirectory), CASE_FILENAME));
-  url.searchParams.set("immutable", "1");
-  return new DatabaseSync(url.href, { readOnly: true, readBigInts: true });
-}
-
 function decodeCursor(value: string, fingerprint: string): CursorPayload {
   let parsed: unknown;
   try {
@@ -155,7 +173,7 @@ function parseFinding(row: QueryRow): Finding {
     throw new ForensixError(
       "CASE_INVALID",
       "Case contains invalid Finding JSON.",
-      { finding_id: row.finding_id.toString() },
+      { findingId: row.finding_id.toString() },
       { cause: error },
     );
   }
@@ -167,7 +185,7 @@ function parseFinding(row: QueryRow): Finding {
     throw new ForensixError(
       "CASE_INVALID",
       "Case contains an invalid Commit State.",
-      { finding_id: row.finding_id.toString() },
+      { findingId: row.finding_id.toString() },
     );
   }
   return createFinding({
@@ -197,8 +215,21 @@ export function queryTimeline(input: TimelineQuery): TimelinePage {
       "INVALID_ARGUMENT",
       "Timeline --from must not be later than --to.",
     );
+  const profiles = resolveProfiles(input.profiles, "Timeline");
+  const kinds = [...new Set(input.kinds ?? [])].sort();
+  for (const kind of kinds) {
+    if (!(TIMELINE_KINDS as readonly string[]).includes(kind)) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "Timeline --kind has an unsupported value.",
+        { value: kind, allowed: TIMELINE_KINDS },
+      );
+    }
+  }
+  const search = resolveSearch(input.search);
+  const commitState = resolveCommitState(input.commitState, "Timeline");
 
-  const database = openCase(input.caseDirectory);
+  const database = openCaseReadOnly(input.caseDirectory, { readBigInts: true });
   try {
     const requiredTables = [
       "forensic_findings",
@@ -243,16 +274,22 @@ export function queryTimeline(input: TimelineQuery): TimelinePage {
           from,
           to,
           direction,
+          profiles,
+          kinds,
+          search,
+          commitState,
         }),
       )
       .digest("hex");
     const cursor =
       input.after === undefined ? null : decodeCursor(input.after, fingerprint);
+    const columns =
+      "f.finding_id, f.finding_kind, f.profile_path, f.commit_state, f.provenance_json, f.fields_json, f.search_text";
     const branches = [
-      "SELECT f.finding_id, f.finding_kind, f.profile_path, f.commit_state, f.provenance_json, f.fields_json, f.sort_time AS cursor_key FROM forensic_findings f JOIN history_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = 'history_visit' AND f.sort_time IS NOT NULL",
-      "SELECT f.finding_id, f.finding_kind, f.profile_path, f.commit_state, f.provenance_json, f.fields_json, f.sort_start AS cursor_key FROM downloads_findings f JOIN downloads_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.sort_start IS NOT NULL",
-      "SELECT f.finding_id, f.finding_kind, f.profile_path, f.commit_state, f.provenance_json, f.fields_json, f.sort_creation AS cursor_key FROM cookie_findings f JOIN cookie_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.sort_creation IS NOT NULL",
-      "SELECT f.finding_id, f.finding_kind, f.profile_path, f.commit_state, f.provenance_json, f.fields_json, f.sort_last_used AS cursor_key FROM web_data_findings f JOIN web_data_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = 'autofill_entry' AND f.sort_last_used IS NOT NULL",
+      `SELECT 'history' AS store, ${columns}, f.sort_time AS cursor_key FROM forensic_findings f JOIN history_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = 'history_visit' AND f.sort_time IS NOT NULL`,
+      `SELECT 'downloads' AS store, ${columns}, f.sort_start AS cursor_key FROM downloads_findings f JOIN downloads_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.sort_start IS NOT NULL`,
+      `SELECT 'cookies' AS store, ${columns}, f.sort_creation AS cursor_key FROM cookie_findings f JOIN cookie_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.sort_creation IS NOT NULL`,
+      `SELECT 'web-data' AS store, ${columns}, f.sort_last_used AS cursor_key FROM web_data_findings f JOIN web_data_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = 'autofill_entry' AND f.sort_last_used IS NOT NULL`,
     ];
     const conditions: string[] = [];
     const parameters: (string | bigint)[] = [];
@@ -263,6 +300,24 @@ export function queryTimeline(input: TimelineQuery): TimelinePage {
     if (to !== null) {
       conditions.push("cursor_key <= ?");
       parameters.push(to);
+    }
+    if (profiles.length > 0) {
+      conditions.push(
+        `profile_path IN (${profiles.map(() => "?").join(", ")})`,
+      );
+      parameters.push(...profiles);
+    }
+    if (kinds.length > 0) {
+      conditions.push(`finding_kind IN (${kinds.map(() => "?").join(", ")})`);
+      parameters.push(...kinds);
+    }
+    if (search !== null) {
+      conditions.push("instr(search_text, ?) > 0");
+      parameters.push(search);
+    }
+    if (commitState !== null) {
+      conditions.push("commit_state = ?");
+      parameters.push(commitState);
     }
     const order = direction === "asc" ? "ASC" : "DESC";
     if (cursor !== null) {
@@ -290,7 +345,9 @@ export function queryTimeline(input: TimelineQuery): TimelinePage {
     return {
       status: "ok",
       command: "timeline",
-      items: pageRows.map(parseFinding),
+      items: pageRows.map((row) =>
+        withRecordId(row.store, row.finding_id, parseFinding(row)),
+      ),
       nextCursor:
         hasNext && last !== undefined
           ? Buffer.from(

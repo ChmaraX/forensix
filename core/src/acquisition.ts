@@ -545,7 +545,7 @@ async function scanOnce(
     throw new ForensixError(
       "INGEST_FAILED",
       `${sourceLabel} cannot be enumerated.`,
-      { source_path: sourceRoot, reason: unavailableReason(error) },
+      { sourcePath: sourceRoot, reason: unavailableReason(error) },
       { cause: error },
     );
   }
@@ -622,7 +622,7 @@ async function acquireDirectory(
         throw new ForensixError(
           "INGEST_FAILED",
           `${sourceLabel} changed during ingest.`,
-          { source_path: sourceRoot, reason: "changed_during_ingest" },
+          { sourcePath: sourceRoot, reason: "changed_during_ingest" },
         );
       }
     }

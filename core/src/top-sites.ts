@@ -265,7 +265,7 @@ async function analyseProfile(options: {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Top Sites recovery content has no resolvable sidecar Manifest entry.",
-        { database_path: databasePath },
+        { databasePath: databasePath },
       );
     }
     const committed = buildTopSites({

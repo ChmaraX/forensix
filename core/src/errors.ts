@@ -13,6 +13,7 @@ export type ForensixErrorCode =
   | "EXTRACT_NOT_FOUND"
   | "EXTRACT_INVALID"
   | "INVALID_CURSOR"
+  | "RECORD_NOT_FOUND"
   | "WORKING_COPY_INTEGRITY_REFUSAL";
 
 export interface ErrorDiagnostic {

@@ -12,6 +12,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified } from "./record-store.js";
 import {
   createFinding,
   type CommitState,
@@ -37,7 +38,7 @@ export interface MetadataQuery {
 export interface MetadataPage {
   readonly status: "ok";
   readonly command: "metadata";
-  readonly items: readonly Finding[];
+  readonly items: readonly Identified<Finding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -53,6 +54,7 @@ const SORTS: Readonly<Record<MetadataSort, SortDefinition>> = {
 
 const METADATA_SPEC: FindingQuerySpec<MetadataQuery, Finding> = {
   label: "Metadata",
+  store: "preferences",
   analysisNotFound: "Case has no Metadata analysis. Run analyse first.",
   schemaTable: "preferences_findings",
   mainTable: "preferences_findings",
@@ -64,11 +66,11 @@ const METADATA_SPEC: FindingQuerySpec<MetadataQuery, Finding> = {
     const { provenance, fields } = decodeRecordJson(
       row,
       "Case contains invalid Metadata Finding JSON.",
-      "finding_id",
+      "findingId",
     );
     const commitState = assertCommitState(
       row.commit_state,
-      "finding_id",
+      "findingId",
       row.entity_id.toString(),
     );
     return createFinding({

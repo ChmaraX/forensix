@@ -1,11 +1,14 @@
 import { createHash } from "node:crypto";
-import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
+import type { DatabaseSync } from "node:sqlite";
 
-import { CASE_FILENAME } from "./case.js";
+import { openCaseReadOnly } from "./case.js";
 import { ForensixError } from "./errors.js";
 import { SQLITE_MAX_INTEGER, SQLITE_MIN_INTEGER } from "./forensic-time.js";
+import {
+  withRecordId,
+  type Identified,
+  type RecordStoreKey,
+} from "./record-store.js";
 import type {
   CommitState,
   ForensicFields,
@@ -66,9 +69,14 @@ export interface QueryPlan {
   readonly fingerprint: (identity: AnalysisIdentity) => Record<string, unknown>;
 }
 
-export interface FindingQuerySpec<TInput extends BaseQueryInput, TItem> {
+export interface FindingQuerySpec<
+  TInput extends BaseQueryInput,
+  TItem extends object,
+> {
   /** Human label used in every INVALID_ARGUMENT / INVALID_CURSOR message. */
   readonly label: string;
+  /** The record-id store key every returned item's `id` starts with. */
+  readonly store: RecordStoreKey;
   readonly analysisNotFound: string;
   readonly schemaTable: string;
   readonly mainTable: string;
@@ -87,7 +95,7 @@ export interface BaseQueryInput {
 }
 
 export interface QueryPageParts<TItem> {
-  readonly items: readonly TItem[];
+  readonly items: readonly Identified<TItem>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -140,7 +148,7 @@ export function resolveProfiles(
     throw new ForensixError(
       "INVALID_ARGUMENT",
       `${label} queries accept at most 100 Profile filters.`,
-      { profile_count: result.length },
+      { profileCount: result.length },
     );
   }
   return result;
@@ -237,12 +245,6 @@ export function assertCommitState(
   return value;
 }
 
-function openCase(caseDirectory: string): DatabaseSync {
-  const url = pathToFileURL(join(resolve(caseDirectory), CASE_FILENAME));
-  url.searchParams.set("immutable", "1");
-  return new DatabaseSync(url.href, { readOnly: true, readBigInts: true });
-}
-
 function schemaExists(database: DatabaseSync, table: string): boolean {
   return (
     database
@@ -333,14 +335,14 @@ function decodeCursor(
  * surface into its own typed page literal so emitted JSON field order stays
  * byte-for-byte identical to the pre-refactor modules.
  */
-export function runFindingQuery<TInput extends BaseQueryInput, TItem>(
-  spec: FindingQuerySpec<TInput, TItem>,
-  input: TInput,
-): QueryPageParts<TItem> {
+export function runFindingQuery<
+  TInput extends BaseQueryInput,
+  TItem extends object,
+>(spec: FindingQuerySpec<TInput, TItem>, input: TInput): QueryPageParts<TItem> {
   const plan = spec.plan(input);
   const sortExpression = plan.sortDefinition.expression;
 
-  const database = openCase(input.caseDirectory);
+  const database = openCaseReadOnly(input.caseDirectory, { readBigInts: true });
   try {
     if (!schemaExists(database, spec.schemaTable)) {
       throw new ForensixError("ANALYSIS_NOT_FOUND", spec.analysisNotFound);
@@ -414,7 +416,9 @@ export function runFindingQuery<TInput extends BaseQueryInput, TItem>(
     const pageRows = hasNext ? rows.slice(0, plan.limit) : rows;
     const last = pageRows.at(-1);
     return {
-      items: pageRows.map(spec.parse),
+      items: pageRows.map((row) =>
+        withRecordId(spec.store, row.entity_id, spec.parse(row)),
+      ),
       nextCursor:
         hasNext && last !== undefined
           ? encodeCursor(

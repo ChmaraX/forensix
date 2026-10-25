@@ -1,9 +1,7 @@
 import { createHash } from "node:crypto";
-import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
+import type { DatabaseSync } from "node:sqlite";
 
-import { CASE_FILENAME } from "./case.js";
+import { openCaseReadOnly } from "./case.js";
 import { ForensixError } from "./errors.js";
 import { SQLITE_MAX_INTEGER, SQLITE_MIN_INTEGER } from "./forensic-time.js";
 import {
@@ -13,6 +11,7 @@ import {
   type ForensicFields,
   type Provenance,
 } from "./forensic-model.js";
+import { withRecordId, type Identified } from "./record-store.js";
 
 export type HistoryView = "visits" | "activity" | "most-visited" | "durations";
 export type HistoryDirection = "asc" | "desc";
@@ -43,7 +42,7 @@ export interface HistoryPage {
   readonly status: "ok";
   readonly command: "history";
   readonly view: HistoryView;
-  readonly items: readonly Finding[];
+  readonly items: readonly Identified<Finding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -265,12 +264,6 @@ function activeAnalysisIdentity(database: DatabaseSync): {
   };
 }
 
-function openCase(caseDirectory: string): DatabaseSync {
-  const url = pathToFileURL(join(resolve(caseDirectory), CASE_FILENAME));
-  url.searchParams.set("immutable", "1");
-  return new DatabaseSync(url.href, { readOnly: true, readBigInts: true });
-}
-
 function findingSchemaExists(database: DatabaseSync): boolean {
   return (
     database
@@ -291,7 +284,7 @@ function parseFinding(row: QueryRow): Finding {
     throw new ForensixError(
       "CASE_INVALID",
       "Case contains invalid Finding JSON.",
-      { finding_id: row.finding_id.toString() },
+      { findingId: row.finding_id.toString() },
       { cause: error },
     );
   }
@@ -303,7 +296,7 @@ function parseFinding(row: QueryRow): Finding {
     throw new ForensixError(
       "CASE_INVALID",
       "Case contains an invalid Commit State.",
-      { finding_id: row.finding_id.toString() },
+      { findingId: row.finding_id.toString() },
     );
   }
   return createFinding({
@@ -347,7 +340,7 @@ export function queryHistory(input: HistoryQuery): HistoryPage {
     throw new ForensixError(
       "INVALID_ARGUMENT",
       "History queries accept at most 100 Profile filters.",
-      { profile_count: profiles.length },
+      { profileCount: profiles.length },
     );
   }
   const search = input.search?.toLocaleLowerCase("en-US") ?? null;
@@ -375,7 +368,7 @@ export function queryHistory(input: HistoryQuery): HistoryPage {
     );
   }
 
-  const database = openCase(input.caseDirectory);
+  const database = openCaseReadOnly(input.caseDirectory, { readBigInts: true });
   try {
     if (!findingSchemaExists(database)) {
       throw new ForensixError(
@@ -485,7 +478,9 @@ export function queryHistory(input: HistoryQuery): HistoryPage {
       status: "ok",
       command: "history",
       view,
-      items: pageRows.map(parseFinding),
+      items: pageRows.map((row) =>
+        withRecordId("history", row.finding_id, parseFinding(row)),
+      ),
       nextCursor:
         hasNext && last !== undefined
           ? encodeCursor({

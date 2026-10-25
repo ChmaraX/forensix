@@ -732,7 +732,7 @@ export async function renderReport(
     throw new ForensixError(
       "EXTRACT_NOT_FOUND",
       "The Extract directory does not exist.",
-      { extract_directory: extractDirectory },
+      { extractDirectory: extractDirectory },
       { cause: error },
     );
   }
@@ -740,7 +740,7 @@ export async function renderReport(
     throw new ForensixError(
       "EXTRACT_NOT_FOUND",
       "The Extract path is not a directory.",
-      { extract_directory: extractDirectory },
+      { extractDirectory: extractDirectory },
     );
   }
 
@@ -749,7 +749,7 @@ export async function renderReport(
     throw new ForensixError(
       "EXTRACT_NOT_FOUND",
       "The Extract directory has no export_header.json. Run export first.",
-      { extract_directory: extractDirectory },
+      { extractDirectory: extractDirectory },
     );
   }
   const header = parseJson<Record<string, Json>>(headerBytes, HEADER_FILE);

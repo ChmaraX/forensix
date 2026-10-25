@@ -138,7 +138,7 @@ function requireColumns(
     throw new ForensixError(
       "ANALYSIS_FAILED",
       `History schema version ${version} is missing required ${table} columns.`,
-      { table, version, missing_columns: missing },
+      { table, version, missingColumns: missing },
     );
   }
 }
@@ -166,7 +166,7 @@ function readSchema(database: DatabaseSync): HistorySchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       "History meta.version is missing or unsupported.",
-      { recorded_version: versionText ?? null },
+      { recordedVersion: versionText ?? null },
     );
   }
 
@@ -186,7 +186,7 @@ function readSchema(database: DatabaseSync): HistorySchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       "History meta.version does not agree with the visits schema.",
-      { recorded_version: version },
+      { recordedVersion: version },
     );
   }
 

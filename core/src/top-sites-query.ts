@@ -12,6 +12,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified } from "./record-store.js";
 import {
   createFinding,
   type CommitState,
@@ -35,7 +36,7 @@ export interface TopSiteQuery {
 export interface TopSitePage {
   readonly status: "ok";
   readonly command: "top-sites";
-  readonly items: readonly Finding[];
+  readonly items: readonly Identified<Finding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -56,6 +57,7 @@ const SORTS: Readonly<Record<TopSiteSort, SortDefinition>> = {
 
 const TOP_SITE_SPEC: FindingQuerySpec<TopSiteQuery, Finding> = {
   label: "Top Sites",
+  store: "top-sites",
   analysisNotFound: "Case has no Top Sites analysis. Run analyse first.",
   schemaTable: "top_sites_findings",
   mainTable: "top_sites_findings",
@@ -67,11 +69,11 @@ const TOP_SITE_SPEC: FindingQuerySpec<TopSiteQuery, Finding> = {
     const { provenance, fields } = decodeRecordJson(
       row,
       "Case contains invalid Top Site Finding JSON.",
-      "finding_id",
+      "findingId",
     );
     const commitState = assertCommitState(
       row.commit_state,
-      "finding_id",
+      "findingId",
       row.entity_id.toString(),
     );
     return createFinding({

@@ -101,7 +101,7 @@ function readSchema(database: DatabaseSync): WebDataSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       "Web Data meta.version is missing or unsupported.",
-      { recorded_version: versionText ?? null },
+      { recordedVersion: versionText ?? null },
     );
   }
 
@@ -113,7 +113,7 @@ function readSchema(database: DatabaseSync): WebDataSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       `Web Data schema version ${version} is missing required autofill columns.`,
-      { version, missing_columns: missing },
+      { version, missingColumns: missing },
     );
   }
 
