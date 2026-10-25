@@ -774,4 +774,75 @@ describe("compiled analyzer CLI Downloads findings", () => {
       caseDatabase.close();
     }
   });
+
+  it("decodes server-side interrupt reasons with Chromium's values", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-dl-interrupt-"));
+    temporaryRoots.push(root);
+    const source = join(root, "source");
+    await mkdir(source, { recursive: true });
+    await writeLocalState(source);
+    // Interrupted downloads that a hostile or broken server cut off. Values
+    // are from download_interrupt_reason_values.h; 32 is the obsolete
+    // SERVER_PRECONDITION that an older store can still hold.
+    const reasons: readonly [bigint, string][] = [
+      [31n, "server_no_range"],
+      [32n, "server_precondition"],
+      [33n, "server_bad_content"],
+      [34n, "server_unauthorized"],
+      [36n, "server_forbidden"],
+      [38n, "server_content_length_mismatch"],
+      [39n, "server_cross_origin_redirect"],
+      [51n, "local_download_blocked"],
+    ];
+    await createHistory(
+      join(source, "Default", "History"),
+      reasons.map(([code], index) => ({
+        id: BigInt(index + 1),
+        targetPath: `/home/alice/Downloads/part-${String(index)}.zip`,
+        startTime: windowsMicros(1_704_164_645n + BigInt(index)),
+        endTime: 0n,
+        receivedBytes: 100n,
+        totalBytes: 4096n,
+        state: 4n, // interrupted
+        dangerType: 0n,
+        interruptReason: code,
+        hash: new Uint8Array(0),
+        opened: 0n,
+        referrer: "https://mirror.example/",
+        mimeType: "application/zip",
+        chain: [`https://mirror.example/part-${String(index)}.zip`],
+      })),
+    );
+    const caseDirectory = join(root, "CASE-DL-INTERRUPT");
+    expect(
+      runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+    ).toBe(0);
+    expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
+      0,
+    );
+
+    const page = parseJson<DownloadPage>(
+      runCli([
+        "downloads",
+        "--case",
+        caseDirectory,
+        "--sort",
+        "start-time",
+        "--direction",
+        "asc",
+        "--json",
+      ]).stdout,
+    );
+    expect(
+      page.items.map((item) => [
+        item.fields.interruptReasonRaw,
+        item.fields.interruptReason,
+      ]),
+    ).toEqual(
+      reasons.map(([code, label]) => [
+        { state: "value", value: code.toString() },
+        { state: "value", value: label },
+      ]),
+    );
+  });
 });

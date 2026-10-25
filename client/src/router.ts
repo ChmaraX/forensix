@@ -12,7 +12,9 @@
  *  - `host`         the host a page is focused on (Sites);
  *  - `q`            a page's search text (History);
  *  - `tab`          `recovered` when the page's Recovered list is on show;
- *  - `row`          the open row's reference (`rowRefOf`).
+ *  - `row`          the open row's reference (`rowRefOf`: its record id,
+ *                   `history:180`; an older source-chain reference still
+ *                   opens its row).
  *
  * Range and profiles are the shell's lens: they travel with every page
  * change. Host, search, tab and row belong to one page and reset when the
@@ -196,10 +198,14 @@ export function withPage(
   };
 }
 
-/** The parts of a Finding a row reference is made of. */
+/** The parts of a Finding or Candidate a row reference is made of. */
 export interface RowRefSource {
-  readonly profile: string;
-  readonly commitState: CommitState;
+  /** The record id every list route puts first (`history:180`): unique in
+   *  the Case, across Sources and Profiles. */
+  readonly id?: string;
+  readonly profile?: string;
+  /** Absent on identity Candidates (they carry no Commit State). */
+  readonly commitState?: CommitState;
   readonly provenance: {
     readonly manifestPath?: string;
     readonly table?: string;
@@ -207,13 +213,45 @@ export interface RowRefSource {
   };
 }
 
+/** A record id (`<store>:<rowid>`, e.g. `history:180`), as opposed to a
+ *  legacy source-chain reference (which holds `|`). */
+const RECORD_ID = /^[a-z][a-z-]*:[0-9]+$/;
+
+export function isRecordId(ref: string): boolean {
+  return RECORD_ID.test(ref);
+}
+
 /**
- * A row's reference in the URL: its source chain (manifest path · table ·
- * row id), its profile and its Commit State, joined by `|` — enough to find
- * exactly that row again among a page's loaded rows. A row without a row id
- * or table has no reference (it opens, but is not addressable).
+ * A row's reference in the URL: its record id (`history:180`), which core
+ * keeps unique in the Case - two Sources holding the same file, table and
+ * row id still get two ids. A row the server sent without an id falls back
+ * to its legacy source-chain reference (`legacyRowRefOf`). A row with
+ * neither has no reference (it opens, but is not addressable).
  */
 export function rowRefOf(row: RowRefSource): string | null {
+  if (row.id !== undefined && row.id !== "") {
+    return row.id;
+  }
+  return legacyRowRefOf(row);
+}
+
+/** Whether `ref` (from the URL) names `row`: its record id, or the legacy
+ *  source-chain reference an older link may still carry. */
+export function rowMatchesRef(row: RowRefSource, ref: string): boolean {
+  return rowRefOf(row) === ref || legacyRowRefOf(row) === ref;
+}
+
+/**
+ * The reference links carried before rows had a record id: the source
+ * chain (manifest path · table · row id), the profile and the Commit
+ * State, joined by `|`. Kept so an old link still opens its row; it is not
+ * unique across Sources (two Sources can hold the same relative file), so
+ * no new link is built from it while a row has an id.
+ */
+export function legacyRowRefOf(row: RowRefSource): string | null {
+  if (row.commitState === undefined || row.profile === undefined) {
+    return null;
+  }
   const { manifestPath, table, rowId } = row.provenance;
   if (
     rowId === undefined ||

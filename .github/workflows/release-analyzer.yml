@@ -2,9 +2,17 @@ name: release-analyzer
 
 # The analyzer publishes on its own SemVer line and tag prefix `analyzer-v*`,
 # independently of the Collector (issue #188, AC5). Each release is gated by the
-# full offline verification, injects the version plus git SHA into the compiled
-# CLI, and ships an npm package tarball with checksums and a build-provenance
-# attestation (AC6). npm publish runs only when an NPM_TOKEN secret is present.
+# full offline verification. scripts/pack-analyzer.mjs then packs ONE
+# self-contained npm package, `forensix` (compiled CLI + bundled skill, with the
+# core, server, and client builds as bundled dependencies), and stamps the tag
+# version and git SHA into its package.json and dist/build-info.json. The
+# tarball is installed offline and smoked before anything is published. It
+# ships with checksums and a build-provenance attestation (AC6).
+#
+# Order: npm publish (only when an NPM_TOKEN secret is present) runs BEFORE the
+# GitHub Release, so a failed publish leaves no partial release. Both steps are
+# idempotent: a rerun skips a version that npm already has and updates the
+# assets of a GitHub Release that already exists.
 #
 # This workflow triggers ONLY on a matching tag push. Opening or merging a PR
 # never runs it, so merging this PR publishes nothing. The packaging path is
@@ -40,6 +48,16 @@ jobs:
           version="${GITHUB_REF_NAME#analyzer-v}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          echo "tarball=dist/analyzer/forensix-$version.tgz" >> "$GITHUB_OUTPUT"
+          # A prerelease (1.2.3-beta.1) goes to the `next` dist-tag and is
+          # marked as a prerelease on GitHub; a release goes to `latest`.
+          if [[ "$version" == *-* ]]; then
+            echo "dist_tag=next" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Enable Corepack
         run: corepack enable
@@ -49,27 +67,30 @@ jobs:
       - name: Full offline verification gate
         run: corepack pnpm verify:full
 
-      - name: Inject version + git SHA into the compiled CLI
+      - name: Pack the forensix package (version + git SHA from the tag)
         env:
           VERSION: ${{ steps.meta.outputs.version }}
           COMMIT: ${{ steps.meta.outputs.sha }}
         run: |
           set -euo pipefail
-          printf '{\n  "version": "%s",\n  "gitSha": "%s"\n}\n' "$VERSION" "$COMMIT" \
-            > cli/dist/build-info.json
-          node cli/dist/cli.js --version
+          node scripts/pack-analyzer.mjs --version "$VERSION" \
+            --git-sha "$COMMIT" --out "$PWD/dist/analyzer"
 
-      - name: Pack the CLI package
+      - name: Install the tarball offline and smoke the installed CLI
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          COMMIT: ${{ steps.meta.outputs.sha }}
+          TARBALL: ${{ steps.meta.outputs.tarball }}
         run: |
           set -euo pipefail
-          mkdir -p dist/analyzer
-          corepack pnpm --filter @forensix/cli pack --pack-destination "$PWD/dist/analyzer"
+          node scripts/smoke-analyzer-package.mjs "$TARBALL" \
+            --version "$VERSION" --git-sha "$COMMIT"
 
       - name: Generate checksums
         working-directory: dist/analyzer
         run: |
           set -euo pipefail
-          sha256sum *.tgz > SHA256SUMS
+          sha256sum ./*.tgz > SHA256SUMS
           cat SHA256SUMS
 
       - name: Attest build provenance
@@ -77,18 +98,42 @@ jobs:
         with:
           subject-path: "dist/analyzer/*.tgz"
 
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh release create "$GITHUB_REF_NAME" \
-            --title "Analyzer ${{ steps.meta.outputs.version }}" \
-            --notes "Analyzer ${{ steps.meta.outputs.version }} (${{ steps.meta.outputs.sha }}). npm package tarball with checksums and a provenance attestation." \
-            dist/analyzer/*.tgz dist/analyzer/SHA256SUMS
-
+      # Publish the exact tarball that was smoked and attested. A rerun after a
+      # later failure finds the version on npm and skips the publish.
       - name: Publish to npm
         if: ${{ env.NPM_TOKEN != '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: corepack pnpm --filter @forensix/cli publish --no-git-checks --access public
+          VERSION: ${{ steps.meta.outputs.version }}
+          DIST_TAG: ${{ steps.meta.outputs.dist_tag }}
+          TARBALL: ${{ steps.meta.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          if published=$(npm view "forensix@$VERSION" version 2>/dev/null) \
+            && [ "$published" = "$VERSION" ]; then
+            echo "forensix@$VERSION is already on npm; skipping publish."
+            exit 0
+          fi
+          npm publish "$TARBALL" --access public --provenance --tag "$DIST_TAG"
+
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          COMMIT: ${{ steps.meta.outputs.sha }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          assets=(dist/analyzer/*.tgz dist/analyzer/SHA256SUMS)
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+            exit 0
+          fi
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" "${flags[@]}" \
+            --title "Analyzer $VERSION" \
+            --notes "Analyzer $VERSION ($COMMIT). The \`forensix\` npm package tarball with checksums and a provenance attestation. Install: \`npm i -g forensix@$VERSION\`, or \`npm i -g ./forensix-$VERSION.tgz\` from the attached tarball." \
+            "${assets[@]}"

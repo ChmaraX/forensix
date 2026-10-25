@@ -18,8 +18,10 @@ import {
   type CommitState,
   type FieldState,
   type Finding,
+  type ManifestEntryReference,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
 import type { ForensicTimestamp } from "./history.js";
 import { decryptSecretField } from "./decrypted-field.js";
 import { schemeOf, type DecryptionSettings } from "./oscrypt.js";
@@ -207,6 +209,7 @@ function buildCredentials(options: {
   readonly commitState: CommitState;
   readonly profile: string;
   readonly manifest: ManifestIdentity;
+  readonly recoveredVia?: ManifestEntryReference;
   readonly declaredTimezone: string;
   readonly decryption: DecryptionSettings;
 }): BuiltCredential[] {
@@ -279,7 +282,12 @@ function buildCredentials(options: {
       findingKind: "login_credential",
       profile: options.profile,
       commitState: options.commitState,
-      provenance: sourceRowProvenance(options.manifest, rowId),
+      provenance: {
+        ...sourceRowProvenance(options.manifest, rowId),
+        ...(options.recoveredVia === undefined
+          ? {}
+          : { recoveredVia: options.recoveredVia }),
+      },
       fields,
     });
     return {
@@ -431,7 +439,7 @@ export async function analyseLoginDataProfile(options: {
       database: verifiedDatabase,
       sidecars,
     });
-    const recoveredManifest =
+    const sidecarManifest =
       passes.recovered === null
         ? null
         : manifestIdentity(
@@ -443,13 +451,21 @@ export async function analyseLoginDataProfile(options: {
             }`,
             databasePath,
           );
-    if (passes.recovered !== null && recoveredManifest === null) {
+    if (passes.recovered !== null && sidecarManifest === null) {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Login Data recovery content has no resolvable sidecar Manifest entry.",
         { databasePath: databasePath },
       );
     }
+    const recoveredCitation =
+      passes.recovered === null || sidecarManifest === null
+        ? null
+        : recoveredRowCitation(
+            passes.recovered.commitState,
+            manifest,
+            sidecarManifest,
+          );
     const committed = buildCredentials({
       rows: passes.committed.rows,
       schema: passes.committed.schema,
@@ -467,7 +483,8 @@ export async function analyseLoginDataProfile(options: {
             schema: passes.recovered.schema,
             commitState: passes.recovered.commitState,
             profile: options.profile,
-            manifest: recoveredManifest as ManifestIdentity,
+            manifest: recoveredCitation?.manifest ?? manifest,
+            recoveredVia: recoveredCitation?.recoveredVia,
             declaredTimezone: options.declaredTimezone,
             decryption: options.decryption,
           });
@@ -480,7 +497,7 @@ export async function analyseLoginDataProfile(options: {
       schemaVersion: passes.committed.schema.version,
       integrity: passes.committed.integrity,
       recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: passes.recoveryUnavailableReason,
+      reason: sqlitePassesReason(passes),
       findings: [
         ...committed.map((credential) => credential.persisted),
         ...recovered.map((credential) => credential.persisted),

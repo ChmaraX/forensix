@@ -61,6 +61,17 @@ flowchart LR
 
 ## Install
 
+From npm (available after the first analyzer release):
+
+```sh
+npm i -g forensix
+```
+
+The `forensix` package contains the CLI, the dashboard, and the agent skill. It
+has no other runtime dependencies. Each
+[GitHub release](https://github.com/ChmaraX/forensix/releases) also attaches the
+package tarball, its SHA-256 checksums, and a build-provenance attestation.
+
 > [!NOTE]
 > v2 is in pre-release. Until the first release ships, build from source.
 

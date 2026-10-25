@@ -333,6 +333,7 @@ describe("compiled analyzer CLI Cache backends", () => {
         payloadSha256: { state: "value", value: alphaSha },
         payloadPath: { state: "value", value: `cache-payloads/${alphaSha}` },
         stream1Crc32Valid: { state: "value", value: "true" },
+        indexState: { state: "value", value: "indexed" },
       },
     });
     expect(alpha?.fields.lastUsed).toMatchObject({
@@ -398,6 +399,10 @@ describe("compiled analyzer CLI Cache backends", () => {
     expect(doomed?.fields.state).toMatchObject({
       state: "value",
       value: "allocated_deleted_or_doomed",
+    });
+    expect(doomed?.fields.indexState).toEqual({
+      state: "value",
+      value: "not_in_index",
     });
 
     // Search matches the cache key.
@@ -623,5 +628,141 @@ describe("compiled analyzer CLI Cache backends", () => {
       expect(pages).toBeLessThanOrEqual(10);
     } while (cursor !== null);
     expect(seen).toBe(count);
+  });
+
+  it("keeps entries live but unindexed when the real index cannot be used", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-cache-noindex-"));
+    temporaryRoots.push(root);
+    const source = join(root, "source");
+    await mkdir(source, { recursive: true });
+    await writeLocalState(source);
+    const keys = {
+      Default: [
+        "1/0/https://alpha.example/app.js",
+        "1/0/https://bravo.example/style.css",
+      ],
+      "Profile 1": ["1/0/https://charlie.example/font.woff2"],
+    };
+    for (const [profile, profileKeys] of Object.entries(keys)) {
+      const cacheData = join(source, profile, "Cache", "Cache_Data");
+      for (const key of profileKeys) {
+        await writeCacheFile(
+          cacheData,
+          `${entryHash(key)}_0`,
+          buildSimpleEntry(key, Buffer.from(`body of ${key}`)),
+        );
+      }
+      await writeCacheFile(cacheData, "index", Buffer.alloc(16));
+    }
+    // Default: the real index lists both entries, but one payload byte
+    // changed after the CRC was written (a torn or damaged write).
+    const damaged = buildRealIndex(
+      keys.Default.map((key) => ({
+        key,
+        lastUsedUtcMillis: Date.UTC(2024, 0, 1),
+        entrySizeBytes: 4096,
+      })),
+    );
+    damaged[damaged.length - 1] = (damaged.at(-1) ?? 0) ^ 0xff;
+    await writeCacheFile(
+      join(source, "Default", "Cache", "Cache_Data"),
+      "index-dir/the-real-index",
+      damaged,
+    );
+    // Profile 1 has no real index file at all.
+
+    const caseDirectory = join(root, "CASE-CACHE-NOINDEX");
+    expect(
+      runCli([
+        "ingest",
+        source,
+        "--case",
+        caseDirectory,
+        "--include-tier-2",
+        "--json",
+      ]).status,
+    ).toBe(0);
+    const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
+    expect(analysis.status).toBe(0);
+    // Without index ground truth no entry is called doomed: every parseable
+    // entry file stays a Finding, and no Candidate is invented.
+    expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
+      cache: { analysedProfileCount: 2, findingCount: 3, candidateCount: 0 },
+    });
+
+    const findings = parseJson<CachePage>(
+      runCli(["cache", "--case", caseDirectory, "--sort", "key", "--json"])
+        .stdout,
+    ).items;
+    const reasons: Record<string, string> = {
+      Default: "simple_index_crc_mismatch",
+      "Profile 1": "simple_index_absent",
+    };
+    expect(
+      findings.map((item) => [item.profile, item.fields.key]).sort(),
+    ).toEqual(
+      Object.entries(keys)
+        .flatMap(([profile, profileKeys]) =>
+          profileKeys.map((key) => [profile, { state: "value", value: key }]),
+        )
+        .sort(),
+    );
+    for (const item of findings) {
+      const reason = reasons[item.profile];
+      expect(item.recordType).toBe("finding");
+      expect(item.fields.indexState).toEqual({
+        state: "value",
+        value: "unindexed",
+      });
+      // Index-only fields are unavailable with the index failure, not absent.
+      expect(item.fields.lastUsed).toEqual({ state: "unavailable", reason });
+      expect(item.fields.entrySizeBytes).toEqual({
+        state: "unavailable",
+        reason,
+      });
+      expect(
+        (item.provenance.supportingRows ?? []).map((row) => row.table),
+      ).not.toContain("the_real_index");
+    }
+    expect(
+      parseJson<CachePage>(
+        runCli([
+          "cache",
+          "--case",
+          caseDirectory,
+          "--record-type",
+          "candidate",
+          "--json",
+        ]).stdout,
+      ).items,
+    ).toEqual([]);
+
+    // The produced artifact states why its entries are unindexed.
+    const completeness = parseJson<{
+      readonly statements: readonly {
+        readonly artifact: string;
+        readonly artifacts: readonly {
+          readonly profile: string;
+          readonly outcome: string;
+          readonly reason: string | null;
+        }[];
+      }[];
+    }>(runCli(["completeness", "--case", caseDirectory, "--json"]).stdout);
+    expect(
+      completeness.statements
+        .find((statement) => statement.artifact === "Cache")
+        ?.artifacts.map((artifact) => [
+          artifact.profile,
+          artifact.outcome,
+          artifact.reason,
+        ]),
+    ).toEqual([
+      [
+        "Default",
+        "produced",
+        "cache_index_unavailable:simple_index_crc_mismatch",
+      ],
+      ["Profile 1", "produced", "cache_index_unavailable:simple_index_absent"],
+    ]);
   });
 });

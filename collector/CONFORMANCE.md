@@ -30,6 +30,9 @@ The tests do these checks:
 4. Tier 2 opt-in is recorded by `tier_2_included`. `selection_policy_diff` remains empty.
 5. Paths outside a User Data Dir, including a platform scanner's external cache path, are not folded into that User Data Dir Manifest. The shared contract must define a second Source boundary before the Collector can represent those paths without a policy diff.
 6. Unsupported filesystem Node Types fail collection explicitly instead of being mislabeled as sockets.
+7. A Source file that the Collector cannot read, or that changes between the inventory and the copy, becomes an `unavailable` entry with a contract reason. It does not stop the collection. A directory that the Collector cannot list is `unavailable`, and expected paths under it are `unavailable(parent_unavailable)`, never `absent`.
+8. The Collector resolves a symlinked or junctioned User Data Dir root one time before the inventory. It does not follow symlinks among the descendants.
+9. `bundle_manifest.json` obeys `../contracts/acquisition-bundle/bundle-manifest.schema.json`. The analyzer accepts only its schema version.
 
 ## Digest reproduction
 

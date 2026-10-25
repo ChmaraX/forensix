@@ -15,7 +15,7 @@
  * this hook; Cache splits its mixed page with `splitByCommit` (page-kit), and
  * the Timeline stays one chronological stream on purpose.
  */
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import type { QueryParameters } from "./api.js";
 import { withCommitState } from "./read-pages.js";
@@ -43,9 +43,9 @@ export interface CommitStateLists<Row> {
   readonly saved: PaginatedList<Row>;
   /** `commit-state=wal_resident`, then `commit-state=journal_resident`. */
   readonly recovered: RecoveredList<Row>;
-  /** Each list has read what figures over it may count: its first page,
-   *  or with `drain` every page up to the cap. A failed read is not
-   *  settled. */
+  /** Each list has read its first page (figures come from the server's
+   *  aggregates, `count-reads.ts`, never from loaded rows). A failed read
+   *  is not settled. */
   readonly settled: { readonly saved: boolean; readonly recovered: boolean };
 }
 
@@ -89,9 +89,6 @@ export interface CommitStateStatus {
    *  show, or stepped aside (`hide`: no saved row in the lens, or a failed
    *  saved read - the Saved tab carries the reason). */
   readonly figures: "loading" | "show" | "hide";
-  /** The saved list stopped at its drain cap with rows unread: counts over
-   *  it are floors ("+"). */
-  readonly capped: boolean;
   /** `CommitStateSplit`'s counts and "+" markers. */
   readonly split: {
     readonly savedCount: number | null;
@@ -101,38 +98,51 @@ export interface CommitStateStatus {
   };
 }
 
-/** The page's state from its two lists and the rows the lens leaves
- *  (`shown`: the figures' and tabs' base). */
+/** The page's state from its two lists and the rows they hold (`shown`:
+ *  the loaded rows of the lens, already filtered by the server). With
+ *  `totals` (the server's count of each list, `useCommitStateTotals`) the
+ *  tabs read the whole lists' sizes; without them, the loaded rows and a
+ *  "+" while more pages stand. */
 export function commitStateStatus(
   lists: CommitStateLists<unknown>,
   shown: { readonly saved: number; readonly recovered: number },
+  totals?: { readonly saved: number; readonly recovered: number } | null,
+  options: {
+    /** A server filter (the profile pick) narrows both lists: empty lists
+     *  then say so under the filter, never as the page's empty state. */
+    readonly filtered?: boolean;
+  } = {},
 ): CommitStateStatus {
   const { saved, recovered, settled } = lists;
   const savedState = listState(saved);
+  const known = totals !== undefined && totals !== null;
   return {
-    pageEmpty: savedState === "empty" && listState(recovered) === "empty",
+    pageEmpty:
+      options.filtered !== true &&
+      savedState === "empty" &&
+      listState(recovered) === "empty",
     figures:
       saved.error === null && !settled.saved
         ? "loading"
         : saved.error === null && shown.saved > 0
           ? "show"
           : "hide",
-    capped: settled.saved && saved.cursor !== null,
     split: {
-      savedCount: tabCount(saved, shown.saved),
-      recoveredCount: tabCount(recovered, shown.recovered),
-      savedMore: saved.cursor !== null,
-      recoveredMore: recovered.cursor !== null,
+      savedCount: known ? totals.saved : tabCount(saved, shown.saved),
+      recoveredCount: known
+        ? totals.recovered
+        : tabCount(recovered, shown.recovered),
+      savedMore: !known && saved.cursor !== null,
+      recoveredMore: !known && recovered.cursor !== null,
     },
   };
 }
 
 /**
  * The same reading for a page whose route cannot filter by Commit State
- * (Cache): one mixed read, drained whole and split on the client
- * (`splitByCommit`). Empty only once the whole read is in; figures wait
- * for its first page; counts are floors ("+") while it drains or stopped
- * at its cap.
+ * (Cache): one mixed read, split on the client (`splitByCommit`). Empty
+ * only once the whole read is in; figures wait for its first page; counts
+ * are floors ("+") while it reads on or stopped at its cap.
  */
 export function mixedReadStatus(
   read: {
@@ -158,7 +168,6 @@ export function mixedReadStatus(
       : read.error === null && shown.savedLoaded > 0
         ? "show"
         : "hide",
-    capped: !read.draining && !read.complete,
     split: {
       savedCount: settled ? shown.saved : null,
       recoveredCount: settled ? shown.recovered : null,
@@ -170,45 +179,15 @@ export function mixedReadStatus(
 
 /* ---------------------------------- reads --------------------------------- */
 
-/**
- * With a cap, follow the list's cursor one page after another until it runs
- * out, the cap is reached, or a read fails (Retry resumes it). Returns
- * whether the list has settled with nothing more to follow.
- */
-export function useDrain<Row>(
-  list: PaginatedList<Row>,
-  cap: number | null,
-): boolean {
-  const { loading, error, cursor, rows, loadMore } = list;
-  const capped = cap !== null && rows.length >= cap;
-  useEffect(() => {
-    if (
-      cap !== null &&
-      !capped &&
-      !loading &&
-      error === null &&
-      cursor !== null
-    ) {
-      loadMore();
-    }
-  }, [cap, capped, loading, error, cursor, loadMore]);
-  return !loading && error === null && (cursor === null || capped);
-}
-
 export function useCommitStateLists<Row>(
   route: string,
   parameters: QueryParameters,
   options: {
     /** False skips every read (same as `usePaginatedList`'s `enabled`). */
     readonly enabled?: boolean;
-    /** Read every page, up to this many rows per read (saved, WAL,
-     *  journal), so figures describe the whole set rather than the first
-     *  page. `settled` reports when each list has. */
-    readonly drain?: number;
   } = {},
 ): CommitStateLists<Row> {
   const enabled = options.enabled ?? true;
-  const cap = options.drain ?? null;
   // Keyed by value, like usePaginatedList: callers may pass a fresh array
   // on every render.
   const key = JSON.stringify(parameters);
@@ -228,9 +207,6 @@ export function useCommitStateLists<Row>(
   const saved = usePaginatedList<Row>(route, savedParameters, enabled);
   const wal = usePaginatedList<Row>(route, walParameters, enabled);
   const journal = usePaginatedList<Row>(route, journalParameters, enabled);
-  const savedDrained = useDrain(saved, cap);
-  const walDrained = useDrain(wal, cap);
-  const journalDrained = useDrain(journal, cap);
 
   const recoveredRows = useMemo(
     () => [...wal.rows, ...journal.rows],
@@ -277,13 +253,9 @@ export function useCommitStateLists<Row>(
       wal,
       journal,
     },
-    settled:
-      cap === null
-        ? {
-            saved: listState(saved) !== "first",
-            recovered:
-              listState(wal) !== "first" && listState(journal) !== "first",
-          }
-        : { saved: savedDrained, recovered: walDrained && journalDrained },
+    settled: {
+      saved: listState(saved) !== "first",
+      recovered: listState(wal) !== "first" && listState(journal) !== "first",
+    },
   };
 }

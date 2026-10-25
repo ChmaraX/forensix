@@ -18,7 +18,24 @@ export type FieldUnavailableReason =
   | "decryption_wrong_key"
   | "decryption_malformed_ciphertext"
   | "decryption_missing_context"
-  | "decryption_authentication_failed";
+  | "decryption_authentication_failed"
+  // A Cookies store at schema version 24 or later binds each decrypted value
+  // to SHA-256(host_key). A missing or wrong binding is never stripped by guess.
+  | "cookie_host_key_hash_mismatch"
+  | "cookie_host_key_hash_unverifiable"
+  // The Simple Cache real index could not be used, so index-only fields of a
+  // cache entry (last used time, entry size) cannot be read.
+  | SimpleIndexFailureReason;
+
+export type SimpleIndexFailureReason =
+  | "simple_index_absent"
+  | "simple_index_not_in_working_copy"
+  | "simple_index_truncated"
+  | "simple_index_bad_header"
+  | "simple_index_bad_magic"
+  | "simple_index_crc_mismatch"
+  | "simple_index_entry_count_overflow"
+  | "simple_index_malformed_entries";
 
 export interface ValueField<T> {
   readonly state: "value";
@@ -48,8 +65,25 @@ export interface SourceRowProvenance {
   readonly rowId: string;
 }
 
+/**
+ * One Manifest entry, without a row. It names a file, not a row image in it.
+ */
+export interface ManifestEntryReference {
+  readonly manifestEntryId: string;
+  readonly sourceId: string;
+  readonly manifestEntryOrdinal: number;
+  readonly manifestPath: string;
+}
+
 export interface Provenance extends SourceRowProvenance {
   readonly supportingRows?: readonly SourceRowProvenance[];
+  /**
+   * Only on a `journal_resident` row. The row image is in the un-rolled-back
+   * main database, so the row cites the main database. This entry is the hot
+   * rollback journal that shows that the row was not committed. The journal
+   * holds the original pages, not this row image, so it is not a source row.
+   */
+  readonly recoveredVia?: ManifestEntryReference;
 }
 
 export type CommitState = "committed" | "wal_resident" | "journal_resident";
@@ -142,6 +176,18 @@ function assertProvenance(provenance: Provenance): void {
   for (const supportingRow of provenance.supportingRows ?? []) {
     assertSourceRowProvenance(supportingRow);
   }
+  const recoveredVia = provenance.recoveredVia;
+  if (
+    recoveredVia !== undefined &&
+    (recoveredVia.sourceId !== provenance.sourceId ||
+      recoveredVia.manifestEntryOrdinal < 0 ||
+      recoveredVia.manifestEntryOrdinal === provenance.manifestEntryOrdinal ||
+      recoveredVia.manifestPath.length === 0 ||
+      recoveredVia.manifestEntryId !==
+        `${recoveredVia.sourceId}:${recoveredVia.manifestEntryOrdinal}`)
+  ) {
+    throw new TypeError("Finding recovery Provenance is not resolvable.");
+  }
 }
 
 export function createFinding<
@@ -155,6 +201,14 @@ export function createFinding<
   readonly fields: Fields;
 }): Finding<Kind, Fields> {
   assertProvenance(input.provenance);
+  if (
+    input.provenance.recoveredVia !== undefined &&
+    input.commitState !== "journal_resident"
+  ) {
+    throw new TypeError(
+      "Only a journal_resident Finding cites a recovery Manifest entry.",
+    );
+  }
   assertFields(input.fields);
   return {
     recordType: "finding",

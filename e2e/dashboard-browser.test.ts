@@ -21,8 +21,9 @@
  * suite is skipped with a message, unless `FORENSIX_REQUIRE_BROWSER_E2E=1`
  * (set in CI), which turns the missing browser into a failure.
  */
-import { mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import {
   chromium,
@@ -33,7 +34,11 @@ import {
 } from "playwright";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { rowRefOf, type RowRefSource } from "../client/src/router.js";
+import {
+  legacyRowRefOf,
+  rowRefOf,
+  type RowRefSource,
+} from "../client/src/router.js";
 import {
   buildDashboardCase,
   COOKIE,
@@ -42,12 +47,15 @@ import {
   HISTORY_DAYS,
   LOGINS,
   OLDEST_VISIT_URL,
+  PROFILE,
   readApi,
   RECOVERED_TARGET_TITLE,
   RECOVERED_TARGET_URL,
   startDashboard,
+  TIMEZONE,
   type Dashboard,
 } from "./lib/dashboard-case.js";
+import { runCli } from "./lib/harness.js";
 
 /** Review findings whose fix has not landed: their checks must still fail.
  *  None now: F1 (the topic line's invented reason), F2 (a reveal carried to
@@ -116,6 +124,7 @@ async function knownGap(
 const GAP_TIMEOUT = 4_000;
 
 interface Row extends RowRefSource {
+  readonly id?: string;
   readonly findingKind: string;
   readonly fields: Readonly<
     Record<string, { readonly state: string; readonly value?: unknown }>
@@ -186,6 +195,86 @@ async function jumpTo(page: Page, query: string, option: RegExp) {
   return { menu, match };
 }
 
+/** The second Profile of the two-Source Case (a copy of `PROFILE`). */
+const SECOND_PROFILE = "Profile 2";
+/** The newest committed visit, retitled in the second Source's copy so its
+ *  row and the first Source's row (same file, table and row id) differ. */
+const NEWEST_VISIT_URL = "https://alpha.example/page-179";
+const SECOND_SOURCE_TITLE = "Alpha page 179 (second Source)";
+/** Days the second Profile's visits are moved back: all of them older than
+ *  every other Profile's, so none is on the Timeline's first page. */
+const SECOND_PROFILE_SHIFT_DAYS = 30;
+
+/** Runs `sql` on a copied fixture History (never on a Source the CLI
+ *  ingested: the copies are made first, then changed, then ingested). */
+function editHistory(path: string, sql: string): void {
+  const database = new DatabaseSync(path);
+  try {
+    database.exec(sql);
+  } finally {
+    database.close();
+  }
+}
+
+function mustRunCli(arguments_: readonly string[]): void {
+  const result = runCli(arguments_);
+  if (result.status !== 0) {
+    throw new Error(
+      `forensix ${arguments_[0] ?? ""} failed (${String(result.status)}): ${result.stderr}${result.stdout}`,
+    );
+  }
+}
+
+/**
+ * A Case with two Sources and three Profiles, from the dashboard Case's
+ * Source: a Filesystem Root holding two copies of the User Data Dir. The
+ * first copy gains a second Profile (a copy of Default whose visits are a
+ * month older); the second copy retitles its newest visit. Both Sources
+ * hold `Default/History`, so the two Default profiles' rows share file,
+ * table and row id - only their record ids tell them apart.
+ */
+async function buildTwoSourceCase(root: string, source: string) {
+  const filesystem = join(root, "filesystem");
+  const first = join(filesystem, "first", "chrome");
+  const second = join(filesystem, "second", "chrome");
+  await cp(source, first, { recursive: true });
+  await cp(source, second, { recursive: true });
+  await cp(join(first, PROFILE), join(first, SECOND_PROFILE), {
+    recursive: true,
+  });
+  const shift = String(BigInt(SECOND_PROFILE_SHIFT_DAYS) * 86_400_000_000n);
+  editHistory(
+    join(first, SECOND_PROFILE, "History"),
+    `UPDATE visits SET visit_time = visit_time - ${shift};
+     UPDATE urls SET last_visit_time = last_visit_time - ${shift};`,
+  );
+  editHistory(
+    join(second, PROFILE, "History"),
+    `UPDATE urls SET title = '${SECOND_SOURCE_TITLE}'
+      WHERE url = '${NEWEST_VISIT_URL}';`,
+  );
+  const caseDirectory = join(root, "case");
+  mustRunCli([
+    "ingest",
+    filesystem,
+    "--source-kind",
+    "FILESYSTEM_ROOT",
+    "--case",
+    caseDirectory,
+    "--json",
+  ]);
+  mustRunCli([
+    "analyse",
+    "--case",
+    caseDirectory,
+    "--timezone",
+    TIMEZONE,
+    "--no-topic-classification",
+    "--json",
+  ]);
+  return caseDirectory;
+}
+
 describe.skipIf(!CHROMIUM_AVAILABLE)(
   "dashboard in a browser",
   { timeout: 60_000 },
@@ -229,7 +318,11 @@ describe.skipIf(!CHROMIUM_AVAILABLE)(
       console.info(`Dashboard browser E2E artifacts kept in ${ARTIFACTS}`);
     });
 
-    async function open(name: string, hash = ""): Promise<Page> {
+    async function open(
+      name: string,
+      hash = "",
+      target: Dashboard = dashboard,
+    ): Promise<Page> {
       caseName = name;
       context = await browser.newContext({
         viewport: { width: 1440, height: 900 },
@@ -238,7 +331,7 @@ describe.skipIf(!CHROMIUM_AVAILABLE)(
       context.setDefaultTimeout(10_000);
       await context.tracing.start({ screenshots: true, snapshots: true });
       page = await context.newPage();
-      await page.goto(`${dashboard.url}${hash}`);
+      await page.goto(`${target.url}${hash}`);
       return page;
     }
 
@@ -583,6 +676,142 @@ describe.skipIf(!CHROMIUM_AVAILABLE)(
       await page.goBack();
       await visible(sheet(page, "Alpha page 179"));
       expect(openRowOf(page)).toBe(historyRef);
+    });
+
+    it("lists the ranked Candidates, labelled as Candidates, without a Commit State", async () => {
+      const candidates = await readApi<{ readonly items: readonly Row[] }>(
+        dashboard,
+        "candidates",
+        { limit: "100" },
+      );
+      const host = candidates.items.find(
+        (item) => item.fields.candidateValue?.value === "alpha.example",
+      ) as (Row & { readonly supportingCount: number }) | undefined;
+      expect(host?.id).toMatch(/^identity-candidates:/);
+
+      await open("candidates", "#/candidates");
+      await visible(
+        page.getByRole("heading", { name: "Candidates", level: 1 }),
+      );
+      const list = page.getByRole("region", { name: "Ranked candidates" });
+      await visible(list.getByText("Candidate", { exact: true }));
+      const group = list.getByRole("region", {
+        name: "Frequently visited host candidates",
+      });
+      const row = group.getByRole("row", { name: /alpha\.example/ });
+      await visible(row);
+      // Rank and supporting rows, as the server ranked them.
+      await visible(row.getByText("#1", { exact: true }));
+      await visible(
+        row.getByText(String(host?.supportingCount), { exact: true }),
+      );
+
+      await row.click();
+      const opened = sheet(page, "alpha.example");
+      await visible(opened);
+      expect(openRowOf(page)).toBe(host?.id);
+      await visible(opened.getByText("Candidate", { exact: true }));
+      await visible(opened.getByText(/rank 1/));
+      await visible(opened.getByRole("region", { name: "Supporting rows" }));
+      // A Candidate is no saved or recovered row: no Commit State word.
+      expect(await opened.getByText(/^(saved|recovered)/i).count()).toBe(0);
+
+      // The id reopens it on a fresh load.
+      await page.reload();
+      await visible(sheet(page, "alpha.example"));
+    });
+
+    describe("a Case with two Sources and three Profiles", () => {
+      let twoSources: Dashboard;
+
+      beforeAll(async () => {
+        const caseDirectory = await buildTwoSourceCase(
+          join(ARTIFACTS, "two-sources"),
+          join(ARTIFACTS, "source"),
+        );
+        twoSources = await startDashboard(caseDirectory);
+      }, 180_000);
+
+      afterAll(() => {
+        twoSources?.stop();
+      });
+
+      it("filters the paged Timeline by profile on the server, past its first page", async () => {
+        // The scenario: the picked profile's events are all older than the
+        // first page of the whole stream.
+        const firstPage = await readApi<RowPage>(twoSources, "timeline", {
+          limit: "100",
+        });
+        expect(firstPage.nextCursor).not.toBeNull();
+        expect(
+          firstPage.items.filter(
+            (item) =>
+              item.profile === SECOND_PROFILE &&
+              item.findingKind === "history_visit",
+          ),
+        ).toHaveLength(0);
+
+        await open(
+          "two-sources-timeline-profile",
+          `#/timeline?${new URLSearchParams({ profile: SECOND_PROFILE }).toString()}`,
+          twoSources,
+        );
+        const records = page.getByRole("region", {
+          name: "Chronological records",
+        });
+        // Profile 2's newest visit (a month before the others) is on the
+        // list at once, not hidden behind other profiles' pages.
+        const newest = records.getByRole("row", { name: /Alpha page 179\b/ });
+        await visible(newest);
+        await visible(newest.getByText(/12 Feb 2024/));
+        expect(await records.getByText(/No loaded saved events/).count()).toBe(
+          0,
+        );
+      });
+
+      it("opens each Source's row by its own id when two Sources share a file, table and row id", async () => {
+        const visits = await readApi<RowPage>(twoSources, "history", {
+          "commit-state": "committed",
+          profile: PROFILE,
+          limit: "100",
+        });
+        const copies = visits.items.filter(
+          (item) => urlOf(item) === NEWEST_VISIT_URL,
+        );
+        expect(copies).toHaveLength(2);
+        const second = copies.find(
+          (item) => item.fields.title?.value === SECOND_SOURCE_TITLE,
+        );
+        const first = copies.find((item) => item !== second);
+        // The scenario: one legacy reference names both rows.
+        expect(legacyRowRefOf(first ?? copies[0])).toBe(
+          legacyRowRefOf(second ?? copies[1]),
+        );
+        expect(first?.id).not.toBe(second?.id);
+
+        // Clicking the second Source's row puts its own id in the URL.
+        await open("two-sources-row-link", "#/history", twoSources);
+        const list = page.getByRole("region", { name: "Recorded visits" });
+        await list
+          .getByRole("row", { name: /Alpha page 179 \(second Source\)/ })
+          .click();
+        const secondSheet = sheet(page, SECOND_SOURCE_TITLE);
+        await visible(secondSheet);
+        expect(openRowOf(page)).toBe(second?.id);
+
+        // A fresh load of each id opens that Source's row, not its twin.
+        await page.goto(
+          `${twoSources.url}${deepLink("history", { row: refOf(first) })}`,
+        );
+        await page.reload();
+        await visible(sheet(page, /^Alpha page 179$/));
+        expect(await sheet(page, SECOND_SOURCE_TITLE).count()).toBe(0);
+        await page.goto(
+          `${twoSources.url}${deepLink("history", { row: refOf(second) })}`,
+        );
+        await page.reload();
+        await visible(sheet(page, SECOND_SOURCE_TITLE));
+      });
     });
   },
 );

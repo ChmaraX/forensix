@@ -35,6 +35,7 @@ func runCollect(args []string) int {
 	captureKeys := flags.Bool("capture-key-material", false, "capture authorized derived key material sealed to an X25519 recipient")
 	keyRecipientFile := flags.String("key-material-recipient-file", "", "X25519 public key PEM or forensix recipient file")
 	linuxKeyProvider := flags.String("linux-key-provider", "auto", "Linux provider: auto, basic, gnome-libsecret, kwallet, kwallet5, or kwallet6")
+	sourceRoot := flags.String("source-root", "", "scan the accounts under this mounted filesystem root instead of the live host accounts")
 	showVersion := flags.Bool("version", false, "print collector version")
 	if err := flags.Parse(args); err != nil {
 		return 1
@@ -45,6 +46,11 @@ func runCollect(args []string) int {
 	}
 	if flags.NArg() != 0 {
 		fmt.Fprintln(os.Stderr, "unexpected positional arguments")
+		return 1
+	}
+
+	if *sourceRoot != "" && *captureKeys {
+		fmt.Fprintln(os.Stderr, "collection failed: --capture-key-material reads the live key store and cannot be used with --source-root")
 		return 1
 	}
 
@@ -61,7 +67,9 @@ func runCollect(args []string) int {
 			return 1
 		}
 	}
-	runner := collector.Collector{Scanner: platformscanner.NewHostScanner()}
+	scanner := platformscanner.NewHostScanner()
+	scanner.Root = *sourceRoot
+	runner := collector.Collector{Scanner: scanner}
 	bundle, err := runner.Run(collector.Options{
 		Output: *out, OperatorIdentifier: *operator, AuthorizationReference: *authorization,
 		IncludeBulk: *includeBulk, ContinueIfRunning: *continueRunning,

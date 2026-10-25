@@ -411,10 +411,30 @@ function runGroundTruthFixture(root) {
   ]);
   const exportOk = exportOne.status === 0 && exportTwo.status === 0;
   capabilityPass("export.findings", exportOk);
+  // The two History visits on alpha.example give exactly one ranked identity
+  // Candidate. It is in the Candidate collection and has no Commit State.
+  let candidatesOk = false;
+  if (exportOk) {
+    const lines = readFileSync(join(extractOne, "candidates.jsonl"), "utf8")
+      .split("\n")
+      .filter((line) => line.length > 0)
+      .map((line) => JSON.parse(line));
+    const [candidate] = lines;
+    candidatesOk =
+      parseJson(exportOne.stdout).candidateCount === 1 &&
+      lines.length === 1 &&
+      candidate.record_type === "candidate" &&
+      candidate.store === "identity-candidates" &&
+      candidate.kind === "behavior_frequent_host" &&
+      candidate.fields?.normalizedValue?.value === "alpha.example" &&
+      candidate.rank === 1 &&
+      candidate.supporting_count === 2 &&
+      !("commit_state" in candidate);
+  }
   capabilityPass(
     "export.candidates",
-    exportOk && parseJson(exportOne.stdout).candidateCount === 0,
-    "candidates collection produced (count 0)",
+    candidatesOk,
+    "candidates collection produced (one identity Candidate, no Commit State)",
   );
   checks.push({ name: "export", ok: exportOk });
 

@@ -1,17 +1,16 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import type { CommitState } from "./forensic-model.js";
 import { ForensixError } from "./errors.js";
-import { openDatabaseSync } from "./sqlite-open.js";
 import {
-  immutableDatabase,
-  snapshotVerifiedFile,
+  integerKey,
+  normalizeSqliteValue,
+  readIntegrity,
+  readSqlitePasses,
+  sidecarOnlyRows,
   tableColumns,
   tableExists,
   type RawSqliteValue,
+  type SqlitePasses,
   type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
 
@@ -42,15 +41,7 @@ export interface TopSitePass {
   readonly integrity: string;
 }
 
-export interface RecoveredTopSitePass extends TopSitePass {
-  readonly commitState: Exclude<CommitState, "committed">;
-}
-
-export interface TopSitePasses {
-  readonly committed: TopSitePass;
-  readonly recovered: RecoveredTopSitePass | null;
-  readonly recoveryUnavailableReason: string | null;
-}
+export type TopSitePasses = SqlitePasses<TopSitePass>;
 
 /**
  * Columns every supported Chromium `top_sites` schema must expose. Schema
@@ -112,23 +103,8 @@ function optionalColumn(
     : `NULL AS "${alias}"`;
 }
 
-function normalizeValue(value: unknown): RawTopSiteValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "bigint" ||
-    value instanceof Uint8Array
-  ) {
-    return value;
-  }
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    return BigInt(value);
-  }
-  throw new ForensixError(
-    "ANALYSIS_FAILED",
-    "Top Sites contains a value that cannot be preserved exactly.",
-  );
-}
+const normalize = (value: unknown): RawTopSiteValue =>
+  normalizeSqliteValue(value, "Top Sites");
 
 function readPass(database: DatabaseSync): TopSitePass {
   const schema = readSchema(database);
@@ -147,151 +123,33 @@ function readPass(database: DatabaseSync): TopSitePass {
   const rows: RawTopSite[] = [];
   for (const row of statement.iterate()) {
     rows.push({
-      rowId: normalizeValue(row.rowId),
-      url: normalizeValue(row.url),
-      urlRank: normalizeValue(row.urlRank),
-      title: normalizeValue(row.title),
-      redirects: normalizeValue(row.redirects),
+      rowId: normalize(row.rowId),
+      url: normalize(row.url),
+      urlRank: normalize(row.urlRank),
+      title: normalize(row.title),
+      redirects: normalize(row.redirects),
     });
   }
 
-  const integrityRow = database.prepare("PRAGMA integrity_check(1)").get();
-  const integrity = String(integrityRow?.integrity_check ?? "unavailable");
-  return { schema, rows, integrity };
-}
-
-function fingerprint(values: readonly RawTopSiteValue[]): string {
-  return JSON.stringify(values, (_key, value: unknown) => {
-    if (typeof value === "bigint") {
-      return `${value.toString()}n`;
-    }
-    if (value instanceof Uint8Array) {
-      return `blob:${Buffer.from(value).toString("hex")}`;
-    }
-    return value;
-  });
-}
-
-function topSiteFingerprint(row: RawTopSite): string {
-  return fingerprint([row.url, row.urlRank, row.title, row.redirects]);
-}
-
-function rowId(row: RawTopSite): string | null {
-  return typeof row.rowId === "bigint" ? row.rowId.toString() : null;
-}
-
-/**
- * The `top_sites` table is a single-table artifact, so a recovered row belongs
- * to the sidecar Commit State only when the committed image has no row with the
- * same rowid or holds a different exact byte image for it. This mirrors the
- * History and Cookies recovery contracts.
- */
-function recoveredOnlyTopSites(
-  committed: readonly RawTopSite[],
-  recovered: readonly RawTopSite[],
-): RawTopSite[] {
-  const committedByRowId = new Map(
-    committed.flatMap((row) => {
-      const id = rowId(row);
-      return id === null ? [] : [[id, topSiteFingerprint(row)] as const];
-    }),
-  );
-  const rows: RawTopSite[] = [];
-  for (const row of recovered) {
-    const id = rowId(row);
-    const committedFingerprint =
-      id === null ? undefined : committedByRowId.get(id);
-    if (
-      committedFingerprint === undefined ||
-      committedFingerprint !== topSiteFingerprint(row)
-    ) {
-      rows.push(row);
-    }
-  }
-  return rows;
+  return { schema, rows, integrity: readIntegrity(database) };
 }
 
 export async function readTopSitePasses(options: {
   readonly database: VerifiedTopSiteFile;
   readonly sidecars: readonly VerifiedTopSiteFile[];
 }): Promise<TopSitePasses> {
-  const temporaryDirectory = await mkdtemp(
-    join(tmpdir(), "forensix-top-sites-snapshot-"),
-  );
-  const temporaryDatabasePath = join(
-    temporaryDirectory,
-    basename(options.database.path),
-  );
-  try {
-    await snapshotVerifiedFile(options.database, temporaryDatabasePath);
-    for (const sidecar of options.sidecars) {
-      await snapshotVerifiedFile(
-        sidecar,
-        join(temporaryDirectory, basename(sidecar.path)),
-      );
-    }
-
-    const committedDatabase = immutableDatabase(temporaryDatabasePath);
-    let committed: TopSitePass;
-    try {
-      committed = readPass(committedDatabase);
-    } finally {
-      committedDatabase.close();
-    }
-
-    const wal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-wal"),
-    );
-    const journal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-journal"),
-    );
-    const commitState =
-      wal === undefined
-        ? journal === undefined
-          ? null
-          : "journal_resident"
-        : "wal_resident";
-    if (commitState === null) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: "sidecar_not_supplied",
-      };
-    }
-
-    let recoveryDatabase: DatabaseSync;
-    try {
-      recoveryDatabase = openDatabaseSync(temporaryDatabasePath, {
-        readBigInts: true,
-      });
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_open_failed:${String(error)}`,
-      };
-    }
-    try {
-      const fullRecoveryPass = readPass(recoveryDatabase);
-      return {
-        committed,
-        recovered: {
-          ...fullRecoveryPass,
-          rows: recoveredOnlyTopSites(committed.rows, fullRecoveryPass.rows),
-          commitState,
-        },
-        recoveryUnavailableReason: null,
-      };
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_read_failed:${String(error)}`,
-      };
-    } finally {
-      recoveryDatabase.close();
-    }
-  } finally {
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
+  // The `top_sites` table is a single-table artifact: a sidecar row is kept
+  // only when the committed image has no row with the same rowid or holds a
+  // different exact image for it.
+  return readSqlitePasses({
+    artifact: "Top Sites",
+    ...options,
+    readPass,
+    sidecarOnly: (committed, sidecar) => ({
+      ...sidecar,
+      rows: sidecarOnlyRows(committed.rows, sidecar.rows, (row) =>
+        integerKey(row.rowId),
+      ),
+    }),
+  });
 }

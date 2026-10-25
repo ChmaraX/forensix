@@ -1,57 +1,47 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, writeFile } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 
 import {
   TOOL_VERSION,
   loadCaseSources,
   openCaseReadOnly,
+  workingCopyAbsolutePath,
   type CaseSourceRecord,
 } from "./case.js";
+import {
+  readCompletenessStatements,
+  type OverviewArtifact,
+} from "./case-overview.js";
 import { ForensixError } from "./errors.js";
-import type {
-  CommitState,
-  FieldState,
-  ForensicFields,
-  Provenance,
-} from "./forensic-model.js";
+import type { CommitState, FieldState, Provenance } from "./forensic-model.js";
+import { redactSecrets } from "./record-redaction.js";
+import {
+  decodeStoredRecord,
+  presentStores,
+  storedRecordColumns,
+  type RecordStore,
+  type RecordStoreKey,
+  type StoredRecordRow,
+} from "./record-store.js";
+import { tableExists } from "./sqlite-artifact.js";
 
 /**
  * The Extract is a scoped, deterministic, citable read over the Case. It never
  * becomes a second record of truth: every row is copied from Findings and
  * Candidates already recorded by an Analysis Run, and the Export Manifest binds
  * the emitted files to an independently reproducible digest.
+ *
+ * Schema 2 covers every record store of the Case (`RECORD_STORES`), not only
+ * History. Compared with schema 1, each row carries its `store`, its `id` is
+ * the stable record id `<store>:<rowid>`, and a Candidate row has no
+ * `commit_state` (a Candidate has no Commit State).
  */
-export const EXTRACT_SCHEMA = "forensix/extract/1" as const;
+export const EXTRACT_SCHEMA = "forensix/extract/2" as const;
 export const REDACTION_POLICY = "forensix/redaction/1" as const;
 
 export type ExtractCollection = "findings" | "candidates";
-
-/**
- * Field names whose value is treated as a plaintext secret. Such values are
- * withheld by default and only disclosed with an explicit opt-in. The match is
- * a case-insensitive substring so `password_value`, `encrypted_value`, and
- * similar names are covered without an exhaustive list.
- */
-const SECRET_FIELD_PATTERNS = [
-  "password",
-  "passphrase",
-  "secret",
-  "token",
-  "credential",
-  "cookie_value",
-  "encrypted_value",
-  "private_key",
-] as const;
-
-/**
- * Field names that are secrets by exact match rather than substring. The Cookie
- * Finding's decrypted plaintext lives in a field named exactly `value`; it must
- * be withheld by default without over-matching metadata fields such as
- * `encryptedValueByteLength`.
- */
-const SECRET_FIELD_EXACT = new Set(["value"]);
 
 export interface ExportCaseOptions {
   readonly caseDirectory: string;
@@ -80,7 +70,7 @@ export interface ExtractRedactionState {
 export interface ExtractCompletenessArtifact {
   readonly sourceId: string;
   readonly profile: string;
-  readonly artifact: "History";
+  readonly artifact: OverviewArtifact;
   readonly databasePath: string;
   readonly outcome: "produced" | "absent" | "unavailable";
   readonly reason: string | null;
@@ -111,7 +101,7 @@ export interface ExtractManifest {
 export interface ExportCaseResult {
   readonly status: "ok";
   readonly command: "export";
-  readonly extractKind: "history";
+  readonly extractKind: "case";
   readonly outDirectory: string;
   readonly findingCount: number;
   readonly candidateCount: number;
@@ -146,41 +136,11 @@ const CANDIDATES_CSV = EXTRACT_FILES.candidatesCsv;
 const MANIFEST_FILE = EXTRACT_FILES.manifest;
 const GENERATION_FILE = EXTRACT_FILES.generation;
 
-interface FindingRow {
-  readonly finding_id: bigint;
-  readonly finding_kind: string;
-  readonly profile_path: string;
-  readonly commit_state: string;
-  readonly provenance_json: string;
-  readonly fields_json: string;
+/** A stored row with the result lineage the Extract cites. */
+interface StoreRow extends StoredRecordRow {
   readonly source_id: string;
   readonly run_id: string;
   readonly artifact_result_id: bigint;
-}
-
-interface CandidateRow {
-  readonly candidate_id: bigint;
-  readonly candidate_kind: string;
-  readonly profile_path: string;
-  readonly commit_state: string;
-  readonly rank: bigint;
-  readonly supporting_count: bigint;
-  readonly provenance_json: string;
-  readonly fields_json: string;
-  readonly source_id: string;
-  readonly run_id: string;
-  readonly artifact_result_id: bigint;
-}
-
-interface ArtifactResultRow {
-  readonly source_id: string;
-  readonly profile_path: string;
-  readonly database_path: string;
-  readonly status: string;
-  readonly reason: string | null;
-  readonly run_id: string;
-  readonly artifact_result_id: bigint;
-  readonly started_at: string;
 }
 
 interface RunRow {
@@ -233,6 +193,15 @@ function sha256(data: Buffer): string {
 }
 
 /**
+ * A locale-independent total order: compares the UTF-8 bytes. Every order
+ * the Extract digest or row order depends on uses it, so the host locale can
+ * never change an Extract.
+ */
+function compareBytes(left: string, right: string): number {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
+}
+
+/**
  * The single source of truth for the Extract derived digest. Both the export
  * (producer) and the report (verifier) hash the manifest file list through this
  * function, so the verifier can never drift from the producer's canonical key
@@ -243,17 +212,9 @@ export function computeDerivedDigest(
   files: readonly ExtractManifestFile[],
 ): string {
   const sorted = [...files].sort((left, right) =>
-    left.path.localeCompare(right.path),
+    compareBytes(left.path, right.path),
   );
   return sha256(Buffer.from(canonicalJson(sorted), "utf8"));
-}
-
-export function isSecretFieldName(name: string): boolean {
-  const lower = name.toLowerCase();
-  return (
-    SECRET_FIELD_EXACT.has(lower) ||
-    SECRET_FIELD_PATTERNS.some((pattern) => lower.includes(pattern))
-  );
 }
 
 export interface RedactedField {
@@ -262,99 +223,153 @@ export interface RedactedField {
   readonly sha256: string;
 }
 
-/**
- * Replace every plaintext-secret value with a typed, hashed marker unless
- * secrets were explicitly opted in. The hash keeps the withheld value citable
- * without disclosing it, and non-secret Field State is preserved unchanged.
- */
-export function redactFields(
-  fields: ForensicFields,
-  includeSecrets: boolean,
-): {
-  readonly fields: Readonly<
-    Record<string, FieldState<unknown> | RedactedField>
-  >;
-  readonly redactedCount: number;
-} {
-  if (includeSecrets) {
-    return { fields, redactedCount: 0 };
-  }
-  let redactedCount = 0;
-  const result: Record<string, FieldState<unknown> | RedactedField> = {};
-  for (const [name, state] of Object.entries(fields)) {
-    if (isSecretFieldName(name) && state.state === "value") {
-      result[name] = {
-        state: "redacted",
-        reason: "plaintext_secret_withheld",
-        sha256: sha256(Buffer.from(canonicalJson(state.value), "utf8")),
-      };
-      redactedCount += 1;
-    } else {
-      result[name] = state;
-    }
-  }
-  return { fields: result, redactedCount };
-}
-
-function parseJsonColumn<T>(value: string, findingId: string): T {
+function parseJsonColumn<T>(value: string, recordId: string): T {
   try {
     return JSON.parse(value) as T;
   } catch (error) {
     throw new ForensixError(
       "CASE_INVALID",
       "Case contains invalid Extract row JSON.",
-      { recordId: findingId },
+      { recordId },
       { cause: error },
     );
   }
 }
 
-function findingSchemaExists(database: DatabaseSync): boolean {
+function isWithin(parent: string, child: string): boolean {
+  const difference = relative(parent, child);
   return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = 'forensic_findings'",
-      )
-      .get() !== undefined
-  );
-}
-
-function profileFilter(
-  profiles: readonly string[],
-  parameters: string[],
-): string {
-  if (profiles.length === 0) {
-    return "";
-  }
-  parameters.push(...profiles);
-  return ` AND f.profile_path IN (${profiles.map(() => "?").join(", ")})`;
-}
-
-function resolveOutDirectory(
-  caseDirectory: string,
-  outDirectory: string,
-): string {
-  const resolvedCase = resolve(caseDirectory);
-  const resolvedOut = resolve(outDirectory);
-  const difference = relative(resolvedCase, resolvedOut);
-  if (
     difference === "" ||
     (difference !== ".." &&
       !difference.startsWith(`..${sep}`) &&
       !isAbsolute(difference))
+  );
+}
+
+function filesystemErrorCode(error: unknown): string | undefined {
+  return typeof error === "object" && error !== null && "code" in error
+    ? String((error as { readonly code: unknown }).code)
+    : undefined;
+}
+
+/**
+ * The physical path a write to `path` would reach: the real path of its
+ * nearest existing ancestor, joined with the part that does not exist yet.
+ * A symbolic link anywhere in the existing part is resolved, so a link that
+ * points into the Case or a Source cannot hide the real target.
+ */
+export async function plannedPhysicalPath(path: string): Promise<string> {
+  const target = resolve(path);
+  let ancestor = target;
+  while (true) {
+    try {
+      const physicalAncestor = await realpath(ancestor);
+      return resolve(physicalAncestor, relative(ancestor, target));
+    } catch (error) {
+      const code = filesystemErrorCode(error);
+      const parent = dirname(ancestor);
+      if ((code !== "ENOENT" && code !== "ENOTDIR") || parent === ancestor) {
+        throw new ForensixError(
+          "INVALID_ARGUMENT",
+          "The output path cannot be resolved.",
+          { path: target },
+          { cause: error },
+        );
+      }
+      ancestor = parent;
+    }
+  }
+}
+
+/** The recorded Source paths a write must never reach. */
+function evidencePaths(
+  caseDirectory: string,
+  sources: readonly CaseSourceRecord[],
+): readonly { readonly path: string; readonly sourceId: string }[] {
+  const paths: { path: string; sourceId: string }[] = [];
+  for (const source of sources) {
+    paths.push({ path: source.sourcePath, sourceId: source.sourceId });
+    // A bundle's origin path names a path on the acquired machine. Only an
+    // absolute path can name a local directory.
+    if (
+      source.sourceOriginPath !== null &&
+      isAbsolute(source.sourceOriginPath)
+    ) {
+      paths.push({ path: source.sourceOriginPath, sourceId: source.sourceId });
+    }
+    paths.push({
+      path: workingCopyAbsolutePath(caseDirectory, source),
+      sourceId: source.sourceId,
+    });
+  }
+  return paths;
+}
+
+/**
+ * Refuse an output directory inside the Case Directory or inside a recorded
+ * Source (or its Working Copy). Both sides are compared as physical paths, so
+ * a symbolic link cannot bypass the check. It runs before any directory is
+ * created.
+ */
+async function resolveOutDirectory(
+  caseDirectory: string,
+  outDirectory: string,
+  sources: readonly CaseSourceRecord[],
+): Promise<string> {
+  const resolvedOut = resolve(outDirectory);
+  const physicalOut = await plannedPhysicalPath(resolvedOut);
+  const physicalCase = await plannedPhysicalPath(caseDirectory);
+  if (
+    isWithin(physicalCase, physicalOut) ||
+    isWithin(resolve(caseDirectory), resolvedOut)
   ) {
     throw new ForensixError(
       "INVALID_ARGUMENT",
       "The Extract output directory must be outside the Case Directory.",
-      { outDirectory: resolvedOut, caseDirectory: resolvedCase },
+      {
+        outDirectory: resolvedOut,
+        resolvedOutDirectory: physicalOut,
+        caseDirectory,
+      },
     );
+  }
+  for (const evidence of evidencePaths(caseDirectory, sources)) {
+    const physicalEvidence = await plannedPhysicalPath(evidence.path);
+    if (
+      isWithin(physicalEvidence, physicalOut) ||
+      isWithin(resolve(evidence.path), resolvedOut)
+    ) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "The Extract output directory must be outside every Source.",
+        {
+          outDirectory: resolvedOut,
+          resolvedOutDirectory: physicalOut,
+          sourceId: evidence.sourceId,
+          sourcePath: evidence.path,
+        },
+      );
+    }
   }
   return resolvedOut;
 }
 
+/** Refuse a target that already holds files, without creating it. */
 async function assertEmptyOutDirectory(outDirectory: string): Promise<void> {
-  await mkdir(outDirectory, { recursive: true });
-  const existing = await readdir(outDirectory);
+  let existing: readonly string[];
+  try {
+    existing = await readdir(outDirectory);
+  } catch (error) {
+    if (filesystemErrorCode(error) === "ENOENT") {
+      return;
+    }
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      "The Extract output directory cannot be read.",
+      { outDirectory },
+      { cause: error },
+    );
+  }
   if (existing.length > 0) {
     throw new ForensixError(
       "INVALID_ARGUMENT",
@@ -394,58 +409,34 @@ function loadCaseInfo(database: DatabaseSync): {
 }
 
 /**
- * Reduce the retained artifact-result lineage to the current outcome per
- * (Source, Profile, artifact) by keeping the most recent Analysis Run. This is
- * what the Completeness Statement reports before any result row is read.
+ * The Completeness Statement over every artifact the analyzer attempts. Per
+ * (artifact, Source, Profile) the current outcome is the active result when
+ * one exists, else the most recent attempt. The exported rows come from the
+ * same active results, so a later rerun that produced nothing is never
+ * reported while the older active rows are exported.
  */
 function buildCompleteness(
   database: DatabaseSync,
 ): ExtractCompletenessStatement {
-  const rows = database
-    .prepare(
-      `SELECT r.source_id, r.profile_path, r.database_path, r.status,
-              r.reason, r.run_id, r.artifact_result_id, a.started_at
-         FROM history_artifact_results r
-         JOIN analysis_runs a ON a.run_id = r.run_id
-        ORDER BY r.source_id, r.profile_path`,
-    )
-    .all() as unknown as ArtifactResultRow[];
-  const latest = new Map<string, ArtifactResultRow>();
-  for (const row of rows) {
-    const key = `${row.source_id}\u0000${row.profile_path}`;
-    const current = latest.get(key);
-    if (
-      current === undefined ||
-      row.started_at > current.started_at ||
-      (row.started_at === current.started_at &&
-        row.artifact_result_id > current.artifact_result_id)
-    ) {
-      latest.set(key, row);
-    }
-  }
-  const artifacts = [...latest.values()]
-    .map((row): ExtractCompletenessArtifact => {
-      const outcome =
-        row.status === "complete"
-          ? "produced"
-          : row.status === "absent"
-            ? "absent"
-            : "unavailable";
-      return {
-        sourceId: row.source_id,
-        profile: row.profile_path,
-        artifact: "History",
-        databasePath: row.database_path,
-        outcome,
-        reason: row.reason,
-        runId: row.run_id,
-      };
-    })
-    .sort((left, right) =>
-      left.sourceId === right.sourceId
-        ? left.profile.localeCompare(right.profile)
-        : left.sourceId.localeCompare(right.sourceId),
-    );
+  const artifacts = readCompletenessStatements(database).flatMap((statement) =>
+    [...statement.artifacts]
+      .sort(
+        (left, right) =>
+          compareBytes(left.sourceId, right.sourceId) ||
+          compareBytes(left.profile, right.profile),
+      )
+      .map(
+        (artifact): ExtractCompletenessArtifact => ({
+          sourceId: artifact.sourceId,
+          profile: artifact.profile,
+          artifact: artifact.artifact,
+          databasePath: artifact.databasePath,
+          outcome: artifact.outcome,
+          reason: artifact.reason,
+          runId: artifact.runId,
+        }),
+      ),
+  );
   return {
     attempted: artifacts.length,
     produced: artifacts.filter((row) => row.outcome === "produced").length,
@@ -456,18 +447,50 @@ function buildCompleteness(
   };
 }
 
-function loadActiveRuns(database: DatabaseSync): readonly RunRow[] {
-  return database
-    .prepare(
-      `SELECT DISTINCT a.run_id, a.started_at, a.finished_at, a.tool_version,
-              a.invocation_json, a.declared_timezone, a.declared_origin_os,
-              a.status
-         FROM analysis_runs a
-         JOIN history_artifact_results r ON r.run_id = a.run_id
-        WHERE r.active = 1
-        ORDER BY a.started_at, a.run_id`,
-    )
-    .all() as unknown as RunRow[];
+/** Every artifact-results table of the record stores, in a fixed order. */
+function resultsTables(database: DatabaseSync): readonly string[] {
+  return [
+    ...new Set(presentStores(database).map((store) => store.resultsTable)),
+  ];
+}
+
+/**
+ * The Analysis Runs the Extract cites: every run with an active result (the
+ * exported rows come from these), plus every run the Completeness Statement
+ * names. `active` marks the first group; only those runs set the Declared
+ * Timezone and origin OS of the rows.
+ */
+function loadRuns(
+  database: DatabaseSync,
+  completeness: ExtractCompletenessStatement,
+): { readonly runs: readonly RunRow[]; readonly activeRunIds: Set<string> } {
+  const activeRunIds = new Set<string>();
+  for (const table of resultsTables(database)) {
+    const rows = database
+      .prepare(`SELECT DISTINCT run_id FROM ${table} WHERE active = 1`)
+      .all() as unknown as { readonly run_id: string }[];
+    for (const row of rows) {
+      activeRunIds.add(row.run_id);
+    }
+  }
+  const cited = new Set([
+    ...activeRunIds,
+    ...completeness.artifacts.map((artifact) => artifact.runId),
+  ]);
+  if (cited.size === 0 || !tableExists(database, "analysis_runs")) {
+    return { runs: [], activeRunIds };
+  }
+  const runs = (
+    database
+      .prepare(
+        `SELECT run_id, started_at, finished_at, tool_version, invocation_json,
+                declared_timezone, declared_origin_os, status
+           FROM analysis_runs
+          ORDER BY started_at, run_id`,
+      )
+      .all() as unknown as RunRow[]
+  ).filter((run) => cited.has(run.run_id));
+  return { runs, activeRunIds };
 }
 
 function commonField<T>(
@@ -503,7 +526,7 @@ function sourceHeader(source: CaseSourceRecord): CanonicalValue {
   };
 }
 
-function runHeader(run: RunRow): CanonicalValue {
+function runHeader(run: RunRow, active: boolean): CanonicalValue {
   return {
     runId: run.run_id,
     startedAt: run.started_at,
@@ -512,6 +535,7 @@ function runHeader(run: RunRow): CanonicalValue {
     toolVersion: run.tool_version,
     declaredTimezone: run.declared_timezone,
     declaredOriginOs: run.declared_origin_os,
+    hasActiveResults: active,
     invocation: parseJsonColumn<readonly string[]>(
       run.invocation_json,
       run.run_id,
@@ -564,9 +588,11 @@ function csvFieldCell(state: FieldState<unknown> | RedactedField): string {
 interface ExtractRow {
   readonly recordType: "finding" | "candidate";
   readonly collection: ExtractCollection;
+  readonly store: RecordStoreKey;
   readonly sourceId: string;
   readonly profile: string;
-  readonly commitState: string;
+  /** Null for a Candidate: a Candidate has no Commit State. */
+  readonly commitState: CommitState | null;
   readonly kind: string;
   readonly id: string;
   readonly runId: string;
@@ -575,7 +601,7 @@ interface ExtractRow {
   readonly fields: Readonly<
     Record<string, FieldState<unknown> | RedactedField>
   >;
-  readonly extra: CanonicalValue;
+  readonly extra: Readonly<Record<string, CanonicalValue>>;
 }
 
 function jsonlBytes(rows: readonly ExtractRow[]): Buffer {
@@ -586,31 +612,33 @@ function jsonlBytes(rows: readonly ExtractRow[]): Buffer {
     canonicalJson({
       record_type: row.recordType,
       collection: row.collection,
+      store: row.store,
       source_id: row.sourceId,
       profile: row.profile,
-      commit_state: row.commitState,
+      ...(row.commitState === null ? {} : { commit_state: row.commitState }),
       kind: row.kind,
       id: row.id,
       run_id: row.runId,
       artifact_result_id: row.artifactResultId,
       provenance: row.provenance,
       fields: row.fields,
-      ...(row.extra as Record<string, CanonicalValue>),
+      ...row.extra,
     }),
   );
   return Buffer.from(`${lines.join("\n")}\n`, "utf8");
 }
 
-function csvBytes(rows: readonly ExtractRow[]): Buffer {
+function csvBytes(rows: readonly ExtractRow[], commitState: boolean): Buffer {
   const fieldNames = [
     ...new Set(rows.flatMap((row) => Object.keys(row.fields))),
-  ].sort();
+  ].sort(compareBytes);
   const header = [
     "record_type",
     "collection",
+    "store",
     "source_id",
     "profile",
-    "commit_state",
+    ...(commitState ? ["commit_state"] : []),
     "kind",
     "id",
     "provenance",
@@ -622,9 +650,10 @@ function csvBytes(rows: readonly ExtractRow[]): Buffer {
     const cells = [
       row.recordType,
       row.collection,
+      row.store,
       row.sourceId,
       row.profile,
-      row.commitState,
+      ...(commitState ? [row.commitState ?? ""] : []),
       row.kind,
       row.id,
       provenance,
@@ -638,105 +667,122 @@ function csvBytes(rows: readonly ExtractRow[]): Buffer {
   return Buffer.from(`${lines.join("\n")}\n`, "utf8");
 }
 
-function loadFindingRows(
+/**
+ * The stores the Extract reads: every present store of a requested
+ * collection, in `RECORD_STORES` order. A Commit State scope applies only to
+ * Findings: it keeps only the Finding stores that record a Commit State. A
+ * Candidate has no Commit State, so the scope never removes a Candidate store.
+ */
+function scopedStores(
   database: DatabaseSync,
-  profiles: readonly string[],
+  collections: readonly ExtractCollection[],
   commitState: CommitState | undefined,
-  includeSecrets: boolean,
-): { readonly rows: ExtractRow[]; readonly redactedCount: number } {
-  const parameters: string[] = [];
-  const filter = profileFilter(profiles, parameters);
-  let commitFilter = "";
-  if (commitState !== undefined) {
-    commitFilter = " AND f.commit_state = ?";
-    parameters.push(commitState);
-  }
-  const findingRows = database
-    .prepare(
-      `SELECT f.finding_id, f.finding_kind, f.profile_path, f.commit_state,
-              f.provenance_json, f.fields_json, f.source_id, f.run_id,
-              f.artifact_result_id
-         FROM forensic_findings f
-         JOIN history_artifact_results r
-           ON r.artifact_result_id = f.artifact_result_id
-        WHERE r.active = 1 AND f.record_type = 'finding'${filter}${commitFilter}
-        ORDER BY f.source_id, f.profile_path, f.finding_kind, f.finding_id`,
-    )
-    .all(...parameters) as unknown as FindingRow[];
-  let redactedCount = 0;
-  const rows = findingRows.map((row): ExtractRow => {
-    const id = row.finding_id.toString();
-    const provenance = parseJsonColumn<Provenance>(row.provenance_json, id);
-    const rawFields = parseJsonColumn<ForensicFields>(row.fields_json, id);
-    const redacted = redactFields(rawFields, includeSecrets);
-    redactedCount += redacted.redactedCount;
-    return {
-      recordType: "finding",
-      collection: "findings",
-      sourceId: row.source_id,
-      profile: row.profile_path,
-      commitState: row.commit_state,
-      kind: row.finding_kind,
-      id,
-      runId: row.run_id,
-      artifactResultId: row.artifact_result_id.toString(),
-      provenance,
-      fields: redacted.fields,
-      extra: {},
-    };
-  });
-  return { rows, redactedCount };
+): readonly RecordStore[] {
+  return presentStores(database).filter(
+    (store) =>
+      collections.includes(
+        store.recordType === "finding" ? "findings" : "candidates",
+      ) &&
+      (commitState === undefined ||
+        store.recordType === "candidate" ||
+        store.hasCommitState),
+  );
 }
 
-function loadCandidateRows(
+/**
+ * Read one store's active rows in a deterministic order (Source, Profile,
+ * kind, rank for Candidates, row id; text compares as bytes) and turn each
+ * into an Extract row. A secret is withheld unless `includeSecrets` is set.
+ */
+function loadStoreRows(
   database: DatabaseSync,
+  store: RecordStore,
   profiles: readonly string[],
   commitState: CommitState | undefined,
   includeSecrets: boolean,
 ): { readonly rows: ExtractRow[]; readonly redactedCount: number } {
+  const conditions = ["r.active = 1"];
   const parameters: string[] = [];
-  const filter = profileFilter(profiles, parameters);
-  let commitFilter = "";
-  if (commitState !== undefined) {
-    commitFilter = " AND f.commit_state = ?";
+  if (store.table === "forensic_findings") {
+    conditions.push("f.record_type = 'finding'");
+  } else if (store.table === "forensic_candidates") {
+    conditions.push("f.record_type = 'candidate'");
+  }
+  if (profiles.length > 0) {
+    conditions.push(
+      `f.profile_path IN (${profiles.map(() => "?").join(", ")})`,
+    );
+    parameters.push(...profiles);
+  }
+  // Only a Finding has a Commit State. A Candidate table can hold a
+  // commit_state column, but a Candidate row is never filtered by it.
+  if (
+    commitState !== undefined &&
+    store.recordType === "finding" &&
+    store.hasCommitState
+  ) {
+    conditions.push("f.commit_state = ?");
     parameters.push(commitState);
   }
-  const candidateRows = database
+  const order = [
+    "r.source_id",
+    "f.profile_path",
+    `f.${store.kindColumn}`,
+    ...(store.recordType === "candidate" ? ["f.rank"] : []),
+    `f.${store.idColumn}`,
+  ];
+  const stored = database
     .prepare(
-      `SELECT f.candidate_id, f.candidate_kind, f.profile_path, f.commit_state,
-              f.rank, f.supporting_count, f.provenance_json, f.fields_json,
-              r.source_id, f.run_id, f.artifact_result_id
-         FROM forensic_candidates f
-         JOIN history_artifact_results r
+      `SELECT ${storedRecordColumns(store)}, r.source_id, r.run_id,
+              f.artifact_result_id
+         FROM ${store.table} f
+         JOIN ${store.resultsTable} r
            ON r.artifact_result_id = f.artifact_result_id
-        WHERE r.active = 1 AND f.record_type = 'candidate'${filter}${commitFilter}
-        ORDER BY r.source_id, f.profile_path, f.candidate_kind, f.rank,
-                 f.candidate_id`,
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY ${order.join(", ")}`,
     )
-    .all(...parameters) as unknown as CandidateRow[];
+    .all(...parameters) as unknown as StoreRow[];
   let redactedCount = 0;
-  const rows = candidateRows.map((row): ExtractRow => {
-    const id = row.candidate_id.toString();
-    const provenance = parseJsonColumn<Provenance>(row.provenance_json, id);
-    const rawFields = parseJsonColumn<ForensicFields>(row.fields_json, id);
-    const redacted = redactFields(rawFields, includeSecrets);
+  const rows = stored.map((row): ExtractRow => {
+    const record = decodeStoredRecord(store, row);
+    const redacted = includeSecrets
+      ? { item: record, redactedCount: 0 }
+      : redactSecrets(record);
     redactedCount += redacted.redactedCount;
-    return {
-      recordType: "candidate",
-      collection: "candidates",
+    const base = {
+      store: store.key,
       sourceId: row.source_id,
       profile: row.profile_path,
-      commitState: row.commit_state,
-      kind: row.candidate_kind,
-      id,
+      id: record.id,
       runId: row.run_id,
       artifactResultId: row.artifact_result_id.toString(),
-      provenance,
-      fields: redacted.fields,
-      extra: {
-        rank: Number(row.rank),
-        supporting_count: Number(row.supporting_count),
-      },
+      provenance: record.provenance,
+      fields: redacted.item.fields,
+    };
+    if (record.recordType === "finding") {
+      return {
+        ...base,
+        recordType: "finding",
+        collection: "findings",
+        commitState: record.commitState,
+        kind: record.findingKind,
+        extra: {},
+      };
+    }
+    return {
+      ...base,
+      recordType: "candidate",
+      collection: "candidates",
+      commitState: null,
+      kind: record.candidateKind,
+      extra:
+        "category" in record
+          ? {
+              category: record.category,
+              rank: record.rank,
+              supporting_count: record.supportingCount,
+            }
+          : { rank: record.rank, supporting_count: record.count },
     };
   });
   return { rows, redactedCount };
@@ -746,10 +792,11 @@ function loadCandidateRows(
  * Export a Case to an Extract, the stable offline boundary a Report reads.
  *
  * The pass reads the requested collections (Findings and Candidates by default)
- * from the active Analysis Run, applies Redaction, and writes the Extract files
- * into an empty output directory. A secret stays redacted unless
- * `includeSecrets` is set. It reads the Case and writes only the Extract; it
- * never mutates a Case row.
+ * of every record store from the active artifact results, applies Redaction,
+ * and writes the Extract files into an empty output directory. The output
+ * directory must be outside the Case Directory and outside every recorded
+ * Source. A secret stays redacted unless `includeSecrets` is set. It reads the
+ * Case and writes only the Extract; it never mutates a Case row.
  *
  * Returns an `ExportCaseResult` with the Extract paths, digests, and counts.
  */
@@ -757,24 +804,30 @@ export async function exportCase(
   options: ExportCaseOptions,
 ): Promise<ExportCaseResult> {
   const caseDirectory = resolve(options.caseDirectory);
-  const outDirectory = resolveOutDirectory(caseDirectory, options.outDirectory);
   const collections = options.collections ?? ["findings", "candidates"];
   const includeSecrets = options.includeSecrets ?? false;
   const csv = options.csv ?? false;
   const generatedAt = options.generatedAt ?? new Date().toISOString();
-  const profiles = [...new Set(options.profiles ?? [])].sort();
-
-  await assertEmptyOutDirectory(outDirectory);
+  const profiles = [...new Set(options.profiles ?? [])].sort(compareBytes);
 
   const sources = loadCaseSources(caseDirectory);
+  const outDirectory = await resolveOutDirectory(
+    caseDirectory,
+    options.outDirectory,
+    sources,
+  );
+  await assertEmptyOutDirectory(outDirectory);
+
   const database = openCaseReadOnly(caseDirectory, { readBigInts: true });
   let caseInfo: ReturnType<typeof loadCaseInfo>;
   let completeness: ExtractCompletenessStatement;
-  let activeRuns: readonly RunRow[];
-  let findingResult: { rows: ExtractRow[]; redactedCount: number };
-  let candidateResult: { rows: ExtractRow[]; redactedCount: number };
+  let runs: ReturnType<typeof loadRuns>;
+  let stores: readonly RecordStore[];
+  const findingRows: ExtractRow[] = [];
+  const candidateRows: ExtractRow[] = [];
+  let redactedFieldCount = 0;
   try {
-    if (!findingSchemaExists(database)) {
+    if (!tableExists(database, "forensic_findings")) {
       throw new ForensixError(
         "ANALYSIS_NOT_FOUND",
         "Case has no analysis to export. Run analyse first.",
@@ -782,18 +835,21 @@ export async function exportCase(
     }
     caseInfo = loadCaseInfo(database);
     completeness = buildCompleteness(database);
-    activeRuns = loadActiveRuns(database);
-    findingResult = collections.includes("findings")
-      ? loadFindingRows(database, profiles, options.commitState, includeSecrets)
-      : { rows: [], redactedCount: 0 };
-    candidateResult = collections.includes("candidates")
-      ? loadCandidateRows(
-          database,
-          profiles,
-          options.commitState,
-          includeSecrets,
-        )
-      : { rows: [], redactedCount: 0 };
+    runs = loadRuns(database, completeness);
+    stores = scopedStores(database, collections, options.commitState);
+    for (const store of stores) {
+      const result = loadStoreRows(
+        database,
+        store,
+        profiles,
+        options.commitState,
+        includeSecrets,
+      );
+      redactedFieldCount += result.redactedCount;
+      (store.recordType === "finding" ? findingRows : candidateRows).push(
+        ...result.rows,
+      );
+    }
   } finally {
     database.close();
   }
@@ -802,8 +858,7 @@ export async function exportCase(
     policy: REDACTION_POLICY,
     state: includeSecrets ? "disclosed" : "redacted",
     plaintextSecretsIncluded: includeSecrets,
-    redactedFieldCount:
-      findingResult.redactedCount + candidateResult.redactedCount,
+    redactedFieldCount,
     binaryPayloadCount: 0,
   };
 
@@ -812,9 +867,12 @@ export async function exportCase(
       ? { state: "unavailable", reason: "examiner_not_declared" }
       : { state: "value", value: options.examiner };
 
+  const activeRuns = runs.runs.filter((run) =>
+    runs.activeRunIds.has(run.run_id),
+  );
   const header = {
     extract_schema: EXTRACT_SCHEMA,
-    extractKind: "history",
+    extractKind: "case",
     case: {
       caseId: caseInfo.caseId,
       schemaVersion: caseInfo.schemaVersion,
@@ -834,9 +892,12 @@ export async function exportCase(
       "multiple_declared_origin_os",
     ),
     sources: sources.map(sourceHeader),
-    analysisRuns: activeRuns.map(runHeader),
+    analysisRuns: runs.runs.map((run) =>
+      runHeader(run, runs.activeRunIds.has(run.run_id)),
+    ),
     scope: {
-      collections: [...collections].sort(),
+      collections: [...collections].sort(compareBytes),
+      stores: stores.map((store) => store.key),
       profiles: profiles.length === 0 ? "all" : profiles,
       commitState: options.commitState ?? "all",
       activeResultsOnly: true,
@@ -853,29 +914,23 @@ export async function exportCase(
     },
   ];
   if (collections.includes("findings")) {
-    emitted.push({
-      path: FINDINGS_JSONL,
-      bytes: jsonlBytes(findingResult.rows),
-    });
+    emitted.push({ path: FINDINGS_JSONL, bytes: jsonlBytes(findingRows) });
     if (csv) {
-      emitted.push({ path: FINDINGS_CSV, bytes: csvBytes(findingResult.rows) });
+      emitted.push({ path: FINDINGS_CSV, bytes: csvBytes(findingRows, true) });
     }
   }
   if (collections.includes("candidates")) {
-    emitted.push({
-      path: CANDIDATES_JSONL,
-      bytes: jsonlBytes(candidateResult.rows),
-    });
+    emitted.push({ path: CANDIDATES_JSONL, bytes: jsonlBytes(candidateRows) });
     if (csv) {
       emitted.push({
         path: CANDIDATES_CSV,
-        bytes: csvBytes(candidateResult.rows),
+        bytes: csvBytes(candidateRows, false),
       });
     }
   }
 
   const manifestFiles: ExtractManifestFile[] = [...emitted]
-    .sort((left, right) => left.path.localeCompare(right.path))
+    .sort((left, right) => compareBytes(left.path, right.path))
     .map((file) => ({
       path: file.path,
       sha256: sha256(file.bytes),
@@ -904,22 +959,24 @@ export async function exportCase(
     ),
   });
 
+  await mkdir(outDirectory, { recursive: true });
+  await assertEmptyOutDirectory(outDirectory);
   for (const file of emitted) {
-    await writeFile(join(outDirectory, file.path), file.bytes);
+    await writeFile(join(outDirectory, file.path), file.bytes, { flag: "wx" });
   }
 
   return {
     status: "ok",
     command: "export",
-    extractKind: "history",
+    extractKind: "case",
     outDirectory,
-    findingCount: findingResult.rows.length,
-    candidateCount: candidateResult.rows.length,
+    findingCount: findingRows.length,
+    candidateCount: candidateRows.length,
     csv,
     redaction,
     completeness,
     derivedDigest,
     generatedAt,
-    files: emitted.map((file) => file.path).sort(),
+    files: emitted.map((file) => file.path).sort(compareBytes),
   };
 }

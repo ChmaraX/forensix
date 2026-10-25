@@ -1,12 +1,28 @@
-import { createHash } from "node:crypto";
-import { readFile, stat, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { createHash, randomBytes } from "node:crypto";
+import {
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 
 import { ForensixError } from "./errors.js";
 import { TOOL_VERSION } from "./case.js";
 import {
   EXTRACT_FILES,
   computeDerivedDigest,
+  plannedPhysicalPath,
   type ExtractManifestFile,
 } from "./export.js";
 
@@ -18,7 +34,7 @@ import {
  * are byte-identical. A Case-only change that was never re-exported cannot reach
  * the Report.
  */
-export const REPORT_SCHEMA = "forensix/report/1" as const;
+export const REPORT_SCHEMA = "forensix/report/2" as const;
 
 const HEADER_FILE = EXTRACT_FILES.header;
 const MANIFEST_FILE = EXTRACT_FILES.manifest;
@@ -189,6 +205,37 @@ function isSidecar(commitState: string | undefined): boolean {
 }
 
 /**
+ * Every Finding row must carry a known Commit State. A row with a missing,
+ * unknown, or malformed `commit_state` cannot be put in the committed or the
+ * sidecar group, so the Report refuses the Extract instead of a guess.
+ */
+function assertFindingCommitStates(rows: readonly ExtractRow[]): void {
+  rows.forEach((row, index) => {
+    const commitState: unknown = row.commit_state;
+    if (
+      typeof commitState === "string" &&
+      Object.hasOwn(COMMIT_STATE_LABELS, commitState)
+    ) {
+      return;
+    }
+    throw new ForensixError(
+      "EXTRACT_INVALID",
+      `The Extract file ${FINDINGS_JSONL} has a Finding row without a valid Commit State.`,
+      {
+        file: FINDINGS_JSONL,
+        line: index + 1,
+        reason:
+          commitState === undefined
+            ? "commit_state_absent"
+            : typeof commitState === "string"
+              ? "commit_state_unknown"
+              : "commit_state_malformed",
+      },
+    );
+  });
+}
+
+/**
  * Render a single Field State to HTML. Empty string, absent, and unavailable
  * must read differently without relying on color: each carries a distinct word
  * ("empty string", "absent", "unavailable — <reason>"), so a monochrome or
@@ -297,6 +344,15 @@ function renderProvenance(
   const supporting = Array.isArray(provenance.supportingRows)
     ? provenance.supportingRows.length
     : 0;
+  // A journal_resident row cites the main database and names the rollback
+  // journal that it was recovered through.
+  const recoveredVia =
+    provenance.recoveredVia !== null &&
+    typeof provenance.recoveredVia === "object" &&
+    !Array.isArray(provenance.recoveredVia) &&
+    typeof provenance.recoveredVia.manifestPath === "string"
+      ? provenance.recoveredVia.manifestPath
+      : "";
   const cite = `${manifestPath}${database.length > 0 ? `/${database}` : ""}#${table}:${rowId}`;
   return `<span class="fx-prov" title="${escapeHtml(cite)}">${escapeHtml(
     `${table}:${rowId}`,
@@ -304,9 +360,17 @@ function renderProvenance(
     supporting > 0
       ? `<span class="fx-support">+${supporting} supporting</span>`
       : ""
+  }${
+    recoveredVia.length > 0
+      ? `<span class="fx-support">recovered via ${escapeHtml(recoveredVia)}</span>`
+      : ""
   }`;
 }
 
+/**
+ * One result row. A Finding row shows its Commit State; a Candidate row does
+ * not, because a Candidate is a ranked hypothesis with no Commit State.
+ */
 function renderRow(row: ExtractRow, isCandidate: boolean): string {
   const recordType = row.record_type ?? (isCandidate ? "candidate" : "finding");
   const kind = row.kind ?? "unknown";
@@ -321,9 +385,12 @@ function renderRow(row: ExtractRow, isCandidate: boolean): string {
         )} · ${escapeHtml(String(row.supporting_count ?? 0))} supporting</span>`
       : ""
   }</td>`;
+  const commitStateCell = isCandidate
+    ? ""
+    : `<td>${escapeHtml(commitStateLabel(row.commit_state))}</td>`;
   return `<tr>${typeCell}<td>${escapeHtml(
     row.profile ?? "unavailable — profile_absent",
-  )}</td><td>${escapeHtml(commitStateLabel(row.commit_state))}</td><td>${escapeHtml(
+  )}</td>${commitStateCell}<td>${escapeHtml(
     row.source_id ?? "?",
   )}</td><td>${renderProvenance(row.provenance)}</td><td>${renderFields(
     row.fields,
@@ -352,37 +419,43 @@ function htmlTable(
   return `<table class="fx-rows"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-function renderRowGroup(
+function renderFindingGroup(
   title: string,
   rows: readonly ExtractRow[],
-  isCandidate: boolean,
 ): string {
   return `<h4>${escapeHtml(title)} <span class="fx-count">${
     rows.length
   } rows</span></h4>${htmlTable(
     ["Type", "Profile", "Commit State", "Source", "Provenance", "Fields"],
-    rows.map((row) => renderRow(row, isCandidate)),
+    rows.map((row) => renderRow(row, false)),
     "No rows in this Commit State.",
   )}`;
 }
 
-function renderCollection(
-  title: string,
-  rows: readonly ExtractRow[],
-  isCandidate: boolean,
-): string {
-  const committed = rows.filter((row) => !isSidecar(row.commit_state));
+/** Findings, with committed and sidecar (recovered) rows in separate groups. */
+function renderFindings(rows: readonly ExtractRow[]): string {
+  const committed = rows.filter((row) => row.commit_state === "committed");
   const sidecar = rows.filter((row) => isSidecar(row.commit_state));
-  return `<section class="fx-collection"><h3>${escapeHtml(title)} <span class="fx-count">${
+  return `<section class="fx-collection"><h3>Findings <span class="fx-count">${
     rows.length
-  } total</span></h3>${renderRowGroup(
+  } total</span></h3>${renderFindingGroup(
     "Committed",
     committed,
-    isCandidate,
-  )}${renderRowGroup(
-    "Sidecar (WAL / rollback-journal)",
-    sidecar,
-    isCandidate,
+  )}${renderFindingGroup("Sidecar (WAL / rollback-journal)", sidecar)}</section>`;
+}
+
+/**
+ * Candidates as one ranked table in Extract order (ranked per kind). A
+ * Candidate has no Commit State, so the table has no Commit State column and
+ * no committed / sidecar groups.
+ */
+function renderCandidates(rows: readonly ExtractRow[]): string {
+  return `<section class="fx-collection"><h3>Candidates <span class="fx-count">${
+    rows.length
+  } total</span></h3>${htmlTable(
+    ["Type", "Profile", "Source", "Provenance", "Fields"],
+    rows.map((row) => renderRow(row, true)),
+    "No Candidates in this Extract.",
   )}</section>`;
 }
 
@@ -692,10 +765,10 @@ ${renderSources(header.sources)}
 ${renderRuns(header.analysisRuns)}
 
 <h2>Findings</h2>
-${renderCollection("Findings", input.findings, false)}
+${renderFindings(input.findings)}
 
 <h2>Candidates</h2>
-${renderCollection("Candidates", input.candidates, true)}
+${renderCandidates(input.candidates)}
 
 <h2>How to read Field State</h2>
 ${legend}
@@ -709,13 +782,71 @@ Generated solely from the Extract; the Case is never consulted.
 `;
 }
 
+function isWithin(parent: string, child: string): boolean {
+  const difference = relative(parent, child);
+  return (
+    difference === "" ||
+    (difference !== ".." &&
+      !difference.startsWith(`..${sep}`) &&
+      !isAbsolute(difference))
+  );
+}
+
+/**
+ * Refuse a Report path inside the Extract directory: a file written there
+ * would change the evidence the Report cites. Both sides are compared as
+ * physical paths, so a symbolic link cannot bypass the check.
+ */
+async function assertOutsideExtract(
+  extractDirectory: string,
+  outputPath: string,
+): Promise<void> {
+  const physicalExtract = await realpath(extractDirectory);
+  const physicalOutput = await plannedPhysicalPath(outputPath);
+  if (
+    isWithin(physicalExtract, physicalOutput) ||
+    isWithin(extractDirectory, outputPath)
+  ) {
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      "The Report output path must be outside the Extract directory.",
+      {
+        outputPath,
+        resolvedOutputPath: physicalOutput,
+        extractDirectory,
+      },
+    );
+  }
+}
+
+/**
+ * Write the Report to a temporary file beside the target, then rename it into
+ * place. A reader never sees a partial Report, and a failed write leaves no
+ * partial file and keeps an earlier Report unchanged.
+ */
+async function writeAtomically(path: string, bytes: Buffer): Promise<void> {
+  const temporary = join(
+    dirname(path),
+    `.${basename(path)}.${randomBytes(6).toString("hex")}.tmp`,
+  );
+  try {
+    await writeFile(temporary, bytes, { flag: "wx" });
+    await rename(temporary, path);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+}
+
 /**
  * Render an Extract into one self-contained HTML Report.
  *
  * The generator reads only the Extract files, never the Case, and copies every
  * value out of the Extract, so the Report loads no network resource at view
  * time. It recomputes the derived digest and reports integrity as `verified`
- * when the Extract is untouched, or `altered` when it is not.
+ * when the Extract is untouched, or `altered` when it is not. The Report path
+ * must be outside the Extract directory, and the Report is written atomically
+ * (a temporary file, then a rename).
  *
  * Returns a `RenderReportResult` with the Report path, digests, and counts.
  */
@@ -743,6 +874,8 @@ export async function renderReport(
       { extractDirectory: extractDirectory },
     );
   }
+
+  await assertOutsideExtract(extractDirectory, outputPath);
 
   const headerBytes = await readExtractFile(extractDirectory, HEADER_FILE);
   if (headerBytes === undefined) {
@@ -788,6 +921,7 @@ export async function renderReport(
         FINDINGS_JSONL,
       )
     : [];
+  assertFindingCommitStates(findings);
   const candidates = collections.includes("candidates")
     ? parseJsonl(
         await readExtractFile(extractDirectory, CANDIDATES_JSONL),
@@ -810,7 +944,7 @@ export async function renderReport(
     candidates,
   });
   const bytes = Buffer.from(html, "utf8");
-  await writeFile(outputPath, bytes);
+  await writeAtomically(outputPath, bytes);
 
   return {
     status: "ok",

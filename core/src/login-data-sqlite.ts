@@ -1,17 +1,16 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { ForensixError } from "./errors.js";
-import type { CommitState } from "./forensic-model.js";
 import {
-  immutableDatabase,
-  snapshotVerifiedFile,
+  integerKey,
+  normalizeSqliteValue,
+  readIntegrity,
+  readSqlitePasses,
+  sidecarOnlyRows,
   tableColumns,
   tableExists,
+  type SqlitePasses,
 } from "./sqlite-artifact.js";
-import { openDatabaseSync } from "./sqlite-open.js";
 
 export type RawLoginValue = null | string | bigint | Uint8Array;
 
@@ -36,15 +35,7 @@ export interface LoginPass {
   readonly integrity: string;
 }
 
-export interface RecoveredLoginPass extends LoginPass {
-  readonly commitState: Exclude<CommitState, "committed">;
-}
-
-export interface LoginPasses {
-  readonly committed: LoginPass;
-  readonly recovered: RecoveredLoginPass | null;
-  readonly recoveryUnavailableReason: string | null;
-}
+export type LoginPasses = SqlitePasses<LoginPass>;
 
 export interface VerifiedLoginFile {
   readonly path: string;
@@ -132,23 +123,8 @@ function readSchema(database: DatabaseSync): LoginSchema {
   return { version, columns };
 }
 
-function normalizeValue(value: unknown): RawLoginValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "bigint" ||
-    value instanceof Uint8Array
-  ) {
-    return value;
-  }
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    return BigInt(value);
-  }
-  throw new ForensixError(
-    "ANALYSIS_FAILED",
-    "Login Data contains a value that cannot be preserved exactly.",
-  );
-}
+const normalize = (value: unknown): RawLoginValue =>
+  normalizeSqliteValue(value, "Login Data");
 
 function readPass(database: DatabaseSync): LoginPass {
   const schema = readSchema(database);
@@ -168,7 +144,7 @@ function readPass(database: DatabaseSync): LoginPass {
   for (const row of statement.iterate()) {
     const values = new Map<string, RawLoginValue>();
     for (const column of selected) {
-      values.set(column, normalizeValue(row[column]));
+      values.set(column, normalize(row[column]));
     }
     const idValue = values.get("id");
     rows.push({
@@ -177,138 +153,24 @@ function readPass(database: DatabaseSync): LoginPass {
     });
   }
 
-  const integrityRow = database.prepare("PRAGMA integrity_check(1)").get();
-  const integrity = String(integrityRow?.integrity_check ?? "unavailable");
-  return { schema, rows, integrity };
-}
-
-function fingerprint(row: RawLoginRow): string {
-  return JSON.stringify(
-    [...row.values.entries()].sort(([left], [right]) =>
-      left < right ? -1 : left > right ? 1 : 0,
-    ),
-    (_key, value: unknown) => {
-      if (typeof value === "bigint") {
-        return `${value.toString()}n`;
-      }
-      if (value instanceof Uint8Array) {
-        return `blob:${Buffer.from(value).toString("base64")}`;
-      }
-      return value;
-    },
-  );
-}
-
-/**
- * Return only rows that a WAL or rollback journal adds or changes relative to
- * the committed database, keyed by `logins.id`. This keeps recovered evidence
- * separate from committed evidence, mirroring the History recovery contract.
- */
-function recoveredOnlyRows(
-  committed: readonly RawLoginRow[],
-  recovered: readonly RawLoginRow[],
-): RawLoginRow[] {
-  const committedById = new Map(
-    committed.flatMap((row) =>
-      row.id === null ? [] : [[row.id.toString(), fingerprint(row)] as const],
-    ),
-  );
-  const rows: RawLoginRow[] = [];
-  for (const row of recovered) {
-    const id = row.id === null ? null : row.id.toString();
-    const committedFingerprint =
-      id === null ? undefined : committedById.get(id);
-    if (
-      committedFingerprint === undefined ||
-      committedFingerprint !== fingerprint(row)
-    ) {
-      rows.push(row);
-    }
-  }
-  return rows;
+  return { schema, rows, integrity: readIntegrity(database) };
 }
 
 export async function readLoginPasses(options: {
   readonly database: VerifiedLoginFile;
   readonly sidecars: readonly VerifiedLoginFile[];
 }): Promise<LoginPasses> {
-  const temporaryDirectory = await mkdtemp(
-    join(tmpdir(), "forensix-login-snapshot-"),
-  );
-  const temporaryDatabasePath = join(
-    temporaryDirectory,
-    basename(options.database.path),
-  );
-  try {
-    await snapshotVerifiedFile(options.database, temporaryDatabasePath);
-    for (const sidecar of options.sidecars) {
-      await snapshotVerifiedFile(
-        sidecar,
-        join(temporaryDirectory, basename(sidecar.path)),
-      );
-    }
-
-    const committedDatabase = immutableDatabase(temporaryDatabasePath);
-    let committed: LoginPass;
-    try {
-      committed = readPass(committedDatabase);
-    } finally {
-      committedDatabase.close();
-    }
-
-    const wal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-wal"),
-    );
-    const journal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-journal"),
-    );
-    const commitState =
-      wal === undefined
-        ? journal === undefined
-          ? null
-          : "journal_resident"
-        : "wal_resident";
-    if (commitState === null) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: "sidecar_not_supplied",
-      };
-    }
-
-    let recoveryDatabase: DatabaseSync;
-    try {
-      recoveryDatabase = openDatabaseSync(temporaryDatabasePath, {
-        readBigInts: true,
-      });
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_open_failed:${String(error)}`,
-      };
-    }
-    try {
-      const fullRecoveryPass = readPass(recoveryDatabase);
-      return {
-        committed,
-        recovered: {
-          ...fullRecoveryPass,
-          rows: recoveredOnlyRows(committed.rows, fullRecoveryPass.rows),
-          commitState,
-        },
-        recoveryUnavailableReason: null,
-      };
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_read_failed:${String(error)}`,
-      };
-    } finally {
-      recoveryDatabase.close();
-    }
-  } finally {
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
+  // A sidecar row is kept only when the committed image has no row with the
+  // same `logins.id` or holds a different exact image for it.
+  return readSqlitePasses({
+    artifact: "Login Data",
+    ...options,
+    readPass,
+    sidecarOnly: (committed, sidecar) => ({
+      ...sidecar,
+      rows: sidecarOnlyRows(committed.rows, sidecar.rows, (row) =>
+        integerKey(row.id),
+      ),
+    }),
+  });
 }

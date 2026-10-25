@@ -14,8 +14,11 @@ import {
   type CommitState,
   type FieldState,
   type Finding,
+  type ManifestEntryReference,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
+import { utcFromUnixMicros } from "./forensic-time.js";
 import type { ForensicTimestamp } from "./history.js";
 import {
   readWebDataPasses,
@@ -39,17 +42,13 @@ interface ManifestIdentity {
   readonly databasePath: string;
 }
 
+/**
+ * Render whole seconds in the same 6-digit fractional form as every other
+ * artifact, so a text comparison against a normalized `--from`/`--to` instant
+ * and the Timeline order stay exact.
+ */
 function utcFromUnixSeconds(seconds: bigint): string | null {
-  const milliseconds = seconds * 1000n;
-  const numericMilliseconds = Number(milliseconds);
-  if (!Number.isSafeInteger(numericMilliseconds)) {
-    return null;
-  }
-  const date = new Date(numericMilliseconds);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return date.toISOString();
+  return utcFromUnixMicros(seconds * 1_000_000n);
 }
 
 function preservedString(value: RawWebDataValue): FieldState<string> {
@@ -127,6 +126,7 @@ function buildAutofillEntries(options: {
   readonly commitState: CommitState;
   readonly profile: string;
   readonly manifest: ManifestIdentity;
+  readonly recoveredVia?: ManifestEntryReference;
   readonly declaredTimezone: string;
 }): PersistedAutofillFinding[] {
   return options.rows.map((row) => {
@@ -167,7 +167,12 @@ function buildAutofillEntries(options: {
       findingKind: "autofill_entry",
       profile: options.profile,
       commitState: options.commitState,
-      provenance: sourceRowProvenance(options.manifest, rowId),
+      provenance: {
+        ...sourceRowProvenance(options.manifest, rowId),
+        ...(options.recoveredVia === undefined
+          ? {}
+          : { recoveredVia: options.recoveredVia }),
+      },
       fields,
     });
     return {
@@ -310,7 +315,7 @@ export async function analyseWebDataProfile(options: {
       database: verifiedDatabase,
       sidecars,
     });
-    const recoveredManifest =
+    const sidecarManifest =
       passes.recovered === null
         ? null
         : manifestIdentity(
@@ -322,13 +327,21 @@ export async function analyseWebDataProfile(options: {
             }`,
             databasePath,
           );
-    if (passes.recovered !== null && recoveredManifest === null) {
+    if (passes.recovered !== null && sidecarManifest === null) {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Web Data recovery content has no resolvable sidecar Manifest entry.",
         { databasePath: databasePath },
       );
     }
+    const recoveredCitation =
+      passes.recovered === null || sidecarManifest === null
+        ? null
+        : recoveredRowCitation(
+            passes.recovered.commitState,
+            manifest,
+            sidecarManifest,
+          );
     const committed = buildAutofillEntries({
       rows: passes.committed.rows,
       schema: passes.committed.schema,
@@ -345,7 +358,8 @@ export async function analyseWebDataProfile(options: {
             schema: passes.recovered.schema,
             commitState: passes.recovered.commitState,
             profile: options.profile,
-            manifest: recoveredManifest as ManifestIdentity,
+            manifest: recoveredCitation?.manifest ?? manifest,
+            recoveredVia: recoveredCitation?.recoveredVia,
             declaredTimezone: options.declaredTimezone,
           });
     return {
@@ -357,7 +371,7 @@ export async function analyseWebDataProfile(options: {
       schemaVersion: passes.committed.schema.version,
       integrity: passes.committed.integrity,
       recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: passes.recoveryUnavailableReason,
+      reason: sqlitePassesReason(passes),
       findings: [...committed, ...recovered],
       committedFieldCount: committed.length,
       recoveredFieldCount: recovered.length,

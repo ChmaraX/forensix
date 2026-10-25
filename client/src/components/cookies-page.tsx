@@ -16,9 +16,10 @@
  *
  * Saved rows and rows recovered from WAL / journal sidecars are separate
  * server reads (`useCommitStateLists`) and separate lists (the Saved /
- * Recovered tabs). Every figure counts the loaded saved cookies only. The
- * Case-wide profile pick (the lens) narrows figures, Persistence and lists;
- * the search narrows the lists. A host opens Sites on it (in the table,
+ * Recovered tabs). Every figure counts the loaded saved cookies only (a
+ * floor, "+", while more pages stand). The Case-wide profile pick (the
+ * lens) is a server filter: figures, Persistence and lists hold the picked
+ * profiles' rows only; the search narrows the loaded lists. A host opens Sites on it (in the table,
  * when Sites lists it). The page only reads rows back.
  */
 import { useCallback, useMemo, useState, type ReactNode } from "react";
@@ -35,6 +36,7 @@ import { cn } from "@/lib/utils";
 import type { QueryParameters } from "../api.js";
 import type { FieldState, Finding } from "../types.js";
 import { ARTIFACTS } from "../artifacts.js";
+import { useCommitStateTotals } from "../count-reads.js";
 import type { RowLookupSource } from "../row-lookup.js";
 import {
   commitStateStatus,
@@ -629,6 +631,7 @@ function CookieList({
   list,
   rows,
   visible,
+  lensFiltered,
   noun,
   reveal,
   onSelect,
@@ -638,6 +641,8 @@ function CookieList({
   readonly list: PaginatedList<Finding>;
   readonly rows: readonly CookieRow[];
   readonly visible: readonly CookieRow[];
+  /** The profile pick (a server filter) narrows the list. */
+  readonly lensFiltered: boolean;
   readonly noun: "saved" | "recovered";
   readonly reveal: boolean;
   readonly onSelect: (row: Finding) => void;
@@ -671,7 +676,7 @@ function CookieList({
       list={list}
       noun={{ one: `${noun} cookie`, many: `${noun} cookies` }}
       shown={visible.length}
-      filtered={visible.length !== rows.length}
+      filtered={lensFiltered || visible.length !== rows.length}
       filteredMessage={filteredMessage}
       onClearFilters={onClearFilters}
       skeletonRows={3}
@@ -718,16 +723,19 @@ const ROW_LOOKUP: RowLookupSource = { route: config.route };
 
 export function CookiesPage() {
   const [order, setOrder] = useState<SortOption>(NEWEST_CREATED);
+  // The profile pick is the Case-wide lens, applied by the server.
+  const lens = useProfileLens();
   const parameters = useMemo<QueryParameters>(
     () => [
       ["sort", order.sort],
       ["direction", order.direction],
+      ...lens.parameters,
     ],
-    [order],
+    [order, lens.parameters],
   );
   const lists = useCommitStateLists<Finding>(config.route, parameters);
   // Saved / Recovered, the search and the open row live in the URL: Back
-  // and a refresh keep them. The profile pick is the Case-wide lens.
+  // and a refresh keep them.
   const [view, setView] = useViewTab();
   const [search, setSearch] = useViewSearch();
   // Values open hidden on every visit (never in the URL).
@@ -748,22 +756,10 @@ export function CookiesPage() {
   );
   const sheet = useRowSelection(loadedFindings, ROW_LOOKUP);
 
-  const rowProfiles = useMemo(
-    () => [...new Set(loadedFindings.map((row) => row.profile))],
-    [loadedFindings],
-  );
-  const lens = useProfileLens(rowProfiles);
-
-  // The profile lens narrows the figures and Persistence too; the search
+  // The lists hold the lens's profiles only (a server filter); the search
   // narrows only the lists.
-  const savedRows = useMemo(
-    () => allSaved.filter((row) => lens.applies(row.finding.profile)),
-    [allSaved, lens],
-  );
-  const recoveredRows = useMemo(
-    () => allRecovered.filter((row) => lens.applies(row.finding.profile)),
-    [allRecovered, lens],
-  );
+  const savedRows = allSaved;
+  const recoveredRows = allRecovered;
   const summary = useMemo(() => summarize(savedRows), [savedRows]);
 
   const narrow = useCallback(
@@ -780,10 +776,14 @@ export function CookiesPage() {
     [narrow, recoveredRows],
   );
 
-  const status = commitStateStatus(lists, {
-    saved: savedRows.length,
-    recovered: recoveredRows.length,
-  });
+  // The tabs read the server's count of each whole list in the lens.
+  const totals = useCommitStateTotals("cookie", lens.selected);
+  const status = commitStateStatus(
+    lists,
+    { saved: savedRows.length, recovered: recoveredRows.length },
+    totals.state === "ready" ? totals.value : null,
+    { filtered: lens.selected.length > 0 },
+  );
   // A profile pick that leaves a list empty says so in its own words.
   const filteredMessage =
     lens.words !== null && search.trim() === ""
@@ -870,6 +870,7 @@ export function CookiesPage() {
               list={lists.saved}
               rows={allSaved}
               visible={savedVisible}
+              lensFiltered={lens.selected.length > 0}
               noun="saved"
               reveal={reveal}
               onSelect={sheet.select}
@@ -882,6 +883,7 @@ export function CookiesPage() {
               list={lists.recovered}
               rows={allRecovered}
               visible={recoveredVisible}
+              lensFiltered={lens.selected.length > 0}
               noun="recovered"
               reveal={reveal}
               onSelect={sheet.select}

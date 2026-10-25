@@ -106,22 +106,22 @@ export function TimelinePage() {
   // unranged list does not re-read when the activity lands.
   const activity = useActivity();
   const timeZone = activity.activity?.timeZone ?? null;
+  // The profile pick is a server filter (repeated `profile`): the stream
+  // holds the picked profiles' events only, never a filter over the pages
+  // loaded so far.
+  const [profiles, setProfiles] = useViewProfiles();
+  const { context } = useCaseContext();
   const parameters = useMemo<QueryParameters>(
-    () => [["direction", direction], ...dayRangeParameters(range, timeZone)],
-    [range, direction, timeZone],
+    () => [
+      ["direction", direction],
+      ...dayRangeParameters(range, timeZone),
+      ...profiles.map((profile) => ["profile", profile] as const),
+    ],
+    [range, direction, timeZone, profiles],
   );
   const list = usePaginatedList<Finding>("timeline", parameters);
   const eventSpan = useEventSpan(timeZone);
-  // The profile pick narrows the loaded events by their recorded profile.
-  const [profiles, setProfiles] = useViewProfiles();
-  const { context } = useCaseContext();
-  const rows = useMemo(
-    () =>
-      profiles.length === 0
-        ? list.rows
-        : list.rows.filter((row) => profiles.includes(row.profile)),
-    [list.rows, profiles],
-  );
+  const rows = list.rows;
   // The chart draws the picked profiles' activity (each activity row
   // records its profile).
   const read = useMemo(
@@ -142,20 +142,18 @@ export function TimelinePage() {
     [activity, profiles],
   );
   const profileOptions = useMemo(
-    () => [...new Set([...(context?.profiles ?? []), ...profiles])].sort(),
+    () =>
+      [...new Set([...(context?.profiles ?? []), ...profiles])]
+        .filter((profile) => profile !== "" && profile !== ".")
+        .sort(),
     [context, profiles],
   );
   // The open row lives in the URL: Back and a refresh re-open it. A row
   // the stream has not loaded (a link into a large Case, a copied URL) is
-  // looked up on the same stream by its reference (the route takes no
-  // profile or Commit State).
+  // looked up on the same stream by its id (its profile and Commit State
+  // narrow the read).
   const lookup = useMemo<RowLookupSource>(
-    () => ({
-      route: "timeline",
-      parameters,
-      byCommitState: false,
-      byProfile: false,
-    }),
+    () => ({ route: "timeline", parameters }),
     [parameters],
   );
   const sheet = useRowSelection(list.rows, lookup);

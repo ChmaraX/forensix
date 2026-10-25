@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { CASE_FILENAME } from "../src/case.js";
 import type { PersistedCandidate } from "../src/case-findings.js";
 import { createFinding, valueField } from "../src/forensic-model.js";
-import { analyseCase } from "../src/history.js";
+import { analyseCase } from "../src/analyse-case.js";
 import { ingestUserDataDir } from "../src/ingest.js";
 import { loadTopicEngine } from "../src/topic-candidates-onnx.js";
 import {

@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ChmaraX/forensix/contracts/acquisition-bundle-manifest-draft-2.schema.json",
+  "title": "ForensiX Acquisition Bundle Manifest draft/2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "hash_algorithm",
+    "key_material_capture_requested",
+    "key_material_captured",
+    "key_material_stripped",
+    "user_data_dirs",
+    "key_material",
+    "files",
+    "bundle_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "forensix-acquisition-bundle-draft/2" },
+    "hash_algorithm": { "const": "sha-256" },
+    "key_material_capture_requested": { "type": "boolean" },
+    "key_material_captured": { "type": "boolean" },
+    "key_material_stripped": { "type": "boolean" },
+    "original_bundle_digest": { "$ref": "#/$defs/sha256" },
+    "user_data_dirs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/userDataDir" }
+    },
+    "key_material": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/keyMaterial" }
+    },
+    "files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/file" }
+    },
+    "bundle_digest": { "$ref": "#/$defs/sha256" }
+  },
+  "if": {
+    "properties": { "key_material_stripped": { "const": true } }
+  },
+  "then": { "required": ["original_bundle_digest"] },
+  "else": { "not": { "required": ["original_bundle_digest"] } },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "not": { "pattern": "(^/)|\\\\|(^|/)\\.{0,2}(/|$)" }
+    },
+    "userDataDir": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_id",
+        "bundle_path",
+        "source_path",
+        "outcome",
+        "chrome_running",
+        "liveness_evidence",
+        "liveness_explanation"
+      ],
+      "properties": {
+        "account_id": { "type": "string" },
+        "bundle_path": { "$ref": "#/$defs/relativePath" },
+        "source_path": { "type": "string" },
+        "outcome": {
+          "enum": ["collected", "skipped_chrome_running", "failed"]
+        },
+        "chrome_running": { "type": "boolean" },
+        "liveness_evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "liveness_explanation": { "type": "string" },
+        "evidence_set_digest": { "$ref": "#/$defs/sha256" },
+        "working_copy_digest": { "$ref": "#/$defs/sha256" },
+        "error": { "type": "string" }
+      }
+    },
+    "keyMaterial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_id",
+        "bundle_path",
+        "capture_state",
+        "manifest_digest",
+        "entry_count",
+        "usable_row_key_count"
+      ],
+      "properties": {
+        "account_id": { "type": "string" },
+        "bundle_path": { "$ref": "#/$defs/relativePath" },
+        "capture_state": {
+          "enum": ["captured", "evidence_only", "unavailable"]
+        },
+        "manifest_digest": { "$ref": "#/$defs/sha256" },
+        "entry_count": { "type": "integer", "minimum": 0 },
+        "usable_row_key_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "size", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "size": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

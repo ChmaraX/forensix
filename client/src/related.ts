@@ -251,16 +251,22 @@ export function citationOf(
     readonly redacted?: readonly string[];
   },
 ): string {
-  const { manifestPath, table, rowId } = row.provenance;
+  const { sourceId, manifestPath, table, rowId } = row.provenance;
   const part = (value: string | undefined | null) =>
     value === undefined || value === null || value === "" ? "absent" : value;
   const parts = [
     `Artifact: ${part(options.artifact ?? row.findingKind)} (${row.findingKind})`,
     `Profile: ${options.profile}`,
+    // A Case can hold several Sources with the same relative file: the
+    // Source and the record id keep the citation unique.
+    ...(sourceId === undefined || sourceId === ""
+      ? []
+      : [`Source: ${sourceId}`]),
     `File: ${part(manifestPath)}`,
     `Table: ${part(table)}`,
     `Row id: ${part(rowId)}`,
     `Commit State: ${row.commitState}`,
+    ...(row.id === undefined || row.id === "" ? [] : [`Record id: ${row.id}`]),
   ];
   for (const [name, field] of Object.entries(row.fields)) {
     if (!isValueHash(name) || options.redacted?.includes(name) === true) {

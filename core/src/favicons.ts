@@ -15,9 +15,11 @@ import {
   valueField,
   type CommitState,
   type FieldState,
+  type ManifestEntryReference,
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
 import {
   WINDOWS_EPOCH_OFFSET_MICROS,
   utcFromUnixMicros,
@@ -250,6 +252,7 @@ interface BuildFaviconContext {
   readonly commitState: CommitState;
   readonly profile: string;
   readonly manifest: ManifestIdentity;
+  readonly recoveredVia?: ManifestEntryReference;
   readonly declaredTimezone: string;
   readonly payloads: Map<string, PayloadFile>;
   readonly bitmapColumns: ReadonlySet<string>;
@@ -350,7 +353,12 @@ function buildFaviconFinding(
     manifestPath: context.manifest.path,
     database: context.manifest.databasePath,
   };
-  const provenance = faviconProvenance(base, row);
+  const provenance: Provenance = {
+    ...faviconProvenance(base, row),
+    ...(context.recoveredVia === undefined
+      ? {}
+      : { recoveredVia: context.recoveredVia }),
+  };
 
   const payload = classifyPayload(
     row.bitmap?.imageData ?? null,
@@ -466,6 +474,7 @@ function buildFavicons(options: {
   readonly commitState: CommitState;
   readonly profile: string;
   readonly manifest: ManifestIdentity;
+  readonly recoveredVia?: ManifestEntryReference;
   readonly declaredTimezone: string;
   readonly payloads: Map<string, PayloadFile>;
 }): BuiltFavicon[] {
@@ -475,6 +484,7 @@ function buildFavicons(options: {
     commitState: options.commitState,
     profile: options.profile,
     manifest: options.manifest,
+    recoveredVia: options.recoveredVia,
     declaredTimezone: options.declaredTimezone,
     payloads: options.payloads,
     bitmapColumns: options.pass.schema.bitmapColumns,
@@ -683,7 +693,7 @@ async function analyseProfile(options: {
       database: verifiedDatabase,
       sidecars,
     });
-    const recoveredManifest =
+    const sidecarManifest =
       passes.recovered === null
         ? null
         : manifestIdentity(
@@ -695,13 +705,21 @@ async function analyseProfile(options: {
             }`,
             databasePath,
           );
-    if (passes.recovered !== null && recoveredManifest === null) {
+    if (passes.recovered !== null && sidecarManifest === null) {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Favicons recovery content has no resolvable sidecar Manifest entry.",
         { databasePath: databasePath },
       );
     }
+    const recoveredCitation =
+      passes.recovered === null || sidecarManifest === null
+        ? null
+        : recoveredRowCitation(
+            passes.recovered.commitState,
+            manifest,
+            sidecarManifest,
+          );
     const payloads = new Map<string, PayloadFile>();
     const committed = buildFavicons({
       pass: passes.committed,
@@ -726,7 +744,8 @@ async function analyseProfile(options: {
             pass: passes.recovered,
             commitState: passes.recovered.commitState,
             profile: options.profile,
-            manifest: recoveredManifest as ManifestIdentity,
+            manifest: recoveredCitation?.manifest ?? manifest,
+            recoveredVia: recoveredCitation?.recoveredVia,
             declaredTimezone: options.declaredTimezone,
             payloads,
           }).filter((favicon) => !committedSignatures.has(favicon.signature));
@@ -742,7 +761,7 @@ async function analyseProfile(options: {
       schemaVersion: passes.committed.schema.version,
       integrity: passes.committed.integrity,
       recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: passes.recoveryUnavailableReason,
+      reason: sqlitePassesReason(passes),
       findings: [...committed, ...recovered].map(
         (favicon) => favicon.persisted,
       ),

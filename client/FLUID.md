@@ -44,8 +44,8 @@ hand). The installed source has the final say: `src/components/ui/*`,
 
 The decluttered pages follow these; keep new work to them.
 
-- **No page subtitles.** A page has its H1 only (Overview: the subject
-  name and its identity line).
+- **No page subtitles.** A page has its H1 only (Overview: the Case id,
+  its Sources / Profiles line and the Profile account line).
 - **A description only when it adds information** the title does not
   carry. `SectionPanel` and `ChartSection` take `description` optionally;
   the default is none. No how-to-use copy: the control's affordance does
@@ -89,13 +89,13 @@ The decluttered pages follow these; keep new work to them.
 
 ## What is installed
 
-| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, icons-untitledui, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/responsive-rows.tsx`, `lib/app-icons.ts` (see "Icons"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/day-bounds.ts`, `components/secrets.ts`, `components/site-favicons.ts`, `components/pointer-focus.ts`, `components/charts.tsx` + `charts-ready.tsx` + `chart-section.tsx`, `components/related-links.tsx`, `components/host-link.tsx` (see "Cell links"), `components/identity-kit.tsx`, `components/url-host.ts`, `components/row-lookup-notice.tsx`, `src/row-lookup.ts`, `src/case-context.tsx`, `src/command-menu.tsx`, `src/command-index.ts`, `src/field-values.ts`, `components/use-drained-read.ts`, `components/bytes.ts`, `src/view-lens.tsx`, `src/pages.ts` + `src/page-views.tsx` (the page registry), `src/focus.ts`, `src/read-pages.ts`, `src/field-readers.ts`, `src/site-host-key.ts`, `src/menu-open.ts`, `components/commit-state-page.tsx`, `components/site-kinds.ts` |
+| Area                               | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Components (`src/components/ui/`)  | accordion, badge, banner, button, card, checkbox-group, combobox, command-menu, dialog, dropdown (+ dropdown-search, dropdown-sub, menu-item), input-copy, input-group, mobile-drawer, radio-group, scroll-area, select, sidebar (+ sidebar-core, sidebar-menu), skeleton, slider, switch, table, tabs, tabs-subtle, tooltip                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Systems (`src/lib/`, `src/hooks/`) | springs, font-weight, size-context, type-scale, shape-context, surface-context, surface-classes, elevated, icon-context, icons-untitledui, popup, omit, utils (`cn`), fluid-provider, sidebar-menu-grid; hooks: use-fluid-hover, use-merge-split, use-keyboard-nav-gate, use-touch-primary; `src/components/fluid-hover-highlight.tsx`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| CSS (`src/app.css`)                | FF tokens, the surface and shadow ladders, the type scale, `.typeset`, native scrollbars, `scroll-fade` / `scroll-fade-x` / `scroll-divider`, and `reveal-*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Block                              | `src/components/sidebar-app/*` (App Sidebar: `inset-topbar`, `search-field`, `user-footer`, `workspace-header`). The block's demo assembly (`app-sidebar.tsx`, `nav-data.ts`) was removed as unused; the real shell lives in `src/app.tsx`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Built on FF here                   | `ui/popover.tsx`, `ui/sheet.tsx`, `ui/misc.tsx` (Skeleton), `components/panel.tsx`, `components/evidence.tsx`, `components/term.tsx`, `components/list-states.tsx`, `components/page-kit.tsx` (see "The page kit"), `components/responsive-rows.tsx`, `lib/app-icons.ts` (see "Icons"), `components/completeness.tsx`, `components/row-sheet.tsx`, `components/form-data.ts`, `components/metric-band.tsx`, `components/activity-data.ts`, `components/day-bounds.ts`, `components/secrets.ts`, `components/site-favicons.ts`, `components/pointer-focus.ts`, `components/charts.tsx` + `charts-ready.tsx` + `chart-section.tsx`, `components/related-links.tsx`, `components/host-link.tsx` (see "Cell links"), `components/identity-kit.tsx`, `components/url-host.ts`, `components/row-lookup-notice.tsx`, `src/row-lookup.ts`, `src/case-context.tsx`, `src/command-menu.tsx`, `src/command-index.ts`, `src/field-values.ts`, `components/use-drained-read.ts`, `src/count-reads.ts` (see "Figures from the server's counts"), `components/bytes.ts`, `src/view-lens.tsx`, `src/pages.ts` + `src/page-views.tsx` (the page registry), `src/focus.ts`, `src/read-pages.ts`, `src/field-readers.ts`, `src/site-host-key.ts`, `src/menu-open.ts`, `components/commit-state-page.tsx`, `components/site-kinds.ts`, `components/candidates-page.tsx` (see "The Candidates page") |
 
 ## The shell (do not restyle it per page)
 
@@ -117,8 +117,10 @@ shape, size, and icons) → `TooltipProvider` → `SidebarProvider` →
   (`useCaseContextRead`) and provides them (`CaseContextProvider`); a page
   that needs them reads `useCaseContext()` (`{ context, error, retry }`)
   or one artifact's scope with `useArtifactCoverage(artifact)` - never its
-  own `completeness` / `profiles` request (Overview and Browser profile
-  read the context; the identity pages' empty states the scope).
+  own `completeness` / `profiles` request (Overview, Browser profile, the
+  Timeline and `useProfileLens` read the context; the identity pages'
+  empty states the scope). Overview also reads `summary` (the Case id and
+  its Sources) for its masthead.
 - The page header is the shell's: the page title alone (no description
   line) and, at the right of the title row, the page's coverage indicator.
   When something in the page's scope was not read, the coverage banner
@@ -422,8 +424,14 @@ and a refresh restore the view; a copied URL opens it.
   view, one URL: fixed parameter order, the profile pick sorted
   (`canonicalProfiles`); unknown or malformed parts fall back per part),
   `withPage(view, page, extras)` (the lens travels, the page's own state
-  starts fresh), `rowRefOf(finding)` (manifest path | table | row id |
-  profile | Commit State - null without a table or row id).
+  starts fresh), `rowRefOf(row)` (the row's record id, `history:180`,
+  which core keeps unique in the Case, across Sources and Profiles; a row
+  without an id falls back to `legacyRowRefOf`: manifest path | table |
+  row id | profile | Commit State; null when it has neither),
+  `rowMatchesRef(row, ref)` (the record id, or the legacy reference an
+  older link still carries - so an old link still opens its row; no new
+  link is built from the legacy form while a row has an id) and
+  `isRecordId(ref)`.
 - **The page registry** (`pages.ts`, pure): `PAGE_KEYS` (nav order),
   `PageKey`, and `PAGES: Record<PageKey, PageMeta>` - each page's `label`,
   sidebar `group`, `coverage` (Completeness artifacts; null = the whole
@@ -456,21 +464,25 @@ filters" is one entry (`updateView({ q: null, filter: null, profiles: [] })`).
 **A row the URL names that the page has not loaded** (a Timeline "Open
 this row in Cookies" on a large Case, a copied URL, a refresh deep in a
 paged list): `useRowSelection(rows, { route })` gives the page's own
-first read a beat (600ms), then reads the route for that row by its
-reference (`findRowByRef`, `src/row-lookup.ts`): the reference carries the
-row's profile and Commit State, which every Finding route filters by, so
-it reads that profile's rows of that state page by page (100 a page, at
-most 50 pages) until the row with exactly that reference turns up, and
-the sheet opens on it. Nothing is matched loosely. While it reads, the
-shell's `RowLookupNotice` says "Opening the row this link names…"; when
-it is not found it says why - no row on the page has that reference, or
-it is not among the first 5,000 rows of its profile - with Close (drops
-the row from the URL). Every page passes its route as a stable
-`RowLookupSource` (a module constant or a memo; History `view=visits`;
-Cache without a Commit State filter; the Timeline its own stream with its
-direction and range, and a Sites host `site-findings?host=`, neither
-filtered by profile or Commit State). An abandoned lookup is aborted on
-the wire. A sheet never opens under the ⌘K menu (`menu-open.ts`): a row
+first read a beat (600ms), then reads the row by its reference
+(`findRowByRef`, `src/row-lookup.ts`). For a record id it first reads the
+record itself (`get?id=`): an id the Case does not hold (404
+`RECORD_NOT_FOUND`), or a record a later Analysis Run superseded, is not
+found at once. The record names its profile and Commit State (a legacy
+reference carries them itself), so the lookup then reads that profile's
+rows of that state on the page's own route, page by page (100 a page, at
+most 50 pages), until the row with exactly that reference turns up, and
+the sheet opens on it. The row comes from the page's route, in the
+page's shape. Nothing is matched loosely. While it reads, the shell's
+`RowLookupNotice` says "Opening the row this link names…"; when it is
+not found it says why - no row on the page has that reference, or it is
+not among the first 5,000 rows of its profile - with Close (drops the row
+from the URL). Every page passes its route as a stable `RowLookupSource`
+(a module constant or a memo; History `view=visits`; Cache and
+Candidates without a Commit State filter (`byCommitState: false`); the
+Timeline its own stream with its direction, range and profile pick; a
+Sites host `site-findings?host=`). An abandoned lookup is aborted on the
+wire. A sheet never opens under the ⌘K menu (`menu-open.ts`): a row
 the URL names while the menu is open opens once it closes; a sheet already
 open stays and switches rows.
 
@@ -488,25 +500,42 @@ carries only the profile pick, and its clear leaves the range to the
 picker. Clearing announces what is shown now and returns focus to the h1.
 
 Where the lens applies: range - Overview, History, Timeline, Downloads,
-Cache; profiles - History, Timeline (by each loaded row's recorded
-profile; the chart draws the picked profiles' activity rows, which record
-their profile), Downloads, Cache and every artifact page with a profile
-picker. Not applied (the chip says so): the range on pages whose routes
-take no date (Cookies, Saved logins, Form data, Bookmarks, Top sites,
-Favicons, Browser profile, Sites) and the profile pick on Overview and
-Sites (`site-hosts` takes no profile) - never filtered by inference.
+Cache; profiles - History, Timeline, Candidates, Downloads, Cache,
+Browser profile and every artifact page with a profile picker.
 
-**Migration for page agents** (wired today: Overview range, History range
+- **On the server** (repeated `profile` parameters): History, the
+  Timeline (the stream holds the picked profiles' events only; the chart
+  draws the picked profiles' activity rows, which record their profile),
+  Candidates and the pages on `useProfileLens()` (identity-kit: Cookies,
+  Saved logins, Form data, Bookmarks, Top sites, Favicons). `useProfileLens`
+  gives `selected`, `setSelected`, `options` (every profile the Case knows,
+  `caseProfilesOf`, plus any picked that it does not; never `""` or the
+  Source-level `"."`), `showPicker`, `parameters` (the pick as repeated
+  `profile` pairs; none for every profile) and `words` (for empty states).
+  Spread `lens.parameters` into the route's parameters: the lists, tabs
+  and server counts then hold exactly the picked profiles' rows, never a
+  filter over the rows loaded so far.
+- **On the client** (still): Downloads, Cache and Browser profile filter
+  their loaded rows by each row's recorded profile. The Downloads and
+  Cache pickers list the profiles the loaded rows carry, plus any picked;
+  Browser profile's lists every profile the Case knows.
 
-- profiles + search + tab + row, Timeline range + tab + row, Sites host,
-  and the tab on every artifact page):
+Not applied (the chip says so): the range on pages whose routes take no
+date (Cookies, Saved logins, Form data, Bookmarks, Top sites, Favicons,
+Browser profile, Candidates, Sites) and the profile pick on Overview and
+Sites (Sites does not send it) - never filtered by inference.
+
+**Migration for page agents** (wired today: the range on Overview,
+History, Timeline, Downloads and Cache; the profile pick on every page
+listed above; History search; Sites host; the tab and the open row on
+every saved / recovered page):
 
 1. Range: `const [range, setRange] = useState({ from: "", to: "" })` →
-   `const [range, setRange] = useViewRange()`. Downloads and Cache: switch
-   their own range to it once their days are Case days.
-2. Profiles: `ProfilePicker selected={profiles} onChange={setProfiles}` with
-   `const [profiles, setProfiles] = useViewProfiles()`, and the
-   `profile` query parameters from it.
+   `const [range, setRange] = useViewRange()`.
+2. Profiles: `const lens = useProfileLens()`,
+   `ProfilePicker selected={lens.selected} onChange={lens.setSelected}`,
+   and `...lens.parameters` in the route's parameters (a page with its own
+   picker: `useViewProfiles()` and the `profile` query parameters from it).
 3. Open row: replace `useState<SelectedRow | null>` with
    `const sheet = useRowSelection(allLoadedRows)` (memoise the array);
    `onSelect={sheet.select}`, `<RowSheet selected={sheet.selected}
@@ -568,9 +597,13 @@ onClose={sheet.close} />`.
   cannot fit.
 - **Copy citation** (header, stays put while the body scrolls): one line of
   provenance for a report - `Artifact: History (history_visit) · Profile:
-Default profile · File: … · Table: visits · Row id: 500106 · Commit
-State: committed` plus any content hash the row records
-  (`payloadSha256`, …) - `citationOf` in related.ts. Never a field value,
+Default profile · Source: … · File: … · Table: visits · Row id: 500106 ·
+Commit State: committed · Record id: history:180` plus any content hash
+  the row records
+  (`payloadSha256`, …) - `citationOf` in related.ts. `Source` (also the
+  first line of the source chain) and `Record id` show only when the row
+  carries them: a Case can hold several Sources with the same relative
+  file, and these two keep the citation unique. Never a field value,
   so a secret stays out whether or not it is revealed. FF's copy
   confirmation (InputCopy's drawn check and "Copied", `spring.fast`) and a
   polite "Citation copied." for screen readers.
@@ -659,7 +692,8 @@ banner, tables, the row sheet, the lens chip, the citation.
 `caseProfilesOf(profiles, completeness)` (completeness.tsx) is every
 profile the Case knows - the profiles route plus any the Completeness
 Statement names (a Guest profile with nothing read) - and is the one
-"Profiles" count (Overview's figure), so it agrees with the coverage
+"Profiles" count (the Overview masthead's Case line) and the one list of
+profile options (`useProfileLens`), so it agrees with the coverage
 detail.
 
 ## Forensic presentation rules (non-negotiable)
@@ -680,15 +714,58 @@ detail.
 5. **No Candidate value on a tile.** Stat tiles show recorded facts only.
 6. Read-only: no control may start ingest, analysis, or export.
 
+## The Candidates page (`components/candidates-page.tsx`)
+
+Candidates are ranked identity and behavior hypotheses that the analyzer
+makes from the recorded rows (`candidates` route): a name, an e-mail
+address, a frequently visited host, a repeated search. They are never
+facts, and every surface says so in words.
+
+- The page is in the sidebar's **Case** group (`PAGES.candidates`,
+  coverage `["Candidates"]`, lens: profiles only - the route takes a
+  profile, never a date).
+- **Labelled Candidate:** the list panel is "Ranked candidates" with a
+  "Candidate" badge that explains the term; each group is "<kind>
+  candidates"; the sheet's header carries the same badge where a
+  Finding's sheet carries its Commit State.
+- **Ranked:** the list is the server's order (`sort=rank`, keyset-paged
+  with Load more), grouped by kind on the client. Each row shows its rank
+  (1 is the strongest in its kind and profile), the value as a Field
+  State, its supporting row count and the recorded evidence basis. The
+  sheet adds the source chain of the primary row and of each supporting
+  row.
+- **No Commit State:** a Candidate comes from saved and recovered rows
+  alike, so the page has no Saved / Recovered split, no State column and
+  no Commit State badge. Its row reference is its record id only
+  (`identity-candidates:1`); the row lookup does not filter by Commit
+  State.
+- The profile pick (`useProfileLens`) and the category pick (`filter`:
+  identity or behavior) are server filters. No Candidate value becomes a
+  figure or a tile (rule 5).
+
 ## Rules from the impeccable passes
 
 Recorded from the lead's decisions (forensic rules above still win):
 
 - **Overview stays calm:** no coverage banner (the quiet indicator only);
-  its Profiles count is every profile the Case knows (`caseProfilesOf`,
-  incl. a Guest with nothing read); a compact Recovered panel counts
-  recovered rows per page (unsaved / overwritten, each worded), links to
-  each page's Recovered tab and is never added into a figure.
+  a compact Recovered panel counts recovered rows per page (unsaved /
+  overwritten, each worded; exact counts from the server: `summary` names
+  the kinds with recovered records, one `count by=commitState` per kind
+  splits them), links to each page's Recovered tab and is never added
+  into a figure. The figure strip has three figures.
+- **The Overview masthead names the Case, never a person:** the h1 is the
+  Case id (`summary.caseId`, "Case " before it unless the id already says
+  so); under it one line of what the Case holds - "2 Sources · 3
+  Profiles · Chrome …" (Profiles is every profile the Case knows,
+  `caseProfilesOf`, incl. a Guest with nothing read; the names in its
+  tooltip); then the account line (`ProfileAccountLine`), scoped to one
+  Profile in words ("Default profile account: …": the Default profile
+  when it recorded metadata, else the first). Each account field keeps
+  its Field State in words ("name absent", "e-mail unavailable"), the
+  Profile words link to its row on Browser profile, and "N more
+  profiles" links to Browser profile. The Profile panel beside the
+  activity is titled with that Profile's name; its "Browser country" is
+  recorded by the browser, not the Profile.
 - **Figures never overstate:** download sizes are bytes received ("9.4 of
   28.2 MB" when short, "expected" only when only the total is recorded);
   outcomes are words; Most visited and Sites use one measure (saved visit
@@ -716,6 +793,21 @@ Recorded from the lead's decisions (forensic rules above still win):
   (`hostFields`, the "Host in" column). The kinds' words and icons are one
   table (`components/site-kinds.ts`). The most-evidenced host is shown
   when none is picked.
+- **Figures from the server's counts** (`src/count-reads.ts`,
+  unit-tested in `count-reads.test.ts`): a figure or tab count over a
+  whole list is asked of the server, never drained from its rows.
+  `useCount({ kind, by, profiles?, commitState? })` reads `count` (one
+  kind's active records grouped by a field, or by `profile` /
+  `commitState`; at most `COUNT_BUCKET_LIMIT` (100) buckets, the rest in
+  `otherCount`); `useCommitStateTotals(kind, profiles)` gives the saved /
+  recovered totals that the tabs show (Cookies, Saved logins, Form data,
+  Bookmarks, Favicons); `distinctValues`, `recordsWhere` and
+  `commitStateTotals` read a result, with a `Tally` that says when it is
+  only a floor (`formatTally`: "100+"). Each count carries the page's
+  profile pick, so it matches the lists. `summary` gives the Case id,
+  Sources, Profiles and records per kind (Overview). The old background
+  drain of `useCommitStateLists` and its per-page row caps are gone;
+  figures a page still sums over its loaded rows say so ("+").
 - **Counts follow the lens on one base.** A page's tab counts, list footer
   and figures count the same rows for the same lens: Downloads and Cache
   tabs and footers count the rows in the range and profile pick (the
@@ -729,8 +821,9 @@ Recorded from the lead's decisions (forensic rules above still win):
   `withCommitState`. The row lookup, Overview's loaders, the ⌘K index, the
   activity read and the visit-presence queue all carry an `AbortSignal`.
 - **Drained reads paint early** (`useDrainedRead`,
-  `components/use-drained-read.ts`, on `readPages`): Cache, Downloads and
-  the Sites host list and host rows show their first
+  `components/use-drained-read.ts`, on `readPages`, up to a page cap; the
+  one drain that remains): Cache, Downloads and the Sites host list and
+  host rows show their first
   page at once and read the rest in the background (counts "+", a muted
   "Reading the rest of …" line above the figures, the footer's "Reading the
   rest of the list…"); every read carries an `AbortSignal` (unmount, Retry
@@ -825,7 +918,8 @@ The shell owns it (`components/completeness.tsx`); pages render nothing.
 - Scope: `artifacts` are Completeness artifact keys from `src/artifacts.ts`
   (`ArtifactConfig.completenessArtifact`: "History", "Cookies", "Login
   Data", "Top Sites", "Downloads", "Bookmarks", "Web Data", "Cache",
-  "Favicons", "Preferences"); merged views use `TIMELINE_COVERAGE` (History,
+  "Favicons", "Preferences"; the Candidates page uses "Candidates");
+  merged views use `TIMELINE_COVERAGE` (History,
   Downloads, Cookies, Web Data - what core's queryTimeline merges) and
   `SITES_COVERAGE` (History, Downloads, Cookies, Login Data, Bookmarks, Top
   Sites, Cache, Favicons - every kind core's Sites groups). Omit it for the
@@ -928,22 +1022,28 @@ show.
 
 Sidecar (WAL / rollback-journal) rows are always their own list, read as
 their own server query (`commit-state=committed | wal_resident |
-journal_resident` on every Finding route except `cache` and `timeline`;
-the design mock honours it too).
+journal_resident` on every Finding route except `cache`; `timeline`,
+`site-findings` and `count` take it too; the design mock honours it).
 
 ```tsx
+import { useCommitStateTotals } from "../count-reads.js";
 import { useCommitStateLists } from "../use-commit-state-lists.js";
-import { CommitStateSplit, type CommitView } from "./page-kit.js";
+import { useViewTab } from "../view-state.js";
+import { useProfileLens } from "./identity-kit.js";
+import { CommitStateSplit } from "./page-kit.js";
 
+const lens = useProfileLens();
+const parameters = useMemo(() => [...lens.parameters], [lens.parameters]);
 const lists = useCommitStateLists<Finding>(config.route, parameters);
-const [view, setView] = useState<CommitView>("saved");
+const totals = useCommitStateTotals("cookie", lens.selected);
+const [view, setView] = useViewTab();
 
 <SectionPanel title="All cookies">
   <CommitStateSplit
     value={view}
     onValueChange={setView}
     label="Saved or recovered cookies"
-    {...commitStateStatus(lists, { saved: lists.saved.rows.length, recovered: lists.recovered.rows.length }).split}
+    {...commitStateStatus(lists, { saved: lists.saved.rows.length, recovered: lists.recovered.rows.length }, totals.state === "ready" ? totals.value : null, { filtered: lens.selected.length > 0 }).split}
     toolbar={<FilterTextField commit="change" … />}
     saved={<CookieTable list={lists.saved} />}
     recovered={<CookieTable list={lists.recovered} />}
@@ -951,7 +1051,7 @@ const [view, setView] = useState<CommitView>("saved");
 </SectionPanel>
 ```
 
-- `useCommitStateLists<Row>(route, parameters, { enabled?, drain? })`
+- `useCommitStateLists<Row>(route, parameters, { enabled? })`
   returns `{ saved, recovered, settled }`, each list a `PaginatedList`
   (`rows`, `cursor`, `loading`, `error`, `loadMore`, `retry`).
   `recovered.rows` is the WAL list then the journal list (never
@@ -960,16 +1060,20 @@ const [view, setView] = useState<CommitView>("saved");
 - `retry` re-reads only what failed (`usePaginatedList`): after a failed
   "Load more" it asks for that page again and keeps the loaded rows; the
   recovered list retries only its failed half.
-- `drain: <row cap>` follows every page (per read) so figures cover the
-  whole set; `settled.saved` / `settled.recovered` say when each list has
-  read what its figures count (the first page, or with `drain` every page).
-- **One status model** (`commitStateStatus(lists, shown)`, and
-  `mixedReadStatus` for Cache's one mixed read): `pageEmpty` (both lists
-  read empty, nothing failed or in flight), `figures` (`loading` / `show` /
-  `hide`: no saved row in the lens, or a failed saved read), `capped`, and
-  `split` - the `CommitStateSplit` counts (`tabCount`: unknown until a page
-  lands and after a failed first read) and "+" markers, spread onto the
-  switch (`{...status.split}`). `CommitStatePage({ status, empty, figures,
+- The lists read page by page (Load more) and never drain in the
+  background: figures over a whole list come from the server's counts
+  (see "Figures from the server's counts"). `settled.saved` /
+  `settled.recovered` say when each list has read its first page.
+- **One status model** (`commitStateStatus(lists, shown, totals?,
+{ filtered? })`, and `mixedReadStatus` for Cache's one mixed read):
+  `pageEmpty` (both lists read empty, nothing failed or in flight, and no
+  server filter such as the profile pick (`filtered`) narrows them),
+  `figures` (`loading` / `show` / `hide`: no saved row in the lens, or a
+  failed saved read), and `split` - the `CommitStateSplit` counts and "+"
+  markers, spread onto the switch (`{...status.split}`). With `totals`
+  (`useCommitStateTotals`) the tabs read the whole lists' sizes, no "+";
+  without them, the loaded rows (`tabCount`: unknown until a page lands
+  and after a failed first read) and "+" while more pages stand. `CommitStatePage({ status, empty, figures,
 figuresSkeleton, sheet, children })` draws the frame every saved /
   recovered page shares; the page supplies only its empty state, figures,
   list panel and sheet.
@@ -1000,8 +1104,10 @@ loading?, onLoadMore? })` reads "3 of 22" / "50 loaded" / "3 of 50+" (Load more 
   one figure without saying so.
 - Cache's route cannot filter by Commit State, so Cache splits its loaded
   page with `splitByCommit(rows)` → `{ saved, recovered }` and still shows
-  two lists. The Timeline route can't either: it splits its loaded stream
-  the same way into Saved / Recovered tabs, each still in time order.
+  two lists. The Timeline route takes `commit-state` now (its row lookup
+  uses it), but the page reads one chronological stream and splits its
+  loaded pages the same way into Saved / Recovered tabs, each still in
+  time order.
 - Activity (visits per day / hour): `useActivity()` / `fetchActivity()`
   (activity-data) return `{ saved, recovered, complete }` buckets; charts
   and figures draw `saved`, never summed with `recovered`, and say

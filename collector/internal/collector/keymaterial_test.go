@@ -143,16 +143,21 @@ func TestAuthorizedKeyCaptureSealsDerivedKeyAndPreservesSourceBytes(t *testing.T
 	}
 	var header KeyMaterialManifestHeader
 	readJSON(t, filepath.Join(keyRoot, "key_material_manifest_header.json"), &header)
-	if header.ManifestSchema != keyMaterialManifestSchema || header.ManifestDigest != conformance.Digest(manifestBytes) || header.ManifestDigest != bundle.KeyMaterial[0].ManifestDigest || header.EntryCount != 2 {
+	if header.ManifestSchema != keyMaterialManifestSchema || header.ManifestDigest != conformance.Digest(manifestBytes) || header.ManifestDigest != bundle.KeyMaterial[0].ManifestDigest || header.EntryCount != 3 {
 		t.Fatalf("independent key-material Manifest is invalid: %#v", header)
 	}
 	lines := strings.Split(strings.TrimSpace(string(manifestBytes)), "\n")
-	if len(lines) != 2 || !strings.Contains(lines[0], `"path":"evidence/provider-context.bin"`) || !strings.Contains(lines[1], `"path":"records/test-provider-v10.json"`) {
+	if len(lines) != 3 || !strings.Contains(lines[0], `"path":"evidence/provider-context.bin"`) || !strings.Contains(lines[1], `"path":"key_material_bundle.json"`) || !strings.Contains(lines[2], `"path":"records/test-provider-v10.json"`) {
 		t.Fatalf("key-material Manifest is incomplete or not path-sorted: %s", manifestBytes)
 	}
 
 	var record keyMaterialRecord
 	readJSON(t, filepath.Join(keyRoot, "records", "test-provider-v10.json"), &record)
+	var aggregate keyMaterialBundle
+	readJSON(t, filepath.Join(keyRoot, keyMaterialBundleFile), &aggregate)
+	if aggregate.Schema != keyMaterialBundleSchema || len(aggregate.Records) != 1 || !reflect.DeepEqual(aggregate.Records[0], record) {
+		t.Fatalf("analyzer key-material file does not match the sealed record: %#v", aggregate)
+	}
 	if record.Provider.Name != "gnome-libsecret" || record.Policy.RowPrefix != "v10" || record.SealedMaterial == nil || !record.UsableRowKey {
 		t.Fatalf("provider/context metadata incomplete: %#v", record)
 	}

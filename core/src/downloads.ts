@@ -14,9 +14,11 @@ import {
   type CommitState,
   type FieldState,
   type Finding,
+  type ManifestEntryReference,
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
 import {
   boundedSortInteger,
   utcFromUnixMicros,
@@ -79,7 +81,11 @@ const DANGER_TYPES = new Map<bigint, string>([
   [22n, "async_local_password_scanning"],
 ]);
 
-/** `downloads.interrupt_reason` — `download::DownloadInterruptReason` (sparse). */
+/**
+ * `downloads.interrupt_reason` — `download::DownloadInterruptReason` (sparse),
+ * from components/download/public/common/download_interrupt_reason_values.h.
+ * 32 is the obsolete `SERVER_PRECONDITION`; an older store can still hold it.
+ */
 const INTERRUPT_REASONS = new Map<bigint, string>([
   [0n, "none"],
   [1n, "file_failed"],
@@ -101,16 +107,18 @@ const INTERRUPT_REASONS = new Map<bigint, string>([
   [24n, "network_invalid_request"],
   [30n, "server_failed"],
   [31n, "server_no_range"],
-  [32n, "server_bad_content"],
-  [33n, "server_unauthorized"],
-  [34n, "server_cert_problem"],
-  [35n, "server_forbidden"],
-  [36n, "server_unreachable"],
-  [37n, "server_content_length_mismatch"],
-  [38n, "server_cross_origin_redirect"],
+  [32n, "server_precondition"],
+  [33n, "server_bad_content"],
+  [34n, "server_unauthorized"],
+  [35n, "server_cert_problem"],
+  [36n, "server_forbidden"],
+  [37n, "server_unreachable"],
+  [38n, "server_content_length_mismatch"],
+  [39n, "server_cross_origin_redirect"],
   [40n, "user_canceled"],
   [41n, "user_shutdown"],
   [50n, "crash"],
+  [51n, "local_download_blocked"],
 ]);
 
 interface ManifestIdentity {
@@ -268,6 +276,7 @@ function buildDownloads(options: {
   readonly commitState: CommitState;
   readonly profile: string;
   readonly manifest: ManifestIdentity;
+  readonly recoveredVia?: ManifestEntryReference;
   readonly declaredTimezone: string;
 }): PersistedDownloadFinding[] {
   return options.rows.map((row) => {
@@ -385,6 +394,9 @@ function buildDownloads(options: {
     const provenance: Provenance = {
       ...sourceRowProvenance(options.manifest, "downloads", rowId),
       ...(supportingRows.length === 0 ? {} : { supportingRows }),
+      ...(options.recoveredVia === undefined
+        ? {}
+        : { recoveredVia: options.recoveredVia }),
     };
     const finding: Finding = createFinding({
       findingKind: "download",
@@ -558,7 +570,7 @@ export async function analyseDownloadsProfile(options: {
       database: verifiedDatabase,
       sidecars,
     });
-    const recoveredManifest =
+    const sidecarManifest =
       passes.recovered === null
         ? null
         : manifestIdentity(
@@ -570,13 +582,21 @@ export async function analyseDownloadsProfile(options: {
             }`,
             databasePath,
           );
-    if (passes.recovered !== null && recoveredManifest === null) {
+    if (passes.recovered !== null && sidecarManifest === null) {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Downloads recovery content has no resolvable sidecar Manifest entry.",
         { databasePath: databasePath },
       );
     }
+    const recoveredCitation =
+      passes.recovered === null || sidecarManifest === null
+        ? null
+        : recoveredRowCitation(
+            passes.recovered.commitState,
+            manifest,
+            sidecarManifest,
+          );
     const committed = buildDownloads({
       rows: passes.committed.rows,
       schema: passes.committed.schema,
@@ -593,7 +613,8 @@ export async function analyseDownloadsProfile(options: {
             schema: passes.recovered.schema,
             commitState: passes.recovered.commitState,
             profile: options.profile,
-            manifest: recoveredManifest as ManifestIdentity,
+            manifest: recoveredCitation?.manifest ?? manifest,
+            recoveredVia: recoveredCitation?.recoveredVia,
             declaredTimezone: options.declaredTimezone,
           });
     return {
@@ -605,7 +626,7 @@ export async function analyseDownloadsProfile(options: {
       schemaVersion: passes.committed.schema.version,
       integrity: passes.committed.integrity,
       recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: passes.recoveryUnavailableReason,
+      reason: sqlitePassesReason(passes),
       findings: [...committed, ...recovered],
       committedDownloadCount: committed.length,
       recoveredDownloadCount: recovered.length,

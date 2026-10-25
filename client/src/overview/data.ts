@@ -16,8 +16,14 @@ import {
 import { fetchSiteFavicons } from "@/components/site-favicons";
 import { fieldString, fieldUtc } from "@/components/finding-fields";
 import { siteHostKey } from "@/site-host-key";
-import { RECOVERED_STATES, readPages, withCommitState } from "@/read-pages";
-import type { FieldState, Finding, PageOf } from "@/types";
+import { readPages } from "@/read-pages";
+import type {
+  CountResult,
+  FieldState,
+  Finding,
+  PageOf,
+  SummaryResult,
+} from "@/types";
 
 export { fieldString };
 
@@ -75,6 +81,8 @@ export interface OverviewData {
    *  may be missing from Most visited sites. */
   readonly mostVisitedComplete: boolean;
   readonly metadata: readonly Finding[];
+  /** The Case's `summary`: its id, Sources and Profiles (the masthead). */
+  readonly summary: SummaryResult;
   /** The newest saved downloads (up to `RECENT_DOWNLOADS`). */
   readonly downloads: readonly Finding[];
   /** Recovered favicon for each Most visited sites host, as an inline `data:` URI —
@@ -268,6 +276,7 @@ export async function loadOverview(
     siteHosts,
     metadataPage,
     downloadsPage,
+    summary,
   ] = await Promise.all([
     caseActivity(),
     fetchRecordedSpan(signal),
@@ -298,6 +307,7 @@ export async function loadOverview(
       ],
       { signal },
     ),
+    callApi<SummaryResult>("summary", [], { signal }),
   ]);
 
   const mostVisited = topHosts(
@@ -320,6 +330,7 @@ export async function loadOverview(
     mostVisited,
     mostVisitedComplete: siteHosts.complete,
     metadata: metadataPage.items,
+    summary,
     favicons,
     downloads: downloadsPage.items,
   };
@@ -337,74 +348,78 @@ export interface RecoveredCount {
   readonly artifact: string;
   readonly wal: number;
   readonly journal: number;
-  /** A read stopped at its cap: the counts are lower bounds ("1,000+"). */
-  readonly more: boolean;
 }
 
-/** Pages read per Commit State per artifact (1,000 rows). */
-const RECOVERED_PAGES = 10;
-/** Pages of Cache's mixed list read (2,000 rows; its route cannot filter by
- *  Commit State, so the recovered rows are counted out of it). */
-const RECOVERED_CACHE_PAGES = 20;
+/** The Finding kinds each evidence page's Recovered tab lists. */
+const PAGE_KINDS: Readonly<Record<EvidenceKey, readonly string[]>> = {
+  history: ["history_visit"],
+  downloads: ["download"],
+  bookmarks: ["bookmark"],
+  "top-sites": ["top_site"],
+  cookies: ["cookie"],
+  credentials: ["login_credential"],
+  autofill: ["autofill_entry"],
+  cache: ["cache_entry"],
+  favicons: ["favicon"],
+  metadata: ["browser_metadata", "profile_metadata"],
+};
 
-async function countRecovered(
-  page: EvidenceKey,
-  signal?: AbortSignal,
-): Promise<RecoveredCount> {
-  const config = ARTIFACTS[page];
-  const base: (readonly [string, string])[] = [
-    ...(page === "history" ? [["view", "visits"] as const] : []),
-    ["limit", String(PAGE_LIMIT)],
-  ];
-  const counted = { wal_resident: 0, journal_resident: 0 };
-  let complete: boolean;
-  if (config.combinedFindingList === true) {
-    ({ complete } = await readPages<Finding>(config.route, base, {
-      cap: RECOVERED_CACHE_PAGES,
-      signal,
-      onPage: (rows) => {
-        for (const row of rows) {
-          if (row.commitState !== "committed") {
-            counted[row.commitState] += 1;
-          }
-        }
-      },
-    }));
-  } else {
-    const reads = await Promise.all(
-      RECOVERED_STATES.map((state) =>
-        readPages<Finding>(config.route, withCommitState(base, state), {
-          cap: RECOVERED_PAGES,
-          signal,
-          onPage: (rows) => {
-            counted[state] += rows.length;
-          },
-        }),
-      ),
-    );
-    complete = reads.every((read) => read.complete);
-  }
-  return {
-    page,
-    label: config.label,
-    artifact: config.completenessArtifact,
-    wal: counted.wal_resident,
-    journal: counted.journal_resident,
-    more: !complete,
-  };
+/** WAL- and journal-resident records in a `by=commitState` count. */
+function sidecarCounts(result: CountResult): {
+  readonly wal: number;
+  readonly journal: number;
+} {
+  const of = (state: string) =>
+    result.buckets.find((bucket) => bucket.key === state)?.count ?? 0;
+  return { wal: of("wal_resident"), journal: of("journal_resident") };
 }
 
 /**
  * Recovered rows per evidence page, in the sidebar's order: the rows each
- * page's Recovered tab lists, whole Case (every day, every profile). Counted
+ * page's Recovered tab lists, whole Case (every day, every profile). The
+ * server counts them: `summary` names the kinds with recovered records,
+ * and one `count by=commitState` per such kind splits them into WAL- and
+ * journal-resident - exact, never a reading of downloaded rows. Counted
  * per Commit State and never summed into a figure. A failed read rejects:
  * the panel says so rather than show a short count.
  */
-export function loadRecovered(
+export async function loadRecovered(
   signal?: AbortSignal,
 ): Promise<readonly RecoveredCount[]> {
+  const summary = await callApi<SummaryResult>("summary", [], { signal });
+  const withRecovered = new Set(
+    summary.records
+      .filter(
+        (record) =>
+          record.recordType === "finding" && (record.recovered ?? 0) > 0,
+      )
+      .map((record) => record.kind),
+  );
   return Promise.all(
-    EVIDENCE_ORDER.map((page) => countRecovered(page, signal)),
+    EVIDENCE_ORDER.map(async (page) => {
+      const config = ARTIFACTS[page];
+      const counts = await Promise.all(
+        PAGE_KINDS[page]
+          .filter((kind) => withRecovered.has(kind))
+          .map((kind) =>
+            callApi<CountResult>(
+              "count",
+              [
+                ["kind", kind],
+                ["by", "commitState"],
+              ],
+              { signal },
+            ).then(sidecarCounts),
+          ),
+      );
+      return {
+        page,
+        label: config.label,
+        artifact: config.completenessArtifact,
+        wal: counts.reduce((sum, count) => sum + count.wal, 0),
+        journal: counts.reduce((sum, count) => sum + count.journal, 0),
+      };
+    }),
   );
 }
 

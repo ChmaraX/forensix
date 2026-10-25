@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -483,6 +490,21 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       value: "id",
     });
 
+    // The plaintext Cookie value is a withheld secret, so search never
+    // matches it: a prefix search cannot rebuild a hidden value. The same
+    // Cookie is still found by its name, and the Timeline search agrees.
+    const searchCount = (command: string, term: string): number =>
+      parseJson<{ readonly items: readonly unknown[] }>(
+        runCli([command, "--case", caseDirectory, "--search", term, "--json"])
+          .stdout,
+      ).items.length;
+    for (const prefix of ["en-", "en-u", "en-US"]) {
+      expect(searchCount("cookies", prefix)).toBe(0);
+      expect(searchCount("timeline", prefix)).toBe(0);
+    }
+    expect(searchCount("cookies", "pref")).toBe(1);
+    expect(searchCount("timeline", "pref")).toBe(1);
+
     // Broken input rejected.
     const badLimit = runCli([
       "cookies",
@@ -659,4 +681,98 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       },
     });
   });
+
+  const permissionFailuresAreObservable =
+    process.platform !== "win32" &&
+    typeof process.getuid === "function" &&
+    process.getuid() !== 0;
+
+  it.runIf(permissionFailuresAreObservable)(
+    "reports an unreadable Network/Cookies as unavailable, not the legacy copy",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "forensix-cookies-locked-"));
+      temporaryRoots.push(root);
+      // A Profile that has both the modern store and a stale legacy
+      // top-level `Cookies` file left over from before the 2020 move.
+      const source = await createLegacyCookies(root);
+      const modernPath = join(source, "Default", "Network", "Cookies");
+      await createModernCookies(modernPath, [
+        {
+          host: ".current.example",
+          name: "sid",
+          value: "current-plain",
+          encryptedValue: null,
+          path: "/",
+          creationUtc: 13_348_638_245_123_456n,
+          expiresUtc: 13_400_000_000_000_000n,
+          lastAccessUtc: 13_348_640_000_000_000n,
+          isSecure: 1n,
+          isHttpOnly: 1n,
+        },
+      ]);
+      // Chromium keeps other readable network state beside the store.
+      await writeFile(
+        join(source, "Default", "Network", "Network Persistent State"),
+        "{}\n",
+      );
+      const modernBytes = await readFile(modernPath);
+      const caseDirectory = join(root, "CASE-COOKIES-LOCKED");
+
+      await chmod(modernPath, 0o000);
+      let ingest: ReturnType<typeof runCli>;
+      try {
+        ingest = runCli(["ingest", source, "--case", caseDirectory, "--json"]);
+      } finally {
+        await chmod(modernPath, 0o600);
+      }
+      expect(ingest.status).toBe(0);
+      expect(
+        parseJson<Record<string, unknown>>(
+          runCli(["analyse", "--case", caseDirectory, "--json"]).stdout,
+        ),
+      ).toMatchObject({
+        cookies: {
+          status: "partial",
+          analysedProfileCount: 0,
+          absentProfileCount: 0,
+          unavailableProfileCount: 1,
+          findingCount: 0,
+        },
+      });
+
+      // The modern store is reported unavailable with the Manifest reason.
+      const completeness = parseJson<{
+        readonly statements: readonly {
+          readonly artifact: string;
+          readonly artifacts: readonly {
+            readonly profile: string;
+            readonly databasePath: string;
+            readonly outcome: string;
+            readonly reason: string | null;
+          }[];
+        }[];
+      }>(runCli(["completeness", "--case", caseDirectory, "--json"]).stdout);
+      const cookies = completeness.statements.find(
+        (statement) => statement.artifact === "Cookies",
+      );
+      expect(cookies?.artifacts).toEqual([
+        {
+          sourceId: expect.any(String),
+          profile: "Default",
+          artifact: "Cookies",
+          databasePath: "Default/Network/Cookies",
+          outcome: "unavailable",
+          reason: "cookies_unavailable:permission_denied",
+          runId: expect.any(String),
+        },
+      ]);
+
+      // The stale legacy copy is not presented as the Profile's Cookies.
+      const listed = parseJson<CookiePage>(
+        runCli(["cookies", "--case", caseDirectory, "--json"]).stdout,
+      );
+      expect(listed.items).toEqual([]);
+      expect(await readFile(modernPath)).toEqual(modernBytes);
+    },
+  );
 });

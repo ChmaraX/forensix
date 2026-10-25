@@ -5,15 +5,17 @@
  * `useArtifactCoverage` in case-context). Their cell links (host → Sites,
  * URL → History) are the shared `host-link.tsx`.
  */
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { AppIcon } from "@/lib/app-icons";
 
+import type { QueryParameters } from "../api.js";
 import { artifactStoreOf } from "../artifacts.js";
+import { useCaseContext } from "../case-context.js";
 import { hrefFor, updateView, useViewProfiles } from "../view-state.js";
 import type { PageKey } from "../pages.js";
-import type { CoverageScope } from "./completeness.js";
+import { caseProfilesOf, type CoverageScope } from "./completeness.js";
 import {
   emptyCoverageOf as coverageWordsOf,
   joinWords,
@@ -25,28 +27,46 @@ import { profileLabel } from "./finding-fields.js";
 /* ------------------------------- profile lens ----------------------------- */
 
 /**
- * The Case-wide profile pick as these pages apply it (client-side, over the
- * loaded rows): `applies(profile)` keeps a row, `options` is what the
- * picker lists (the profiles the rows carry, plus any picked elsewhere that
- * carry none here, so a pick never disappears from its own picker), and
- * `showPicker` is false when there is nothing to choose between.
+ * The Case-wide profile pick as these pages apply it: on the server. Every
+ * route these pages read takes repeated `profile` parameters, so the pick
+ * goes into the request (`parameters`) and the lists, tabs and figures
+ * hold exactly the picked profiles' rows - never a filter over the rows
+ * loaded so far, which would pass a partial list off as the whole.
+ * `options` is what the picker lists (every profile the Case knows, plus
+ * any picked that it does not, so a pick never disappears from its own
+ * picker), and `showPicker` is false when there is nothing to choose
+ * between.
  */
-export function useProfileLens(rowProfiles: readonly string[]): {
+export function useProfileLens(): {
   readonly selected: readonly string[];
   readonly setSelected: (profiles: readonly string[]) => void;
   readonly options: readonly string[];
   readonly showPicker: boolean;
-  readonly applies: (profile: string) => boolean;
+  /** The pick as repeated `profile` query parameters (none: every
+   *  profile). */
+  readonly parameters: QueryParameters;
   /** "Profile 2" / "Default profile and Profile 2", for empty-state words. */
   readonly words: string | null;
 } {
   const [selected, setSelected] = useViewProfiles();
+  const { context } = useCaseContext();
   const options = useMemo(
-    () => [...new Set([...rowProfiles, ...selected])].sort(),
-    [rowProfiles, selected],
+    () =>
+      [
+        ...new Set([
+          ...(context === null
+            ? []
+            : caseProfilesOf(context.profiles, context.completeness)),
+          ...selected,
+        ]),
+      ]
+        // "." is the Source itself (browser-level evidence), no profile.
+        .filter((profile) => profile !== "" && profile !== ".")
+        .sort(),
+    [context, selected],
   );
-  const applies = useCallback(
-    (profile: string) => selected.length === 0 || selected.includes(profile),
+  const parameters = useMemo<QueryParameters>(
+    () => selected.map((profile) => ["profile", profile] as const),
     [selected],
   );
   return {
@@ -54,7 +74,7 @@ export function useProfileLens(rowProfiles: readonly string[]): {
     setSelected,
     options,
     showPicker: options.length > 1 || selected.length > 0,
-    applies,
+    parameters,
     words: selected.length === 0 ? null : joinWords(selected.map(profileLabel)),
   };
 }

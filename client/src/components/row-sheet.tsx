@@ -135,7 +135,8 @@ export function SecretValueCell({
   );
 }
 
-function SectionTitle({ children }: { readonly children: ReactNode }) {
+/** A sheet section's heading ("Where this comes from", "Fields"). */
+export function SectionTitle({ children }: { readonly children: ReactNode }) {
   const size = useSize();
   return (
     <h3
@@ -148,7 +149,7 @@ function SectionTitle({ children }: { readonly children: ReactNode }) {
 }
 
 /** Name / value rows sharing one two-column grid (stacked when narrow). */
-const PROPERTY_ROW =
+export const PROPERTY_ROW =
   "grid grid-cols-1 items-center gap-x-4 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]";
 
 /**
@@ -162,7 +163,7 @@ function isIdField(name: string): boolean {
 }
 
 /** One source-chain line: an FF InputCopy, or the word "absent". */
-function ProvenanceLine({
+export function ProvenanceLine({
   label,
   value,
 }: {
@@ -546,6 +547,14 @@ export function RowSheet({
           <section aria-label="Source">
             <SectionTitle>Where this comes from</SectionTitle>
             <dl className="flex flex-col divide-y divide-border">
+              {/* A Case can hold several Sources with the same relative
+                  file: the Source names which one. */}
+              {row.provenance.sourceId === undefined ? null : (
+                <ProvenanceLine
+                  label="Source"
+                  value={row.provenance.sourceId}
+                />
+              )}
               <ProvenanceLine
                 label="File"
                 value={row.provenance.manifestPath}

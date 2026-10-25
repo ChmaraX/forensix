@@ -14,20 +14,21 @@
  * exact username was saved on these sites", never a claim about a person).
  *
  * Saved logins and logins recovered from WAL / journal sidecars are separate
- * server reads (`useCommitStateLists`, every page followed so the figures
- * cover the whole set) and separate lists (the Saved / Recovered tabs). The
- * figures count saved logins only, in the profiles the Case-wide lens
- * picks. A site - read from the origin URL, else the sign-on realm - opens
- * Sites on it (in the table, when Sites lists it).
+ * server reads (`useCommitStateLists`, keyset-paged) and separate lists
+ * (the Saved / Recovered tabs). The figures, the tab counts and Reused
+ * usernames are the server's counts (`count-reads.ts`) over every saved
+ * login in the profiles the Case-wide lens picks - the lens is a server
+ * filter too - never a reading of the rows loaded so far. A site - read
+ * from the origin URL, else the sign-on realm - opens Sites on it (in the
+ * table, when Sites lists it).
  */
-import { Fragment, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { rowRefOf } from "../router.js";
 import { useRowSelection, useViewSearch, useViewTab } from "../view-state.js";
 
 import {
   Card,
-  CardDescription,
   CardFooter,
   CardGroup,
   CardHeader,
@@ -35,12 +36,17 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
 import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
-import { SizeProvider, typeClass } from "@/lib/size-context";
-import { cn } from "@/lib/utils";
+import { SizeProvider } from "@/lib/size-context";
 
 import type { QueryParameters } from "../api.js";
-import type { FieldState, Finding } from "../types.js";
+import type { CountResult, FieldState, Finding } from "../types.js";
 import { ARTIFACTS } from "../artifacts.js";
+import {
+  distinctValues,
+  formatTally,
+  useCommitStateTotals,
+  useCount,
+} from "../count-reads.js";
 import type { RowLookupSource } from "../row-lookup.js";
 import {
   commitStateStatus,
@@ -78,7 +84,7 @@ import {
 import { SiteHostLink } from "./host-link.js";
 import { useArtifactCoverage } from "../case-context.js";
 import { ListBlock } from "./list-states.js";
-import { MetricBand, MetricBandItem } from "./metric-band.js";
+import { figure, MetricBand, MetricBandItem } from "./metric-band.js";
 import {
   HiddenValue,
   RowSheet,
@@ -113,11 +119,8 @@ const CREDENTIAL_SORTS: readonly SortOption[] = [
   { label: "Username, A to Z", sort: "username", direction: "asc" },
 ];
 
-/** Upper bound on rows read per list. Saved-login sets are small (one row per
- *  stored credential), so the figures read every row rather than a first
- *  page: 6,000 credentials is well past any realistic Chrome profile, while
- *  still bounding the request count. */
-const CREDENTIAL_ROW_CAP = 6000;
+/** The Finding kind of a saved login (the `count` route's `kind`). */
+const CREDENTIAL_KIND = "login_credential";
 
 /* --------------------------- derived readings ----------------------------- */
 
@@ -130,76 +133,63 @@ function credentialHost(row: Finding): string | null {
   );
 }
 
-interface CredentialSummary {
-  readonly total: number;
-  readonly identities: number;
-  /** Usernames stored on more than one site, strongest linkage first. */
-  readonly reused: readonly {
+/** Usernames recorded on more than one saved login, most logins first. */
+interface ReusedUsernames {
+  readonly entries: readonly {
     readonly username: string;
-    readonly hosts: readonly string[];
+    readonly logins: number;
   }[];
+  /** The server listed only its largest buckets and the last of them
+   *  still repeats: more reused usernames may exist. */
+  readonly more: boolean;
 }
 
-/** Figures over the saved logins only. */
-function summarize(rows: readonly Finding[]): CredentialSummary {
-  const identities = new Set<string>();
-  const byUsername = new Map<string, Set<string>>();
-
-  for (const row of rows) {
-    const host = credentialHost(row);
-    const username = fieldText(row.fields.usernameValue);
-    if (username !== null) {
-      identities.add(username);
-      if (host !== null) {
-        const group = byUsername.get(username) ?? new Set<string>();
-        group.add(host);
-        byUsername.set(username, group);
-      }
-    }
-  }
-
-  const reused = [...byUsername.entries()]
-    .filter(([, group]) => group.size > 1)
-    .map(([username, group]) => ({
-      username,
-      hosts: [...group].sort(),
-    }))
-    .sort((left, right) => right.hosts.length - left.hosts.length);
-
-  return { total: rows.length, identities: identities.size, reused };
+/** The reused usernames in a `by=usernameValue` count of saved logins. */
+export function reusedUsernamesOf(result: CountResult): ReusedUsernames {
+  const entries = result.buckets
+    .filter(
+      (bucket) =>
+        bucket.state === "value" && bucket.key !== "" && bucket.count > 1,
+    )
+    .map((bucket) => ({ username: bucket.key, logins: bucket.count }));
+  const last = result.buckets.at(-1);
+  return {
+    entries,
+    more: result.otherCount > 0 && last !== undefined && last.count > 1,
+  };
 }
 
 /* -------------------------------- widgets --------------------------------- */
 
 /**
- * Reused usernames — the same stored username on more than one site, read
- * from the saved logins; the title's count is how many (the page's one
- * place for that fact, so the figure strip leaves it out). Each username
- * is an FF Card; picking one narrows both lists to it (a second pick
- * clears).
+ * Reused usernames — the same stored username on more than one saved
+ * login, counted by the server over every saved login in the lens; the
+ * title's count is how many (the page's one place for that fact, so the
+ * figure strip leaves it out). Each username is an FF Card; picking one
+ * narrows the loaded lists to it (a second pick clears).
  */
 function ReusedIdentities({
   reused,
   activeUsername,
   onPick,
 }: {
-  readonly reused: CredentialSummary["reused"];
+  readonly reused: ReusedUsernames;
   readonly activeUsername: string | null;
   readonly onPick: (username: string) => void;
 }) {
-  if (reused.length === 0) {
+  if (reused.entries.length === 0) {
     return null;
   }
   return (
     <SectionPanel
       id="credentials-reused"
       title="Reused usernames"
-      count={reused.length}
+      count={formatTally({ count: reused.entries.length, more: reused.more })}
     >
       <div className="p-1">
         <SizeProvider size="compact">
           <CardGroup orientation="inline">
-            {reused.map((entry) => (
+            {reused.entries.map((entry) => (
               <Card
                 key={entry.username}
                 label={`Narrow the lists to ${entry.username}`}
@@ -212,30 +202,11 @@ function ReusedIdentities({
                   <CardTitle className={CARD_TITLE_CLEAR}>
                     {entry.username}
                   </CardTitle>
-                  {/* Wraps rather than truncates: a truncating box would clip
-                      each link's focus ring. */}
-                  <CardDescription
-                    className={cn(typeClass("caption"), "break-words")}
-                  >
-                    {/* Each site is a pivot to its Sites dossier, above the
-                        card's own press target (z-20) and in the tab order
-                        after it. */}
-                    {entry.hosts.map((host, index) => (
-                      <Fragment key={host}>
-                        {index === 0 ? null : ", "}
-                        <SiteHostLink
-                          host={host}
-                          tabbable
-                          className="relative z-30"
-                        >
-                          {host}
-                        </SiteHostLink>
-                      </Fragment>
-                    ))}
-                  </CardDescription>
                 </CardHeader>
                 <CardFooter className="pointer-events-none">
-                  <Count>{plural(entry.hosts.length, "site", "sites")}</Count>
+                  <Count>
+                    {plural(entry.logins, "saved login", "saved logins")}
+                  </Count>
                 </CardFooter>
               </Card>
             ))}
@@ -414,6 +385,7 @@ function credentialLabel(row: Finding): string {
 function CredentialList({
   list,
   visible,
+  lensFiltered,
   noun,
   onSelect,
   onClearFilters,
@@ -421,6 +393,8 @@ function CredentialList({
 }: {
   readonly list: PaginatedList<Finding>;
   readonly visible: readonly Finding[];
+  /** The profile pick (a server filter) narrows the list. */
+  readonly lensFiltered: boolean;
   readonly noun: "saved" | "recovered";
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
@@ -431,6 +405,7 @@ function CredentialList({
       list={list}
       noun={{ one: `${noun} login`, many: `${noun} logins` }}
       shown={visible.length}
+      filtered={lensFiltered || visible.length !== list.rows.length}
       filteredMessage={filteredMessage}
       onClearFilters={onClearFilters}
       skeletonRows={3}
@@ -475,45 +450,40 @@ const ROW_LOOKUP: RowLookupSource = { route: config.route };
 
 export function CredentialsPage() {
   const [order, setOrder] = useState<SortOption>(NEWEST_USED);
+  // The profile pick is the Case-wide lens, applied by the server.
+  const lens = useProfileLens();
   const parameters = useMemo<QueryParameters>(
     () => [
       ["sort", order.sort],
       ["direction", order.direction],
       ["limit", "100"],
+      ...lens.parameters,
     ],
-    [order],
+    [order, lens.parameters],
   );
-  const lists = useCommitStateLists<Finding>(config.route, parameters, {
-    drain: CREDENTIAL_ROW_CAP,
+  const lists = useCommitStateLists<Finding>(config.route, parameters);
+  const totals = useCommitStateTotals(CREDENTIAL_KIND, lens.selected);
+  const usernames = useCount({
+    kind: CREDENTIAL_KIND,
+    by: "usernameValue",
+    commitState: "committed",
+    profiles: lens.selected,
   });
   // Saved / Recovered, the search (a picked username too) and the open row
-  // live in the URL: Back and a refresh keep them. The profile pick is the
-  // Case-wide lens.
+  // live in the URL: Back and a refresh keep them.
   const [view, setView] = useViewTab();
   const [search, setSearch] = useViewSearch();
   const coverage = useArtifactCoverage(config.completenessArtifact);
 
-  const allSaved = lists.saved.rows;
-  const allRecovered = lists.recovered.rows;
-  const loaded = useMemo(
-    () => [...allSaved, ...allRecovered],
-    [allSaved, allRecovered],
-  );
+  const saved = lists.saved.rows;
+  const recovered = lists.recovered.rows;
+  const loaded = useMemo(() => [...saved, ...recovered], [saved, recovered]);
   const sheet = useRowSelection(loaded, ROW_LOOKUP);
-  const lens = useProfileLens(
-    useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
+  const reused = useMemo(
+    () =>
+      usernames.state === "ready" ? reusedUsernamesOf(usernames.value) : null,
+    [usernames],
   );
-  // The profile lens narrows the figures and the reused usernames too; the
-  // search narrows only the lists.
-  const saved = useMemo(
-    () => allSaved.filter((row) => lens.applies(row.profile)),
-    [allSaved, lens],
-  );
-  const recovered = useMemo(
-    () => allRecovered.filter((row) => lens.applies(row.profile)),
-    [allRecovered, lens],
-  );
-  const summary = useMemo(() => summarize(saved), [saved]);
 
   const narrow = useCallback(
     (rows: readonly Finding[]) =>
@@ -540,10 +510,12 @@ export function CredentialsPage() {
     [search, setSearch],
   );
 
-  const status = commitStateStatus(lists, {
-    saved: saved.length,
-    recovered: recovered.length,
-  });
+  const status = commitStateStatus(
+    lists,
+    { saved: saved.length, recovered: recovered.length },
+    totals.state === "ready" ? totals.value : null,
+    { filtered: lens.selected.length > 0 },
+  );
   const filteredMessage = (noun: string) =>
     search.trim() === "" && lens.words !== null
       ? `No ${noun} logins in ${lens.words}.`
@@ -570,18 +542,24 @@ export function CredentialsPage() {
           <MetricBand className="grid-cols-2">
             <MetricBandItem
               label="Saved logins"
-              value={summary.total.toLocaleString("en-US")}
+              value={figure(totals, (value) =>
+                value.saved.toLocaleString("en-US"),
+              )}
             />
             <MetricBandItem
               label="Distinct usernames"
-              value={summary.identities.toLocaleString("en-US")}
+              value={figure(usernames, (value) =>
+                formatTally(distinctValues(value)),
+              )}
             />
           </MetricBand>
-          <ReusedIdentities
-            reused={summary.reused}
-            activeUsername={search === "" ? null : search}
-            onPick={pickUsername}
-          />
+          {reused === null ? null : (
+            <ReusedIdentities
+              reused={reused}
+              activeUsername={search === "" ? null : search}
+              onPick={pickUsername}
+            />
+          )}
         </div>
       }
       sheet={
@@ -637,6 +615,7 @@ export function CredentialsPage() {
             <CredentialList
               list={lists.saved}
               visible={savedVisible}
+              lensFiltered={lens.selected.length > 0}
               noun="saved"
               onSelect={sheet.select}
               onClearFilters={clearSearchAndProfiles}
@@ -647,6 +626,7 @@ export function CredentialsPage() {
             <CredentialList
               list={lists.recovered}
               visible={recoveredVisible}
+              lensFiltered={lens.selected.length > 0}
               noun="recovered"
               onSelect={sheet.select}
               onClearFilters={clearSearchAndProfiles}

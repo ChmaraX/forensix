@@ -20,6 +20,7 @@ import {
   ArrowUpRight,
   BookClosed,
   Bookmark,
+  Briefcase01,
   Browser,
   Calendar,
   ChevronDown,
@@ -46,6 +47,7 @@ import {
   Keyboard01,
   Key01,
   LayoutGrid01,
+  Lightbulb02,
   Lock01,
   Monitor01,
   Moon01,
@@ -75,6 +77,7 @@ export type AppIcon = IconComponent;
  */
 export const ARTIFACT_ICONS = {
   overview: LayoutGrid01,
+  candidates: Lightbulb02,
   timeline: Rows01,
   sites: Globe01,
   history: ClockRewind,
@@ -121,6 +124,7 @@ export const LockedIcon: AppIcon = Lock01;
 export const MissingImageIcon: AppIcon = ImageX;
 export const BrowserIcon: AppIcon = Browser;
 export const UserIcon: AppIcon = User01;
+export const CaseIcon: AppIcon = Briefcase01;
 export const FolderIcon: AppIcon = Folder;
 export const OpenFolderIcon: AppIcon = FolderCheck;
 export const LibraryIcon: AppIcon = BookClosed;

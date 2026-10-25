@@ -1,0 +1,21 @@
+{
+  "schema_version": "forensix/key-material-record/1",
+  "record_id": "linux-kwallet-unavailable",
+  "capture_state": "unavailable",
+  "key_kind": "oscrypt_row_key",
+  "usable_row_key": false,
+  "provider": {
+    "platform": "linux",
+    "name": "kwallet6",
+    "item": "Chrome Safe Storage",
+    "scope": "live_account_session"
+  },
+  "context": [],
+  "policy": {
+    "row_prefix": "v11",
+    "support": "unavailable",
+    "reason": "provider-store-locked"
+  },
+  "evidence": [],
+  "sealed_material": null
+}
