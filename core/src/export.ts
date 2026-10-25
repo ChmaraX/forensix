@@ -669,9 +669,9 @@ function csvBytes(rows: readonly ExtractRow[], commitState: boolean): Buffer {
 
 /**
  * The stores the Extract reads: every present store of a requested
- * collection, in `RECORD_STORES` order. A Commit State scope keeps only the
- * stores that record a Commit State, because a store without one cannot be
- * shown to match the scope.
+ * collection, in `RECORD_STORES` order. A Commit State scope applies only to
+ * Findings: it keeps only the Finding stores that record a Commit State. A
+ * Candidate has no Commit State, so the scope never removes a Candidate store.
  */
 function scopedStores(
   database: DatabaseSync,
@@ -683,7 +683,9 @@ function scopedStores(
       collections.includes(
         store.recordType === "finding" ? "findings" : "candidates",
       ) &&
-      (commitState === undefined || store.hasCommitState),
+      (commitState === undefined ||
+        store.recordType === "candidate" ||
+        store.hasCommitState),
   );
 }
 
@@ -712,7 +714,13 @@ function loadStoreRows(
     );
     parameters.push(...profiles);
   }
-  if (commitState !== undefined && store.hasCommitState) {
+  // Only a Finding has a Commit State. A Candidate table can hold a
+  // commit_state column, but a Candidate row is never filtered by it.
+  if (
+    commitState !== undefined &&
+    store.recordType === "finding" &&
+    store.hasCommitState
+  ) {
     conditions.push("f.commit_state = ?");
     parameters.push(commitState);
   }

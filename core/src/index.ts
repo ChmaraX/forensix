@@ -114,6 +114,7 @@ export {
   type FieldUnavailableReason,
   type Finding,
   type ForensicFields,
+  type ManifestEntryReference,
   type Provenance,
   type SourceRowProvenance,
   type UnavailableField,

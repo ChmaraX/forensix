@@ -832,6 +832,79 @@ describe("compiled analyzer CLI canonical Extract export", () => {
     ).toMatchObject({ state: "value", value: LOGIN_SECRET });
   });
 
+  it("applies a Commit State scope to Findings only, never to Candidates", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-export-scope-"));
+    temporaryRoots.push(root);
+    const { caseDirectory } = await buildMultiArtifactCase(root);
+    const exportTo = async (
+      name: string,
+      options: readonly string[],
+    ): Promise<{
+      readonly findings: readonly ExtractLine[];
+      readonly candidates: readonly ExtractLine[];
+      readonly candidateBytes: string;
+      readonly scope: {
+        readonly stores: readonly string[];
+        readonly commitState: string;
+      };
+    }> => {
+      const out = join(root, name);
+      const command = runCli([
+        "export",
+        "--case",
+        caseDirectory,
+        "--out",
+        out,
+        ...options,
+        "--json",
+      ]);
+      expect(command.status, command.stderr).toBe(0);
+      const files = await readOut(out);
+      const header = JSON.parse(String(files["export_header.json"])) as {
+        readonly scope: {
+          readonly stores: readonly string[];
+          readonly commitState: string;
+        };
+      };
+      return {
+        findings: readLines(files["findings.jsonl"]),
+        candidates: readLines(files["candidates.jsonl"]),
+        candidateBytes: String(files["candidates.jsonl"] ?? ""),
+        scope: header.scope,
+      };
+    };
+
+    const unscoped = await exportTo("unscoped", ["--collection", "candidates"]);
+    expect(
+      unscoped.candidates.some((row) => row.store === "identity-candidates"),
+    ).toBe(true);
+
+    // A Candidate has no Commit State: every requested Candidate store is
+    // read, with no Commit State filter.
+    const committed = await exportTo("committed", [
+      "--collection",
+      "candidates",
+      "--commit-state",
+      "committed",
+    ]);
+    expect(committed.scope.stores).toEqual(unscoped.scope.stores);
+    expect(committed.scope.stores).toContain("identity-candidates");
+    expect(committed.scope.commitState).toBe("committed");
+    expect(committed.candidateBytes).toBe(unscoped.candidateBytes);
+
+    // With both collections, the scope removes the committed Findings but no
+    // Candidate.
+    const walOnly = await exportTo("wal-only", [
+      "--commit-state",
+      "wal_resident",
+    ]);
+    expect(walOnly.findings).toEqual([]);
+    expect(walOnly.candidateBytes).toBe(unscoped.candidateBytes);
+    expect(walOnly.scope.stores).toEqual(
+      expect.arrayContaining(["history", "cookies", "identity-candidates"]),
+    );
+  });
+
   it("reports the active result its rows come from, not a later rerun that produced nothing", async () => {
     const root = await mkdtemp(join(tmpdir(), "forensix-export-rerun-"));
     temporaryRoots.push(root);

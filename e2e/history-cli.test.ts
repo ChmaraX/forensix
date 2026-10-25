@@ -38,6 +38,12 @@ interface HistoryFinding {
     readonly database: string;
     readonly table: string;
     readonly rowId: string;
+    readonly recoveredVia?: {
+      readonly manifestEntryId: string;
+      readonly sourceId: string;
+      readonly manifestEntryOrdinal: number;
+      readonly manifestPath: string;
+    };
   };
   readonly fields: {
     readonly visitId: FieldValue<string>;
@@ -1295,21 +1301,33 @@ describe("compiled analyzer CLI History Finding pipeline", () => {
     }
 
     // Only the uncommitted changes from the main file are journal_resident.
+    // Their row images are in the un-rolled-back main database, so they cite
+    // the main database entry. The hot journal is the recovery mechanism.
+    const mainEntryId = target.items[0]?.provenance.manifestEntryId;
+    expect(committed.items[0]?.provenance.recoveredVia).toBeUndefined();
     const recovered = page("journal_resident");
     expect(recovered.items).toHaveLength(summary.recoveredVisitCount);
     for (const item of recovered.items) {
       expect(item).toMatchObject({
         commitState: "journal_resident",
         provenance: {
-          manifestPath: "Default/History-journal",
+          manifestEntryId: mainEntryId,
+          manifestPath: "Default/History",
           database: "Default/History",
           table: "visits",
+          recoveredVia: { manifestPath: "Default/History-journal" },
         },
         fields: {
           appId: { state: "value", value: `changed-${"y".repeat(1000)}` },
         },
       });
       expect(item.provenance.rowId).not.toBe("1");
+      expect(item.provenance.recoveredVia?.manifestEntryId).toBe(
+        `${item.provenance.sourceId}:${String(item.provenance.recoveredVia?.manifestEntryOrdinal)}`,
+      );
+      expect(item.provenance.recoveredVia?.manifestEntryId).not.toBe(
+        mainEntryId,
+      );
     }
     // Finite (not disabled): the compiled CLI opens a freshly-copied working
     // snapshot that still carries a hot rollback journal while a live writer

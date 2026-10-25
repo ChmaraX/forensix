@@ -20,9 +20,11 @@ import {
   type CommitState,
   type FieldState,
   type Finding,
+  type ManifestEntryReference,
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
 export type { TopicCandidateSummary } from "./history-topic-classification.js";
 import {
   readHistoryPasses,
@@ -363,6 +365,7 @@ function buildVisits(options: {
   readonly profile: string;
   readonly manifest: ManifestIdentity;
   readonly committedManifest?: ManifestIdentity;
+  readonly recoveredVia?: ManifestEntryReference;
   readonly redirectRelationships: ReadonlyMap<string, RedirectRelationships>;
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
@@ -456,10 +459,15 @@ function buildVisits(options: {
         supportingRows.map((row) => [sourceRowKey(row), row]),
       ).values(),
     ];
-    const fullProvenance: Provenance =
-      uniqueSupportingRows.length === 0
-        ? provenance
-        : { ...provenance, supportingRows: uniqueSupportingRows };
+    const fullProvenance: Provenance = {
+      ...provenance,
+      ...(uniqueSupportingRows.length === 0
+        ? {}
+        : { supportingRows: uniqueSupportingRows }),
+      ...(options.recoveredVia === undefined
+        ? {}
+        : { recoveredVia: options.recoveredVia }),
+    };
     const url = preservedString(
       row.url,
       options.schema.urlColumns.has("url"),
@@ -951,7 +959,7 @@ export async function analyseProfile(options: {
       database: verifiedDatabase,
       sidecars,
     });
-    const recoveredManifest =
+    const sidecarManifest =
       passes.recovered === null
         ? null
         : manifestIdentity(
@@ -963,13 +971,22 @@ export async function analyseProfile(options: {
             }`,
             databasePath,
           );
-    if (passes.recovered !== null && recoveredManifest === null) {
+    if (passes.recovered !== null && sidecarManifest === null) {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Recovery content has no resolvable sidecar Manifest entry.",
         { databasePath: databasePath },
       );
     }
+    const recoveredCitation =
+      passes.recovered === null || sidecarManifest === null
+        ? null
+        : recoveredRowCitation(
+            passes.recovered.commitState,
+            manifest,
+            sidecarManifest,
+          );
+    const recoveredManifest = recoveredCitation?.manifest ?? null;
     const redirectRelationships = redirectRelationshipsForRows([
       { rows: passes.committed.rows, manifest },
       ...(passes.recovered === null
@@ -1001,6 +1018,7 @@ export async function analyseProfile(options: {
             profile: options.profile,
             manifest: recoveredManifest as ManifestIdentity,
             committedManifest: manifest,
+            recoveredVia: recoveredCitation?.recoveredVia,
             redirectRelationships,
             declaredTimezone: options.declaredTimezone,
             declaredOriginOs: options.declaredOriginOs,
@@ -1015,7 +1033,7 @@ export async function analyseProfile(options: {
       schemaVersion: passes.committed.schema.version,
       integrity: passes.committed.integrity,
       recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: passes.recoveryUnavailableReason,
+      reason: sqlitePassesReason(passes),
       findings: [
         ...allVisits.map((visit) => visit.persisted),
         ...buildSummaries(allVisits, options.declaredTimezone),

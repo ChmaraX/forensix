@@ -605,5 +605,69 @@ describe("compiled analyzer CLI with Collector-captured key material", () => {
         "records/linux-libsecret-v11-1.json does not match the key-material Manifest",
       ) as unknown,
     });
+
+    // An aggregate that lists one record id twice has the same record count
+    // as records/, but it never names records/linux-kwallet-unavailable.json.
+    // The key-material Manifest and its header are sealed again, so only the
+    // record-set check can refuse it.
+    const duplicated = join(root, "DUPLICATED", "udd-1");
+    await cp(subtree, duplicated, { recursive: true });
+    const aggregatePath = join(duplicated, "key_material_bundle.json");
+    const aggregate = JSON.parse(await readFile(aggregatePath, "utf8")) as {
+      readonly records: readonly { readonly record_id: string }[];
+    };
+    const libsecret = aggregate.records.find(
+      (record) => record.record_id === "linux-libsecret-v11-1",
+    );
+    expect(aggregate.records).toHaveLength(2);
+    const aggregateBytes = Buffer.from(
+      `${JSON.stringify({ ...aggregate, records: [libsecret, libsecret] }, null, 2)}\n`,
+    );
+    await writeFile(aggregatePath, aggregateBytes);
+    const manifestPath = join(duplicated, "key_material_manifest.jsonl");
+    const manifestText = (await readFile(manifestPath, "utf8"))
+      .trimEnd()
+      .split("\n")
+      .map((line) => {
+        const entry = JSON.parse(line) as Record<string, unknown>;
+        return JSON.stringify(
+          entry.path === "key_material_bundle.json"
+            ? {
+                ...entry,
+                size: aggregateBytes.length,
+                sha256: createHash("sha256")
+                  .update(aggregateBytes)
+                  .digest("hex"),
+              }
+            : entry,
+        );
+      })
+      .join("\n");
+    const manifestBytes = Buffer.from(`${manifestText}\n`);
+    await writeFile(manifestPath, manifestBytes);
+    const headerPath = join(duplicated, "key_material_manifest_header.json");
+    const header = JSON.parse(await readFile(headerPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    await writeFile(
+      headerPath,
+      JSON.stringify({
+        ...header,
+        manifest_digest: createHash("sha256")
+          .update(manifestBytes)
+          .digest("hex"),
+      }),
+    );
+    const refusedDuplicate = analyse(duplicated);
+    expect(refusedDuplicate.status, refusedDuplicate.stdout).toBe(1);
+    expect(
+      parseJson<Record<string, unknown>>(refusedDuplicate.stderr),
+    ).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      message: expect.stringContaining(
+        "key_material_bundle.json lists the record id linux-libsecret-v11-1 more than once",
+      ) as unknown,
+    });
   });
 });

@@ -27,8 +27,10 @@ import {
   type CommitState,
   type FieldState,
   type Finding,
+  type ManifestEntryReference,
   type Provenance,
 } from "./forensic-model.js";
+import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
 import type { ForensicTimestamp } from "./history.js";
 import { decryptSecretField, type PlaintextUnwrap } from "./decrypted-field.js";
 import { schemeOf, type DecryptionSettings } from "./oscrypt.js";
@@ -232,6 +234,7 @@ function buildCookies(options: {
   readonly commitState: CommitState;
   readonly profile: string;
   readonly manifest: ManifestIdentity;
+  readonly recoveredVia?: ManifestEntryReference;
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
   readonly decryption: DecryptionSettings;
@@ -254,6 +257,9 @@ function buildCookies(options: {
       database: options.manifest.databasePath,
       table: "cookies",
       rowId,
+      ...(options.recoveredVia === undefined
+        ? {}
+        : { recoveredVia: options.recoveredVia }),
     };
 
     const hostKey = preservedString(row.hostKey, columns.has("host_key"));
@@ -577,7 +583,7 @@ async function analyseProfile(options: {
       database: verifiedDatabase,
       sidecars,
     });
-    const recoveredManifest =
+    const sidecarManifest =
       passes.recovered === null
         ? null
         : manifestIdentity(
@@ -589,13 +595,21 @@ async function analyseProfile(options: {
             }`,
             databasePath,
           );
-    if (passes.recovered !== null && recoveredManifest === null) {
+    if (passes.recovered !== null && sidecarManifest === null) {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Cookie recovery content has no resolvable sidecar Manifest entry.",
         { databasePath: databasePath },
       );
     }
+    const recoveredCitation =
+      passes.recovered === null || sidecarManifest === null
+        ? null
+        : recoveredRowCitation(
+            passes.recovered.commitState,
+            manifest,
+            sidecarManifest,
+          );
     const committed = buildCookies({
       rows: passes.committed.rows,
       schema: passes.committed.schema,
@@ -614,7 +628,8 @@ async function analyseProfile(options: {
             schema: passes.recovered.schema,
             commitState: passes.recovered.commitState,
             profile: options.profile,
-            manifest: recoveredManifest as ManifestIdentity,
+            manifest: recoveredCitation?.manifest ?? manifest,
+            recoveredVia: recoveredCitation?.recoveredVia,
             declaredTimezone: options.declaredTimezone,
             declaredOriginOs: options.declaredOriginOs,
             decryption: options.decryption,
@@ -628,7 +643,7 @@ async function analyseProfile(options: {
       schemaVersion: passes.committed.schema.version,
       integrity: passes.committed.integrity,
       recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: passes.recoveryUnavailableReason,
+      reason: sqlitePassesReason(passes),
       findings: [...committed, ...recovered].map((cookie) => cookie.persisted),
       committedCookieCount: committed.length,
       recoveredCookieCount: recovered.length,

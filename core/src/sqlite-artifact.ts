@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
 
 import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
-import type { CommitState } from "./forensic-model.js";
+import type { CommitState, ManifestEntryReference } from "./forensic-model.js";
 import { openDatabaseSync } from "./sqlite-open.js";
 import { readStableRegularFile } from "./stable-file.js";
 
@@ -222,6 +222,66 @@ export interface SqlitePasses<Pass> {
     | (Pass & { readonly commitState: SidecarCommitState })
     | null;
   readonly recoveryUnavailableReason: string | null;
+  /**
+   * Null when the temporary snapshots were removed. Otherwise the reason why
+   * the removal failed after its retries. The read result stays valid: the
+   * snapshots are copies outside the Case and the Source.
+   */
+  readonly cleanupFailureReason: string | null;
+}
+
+/**
+ * The non-fatal reasons of a read, joined with `; `, or null when there are
+ * none. An artifact records this as its result reason.
+ */
+export function sqlitePassesReason(
+  passes: Pick<
+    SqlitePasses<unknown>,
+    "recoveryUnavailableReason" | "cleanupFailureReason"
+  >,
+): string | null {
+  const reasons = [
+    passes.recoveryUnavailableReason,
+    passes.cleanupFailureReason,
+  ].filter((reason): reason is string => reason !== null);
+  return reasons.length === 0 ? null : reasons.join("; ");
+}
+
+interface CitedManifestEntry {
+  readonly sourceId: string;
+  readonly ordinal: number;
+  readonly path: string;
+}
+
+/**
+ * The Manifest entry that a recovered row cites, and the recovery entry.
+ *
+ * - `wal_resident`: the WAL frames hold the row image, so the row cites the
+ *   `-wal` entry.
+ * - `journal_resident`: the row image is in the un-rolled-back main database,
+ *   so the row cites the main database entry. The `-journal` entry is kept as
+ *   `recoveredVia`, because the hot journal is why the row is not committed.
+ */
+export function recoveredRowCitation<Entry extends CitedManifestEntry>(
+  commitState: SidecarCommitState,
+  database: Entry,
+  sidecar: Entry,
+): {
+  readonly manifest: Entry;
+  readonly recoveredVia?: ManifestEntryReference;
+} {
+  if (commitState === "wal_resident") {
+    return { manifest: sidecar };
+  }
+  return {
+    manifest: database,
+    recoveredVia: {
+      manifestEntryId: `${sidecar.sourceId}:${sidecar.ordinal}`,
+      sourceId: sidecar.sourceId,
+      manifestEntryOrdinal: sidecar.ordinal,
+      manifestPath: sidecar.path,
+    },
+  };
 }
 
 export interface SqlitePassOptions<Pass> {
@@ -250,6 +310,31 @@ const READ_WRITE_OPEN_CONFIG = {
   maxTotalMs: 15_000,
   busyTimeoutMs: 10_000,
 } as const;
+
+/**
+ * On Windows a just-closed SQLite handle can hold a lock on a snapshot file
+ * for a short time, so the removal can fail with EBUSY or EPERM. `rm` retries
+ * these errors with a linear back-off (100 ms, 200 ms, ...), about 1.5 s in
+ * total.
+ */
+const SNAPSHOT_CLEANUP_CONFIG = { maxRetries: 5, retryDelay: 100 } as const;
+
+/**
+ * Remove the temporary snapshot directory. A failure never replaces the read
+ * result or the read error: it is returned as a reason.
+ */
+async function removeSnapshots(directory: string): Promise<string | null> {
+  try {
+    await rm(directory, {
+      force: true,
+      recursive: true,
+      ...SNAPSHOT_CLEANUP_CONFIG,
+    });
+    return null;
+  } catch (error) {
+    return `snapshot_cleanup_failed:${String(error)}`;
+  }
+}
 
 /**
  * Read a verified SQLite artifact as a committed pass and, when a sidecar is
@@ -285,6 +370,10 @@ const READ_WRITE_OPEN_CONFIG = {
  * A sidecar pass that cannot be read degrades to a committed-only result with
  * a reason. A hot rollback journal that cannot be rolled back stops the read,
  * because the main file alone is not a committed image.
+ *
+ * The temporary snapshots are removed with bounded retries. A removal that
+ * still fails does not fail the read and does not replace a read error: the
+ * result keeps it as `cleanupFailureReason`.
  */
 export async function readSqlitePasses<Pass>(
   options: SqlitePassOptions<Pass>,
@@ -295,6 +384,24 @@ export async function readSqlitePasses<Pass>(
       `forensix-${options.artifact.toLowerCase().replaceAll(" ", "-")}-snapshot-`,
     ),
   );
+  let passes: Omit<SqlitePasses<Pass>, "cleanupFailureReason">;
+  try {
+    passes = await readSnapshotPasses(options, temporaryDirectory);
+  } catch (error) {
+    // The read error is the result. A cleanup failure cannot replace it.
+    await removeSnapshots(temporaryDirectory);
+    throw error;
+  }
+  return {
+    ...passes,
+    cleanupFailureReason: await removeSnapshots(temporaryDirectory),
+  };
+}
+
+async function readSnapshotPasses<Pass>(
+  options: SqlitePassOptions<Pass>,
+  temporaryDirectory: string,
+): Promise<Omit<SqlitePasses<Pass>, "cleanupFailureReason">> {
   let snapshotCount = 0;
   // Copy the verified database (and the sidecars, when asked) into a new
   // directory. Basenames stay the same so a sidecar still sits next to its
@@ -353,83 +460,79 @@ export async function readSqlitePasses<Pass>(
   const hasSidecar = (suffix: string): boolean =>
     options.sidecars.some((sidecar) => sidecar.path.endsWith(suffix));
 
-  try {
-    if (!hasSidecar("-wal") && !hasSidecar("-journal")) {
-      return {
-        committed: await readImmutable(),
-        recovered: null,
-        recoveryUnavailableReason: "sidecar_not_supplied",
-      };
-    }
+  if (!hasSidecar("-wal") && !hasSidecar("-journal")) {
+    return {
+      committed: await readImmutable(),
+      recovered: null,
+      recoveryUnavailableReason: "sidecar_not_supplied",
+    };
+  }
 
-    if (hasSidecar("-wal")) {
-      const committed = await readImmutable();
-      const applied = await readReadWrite();
-      if (!("pass" in applied)) {
-        // A drifted working copy is never read, not even partly.
-        if (applied.error instanceof WorkingCopyIntegrityRefusal) {
-          throw applied.error;
-        }
-        return {
-          committed,
-          recovered: null,
-          recoveryUnavailableReason: `recovery_${applied.stage}_failed:${String(applied.error)}`,
-        };
-      }
-      return {
-        committed,
-        recovered: {
-          ...options.sidecarOnly(committed, applied.pass),
-          commitState: "wal_resident",
-        },
-        recoveryUnavailableReason: null,
-      };
-    }
-
-    const rolledBack = await readReadWrite();
-    if (!("pass" in rolledBack)) {
-      // Schema faults, typed reader outcomes and integrity refusals keep their
-      // own type. Only a SQLite or I/O failure means the rollback failed.
-      if (
-        rolledBack.error instanceof ForensixError ||
-        (rolledBack.stage === "read" &&
-          typeof (rolledBack.error as { errcode?: unknown } | null)?.errcode !==
-            "number")
-      ) {
-        throw rolledBack.error;
-      }
-      // The artifact layer records `code:message`, so the cause goes into the
-      // message.
-      const reason = `rollback_${rolledBack.stage}_failed:${String(rolledBack.error)}`;
-      throw new ForensixError(
-        "ANALYSIS_FAILED",
-        `${options.artifact} rollback journal could not be rolled back (${reason}).`,
-        { reason },
-      );
-    }
-    const committed = rolledBack.pass;
-    let unrolled: Pass;
-    try {
-      unrolled = await readImmutable();
-    } catch (error) {
-      if (error instanceof WorkingCopyIntegrityRefusal) {
-        throw error;
+  if (hasSidecar("-wal")) {
+    const committed = await readImmutable();
+    const applied = await readReadWrite();
+    if (!("pass" in applied)) {
+      // A drifted working copy is never read, not even partly.
+      if (applied.error instanceof WorkingCopyIntegrityRefusal) {
+        throw applied.error;
       }
       return {
         committed,
         recovered: null,
-        recoveryUnavailableReason: `recovery_read_failed:${String(error)}`,
+        recoveryUnavailableReason: `recovery_${applied.stage}_failed:${String(applied.error)}`,
       };
     }
     return {
       committed,
       recovered: {
-        ...options.sidecarOnly(committed, unrolled),
-        commitState: "journal_resident",
+        ...options.sidecarOnly(committed, applied.pass),
+        commitState: "wal_resident",
       },
       recoveryUnavailableReason: null,
     };
-  } finally {
-    await rm(temporaryDirectory, { force: true, recursive: true });
   }
+
+  const rolledBack = await readReadWrite();
+  if (!("pass" in rolledBack)) {
+    // Schema faults, typed reader outcomes and integrity refusals keep their
+    // own type. Only a SQLite or I/O failure means the rollback failed.
+    if (
+      rolledBack.error instanceof ForensixError ||
+      (rolledBack.stage === "read" &&
+        typeof (rolledBack.error as { errcode?: unknown } | null)?.errcode !==
+          "number")
+    ) {
+      throw rolledBack.error;
+    }
+    // The artifact layer records `code:message`, so the cause goes into the
+    // message.
+    const reason = `rollback_${rolledBack.stage}_failed:${String(rolledBack.error)}`;
+    throw new ForensixError(
+      "ANALYSIS_FAILED",
+      `${options.artifact} rollback journal could not be rolled back (${reason}).`,
+      { reason },
+    );
+  }
+  const committed = rolledBack.pass;
+  let unrolled: Pass;
+  try {
+    unrolled = await readImmutable();
+  } catch (error) {
+    if (error instanceof WorkingCopyIntegrityRefusal) {
+      throw error;
+    }
+    return {
+      committed,
+      recovered: null,
+      recoveryUnavailableReason: `recovery_read_failed:${String(error)}`,
+    };
+  }
+  return {
+    committed,
+    recovered: {
+      ...options.sidecarOnly(committed, unrolled),
+      commitState: "journal_resident",
+    },
+    recoveryUnavailableReason: null,
+  };
 }

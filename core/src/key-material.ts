@@ -201,6 +201,16 @@ function subtreeRegularFiles(root: string, relative = ""): string[] {
   return files;
 }
 
+/** The string `record_id` of an aggregate record, or "" when it has none. */
+function recordIdOf(record: unknown): string {
+  return record !== null &&
+    typeof record === "object" &&
+    "record_id" in record &&
+    typeof record.record_id === "string"
+    ? record.record_id
+    : "";
+}
+
 /**
  * Read a Collector key-material subtree. Each payload file must match the
  * subtree's key-material Manifest, and the Manifest must match the digest in
@@ -310,17 +320,33 @@ function readVerifiedKeyMaterialSubtree(root: string): unknown {
     KEY_MATERIAL_BUNDLE_FILE,
   ) as { readonly records?: unknown } | null;
   const records = Array.isArray(aggregate?.records) ? aggregate.records : null;
-  const recordFiles = [...verified.keys()].filter((path) =>
-    path.startsWith("records/"),
+  const recordFiles = new Set(
+    [...verified.keys()].filter((path) => path.startsWith("records/")),
   );
-  if (records === null || records.length !== recordFiles.length) {
+  if (records === null || records.length !== recordFiles.size) {
     throw fail(`${KEY_MATERIAL_BUNDLE_FILE} does not list every record`);
   }
+  // Each record id occurs one time, and the aggregate names exactly the
+  // manifested record files. A count match alone lets a duplicate id hide a
+  // manifested record that is never compared.
+  const listedFiles = new Set<string>();
   for (const record of records as readonly unknown[]) {
-    const recordId =
-      record !== null && typeof record === "object" && "record_id" in record
-        ? String(record.record_id)
-        : "";
+    const recordId = recordIdOf(record);
+    const path = `records/${recordId}.json`;
+    if (recordId !== "" && listedFiles.has(path)) {
+      throw fail(
+        `${KEY_MATERIAL_BUNDLE_FILE} lists the record id ${recordId} more than once`,
+      );
+    }
+    listedFiles.add(path);
+  }
+  for (const path of recordFiles) {
+    if (!listedFiles.has(path)) {
+      throw fail(`${KEY_MATERIAL_BUNDLE_FILE} does not list ${path}`);
+    }
+  }
+  for (const record of records as readonly unknown[]) {
+    const recordId = recordIdOf(record);
     const bytes = verified.get(`records/${recordId}.json`);
     if (
       recordId === "" ||

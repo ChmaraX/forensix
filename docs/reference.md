@@ -25,6 +25,9 @@ The compiled CLI checks every Working Copy before each analysis.
 It parses History and Login Data from all Profiles and Sources, then writes Findings to the Case.
 Committed and recovery content use separate passes.
 Recovered rows keep the `wal_resident` or `journal_resident` Commit State.
+A `wal_resident` row cites the `-wal` Manifest entry, because the WAL frames hold its row image.
+A `journal_resident` row cites the main database entry, because the main file that is not rolled back holds its row image.
+Its `provenance.recoveredVia` names the `-journal` Manifest entry that shows that the row is not committed.
 
 Login Data yields credential metadata: origin, username, timestamps, and the encrypted-secret wrapper.
 The metadata is available independently of secret decryption.
@@ -427,7 +430,8 @@ The Completeness Statement lists every artifact that the Analyzer attempts, per 
 For each artifact, the outcome is the active result when there is one, else the most recent attempt.
 Thus a later run that produced no result does not hide the active result that the rows come from.
 The header `scope.stores` lists the record stores that the Extract read.
-With `--commit-state`, the Extract reads only the stores that record a Commit State, so identity Candidates are not in scope.
+The `--commit-state` scope applies only to Findings.
+A Candidate has no Commit State, so the Extract reads every requested Candidate store and does not filter its rows by Commit State.
 
 Plaintext secrets are redacted by default. Each withheld value keeps a hash so it stays citable.
 Add `--include-secrets` to disclose them.

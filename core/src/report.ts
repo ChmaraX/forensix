@@ -205,6 +205,37 @@ function isSidecar(commitState: string | undefined): boolean {
 }
 
 /**
+ * Every Finding row must carry a known Commit State. A row with a missing,
+ * unknown, or malformed `commit_state` cannot be put in the committed or the
+ * sidecar group, so the Report refuses the Extract instead of a guess.
+ */
+function assertFindingCommitStates(rows: readonly ExtractRow[]): void {
+  rows.forEach((row, index) => {
+    const commitState: unknown = row.commit_state;
+    if (
+      typeof commitState === "string" &&
+      Object.hasOwn(COMMIT_STATE_LABELS, commitState)
+    ) {
+      return;
+    }
+    throw new ForensixError(
+      "EXTRACT_INVALID",
+      `The Extract file ${FINDINGS_JSONL} has a Finding row without a valid Commit State.`,
+      {
+        file: FINDINGS_JSONL,
+        line: index + 1,
+        reason:
+          commitState === undefined
+            ? "commit_state_absent"
+            : typeof commitState === "string"
+              ? "commit_state_unknown"
+              : "commit_state_malformed",
+      },
+    );
+  });
+}
+
+/**
  * Render a single Field State to HTML. Empty string, absent, and unavailable
  * must read differently without relying on color: each carries a distinct word
  * ("empty string", "absent", "unavailable — <reason>"), so a monochrome or
@@ -313,12 +344,25 @@ function renderProvenance(
   const supporting = Array.isArray(provenance.supportingRows)
     ? provenance.supportingRows.length
     : 0;
+  // A journal_resident row cites the main database and names the rollback
+  // journal that it was recovered through.
+  const recoveredVia =
+    provenance.recoveredVia !== null &&
+    typeof provenance.recoveredVia === "object" &&
+    !Array.isArray(provenance.recoveredVia) &&
+    typeof provenance.recoveredVia.manifestPath === "string"
+      ? provenance.recoveredVia.manifestPath
+      : "";
   const cite = `${manifestPath}${database.length > 0 ? `/${database}` : ""}#${table}:${rowId}`;
   return `<span class="fx-prov" title="${escapeHtml(cite)}">${escapeHtml(
     `${table}:${rowId}`,
   )}</span>${
     supporting > 0
       ? `<span class="fx-support">+${supporting} supporting</span>`
+      : ""
+  }${
+    recoveredVia.length > 0
+      ? `<span class="fx-support">recovered via ${escapeHtml(recoveredVia)}</span>`
       : ""
   }`;
 }
@@ -390,7 +434,7 @@ function renderFindingGroup(
 
 /** Findings, with committed and sidecar (recovered) rows in separate groups. */
 function renderFindings(rows: readonly ExtractRow[]): string {
-  const committed = rows.filter((row) => !isSidecar(row.commit_state));
+  const committed = rows.filter((row) => row.commit_state === "committed");
   const sidecar = rows.filter((row) => isSidecar(row.commit_state));
   return `<section class="fx-collection"><h3>Findings <span class="fx-count">${
     rows.length
@@ -877,6 +921,7 @@ export async function renderReport(
         FINDINGS_JSONL,
       )
     : [];
+  assertFindingCommitStates(findings);
   const candidates = collections.includes("candidates")
     ? parseJsonl(
         await readExtractFile(extractDirectory, CANDIDATES_JSONL),

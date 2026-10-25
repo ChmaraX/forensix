@@ -20,10 +20,15 @@ interface AutofillFinding {
   readonly commitState: "committed" | "wal_resident" | "journal_resident";
   readonly provenance: {
     readonly sourceId: string;
+    readonly manifestEntryId: string;
     readonly manifestPath: string;
     readonly database: string;
     readonly table: string;
     readonly rowId: string;
+    readonly recoveredVia?: {
+      readonly manifestEntryId: string;
+      readonly manifestPath: string;
+    };
   };
   readonly fields: {
     readonly autofillId: Field<string>;
@@ -597,16 +602,22 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
       });
     }
 
-    // Only uncommitted rows from the main file are journal_resident.
+    // Only uncommitted rows from the main file are journal_resident. They
+    // cite the main database entry that holds their row images, and keep the
+    // hot journal as the recovery mechanism.
+    const mainEntryId = committed[0]?.provenance.manifestEntryId;
+    expect(committed[0]?.provenance.recoveredVia).toBeUndefined();
     const recovered = allItems("journal_resident");
     expect(recovered).toHaveLength(summary.recoveredFieldCount);
     for (const item of recovered) {
       expect(item).toMatchObject({
         commitState: "journal_resident",
         provenance: {
-          manifestPath: "Default/Web Data-journal",
+          manifestEntryId: mainEntryId,
+          manifestPath: "Default/Web Data",
           database: "Default/Web Data",
           table: "autofill",
+          recoveredVia: { manifestPath: "Default/Web Data-journal" },
         },
       });
       expect(

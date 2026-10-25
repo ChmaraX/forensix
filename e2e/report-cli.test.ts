@@ -278,6 +278,82 @@ describe("compiled analyzer CLI HTML Report", () => {
     expect(afterCaseHtml).toContain("https://alpha.example/");
   });
 
+  it("refuses a Finding row whose Commit State is missing, unknown, or malformed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-report-commit-"));
+    temporaryRoots.push(root);
+    const caseDirectory = await ingestAndAnalyse(root);
+    const extract = join(root, "extract");
+    exportExtract(caseDirectory, extract);
+    const findingsPath = join(extract, "findings.jsonl");
+    const lines = (await readFile(findingsPath, "utf8")).trim().split("\n");
+    expect(lines.length).toBeGreaterThan(1);
+    const editLast = async (commitState: unknown): Promise<void> => {
+      const row = JSON.parse(lines.at(-1) as string) as Record<string, unknown>;
+      if (commitState === undefined) {
+        delete row.commit_state;
+      } else {
+        row.commit_state = commitState;
+      }
+      await writeFile(
+        findingsPath,
+        `${[...lines.slice(0, -1), JSON.stringify(row)].join("\n")}\n`,
+      );
+    };
+
+    // Control: an edited row with a known Commit State still renders. The
+    // edit only marks the integrity as altered, and the row goes to the
+    // sidecar group.
+    await editLast("wal_resident");
+    const controlPath = join(root, "control.html");
+    const control = runCli([
+      "report",
+      "--extract",
+      extract,
+      "--out",
+      controlPath,
+      "--json",
+    ]);
+    expect(control.status, control.stderr).toBe(0);
+    expect(parseJson<ReportSummary>(control.stdout).integrity).toBe("altered");
+    const controlHtml = await readFile(controlPath, "utf8");
+    expect(
+      controlHtml.slice(
+        controlHtml.indexOf("Sidecar (WAL / rollback-journal)"),
+        controlHtml.indexOf("<h2>Candidates</h2>"),
+      ),
+    ).toContain("sidecar — WAL");
+
+    // A Finding row that is not committed and not sidecar cannot be
+    // classified. The Report refuses it and writes no file.
+    for (const [commitState, reason] of [
+      [undefined, "commit_state_absent"],
+      ["uncommitted", "commit_state_unknown"],
+      ["", "commit_state_unknown"],
+      [1, "commit_state_malformed"],
+      [null, "commit_state_malformed"],
+    ] as const) {
+      await editLast(commitState);
+      const reportPath = join(root, `refused-${reason}.html`);
+      const command = runCli([
+        "report",
+        "--extract",
+        extract,
+        "--out",
+        reportPath,
+        "--json",
+      ]);
+      expect(command.status, String(commitState)).toBe(1);
+      expect(
+        parseJson<Record<string, unknown>>(command.stderr),
+        String(commitState),
+      ).toMatchObject({
+        code: "EXTRACT_INVALID",
+        details: { file: "findings.jsonl", line: lines.length, reason },
+      });
+      expect(existsSync(reportPath)).toBe(false);
+    }
+  });
+
   it("renders Candidates as one ranked table without a Commit State", async () => {
     const root = await mkdtemp(join(tmpdir(), "forensix-report-candidates-"));
     temporaryRoots.push(root);

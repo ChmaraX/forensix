@@ -14,9 +14,11 @@ import {
   type CommitState,
   type FieldState,
   type Finding,
+  type ManifestEntryReference,
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
 import {
   boundedSortInteger,
   utcFromUnixMicros,
@@ -274,6 +276,7 @@ function buildDownloads(options: {
   readonly commitState: CommitState;
   readonly profile: string;
   readonly manifest: ManifestIdentity;
+  readonly recoveredVia?: ManifestEntryReference;
   readonly declaredTimezone: string;
 }): PersistedDownloadFinding[] {
   return options.rows.map((row) => {
@@ -391,6 +394,9 @@ function buildDownloads(options: {
     const provenance: Provenance = {
       ...sourceRowProvenance(options.manifest, "downloads", rowId),
       ...(supportingRows.length === 0 ? {} : { supportingRows }),
+      ...(options.recoveredVia === undefined
+        ? {}
+        : { recoveredVia: options.recoveredVia }),
     };
     const finding: Finding = createFinding({
       findingKind: "download",
@@ -564,7 +570,7 @@ export async function analyseDownloadsProfile(options: {
       database: verifiedDatabase,
       sidecars,
     });
-    const recoveredManifest =
+    const sidecarManifest =
       passes.recovered === null
         ? null
         : manifestIdentity(
@@ -576,13 +582,21 @@ export async function analyseDownloadsProfile(options: {
             }`,
             databasePath,
           );
-    if (passes.recovered !== null && recoveredManifest === null) {
+    if (passes.recovered !== null && sidecarManifest === null) {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Downloads recovery content has no resolvable sidecar Manifest entry.",
         { databasePath: databasePath },
       );
     }
+    const recoveredCitation =
+      passes.recovered === null || sidecarManifest === null
+        ? null
+        : recoveredRowCitation(
+            passes.recovered.commitState,
+            manifest,
+            sidecarManifest,
+          );
     const committed = buildDownloads({
       rows: passes.committed.rows,
       schema: passes.committed.schema,
@@ -599,7 +613,8 @@ export async function analyseDownloadsProfile(options: {
             schema: passes.recovered.schema,
             commitState: passes.recovered.commitState,
             profile: options.profile,
-            manifest: recoveredManifest as ManifestIdentity,
+            manifest: recoveredCitation?.manifest ?? manifest,
+            recoveredVia: recoveredCitation?.recoveredVia,
             declaredTimezone: options.declaredTimezone,
           });
     return {
@@ -611,7 +626,7 @@ export async function analyseDownloadsProfile(options: {
       schemaVersion: passes.committed.schema.version,
       integrity: passes.committed.integrity,
       recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: passes.recoveryUnavailableReason,
+      reason: sqlitePassesReason(passes),
       findings: [...committed, ...recovered],
       committedDownloadCount: committed.length,
       recoveredDownloadCount: recovered.length,
