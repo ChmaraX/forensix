@@ -256,7 +256,169 @@ const DEFAULT_BOOKMARKS = {
   version: 1,
 };
 
-async function createSource(root: string): Promise<string> {
+/** A modern (version 24) Cookies database. */
+function createCookies(
+  path: string,
+  rows: readonly { readonly host: string; readonly name: string }[],
+): DatabaseSync {
+  const database = new DatabaseSync(path);
+  database.exec(`
+    CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);
+    INSERT INTO meta (key, value) VALUES ('version', '24'), ('last_compatible_version', '24');
+    CREATE TABLE cookies (
+      creation_utc INTEGER NOT NULL, host_key TEXT NOT NULL,
+      top_frame_site_key TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL,
+      encrypted_value BLOB NOT NULL, path TEXT NOT NULL,
+      expires_utc INTEGER NOT NULL, is_secure INTEGER NOT NULL,
+      is_httponly INTEGER NOT NULL, last_access_utc INTEGER NOT NULL,
+      has_expires INTEGER NOT NULL DEFAULT 1,
+      is_persistent INTEGER NOT NULL DEFAULT 1,
+      priority INTEGER NOT NULL DEFAULT 1,
+      samesite INTEGER NOT NULL DEFAULT -1,
+      source_scheme INTEGER NOT NULL DEFAULT 0,
+      source_port INTEGER NOT NULL DEFAULT -1,
+      last_update_utc INTEGER NOT NULL DEFAULT 0,
+      source_type INTEGER NOT NULL DEFAULT 0,
+      has_cross_site_ancestor INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+  for (const row of rows) insertCookie(database, row);
+  return database;
+}
+
+function insertCookie(
+  database: DatabaseSync,
+  row: { readonly host: string; readonly name: string },
+): void {
+  database
+    .prepare(
+      `INSERT INTO cookies
+         (creation_utc, host_key, top_frame_site_key, name, value,
+          encrypted_value, path, expires_utc, is_secure, is_httponly,
+          last_access_utc)
+       VALUES (13348638245123456, ?, '', ?, 'plain', x'', '/', 13400000000000000, 1, 0, 13348640000000000)`,
+    )
+    .run(row.host, row.name);
+}
+
+/** A version 8 Favicons database with one icon used by `pageUrls`. */
+function createFavicons(
+  path: string,
+  icon: {
+    readonly iconUrl: string;
+    readonly width: number;
+    readonly imageData: Uint8Array;
+    readonly pageUrls: readonly string[];
+  },
+): void {
+  const database = new DatabaseSync(path);
+  try {
+    database.exec(`
+      CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);
+      INSERT INTO meta (key, value) VALUES ('version', '8'), ('last_compatible_version', '1');
+      CREATE TABLE favicons (id INTEGER PRIMARY KEY, url LONGVARCHAR NOT NULL, icon_type INTEGER DEFAULT 0);
+      CREATE TABLE favicon_bitmaps (
+        id INTEGER PRIMARY KEY, icon_id INTEGER NOT NULL,
+        last_updated INTEGER DEFAULT 0, image_data BLOB,
+        width INTEGER DEFAULT 0, height INTEGER DEFAULT 0,
+        last_requested INTEGER DEFAULT 0
+      );
+      CREATE TABLE icon_mapping (id INTEGER PRIMARY KEY, page_url LONGVARCHAR NOT NULL, icon_id INTEGER NOT NULL);
+    `);
+    database
+      .prepare("INSERT INTO favicons (id, url, icon_type) VALUES (1, ?, 1)")
+      .run(icon.iconUrl);
+    database
+      .prepare(
+        "INSERT INTO favicon_bitmaps (icon_id, last_updated, image_data, width, height, last_requested) VALUES (1, 13348638245123456, ?, ?, ?, 13348638245123456)",
+      )
+      .run(icon.imageData, icon.width, icon.width);
+    for (const pageUrl of icon.pageUrls)
+      database
+        .prepare("INSERT INTO icon_mapping (page_url, icon_id) VALUES (?, 1)")
+        .run(pageUrl);
+  } finally {
+    database.close();
+  }
+}
+
+/** A Login Data database (version 43) holding one saved login. */
+function createLoginData(path: string, originUrl: string): void {
+  const database = new DatabaseSync(path);
+  try {
+    database.exec(`
+      CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);
+      INSERT INTO meta (key, value) VALUES ('version', '43'), ('last_compatible_version', '1');
+      CREATE TABLE logins (
+        origin_url VARCHAR NOT NULL, action_url VARCHAR,
+        username_element VARCHAR, username_value VARCHAR,
+        password_element VARCHAR, password_value BLOB,
+        signon_realm VARCHAR NOT NULL, date_created INTEGER NOT NULL,
+        blacklisted_by_user INTEGER NOT NULL, scheme INTEGER NOT NULL,
+        password_type INTEGER, times_used INTEGER, form_data BLOB,
+        display_name VARCHAR, icon_url VARCHAR, federation_url VARCHAR,
+        skip_zero_click INTEGER, generation_upload_status INTEGER,
+        possible_username_pairs BLOB,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date_last_used INTEGER NOT NULL DEFAULT 0,
+        moving_blocked_for BLOB,
+        date_password_modified INTEGER NOT NULL DEFAULT 0,
+        keychain_identifier BLOB
+      );
+    `);
+    database
+      .prepare(
+        `INSERT INTO logins
+           (origin_url, action_url, username_element, username_value,
+            password_element, password_value, signon_realm, date_created,
+            blacklisted_by_user, scheme, times_used, date_last_used)
+         VALUES (?, ?, 'username', 'ada', 'password', x'763130deadbeef', ?, 13348638245123456, 0, 0, 1, 13348638245123456)`,
+      )
+      .run(originUrl, `${originUrl}login`, originUrl);
+  } finally {
+    database.close();
+  }
+}
+
+/** A download whose every recorded URL is on `host` and nowhere else in
+ *  the fixture. */
+function addDownloadOnlyHost(historyPath: string, host: string): void {
+  const database = new DatabaseSync(historyPath);
+  try {
+    database.exec(`
+      INSERT INTO downloads
+        (id, guid, current_path, target_path, start_time, received_bytes,
+         total_bytes, state, danger_type, interrupt_reason, hash, end_time,
+         opened, last_access_time, transient, referrer, site_url, tab_url,
+         tab_referrer_url, http_method, by_ext_id, by_ext_name, by_web_app_id,
+         etag, last_modified, mime_type, original_mime_type)
+      VALUES (
+        2, 'guid-2', '/home/alice/Downloads/tool.zip',
+        '/home/alice/Downloads/tool.zip', 13361718600000000, 2048, 2048,
+        1, 0, 0, x'00', 13361718610000000, 0, 0, 0, '', '', '', '', 'GET',
+        '', '', '', '', '', 'application/zip', 'application/zip'
+      );
+      INSERT INTO downloads_url_chains (id, chain_index, url)
+      VALUES (2, 0, 'https://${host}/tool.zip');
+    `);
+  } finally {
+    database.close();
+  }
+}
+
+/** The 1x1 PNG the fixture's alpha.example favicon recovers. */
+const ALPHA_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+/** A host the fixture records in a download's URL chain only. */
+const DOWNLOAD_ONLY_HOST = "files-only.example";
+
+async function createSource(root: string): Promise<{
+  readonly source: string;
+  /** Holds the Cookies WAL open until ingest has copied it. */
+  readonly cookieWriter: DatabaseSync;
+}> {
   const source = join(root, "source");
   await mkdir(source, { recursive: true });
   await writeLocalState(source, JSON.stringify({ variations_country: "us" }));
@@ -300,7 +462,36 @@ async function createSource(root: string): Promise<string> {
       duration: 750_000n,
     },
   ]);
-  return source;
+  addDownloadOnlyHost(join(source, "Profile 1", "History"), DOWNLOAD_ONLY_HOST);
+  createLoginData(
+    join(source, "Default", "Login Data"),
+    "https://alpha.example/",
+  );
+  createFavicons(join(source, "Default", "Favicons"), {
+    iconUrl: "https://alpha.example/favicon.ico",
+    width: 32,
+    imageData: ALPHA_PNG,
+    pageUrls: ["https://alpha.example/start"],
+  });
+  // Cookie host keys: a domain cookie (".alpha.example") and a host-only
+  // cookie ("alpha.example") are one Sites host; a host-only cookie on
+  // www stays its own host. One more domain cookie lives only in the WAL.
+  await mkdir(join(source, "Default", "Network"), { recursive: true });
+  const cookieWriter = createCookies(
+    join(source, "Default", "Network", "Cookies"),
+    [
+      { host: ".alpha.example", name: "domain" },
+      { host: "alpha.example", name: "host-only" },
+      { host: "www.alpha.example", name: "www-only" },
+    ],
+  );
+  cookieWriter.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA wal_autocheckpoint = 0;
+    PRAGMA wal_checkpoint(TRUNCATE);
+  `);
+  insertCookie(cookieWriter, { host: ".alpha.example", name: "recovered" });
+  return { source, cookieWriter };
 }
 
 async function startServer(caseDirectory: string): Promise<Announcement> {
@@ -360,12 +551,16 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
   it("serves a loopback, token-gated, read-only surface over the analyzer core", async () => {
     const root = await mkdtemp(join(tmpdir(), "forensix-serve-e2e-"));
     temporaryRoots.push(root);
-    const source = await createSource(root);
+    const { source, cookieWriter } = await createSource(root);
     const caseDirectory = join(root, "CASE-SERVE");
 
-    expect(
-      runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
-    ).toBe(0);
+    try {
+      expect(
+        runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+      ).toBe(0);
+    } finally {
+      cookieWriter.close();
+    }
     expect(
       runCli([
         "analyse",
@@ -513,6 +708,202 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
       "alpha.example",
     );
 
+    // Sites: the host list and one host's rows, served like every list route.
+    const siteHosts = await fetch(`${base}/api/site-hosts?limit=100`, {
+      headers: auth,
+    });
+    expect(siteHosts.status).toBe(200);
+    const hostsPage = (await siteHosts.json()) as {
+      readonly command: string;
+      readonly items: readonly {
+        readonly host: string;
+        readonly counts: Readonly<Record<string, number>>;
+        readonly savedCounts: Readonly<Record<string, number>>;
+      }[];
+      readonly limit: number;
+    };
+    expect(hostsPage.command).toBe("site-hosts");
+    expect(hostsPage.limit).toBe(100);
+    const alpha = hostsPage.items.find((item) => item.host === "alpha.example");
+    expect(alpha?.counts.visits).toBeGreaterThan(0);
+    expect(alpha?.savedCounts.visits).toBeGreaterThan(0);
+    const siteFindings = await fetch(
+      `${base}/api/site-findings?host=alpha.example&limit=100`,
+      { headers: auth },
+    );
+    expect(siteFindings.status).toBe(200);
+    const findingsPage = (await siteFindings.json()) as {
+      readonly command: string;
+      readonly items: readonly { readonly artifactKind: string }[];
+    };
+    expect(findingsPage.command).toBe("site-findings");
+    expect(findingsPage.items.length).toBeGreaterThan(0);
+    expect(findingsPage.items.map((item) => item.artifactKind)).toContain(
+      "visits",
+    );
+    // The shared limit contract (1-100) holds on the Sites routes too.
+    for (const path of [
+      "site-hosts?limit=101",
+      "site-findings?host=alpha.example&limit=101",
+    ]) {
+      const response = await fetch(`${base}/api/${path}`, { headers: auth });
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { readonly code: string }).code).toBe(
+        "INVALID_ARGUMENT",
+      );
+    }
+
+    // Sites membership, counted and listed by core over the real Case.
+    const allHosts = new Map(hostsPage.items.map((item) => [item.host, item]));
+    // Host-only and domain cookie host keys are one host; www is its own.
+    // The WAL-resident cookie counts, but never as saved.
+    expect(alpha?.counts.cookies).toBe(3);
+    expect(alpha?.savedCounts.cookies).toBe(2);
+    expect(allHosts.get("www.alpha.example")?.counts.cookies).toBe(1);
+    expect(allHosts.get("www.alpha.example")?.counts.visits).toBe(0);
+    // Saved logins are on their origin's host.
+    expect(alpha?.counts.saved_logins).toBe(1);
+    expect(alpha?.savedCounts.saved_logins).toBe(1);
+    // Downloads and favicons are on their hosts too.
+    expect(alpha?.counts.downloads).toBe(2);
+    expect(alpha?.counts.favicons).toBe(1);
+    // A host recorded only in a download's URL chain is listed.
+    expect(allHosts.get(DOWNLOAD_ONLY_HOST)).toMatchObject({
+      counts: { downloads: 1, visits: 0, cookies: 0 },
+      savedCounts: { downloads: 1 },
+    });
+    expect(hostsPage.items.some((item) => "form_data" in item.counts)).toBe(
+      false,
+    );
+    const onlyDownload = (await (
+      await fetch(
+        `${base}/api/site-findings?host=${DOWNLOAD_ONLY_HOST}&limit=100`,
+        { headers: auth },
+      )
+    ).json()) as {
+      readonly items: readonly {
+        readonly artifactKind: string;
+        readonly hostFields: readonly string[];
+        readonly findingKind: string;
+      }[];
+    };
+    expect(onlyDownload.items).toEqual([
+      expect.objectContaining({
+        artifactKind: "downloads",
+        findingKind: "download",
+        hostFields: ["urlChain"],
+      }),
+    ]);
+
+    // A host's rows page by cursor to the end, each row exactly once, in
+    // the same order as one full page.
+    type SitePage = {
+      readonly items: readonly {
+        readonly artifactKind: string;
+        readonly commitState: string;
+        readonly provenance: {
+          readonly manifestPath: string;
+          readonly rowId?: string;
+        };
+      }[];
+      readonly nextCursor: string | null;
+    };
+    const rowKey = (item: SitePage["items"][number]) =>
+      `${item.artifactKind}:${item.provenance.manifestPath}:${item.provenance.rowId ?? ""}:${item.commitState}`;
+    const fullAlpha = (await (
+      await fetch(`${base}/api/site-findings?host=alpha.example&limit=100`, {
+        headers: auth,
+      })
+    ).json()) as SitePage;
+    expect(fullAlpha.nextCursor).toBeNull();
+    const paged: string[] = [];
+    let after: string | null = null;
+    let firstCursor: string | null = null;
+    for (let page = 0; page < 50; page += 1) {
+      const query: string =
+        after === null ? "" : `&after=${encodeURIComponent(after)}`;
+      const response: Response = await fetch(
+        `${base}/api/site-findings?host=alpha.example&limit=2${query}`,
+        { headers: auth },
+      );
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as SitePage;
+      paged.push(...body.items.map(rowKey));
+      firstCursor ??= body.nextCursor;
+      after = body.nextCursor;
+      if (after === null) break;
+    }
+    expect(after).toBeNull();
+    expect(paged).toEqual(fullAlpha.items.map(rowKey));
+    expect(new Set(paged).size).toBe(paged.length);
+    expect(paged.length).toBeGreaterThan(4);
+
+    // A missing host and a forged cursor are client errors, never a 500.
+    const noHost = await fetch(`${base}/api/site-findings?limit=10`, {
+      headers: auth,
+    });
+    expect(noHost.status).toBe(400);
+    expect(((await noHost.json()) as { readonly code: string }).code).toBe(
+      "INVALID_ARGUMENT",
+    );
+    const cursorPayload = JSON.parse(
+      Buffer.from(firstCursor ?? "", "base64url").toString("utf8"),
+    ) as Record<string, unknown>;
+    for (const forged of [
+      Buffer.from(
+        JSON.stringify({ ...cursorPayload, key: "visits:not-a-number" }),
+      ).toString("base64url"),
+      Buffer.from(
+        JSON.stringify({ ...cursorPayload, fingerprint: "0".repeat(64) }),
+      ).toString("base64url"),
+      "not-a-cursor",
+    ]) {
+      const response = await fetch(
+        `${base}/api/site-findings?host=alpha.example&limit=2&after=${encodeURIComponent(forged)}`,
+        { headers: auth },
+      );
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { readonly code: string }).code).toBe(
+        "INVALID_CURSOR",
+      );
+    }
+
+    // A known host's recovered favicon comes back inline; a host without
+    // one is an explicit null.
+    const favicons = await fetch(
+      `${base}/api/site-favicons?host=alpha.example&host=${DOWNLOAD_ONLY_HOST}`,
+      { headers: auth },
+    );
+    expect(favicons.status).toBe(200);
+    expect(await favicons.json()).toEqual({
+      status: "ok",
+      command: "site-favicons",
+      icons: {
+        "alpha.example": `data:image/png;base64,${ALPHA_PNG.toString("base64")}`,
+        [DOWNLOAD_ONLY_HOST]: null,
+      },
+    });
+
+    // Activity rows carry the declared timezone their days were bucketed in;
+    // the dashboard turns a clicked day into that zone's day bounds.
+    const activity = (await (
+      await fetch(`${base}/api/history?view=activity&limit=100`, {
+        headers: auth,
+      })
+    ).json()) as {
+      readonly items: readonly {
+        readonly fields: {
+          readonly declaredTimezone?: { readonly value?: unknown };
+        };
+      }[];
+    };
+    expect(activity.items.length).toBeGreaterThan(0);
+    expect(
+      new Set(
+        activity.items.map((item) => item.fields.declaredTimezone?.value),
+      ),
+    ).toEqual(new Set(["America/New_York"]));
+
     // Keyset pagination returns bounded pages with a cursor.
     const firstPage = (await (
       await fetch(`${base}/api/history?sort=visit-time&direction=asc&limit=1`, {
@@ -582,8 +973,8 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     expect(downloads.command).toBe("downloads");
     // Both fixture History databases carry the same `downloads` schema (the
     // real `downloads` table always shares Chrome's History database), so one
-    // download row exists per Profile.
-    expect(downloads.items).toHaveLength(2);
+    // download row exists per Profile, plus Profile 1's download-only host.
+    expect(downloads.items).toHaveLength(3);
     expect(downloads.items.every((row) => row.findingKind === "download")).toBe(
       true,
     );
@@ -612,7 +1003,13 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
       expect(unauthorized.status).toBe(401);
     }
 
-    const shell = await (await fetch(`${base}/`, { headers: auth })).text();
+    const shellResponse = await fetch(`${base}/`, { headers: auth });
+    // The typeface ships inside the bundle as a data: URI; the policy admits
+    // exactly that and no font origin.
+    expect(shellResponse.headers.get("content-security-policy")).toBe(
+      "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'self'",
+    );
+    const shell = await shellResponse.text();
     expect(shell).toContain("__FORENSIX_TOKEN__");
     expect(shell).toContain('src="/index.js"');
     const bundle = await (

@@ -12,20 +12,31 @@ import {
   ForensixError,
   queryAutofill,
   queryBookmarks,
+  queryCache,
   queryCandidates,
   queryCompleteness,
   queryCookies,
   queryCredentials,
   queryDownloads,
+  queryFaviconBitmaps,
+  queryFavicons,
   queryHistory,
   queryMetadata,
   queryProfiles,
+  querySiteFavicons,
+  querySiteFindings,
+  querySiteHosts,
+  queryTimeline,
   queryTopSites,
+  queryTopicCandidates,
   type AutofillDirection,
   type AutofillSort,
   type BookmarkDirection,
   type BookmarkSort,
   type BookmarkSource,
+  type CacheDirection,
+  type CacheRecordType,
+  type CacheSort,
   type CandidateDirection,
   type CandidateSort,
   type CommitState,
@@ -35,14 +46,19 @@ import {
   type CredentialSort,
   type DownloadDirection,
   type DownloadSort,
+  type FaviconDirection,
+  type FaviconSort,
   type HistoryDirection,
   type HistorySort,
   type HistoryView,
   type MetadataDirection,
   type MetadataSort,
   type MetadataType,
+  type TimelineDirection,
   type TopSiteDirection,
   type TopSiteSort,
+  type TopicCandidateDirection,
+  type TopicCandidateSort,
 } from "@forensix/core";
 
 /**
@@ -101,6 +117,13 @@ function htmlShell(token: string): string {
     <script type="module" src="/index.js"></script>
   </head>
   <body>
+    <!--
+      Design: Fluid Functionalism (fluidfunctionalism.com) - neutral surface
+      ladder, Inter (bundled), six type roles, spring motion. Hues mean
+      evidence state only (produced, unavailable, WAL, journal) and always
+      sit beside their word; saved and recovered rows are separate lists.
+      Read-only. Guide: client/FLUID.md.
+    -->
     <noscript>This read-only dashboard needs JavaScript to render Case lists.</noscript>
     <div id="app">Loading read-only Case dashboard…</div>
   </body>
@@ -268,7 +291,7 @@ function listParameters<Sort extends string, Direction extends string>(
  * single read-only core query; {@link handleApi} owns the dispatch and the
  * unknown-route error so the routes cannot drift in shape.
  */
-const API_ROUTES = new Map<
+export const API_ROUTES = new Map<
   string,
   (parameters: URLSearchParams, caseDirectory: string) => unknown
 >([
@@ -293,6 +316,55 @@ const API_ROUTES = new Map<
         transition: firstString(parameters.get("transition")),
         from: firstString(parameters.get("from")),
         to: firstString(parameters.get("to")),
+      }),
+  ],
+  [
+    "timeline",
+    (parameters, caseDirectory) =>
+      queryTimeline({
+        caseDirectory,
+        limit: integerParameter(parameters, "limit"),
+        after: firstString(parameters.get("after")),
+        from: firstString(parameters.get("from")),
+        to: firstString(parameters.get("to")),
+        direction: firstString(parameters.get("direction")) as
+          | TimelineDirection
+          | undefined,
+      }),
+  ],
+  [
+    "site-hosts",
+    (parameters, caseDirectory) =>
+      querySiteHosts({
+        caseDirectory,
+        search: firstString(parameters.get("search")),
+        limit: integerParameter(parameters, "limit"),
+        after: firstString(parameters.get("after")),
+      }),
+  ],
+  [
+    "site-findings",
+    (parameters, caseDirectory) =>
+      querySiteFindings({
+        caseDirectory,
+        // A missing host reaches core as "" so it raises core's own
+        // INVALID_ARGUMENT, the same wording the CLI uses.
+        host: parameters.get("host") ?? "",
+        limit: integerParameter(parameters, "limit"),
+        after: firstString(parameters.get("after")),
+      }),
+  ],
+  [
+    "site-favicons",
+    (parameters, caseDirectory) =>
+      querySiteFavicons({ caseDirectory, hosts: parameters.getAll("host") }),
+  ],
+  [
+    "favicon-bitmaps",
+    (parameters, caseDirectory) =>
+      queryFaviconBitmaps({
+        caseDirectory,
+        sha256s: parameters.getAll("sha256"),
       }),
   ],
   [
@@ -331,6 +403,29 @@ const API_ROUTES = new Map<
       }),
   ],
   [
+    "cache",
+    (parameters, caseDirectory) =>
+      queryCache({
+        caseDirectory,
+        ...listParameters<CacheSort, CacheDirection>(parameters),
+        recordType: firstString(parameters.get("record-type")) as
+          | CacheRecordType
+          | undefined,
+        backend: firstString(parameters.get("backend")),
+      }),
+  ],
+  [
+    "favicons",
+    (parameters, caseDirectory) =>
+      queryFavicons({
+        caseDirectory,
+        ...listParameters<FaviconSort, FaviconDirection>(parameters),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+      }),
+  ],
+  [
     "candidates",
     (parameters, caseDirectory) =>
       queryCandidates({
@@ -338,6 +433,20 @@ const API_ROUTES = new Map<
         ...listParameters<CandidateSort, CandidateDirection>(parameters),
         category: firstString(parameters.get("category")),
         kind: firstString(parameters.get("kind")),
+      }),
+  ],
+  [
+    "topic-candidates",
+    (parameters, caseDirectory) =>
+      queryTopicCandidates({
+        caseDirectory,
+        ...listParameters<TopicCandidateSort, TopicCandidateDirection>(
+          parameters,
+        ),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        label: firstString(parameters.get("label")),
       }),
   ],
   [
@@ -439,8 +548,13 @@ function handleRequest(
       "cache-control": "no-store",
       "x-content-type-options": "nosniff",
       "x-frame-options": "DENY",
+      // `img-src data:` admits only bytes already inlined in the bundle, which
+      // is how the brand mark ships. It grants no origin, so the surface still
+      // cannot fetch an image — or anything else — off this machine.
+      // `font-src data:` is the same rule for the one typeface: Inter is
+      // embedded in the bundle's stylesheet as a data: URI, never fetched.
       "content-security-policy":
-        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'",
+        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'self'",
     });
     response.end(htmlShell(token));
     return;

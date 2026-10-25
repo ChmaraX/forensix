@@ -28,6 +28,7 @@
     "dependency-cruiser": "17.3.8",
     "eslint": "9.39.2",
     "husky": "^9.1.7",
+    "playwright": "1.64.1",
     "prettier": "3.8.2",
     "typescript": "5.9.3",
     "typescript-eslint": "8.54.0",

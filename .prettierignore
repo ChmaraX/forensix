@@ -1,3 +1,38 @@
 **/dist/
 **/node_modules/
 pnpm-lock.yaml
+
+# Fluid Functionalism registry code, installed by the shadcn CLI
+# (client/components.json) and kept byte-faithful to the registry.
+client/src/components/ui/accordion.tsx
+client/src/components/ui/badge.tsx
+client/src/components/ui/banner.tsx
+client/src/components/ui/button.tsx
+client/src/components/ui/card.tsx
+client/src/components/ui/checkbox-group.tsx
+client/src/components/ui/combobox.tsx
+client/src/components/ui/command-menu.tsx
+client/src/components/ui/dialog.tsx
+client/src/components/ui/dropdown*.tsx
+client/src/components/ui/input-copy.tsx
+client/src/components/ui/input-group.tsx
+client/src/components/ui/menu-item.tsx
+client/src/components/ui/mobile-drawer.tsx
+client/src/components/ui/radio-group.tsx
+client/src/components/ui/scroll-area.tsx
+client/src/components/ui/select.tsx
+client/src/components/ui/sidebar*.tsx
+client/src/components/ui/skeleton.tsx
+client/src/components/ui/slider.tsx
+client/src/components/ui/switch.tsx
+client/src/components/ui/table.tsx
+client/src/components/ui/tabs*.tsx
+client/src/components/ui/tooltip.tsx
+client/src/components/sidebar-app/
+client/src/components/fluid-hover-highlight.tsx
+client/src/hooks/
+client/src/lib/*.ts
+client/src/lib/*.tsx
+!client/src/lib/shims/
+# App code that lives beside the registry libs.
+!client/src/lib/app-icons.ts

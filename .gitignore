@@ -8,3 +8,14 @@ node_modules/
 # Local research/bench scaffolding (never on v2)
 research/
 tools/
+
+# Impeccable design scaffolding (local only, never on v2)
+PRODUCT.md
+DESIGN.md
+.impeccable/
+
+# PR Lens writes its previews here. They are rebuilt on demand.
+.pr-lens/
+
+# Browser E2E traces, screenshots and fixture Case (rebuilt every run).
+e2e/.artifacts/

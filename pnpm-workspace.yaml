@@ -5,3 +5,4 @@ packages:
   - client
 allowBuilds:
   esbuild: true
+  "@parcel/watcher": false

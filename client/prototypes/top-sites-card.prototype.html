@@ -1,0 +1,670 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway, not shipped code.
+
+  Question: what should the Overview page's "Top sites" card look like?
+  Three structurally different variants, switchable with the bottom bar or
+  the ← / → keys, or a `?variant=A|B|C` query param.
+
+  Real evidence: the six sites and their favicons are pulled from an actual
+  ingested Case (CASE-001) via `core`'s queryTopSites` / `queryFavicons`, so
+  this is not placeholder art — it is what recovered favicon_bitmaps rows
+  actually decode to. `chrome.google.com` has no recovered favicon on purpose
+  (the fallback tile is real too, not decoration).
+
+  Run: open this file directly in a browser. No build step, no server.
+
+  DECIDED: variant C (horizontal bar chart) won. Folded into the real card
+  in client/src/overview.tsx ("Top sites" Card) and the matching
+  `site-favicons` route in server/src/index.ts. This file is kept only as
+  the paper trail for the decision, not live code.
+-->
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype — Top sites card</title>
+    <style>
+      /* Tokens copied verbatim from client/src/app.css (light mode only —
+         this prototype does not need to answer the dark-mode question). */
+      :root {
+        --background: #f4f4f5;
+        --foreground: #18181b;
+        --card: #ffffff;
+        --card-foreground: #18181b;
+        --muted: #e9e9ec;
+        --muted-foreground: #71717a;
+        --primary: #2563eb;
+        --primary-foreground: #ffffff;
+        --accent: #eff6ff;
+        --accent-foreground: #1d4ed8;
+        --accent-border: #bfdbfe;
+        --border: #e4e4e7;
+        --ring: #2563eb;
+        --edge-shadow: rgb(24 24 27 / 0.16);
+        --radius: 1rem;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+        font-size: 14px;
+      }
+      .shell {
+        max-width: 1024px;
+        margin: 0 auto;
+        padding: 40px 24px 120px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .harness-note {
+        font-size: 12.5px;
+        color: var(--muted-foreground);
+        max-width: 68ch;
+      }
+      .harness-note code {
+        background: var(--muted);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 11.5px;
+      }
+      /* A stand-in for the two cards that sit either side of "Top sites" on
+         the real Overview grid (Time of day, Recent downloads) — just enough
+         so the variant isn't judged floating in a vacuum. Not a real chart. */
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+      @media (max-width: 900px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+      .ghost-card {
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--card);
+        min-height: 300px;
+        opacity: 0.55;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted-foreground);
+        font-size: 12.5px;
+      }
+
+      /* ---- shared "Card" primitives, matching client/src/components/ui/card.tsx ---- */
+      .card {
+        display: flex;
+        flex-direction: column;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--card-foreground);
+      }
+      .card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px 8px;
+      }
+      .card-title {
+        font-size: 15px;
+        line-height: 1.15;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        margin: 0;
+      }
+      .card-description {
+        font-size: 12.5px;
+        line-height: 1.35;
+        color: var(--muted-foreground);
+        margin: 2px 0 0;
+      }
+      .card-link {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 2px;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--primary);
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+      }
+      .card-link:hover {
+        text-decoration: underline;
+      }
+      .card-content {
+        padding: 12px 20px 16px;
+      }
+
+      /* ---- favicon / fallback tile, shared across variants ---- */
+      .fav {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: var(--muted);
+        overflow: hidden;
+      }
+      .fav img {
+        width: 60%;
+        height: 60%;
+        object-fit: contain;
+        image-rendering: -webkit-optimize-contrast;
+      }
+      .fav.fallback {
+        color: var(--muted-foreground);
+        font-weight: 600;
+      }
+
+      .mono {
+        font-variant-numeric: tabular-nums;
+        font-family:
+          ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .truncate {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ---- Variant A: ranked leaderboard, no bars ---- */
+      .variant-a-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 7px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        background: none;
+        border: none;
+        width: 100%;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+      }
+      .variant-a-row:hover {
+        background: var(--muted);
+      }
+      .variant-a-rank {
+        width: 16px;
+        flex-shrink: 0;
+        text-align: right;
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+      .variant-a-row .fav {
+        width: 28px;
+        height: 28px;
+      }
+      .variant-a-domain {
+        flex: 1;
+        min-width: 0;
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .variant-a-count {
+        flex-shrink: 0;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--muted);
+        color: var(--foreground);
+      }
+      .variant-a-chev {
+        flex-shrink: 0;
+        width: 14px;
+        height: 14px;
+        opacity: 0;
+        color: var(--muted-foreground);
+        transition: opacity 120ms;
+      }
+      .variant-a-row:hover .variant-a-chev {
+        opacity: 1;
+      }
+
+      /* ---- Variant B: favicon tile grid ---- */
+      .variant-b-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .variant-b-tile {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        cursor: pointer;
+        background: none;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        position: relative;
+        transition:
+          border-color 120ms,
+          background 120ms;
+      }
+      .variant-b-tile:hover {
+        border-color: var(--accent-border);
+        background: var(--accent);
+      }
+      .variant-b-tile .fav {
+        width: 32px;
+        height: 32px;
+      }
+      .variant-b-domain {
+        font-size: 12.5px;
+        font-weight: 500;
+      }
+      .variant-b-count {
+        font-size: 11.5px;
+        color: var(--muted-foreground);
+      }
+      .variant-b-rank {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        font-size: 11px;
+        color: var(--muted-foreground);
+      }
+
+      /* ---- Variant C: horizontal bar chart with favicon label ---- */
+      .variant-c-row {
+        display: grid;
+        grid-template-columns: 148px 1fr 30px;
+        align-items: center;
+        gap: 12px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        cursor: pointer;
+        background: none;
+        border: none;
+        width: 100%;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+      }
+      .variant-c-row:hover {
+        background: var(--muted);
+      }
+      .variant-c-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .variant-c-label .fav {
+        width: 20px;
+        height: 20px;
+        border-radius: 5px;
+      }
+      .variant-c-domain {
+        font-size: 12.5px;
+        min-width: 0;
+      }
+      .variant-c-track {
+        height: 8px;
+        border-radius: 999px;
+        background: var(--muted);
+        overflow: hidden;
+      }
+      .variant-c-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: var(--primary);
+        transition: width 400ms;
+      }
+      .variant-c-fill.dim {
+        background: color-mix(in srgb, var(--primary) 45%, transparent);
+      }
+      .variant-c-count {
+        font-size: 12px;
+        text-align: right;
+      }
+
+      /* ---- switcher ---- */
+      .switcher {
+        position: fixed;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: #18181b;
+        color: #fafafa;
+        border-radius: 999px;
+        padding: 6px;
+        box-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.45);
+        z-index: 50;
+        font-size: 13px;
+      }
+      .switcher button {
+        appearance: none;
+        border: none;
+        background: rgba(255, 255, 255, 0.08);
+        color: inherit;
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+      }
+      .switcher button:hover {
+        background: rgba(255, 255, 255, 0.18);
+      }
+      .switcher .label {
+        padding: 0 10px;
+        min-width: 200px;
+        text-align: center;
+        font-weight: 500;
+      }
+      .switcher .tag {
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.5);
+        border-radius: 999px;
+        padding: 2px 7px;
+        margin-right: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <p class="harness-note">
+        Prototype harness — not a real page. Ghost cards stand in for
+        <em>Time of day</em> and <em>Recent downloads</em>, the card's real
+        neighbors on Overview, so the variant isn't judged in a vacuum. Data
+        and favicons are read from a real ingested Case
+        (<code>CASE-001</code>); <code>chrome.google.com</code> has no
+        recovered favicon on purpose. Rows are clickable — the real card will
+        route a click to the Sites tab with that host preselected.
+      </p>
+      <div class="row">
+        <div class="ghost-card">Time of day (real card)</div>
+        <div id="card-mount"></div>
+        <div class="ghost-card">Recent downloads (real card)</div>
+      </div>
+    </div>
+
+    <div class="switcher">
+      <button id="prev" aria-label="Previous variant">&larr;</button>
+      <span class="label"><span class="tag">Prototype</span><span id="label-text"></span></span>
+      <button id="next" aria-label="Next variant">&rarr;</button>
+    </div>
+
+    <script>
+      const SITES = [
+        {
+          domain: "insights.quivereg.com",
+          count: 7,
+          favicon:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABBklEQVR4nOyUvWoCQRSFz72rRf6KpNwmZZqQKlW6NHmGVHmDNClDHiBtyuQBQh4hbUhjIdgoFjYKaiWIf6zgz3EEEVzGYsFlFe4ZmB/uYeYrzlxFxlJkLAMwgBxS0GeRx9Fg9My5HMVrVBZe7k9/UwWIeuNbirxDPEVK0c1rAMuAARzeNzwLb67yike3jWecU0y++81qDQmUGCAneHIvv/pqAYO8W96QQJaB/QrhRXj9ANW7uIlg1G0OPoD6GGkCQPTLBewybhI3zsOTRreNH+xYuvkQO1udDFpIQRZCAzCA/eqEBP5dLxj6jPMZ2ytTGcI/723UynJRSGsKv0eI0sYZGcsysAAAAP//XcfZkQAAAAZJREFUAwD1HkFtywNgIAAAAABJRU5ErkJggg==",
+        },
+        {
+          domain: "rentalhunter.io",
+          count: 6,
+          favicon:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC5ElEQVR4nMyXT0hUURTGP8eazLEJkRQmmZVUNtZmhCZctGgxLsyIhBZRY7SYRS0iGhdjbVTaGS2tGIoiKEjC2rl1ESaBmKW2jELcBTWBpdD3vTcT0zh/7m0c8YPf/Hnv3nvOO/fce8+rhZ28pJ2cIOfIM3KD7CH7iId8I+umA9YYtjtMzpNT5GDGkUL6RZbIa/KUfESFDrSSJLlAGmCnH+QJuU2+4D8cOEPukiAq02dyjbwsdLO2SKfr5D5pROXaS86SNHkDAwdkfBRuQm2WNFaUfM93It+B0+QBNtd4rk6SObiJ6ig3BwJkGm7iVVNfybHM9z9PesvWeDgcRiwWg6X2k5vZP9kIaG2/Iz5YaGJiAl1dXQiFQlhZWbHp+pOEyWI2AjFb49FoFD09PWhqasLAwAAsVU8u6ocisAvu04dMe9fV1WFqagqdnZ3O/3Q6jUgkgvn5eVjoAwkrAm3kgE3P/v7+v8Yln8+H4eFh1NSY7uyOZLNNDuhw2Wnaq7m5GYODgxuu9/b2oru7GxaSzXY5cMSmVyKRQGvrxsXi8XicKGh6LHRUG9FzGCagsn1sbAxeb+HDMBAIYHl5GTMzMzBUu9WONzQ0hIaG0odiMplES0sLTKUI+OEWGCWlZWeSaH6/35mOyclJGGhUEZgr10rzOjIy4gxsong8jo6ODpOm7zXiAvldqlX+sisnLUtNVxnJ5kLZjSgYDGJ2dhaNjfalQV9fH8bHx4vddjaiHfxYJa+KOaDMTqVSWF83rjMdKVfKJKxsrmYz6hDcKNRja6TqSIfRUjarFsljbJ1UrDpFSe6a0jk9nfmuplQhR1CgINGFK2QN1ZPGvpo1LuXXhAqL5ieK6ihBHuVeKFQVq2pV9aoCcrOK07WM8Tv5N4q9F8gJVRfH4db1lUgvJpfJw0I3a0t01Mp4QXbDrRm8sJNezVLkEnlbrNG2fznNlwyrlFJEdNrEM9fvwZ0ynSufMo4Y6Q8AAAD//26lUKUAAAAGSURBVAMAPoWYRf5GiJoAAAAASUVORK5CYII=",
+        },
+        {
+          domain: "watchlyplayer.tv",
+          count: 5,
+          favicon:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC5ElEQVR4nMyXT0hUURTGP8eazLEJkRQmmZVUNtZmhCZctGgxLsyIhBZRY7SYRS0iGhdjbVTaGS2tGIoiKEjC2rl1ESaBmKW2jELcBTWBpdD3vTcT0zh/7m0c8YPf/Hnv3nvOO/fce8+rhZ28pJ2cIOfIM3KD7CH7iId8I+umA9YYtjtMzpNT5GDGkUL6RZbIa/KUfESFDrSSJLlAGmCnH+QJuU2+4D8cOEPukiAq02dyjbwsdLO2SKfr5D5pROXaS86SNHkDAwdkfBRuQm2WNFaUfM93It+B0+QBNtd4rk6SObiJ6ig3BwJkGm7iVVNfybHM9z9PesvWeDgcRiwWg6X2k5vZP9kIaG2/Iz5YaGJiAl1dXQiFQlhZWbHp+pOEyWI2AjFb49FoFD09PWhqasLAwAAsVU8u6ocisAvu04dMe9fV1WFqagqdnZ3O/3Q6jUgkgvn5eVjoAwkrAm3kgE3P/v7+v8Yln8+H4eFh1NSY7uyOZLNNDuhw2Wnaq7m5GYODgxuu9/b2oru7GxaSzXY5cMSmVyKRQGvrxsXi8XicKGh6LHRUG9FzGCagsn1sbAxeb+HDMBAIYHl5GTMzMzBUu9WONzQ0hIaG0odiMplES0sLTKUI+OEWGCWlZWeSaH6/35mOyclJGGhUEZgr10rzOjIy4gxsong8jo6ODpOm7zXiAvldqlX+sisnLUtNVxnJ5kLZjSgYDGJ2dhaNjfalQV9fH8bHx4vddjaiHfxYJa+KOaDMTqVSWF83rjMdKVfKJKxsrmYz6hDcKNRja6TqSIfRUjarFsljbJ1UrDpFSe6a0jk9nfmuplQhR1CgINGFK2QN1ZPGvpo1LuXXhAqL5ieK6ihBHuVeKFQVq2pV9aoCcrOK07WM8Tv5N4q9F8gJVRfH4db1lUgvJpfJw0I3a0t01Mp4QXbDrRm8sJNezVLkEnlbrNG2fznNlwyrlFJEdNrEM9fvwZ0ynSufMo4Y6Q8AAAD//26lUKUAAAAGSURBVAMAPoWYRf5GiJoAAAAASUVORK5CYII=",
+        },
+        {
+          domain: "app.watchlyplayer.tv",
+          count: 4,
+          favicon:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC5ElEQVR4nMyXT0hUURTGP8eazLEJkRQmmZVUNtZmhCZctGgxLsyIhBZRY7SYRS0iGhdjbVTaGS2tGIoiKEjC2rl1ESaBmKW2jELcBTWBpdD3vTcT0zh/7m0c8YPf/Hnv3nvOO/fce8+rhZ28pJ2cIOfIM3KD7CH7iId8I+umA9YYtjtMzpNT5GDGkUL6RZbIa/KUfESFDrSSJLlAGmCnH+QJuU2+4D8cOEPukiAq02dyjbwsdLO2SKfr5D5pROXaS86SNHkDAwdkfBRuQm2WNFaUfM93It+B0+QBNtd4rk6SObiJ6ig3BwJkGm7iVVNfybHM9z9PesvWeDgcRiwWg6X2k5vZP9kIaG2/Iz5YaGJiAl1dXQiFQlhZWbHp+pOEyWI2AjFb49FoFD09PWhqasLAwAAsVU8u6ocisAvu04dMe9fV1WFqagqdnZ3O/3Q6jUgkgvn5eVjoAwkrAm3kgE3P/v7+v8Yln8+H4eFh1NSY7uyOZLNNDuhw2Wnaq7m5GYODgxuu9/b2oru7GxaSzXY5cMSmVyKRQGvrxsXi8XicKGh6LHRUG9FzGCagsn1sbAxeb+HDMBAIYHl5GTMzMzBUu9WONzQ0hIaG0odiMplES0sLTKUI+OEWGCWlZWeSaH6/35mOyclJGGhUEZgr10rzOjIy4gxsong8jo6ODpOm7zXiAvldqlX+sisnLUtNVxnJ5kLZjSgYDGJ2dhaNjfalQV9fH8bHx4vddjaiHfxYJa+KOaDMTqVSWF83rjMdKVfKJKxsrmYz6hDcKNRja6TqSIfRUjarFsljbJ1UrDpFSe6a0jk9nfmuplQhR1CgINGFK2QN1ZPGvpo1LuXXhAqL5ieK6ihBHuVeKFQVq2pV9aoCcrOK07WM8Tv5N4q9F8gJVRfH4db1lUgvJpfJw0I3a0t01Mp4QXbDrRm8sJNezVLkEnlbrNG2fznNlwyrlFJEdNrEM9fvwZ0ynSufMo4Y6Q8AAAD//26lUKUAAAAGSURBVAMAPoWYRf5GiJoAAAAASUVORK5CYII=",
+        },
+        {
+          domain: "greaterthanservices.com",
+          count: 3,
+          favicon:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADOUlEQVR4nMSXXUgUURTH/3d2avsupCCiMqrnHqTA3oqiMCjt86WEEgOFohC/LVxKsBXLyorUwA8kI6E1TbDwwbegFIQgKqmgD0oqs0Qtd2dO/9E23dJ0dXb9w8zOvXM553fPuffcWQ3U5RhZgGmSZt26nNDccbIF06BBAFed6oYJsyBOkhFmqZGNwt2SJECU4yNOpDxU/QiDtJGNVI+6zp8Ocykeu3fJeoRBarRONyPhUCiCoMTXg9zMZvUN4QSwxPWwTSnc5ABDBGd7X6DU9VQNIFwAlgp3SKQ4UUOQjWy+Jkh+r45KV619IGq8Aa5Nos+NwCkOzGZzBq/3BLlk9KDUjtSMC+BXwR6J4uAyXlGDHYIe3qvgw5XUBvUMk9SEASzt3y+OaB+SROEMmxG/QYRWWkwDJX0z4Qk2PUEB+HVhu0QYs3GaayOZFpz+ftaQT0pQ7TNRnnlXPZmIrUkB+JUfJ6t0BReNHKQlHcMkwii1ca1U+IBb2R71BaEA+AOyS9Y6HMhiRA7R4MyAl4KfjEwjS31Fxzs0lbYpr+0AfuXFygqnhpM0mkjL/56wgk4xUSUGytLvqQ7bAfw6t1UW6vORwMdj9LB6lCEm0/NgwMDhkAD45YJoc/cghjMvZXqW/f2e0XDpCJGOx4hz3mzE03kaRnHO/u+8mmwHYOWcNWcRjnLG6WwuD0jyUM1oN7lNDS+qsxrVV9sArCK1YQBHlAO5ynKMAMefuS2rmffKdI9qH/nKljXAb4fNmo6LNLZuRLe10Jo527L+DtSPdZJOKQKFO2Wx6CgaLETDk+ninr/h9aKEIX41no1JAxTGyj5x4Bq9LrHanO1LXuf7DB7XDapvonaCBmC452sarvJjLl4NOX7OHOdFzkDNgVplIEgFBTB4JAtuc4WvoeO37MqN1FE1GcdBAxTESiJnXMxHLwtIdm83ilwt6gemqHEBrIKychaKOesEOq4YMJGTU686YZP+C8B8L+P2usOwi+FDdEa9aoXNGhPAvVOi6bzE+v5L86Ccu0wQAo0KwH9I1r7eoPVic8p91YUQKqASMtKqIBZ72fsmo049QhgUAOCOkeWt8/ChdgrbKlj9AgAA//9gKAJ0AAAABklEQVQDAAh8Lk0tV+a0AAAAAElFTkSuQmCC",
+        },
+        {
+          domain: "trigger.tools",
+          count: 2,
+          favicon:
+            "data:image/png;base64,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",
+        },
+        {
+          domain: "chrome.google.com",
+          count: 2,
+          favicon: null,
+        },
+      ];
+
+      // Rendering helpers ------------------------------------------------
+
+      function favTile(site, sizeClass) {
+        if (site.favicon) {
+          const img = document.createElement("span");
+          img.className = "fav" + (sizeClass ? " " + sizeClass : "");
+          const el = document.createElement("img");
+          el.src = site.favicon;
+          el.alt = "";
+          img.appendChild(el);
+          return img;
+        }
+        const span = document.createElement("span");
+        span.className = "fav fallback" + (sizeClass ? " " + sizeClass : "");
+        span.textContent = site.domain.charAt(0).toUpperCase();
+        return span;
+      }
+
+      // Every row/tile is a real <button> so the "clicking a site opens
+      // Sites, preselected" behavior reads as an actual affordance here,
+      // not just a claim. It has nowhere to navigate to inside this
+      // throwaway file, so it just flashes the intent in the title/console.
+      function wireClick(el, site) {
+        el.title = "Open Sites → " + site.domain + " (preselected)";
+        el.addEventListener("click", () => {
+          console.log("[prototype] would open Sites tab, host =", site.domain);
+        });
+      }
+
+      function cardShell(title, description) {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML =
+          '<div class="card-header">' +
+          '<div><h2 class="card-title">' +
+          title +
+          '</h2><p class="card-description">' +
+          description +
+          "</p></div>" +
+          '<button class="card-link" type="button">Top sites →</button>' +
+          "</div>";
+        const content = document.createElement("div");
+        content.className = "card-content";
+        card.appendChild(content);
+        return { card, content };
+      }
+
+      function renderA() {
+        const { card, content } = cardShell(
+          "Top sites",
+          "By recorded visits.",
+        );
+        SITES.forEach((site, index) => {
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = "variant-a-row";
+          const rank = document.createElement("span");
+          rank.className = "variant-a-rank mono";
+          rank.textContent = String(index + 1);
+          const fav = favTile(site);
+          const domain = document.createElement("span");
+          domain.className = "variant-a-domain truncate";
+          domain.textContent = site.domain;
+          const count = document.createElement("span");
+          count.className = "variant-a-count mono";
+          count.textContent = site.count.toLocaleString("en-US");
+          const chev = document.createElement("span");
+          chev.className = "variant-a-chev";
+          chev.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+          row.append(rank, fav, domain, count, chev);
+          wireClick(row, site);
+          content.appendChild(row);
+        });
+        return card;
+      }
+
+      function renderB() {
+        const { card, content } = cardShell(
+          "Top sites",
+          "By recorded visits.",
+        );
+        const grid = document.createElement("div");
+        grid.className = "variant-b-grid";
+        SITES.forEach((site, index) => {
+          const tile = document.createElement("button");
+          tile.type = "button";
+          tile.className = "variant-b-tile";
+          const rank = document.createElement("span");
+          rank.className = "variant-b-rank mono";
+          rank.textContent = "#" + (index + 1);
+          const fav = favTile(site);
+          const domain = document.createElement("span");
+          domain.className = "variant-b-domain truncate";
+          domain.textContent = site.domain;
+          const count = document.createElement("span");
+          count.className = "variant-b-count mono";
+          count.textContent =
+            site.count.toLocaleString("en-US") +
+            (site.count === 1 ? " visit" : " visits");
+          tile.append(rank, fav, domain, count);
+          wireClick(tile, site);
+          grid.appendChild(tile);
+        });
+        content.appendChild(grid);
+        return card;
+      }
+
+      function renderC() {
+        const { card, content } = cardShell(
+          "Top sites",
+          "By recorded visits.",
+        );
+        const peak = Math.max(...SITES.map((s) => s.count), 0);
+        SITES.forEach((site, index) => {
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = "variant-c-row";
+          const label = document.createElement("span");
+          label.className = "variant-c-label";
+          const fav = favTile(site);
+          const domain = document.createElement("span");
+          domain.className = "variant-c-domain truncate";
+          domain.textContent = site.domain;
+          label.append(fav, domain);
+          const track = document.createElement("span");
+          track.className = "variant-c-track";
+          const fill = document.createElement("span");
+          fill.className =
+            "variant-c-fill" + (index === 0 ? "" : " dim");
+          const share = peak === 0 ? 0 : Math.round((site.count / peak) * 100);
+          fill.style.width = share + "%";
+          track.appendChild(fill);
+          const count = document.createElement("span");
+          count.className = "variant-c-count mono";
+          count.textContent = site.count.toLocaleString("en-US");
+          row.append(label, track, count);
+          wireClick(row, site);
+          content.appendChild(row);
+        });
+        return card;
+      }
+
+      const VARIANTS = [
+        { key: "A", name: "Ranked leaderboard, no bars", render: renderA },
+        { key: "B", name: "Favicon tile grid", render: renderB },
+        { key: "C", name: "Horizontal bar chart", render: renderC },
+      ];
+
+      function currentIndex() {
+        const params = new URLSearchParams(location.search);
+        const fromQuery = params.get("variant");
+        const fromHash = location.hash.replace("#", "");
+        const key = (fromQuery || fromHash || "A").toUpperCase();
+        const index = VARIANTS.findIndex((v) => v.key === key);
+        return index === -1 ? 0 : index;
+      }
+
+      function setVariant(index) {
+        const wrapped = (index + VARIANTS.length) % VARIANTS.length;
+        const variant = VARIANTS[wrapped];
+        history.replaceState(null, "", "#" + variant.key);
+        const mount = document.getElementById("card-mount");
+        mount.innerHTML = "";
+        mount.appendChild(variant.render());
+        document.getElementById("label-text").textContent =
+          variant.key + " — " + variant.name;
+      }
+
+      let index = currentIndex();
+      setVariant(index);
+
+      document.getElementById("prev").addEventListener("click", () => {
+        index -= 1;
+        setVariant(index);
+      });
+      document.getElementById("next").addEventListener("click", () => {
+        index += 1;
+        setVariant(index);
+      });
+      window.addEventListener("keydown", (event) => {
+        const active = document.activeElement;
+        const typing =
+          active &&
+          (active.tagName === "INPUT" ||
+            active.tagName === "TEXTAREA" ||
+            active.isContentEditable);
+        if (typing) {
+          return;
+        }
+        if (event.key === "ArrowLeft") {
+          index -= 1;
+          setVariant(index);
+        } else if (event.key === "ArrowRight") {
+          index += 1;
+          setVariant(index);
+        }
+      });
+    </script>
+  </body>
+</html>

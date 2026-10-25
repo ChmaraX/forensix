@@ -1,0 +1,432 @@
+"use client";
+
+import { forwardRef, useState, useCallback, useRef, useEffect, useId, type HTMLAttributes } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { cn } from "@/lib/utils";
+import { useIcons } from "@/lib/icon-context";
+import { fontWeights } from "@/lib/font-weight";
+import { useShape } from "@/lib/shape-context";
+import { useSize, type SizeVariant } from "@/lib/size-context";
+import { spring } from "@/lib/springs";
+import { Tooltip } from "@/components/ui/tooltip";
+
+// ---------------------------------------------------------------------------
+// InputCopy shows a value and copies it on click. The whole row is one
+// <button>: hovering it tints the value and thickens the icon, so the full
+// value reads as the click target, not just the icon. 2 variants: "icon"
+// (copy icon with a tooltip) and "button" (icon plus a Copy label). Either
+// way the result shows in place for 2000ms: a check that draws itself, or a
+// red × when the copy fails.
+// ---------------------------------------------------------------------------
+
+type InputCopyVariant = "icon" | "button";
+type InputCopyAlign = "right" | "left";
+
+interface InputCopyProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"> {
+  /** The value to display and copy to clipboard. */
+  value: string;
+  /** Optional label displayed above the input. */
+  label?: string;
+  /** Callback fired after the value is copied. */
+  onCopy?: () => void;
+  /** Whether the component is disabled. */
+  disabled?: boolean;
+  /** Display variant: icon-only with tooltip, or button with label. */
+  variant?: InputCopyVariant;
+  /** Position of the copy action relative to the value. */
+  align?: InputCopyAlign;
+  /** Pins the field to one step of the size ladder (default 36px, compact
+   *  28px). Omitted, it follows the surrounding SizeProvider. */
+  size?: SizeVariant;
+}
+
+const InputCopy = forwardRef<HTMLDivElement, InputCopyProps>(
+  ({ value, label, onCopy, disabled, variant = "icon", align = "right", size, className, ...props }, ref) => {
+    const icons = useIcons();
+    const CopyIcon = icons.copy;
+    // "copied" and "error" both occupy the same animation slot on the button
+    const [status, setStatus] = useState<"idle" | "copied" | "error">("idle");
+    // Keys the check and × glyphs. Copying again while "Copied" still shows
+    // mounts a fresh glyph, so the draw replays instead of nothing happening.
+    const [copyCount, setCopyCount] = useState(0);
+    // "idle" = normal tooltip behavior, "copied" = force open, "suppressed" = force closed
+    const [tooltipState, setTooltipState] = useState<"idle" | "copied" | "suppressed">("idle");
+    const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const tooltipVisibleRef = useRef(false);
+    const tooltipWasVisibleRef = useRef(false);
+    const shape = useShape();
+    const sizeClasses = useSize(size);
+    // The row's height comes from the padded children, so the paddings step
+    // down with the ladder (py-2 → 36px total, py-1 → 28px).
+    const rowPy = sizeClasses.variant === "compact" ? "py-1" : "py-2";
+
+    // Associate the visible label with the button: the button's accessible
+    // name reads "Copy <label>" (its own state label + the field label).
+    const generatedId = useId();
+    const labelId = label ? `${generatedId}-label` : undefined;
+    const buttonId = `${generatedId}-button`;
+
+    const handlePointerDown = useCallback(() => {
+      // Capture tooltip visibility before Radix closes it on pointer down
+      tooltipWasVisibleRef.current = tooltipVisibleRef.current;
+    }, []);
+
+    // execCommand fallback for when the async Clipboard API is unavailable or
+    // denied (insecure context, permissions policy) — copies via a temporary
+    // off-screen textarea.
+    const copyViaExecCommand = useCallback(() => {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      // 16px: iOS Safari zooms the page into a focused field set smaller,
+      // and select() can focus this one.
+      textarea.style.fontSize = "16px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      // iOS Safari's select() only moves the caret to the end; the explicit
+      // range is what selects the text there, so the copy isn't empty.
+      textarea.setSelectionRange(0, textarea.value.length);
+      let ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false;
+      }
+      document.body.removeChild(textarea);
+      return ok;
+    }, [value]);
+
+    const handleCopy = useCallback(async () => {
+      if (disabled) return;
+      let ok = true;
+      try {
+        await navigator.clipboard.writeText(value);
+      } catch {
+        ok = copyViaExecCommand();
+      }
+      setStatus(ok ? "copied" : "error");
+      setCopyCount((c) => c + 1);
+      // The tooltip says "Copied" only if it was already showing when the
+      // press began. Otherwise it stays shut: a click never summons a tooltip
+      // the user wasn't reading.
+      setTooltipState(tooltipWasVisibleRef.current ? "copied" : "suppressed");
+      if (ok) onCopy?.();
+      // A new copy restarts the 2000ms window. When it ends, the tooltip
+      // stays suppressed until the pointer leaves and comes back, so it
+      // doesn't reopen as "Copy to clipboard" right under a resting cursor.
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        setStatus("idle");
+        setTooltipState("suppressed");
+      }, 2000);
+    }, [value, disabled, onCopy, copyViaExecCommand]);
+
+    const handleTooltipOpenChange = useCallback((open: boolean) => {
+      tooltipVisibleRef.current = open;
+    }, []);
+
+    useEffect(() => {
+      return () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      };
+    }, []);
+
+    // Re-entering the row re-arms the normal 500ms hover tooltip; leaving it
+    // closes a "Copied" tooltip with the pointer.
+    const handleMouseEnter = useCallback(() => {
+      setTooltipState((prev) => prev === "suppressed" ? "idle" : prev);
+    }, []);
+
+    const handleMouseLeave = useCallback(() => {
+      setTooltipState((prev) => prev === "copied" ? "suppressed" : prev);
+    }, []);
+
+    // A wait-mode swap on spring.fast: the copy icon shrinks out to 0.8
+    // before the result grows in from 0.6, then the check or × strokes draw
+    // themselves (pathLength 0 → 1 in 0.08s). Strokes go 1.5 → 2 on hover
+    // over 80ms, with the rest of the row.
+    const iconSwitch = (
+      <AnimatePresence mode="wait" initial={false}>
+        {status === "error" ? (
+          <motion.span
+            key={`error-${copyCount}`}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={spring.fast}
+            className="flex items-center justify-center text-destructive [&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]"
+          >
+            <svg
+              width={14}
+              height={14}
+              viewBox="2 4 20 16"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <motion.path
+                d="M9 9L15 15M15 9L9 15"
+                initial={{ pathLength: 0 }}
+                animate={{
+                  pathLength: 1,
+                  transition: { duration: 0.08, ease: "easeOut" },
+                }}
+              />
+            </svg>
+          </motion.span>
+        ) : status === "copied" ? (
+          <motion.span
+            key={`check-${copyCount}`}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={spring.fast}
+            className="flex items-center justify-center [&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]"
+          >
+            <svg
+              width={14}
+              height={14}
+              viewBox="2 4 20 16"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <motion.path
+                d="M6 12L10 16L18 8"
+                initial={{ pathLength: 0 }}
+                animate={{
+                  pathLength: 1,
+                  transition: { duration: 0.08, ease: "easeOut" },
+                }}
+              />
+            </svg>
+          </motion.span>
+        ) : (
+          <motion.span
+            key="copy"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={spring.fast}
+            className="flex items-center justify-center"
+          >
+            <CopyIcon size={14} strokeWidth={1.5} className="transition-[stroke-width] duration-80 group-hover:stroke-[2]" />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    );
+
+    const actionElement = variant === "button" ? (
+      <span
+        className={cn(
+          "shrink-0 flex items-center gap-1.5 px-1.5 transition-colors duration-80",
+          rowPy,
+          sizeClasses.text,
+          "text-muted-foreground group-hover:text-foreground",
+        )}
+        style={{ fontVariationSettings: fontWeights.normal }}
+      >
+        <AnimatePresence mode="wait" initial={false}>
+          {status === "error" ? (
+            <motion.span
+              key={`error-label-${copyCount}`}
+              className="flex items-center gap-1.5 text-destructive"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={spring.fast}
+            >
+              <span className="flex items-center justify-center">
+                <svg
+                  width={14}
+                  height={14}
+                  viewBox="2 4 20 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <motion.path
+                    d="M9 9L15 15M15 9L9 15"
+                    initial={{ pathLength: 0 }}
+                    animate={{
+                      pathLength: 1,
+                      transition: { duration: 0.08, ease: "easeOut" },
+                    }}
+                  />
+                </svg>
+              </span>
+              {/* The invisible "Copied" shares the grid cell with every label
+                  (Copy, Copied, Failed), so the swap never changes the row's
+                  width. */}
+              <span className="select-none inline-grid text-left">
+                <span className="col-start-1 row-start-1 invisible" aria-hidden="true">Copied</span>
+                <span className="col-start-1 row-start-1">Failed</span>
+              </span>
+            </motion.span>
+          ) : status === "copied" ? (
+            <motion.span
+              key={`check-label-${copyCount}`}
+              className="flex items-center gap-1.5"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={spring.fast}
+            >
+              <span className="flex items-center justify-center">
+                <svg
+                  width={14}
+                  height={14}
+                  viewBox="2 4 20 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <motion.path
+                    d="M6 12L10 16L18 8"
+                    initial={{ pathLength: 0 }}
+                    animate={{
+                      pathLength: 1,
+                      transition: { duration: 0.08, ease: "easeOut" },
+                    }}
+                  />
+                </svg>
+              </span>
+              <span className="select-none inline-grid text-left">
+                <span className="col-start-1 row-start-1 invisible" aria-hidden="true">Copied</span>
+                <span className="col-start-1 row-start-1">Copied</span>
+              </span>
+            </motion.span>
+          ) : (
+            <motion.span
+              key="copy-label"
+              className="flex items-center gap-1.5"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={spring.fast}
+            >
+              <span className="flex items-center justify-center">
+                <CopyIcon size={14} strokeWidth={1.5} className="transition-[stroke-width] duration-80 group-hover:stroke-[2]" />
+              </span>
+              <span className="select-none inline-grid text-left">
+                <span className="col-start-1 row-start-1 invisible" aria-hidden="true">Copied</span>
+                <span className="col-start-1 row-start-1">Copy</span>
+              </span>
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </span>
+    ) : (
+      <span
+        className={cn(
+          "shrink-0 px-1.5 transition-colors duration-80",
+          rowPy,
+          "text-muted-foreground group-hover:text-foreground",
+        )}
+      >
+        {iconSwitch}
+      </span>
+    );
+
+    // select-none: a press copies instead of starting a text selection. On
+    // hover a <mark> tints the whole value, so it reads as what gets copied.
+    const valueElement = (
+      <span
+        className={cn(
+          "flex-1 min-w-0 text-left text-foreground font-mono select-none truncate",
+          sizeClasses.text,
+          rowPy,
+          align === "left" ? "pl-1" : "pl-0"
+        )}
+        style={{ fontVariationSettings: fontWeights.normal }}
+      >
+        <mark className="bg-transparent text-foreground transition-colors duration-80 group-hover:bg-[#6B97FF]/20 group-hover:text-foreground">
+          {value}
+        </mark>
+      </span>
+    );
+
+    const buttonContent = align === "left" ? (
+      <>{actionElement}{valueElement}</>
+    ) : (
+      <>{valueElement}{actionElement}</>
+    );
+
+    const button = (
+      <button
+        id={buttonId}
+        type="button"
+        onPointerDown={handlePointerDown}
+        onClick={handleCopy}
+        disabled={disabled}
+        // The name follows the state, so a screen reader hears the result.
+        aria-label={
+          status === "copied"
+            ? "Copied"
+            : status === "error"
+              ? "Copy failed"
+              : label
+                ? "Copy"
+                : "Copy to clipboard"
+        }
+        aria-labelledby={label ? `${buttonId} ${labelId}` : undefined}
+        className={cn(
+          "group flex items-center w-full cursor-pointer outline-none transition-all duration-80",
+          "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+          shape.input
+        )}
+      >
+        {buttonContent}
+      </button>
+    );
+
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "flex flex-col gap-0.5",
+          disabled && "opacity-50 pointer-events-none",
+          className
+        )}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        {...props}
+      >
+        {label && (
+          <span
+            id={labelId}
+            className={cn(
+              "text-muted-foreground",
+              sizeClasses.text,
+              align === "left" ? "pl-1" : "pl-0"
+            )}
+            style={{ fontVariationSettings: fontWeights.normal }}
+          >
+            {label}
+          </span>
+        )}
+        {variant === "icon" ? (
+          <Tooltip content={tooltipState === "idle" ? "Copy to clipboard" : status === "error" ? "Copy failed" : "Copied"} delayDuration={500} sideOffset={2} forceOpen={tooltipState === "copied" ? true : tooltipState === "suppressed" ? false : undefined} onOpenChange={handleTooltipOpenChange}>
+            {button}
+          </Tooltip>
+        ) : (
+          button
+        )}
+      </div>
+    );
+  }
+);
+
+InputCopy.displayName = "InputCopy";
+
+export { InputCopy };
+export type { InputCopyProps };
+export default InputCopy;

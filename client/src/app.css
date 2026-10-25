@@ -1,0 +1,1730 @@
+@import "tailwindcss";
+
+/*
+ * ForensiX theme — Fluid Functionalism (https://www.fluidfunctionalism.com).
+ *
+ * The token set, surfaces, shadows, type scale, scrollbars, scroll fades,
+ * reveal presets, and prose sheet below are Fluid Functionalism's own
+ * (app/globals.css in the FF repo), adapted in exactly two ways:
+ *
+ *  1. Theme switching rides `<html data-theme="light|dark">`, which theme.tsx
+ *     owns, instead of FF's `.light` / `.dark` classes and light-dark().
+ *     Every token is a plain value per mode because charts.tsx reads tokens
+ *     with getComputedStyle() and hands them to Recharts as SVG attributes,
+ *     which cannot resolve light-dark() or color-mix(). (That is also why
+ *     --border is written as an rgb() alpha rather than FF's color-mix.)
+ *  2. The evidence-state tokens (produced / unavailable / WAL / journal /
+ *     warning) sit beside FF's status tokens, re-tuned into the same palette.
+ *     They are the only hues on the page besides the focus ring, and they are
+ *     never shown without their state word (see FLUID.md).
+ *
+ * The only typeface is Inter (variable, with the opsz axis, so FF's weight
+ * animations hold their width). It ships inside the bundle: scripts/bundle.mjs
+ * inlines the url() below as a data: URI, which the server CSP admits through
+ * `font-src data:` and nothing else.
+ */
+
+/* `dark:` follows the data-theme attribute, not a class. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/fonts/InterVariable-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================================================================
+   1. DESIGN TOKENS — light
+============================================================================ */
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces (8-level ladder). Light has 2 color steps (floor, sunken), then
+     flat #FFFFFF; shadow carries elevation. Pairs 1:1 with --shadow-N. */
+  --surface-1: #fafafa;
+  --surface-2: #fcfcfc;
+  --surface-3: #ffffff;
+  --surface-4: #ffffff;
+  --surface-5: #ffffff;
+  --surface-6: #ffffff;
+  --surface-7: #ffffff;
+  --surface-8: #ffffff;
+
+  --background: var(--surface-1);
+  --foreground: #171717;
+  --card: var(--surface-3);
+  --card-foreground: #171717;
+  --muted: #f4f4f5;
+  /* FF ships #737373, which clears 4.5:1 only on near-white: on the hover,
+     active and track fills muted text sits on (#ededed-#f5f5f5) it reads
+     4.05-4.35:1. #666666 keeps the same grey step and clears 4.5:1 on every
+     fill up to --accent (#e5e5e5, 4.56:1). */
+  --muted-foreground: #666666;
+
+  --accent: #e5e5e5;
+  --accent-foreground: #171717;
+  --selected: #d4d4d4;
+
+  --border: rgb(23 23 23 / 0.12);
+  --ring: #e5e5e5;
+  --input: #e5e5e5;
+
+  --destructive: #ef4444;
+  --destructive-light: #fef2f2;
+
+  /* Status (Banner). Error reuses --destructive. */
+  --info: #3b82f6;
+  --success: #16a34a;
+  --warning: #d97706;
+
+  /* FF's #6b97ff is 2.80:1 on white, under the 3:1 a focus indicator needs
+     (WCAG 1.4.11). One step deeper in the same blue: 4.44:1 on white,
+     >=3.5:1 on every light fill a focused control can sit on. Dark keeps
+     FF's value (5.47:1 on a panel). Rings are drawn 2px (section 3b). */
+  --focus-ring: #3d6ff0;
+
+  --checker-a: #bbbbbb;
+  --checker-b: #ffffff;
+
+  /* Surface-relative overlays: --overlay is the tint direction triplet. */
+  --overlay: 0 0 0;
+  --hover: rgb(0 0 0 / 0.04);
+  --active: rgb(0 0 0 / 0.07);
+  --tint: rgb(0 0 0 / 0.08);
+  --tint-hover: rgb(0 0 0 / 0.065);
+
+  /* Shadow ladder (light recipe: additive stacked drops). */
+  --shadow-color: rgb(0 0 0 / 0.06);
+  --shadow-1: 0 0 0 1px var(--shadow-color);
+  --shadow-2:
+    0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color);
+  --shadow-3:
+    0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color),
+    0 3px 3px -1.5px var(--shadow-color);
+  --shadow-4:
+    0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color),
+    0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color);
+  --shadow-5:
+    0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color),
+    0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color),
+    0 12px 12px -6px var(--shadow-color);
+  --shadow-6:
+    0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color),
+    0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color),
+    0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color);
+  --shadow-7:
+    0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color),
+    0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color),
+    0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color),
+    0 48px 48px -24px var(--shadow-color);
+  --shadow-8:
+    0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color),
+    0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color),
+    0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color),
+    0 48px 48px -24px var(--shadow-color), 0 96px 96px -48px var(--shadow-color);
+  --shadow-2-inset:
+    inset 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color);
+  --shadow-3-inset:
+    inset 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color),
+    0 3px 3px -1.5px var(--shadow-color);
+
+  /* ── Evidence states ──
+     Each hue owns one meaning and never appears without its word. FF's
+     500-step status colors are tuned one step deeper in light mode where a
+     state word is set in the hue, so it stays legible on white. WAL shares
+     the amber family with warnings on purpose: both mean "present, but not
+     the committed story". */
+  --produced: var(--success);
+  --unavailable: var(--destructive);
+  --wal: #d97706;
+  --violet: #7c3aed;
+  --journal: var(--violet);
+}
+
+/* ============================================================================
+   1b. DESIGN TOKENS — dark
+============================================================================ */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Additive white-opacity ladder over #171717. */
+  --surface-1: #171717;
+  --surface-2: #1e1e1e;
+  --surface-3: #252525;
+  --surface-4: #2c2c2c;
+  --surface-5: #333333;
+  --surface-6: #3a3a3a;
+  --surface-7: #414141;
+  --surface-8: #484848;
+
+  --foreground: #f5f5f5;
+  --card-foreground: #f5f5f5;
+  --muted: #1e1e1e;
+  /* FF's #a3a3a3 is 4.45:1 on a selected chip (#3b3b3b); #adadad clears
+     4.5:1 on every dark fill up to --input (#404040, 4.62:1). */
+  --muted-foreground: #adadad;
+
+  --accent: #525252;
+  --accent-foreground: #f5f5f5;
+  --selected: #525252;
+
+  --border: rgb(245 245 245 / 0.12);
+  --ring: #404040;
+  --input: #404040;
+
+  --destructive: #fca5a5;
+  --destructive-light: #450a0a;
+
+  --info: #93c5fd;
+  --success: #86efac;
+  --warning: #fcd34d;
+
+  --checker-a: #1f1f1f;
+  --checker-b: #2a2a2a;
+
+  --focus-ring: #6b97ff;
+
+  --overlay: 255 255 255;
+  --hover: rgb(255 255 255 / 0.06);
+  --active: rgb(255 255 255 / 0.1);
+  --tint: rgb(255 255 255 / 0.25);
+  --tint-hover: rgb(255 255 255 / 0.2);
+
+  /* Shadow ladder (dark recipe: inset highlight + inset ring + drops). */
+  --dm-hi-base: rgba(255, 255, 255, 0.01);
+  --dm-hi-mid: rgba(255, 255, 255, 0.02);
+  --dm-hi-high: rgba(255, 255, 255, 0.04);
+  --dm-hi-peak: rgba(255, 255, 255, 0.06);
+  --dm-ring-base: rgba(255, 255, 255, 0.02);
+  --dm-ring-mid: rgba(255, 255, 255, 0.04);
+  --dm-ring-high: rgba(255, 255, 255, 0.06);
+  --dm-drop: rgba(0, 0, 0, 0.18);
+  --shadow-1: inset 0 0 0 1px var(--dm-ring-base);
+  --shadow-2:
+    inset 0 1px 0 0 var(--dm-hi-base), inset 0 0 0 1px var(--dm-ring-base),
+    0 1px 1px -0.5px var(--dm-drop);
+  --shadow-3:
+    inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-base),
+    0 0 0 1px rgba(0, 0, 0, 0.12), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop);
+  --shadow-4:
+    inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-mid),
+    0 0 0 1px rgba(0, 0, 0, 0.14), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop);
+  --shadow-5:
+    inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-mid),
+    0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop);
+  --shadow-6:
+    inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-high),
+    0 0 0 1px rgba(0, 0, 0, 0.18), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop);
+  --shadow-7:
+    inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high),
+    0 0 0 1px rgba(0, 0, 0, 0.2), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
+    0 48px 48px -24px var(--dm-drop);
+  --shadow-8:
+    inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high),
+    0 0 0 1px rgba(0, 0, 0, 0.22), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
+    0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
+  --shadow-2-inset: var(--shadow-2);
+  --shadow-3-inset: var(--shadow-3);
+
+  --wal: #fcd34d;
+  --violet: #c4b5fd;
+}
+
+/* Washes and hairlines derived from each state hue, so a re-tune happens in
+   one place. Translucent like FF's Banner fills: they take on the surface
+   under them. */
+:root {
+  --success-wash: color-mix(in oklab, var(--success) 12%, transparent);
+  --success-border: color-mix(in oklab, var(--success) 32%, transparent);
+  --destructive-wash: color-mix(in oklab, var(--destructive) 12%, transparent);
+  --destructive-border: color-mix(
+    in oklab,
+    var(--destructive) 32%,
+    transparent
+  );
+  --warning-wash: color-mix(in oklab, var(--warning) 12%, transparent);
+  --warning-border: color-mix(in oklab, var(--warning) 32%, transparent);
+  --wal-wash: color-mix(in oklab, var(--wal) 12%, transparent);
+  --wal-border: color-mix(in oklab, var(--wal) 32%, transparent);
+  --violet-wash: color-mix(in oklab, var(--violet) 12%, transparent);
+  --violet-border: color-mix(in oklab, var(--violet) 32%, transparent);
+}
+
+/* ============================================================================
+   2. TAILWIND THEME MAPPING
+============================================================================ */
+
+@theme inline {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+    monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-selected: var(--selected);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-destructive: var(--destructive);
+  --color-destructive-light: var(--destructive-light);
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+  --color-tint: var(--tint);
+  --color-tint-hover: var(--tint-hover);
+  --color-focus-ring: var(--focus-ring);
+  --color-info: var(--info);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+  --color-surface-5: var(--surface-5);
+  --color-surface-6: var(--surface-6);
+  --color-surface-7: var(--surface-7);
+  --color-surface-8: var(--surface-8);
+
+  --shadow-surface-1: var(--shadow-1);
+  --shadow-surface-2: var(--shadow-2);
+  --shadow-surface-3: var(--shadow-3);
+  --shadow-surface-4: var(--shadow-4);
+  --shadow-surface-5: var(--shadow-5);
+  --shadow-surface-6: var(--shadow-6);
+  --shadow-surface-7: var(--shadow-7);
+  --shadow-surface-8: var(--shadow-8);
+
+  /* Evidence states (text-wal, bg-violet-wash, border-success-border, …). */
+  --color-produced: var(--produced);
+  --color-unavailable: var(--unavailable);
+  --color-wal: var(--wal);
+  --color-journal: var(--journal);
+  --color-violet: var(--violet);
+  --color-success-wash: var(--success-wash);
+  --color-success-border: var(--success-border);
+  --color-destructive-wash: var(--destructive-wash);
+  --color-destructive-border: var(--destructive-border);
+  --color-warning-wash: var(--warning-wash);
+  --color-warning-border: var(--warning-border);
+  --color-wal-wash: var(--wal-wash);
+  --color-wal-border: var(--wal-border);
+  --color-violet-wash: var(--violet-wash);
+  --color-violet-border: var(--violet-border);
+}
+
+/* ── Type scale ───────────────────────────────────────────────────────────
+   Six roles, each a size and a leading, at the default and compact steps
+   (FF registry/default/lib/type-scale.ts). Components read them through
+   typeClass() / useSize().type, never as raw px. Written in rem (the FF px
+   value beside each, at the browser's 16px default), so a reader who sets
+   a larger default font size in the browser gets a larger dashboard, not
+   only one that zooms. */
+:root {
+  --fs-display: 1.75rem; /* 28px */
+  --lh-display: 2.125rem; /* 34px */
+  --fs-display-compact: 1.5rem; /* 24px */
+  --lh-display-compact: 1.875rem; /* 30px */
+  --fs-title: 1rem; /* 16px */
+  --lh-title: 1.375rem; /* 22px */
+  --fs-title-compact: 0.9375rem; /* 15px */
+  --lh-title-compact: 1.25rem; /* 20px */
+  --fs-subtitle: 0.875rem; /* 14px */
+  --lh-subtitle: 1.25rem; /* 20px */
+  --fs-subtitle-compact: 0.8125rem; /* 13px */
+  --lh-subtitle-compact: 1.125rem; /* 18px */
+  --fs-body: 0.8125rem; /* 13px */
+  --lh-body: 1.25rem; /* 20px */
+  --fs-body-compact: 0.75rem; /* 12px */
+  --lh-body-compact: 1.125rem; /* 18px */
+  --fs-caption: 0.75rem; /* 12px */
+  --lh-caption: 1rem; /* 16px */
+  --fs-caption-compact: 0.6875rem; /* 11px */
+  --lh-caption-compact: 0.875rem; /* 14px */
+  --fs-micro: 0.6875rem; /* 11px */
+  --lh-micro: 0.875rem; /* 14px */
+  --fs-micro-compact: 0.625rem; /* 10px */
+  --lh-micro-compact: 0.75rem; /* 12px */
+}
+
+@theme inline {
+  --text-display: var(--fs-display);
+  --text-display--line-height: var(--lh-display);
+  --text-title: var(--fs-title);
+  --text-title--line-height: var(--lh-title);
+  --text-subtitle: var(--fs-subtitle);
+  --text-subtitle--line-height: var(--lh-subtitle);
+  --text-body: var(--fs-body);
+  --text-body--line-height: var(--lh-body);
+  --text-caption: var(--fs-caption);
+  --text-caption--line-height: var(--lh-caption);
+  --text-micro: var(--fs-micro);
+  --text-micro--line-height: var(--lh-micro);
+}
+
+/* ============================================================================
+   3. BASE STYLES (FF)
+============================================================================ */
+
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Radix scroll locks compensate for a scrollbar the gutter already reserves;
+   the doubled attribute selector out-specifies the injected rule. */
+body[data-scroll-locked][data-scroll-locked] {
+  margin-right: 0 !important;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100vh;
+  overscroll-behavior-y: none;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Unstyled text sits on the body role; components set their own role. */
+body {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+
+/* Theme-toggle cross-fade: theme.tsx adds `.transitioning` around the
+   data-theme swap so colors tween instead of snapping (FF ThemeProvider). */
+html.transitioning *,
+html.transitioning *::before,
+html.transitioning *::after {
+  transition:
+    border-radius 180ms ease-in-out,
+    background-color 180ms ease-in-out,
+    color 180ms ease-in-out,
+    border-color 180ms ease-in-out,
+    fill 180ms ease-in-out,
+    stroke 180ms ease-in-out !important;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* The sticky inset topbar (section 8) covers the top 56px of the
+     viewport, plus its 12px fade once scrolled. Anything scrolled into view
+     by focus or a fragment lands below it, so a focused row is never hidden
+     under the bar (WCAG 2.4.11). */
+  html {
+    scroll-padding-top: 76px;
+    scroll-padding-bottom: 16px;
+  }
+
+  /* Focus fallback: natively focusable elements no component styles get the
+     same token ring as the components, 2px like every ring (section 3b).
+     `outline-none` still wins. */
+  :focus-visible {
+    outline: 2px solid var(--focus-ring, #3d6ff0);
+    outline-offset: 2px;
+    border-radius: var(--shape-input-radius, 8px);
+  }
+
+  a:focus-visible {
+    border-radius: 2px;
+  }
+}
+
+/* ============================================================================
+   3b. FOCUS RINGS — 2px everywhere (project override of FF's 1px)
+   FF draws keyboard focus as a 1px ring or outline in --focus-ring. A 1px
+   line does not read as a focus indicator on a 36-55px row, so every FF focus
+   ring is redrawn at 2px here. The registry files stay byte-faithful: these
+   rules match the ring/outline/border utilities FF puts on its focus states
+   (unlayered, so they win over the utilities layer) and change only the
+   width. Colour stays the --focus-ring token.
+============================================================================ */
+
+/* Box-shadow rings: `focus-visible:ring-1` (+ `ring-focus-ring` or the
+   `ring-[color:var(--focus-ring…)]` form) and the `has-[:focus-visible]`
+   variant on a control's frame. */
+:focus-visible:is(
+  [class*="focus-visible:ring-1"],
+  [class*="focus-visible:ring-[color:var(--focus-ring"],
+  [class*="focus-visible:ring-focus-ring"]
+),
+:has(:focus-visible):is([class*="has-[:focus-visible]:ring-1"]) {
+  --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0
+    calc(2px + var(--tw-ring-offset-width, 0px))
+    var(--tw-ring-color, currentcolor);
+}
+
+/* Outline rings (table rows draw theirs inset: rows cannot take a
+   box-shadow ring). The style is restated: Tailwind v4's `outline-none`
+   leaves `--tw-outline-style: none`, which `focus-visible:outline-1` then
+   reads, so `outline-none focus-visible:outline-1` drew no ring at all. */
+:focus-visible:is(
+  [class*="focus-visible:outline-1"],
+  [class*="focus-visible:outline-[color:var(--focus-ring"],
+  [class*="focus-visible:outline-focus-ring"]
+) {
+  outline-style: solid;
+  outline-width: 2px;
+}
+:focus-visible[class*="focus-visible:-outline-offset-1"] {
+  outline-offset: -2px;
+}
+
+/* The fluid-hover lists' focus frame (an absolutely placed bordered box). */
+[class*="border-[color:var(--focus-ring"] {
+  border-width: 2px;
+}
+
+/* Figure labels that explain themselves (a `Term` inside a MetricBand
+   label) are 15px tall. Their hit area grows to 25px (WCAG 2.5.8 asks 24)
+   without moving the text: 8px above (inside the item's padding), 2px
+   below (the gap to the figure). */
+.metric-label [tabindex] {
+  position: relative;
+}
+.metric-label [tabindex]::before {
+  content: "";
+  position: absolute;
+  inset: -8px -2px -2px;
+}
+/* The same grown hit area for a Term in a column header (Top sites' Rank,
+   Cookies' SameSite, Saved logins' Password, History's Dwell): the header
+   row's padding takes it, the text stays put. */
+th .term-trigger {
+  position: relative;
+}
+th .term-trigger::before {
+  content: "";
+  position: absolute;
+  inset: -8px -4px;
+}
+
+/* Coarse pointers (touch): small icon controls inside a dense row (the
+   lens chip's clear, the bookmark folder chevron) keep their drawn size
+   but take a 40px target through an invisible ring around them. */
+@media (pointer: coarse) {
+  .coarse-hit {
+    position: relative;
+  }
+  .coarse-hit::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+  /* The phone drawer's nav rows (FF sidebar menu buttons, 32px) grow to
+     40px on touch: the registry's own height class is overridden here,
+     not in the registry file. */
+  [data-mobile="true"] [data-sidebar="menu-button"] {
+    height: 40px;
+  }
+}
+
+/* ============================================================================
+   4. TYPESET — the `typography` registry item's prose sheet (verbatim FF).
+============================================================================ */
+/* <generated:typeset> */
+/* Fluid Functionalism typeset: https://www.fluidfunctionalism.com/docs/typography */
+@layer components {
+  :where(.typeset) {
+    --typeset-display: var(--fs-display, 28px);
+    --typeset-display-leading: var(--lh-display, 34px);
+    --typeset-title: var(--fs-title, 16px);
+    --typeset-title-leading: var(--lh-title, 22px);
+    --typeset-subtitle: var(--fs-subtitle, 14px);
+    --typeset-subtitle-leading: var(--lh-subtitle, 20px);
+    --typeset-body: var(--fs-body, 13px);
+    --typeset-body-leading: var(--lh-body, 20px);
+    --typeset-caption: var(--fs-caption, 12px);
+    --typeset-caption-leading: var(--lh-caption, 16px);
+    --typeset-space-block: 12px;
+    --typeset-space-heading: 8px;
+    --typeset-space-section: 24px;
+    --typeset-space-subsection: 20px;
+    --typeset-space-rule: 24px;
+    --typeset-space-item: 4px;
+    --typeset-check: 16px;
+    --typeset-check-radius: 5px;
+    --typeset-check-gap: 8px;
+    --typeset-indent: 24px;
+    --typeset-sub-indent: 20px;
+    font-size: var(--typeset-body);
+    line-height: var(--typeset-body-leading);
+    color: var(
+      --muted-foreground,
+      color-mix(in oklab, currentColor 65%, transparent)
+    );
+    overflow-wrap: break-word;
+    white-space: normal;
+  }
+
+  :where(.typeset.typeset-compact) {
+    --typeset-display: var(--fs-display-compact, 24px);
+    --typeset-display-leading: var(--lh-display-compact, 30px);
+    --typeset-title: var(--fs-title-compact, 15px);
+    --typeset-title-leading: var(--lh-title-compact, 20px);
+    --typeset-subtitle: var(--fs-subtitle-compact, 13px);
+    --typeset-subtitle-leading: var(--lh-subtitle-compact, 18px);
+    --typeset-body: var(--fs-body-compact, 12px);
+    --typeset-body-leading: var(--lh-body-compact, 18px);
+    --typeset-caption: var(--fs-caption-compact, 11px);
+    --typeset-caption-leading: var(--lh-caption-compact, 14px);
+    --typeset-space-block: 8px;
+    --typeset-space-heading: 4px;
+    --typeset-space-section: 16px;
+    --typeset-space-subsection: 12px;
+    --typeset-space-rule: 16px;
+    --typeset-space-item: 4px;
+    --typeset-check: 14px;
+    --typeset-check-radius: 4px;
+    --typeset-check-gap: 4px;
+    --typeset-indent: 18px;
+    --typeset-sub-indent: 16px;
+  }
+
+  :where(
+    .typeset p,
+    .typeset ul,
+    .typeset ol,
+    .typeset pre,
+    .typeset blockquote,
+    .typeset figure,
+    .typeset table,
+    .typeset .typeset-scroll,
+    .typeset .tableWrapper,
+    .typeset img,
+    .typeset video,
+    .typeset h1,
+    .typeset h2,
+    .typeset h3,
+    .typeset h4,
+    .typeset h5,
+    .typeset h6,
+    .typeset li
+  ):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    margin: 0;
+  }
+
+  :where(
+    .typeset p,
+    .typeset li,
+    .typeset h1,
+    .typeset h2,
+    .typeset h3,
+    .typeset h4,
+    .typeset h5,
+    .typeset h6
+  ):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    text-wrap-style: auto;
+  }
+
+  :where(
+    .typeset
+      *
+      + :is(
+        p,
+        ul,
+        ol,
+        pre,
+        blockquote,
+        figure,
+        table,
+        .typeset-scroll,
+        .tableWrapper,
+        img,
+        video,
+        .not-typeset
+      )
+  ):not(:where(.typeset .not-typeset *)) {
+    margin-top: var(--typeset-space-block);
+  }
+
+  :where(.typeset * + :is(h1, h2)):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    margin-top: var(--typeset-space-section);
+  }
+
+  :where(.typeset * + :is(h3, h4, h5, h6)):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    margin-top: var(--typeset-space-subsection);
+  }
+
+  :where(.typeset :is(h1, h2, h3, h4, h5, h6) + *):not(
+    :where(.typeset .not-typeset *)
+  ) {
+    margin-top: var(--typeset-space-heading);
+  }
+
+  :where(.typeset hr):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    border: 0;
+    border-top: 1px solid
+      var(--border, color-mix(in oklab, currentColor 14%, transparent));
+    margin-top: var(--typeset-space-rule);
+  }
+
+  :where(.typeset hr + *):not(:where(.typeset .not-typeset *)) {
+    margin-top: var(--typeset-space-rule);
+  }
+
+  :where(
+    .typeset h1,
+    .typeset h2,
+    .typeset h3,
+    .typeset h4,
+    .typeset h5,
+    .typeset h6
+  ):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    color: var(--foreground, currentColor);
+    font-variation-settings:
+      "wght" 550,
+      "opsz" 18;
+  }
+
+  :where(.typeset h1):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    font-size: var(--typeset-display);
+    line-height: var(--typeset-display-leading);
+    font-variation-settings:
+      "wght" 700,
+      "opsz" 25;
+  }
+
+  :where(.typeset h2):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    font-size: var(--typeset-title);
+    line-height: var(--typeset-title-leading);
+  }
+
+  :where(.typeset h3, .typeset h4, .typeset h5, .typeset h6):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    font-size: var(--typeset-subtitle);
+    line-height: var(--typeset-subtitle-leading);
+  }
+
+  :where(.typeset strong, .typeset b):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    font-variation-settings:
+      "wght" 550,
+      "opsz" 18;
+  }
+
+  :where(.typeset a):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    color: var(--foreground, currentColor);
+    text-decoration-line: underline;
+    text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+    text-underline-offset: 0.2em;
+    transition: text-decoration-color 80ms ease-out;
+  }
+
+  :where(.typeset a:hover):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    text-decoration-color: currentColor;
+  }
+
+  :where(.typeset ul, .typeset ol):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    padding-left: calc(var(--typeset-indent) - 4px);
+  }
+
+  :where(.typeset li ul, .typeset li ol):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    padding-left: calc(var(--typeset-sub-indent) - 4px);
+  }
+
+  :where(.typeset li):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    padding-left: 4px;
+  }
+
+  :where(.typeset ul):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    list-style-type: disc;
+  }
+
+  :where(.typeset ol):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    list-style-type: decimal;
+  }
+
+  :where(.typeset ol ol):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    list-style-type: lower-alpha;
+  }
+
+  :where(.typeset ol ol ol):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    list-style-type: lower-roman;
+  }
+
+  :where(.typeset ol ol ol ol):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    list-style-type: decimal;
+  }
+
+  :where(.typeset ol ol ol ol ol):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    list-style-type: lower-alpha;
+  }
+
+  :where(.typeset ol ol ol ol ol ol):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    list-style-type: lower-roman;
+  }
+
+  :where(.typeset ul ul):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    list-style-type: circle;
+  }
+
+  :where(.typeset li):not(
+      :where(.typeset .not-typeset, .typeset .not-typeset *)
+    )::marker {
+    color: var(
+      --muted-foreground,
+      color-mix(in oklab, currentColor 65%, transparent)
+    );
+  }
+
+  :where(
+    .typeset li + li,
+    .typeset li > ul,
+    .typeset li > ol,
+    .typeset li > p + p,
+    .typeset li > div > ul,
+    .typeset li > div > ol,
+    .typeset li > div > p + p
+  ):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    margin-top: var(--typeset-space-item);
+  }
+
+  :where(.typeset .contains-task-list, .typeset ul[data-type="taskList"]):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    list-style-type: none;
+    padding-left: 0;
+  }
+
+  :where(
+    .typeset .contains-task-list > li,
+    .typeset ul[data-type="taskList"] > li
+  ):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    padding-left: 0;
+  }
+
+  :where(.typeset .contains-task-list .contains-task-list):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    padding-left: var(--typeset-sub-indent);
+  }
+
+  :where(
+    .typeset ul[data-type="taskList"] > li > div > ul[data-type="taskList"]
+  ):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    margin-left: calc(var(--typeset-sub-indent) - var(--typeset-indent));
+  }
+
+  :where(.typeset .task-list-item > :is(ul, ol):not(.contains-task-list)):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    padding-left: calc(var(--typeset-indent) + var(--typeset-sub-indent) - 4px);
+  }
+
+  :where(.typeset input[type="checkbox"]):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    appearance: none;
+    position: relative;
+    margin: 0;
+    width: var(--typeset-check);
+    height: var(--typeset-check);
+    border: 1.5px solid
+      var(--border, color-mix(in oklab, currentColor 14%, transparent));
+    border-radius: var(--typeset-check-radius);
+    background: none;
+    cursor: pointer;
+    transition: border-color 80ms ease-out;
+  }
+
+  :where(.typeset input[type="checkbox"]:not(:disabled):hover):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    border-color: color-mix(
+      in oklab,
+      var(--foreground, currentColor) 40%,
+      transparent
+    );
+  }
+
+  :where(.typeset input[type="checkbox"]:checked):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    border-color: transparent;
+  }
+
+  :where(.typeset input[type="checkbox"]:checked:not(:disabled):hover):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    border-color: color-mix(
+      in oklab,
+      var(--foreground, currentColor) 40%,
+      transparent
+    );
+  }
+
+  :where(.typeset input[type="checkbox"]:disabled):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    cursor: default;
+  }
+
+  :where(.typeset input[type="checkbox"]:checked):not(
+      :where(.typeset .not-typeset, .typeset .not-typeset *)
+    )::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: var(--foreground, currentColor);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12L10 16L18 8'/%3E%3C/svg%3E")
+      center / calc(var(--typeset-check) + 2px) no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12L10 16L18 8'/%3E%3C/svg%3E")
+      center / calc(var(--typeset-check) + 2px) no-repeat;
+  }
+
+  :where(.typeset .task-list-item input[type="checkbox"]):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    vertical-align: -0.25em;
+    margin-right: calc(var(--typeset-check-gap) - 4px);
+  }
+
+  :where(.typeset ul[data-type="taskList"] > li):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    display: flex;
+    gap: var(--typeset-check-gap);
+    align-items: flex-start;
+  }
+
+  :where(.typeset ul[data-type="taskList"] > li > label):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    flex: none;
+    display: flex;
+    align-items: center;
+    height: var(--typeset-body-leading);
+    user-select: none;
+  }
+
+  :where(.typeset ul[data-type="taskList"] > li > div):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  :where(
+    .typeset
+      ul[data-type="taskList"]
+      > li[data-checked="true"]
+      > div
+      > :not(ul, ol)
+  ):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    color: var(
+      --muted-foreground,
+      color-mix(in oklab, currentColor 65%, transparent)
+    );
+    text-decoration-line: line-through;
+  }
+
+  :where(.typeset blockquote):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    padding-left: 1em;
+    border-left: 2px solid
+      var(--border, color-mix(in oklab, currentColor 14%, transparent));
+    color: var(
+      --muted-foreground,
+      color-mix(in oklab, currentColor 65%, transparent)
+    );
+  }
+
+  :where(.typeset code):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    color: var(--foreground, currentColor);
+    font-size: var(--typeset-caption);
+    font-family: var(
+      --font-mono,
+      ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      monospace
+    );
+  }
+
+  :where(.typeset :not(pre) > code):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    background-color: color-mix(in oklab, currentColor 7%, transparent);
+    border-radius: 4px;
+    padding: 0.1em 0.3em;
+  }
+
+  :where(.typeset pre):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    font-size: var(--typeset-caption);
+    line-height: var(--typeset-caption-leading);
+    background-color: color-mix(in oklab, currentColor 7%, transparent);
+    border-radius: 8px;
+    padding: 0.75em 1em;
+    overflow-x: auto;
+  }
+
+  :where(.typeset pre code):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    font-size: 1em;
+    background: none;
+    padding: 0;
+  }
+
+  :where(.typeset kbd):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    font-family: inherit;
+    font-size: var(--typeset-caption);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    border: 1px solid
+      var(--border, color-mix(in oklab, currentColor 14%, transparent));
+    box-shadow: 0 1px 0
+      var(--border, color-mix(in oklab, currentColor 14%, transparent));
+  }
+
+  :where(.typeset :is(h1, h2, h3, h4, h5, h6) :is(code, kbd)):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    font-size: round(nearest, 0.875em, 1px);
+  }
+
+  :where(.typeset table):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :where(.typeset th, .typeset td):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.5em 0.75em;
+    border-bottom: 1px solid
+      var(--border, color-mix(in oklab, currentColor 14%, transparent));
+  }
+
+  :where(.typeset th:first-child, .typeset td:first-child):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    padding-left: 0;
+  }
+
+  :where(.typeset th):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    color: var(--foreground, currentColor);
+    font-variation-settings:
+      "wght" 550,
+      "opsz" 18;
+  }
+
+  :where(.typeset .typeset-scroll, .typeset .tableWrapper):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    overflow-x: auto;
+  }
+
+  :where(.typeset .typeset-scroll > table, .typeset .tableWrapper > table):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    min-width: max-content;
+  }
+
+  :where(.typeset img, .typeset video):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+
+  :where(.typeset figcaption):not(
+    :where(.typeset .not-typeset, .typeset .not-typeset *)
+  ) {
+    margin-top: var(--typeset-space-heading);
+    font-size: var(--typeset-caption);
+    line-height: var(--typeset-caption-leading);
+    color: var(
+      --muted-foreground,
+      color-mix(in oklab, currentColor 65%, transparent)
+    );
+  }
+
+  @media (forced-colors: active) {
+    :where(.typeset input[type="checkbox"]):not(
+      :where(.typeset .not-typeset, .typeset .not-typeset *)
+    ) {
+      appearance: auto;
+    }
+
+    :where(.typeset input[type="checkbox"]:checked):not(
+        :where(.typeset .not-typeset, .typeset .not-typeset *)
+      )::before {
+      display: none;
+    }
+  }
+}
+/* </generated:typeset> */
+
+/* ============================================================================
+   5. NATIVE SCROLLBAR THEME (verbatim FF)
+   ----------------------------------------------------------------------------
+   Matches the ScrollArea thumb language (narrow, low-contrast, darkens on
+   hover) so surfaces that fall back to native scrollbars (the root page,
+   touch-device viewports) stay consistent with the custom scrollbar. Rides
+   the same fixed surface-relative overlay ramp as the ScrollArea thumb
+   (rest 8%, hover 12%, drag 16%) — adapts to dark mode through --overlay.
+   Only on fine pointers; touch devices keep their overlay momentum bars.
+   `.scrollbar-hide` still wins (higher specificity). Chromium 121+ renders
+   scrollbar-color and ignores the ::-webkit-* block, so both ramps must
+   stay in sync.
+============================================================================ */
+
+@media (pointer: fine) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--overlay) / 0.08) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    /* Transparent borders + content-box clip leave a ~4px visible thumb
+       inside the 10px hit area, mirroring the custom thumb's resting width.
+       The asymmetric edge-side border (5px outer / 1px inner, set per
+       orientation below) slides the visible thumb 2px away from the edge,
+       matching the ScrollArea thumb's -translate nudge. */
+    background-color: rgb(var(--overlay) / 0.08);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:vertical {
+    border-left-width: 1px;
+    border-right-width: 5px;
+  }
+
+  ::-webkit-scrollbar-thumb:horizontal {
+    border-top-width: 1px;
+    border-bottom-width: 5px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--overlay) / 0.12);
+  }
+
+  ::-webkit-scrollbar-thumb:active {
+    background-color: rgb(var(--overlay) / 0.16);
+  }
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================================================
+   6. UTILITIES
+============================================================================ */
+
+/* ── shimmer-text (thinking-indicator, thinking-steps) ── */
+
+@keyframes shimmer {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
+.shimmer-text {
+  color: transparent;
+  background: linear-gradient(
+    90deg,
+    light-dark(#a3a3a3, #525252) 0%,
+    light-dark(#a3a3a3, #525252) 35%,
+    light-dark(#525252, #a3a3a3) 50%,
+    light-dark(#a3a3a3, #525252) 65%,
+    light-dark(#a3a3a3, #525252) 100%
+  );
+  background-size: 300% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Spinner keyframes ── */
+
+@keyframes spinner-move {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+@keyframes spinner-dash {
+  0%,
+  100% {
+    stroke-dasharray: 15 85;
+  }
+  50% {
+    stroke-dasharray: 40 60;
+  }
+}
+
+/* ============================================================================
+   7. SCROLL FADE + REVEAL (verbatim FF)
+============================================================================ */
+
+/* ── scroll-fade — vendored equivalent of shadcn's scroll-fade utility ──
+   (https://ui.shadcn.com/docs/utils/scroll-fade). A mask-image dissolves the
+   content toward the edges that have more to scroll. CSS scroll-driven
+   animations make it scroll-aware: the true start/end edge stays crisp until
+   you scroll past it. Browsers without scroll-driven animations (Firefox) get
+   no fade: a static one would sit on edges with nothing past them. Apply to a
+   scroll container, or to a ScrollArea via `viewportClassName`. */
+
+@property --sf-start {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+@property --sf-end {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@keyframes sf-reveal-start {
+  from {
+    --sf-start: 1;
+  }
+  to {
+    --sf-start: 0;
+  }
+}
+@keyframes sf-reveal-end {
+  from {
+    --sf-end: 0;
+  }
+  to {
+    --sf-end: 1;
+  }
+}
+
+.scroll-fade,
+.scroll-fade-x {
+  --scroll-fade-size: 48px;
+}
+
+/* ── scroll-divider — a hairline marking a scroll edge ──────────────────────
+   Pairs with .scroll-fade on a descendant viewport: where the fade dissolves
+   content, this draws the line that says "the region continues". The line
+   can't live inside the scroller — the fade's own mask would erase it at
+   exactly the edge it belongs on — so it rides the parent's pseudo-elements
+   and borrows the scroller's timeline by name. Browsers without scroll-driven
+   timelines get neither the line nor the fade. */
+@keyframes sf-divider-start {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sf-divider-end {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@supports (timeline-scope: --sf) {
+  .scroll-divider {
+    position: relative;
+    timeline-scope: --sf-scroller;
+    --scroll-divider-size: 48px;
+  }
+  .scroll-divider .scroll-fade {
+    scroll-timeline-name: --sf-scroller;
+  }
+  .scroll-divider::before,
+  .scroll-divider::after {
+    content: "";
+    position: absolute;
+    /* Inset so the line can hug the content's own gutter rather than the
+       panel edge — the sidebar's inset variant sets this to 8px. */
+    left: var(--scroll-divider-inset, 0px);
+    right: var(--scroll-divider-inset, 0px);
+    height: 1px;
+    background-color: var(--border);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+  }
+  /* Top edge: absent at rest, fading in as content passes above. */
+  .scroll-divider::before {
+    top: 0;
+    animation: sf-divider-start both linear;
+    animation-timeline: --sf-scroller;
+    animation-range: 0 var(--scroll-divider-size);
+  }
+  /* A region flush with the panel's own top edge has nothing above for
+     content to pass under, so the start line would read as a stray border. */
+  .scroll-divider:first-child::before {
+    content: none;
+  }
+  /* Bottom edge: present while content continues below, gone at the end. */
+  .scroll-divider::after {
+    bottom: 0;
+    animation: sf-divider-end both linear;
+    animation-timeline: --sf-scroller;
+    animation-range: calc(100% - var(--scroll-divider-size)) 100%;
+  }
+}
+
+/* Scroll-aware: the start/end edge stays solid until there's content past it. */
+@supports (animation-timeline: scroll()) {
+  .scroll-fade {
+    mask-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    animation:
+      sf-reveal-start both linear,
+      sf-reveal-end both linear;
+    animation-timeline: scroll(self), scroll(self);
+    animation-range-start: 0, calc(100% - var(--scroll-fade-size));
+    animation-range-end: var(--scroll-fade-size), 100%;
+  }
+  .scroll-fade-x {
+    mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    animation:
+      sf-reveal-start both linear,
+      sf-reveal-end both linear;
+    animation-timeline: scroll(self inline), scroll(self inline);
+    animation-range-start: 0, calc(100% - var(--scroll-fade-size));
+    animation-range-end: var(--scroll-fade-size), 100%;
+  }
+}
+/* <generated:reveal> */
+/* ── reveal presets — 1 class on a page's container, like scroll-fade ───────
+   Generated by scripts/generate-reveal.mjs from lib/reveal/presets.ts; edit
+   those, not this block.
+   `.reveal-landing`: a page read once. The 1st child is the hero: its
+   children rise and scale in on first paint, a step apart. Every later child
+   is a section that does the same with the scroll, and leaves the same way
+   at the top. `.reveal-scroll` makes a deeper element (a grid card) a
+   section of its own. Browsers without view timelines show sections still.
+   `.reveal-product`: the app itself. Every child fades in once on first
+   paint, a short step apart; nothing moves on scroll. Slow data uses
+   `.reveal-swap` and `.reveal-items`. `-subtle` tones each down.
+   Landing steps ride spring.slow and product steps spring.moderate, written
+   as linear() in --reveal-motion; only the `from` frame is set, so each
+   block lands on its own styles. */
+@keyframes reveal-preset {
+  from {
+    opacity: 0;
+    transform: translateY(var(--reveal-distance, 0px))
+      scale(var(--reveal-scale, 1));
+  }
+}
+.reveal-landing {
+  --reveal-motion: 250ms
+    linear(0, 0.3878, 0.7777, 0.9458, 0.9946, 1.0029, 1.0021, 1);
+  --reveal-distance: 12px;
+  --reveal-scale: 0.94;
+  --reveal-step: 0.1s;
+  --reveal-scroll-start: 12px;
+  --reveal-scroll: 120px;
+}
+.reveal-landing-subtle {
+  --reveal-motion: 250ms
+    linear(0, 0.3878, 0.7777, 0.9458, 0.9946, 1.0029, 1.0021, 1);
+  --reveal-distance: 8px;
+  --reveal-scale: 0.98;
+  --reveal-step: 0.06s;
+  --reveal-scroll-start: 8px;
+  --reveal-scroll: 60px;
+}
+.reveal-product {
+  --reveal-motion: 200ms linear(0, 0.5729, 0.8966, 0.9789, 0.996, 1, 1);
+  --reveal-step: 0.06s;
+}
+.reveal-product-subtle {
+  --reveal-motion: 200ms linear(0, 0.5729, 0.8966, 0.9789, 0.996, 1, 1);
+  --reveal-step: 0.04s;
+}
+:is(.reveal-landing, .reveal-landing-subtle) > :first-child > *,
+:is(.reveal-product, .reveal-product-subtle) > *,
+.reveal-items > *,
+.reveal-swap > :last-child:not(:first-child) {
+  animation: reveal-preset
+    var(--reveal-motion, 200ms linear(0, 0.5729, 0.8966, 0.9789, 0.996, 1, 1))
+    both;
+}
+:is(.reveal-landing, .reveal-landing-subtle) > :first-child > :nth-child(2),
+:is(.reveal-product, .reveal-product-subtle) > :nth-child(2) {
+  animation-delay: var(--reveal-step);
+}
+:is(.reveal-landing, .reveal-landing-subtle) > :first-child > :nth-child(3),
+:is(.reveal-product, .reveal-product-subtle) > :nth-child(3) {
+  animation-delay: calc(var(--reveal-step) * 2);
+}
+:is(.reveal-landing, .reveal-landing-subtle) > :first-child > :nth-child(n + 4),
+:is(.reveal-product, .reveal-product-subtle) > :nth-child(n + 4) {
+  animation-delay: calc(var(--reveal-step) * 3);
+}
+:is(.reveal-product, .reveal-product-subtle) > .reveal-items {
+  animation: none;
+}
+/* `.reveal-items`: the block stays still and its children arrive one by one,
+   a step apart for 8 steps. Inside a preset it takes the preset's step;
+   anywhere else (a sidebar beside the preset) it uses the product's. */
+.reveal-items > :nth-child(2) {
+  animation-delay: calc(var(--reveal-step, 0.06s) * 1);
+}
+.reveal-items > :nth-child(3) {
+  animation-delay: calc(var(--reveal-step, 0.06s) * 2);
+}
+.reveal-items > :nth-child(4) {
+  animation-delay: calc(var(--reveal-step, 0.06s) * 3);
+}
+.reveal-items > :nth-child(5) {
+  animation-delay: calc(var(--reveal-step, 0.06s) * 4);
+}
+.reveal-items > :nth-child(6) {
+  animation-delay: calc(var(--reveal-step, 0.06s) * 5);
+}
+.reveal-items > :nth-child(7) {
+  animation-delay: calc(var(--reveal-step, 0.06s) * 6);
+}
+.reveal-items > :nth-child(n + 8) {
+  animation-delay: calc(var(--reveal-step, 0.06s) * 7);
+}
+/* `.reveal-swap`: a skeleton and the block it stands in for, stacked in 1
+   cell. Add the real block after the skeleton when the data lands: the
+   skeleton fades out as the block fades in, so the space is never empty.
+   With `.reveal-items` on both, each row hands over to its real row. */
+@keyframes reveal-out {
+  to {
+    opacity: 0;
+    /* Discrete: stays visible for the whole fade, then hides, so a
+       skeleton left in place (a raw `.reveal-swap`) also leaves the
+       accessibility tree - its "Loading…" status is not read after the
+       data landed. */
+    visibility: hidden;
+  }
+}
+.reveal-swap {
+  display: grid;
+}
+.reveal-swap > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.reveal-swap > :first-child:not(:last-child) {
+  pointer-events: none;
+  animation: reveal-out
+    var(--reveal-motion, 200ms linear(0, 0.5729, 0.8966, 0.9789, 0.996, 1, 1))
+    forwards;
+}
+.reveal-swap > .reveal-items:not(:only-child) {
+  animation: none;
+}
+.reveal-swap > .reveal-items:first-child:not(:last-child) > * {
+  animation-name: reveal-out;
+  animation-fill-mode: forwards;
+}
+/* Skeletons fade in over the slow tier's 250ms on an even curve, then pulse
+   like shadcn's `animate-pulse`, on keyframes of their own so the block
+   works without Tailwind's. A skeleton that has been swapped out stops
+   pulsing: it is fading away and would otherwise animate unseen forever. */
+@keyframes reveal-skeleton-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes reveal-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+:is(.reveal-product, .reveal-product-subtle, .reveal-items, .reveal-swap)
+  [data-slot="skeleton"] {
+  animation:
+    reveal-skeleton-in 250ms ease-in-out both,
+    reveal-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) 250ms infinite;
+}
+.reveal-swap > :first-child:not(:last-child) [data-slot="skeleton"] {
+  animation: none;
+}
+/* Leaving at the top mirrors the way in: it fades out, lifts, and scales down. */
+@keyframes reveal-leave {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--reveal-distance, 0px) * -1))
+      scale(var(--reveal-scale, 1));
+  }
+}
+@supports (animation-timeline: view()) {
+  /* Scroll sections, and any `.reveal-scroll` deeper in, rise in with the
+     scroll and leave the same way at the top. They also play a load step
+     after the hero, so one already on screen at first paint arrives with the
+     page; off screen, that step plays unseen and the scroll takes over. */
+  :is(.reveal-landing, .reveal-landing-subtle) > :first-child {
+    animation: reveal-leave 1ms linear both;
+    animation-timeline: view();
+    animation-range: exit calc(100% - var(--reveal-scroll)) exit
+      calc(100% - var(--reveal-scroll-start));
+  }
+  :is(.reveal-landing, .reveal-landing-subtle) > :not(:first-child),
+  :is(.reveal-landing, .reveal-landing-subtle) .reveal-scroll {
+    --reveal-load-delay: calc(var(--reveal-step) * 4);
+    animation:
+      reveal-preset 1ms linear both,
+      reveal-leave 1ms linear both,
+      reveal-preset
+        var(
+          --reveal-motion,
+          200ms linear(0, 0.5729, 0.8966, 0.9789, 0.996, 1, 1)
+        )
+        backwards;
+    animation-timeline: view(), view(), auto;
+    animation-range:
+      entry var(--reveal-scroll-start) entry var(--reveal-scroll),
+      exit calc(100% - var(--reveal-scroll)) exit
+        calc(100% - var(--reveal-scroll-start)),
+      normal;
+    animation-delay: 0s, 0s, var(--reveal-load-delay);
+  }
+  :is(.reveal-landing, .reveal-landing-subtle) .reveal-scroll:nth-child(2) {
+    --reveal-load-delay: calc(var(--reveal-step) * 5);
+  }
+  :is(.reveal-landing, .reveal-landing-subtle) .reveal-scroll:nth-child(3) {
+    --reveal-load-delay: calc(var(--reveal-step) * 6);
+  }
+  :is(.reveal-landing, .reveal-landing-subtle) .reveal-scroll:nth-child(n + 4) {
+    --reveal-load-delay: calc(var(--reveal-step) * 7);
+  }
+  /* The section holding `.reveal-scroll` elements stays still, so nothing
+     animates twice. */
+  :is(.reveal-landing, .reveal-landing-subtle)
+    > :not(:first-child):has(.reveal-scroll) {
+    animation: none;
+  }
+  /* A `.reveal-scroll` inside another one follows it: half a range later on
+     the way in, half a range sooner on the way out, a step later on load. */
+  :is(.reveal-landing, .reveal-landing-subtle) .reveal-scroll .reveal-scroll {
+    --reveal-load-delay: inherit;
+    animation-range:
+      entry calc(var(--reveal-scroll-start) + var(--reveal-scroll) / 2) entry
+        calc(var(--reveal-scroll) * 1.5),
+      exit calc(100% - var(--reveal-scroll) * 1.5) exit
+        calc(100% - var(--reveal-scroll-start) - var(--reveal-scroll) / 2),
+      normal;
+    animation-delay:
+      0s, 0s, calc(var(--reveal-load-delay) + var(--reveal-step));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Reduced motion keeps the fades and drops the rest: no rise, no scale, no
+     scroll motion, no pulse. */
+  :is(.reveal-landing, .reveal-landing-subtle) {
+    --reveal-distance: 0px;
+    --reveal-scale: 1;
+  }
+  :is(.reveal-landing, .reveal-landing-subtle) > :first-child,
+  :is(.reveal-landing, .reveal-landing-subtle)
+    > :not(:first-child):has(.reveal-scroll) {
+    animation: none;
+  }
+  :is(.reveal-landing, .reveal-landing-subtle) > :not(:first-child),
+  :is(.reveal-landing, .reveal-landing-subtle) .reveal-scroll {
+    animation: reveal-preset
+      var(--reveal-motion, 200ms linear(0, 0.5729, 0.8966, 0.9789, 0.996, 1, 1))
+      backwards;
+    animation-delay: var(--reveal-load-delay, 0s);
+  }
+  :is(.reveal-landing, .reveal-landing-subtle) .reveal-scroll .reveal-scroll {
+    animation-delay: calc(var(--reveal-load-delay, 0s) + var(--reveal-step));
+  }
+  :is(.reveal-product, .reveal-product-subtle, .reveal-items, .reveal-swap)
+    [data-slot="skeleton"] {
+    animation: reveal-skeleton-in 250ms ease-in-out both;
+  }
+}
+/* </generated:reveal> */
+
+/* ============================================================================
+   8. SHELL
+============================================================================ */
+
+/* The inset's sticky topbar (app.tsx wraps FF's SidebarInsetTopbar in it).
+   The bar sticks 8px down — the inset's own top margin — and wears the
+   inset's surface, top radius, and surface ring, so it reads as the card's
+   top edge however far the page has scrolled. A page-coloured strip behind
+   it hides rows in that 8px margin and in the gaps beside its rounded
+   corners. Once the page scrolls, FF's scroll-divider hairline and a short
+   surface fade appear under it, the same signal as `.scroll-divider` +
+   `.scroll-fade`; browsers without scroll timelines get the solid bar only. */
+.inset-topbar {
+  position: sticky;
+  top: 8px;
+  z-index: 30;
+}
+
+.inset-topbar::before {
+  content: "";
+  position: absolute;
+  inset: -8px -1px auto;
+  height: 20px;
+  background-color: var(--background);
+  pointer-events: none;
+}
+
+.inset-topbar > header {
+  position: relative;
+  border-radius: 12px 12px 0 0;
+  background-color: var(--surface-2);
+  box-shadow: var(--shadow-2);
+  /* Keep the ring on the top and sides only; the bottom edge is the divider's. */
+  clip-path: inset(-4px -4px 0 -4px);
+}
+
+.inset-topbar::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background:
+    linear-gradient(var(--border), var(--border)) top / 100% 1px no-repeat,
+    linear-gradient(to bottom, var(--surface-2), transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@supports (animation-timeline: scroll()) {
+  .inset-topbar::after {
+    animation: sf-divider-start both linear;
+    animation-timeline: scroll(root);
+    animation-range: 0 48px;
+  }
+}

@@ -29,8 +29,22 @@ jobs:
         run: corepack enable
       - name: Install locked dependencies
         run: corepack pnpm install --frozen-lockfile
+      # The dashboard browser E2E (e2e/dashboard-browser.test.ts) must run on
+      # Linux; elsewhere it skips with a message when Chromium is missing.
+      - name: Install Chromium for the dashboard browser E2E
+        if: runner.os == 'Linux'
+        run: corepack pnpm exec playwright install --with-deps --only-shell chromium
       - name: Verify Analyzer (full, offline)
+        env:
+          FORENSIX_REQUIRE_BROWSER_E2E: ${{ runner.os == 'Linux' && '1' || '0' }}
         run: corepack pnpm verify:full
+      - name: Keep the dashboard browser E2E artifacts (traces, screenshots, Case)
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dashboard-browser-e2e
+          path: e2e/.artifacts/dashboard/
+          if-no-files-found: ignore
 
   # Required gate 2: static analysis. Redundant with verify-full by design, so
   # a static regression is reported as its own required check.
