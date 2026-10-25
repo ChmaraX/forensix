@@ -352,7 +352,8 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       },
     });
 
-    // Keyset pagination, multi-Profile, sort by host ascending.
+    // Keyset pagination, multi-Profile, sort by host ascending. The CLI
+    // redacts plaintext cookie values unless --include-secrets.
     const first = parseJson<CookiePage>(
       runCli([
         "cookies",
@@ -364,6 +365,7 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
         "asc",
         "--limit",
         "2",
+        "--include-secrets",
         "--json",
       ]).stdout,
     );
@@ -604,7 +606,13 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
       0,
     );
     const withoutOrigin = parseJson<CookiePage>(
-      runCli(["cookies", "--case", caseDirectory, "--json"]).stdout,
+      runCli([
+        "cookies",
+        "--case",
+        caseDirectory,
+        "--include-secrets",
+        "--json",
+      ]).stdout,
     );
     expect(withoutOrigin.items).toHaveLength(1);
     expect(withoutOrigin.items[0]?.fields.creationTime).toEqual({
@@ -615,6 +623,15 @@ describe("compiled analyzer CLI Cookie Finding pipeline", () => {
     expect(withoutOrigin.items[0]?.fields.value).toEqual({
       state: "value",
       value: "legacy-plain",
+    });
+    // By default the CLI withholds the plaintext value.
+    const withheld = runCli(["cookies", "--case", caseDirectory, "--json"]);
+    expect(withheld.stdout).not.toContain("legacy-plain");
+    expect(
+      parseJson<CookiePage>(withheld.stdout).items[0]?.fields.value,
+    ).toMatchObject({
+      state: "redacted",
+      reason: "plaintext_secret_withheld",
     });
 
     expect(

@@ -1,4 +1,4 @@
-import { createCipheriv, pbkdf2Sync } from "node:crypto";
+import { createCipheriv, createHash, pbkdf2Sync } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -210,6 +210,7 @@ describe("compiled analyzer CLI offline OSCrypt decryption", () => {
         caseDirectory,
         "--search",
         "alpha.example",
+        "--include-secrets",
         "--json",
       ]).stdout,
     ).items;
@@ -226,6 +227,34 @@ describe("compiled analyzer CLI offline OSCrypt decryption", () => {
     expect(decrypted[0]?.fields.secretKeyMaterialRecordId).toEqual({
       state: "value",
       value: "op-gnome-default",
+    });
+
+    // Without --include-secrets the CLI prints the decrypted secret only as a
+    // hash that matches it, never as text.
+    const withheld = runCli([
+      "credentials",
+      "--case",
+      caseDirectory,
+      "--search",
+      "alpha.example",
+      "--json",
+    ]).stdout;
+    expect(withheld).not.toContain("top-secret-password");
+    const redacted = parseJson<
+      CredentialPage & {
+        readonly redaction: { readonly redactedFieldCount: number };
+      }
+    >(withheld);
+    expect(redacted.redaction).toEqual({
+      state: "redacted",
+      redactedFieldCount: 1,
+    });
+    expect(redacted.items[0]?.fields.secret).toEqual({
+      state: "redacted",
+      reason: "plaintext_secret_withheld",
+      sha256: createHash("sha256")
+        .update(JSON.stringify("top-secret-password"))
+        .digest("hex"),
     });
 
     // The v20 App-Bound secret is never unwrapped, even with opt-in.

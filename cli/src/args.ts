@@ -21,6 +21,8 @@ const FLAG_OPTIONS = new Set([
   "--include-secrets",
   "--decrypt",
   "--no-topic-classification",
+  "--content-boundaries",
+  "--page-all",
 ]);
 const VALUE_OPTIONS = new Set([
   "--case",
@@ -56,11 +58,42 @@ const VALUE_OPTIONS = new Set([
   "--key-material",
   "--recipient-key",
   "--label",
+  "--id",
+  "--by",
+  "--fields",
+  "--supporting-rows",
+  "--max-output",
+  "--audit-log",
+  "--log",
 ]);
-const REPEATABLE_OPTIONS = new Set(["--profile", "--collection"]);
+/** Options the parser lets repeat. A command accepts a repeat only when the
+ *  option is also in its own repeatable set (see {@link assertAllowedOptions}). */
+const REPEATABLE_OPTIONS = new Set(["--profile", "--collection", "--kind"]);
+/** The repeatable set a command gets when it names none. */
+export const DEFAULT_REPEATABLE_OPTIONS: ReadonlySet<string> = new Set([
+  "--profile",
+  "--collection",
+]);
+
+/** U+0000-U+001F and U+007F. No option value or positional may hold one. */
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
+
+function assertNoControlCharacters(value: string, option: string): void {
+  if (CONTROL_CHARACTER.test(value)) {
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      `The value of ${option} contains a control character.`,
+      { option },
+    );
+  }
+}
 
 export function parseArguments(arguments_: readonly string[]): ParsedArguments {
   const [command, ...remaining] = arguments_;
+  if (command !== undefined) {
+    assertNoControlCharacters(command, "command");
+  }
   const positionals: string[] = [];
   const options = new Map<string, OptionValue[]>();
 
@@ -70,9 +103,11 @@ export function parseArguments(arguments_: readonly string[]): ParsedArguments {
       continue;
     }
     if (!argument.startsWith("--")) {
+      assertNoControlCharacters(argument, "positional");
       positionals.push(argument);
       continue;
     }
+    assertNoControlCharacters(argument, "option");
     if (!FLAG_OPTIONS.has(argument) && !VALUE_OPTIONS.has(argument)) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
@@ -97,6 +132,7 @@ export function parseArguments(arguments_: readonly string[]): ParsedArguments {
         `Option ${argument} needs a value.`,
       );
     }
+    assertNoControlCharacters(value, argument);
     options.set(argument, [...(existing ?? []), value]);
     index += 1;
   }
@@ -138,6 +174,7 @@ export function requiredCasePath(arguments_: ParsedArguments): string {
 export function assertAllowedOptions(
   arguments_: ParsedArguments,
   allowed: ReadonlySet<string>,
+  repeatable: ReadonlySet<string> = DEFAULT_REPEATABLE_OPTIONS,
 ): void {
   const invalid = [...arguments_.options.keys()].filter(
     (option) => !allowed.has(option),
@@ -146,7 +183,35 @@ export function assertAllowedOptions(
     throw new ForensixError(
       "INVALID_ARGUMENT",
       `The ${arguments_.command ?? "unknown"} command has invalid options.`,
-      { invalid_options: invalid },
+      { invalidOptions: invalid },
+    );
+  }
+  for (const [option, values] of arguments_.options) {
+    if (values.length > 1 && !repeatable.has(option)) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        `Option is repeated: ${option}`,
+        { option },
+      );
+    }
+  }
+}
+
+/**
+ * Rejects a path option that holds a `..` segment. A relative path that climbs
+ * out of the working directory is easy to misread in a Case record; an
+ * absolute path is not.
+ */
+export function assertNoParentSegments(
+  arguments_: ParsedArguments,
+  option: string,
+): void {
+  const value = optionValue(arguments_, option);
+  if (value !== undefined && value.split(/[\\/]/).includes("..")) {
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      `Option ${option} must not contain a ".." path segment. Use an absolute path.`,
+      { option, value },
     );
   }
 }

@@ -19,11 +19,12 @@ import {
 } from "@forensix/core";
 import { startDashboardServer } from "@forensix/server";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
   assertAllowedOptions,
+  assertNoParentSegments,
   enumOption,
   hasOption,
   integerOption,
@@ -32,7 +33,23 @@ import {
   parseArguments,
   requiredCasePath,
 } from "./args.js";
+import {
+  AUDIT_KEY_BYTES,
+  appendAuditEntry,
+  verifyAuditLog,
+  type AuditStamp,
+} from "./audit.js";
+import { CliError } from "./cli-error.js";
+import {
+  PAGED_OUTPUT_OPTIONS,
+  QUERY_OUTPUT_OPTIONS,
+  RECORD_OUTPUT_OPTIONS,
+  readOutputControls,
+  runQueryCommand,
+} from "./output.js";
 import { QUERY_COMMANDS } from "./query-commands.js";
+import { listSkills, readSkill } from "./skills.js";
+import { commandUsage, fullUsage } from "./usage.js";
 
 /**
  * Release-injected build identity. The release workflow
@@ -59,113 +76,6 @@ function resolveToolVersion(): string {
   }
   return TOOL_VERSION;
 }
-
-const USAGE = `Usage:
-  forensix ingest <source> --case <case-directory> [--source-kind <kind>] [--include-tier-2] [--json]
-  forensix analyse --case <case-directory> [--timezone <iana-zone>] [--origin-os <windows|macos|linux>]
-                   [--decrypt --key-material <path> [--recipient-key <path>]] [--json]
-  forensix timeline --case <case-directory> [--from <instant>] [--to <instant>]
-                   [--direction <asc|desc>] [--limit <1-100>] [--after <cursor>] [--json]
-  forensix site-hosts --case <case-directory> [--search <text>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix site-findings --case <case-directory> --host <host>
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix completeness --case <case-directory> [--json]
-  forensix profiles --case <case-directory> [--json]
-  forensix history --case <case-directory> [--view <visits|activity|most-visited|durations>]
-                   [--profile <profile>]... [--search <text>]
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--transition <name>] [--from <instant>] [--to <instant>]
-                   [--sort <field>] [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix cookies --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--host <host-key>] [--same-site <name>]
-                   [--sort <host|name|creation-time|expires-time|last-access-time|profile>]
-                   [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix credentials --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--sort <created-time|last-used-time|origin|username|profile>]
-                   [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix top-sites --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--sort <rank|url|title|profile>]
-                   [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix topic-candidates --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--label <topic-id>]
-                   [--sort <rank|supporting|label|profile>]
-                   [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix autofill --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--sort <created-time|last-used-time|field-name|value|profile>]
-                   [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix candidates --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--category <identity|behavior>] [--kind <candidate-kind>]
-                   [--sort <rank|kind|supporting-count|value|profile>]
-                   [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix favicons --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--sort <icon-url|page-url|last-updated|width|profile>]
-                   [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix cache --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--record-type <finding|candidate>] [--backend <simple>]
-                   [--sort <key|last-used|size|entry-hash|profile>]
-                   [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix downloads --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--state <in_progress|complete|cancelled|interrupted>]
-                   [--danger <danger-type>]
-                   [--sort <start-time|end-time|target-path|state|total-bytes|profile>]
-                   [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix metadata --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--type <browser_metadata|profile_metadata>]
-                   [--sort <type|profile>] [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix bookmarks --case <case-directory>
-                   [--profile <profile>]... [--search <text>]
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--source <primary|backup>]
-                   [--sort <name|url|date-added|folder|profile>]
-                   [--direction <asc|desc>]
-                   [--limit <1-100>] [--after <cursor>] [--json]
-  forensix serve --case <case-directory> [--port <port>] [--json]
-  forensix export --case <case-directory> --out <output-directory>
-                   [--collection <findings|candidates>]... [--profile <profile>]...
-                   [--commit-state <committed|wal_resident|journal_resident>]
-                   [--examiner <name>] [--csv] [--include-secrets] [--json]
-  forensix report --extract <extract-directory> --out <report.html> [--json]
-  forensix --version
-
-Source kinds:
-  USER_DATA_DIR (default), PROFILE_DIR, FILESYSTEM_ROOT, IMAGE_CONTAINER, ACQUISITION_BUNDLE
-
-analyse exit codes:
-  0  clean    every artifact produced defensible results
-  2  partial  some artifacts were unavailable; other results stay queryable
-  3  failed   the analysis produced no defensible artifact result
-  1  error    usage error, missing Case, or Working Copy integrity refusal
-`;
 
 function nodeVersionIsSupported(version: string): boolean {
   const actual = version.split(".").map((part) => Number(part));
@@ -195,7 +105,37 @@ async function consumeIngest(
   }
 }
 
-async function run(arguments_: readonly string[]): Promise<number> {
+/**
+ * What one command prints. `documents` are JSON objects, one per line (a lazy
+ * iterable for paged output); `text` is printed as is. The emitter adds the
+ * audit stamp and writes them.
+ */
+interface CommandOutcome {
+  readonly exitCode: number;
+  readonly stream: "stdout" | "stderr";
+  readonly documents?: Iterable<object>;
+  readonly text?: string;
+  /** Help and version output, and verifying the audit log itself. */
+  readonly skipAudit?: boolean;
+  /** Runs after the output is written (serve keeps running). */
+  readonly afterEmit?: () => void;
+}
+
+/** Options every command accepts. */
+const GLOBAL_OPTIONS: readonly string[] = ["--audit-log"];
+
+function allowing(...groups: readonly Iterable<string>[]): Set<string> {
+  return new Set([...GLOBAL_OPTIONS, ...groups.flatMap((group) => [...group])]);
+}
+
+function printed(document: object, exitCode = 0): CommandOutcome {
+  return { exitCode, stream: "stdout", documents: [document] };
+}
+
+async function run(
+  arguments_: readonly string[],
+  auditEnabled: boolean,
+): Promise<CommandOutcome> {
   if (!nodeVersionIsSupported(process.versions.node)) {
     throw new ForensixError(
       "UNSUPPORTED_NODE_VERSION",
@@ -204,12 +144,22 @@ async function run(arguments_: readonly string[]): Promise<number> {
     );
   }
   if (arguments_.length === 0 || arguments_.includes("--help")) {
-    process.stdout.write(USAGE);
-    return 0;
+    const command = arguments_[0];
+    const usage = command === undefined ? undefined : commandUsage(command);
+    return {
+      exitCode: 0,
+      stream: "stdout",
+      text: usage ?? fullUsage(),
+      skipAudit: true,
+    };
   }
   if (arguments_.length === 1 && arguments_[0] === "--version") {
-    process.stdout.write(`${resolveToolVersion()}\n`);
-    return 0;
+    return {
+      exitCode: 0,
+      stream: "stdout",
+      text: `${resolveToolVersion()}\n`,
+      skipAudit: true,
+    };
   }
 
   const parsed = parseArguments(arguments_);
@@ -217,7 +167,7 @@ async function run(arguments_: readonly string[]): Promise<number> {
   if (parsed.command === "ingest") {
     assertAllowedOptions(
       parsed,
-      new Set(["--case", "--json", "--include-tier-2", "--source-kind"]),
+      allowing(["--case", "--json", "--include-tier-2", "--source-kind"]),
     );
     if (parsed.positionals.length !== 1) {
       throw new ForensixError(
@@ -249,14 +199,13 @@ async function run(arguments_: readonly string[]): Promise<number> {
       }),
       !jsonOutput,
     );
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-    return 0;
+    return printed(result);
   }
 
   if (parsed.command === "analyse") {
     assertAllowedOptions(
       parsed,
-      new Set([
+      allowing([
         "--case",
         "--json",
         "--timezone",
@@ -303,8 +252,7 @@ async function run(arguments_: readonly string[]): Promise<number> {
       topicClassification: { enabled: topicClassificationEnabled },
       invocation: arguments_,
     });
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-    return ANALYSE_EXIT_CODES[result.exitState];
+    return printed(result, ANALYSE_EXIT_CODES[result.exitState]);
   }
 
   const queryCommand =
@@ -312,22 +260,89 @@ async function run(arguments_: readonly string[]): Promise<number> {
       ? undefined
       : QUERY_COMMANDS.get(parsed.command);
   if (queryCommand !== undefined) {
-    assertAllowedOptions(parsed, queryCommand.allowedOptions);
+    assertAllowedOptions(
+      parsed,
+      allowing(
+        queryCommand.allowedOptions,
+        QUERY_OUTPUT_OPTIONS,
+        queryCommand.output === "records" ? RECORD_OUTPUT_OPTIONS : [],
+        queryCommand.paged ? PAGED_OUTPUT_OPTIONS : [],
+      ),
+      queryCommand.repeatableOptions,
+    );
     if (parsed.positionals.length !== 0) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
-        `The ${parsed.command} command accepts no positional values.`,
+        `The ${parsed.command ?? ""} command accepts no positional values.`,
       );
     }
-    const result = queryCommand.execute(parsed);
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-    return 0;
+    const controls = readOutputControls(
+      parsed,
+      queryCommand,
+      auditEnabled ? AUDIT_KEY_BYTES : 0,
+    );
+    return {
+      exitCode: 0,
+      stream: "stdout",
+      documents: runQueryCommand(queryCommand, parsed, controls),
+    };
+  }
+
+  if (parsed.command === "skill") {
+    assertAllowedOptions(parsed, allowing(["--json"]));
+    const [action, name, ...extra] = parsed.positionals;
+    if (action === "list" && name === undefined) {
+      const skills = listSkills();
+      if (jsonOutput) {
+        return printed({ status: "ok", command: "skill-list", skills });
+      }
+      return {
+        exitCode: 0,
+        stream: "stdout",
+        text: skills
+          .map((skill) => `${skill.name}\t${skill.description}\n`)
+          .join(""),
+      };
+    }
+    if (action === "get" && name !== undefined && extra.length === 0) {
+      const skill = readSkill(name);
+      if (jsonOutput) {
+        return printed({ status: "ok", command: "skill-get", ...skill });
+      }
+      return { exitCode: 0, stream: "stdout", text: skill.content };
+    }
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      "Use forensix skill list, or forensix skill get <name>.",
+      { positionals: parsed.positionals },
+    );
+  }
+
+  if (parsed.command === "audit") {
+    assertAllowedOptions(parsed, allowing(["--log", "--json"]));
+    if (parsed.positionals.length !== 1 || parsed.positionals[0] !== "verify") {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        "Use forensix audit verify --log <audit-log-file>.",
+        { positionals: parsed.positionals },
+      );
+    }
+    const log = optionValue(parsed, "--log");
+    if (log === undefined) {
+      throw new ForensixError("INVALID_ARGUMENT", "Option --log is required.");
+    }
+    const verification = verifyAuditLog(resolve(log));
+    return {
+      ...printed(verification, verification.valid ? 0 : 1),
+      // Appending to the log under check would change what was checked.
+      skipAudit: resolve(log) === auditLogPath(arguments_),
+    };
   }
 
   if (parsed.command === "export") {
     assertAllowedOptions(
       parsed,
-      new Set([
+      allowing([
         "--case",
         "--json",
         "--out",
@@ -345,6 +360,7 @@ async function run(arguments_: readonly string[]): Promise<number> {
         "The export command accepts no positional values.",
       );
     }
+    assertNoParentSegments(parsed, "--out");
     const outDirectory = optionValue(parsed, "--out");
     if (outDirectory === undefined) {
       throw new ForensixError("INVALID_ARGUMENT", "Option --out is required.");
@@ -376,18 +392,19 @@ async function run(arguments_: readonly string[]): Promise<number> {
       csv: hasOption(parsed, "--csv"),
       includeSecrets: hasOption(parsed, "--include-secrets"),
     });
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-    return 0;
+    return printed(result);
   }
 
   if (parsed.command === "report") {
-    assertAllowedOptions(parsed, new Set(["--extract", "--out", "--json"]));
+    assertAllowedOptions(parsed, allowing(["--extract", "--out", "--json"]));
     if (parsed.positionals.length !== 0) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
         "The report command accepts no positional values.",
       );
     }
+    assertNoParentSegments(parsed, "--extract");
+    assertNoParentSegments(parsed, "--out");
     const extractDirectory = optionValue(parsed, "--extract");
     if (extractDirectory === undefined) {
       throw new ForensixError(
@@ -400,12 +417,11 @@ async function run(arguments_: readonly string[]): Promise<number> {
       throw new ForensixError("INVALID_ARGUMENT", "Option --out is required.");
     }
     const result = await renderReport({ extractDirectory, outputPath });
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-    return 0;
+    return printed(result);
   }
 
   if (parsed.command === "serve") {
-    assertAllowedOptions(parsed, new Set(["--case", "--json", "--port"]));
+    assertAllowedOptions(parsed, allowing(["--case", "--json", "--port"]));
     if (parsed.positionals.length !== 0) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
@@ -432,22 +448,25 @@ async function run(arguments_: readonly string[]): Promise<number> {
       port: server.port,
       token: server.token,
     };
-    process.stdout.write(`${JSON.stringify(announcement)}\n`);
-    if (!jsonOutput) {
-      process.stderr.write(
-        `ForensiX read-only dashboard on ${server.url} (loopback only). ` +
-          `Press Ctrl+C to stop.\n`,
-      );
-    }
-    const stop = (): void => {
-      void server.close().then(() => {
-        process.exit(0);
-      });
+    return {
+      ...printed(announcement),
+      afterEmit: () => {
+        if (!jsonOutput) {
+          process.stderr.write(
+            `ForensiX read-only dashboard on ${server.url} (loopback only). ` +
+              `Press Ctrl+C to stop.\n`,
+          );
+        }
+        const stop = (): void => {
+          void server.close().then(() => {
+            process.exit(0);
+          });
+        };
+        process.once("SIGINT", stop);
+        process.once("SIGTERM", stop);
+        // The listening loopback socket keeps the process alive until stopped.
+      },
     };
-    process.once("SIGINT", stop);
-    process.once("SIGTERM", stop);
-    // The listening loopback socket keeps the process alive until stopped.
-    return 0;
   }
 
   throw new ForensixError(
@@ -456,18 +475,130 @@ async function run(arguments_: readonly string[]): Promise<number> {
   );
 }
 
-try {
-  process.exitCode = await run(process.argv.slice(2));
-} catch (error) {
-  const diagnostic =
-    error instanceof ForensixError
-      ? error.toDiagnostic()
-      : new ForensixError(
-          process.argv[2] === "ingest" ? "INGEST_FAILED" : "ANALYSIS_FAILED",
-          "ForensiX stopped before completion.",
-          {},
-          { cause: error },
-        ).toDiagnostic();
-  process.stderr.write(`${JSON.stringify(diagnostic)}\n`);
-  process.exitCode = 1;
+function diagnosticOf(error: unknown, arguments_: readonly string[]): object {
+  if (error instanceof ForensixError || error instanceof CliError) {
+    return error.toDiagnostic();
+  }
+  return new ForensixError(
+    arguments_[0] === "ingest" ? "INGEST_FAILED" : "ANALYSIS_FAILED",
+    "ForensiX stopped before completion.",
+    {},
+    { cause: error },
+  ).toDiagnostic();
 }
+
+function failed(error: unknown, arguments_: readonly string[]): CommandOutcome {
+  return {
+    exitCode: 1,
+    stream: "stderr",
+    documents: [diagnosticOf(error, arguments_)],
+  };
+}
+
+/** The value after the first `--audit-log`, else FORENSIX_AUDIT_LOG. Read
+ *  from the raw arguments so a command that fails to parse is logged too. */
+function auditLogPath(arguments_: readonly string[]): string | undefined {
+  const index = arguments_.indexOf("--audit-log");
+  const value =
+    index === -1 ? process.env.FORENSIX_AUDIT_LOG : arguments_[index + 1];
+  if (value === undefined || value === "" || value.startsWith("--")) {
+    return undefined;
+  }
+  return resolve(value);
+}
+
+function caseDirectoryOf(arguments_: readonly string[]): string | null {
+  const index = arguments_.indexOf("--case");
+  const value = index === -1 ? undefined : arguments_[index + 1];
+  return value === undefined || value.startsWith("--") ? null : resolve(value);
+}
+
+/**
+ * A closed downstream pipe (`forensix ... | head`) is a normal end: exit 0
+ * without a stack trace. A closed stderr never stops a running command.
+ */
+function guardPipes(): void {
+  process.stdout.on("error", (error: NodeJS.ErrnoException) => {
+    process.exit(error.code === "EPIPE" ? 0 : 1);
+  });
+  process.stderr.on("error", () => {
+    // Progress and diagnostics are best effort once stderr is closed.
+  });
+}
+
+function write(stream: "stdout" | "stderr", text: string): void {
+  (stream === "stdout" ? process.stdout : process.stderr).write(text);
+}
+
+function line(document: object, stamp?: AuditStamp): string {
+  return `${JSON.stringify(stamp === undefined ? document : { ...document, audit: stamp })}\n`;
+}
+
+/** Writes the outcome. With an audit log, the whole output is built first, its
+ *  hash goes into the appended entry, and only then is it printed with the
+ *  `audit` stamp; without one, pages stream as they are read. */
+function emit(
+  outcome: CommandOutcome,
+  arguments_: readonly string[],
+  logPath: string | undefined,
+): number {
+  if (logPath === undefined || outcome.skipAudit === true) {
+    if (outcome.text !== undefined) {
+      write(outcome.stream, outcome.text);
+    }
+    try {
+      for (const document of outcome.documents ?? []) {
+        write(outcome.stream, line(document));
+      }
+    } catch (error) {
+      write("stderr", line(diagnosticOf(error, arguments_)));
+      return 1;
+    }
+    return outcome.exitCode;
+  }
+
+  let final = outcome;
+  let documents: object[] = [];
+  try {
+    documents = [...(outcome.documents ?? [])];
+  } catch (error) {
+    final = failed(error, arguments_);
+    documents = [...(final.documents ?? [])];
+  }
+  const text =
+    final.text ?? documents.map((document) => line(document)).join("");
+  let stamp: AuditStamp;
+  try {
+    stamp = appendAuditEntry(logPath, {
+      toolVersion: resolveToolVersion(),
+      command: arguments_[0] ?? null,
+      argv: arguments_,
+      caseDirectory: caseDirectoryOf(arguments_),
+      exitCode: final.exitCode,
+      output: text,
+    });
+  } catch (error) {
+    // No unaudited output when an audit log was asked for.
+    write("stderr", line(diagnosticOf(error, arguments_)));
+    return 1;
+  }
+  if (final.text !== undefined) {
+    write(final.stream, final.text);
+  }
+  for (const document of documents) {
+    write(final.stream, line(document, stamp));
+  }
+  return final.exitCode;
+}
+
+guardPipes();
+const cliArguments = process.argv.slice(2);
+const logPath = auditLogPath(cliArguments);
+let outcome: CommandOutcome;
+try {
+  outcome = await run(cliArguments, logPath !== undefined);
+} catch (error) {
+  outcome = failed(error, cliArguments);
+}
+process.exitCode = emit(outcome, cliArguments, logPath);
+outcome.afterEmit?.();
