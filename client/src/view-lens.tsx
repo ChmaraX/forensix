@@ -1,8 +1,9 @@
 /**
  * The topbar's lens chip: the Case-wide date range and profile pick the
  * page on show applies, in words, with a clear button. It shows only what
- * the page filters by (`useLensApplied`), so a page that ignores the range
- * never looks filtered; and nothing at all when no lens is set.
+ * the page filters by (its registry entry, `PAGES[page].lens`), so a page
+ * that ignores the range never looks filtered; and nothing at all when no
+ * lens is set.
  */
 import { AnimatePresence, motion } from "motion/react";
 
@@ -13,27 +14,17 @@ import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { profileLabel } from "./components/finding-fields.js";
 import { formatCaseDay } from "./related.js";
-import { pageLabelOf } from "./router.js";
-import { useLensApplied, useViewLocation, useViewState } from "./view-state.js";
+import { PAGES } from "./pages.js";
+import { useViewLocation, useViewState } from "./view-state.js";
 
-/** Pages with their own date picker, which shows the applied range. */
-const RANGE_PICKER_PAGES: ReadonlySet<string> = new Set([
-  "overview",
-  "history",
-  "timeline",
-  "downloads",
-  "cache",
-]);
-
-/** The recorded time each range-filtering page narrows by, for the chip's
- *  description ("13 Mar 2024, by visit time"). */
-const RANGE_FIELD: Readonly<Record<string, string>> = {
-  overview: "visit day",
-  history: "visit time",
-  timeline: "each event's own time",
-  downloads: "start time",
-  cache: "last used time",
-};
+/** Which parts of the lens the page on show applies. */
+function useLensApplied(): {
+  readonly range: boolean;
+  readonly profiles: boolean;
+} {
+  const { lens } = PAGES[useViewLocation().page];
+  return { range: lens.range !== null, profiles: lens.profiles };
+}
 
 /** "12 Mar 2024", "12 - 14 Mar 2024", "12 Mar - 4 Apr 2024",
  *  "30 Dec 2023 - 2 Jan 2024", "From 12 Mar 2024". */
@@ -113,12 +104,12 @@ export function ViewLensChip({
   const { clear, range, profiles, setProfiles } = useViewState();
   const lens = useLensApplied();
   const { page } = useViewLocation();
-  const pageLabel = pageLabelOf(page) ?? "This page";
+  const pageLabel = PAGES[page].label;
   const parts = useLensParts();
-  // A page whose own date picker shows the applied range (it says the
-  // same days, with its own clear) does not get them twice: the chip then
-  // carries only what the picker does not.
-  const rangeOnPage = lens.range && RANGE_PICKER_PAGES.has(page);
+  // A page that applies the range shows it on its own date picker (the
+  // same days, with its own clear), so it does not get them twice: the
+  // chip then carries only what the picker does not.
+  const rangeOnPage = lens.range;
   const rangeWords = rangeLabel(range.from, range.to);
   const applied = rangeOnPage
     ? parts.applied.filter((part) => part !== rangeWords)
@@ -131,12 +122,12 @@ export function ViewLensChip({
   // Mar 2024, by start time", "Cookies does not filter by date".
   const rangeText = rangeLabel(range.from, range.to);
   const profileText = profilesLabel(profiles);
-  const field = RANGE_FIELD[page];
+  const field = PAGES[page].lens.range;
   const sentences = [
     rangeText === null
       ? null
       : lens.range
-        ? `Showing ${rangeText}${field === undefined ? "" : `, by ${field}`}.`
+        ? `Showing ${rangeText}${field === null ? "" : `, by ${field}`}.`
         : `${rangeText} is not applied: ${pageLabel} does not filter by date.`,
     profileText === null
       ? null

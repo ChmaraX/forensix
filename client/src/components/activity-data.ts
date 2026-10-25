@@ -14,8 +14,8 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
-import { callApi } from "../api.js";
-import type { Finding, PageOf } from "../types.js";
+import { once, readPages } from "../read-pages.js";
+import type { Finding } from "../types.js";
 import type { DayCount } from "./charts.js";
 import { fieldString } from "./finding-fields.js";
 
@@ -83,45 +83,39 @@ export async function fetchActivity(): Promise<SplitActivity> {
   const saved: ActivityBucket[] = [];
   const recovered: ActivityBucket[] = [];
   const zones = new Set<string>();
-  let after: string | null = null;
-  let complete = false;
-  for (let page = 0; page < ACTIVITY_PAGE_CAP; page += 1) {
-    const parameters: (readonly [string, string])[] = [
+  const { complete } = await readPages<Finding>(
+    "history",
+    [
       ["view", "activity"],
       ["sort", "local-time"],
       ["direction", "asc"],
       ["limit", "100"],
-    ];
-    if (after !== null) {
-      parameters.push(["after", after]);
-    }
-    const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
-      "history",
-      parameters,
-    );
-    for (const row of result.items) {
-      const date = fieldString(row.fields.localDate);
-      const hour = Number(fieldString(row.fields.localHour) ?? "");
-      const count = Number(fieldString(row.fields.supportingVisitCount) ?? "0");
-      if (date === null || !Number.isInteger(hour) || Number.isNaN(count)) {
-        continue;
-      }
-      // An unrecorded zone counts as its own (unknown) zone, so it can only
-      // make the rows disagree, never stand in for a real one.
-      zones.add(fieldString(row.fields.declaredTimezone) ?? "");
-      (row.commitState === "committed" ? saved : recovered).push({
-        date,
-        hour,
-        count,
-        profile: row.profile,
-      });
-    }
-    after = result.nextCursor;
-    if (after === null) {
-      complete = true;
-      break;
-    }
-  }
+    ],
+    {
+      cap: ACTIVITY_PAGE_CAP,
+      onPage: (rows) => {
+        for (const row of rows) {
+          const date = fieldString(row.fields.localDate);
+          const hour = Number(fieldString(row.fields.localHour) ?? "");
+          const count = Number(
+            fieldString(row.fields.supportingVisitCount) ?? "0",
+          );
+          if (date === null || !Number.isInteger(hour) || Number.isNaN(count)) {
+            continue;
+          }
+          // An unrecorded zone counts as its own (unknown) zone, so it can
+          // only make the rows disagree, never stand in for a real one.
+          zones.add(fieldString(row.fields.declaredTimezone) ?? "");
+          (row.commitState === "committed" ? saved : recovered).push({
+            date,
+            hour,
+            count,
+            profile: row.profile,
+          });
+        }
+      },
+    },
+  );
   // One declared timezone across every row, or null: then day ranges fall
   // back to UTC days (`dayRangeBounds`), the only clock that does not pick
   // one Analysis Run's zone over another's.
@@ -142,20 +136,7 @@ export async function fetchActivity(): Promise<SplitActivity> {
  * cannot go stale; a failed read is forgotten so the next caller tries
  * again, and `refresh` forces a new read (Retry).
  */
-let sharedActivity: Promise<SplitActivity> | null = null;
-
-export function caseActivity(refresh = false): Promise<SplitActivity> {
-  if (refresh || sharedActivity === null) {
-    const read = fetchActivity();
-    sharedActivity = read;
-    read.catch(() => {
-      if (sharedActivity === read) {
-        sharedActivity = null;
-      }
-    });
-  }
-  return sharedActivity;
-}
+export const caseActivity = once(fetchActivity);
 
 /** `caseActivity` as a hook. `activity` stays `null` while the read is in
  *  flight and after a failure (`error` set); `retry` reads again. */

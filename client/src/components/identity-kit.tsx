@@ -12,6 +12,7 @@ import type { AppIcon } from "@/lib/app-icons";
 
 import { artifactStoreOf } from "../artifacts.js";
 import { hrefFor, updateView, useViewProfiles } from "../view-state.js";
+import type { PageKey } from "../pages.js";
 import type { CoverageScope } from "./completeness.js";
 import {
   emptyCoverageOf as coverageWordsOf,
@@ -142,7 +143,7 @@ export function EmptyPivot({
   page,
   children,
 }: {
-  readonly page: string;
+  readonly page: PageKey;
   readonly children: ReactNode;
 }) {
   return (

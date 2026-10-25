@@ -5,7 +5,8 @@
  * records panel splits the loaded stream into saved and recovered events
  * (`splitByCommit`) — two lists, each still in time order (forensic rule 4).
  * A row's sheet opens that row on its own artifact page
- * (`TimelineSourceLink`); the range, the tab and the open row are in the URL.
+ * (`TimelineSourceLink`); the range, the tab and the open row are in the URL
+ * (a URL-named row past the loaded pages is looked up on the stream).
  */
 import { useEffect, useMemo, useState } from "react";
 
@@ -23,6 +24,7 @@ import type { PageOf } from "../types.js";
 import { caseDayOf } from "./day-bounds.js";
 import { fieldUtc } from "./finding-fields.js";
 import type { Finding } from "../types.js";
+import type { RowLookupSource } from "../row-lookup.js";
 import { usePaginatedList } from "../use-paginated-list.js";
 import { bucketsOfProfiles, useActivity } from "./activity-data.js";
 import { dayRangeParameters } from "./day-bounds.js";
@@ -143,8 +145,20 @@ export function TimelinePage() {
     () => [...new Set([...(context?.profiles ?? []), ...profiles])].sort(),
     [context, profiles],
   );
-  // The open row lives in the URL: Back and a refresh re-open it.
-  const sheet = useRowSelection(list.rows);
+  // The open row lives in the URL: Back and a refresh re-open it. A row
+  // the stream has not loaded (a link into a large Case, a copied URL) is
+  // looked up on the same stream by its reference (the route takes no
+  // profile or Commit State).
+  const lookup = useMemo<RowLookupSource>(
+    () => ({
+      route: "timeline",
+      parameters,
+      byCommitState: false,
+      byProfile: false,
+    }),
+    [parameters],
+  );
+  const sheet = useRowSelection(list.rows, lookup);
 
   return (
     <div className="flex flex-col gap-5">

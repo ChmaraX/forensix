@@ -5,7 +5,6 @@ import {
   citationOf,
   dayLinkOf,
   hostLinkOf,
-  siteKeyOf,
   visitedUrlsOf,
   visitLinksOf,
   VISIT_LINKS,
@@ -35,45 +34,6 @@ function finding(
   };
 }
 
-describe("siteKeyOf", () => {
-  it("keys a URL by its hostname, as Sites does", () => {
-    expect(siteKeyOf("https://www.TeamViewer.com/download?x=1")).toBe(
-      "www.teamviewer.com",
-    );
-  });
-
-  it("keys a domain cookie's host key without its leading dot", () => {
-    expect(siteKeyOf(".gmail.com")).toBe("gmail.com");
-  });
-
-  it("keys a host-only cookie's bare host key as itself", () => {
-    expect(siteKeyOf("Example.com")).toBe("example.com");
-    expect(siteKeyOf("www.google.com")).toBe("www.google.com");
-    expect(siteKeyOf("[::1]")).toBe("[::1]");
-  });
-
-  it("expands no domain: www is a host apart", () => {
-    expect(siteKeyOf("https://www.example.com/")).not.toBe(
-      siteKeyOf("https://example.com/"),
-    );
-  });
-
-  it("drops a port, which Sites does not key", () => {
-    expect(siteKeyOf("http://localhost:8080/")).toBe("localhost");
-    expect(siteKeyOf("http://[::1]:8080/")).toBe("[::1]");
-  });
-
-  it("reads nothing from a non-host", () => {
-    expect(siteKeyOf(null)).toBeNull();
-    expect(siteKeyOf("C:/Users/file.exe")).toBeNull();
-    expect(siteKeyOf("not a url://")).toBeNull();
-    expect(siteKeyOf("about:blank")).toBeNull();
-    expect(siteKeyOf("example.com/path")).toBeNull();
-    expect(siteKeyOf("")).toBeNull();
-    expect(siteKeyOf(".")).toBeNull();
-  });
-});
-
 describe("hostLinkOf", () => {
   it("links a visit to its host in Sites", () => {
     const link = hostLinkOf(
@@ -86,15 +46,29 @@ describe("hostLinkOf", () => {
     });
   });
 
-  it("uses the next host field when the first is not recorded", () => {
+  it("links the host Sites lists the row under, from the field that puts it there", () => {
+    // A download is on the hosts of its URL chain first, then its
+    // referrer: with no chain recorded, the referrer's host.
     const link = hostLinkOf(
-      finding("login_credential", {
-        originUrl: { state: "absent" },
-        signonRealm: value("https://accounts.example.org/"),
+      finding("download", {
+        urlChain: { state: "absent" },
+        referrer: value("https://accounts.example.org/start"),
+        tabUrl: value("https://tab.example.org/"),
+        siteUrl: value("https://site.example.org/"),
       }),
     );
     expect(link?.extras).toEqual({ host: "accounts.example.org" });
-    expect(link?.field).toBe("signonRealm");
+    expect(link?.field).toBe("referrer");
+    // A login is on its origin's host only: its realm alone puts it on no
+    // Sites host, so it links none.
+    expect(
+      hostLinkOf(
+        finding("login_credential", {
+          originUrl: { state: "absent" },
+          signonRealm: value("https://accounts.example.org/"),
+        }),
+      ),
+    ).toBeNull();
   });
 
   it("reads a cache entry's host from the resource its key names", () => {
@@ -134,7 +108,7 @@ describe("hostLinkOf", () => {
     expect(
       hostLinkOf(
         finding("history_visit", {
-          url: { state: "unavailable", reason: "r" },
+          url: { state: "unavailable", reason: "null_value" },
         }),
       ),
     ).toBeNull();

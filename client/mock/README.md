@@ -47,24 +47,34 @@ The defaults are unchanged: `dist/index.js` and port 7799.
   real server's Content-Security-Policy header.
 - `GET /index.js` - the built client bundle.
 - `GET /api/<route>` for every route the real server exposes: `completeness`,
-  `profiles`, `history`, `timeline`, `site-favicons`, `cookies`,
-  `credentials`, `top-sites`, `cache`, `favicons`, `candidates`,
-  `topic-candidates`, `metadata`, `downloads`, `bookmarks`, `autofill` -
-  plus the Sites page's `site-hosts` and `site-findings`.
+  `profiles`, `history`, `timeline`, `site-hosts`, `site-findings`,
+  `site-favicons`, `favicon-bitmaps`, `cookies`, `credentials`, `top-sites`,
+  `cache`, `favicons`, `candidates`, `topic-candidates`, `metadata`,
+  `downloads`, `bookmarks`, `autofill`.
 
 `timeline` merges history visits, downloads, cookie creation, and autofill
 last-used rows by timestamp, newest first - mirroring core's
 `queryTimeline`.
 
-`site-hosts` groups history visits, cookies, saved logins, bookmarks, and top
-sites by core's host key (a URL's hostname, or a cookie host key less one
-leading dot; lowercased; `www.` kept - no domain expansion), with
-per-kind counts (`counts`, every Commit State, and `savedCounts`, committed
-rows only), honoring `search`, in host-name order like core's
-`querySiteHosts`. `site-findings?host=` returns every row for one host, each
-tagged with its `artifactKind`. Both page like every list route.
+The Sites routes follow core exactly by importing core's own host module
+(`core/src/site-host-key.ts`, run by Node's type stripping): which fields put
+a row on a host (`SITE_HOST_FIELDS`) and how a host is keyed (`siteHostKey`)
+are core's, never a copy. `site-hosts` groups visits, cookies, saved logins,
+bookmarks, top sites, downloads, cache entries and favicons by host, with
+per-kind `counts` (every Commit State) and `savedCounts` (committed rows
+only), a row on several hosts counting on each, honoring `search`, in
+host-name order. `site-findings?host=` returns every row for one host, each
+with its `artifactKind` and `hostFields`. Both page like every list route.
+`site-favicons?host=` answers the widest saved bitmap per host (recovered
+rows never decorate a host); `favicon-bitmaps?sha256=` answers a favicon
+row's own stored bitmap by the hash it records, any Commit State.
 
-The fixture data lives in `case-data.mjs`: one hand-authored case
+Timestamps are core's `ForensicTimestamp` (`raw`, `epochFamily`, `utc`,
+`declaredTimezone`, `resolution`), all in the mock Case's declared timezone.
+
+The fixture data lives in `case-data.mjs` (with its shared builders in
+`case-kit.mjs` and the metadata, Candidates and Completeness data in
+`case-context-data.mjs`): one hand-authored case
 (`CASE-2024-0417`, an insider-threat/financial-fraud scenario), two Chrome
 profiles, both committed and sidecar (WAL/rollback-journal) rows for every
 Finding-backed artifact, all four `FieldState` variants in use across the

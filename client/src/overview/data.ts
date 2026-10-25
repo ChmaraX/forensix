@@ -4,7 +4,7 @@
  * value: every figure is a recorded field or a count of recorded rows.
  */
 import { callApi } from "@/api";
-import { ARTIFACTS } from "@/artifacts";
+import { ARTIFACTS, EVIDENCE_ORDER, type EvidenceKey } from "@/artifacts";
 import { caseSiteHosts } from "@/case-reads";
 import { formatDay } from "@/components/page-kit";
 import { caseActivity, type ActivityBucket } from "@/components/activity-data";
@@ -15,15 +15,15 @@ import {
 } from "@/components/day-bounds";
 import { fetchSiteFavicons } from "@/components/site-favicons";
 import { fieldString, fieldUtc } from "@/components/finding-fields";
-import { siteKeyOf } from "@/related";
-import { EVIDENCE_ORDER } from "@/router";
+import { siteHostKey } from "@/site-host-key";
+import { RECOVERED_STATES, readPages, withCommitState } from "@/read-pages";
 import type { FieldState, Finding, PageOf } from "@/types";
 
 export { fieldString };
 
 /**
  * One Most visited sites row: a host as the Sites page keys it
- * (`siteKeyOf`: the hostname, lower case) and its saved visit rows - the same
+ * (`siteHostKey`: the hostname, lower case) and its saved visit rows - the same
  * measure, and the same number, Sites prints beside the host ("4 visits").
  * Never Chrome's own per-URL `visit_count`, which Sites does not show.
  */
@@ -93,26 +93,25 @@ export interface OverviewData {
  * itself truncated. An empty Case (no saved visits) returns two empty pages
  * and both bounds resolve to `null`; nothing is invented.
  */
-async function fetchRecordedSpan(): Promise<{
+async function fetchRecordedSpan(signal?: AbortSignal): Promise<{
   readonly first: string | null;
   readonly last: string | null;
 }> {
-  const [earliest, latest] = await Promise.all([
-    callApi<PageOf<Finding>>("history", [
-      ["view", "visits"],
-      ["commit-state", "committed"],
-      ["sort", "visit-time"],
-      ["direction", "asc"],
-      ["limit", "1"],
-    ]),
-    callApi<PageOf<Finding>>("history", [
-      ["view", "visits"],
-      ["commit-state", "committed"],
-      ["sort", "visit-time"],
-      ["direction", "desc"],
-      ["limit", "1"],
-    ]),
-  ]);
+  const [earliest, latest] = await Promise.all(
+    (["asc", "desc"] as const).map((direction) =>
+      callApi<PageOf<Finding>>(
+        "history",
+        [
+          ["view", "visits"],
+          ["commit-state", "committed"],
+          ["sort", "visit-time"],
+          ["direction", direction],
+          ["limit", "1"],
+        ],
+        { signal },
+      ),
+    ),
+  );
   // Both reads' instants bound the span, whichever way the route ordered
   // them: a route (or the design mock) that ignores `direction` must not
   // collapse the span onto one row's day.
@@ -160,7 +159,7 @@ const RANGE_VISIT_PAGES = 10;
  * Most visited sites within a date range. Sites' per-host counts cover the
  * whole Case, so a narrowed range reads the saved visits in it (`from` /
  * `to` in the declared timezone, page by page up to `RANGE_VISIT_PAGES`)
- * and counts them per host as Sites keys it - one visit row, one count,
+ * and counts them per host as Sites keys it (`siteHostKey`) - one visit row, one count,
  * the measure Sites uses. `complete` is false when the read stopped at that
  * cap; a failed read rejects (the panel shows it, never "no visits"). The
  * ranged hosts' recovered favicons are read alongside.
@@ -168,38 +167,40 @@ const RANGE_VISIT_PAGES = 10;
 export async function loadMostVisitedIn(
   range: { readonly from: string; readonly to: string },
   timeZone: string | null,
+  signal?: AbortSignal,
 ): Promise<{
   readonly sites: readonly TopSite[];
   readonly complete: boolean;
   readonly favicons: ReadonlyMap<string, string | null>;
 }> {
-  const parameters: (readonly [string, string])[] = [
-    ["view", "visits"],
-    ["commit-state", "committed"],
-    ["limit", String(PAGE_LIMIT)],
-    ...dayRangeParameters(range, timeZone),
-  ];
   const byHost = new Map<string, number>();
-  let cursor: string | null = null;
-  for (let page = 0; page < RANGE_VISIT_PAGES; page += 1) {
-    const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
-      "history",
-      cursor === null ? parameters : [...parameters, ["after", cursor]],
-    );
-    for (const row of result.items) {
-      const host = siteKeyOf(fieldString(row.fields.url));
-      if (host !== null) {
-        byHost.set(host, (byHost.get(host) ?? 0) + 1);
-      }
-    }
-    cursor = result.nextCursor;
-    if (cursor === null) {
-      break;
-    }
-  }
+  const { complete } = await readPages<Finding>(
+    "history",
+    [
+      ["view", "visits"],
+      ["commit-state", "committed"],
+      ["limit", String(PAGE_LIMIT)],
+      ...dayRangeParameters(range, timeZone),
+    ],
+    {
+      cap: RANGE_VISIT_PAGES,
+      signal,
+      onPage: (rows) => {
+        for (const row of rows) {
+          const host = siteHostKey(fieldString(row.fields.url));
+          if (host !== null) {
+            byHost.set(host, (byHost.get(host) ?? 0) + 1);
+          }
+        }
+      },
+    },
+  );
   const sites = topHosts(byHost);
-  const favicons = await fetchSiteFavicons(sites.map((site) => site.host));
-  return { sites, complete: cursor === null, favicons };
+  const favicons = await fetchSiteFavicons(
+    sites.map((site) => site.host),
+    signal,
+  );
+  return { sites, complete, favicons };
 }
 
 /** Pages of saved downloads read for a narrowed Recent downloads (2,000). */
@@ -213,49 +214,54 @@ const RANGE_DOWNLOAD_PAGES = 20;
  * reaches days before the range, or at `RANGE_DOWNLOAD_PAGES`. `complete` is
  * false when that cap stopped it before it could tell.
  */
-export async function loadDownloadsIn(range: {
-  readonly from: string;
-  readonly to: string;
-}): Promise<{
+export async function loadDownloadsIn(
+  range: { readonly from: string; readonly to: string },
+  signal?: AbortSignal,
+): Promise<{
   readonly downloads: readonly Finding[];
   readonly complete: boolean;
 }> {
-  const parameters: (readonly [string, string])[] = [
-    ["commit-state", "committed"],
-    ["sort", "start-time"],
-    ["direction", "desc"],
-    ["limit", String(PAGE_LIMIT)],
-  ];
   const found: Finding[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < RANGE_DOWNLOAD_PAGES; page += 1) {
-    const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
-      "downloads",
-      cursor === null ? parameters : [...parameters, ["after", cursor]],
-    );
-    let older = false;
-    for (const row of result.items) {
-      const day = fieldDay(row.fields.startTime);
-      if (day === null) {
-        continue;
-      }
-      if (range.from !== "" && day < range.from) {
-        older = true;
-        continue;
-      }
-      if (dayInRange(day, range) && found.length < RECENT_DOWNLOADS) {
-        found.push(row);
-      }
-    }
-    cursor = result.nextCursor;
-    if (cursor === null || older || found.length >= RECENT_DOWNLOADS) {
-      return { downloads: found, complete: true };
-    }
-  }
-  return { downloads: found, complete: false };
+  // Stopped on enough rows or on days before the range: nothing later in
+  // the list could change the answer.
+  const told = { early: false };
+  const read = await readPages<Finding>(
+    "downloads",
+    [
+      ["commit-state", "committed"],
+      ["sort", "start-time"],
+      ["direction", "desc"],
+      ["limit", String(PAGE_LIMIT)],
+    ],
+    {
+      cap: RANGE_DOWNLOAD_PAGES,
+      signal,
+      onPage: (rows) => {
+        let older = false;
+        for (const row of rows) {
+          const day = fieldDay(row.fields.startTime);
+          if (day === null) {
+            continue;
+          }
+          if (range.from !== "" && day < range.from) {
+            older = true;
+            continue;
+          }
+          if (dayInRange(day, range) && found.length < RECENT_DOWNLOADS) {
+            found.push(row);
+          }
+        }
+        told.early = older || found.length >= RECENT_DOWNLOADS;
+        return told.early ? "stop" : undefined;
+      },
+    },
+  );
+  return { downloads: found, complete: read.complete || told.early };
 }
 
-export async function loadOverview(): Promise<OverviewData> {
+export async function loadOverview(
+  signal?: AbortSignal,
+): Promise<OverviewData> {
   const [
     { saved: activity, recovered, complete: activityComplete, timeZone },
     recordedSpan,
@@ -264,25 +270,34 @@ export async function loadOverview(): Promise<OverviewData> {
     downloadsPage,
   ] = await Promise.all([
     caseActivity(),
-    fetchRecordedSpan(),
+    fetchRecordedSpan(signal),
     // The Sites host list (read once per session, shared with ⌘K): each
     // host's saved visit rows rank Most visited sites, so the panel and
     // Sites print the same number for the same host.
     caseSiteHosts(),
-    callApi<PageOf<Finding>>("metadata", [
-      ["sort", "type"],
-      ["direction", "asc"],
-      ["limit", "100"],
-    ]),
-    callApi<PageOf<Finding>>("downloads", [
-      // Saved rows only: recovered downloads stay their own list on the
-      // Downloads page, never mixed into this one.
-      ["commit-state", "committed"],
-      ["sort", "start-time"],
-      ["direction", "desc"],
-      // The newest five; a narrowed range reads its own (`loadDownloadsIn`).
-      ["limit", String(RECENT_DOWNLOADS)],
-    ]),
+    callApi<PageOf<Finding>>(
+      "metadata",
+      [
+        ["sort", "type"],
+        ["direction", "asc"],
+        ["limit", "100"],
+      ],
+      { signal },
+    ),
+    callApi<PageOf<Finding>>(
+      "downloads",
+      [
+        // Saved rows only: recovered downloads stay their own list on the
+        // Downloads page, never mixed into this one.
+        ["commit-state", "committed"],
+        ["sort", "start-time"],
+        ["direction", "desc"],
+        // The newest five; a narrowed range reads its own
+        // (`loadDownloadsIn`).
+        ["limit", String(RECENT_DOWNLOADS)],
+      ],
+      { signal },
+    ),
   ]);
 
   const mostVisited = topHosts(
@@ -293,6 +308,7 @@ export async function loadOverview(): Promise<OverviewData> {
 
   const favicons = await fetchSiteFavicons(
     mostVisited.map((site) => site.host),
+    signal,
   );
 
   return {
@@ -314,8 +330,8 @@ export async function loadOverview(): Promise<OverviewData> {
 /** One evidence page's recovered rows: write-ahead-log rows (unsaved) and
  *  rollback-journal rows (overwritten), counted apart. */
 export interface RecoveredCount {
-  /** The page (`ArtifactConfig.key`) whose Recovered tab lists them. */
-  readonly page: string;
+  /** The page whose Recovered tab lists them. */
+  readonly page: EvidenceKey;
   readonly label: string;
   /** The Completeness artifact, for the page's coverage. */
   readonly artifact: string;
@@ -331,84 +347,50 @@ const RECOVERED_PAGES = 10;
  *  Commit State, so the recovered rows are counted out of it). */
 const RECOVERED_CACHE_PAGES = 20;
 
-/** Rows of one route page by page, up to `pages`, each handed to `visit`;
- *  true when the cap stopped the read before the list ran out. */
-async function readPages(
-  route: string,
-  parameters: readonly (readonly [string, string])[],
-  pages: number,
-  visit: (rows: readonly Finding[]) => void,
-): Promise<boolean> {
-  let cursor: string | null = null;
-  for (let page = 0; page < pages; page += 1) {
-    const result: PageOf<Finding> = await callApi<PageOf<Finding>>(
-      route,
-      cursor === null ? parameters : [...parameters, ["after", cursor]],
-    );
-    visit(result.items);
-    cursor = result.nextCursor;
-    if (cursor === null) {
-      return false;
-    }
-  }
-  return true;
-}
-
-async function countRecovered(page: string): Promise<RecoveredCount | null> {
-  const config = ARTIFACTS.find((artifact) => artifact.key === page);
-  if (config === undefined) {
-    return null;
-  }
+async function countRecovered(
+  page: EvidenceKey,
+  signal?: AbortSignal,
+): Promise<RecoveredCount> {
+  const config = ARTIFACTS[page];
   const base: (readonly [string, string])[] = [
     ...(page === "history" ? [["view", "visits"] as const] : []),
     ["limit", String(PAGE_LIMIT)],
   ];
-  let wal = 0;
-  let journal = 0;
-  let more: boolean;
+  const counted = { wal_resident: 0, journal_resident: 0 };
+  let complete: boolean;
   if (config.combinedFindingList === true) {
-    more = await readPages(
-      config.route,
-      base,
-      RECOVERED_CACHE_PAGES,
-      (rows) => {
+    ({ complete } = await readPages<Finding>(config.route, base, {
+      cap: RECOVERED_CACHE_PAGES,
+      signal,
+      onPage: (rows) => {
         for (const row of rows) {
-          if (row.commitState === "wal_resident") {
-            wal += 1;
-          } else if (row.commitState === "journal_resident") {
-            journal += 1;
+          if (row.commitState !== "committed") {
+            counted[row.commitState] += 1;
           }
         }
       },
-    );
+    }));
   } else {
-    const [walMore, journalMore] = await Promise.all([
-      readPages(
-        config.route,
-        [...base, ["commit-state", "wal_resident"]],
-        RECOVERED_PAGES,
-        (rows) => {
-          wal += rows.length;
-        },
+    const reads = await Promise.all(
+      RECOVERED_STATES.map((state) =>
+        readPages<Finding>(config.route, withCommitState(base, state), {
+          cap: RECOVERED_PAGES,
+          signal,
+          onPage: (rows) => {
+            counted[state] += rows.length;
+          },
+        }),
       ),
-      readPages(
-        config.route,
-        [...base, ["commit-state", "journal_resident"]],
-        RECOVERED_PAGES,
-        (rows) => {
-          journal += rows.length;
-        },
-      ),
-    ]);
-    more = walMore || journalMore;
+    );
+    complete = reads.every((read) => read.complete);
   }
   return {
     page,
     label: config.label,
     artifact: config.completenessArtifact,
-    wal,
-    journal,
-    more,
+    wal: counted.wal_resident,
+    journal: counted.journal_resident,
+    more: !complete,
   };
 }
 
@@ -418,9 +400,12 @@ async function countRecovered(page: string): Promise<RecoveredCount | null> {
  * per Commit State and never summed into a figure. A failed read rejects:
  * the panel says so rather than show a short count.
  */
-export async function loadRecovered(): Promise<readonly RecoveredCount[]> {
-  const counts = await Promise.all(EVIDENCE_ORDER.map(countRecovered));
-  return counts.filter((count): count is RecoveredCount => count !== null);
+export function loadRecovered(
+  signal?: AbortSignal,
+): Promise<readonly RecoveredCount[]> {
+  return Promise.all(
+    EVIDENCE_ORDER.map((page) => countRecovered(page, signal)),
+  );
 }
 
 /** "4 Mar 2024" (UTC) — the shared page-kit day label. */

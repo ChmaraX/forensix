@@ -39,8 +39,11 @@ import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { rowRefOf } from "../router.js";
 
-import type { ArtifactConfig, Finding } from "../types.js";
+import type { Finding } from "../types.js";
+import { ARTIFACTS } from "../artifacts.js";
+import type { RowLookupSource } from "../row-lookup.js";
 import {
+  commitStateStatus,
   useCommitStateLists,
   type PaginatedList,
 } from "../use-commit-state-lists.js";
@@ -55,7 +58,7 @@ import {
   StateWord,
   TwoLineCell,
 } from "./finding-fields.js";
-import { FilterTextField, ProfilePicker } from "./filters.js";
+import { FilterTextField, matchesSearch, ProfilePicker } from "./filters.js";
 import { ListBlock } from "./list-states.js";
 import {
   CommitStateSplit,
@@ -344,15 +347,11 @@ function RankedList({
   );
 }
 
-/** The tab's count: unknown (null) until a page lands - and after a failed
- *  first read, which proves nothing about how many rows exist. */
-function countOf(list: PaginatedList<unknown>): number | null {
-  return list.rows.length === 0 && (list.loading || list.error !== null)
-    ? null
-    : list.rows.length;
-}
+const config = ARTIFACTS["top-sites"];
+/** A URL-named row this page has not loaded is read by its reference. */
+const ROW_LOOKUP: RowLookupSource = { route: config.route };
 
-export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
+export function TopSitesPage() {
   const lists = useCommitStateLists<Finding>(config.route, RANK_ORDER);
   // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
   const [view, setView] = useViewTab();
@@ -367,8 +366,7 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
     [saved.rows, recovered.rows],
   );
   // The open row lives in the URL: Back and a refresh re-open it.
-  // A URL-named row this page has not loaded is read by its reference.
-  const sheet = useRowSelection(loaded, { route: config.route });
+  const sheet = useRowSelection(loaded, ROW_LOOKUP);
 
   // The profiles the loaded rows rank, plus any the lens holds (so a pick
   // made on another page can be undone here).
@@ -387,26 +385,21 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
     [saved.rows, recovered.rows],
   );
 
-  const query = search.trim().toLocaleLowerCase("en-US");
-  const filtered = query !== "" || profileFilter.length > 0;
+  const filtered = search.trim() !== "" || profileFilter.length > 0;
   const matches = useCallback(
-    (row: Finding) => {
-      if (profileFilter.length > 0 && !profileFilter.includes(row.profile)) {
-        return false;
-      }
-      if (query === "") {
-        return true;
-      }
-      return [
-        fieldText(row.fields.url) ?? "",
-        fieldText(row.fields.title) ?? "",
-      ]
-        .join("\n")
-        .toLocaleLowerCase("en-US")
-        .includes(query);
-    },
-    [profileFilter, query],
+    (row: Finding) =>
+      (profileFilter.length === 0 || profileFilter.includes(row.profile)) &&
+      matchesSearch(search, [
+        fieldText(row.fields.url),
+        fieldText(row.fields.title),
+      ]),
+    [profileFilter, search],
   );
+  // The tabs count every loaded row; the search and pick narrow the lists.
+  const { split } = commitStateStatus(lists, {
+    saved: saved.rows.length,
+    recovered: recovered.rows.length,
+  });
 
   const clearFilters = useCallback(() => {
     // The search and the profiles in one history entry.
@@ -420,10 +413,7 @@ export function TopSitesPage({ config }: { readonly config: ArtifactConfig }) {
           value={view}
           onValueChange={setView}
           label="Saved or recovered top sites"
-          savedCount={countOf(saved)}
-          recoveredCount={countOf(recovered)}
-          savedMore={saved.cursor !== null}
-          recoveredMore={recovered.cursor !== null}
+          {...split}
           toolbar={
             <>
               {profiles.length > 1 ? (

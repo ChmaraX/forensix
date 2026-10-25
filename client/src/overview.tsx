@@ -50,7 +50,11 @@ import { useChartTokens } from "@/components/charts";
 import { ActivityBars, HourBars } from "@/components/charts-ready";
 import { ChartSection } from "@/components/chart-section";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { caseProfilesOf, coverageOf } from "@/components/completeness";
+import {
+  caseProfilesOf,
+  CoverageIndicator,
+  coverageOf,
+} from "@/components/completeness";
 import { ErrorRows, LoadingRows, RevealSwap } from "@/components/list-states";
 import { formatDaySpan, plural, SectionPanel } from "@/components/page-kit";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
@@ -64,6 +68,7 @@ import { localDayOf } from "./components/day-bounds.js";
 import { profileLabel } from "./components/finding-fields.js";
 import { useCaseContext, type CaseContext } from "./case-context.js";
 import { rowRefOf } from "./router.js";
+import type { PageKey } from "./pages.js";
 import { hrefFor, useViewRange } from "./view-state.js";
 import {
   fieldString,
@@ -94,13 +99,7 @@ import {
   type CaseFigure,
 } from "./overview/parts";
 
-export function OverviewPage({
-  coverage,
-}: {
-  /** The shell's whole-Case coverage indicator, for the masthead's right.
-   *  Overview carries no coverage banner. */
-  readonly coverage?: ReactNode;
-}) {
+export function OverviewPage() {
   // The Completeness Statement and the profiles are the shell's one read
   // (`useCaseContext`); the page reads only its own panels.
   const shell = useCaseContext();
@@ -110,15 +109,15 @@ export function OverviewPage({
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
-    loadOverview()
+    const abort = new AbortController();
+    loadOverview(abort.signal)
       .then((result) => {
-        if (!cancelled) {
+        if (!abort.signal.aborted) {
           setData(result);
         }
       })
       .catch((requestError: unknown) => {
-        if (!cancelled) {
+        if (!abort.signal.aborted) {
           setError(
             requestError instanceof Error
               ? requestError.message
@@ -127,7 +126,7 @@ export function OverviewPage({
         }
       });
     return () => {
-      cancelled = true;
+      abort.abort();
     };
   }, [attempt]);
 
@@ -162,7 +161,14 @@ export function OverviewPage({
       {data === null || shell.context === null ? null : (
         <OverviewContent
           data={data}
-          coverage={coverage}
+          // The whole Case's coverage, quiet, at the masthead's right; the
+          // Overview carries no coverage banner.
+          coverage={
+            <CoverageIndicator
+              completeness={shell.context.completeness}
+              quiet
+            />
+          }
           caseContext={shell.context}
         />
       )}
@@ -278,12 +284,12 @@ function OverviewContent({
     [rangeFrom, rangeTo],
   );
   const loadSites = useCallback(
-    () => loadMostVisitedIn(range, data.timeZone),
+    (signal: AbortSignal) => loadMostVisitedIn(range, data.timeZone, signal),
     [range, data.timeZone],
   );
   const loadDownloads = useCallback(
-    () =>
-      loadDownloadsIn(range).then((result) => ({
+    (signal: AbortSignal) =>
+      loadDownloadsIn(range, signal).then((result) => ({
         items: result.downloads,
         complete: result.complete,
       })),
@@ -296,8 +302,8 @@ function OverviewContent({
   const rangedSites = useRangedRead<TopSite>(
     rangeActive,
     useCallback(
-      () =>
-        loadSites().then((result) => {
+      (signal: AbortSignal) =>
+        loadSites(signal).then((result) => {
           setRangedFavicons(result.favicons);
           return { items: result.sites, complete: result.complete };
         }),
@@ -517,7 +523,7 @@ function OverviewContent({
   // Recovered counts cover every day and every profile, so their links open
   // the page without the lens: the Recovered tab then lists the rows
   // counted here.
-  const recoveredHref = (page: string) =>
+  const recoveredHref = (page: PageKey) =>
     hrefFor(page, { from: "", to: "", profiles: [], tab: "recovered" });
 
   return (
@@ -820,15 +826,15 @@ function useRecovered():
     setAttempt((count) => count + 1);
   }, []);
   useEffect(() => {
-    let cancelled = false;
-    loadRecovered()
+    const abort = new AbortController();
+    loadRecovered(abort.signal)
       .then((counts) => {
-        if (!cancelled) {
+        if (!abort.signal.aborted) {
           setAnswer({ ok: true, counts });
         }
       })
       .catch((requestError: unknown) => {
-        if (!cancelled) {
+        if (!abort.signal.aborted) {
           setAnswer({
             ok: false,
             error:
@@ -839,7 +845,7 @@ function useRecovered():
         }
       });
     return () => {
-      cancelled = true;
+      abort.abort();
     };
   }, [attempt]);
   if (answer === null) {
@@ -869,7 +875,7 @@ type RangedState<Item> =
  *  range moved on) is dropped. */
 function useRangedRead<Item>(
   enabled: boolean,
-  load: () => Promise<{
+  load: (signal: AbortSignal) => Promise<{
     readonly items: readonly Item[];
     readonly complete: boolean;
   }>,
@@ -888,16 +894,16 @@ function useRangedRead<Item>(
     if (!enabled) {
       return;
     }
-    let cancelled = false;
+    const abort = new AbortController();
     setAnswer(null);
-    load()
+    load(abort.signal)
       .then(({ items, complete }) => {
-        if (!cancelled) {
+        if (!abort.signal.aborted) {
           setAnswer({ load, state: { state: "ready", items, complete } });
         }
       })
       .catch((requestError: unknown) => {
-        if (!cancelled) {
+        if (!abort.signal.aborted) {
           setAnswer({
             load,
             state: {
@@ -912,7 +918,7 @@ function useRangedRead<Item>(
         }
       });
     return () => {
-      cancelled = true;
+      abort.abort();
     };
   }, [enabled, load, attempt, retry]);
   return answer !== null && answer.load === load

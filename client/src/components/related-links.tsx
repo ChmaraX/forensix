@@ -16,7 +16,8 @@ import { fontWeights } from "@/lib/font-weight";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { caseTimeZone, exactVisitsOf } from "../case-reads.js";
-import { formatLocation, pageLabelOf } from "../router.js";
+import { PAGES } from "../pages.js";
+import { formatLocation } from "../router.js";
 import {
   dayLinkOf,
   hostLinkOf,
@@ -37,20 +38,33 @@ function formatTime(utc: string): string {
 
 type Read =
   | { readonly state: "loading" }
-  | { readonly state: "ready"; readonly links: readonly RelatedLink[] };
+  | {
+      readonly state: "ready";
+      readonly links: readonly RelatedLink[];
+      /** The row is dated but its Case day could not be told: the Case's
+       *  timezone read failed (a day is never guessed in UTC). */
+      readonly dayUnknown: boolean;
+    };
 
 /** Resolves every link for the row: the host only when Sites lists it, the
  *  day in the Case's timezone, visits by exact URL. */
-async function resolveLinks(row: Finding): Promise<readonly RelatedLink[]> {
+async function resolveLinks(
+  row: Finding,
+  signal: AbortSignal,
+): Promise<{
+  readonly links: readonly RelatedLink[];
+  readonly dayUnknown: boolean;
+}> {
   const host = hostLinkOf(row);
   const [timeZone, hostListed, visitLinks] = await Promise.all([
-    caseTimeZone(),
+    // The one Case zone, or `undefined` when its read failed.
+    caseTimeZone().catch(() => undefined),
     // The one Sites host-list rule (`host-link.tsx`), shared with the
     // cell links.
     host === null ? Promise.resolve(false) : siteHostListed(host.value),
     Promise.all(
       visitedUrlsOf(row).map((source) =>
-        exactVisitsOf(source.url)
+        exactVisitsOf(source.url, signal)
           .then(({ visits, more }) =>
             visitLinksOf(source, row.findingKind, visits, formatTime, more),
           )
@@ -58,17 +72,20 @@ async function resolveLinks(row: Finding): Promise<readonly RelatedLink[]> {
       ),
     ),
   ]);
-  const day = dayLinkOf(row, timeZone);
-  return [
-    ...(host !== null && hostListed ? [host] : []),
-    ...(day === null ? [] : [day]),
-    ...visitLinks.flat(),
-  ];
+  const day = timeZone === undefined ? null : dayLinkOf(row, timeZone);
+  return {
+    links: [
+      ...(host !== null && hostListed ? [host] : []),
+      ...(day === null ? [] : [day]),
+      ...visitLinks.flat(),
+    ],
+    dayUnknown: timeZone === undefined && dayLinkOf(row, null) !== null,
+  };
 }
 
 function RelatedRow({ link }: { readonly link: RelatedLink }) {
   const size = useSize();
-  const destination = pageLabelOf(link.page) ?? link.page;
+  const destination = PAGES[link.page].label;
   return (
     <div className="grid grid-cols-1 items-center gap-x-4 py-1.5 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]">
       <dt className="flex min-w-0 flex-col pt-1 sm:pt-0">
@@ -124,21 +141,21 @@ export function RelatedLinks({ row }: { readonly row: Finding }) {
   const [read, setRead] = useState<Read>({ state: "loading" });
 
   useEffect(() => {
-    let cancelled = false;
+    const abort = new AbortController();
     setRead({ state: "loading" });
-    resolveLinks(row)
-      .then((links) => {
-        if (!cancelled) {
-          setRead({ state: "ready", links });
+    resolveLinks(row, abort.signal)
+      .then(({ links, dayUnknown }) => {
+        if (!abort.signal.aborted) {
+          setRead({ state: "ready", links, dayUnknown });
         }
       })
       .catch(() => {
-        if (!cancelled) {
-          setRead({ state: "ready", links: [] });
+        if (!abort.signal.aborted) {
+          setRead({ state: "ready", links: [], dayUnknown: false });
         }
       });
     return () => {
-      cancelled = true;
+      abort.abort();
     };
   }, [row]);
 
@@ -177,16 +194,30 @@ export function RelatedLinks({ row }: { readonly row: Finding }) {
           </div>
         }
       >
-        {read.state === "loading" ? null : links.length === 0 ? (
-          <p className={cn(size.type.body, "py-2 text-muted-foreground")}>
-            No related evidence with the same host, day or URL.
-          </p>
-        ) : (
-          <dl className="reveal-items flex flex-col divide-y divide-border">
-            {links.map((link) => (
-              <RelatedRow key={link.key} link={link} />
-            ))}
-          </dl>
+        {read.state === "loading" ? null : (
+          <>
+            {links.length === 0 ? (
+              read.dayUnknown ? null : (
+                <p className={cn(size.type.body, "py-2 text-muted-foreground")}>
+                  No related evidence with the same host, day or URL.
+                </p>
+              )
+            ) : (
+              <dl className="reveal-items flex flex-col divide-y divide-border">
+                {links.map((link) => (
+                  <RelatedRow key={link.key} link={link} />
+                ))}
+              </dl>
+            )}
+            {read.dayUnknown ? (
+              <p
+                className={cn(size.type.caption, "py-2 text-muted-foreground")}
+              >
+                The day link is unavailable: the Case's timezone could not be
+                read.
+              </p>
+            ) : null}
+          </>
         )}
       </RevealSwap>
     </section>

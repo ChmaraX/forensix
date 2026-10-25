@@ -37,8 +37,8 @@ export function ResolutionCell({ row }: { readonly row: Finding }) {
   return <FieldCell field={missing} />;
 }
 
-/** The recovered bitmaps on show, by SHA-256 (`useOwnBitmaps`): a row's
- *  thumbnail is the bitmap whose bytes hash to its own `payloadSha256`. */
+/** The stored bitmaps on show, by SHA-256 (`useOwnBitmaps`): a row's
+ *  thumbnail is the payload its own `payloadSha256` names. */
 export const FaviconBitmapsContext = createContext<ReadonlyMap<string, string>>(
   new Map(),
 );

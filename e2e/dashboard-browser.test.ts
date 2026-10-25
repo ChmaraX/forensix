@@ -50,11 +50,10 @@ import {
 } from "./lib/dashboard-case.js";
 
 /** Review findings whose fix has not landed: their checks must still fail.
- *  S1 the Sites page lists only hosts the client derives itself (the core
- *  `site-hosts` route already lists a download-only host), F3 the Timeline
- *  does not look up a linked row it has not loaded. (F1, the topic line's
- *  invented reason, and F2, a reveal carried to the next row, are fixed.) */
-const EXPECTED_TO_FAIL: ReadonlySet<string> = new Set(["S1", "F3"]);
+ *  None now: F1 (the topic line's invented reason), F2 (a reveal carried to
+ *  the next row), S1 (Sites lists a host seen only in a download) and F3
+ *  (the Timeline looks up a linked row it has not loaded) are fixed. */
+const EXPECTED_TO_FAIL: ReadonlySet<string> = new Set<string>();
 
 const ARTIFACTS = resolve(
   process.env.FORENSIX_E2E_ARTIFACTS ?? "e2e/.artifacts/dashboard",

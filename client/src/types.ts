@@ -1,109 +1,63 @@
 /**
  * Wire types for the read-only dashboard API.
  *
- * These mirror what the loopback server returns from the analyzer core. The
+ * The server returns core's own shapes, so the client takes core's types
+ * (type-only imports from core's sources: erased from the bundle, and a
+ * change to core's shape is a compile error here, never silent drift). The
  * client contains no forensic logic: every value arrives already typed as a
  * FieldState and is only presented.
  */
+import type {
+  CommitState,
+  Finding as CoreFinding,
+} from "../../core/src/forensic-model.js";
+import type { SiteFinding as CoreSiteFinding } from "../../core/src/sites-query.js";
 
-export type CommitState = "committed" | "wal_resident" | "journal_resident";
+export type {
+  CaseCompleteness,
+  CaseProfiles,
+  CompletenessArtifact,
+  CompletenessStatement,
+} from "../../core/src/case-overview.js";
+export type {
+  CommitState,
+  FieldUnavailableReason,
+} from "../../core/src/forensic-model.js";
+export type {
+  FaviconBitmapsResult,
+  SiteFaviconsResult,
+} from "../../core/src/site-favicons-query.js";
+export type { SiteArtifactKind, SiteHost } from "../../core/src/sites-query.js";
 
-export type FieldState =
-  | {
-      readonly state: "value";
-      readonly value: unknown;
-      readonly synthetic?: boolean;
-    }
-  | { readonly state: "absent" }
-  | { readonly state: "unavailable"; readonly reason: string };
+/** One recorded field: a value, absent, or unavailable with core's reason. */
+export type FieldState = CoreFinding["fields"][string];
 
+/** The parts of a Finding's provenance the dashboard reads (the wire
+ *  carries core's whole source chain). */
 export interface Provenance {
   readonly manifestPath?: string;
   readonly table?: string;
   readonly rowId?: string;
 }
 
-export interface Finding {
-  readonly recordType: "finding";
-  readonly findingKind: string;
-  readonly profile: string;
+/** A Finding as JSON carries it: core's `Finding` without its in-process
+ *  brand. */
+export interface Finding extends Pick<
+  CoreFinding,
+  "recordType" | "findingKind" | "profile" | "fields"
+> {
   readonly commitState: CommitState;
   readonly provenance: Provenance;
-  readonly fields: Readonly<Record<string, FieldState>>;
 }
+
+/** A row of one Sites host (`site-findings`): its Finding, the evidence
+ *  kind it is grouped under, and the fields that record the host. */
+export type SiteFinding = Finding &
+  Pick<CoreSiteFinding, "artifactKind" | "hostFields">;
 
 export interface PageOf<Row> {
   readonly status: "ok";
   readonly items: readonly Row[];
   readonly nextCursor: string | null;
   readonly limit: number;
-}
-
-export type SiteArtifactKind =
-  | "visits"
-  | "cookies"
-  | "saved_logins"
-  | "bookmarks"
-  | "top_sites"
-  | "form_data";
-
-export interface SiteHost {
-  readonly host: string;
-  /** Rows per kind, every Commit State. */
-  readonly counts: Readonly<Record<SiteArtifactKind, number>>;
-  /** Committed (saved) rows per kind: what the host list counts. */
-  readonly savedCounts: Readonly<Record<SiteArtifactKind, number>>;
-}
-
-export interface SiteFinding extends Finding {
-  readonly artifactKind: SiteArtifactKind;
-}
-
-export interface CompletenessArtifact {
-  readonly sourceId: string;
-  readonly profile: string;
-  readonly artifact: string;
-  readonly databasePath: string;
-  readonly outcome: "produced" | "absent" | "unavailable";
-  readonly reason: string | null;
-  readonly runId: string;
-}
-
-export interface CompletenessStatement {
-  readonly artifact: string;
-  readonly attempted: number;
-  readonly produced: number;
-  readonly absent: number;
-  readonly unavailable: number;
-  readonly artifacts: readonly CompletenessArtifact[];
-}
-
-export interface CaseCompleteness {
-  readonly statements: readonly CompletenessStatement[];
-}
-
-export interface CaseProfiles {
-  readonly profiles: readonly string[];
-}
-
-export interface ExtraFilter {
-  readonly parameter: string;
-  readonly label: string;
-  /** When present the filter renders a select of these values, not a text box. */
-  readonly options?: readonly string[];
-  /** Placeholder for free-text extras (for example an ISO instant). */
-  readonly placeholder?: string;
-}
-
-export interface ArtifactConfig {
-  readonly key: string;
-  readonly label: string;
-  readonly route: string;
-  readonly completenessArtifact: string;
-  readonly sorts: readonly string[];
-  readonly extras: readonly ExtraFilter[];
-  /** Direction options; the first is the default. Defaults to desc-then-asc. */
-  readonly directions?: readonly string[];
-  /** Cache records arrive with their Commit State already mixed; the query cannot filter it. */
-  readonly combinedFindingList?: boolean;
 }

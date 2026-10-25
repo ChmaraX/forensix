@@ -36,6 +36,8 @@
  * starts no ingest, reruns no analysis, and writes nothing back to the Case.
  */
 import { useCallback, useMemo, useRef, useState } from "react";
+import { ARTIFACTS } from "../artifacts.js";
+import type { RowLookupSource } from "../row-lookup.js";
 
 import {
   updateView,
@@ -50,7 +52,6 @@ import { Button } from "@/components/ui/button";
 import { CloseIcon, SearchIcon } from "@/lib/app-icons";
 import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
-import type { ArtifactConfig } from "../types.js";
 import { usePrefersReducedMotion } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
@@ -89,7 +90,11 @@ import {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
+const config = ARTIFACTS.downloads;
+/** A URL-named row this page has not loaded is read by its reference. */
+const ROW_LOOKUP: RowLookupSource = { route: config.route };
+
+export function DownloadsPage() {
   const savedRead = useDownloads(config.route, "committed");
   const walRead = useDownloads(config.route, "wal_resident");
   const journalRead = useDownloads(config.route, "journal_resident");
@@ -153,8 +158,7 @@ export function DownloadsPage({ config }: { readonly config: ArtifactConfig }) {
     ],
     [savedRead.rows, walRead.rows, journalRead.rows],
   );
-  // A URL-named row this page has not loaded is read by its reference.
-  const sheet = useRowSelection(loadedFindings, { route: config.route });
+  const sheet = useRowSelection(loadedFindings, ROW_LOOKUP);
   const sheetSelect = sheet.select;
   const select = useCallback(
     (row: DownloadRow) => {

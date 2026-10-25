@@ -45,6 +45,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { siteHostKey, siteHostsOf } from "../../core/src/site-host-key.ts";
 import { caseData } from "./case-data.mjs";
 
 const mockRoot = dirname(fileURLToPath(import.meta.url));
@@ -616,7 +617,7 @@ function timelineRows(request) {
 
 /* ------------------------------ sites routes ------------------------------ */
 
-/** `"value"`-state string field, or null. */
+/** `"value"`-state non-empty string field, or null. */
 function textField(row, field) {
   const value = row.fields[field];
   return value?.state === "value" &&
@@ -626,80 +627,55 @@ function textField(row, field) {
     : null;
 }
 
-/** A bare host key: no scheme, port, path, query, fragment, userinfo or
- *  whitespace, or a bracketed IPv6 literal. */
-const BARE_HOST = /^(?:[^\s/?#:@\\[\]]+|\[[0-9a-f:.]+\])$/i;
-
-/** The host key Sites groups under, mirroring core's `siteHostKey`
- *  (core/src/sites-query.ts) exactly: a URL by its hostname (no port), a
- *  cookie host key (".example.com" domain, "example.com" host-only) by
- *  itself, one leading dot removed, lower-cased. No domain expansion:
- *  `www.example.com` is a host apart from `example.com`. */
-function hostKeyOf(raw) {
-  if (raw === null) return null;
-  const text = raw.startsWith(".") ? raw.slice(1) : raw;
-  if (text.length === 0) return null;
-  if (BARE_HOST.test(text)) return text.toLocaleLowerCase("en-US");
-  try {
-    return new URL(text).hostname.toLocaleLowerCase("en-US") || null;
-  } catch {
-    return null;
-  }
-}
-
-/** Each site artifact kind: its fixture rows (less unread databases) and
- *  the field carrying a host. */
+/** Each Sites kind and its fixture rows (less unread databases), in the
+ *  order core pages a host's rows. Which fields put a row on a host is
+ *  core's own `siteHostsOf` (imported above), never a copy. */
 const SITE_SOURCES = [
   [
     "visits",
     (request) => readable(caseData.history.visits, "History", request),
-    (row) => textField(row, "url"),
   ],
-  [
-    "cookies",
-    (request) => readable(caseData.cookies, "Cookies", request),
-    (row) => textField(row, "hostKey"),
-  ],
+  ["cookies", (request) => readable(caseData.cookies, "Cookies", request)],
   [
     "saved_logins",
     (request) => readable(caseData.credentials, "Login Data", request),
-    (row) => textField(row, "originUrl") ?? textField(row, "signonRealm"),
   ],
   [
     "bookmarks",
     (request) => readable(caseData.bookmarks, "Bookmarks", request),
-    (row) => textField(row, "url"),
   ],
+  ["top_sites", (request) => readable(caseData.topSites, "Top Sites", request)],
   [
-    "top_sites",
-    (request) => readable(caseData.topSites, "Top Sites", request),
-    (row) => textField(row, "url"),
+    "downloads",
+    (request) => readable(caseData.downloads, "Downloads", request),
   ],
+  ["cache", (request) => readable(caseData.cache, "Cache", request)],
+  ["favicons", (request) => readable(caseData.favicons, "Favicons", request)],
 ];
 
-const EMPTY_SITE_COUNTS = {
-  visits: 0,
-  cookies: 0,
-  saved_logins: 0,
-  bookmarks: 0,
-  top_sites: 0,
-  form_data: 0,
-};
+const SITE_KINDS = SITE_SOURCES.map(([kind]) => kind);
+
+/** Rows per kind, every kind at zero (core's `emptyCounts`). */
+function emptySiteCounts() {
+  return Object.fromEntries(SITE_KINDS.map((kind) => [kind, 0]));
+}
 
 function siteHosts(params, request) {
   const search = (params.get("search") ?? "").toLowerCase();
   const byHost = new Map();
-  for (const [kind, rowsOf, hostOf] of SITE_SOURCES) {
+  for (const [kind, rowsOf] of SITE_SOURCES) {
     for (const row of rowsOf(request)) {
-      const host = hostKeyOf(hostOf(row));
-      if (host === null) continue;
-      const entry = byHost.get(host) ?? {
-        counts: { ...EMPTY_SITE_COUNTS },
-        savedCounts: { ...EMPTY_SITE_COUNTS },
-      };
-      entry.counts[kind] += 1;
-      if (row.commitState === "committed") entry.savedCounts[kind] += 1;
-      byHost.set(host, entry);
+      // A row on several hosts (a redirect chain, a favicon's page URLs)
+      // counts once on each.
+      for (const host of siteHostsOf(row.findingKind, row.fields).keys()) {
+        const entry = byHost.get(host) ?? {
+          counts: emptySiteCounts(),
+          savedCounts: emptySiteCounts(),
+        };
+        entry.counts[kind] += 1;
+        if (row.commitState === "committed") entry.savedCounts[kind] += 1;
+        byHost.set(host, entry);
+      }
     }
   }
   // Host-name order (code units), as core's querySiteHosts pages them.
@@ -710,24 +686,26 @@ function siteHosts(params, request) {
   return pageOf(items, params, "site-hosts");
 }
 
-/** The `site-favicons` route as the real server resolves it: per asked
- *  host, the largest readable favicon whose icon URL or page URL names
- *  that host (keyed as Sites keys hosts, `hostKeyOf`), as an inline
- *  `data:` URI; `null` when none. */
+/** Most hosts (or hashes) one favicon request may name (core's limit). */
+const FAVICON_REQUEST_LIMIT = 100;
+
+/** `site-favicons` as core answers it: per host, the widest *saved* bitmap
+ *  on it (ties to the first row) as a `data:` URI, or `null`. */
 function siteFavicons(params, request) {
-  const hostOfUrl = hostKeyOf;
+  const hosts = params.getAll("host");
+  if (hosts.length > FAVICON_REQUEST_LIMIT) {
+    throw new MockBadRequest(
+      `Sites favicons take at most ${FAVICON_REQUEST_LIMIT} hosts.`,
+      { hosts: hosts.length },
+    );
+  }
   const best = new Map();
   for (const row of readable(caseData.favicons, "Favicons", request)) {
-    if (typeof row._dataUri !== "string") continue;
-    const width = Number(textField(row, "width") ?? "0");
-    const pages = row.fields.pageUrls?.value;
-    const hosts = new Set(
-      [textField(row, "iconUrl"), ...(Array.isArray(pages) ? pages : [])]
-        .filter((url) => typeof url === "string")
-        .map(hostOfUrl)
-        .filter((host) => host !== null),
-    );
-    for (const host of hosts) {
+    if (row.commitState !== "committed" || typeof row._dataUri !== "string") {
+      continue;
+    }
+    const width = Number(textField(row, "width") ?? "-1");
+    for (const host of siteHostsOf(row.findingKind, row.fields).keys()) {
       const current = best.get(host);
       if (current === undefined || width > current.width) {
         best.set(host, { width, uri: row._dataUri });
@@ -735,23 +713,57 @@ function siteFavicons(params, request) {
     }
   }
   const icons = {};
-  for (const host of params.getAll("host")) {
-    icons[host] = best.get(host)?.uri ?? null;
+  for (const host of hosts) {
+    icons[host] = best.get(host.toLocaleLowerCase("en-US"))?.uri ?? null;
   }
-  return { status: "ok", icons };
+  return { status: "ok", command: "site-favicons", icons };
 }
 
+/** `favicon-bitmaps` as core answers it: per SHA-256, the stored bitmap of
+ *  a favicon row (any Commit State) that records it, or `null`. */
+function faviconBitmaps(params, request) {
+  const hashes = params.getAll("sha256");
+  if (hashes.length > FAVICON_REQUEST_LIMIT) {
+    throw new MockBadRequest(
+      `Favicon bitmaps take at most ${FAVICON_REQUEST_LIMIT} hashes.`,
+      { sha256s: hashes.length },
+    );
+  }
+  const invalid = hashes.find((sha) => !/^[0-9a-f]{64}$/.test(sha));
+  if (invalid !== undefined) {
+    throw new MockBadRequest(
+      "Favicon bitmaps take SHA-256 hashes as 64 lower-case hex digits.",
+      { sha256: invalid },
+    );
+  }
+  const bitmaps = Object.fromEntries(hashes.map((sha) => [sha, null]));
+  for (const row of readable(caseData.favicons, "Favicons", request)) {
+    const sha = textField(row, "payloadSha256");
+    if (sha !== null && sha in bitmaps && typeof row._dataUri === "string") {
+      bitmaps[sha] ??= row._dataUri;
+    }
+  }
+  return { status: "ok", command: "favicon-bitmaps", bitmaps };
+}
+
+/** One host's rows (core's `querySiteFindings`), each with its
+ *  `artifactKind` and the fields that record the host (`hostFields`). */
 function siteFindings(params, request) {
   if ((params.get("host") ?? "") === "") {
     throw new MockBadRequest("Sites --host must not be empty.");
   }
-  const host = hostKeyOf(params.get("host"));
+  const host = siteHostKey(params.get("host"));
   const items = [];
   if (host !== null) {
-    for (const [kind, rowsOf, hostOf] of SITE_SOURCES) {
+    for (const [kind, rowsOf] of SITE_SOURCES) {
       for (const row of rowsOf(request)) {
-        if (hostKeyOf(hostOf(row)) === host) {
-          items.push({ ...findingRows([row])[0], artifactKind: kind });
+        const hostFields = siteHostsOf(row.findingKind, row.fields).get(host);
+        if (hostFields !== undefined) {
+          items.push({
+            ...findingRows([row])[0],
+            artifactKind: kind,
+            hostFields,
+          });
         }
       }
     }
@@ -841,6 +853,7 @@ const ROUTES = {
     );
   },
   "site-favicons": (params, request) => siteFavicons(params, request),
+  "favicon-bitmaps": (params, request) => faviconBitmaps(params, request),
   cookies: artifactRoute("cookies", () => caseData.cookies, "Cookies"),
   credentials: artifactRoute(
     "credentials",

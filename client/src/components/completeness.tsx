@@ -51,8 +51,9 @@ export { SITES_COVERAGE, TIMELINE_COVERAGE };
 /** The plain label of a Completeness artifact ("Web Data" → "Form data"). */
 export function artifactLabel(artifact: string): string {
   return (
-    ARTIFACTS.find((entry) => entry.completenessArtifact === artifact)?.label ??
-    artifact
+    Object.values(ARTIFACTS).find(
+      (entry) => entry.completenessArtifact === artifact,
+    )?.label ?? artifact
   );
 }
 

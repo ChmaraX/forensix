@@ -1,8 +1,8 @@
 /**
  * Case-wide host reads for the Sites view: `useHostFavicons` (each host's
- * recovered favicon for its avatar). Which rows are on a host is
- * `sites-host-fields.ts`; whether Sites lists a host (for links to it) is
- * `host-link.tsx`'s `useSiteHosts`.
+ * recovered favicon for its avatar). Which rows are on a host is core's
+ * (`site-findings`, keyed by site-host-key.ts); whether Sites lists a host
+ * (for links to it) is `host-link.tsx`'s `useSiteHosts`.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -40,7 +40,7 @@ export function useHostFavicons(
   }, [key]);
   const [icons, setIcons] = useState<ReadonlyMap<string, string>>(known);
   useEffect(() => {
-    let live = true;
+    const abort = new AbortController();
     const wanted = (key === "" ? [] : key.split("\n")).filter(
       (host) => !hostIcons.has(host),
     );
@@ -49,21 +49,21 @@ export function useHostFavicons(
       for (let start = 0; start < wanted.length; start += FAVICON_BATCH) {
         const batch = wanted.slice(start, start + FAVICON_BATCH);
         try {
-          const answer = await fetchSiteFavicons(batch);
+          const answer = await fetchSiteFavicons(batch, abort.signal);
           for (const host of batch) {
             hostIcons.set(host, answer.get(host) ?? null);
           }
         } catch {
           return;
         }
-        if (!live) {
+        if (abort.signal.aborted) {
           return;
         }
         setIcons(known());
       }
     })();
     return () => {
-      live = false;
+      abort.abort();
     };
   }, [key, known]);
   return icons;

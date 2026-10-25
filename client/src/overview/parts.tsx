@@ -40,6 +40,7 @@ import {
 import { fontWeights } from "@/lib/font-weight";
 import { typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
+import type { EvidenceKey } from "@/artifacts";
 import { COMMIT_META } from "@/terms";
 import type { FieldState, Finding } from "@/types";
 
@@ -643,7 +644,7 @@ export function RecoveredList({
   readonly counts: readonly RecoveredCount[];
   readonly coverageOf: (artifact: string) => ArtifactCoverage | null;
   /** The link to a page's Recovered tab. */
-  readonly hrefOf: (page: string) => string;
+  readonly hrefOf: (page: EvidenceKey) => string;
 }) {
   const { containerRef, hover } = useLinkList();
   // A page counts as "nothing recovered" only when its databases were read:

@@ -1,8 +1,9 @@
 /**
- * Pure URL helpers (no imports, unit-tested in timeline-source-row.test.ts
- * and related.test.ts): the host inside a recorded URL as written
- * (`splitUrlHost`, host-link.tsx), a URL's host, and the resource URL a
- * cache key names (`cacheResourceUrl`, cache-keys.ts and related.ts).
+ * Pure URL helpers (no imports, `splitUrlHost` unit-tested in
+ * timeline-source-row.test.ts): the host inside a recorded URL as written
+ * (`splitUrlHost`, host-link.tsx) and a URL's host with its port
+ * (`urlHostOf`). Which host Sites keys a value under is core's
+ * `siteHostKey` (site-host-key.ts).
  */
 
 /**
@@ -42,20 +43,4 @@ export function urlHostOf(url: string | null): string | null {
   } catch {
     return null;
   }
-}
-
-/** The resource URL a cache key names, or null when its last part is not a
- *  URL with a scheme and a host. */
-export function cacheResourceUrl(key: string | null): string | null {
-  if (key === null) {
-    return null;
-  }
-  const last = key.trim().split(/\s+/).pop() ?? "";
-  // "_dk_https://…" when the key is a single scoped part: the URL follows
-  // the prefix.
-  const url = last.replace(/^(?:\d+\/\d+\/)?(?:_dk_)?/, "");
-  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
-    return null;
-  }
-  return urlHostOf(url) === null ? null : url;
 }

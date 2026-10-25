@@ -2,8 +2,12 @@
  * Where a Timeline row lives: its artifact page and that page's view of
  * the row (`TimelineSourceLink`). Pure (unit-tested).
  */
-import { FINDING_KINDS, artifactLabelOfKind } from "../artifacts.js";
-import { recordedText } from "../related.js";
+import {
+  FINDING_KINDS,
+  artifactLabelOfKind,
+  type EvidenceKey,
+} from "../artifacts.js";
+import { fieldText } from "../field-readers.js";
 import { rowRefOf, type ViewLocation } from "../router.js";
 import type { Finding } from "../types.js";
 
@@ -13,7 +17,7 @@ export function sourceRowOf(
   row: Finding,
   lensProfiles: readonly string[],
 ): {
-  readonly page: string;
+  readonly page: EvidenceKey;
   readonly label: string;
   readonly extras: Partial<Omit<ViewLocation, "page">>;
 } | null {
@@ -24,7 +28,7 @@ export function sourceRowOf(
     return null;
   }
   const url =
-    row.findingKind === "history_visit" ? recordedText(row.fields.url) : null;
+    row.findingKind === "history_visit" ? fieldText(row.fields.url) : null;
   return {
     page,
     label,

@@ -36,6 +36,7 @@ import { AnimatePresence, motion } from "motion/react";
 
 import { artifactLabelOfKind, FINDING_KINDS } from "../artifacts.js";
 import { fieldLabel } from "../field-labels.js";
+import { returnTarget } from "../focus.js";
 import { citationOf } from "../related.js";
 import { rowRefOf } from "../router.js";
 import type { FieldState, Finding } from "../types.js";
@@ -488,34 +489,13 @@ export function RowSheet({
   // The sheet opens from a row (focused by its click or its Enter), not from
   // a Radix trigger, and the page unmounts it on close; so the row to return
   // focus to is the element focused when the sheet first rendered. Escape,
-  // the close button and the overlay all hand focus back to it.
+  // the close button and the overlay all hand focus back to it (or, opened
+  // from the URL with no row focused, to the page's heading).
   const [returnFocus] = useState<HTMLElement | null>(() =>
     document.activeElement instanceof HTMLElement &&
     document.activeElement !== document.body
       ? document.activeElement
       : null,
-  );
-  useEffect(
-    () => () => {
-      requestAnimationFrame(() => {
-        if (
-          document.activeElement !== null &&
-          document.activeElement !== document.body
-        ) {
-          return;
-        }
-        if (returnFocus?.isConnected === true) {
-          returnFocus.focus({ preventScroll: true });
-          return;
-        }
-        // Opened from the URL (a refresh, Back, a link): no row was
-        // focused, so focus lands on the page's heading, not the document.
-        document
-          .querySelector<HTMLElement>('main h1[tabindex="-1"]')
-          ?.focus({ preventScroll: true });
-      });
-    },
-    [returnFocus],
   );
 
   return (
@@ -529,10 +509,16 @@ export function RowSheet({
     >
       <SheetContent
         onCloseAutoFocus={(event) => {
-          if (returnFocus?.isConnected === true) {
-            event.preventDefault();
-            returnFocus.focus({ preventScroll: true });
+          event.preventDefault();
+          const active = document.activeElement;
+          // Closed by a move that placed focus itself (a page change, ⌘K).
+          if (active !== null && active !== document.body) {
+            return;
           }
+          returnTarget(
+            returnFocus,
+            document.querySelector<HTMLElement>("[data-page-column]"),
+          )?.focus({ preventScroll: true });
         }}
       >
         <SheetHeader className="gap-2 border-b border-border pb-4">

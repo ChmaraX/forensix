@@ -34,7 +34,6 @@ import {
   useViewTab,
 } from "../view-state.js";
 
-import { Panel } from "@/components/panel";
 import {
   Select,
   SelectContent,
@@ -47,11 +46,15 @@ import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
 import { SizeProvider } from "@/lib/size-context";
 
 import type { QueryParameters } from "../api.js";
-import type { ArtifactConfig, Finding } from "../types.js";
+import type { Finding } from "../types.js";
+import { ARTIFACTS } from "../artifacts.js";
+import type { RowLookupSource } from "../row-lookup.js";
 import {
-  useCommitStateLists,
+  commitStateStatus,
   type PaginatedList,
+  useCommitStateLists,
 } from "../use-commit-state-lists.js";
+import { CommitStatePage } from "./commit-state-page.js";
 import { EmptyRows } from "./data-table.js";
 import {
   CommitStateSplit,
@@ -67,6 +70,7 @@ import {
   CompactFilters,
   FilterField,
   FilterTextField,
+  matchesSearch,
   ProfilePicker,
 } from "./filters.js";
 import {
@@ -84,7 +88,7 @@ import {
   useProfileLens,
 } from "./identity-kit.js";
 import { useArtifactCoverage } from "../case-context.js";
-import { ListBlock, RevealSwap } from "./list-states.js";
+import { ListBlock } from "./list-states.js";
 import { SM_UP, useMediaQuery } from "./use-media-query.js";
 import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import { HiddenValue, RowSheet, secretFieldsOf } from "./row-sheet.js";
@@ -434,7 +438,11 @@ function AutofillSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
+const config = ARTIFACTS.autofill;
+/** A URL-named row this page has not loaded is read by its reference. */
+const ROW_LOOKUP: RowLookupSource = { route: config.route };
+
+export function AutofillPage() {
   const lists = useCommitStateLists<Finding>(
     config.route,
     AUTOFILL_PARAMETERS,
@@ -442,7 +450,6 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
       drain: AUTOFILL_ROW_CAP,
     },
   );
-  const savedDone = lists.drained.saved;
   // Saved / Recovered, the search and the open row live in the URL: Back
   // and a refresh keep them. The profile pick is the Case-wide lens.
   const [view, setView] = useViewTab();
@@ -466,8 +473,7 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
     () => [...lists.saved.rows, ...lists.recovered.rows],
     [lists.saved.rows, lists.recovered.rows],
   );
-  // A URL-named row this page has not loaded is read by its reference.
-  const sheet = useRowSelection(loaded, { route: config.route });
+  const sheet = useRowSelection(loaded, ROW_LOOKUP);
   const lens = useProfileLens(
     useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
   );
@@ -494,24 +500,17 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
   }, [allSaved, allRecovered]);
 
   const narrow = useCallback(
-    (entries: readonly Entry[]) => {
-      const query = search.trim().toLocaleLowerCase("en-US");
-      return entries.filter((entry) => {
-        if (categoryFilter !== null && entry.category.key !== categoryFilter) {
-          return false;
-        }
-        if (query === "") {
-          return true;
-        }
-        // A hidden value is left out of the search text, so a match can
-        // never disclose what it holds.
-        const value = !reveal && holdsSecret(entry) ? "" : (entry.value ?? "");
-        const haystack = [value, entry.type ?? ""]
-          .join("\n")
-          .toLocaleLowerCase("en-US");
-        return haystack.includes(query);
-      });
-    },
+    (entries: readonly Entry[]) =>
+      entries.filter(
+        (entry) =>
+          (categoryFilter === null || entry.category.key === categoryFilter) &&
+          // A hidden value is left out of the search text, so a match can
+          // never disclose what it holds.
+          matchesSearch(search, [
+            !reveal && holdsSecret(entry) ? null : entry.value,
+            entry.type,
+          ]),
+      ),
     [search, categoryFilter, reveal],
   );
   const savedVisible = useMemo(() => narrow(saved), [narrow, saved]);
@@ -520,24 +519,10 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
     [narrow, recovered],
   );
 
-  const clearFilters = useCallback(() => {
-    clearSearchAndProfiles();
-  }, []);
-
-  const savedFirst = lists.saved.loading && allSaved.length === 0;
-  const recoveredFirst = lists.recovered.loading && allRecovered.length === 0;
-  const pageEmpty =
-    !savedFirst &&
-    !recoveredFirst &&
-    savedDone &&
-    lists.saved.error === null &&
-    lists.recovered.error === null &&
-    allSaved.length === 0 &&
-    allRecovered.length === 0;
-  const figuresReady = savedDone || lists.saved.error !== null;
-  const showFigures =
-    !figuresReady || (lists.saved.error === null && saved.length > 0);
-  const capped = lists.saved.cursor !== null && savedDone;
+  const status = commitStateStatus(lists, {
+    saved: saved.length,
+    recovered: recovered.length,
+  });
   const filteredMessage = (noun: string) =>
     search.trim() === "" && categoryFilter === null && lens.words !== null
       ? `No ${noun} in ${lens.words}.`
@@ -559,156 +544,139 @@ export function AutofillPage({ config }: { readonly config: ArtifactConfig }) {
     saved.length === 0 ? 0 : Math.round((sensitive / saved.length) * 100);
 
   return (
-    <div className="flex flex-col gap-5">
-      {pageEmpty ? (
-        <Panel>
-          <ArtifactEmpty
-            icon={ARTIFACT_ICONS.autofill}
-            coverage={emptyCoverageOf(coverage)}
-            artifact="Web Data"
-            title="No form data"
-            what="form entries"
-            pivot={<EmptyPivot page="history">Open History</EmptyPivot>}
-          />
-        </Panel>
-      ) : (
-        <>
-          {showFigures ? (
-            <RevealSwap loading={!figuresReady} skeleton={<AutofillSkeleton />}>
-              <MetricBand className="grid-cols-2">
-                <MetricBandItem
-                  label="Saved entries"
-                  value={`${saved.length.toLocaleString("en-US")}${capped ? "+" : ""}`}
-                />
-                <MetricBandItem
-                  label={
-                    <Term label="Sensitive">
-                      Identity, contact, address or payment entries.
-                    </Term>
-                  }
-                  value={
-                    <TooltipFigure
-                      value={`${String(sensitiveShare)}%`}
-                      detail={`${sensitive.toLocaleString("en-US")} of ${saved.length.toLocaleString("en-US")} saved entries`}
-                    />
-                  }
-                />
-              </MetricBand>
-            </RevealSwap>
-          ) : null}
-
-          <SectionPanel id="autofill-list" title="All form entries">
-            <CommitStateSplit
-              value={view}
-              onValueChange={setView}
-              label="Saved or recovered form entries"
-              savedCount={
-                savedFirst ||
-                (lists.saved.error !== null && allSaved.length === 0)
-                  ? null
-                  : saved.length
-              }
-              recoveredCount={
-                recoveredFirst ||
-                (lists.recovered.error !== null && allRecovered.length === 0)
-                  ? null
-                  : recovered.length
-              }
-              savedMore={lists.saved.cursor !== null}
-              recoveredMore={lists.recovered.cursor !== null}
-              toolbar={
-                <>
-                  {anyHidden ? (
-                    <Switch
-                      label="Show values"
-                      checked={reveal}
-                      onToggle={() => {
-                        setReveal((value) => !value);
-                      }}
-                      className="max-sm:-ml-2.5 sm:mx-2"
-                    />
-                  ) : null}
-                  <CompactFilters
-                    active={
-                      (categoryFilter === null ? 0 : 1) +
-                      (lens.selected.length > 0 ? 1 : 0)
-                    }
-                  >
-                    {!wide && listedCategories.length > 1 ? (
-                      <CategorySelect
-                        categories={listedCategories}
-                        entries={view === "saved" ? saved : recovered}
-                        active={categoryFilter}
-                        onPick={setCategoryFilter}
-                        partial={
-                          (view === "saved" ? lists.saved : lists.recovered)
-                            .cursor !== null
-                        }
-                      />
-                    ) : null}
-                    {lens.showPicker ? (
-                      <FilterField label="Profiles" htmlFor="autofill-profiles">
-                        <ProfilePicker
-                          id="autofill-profiles"
-                          profiles={lens.options}
-                          selected={lens.selected}
-                          onChange={lens.setSelected}
-                        />
-                      </FilterField>
-                    ) : null}
-                  </CompactFilters>
-                  <FilterTextField
-                    commit="change"
-                    label="Search loaded form entries"
-                    placeholder="Search value or type"
-                    icon={SearchIcon}
-                    value={search}
-                    onCommit={setSearch}
-                  />
-                </>
-              }
-              saved={
-                <EntryList
-                  list={lists.saved}
-                  entries={allSaved}
-                  visible={savedVisible}
-                  noun="saved"
-                  reveal={reveal}
-                  onSelect={sheet.select}
-                  onClearFilters={clearFilters}
-                  filteredMessage={filteredMessage("saved form entries")}
-                  chips={chipsFor(saved, lists.saved.cursor !== null)}
-                />
-              }
-              recovered={
-                <EntryList
-                  list={lists.recovered}
-                  entries={allRecovered}
-                  visible={recoveredVisible}
-                  noun="recovered"
-                  reveal={reveal}
-                  onSelect={sheet.select}
-                  onClearFilters={clearFilters}
-                  filteredMessage={filteredMessage("recovered form entries")}
-                  chips={chipsFor(recovered, lists.recovered.cursor !== null)}
-                />
-              }
-            />
-          </SectionPanel>
-        </>
-      )}
-
-      {sheet.selected !== null ? (
-        <RowSheet
-          selected={sheet.selected}
-          title={
-            formFieldLabel(fieldText(sheet.selected.row.fields.fieldName)) ??
-            "Form entry"
-          }
-          redactedFields={secretFieldsOf(sheet.selected.row)}
-          onClose={sheet.close}
+    <CommitStatePage
+      status={status}
+      empty={
+        <ArtifactEmpty
+          icon={ARTIFACT_ICONS.autofill}
+          coverage={emptyCoverageOf(coverage)}
+          artifact="Web Data"
+          title="No form data"
+          what="form entries"
+          pivot={<EmptyPivot page="history">Open History</EmptyPivot>}
         />
-      ) : null}
-    </div>
+      }
+      figuresSkeleton={<AutofillSkeleton />}
+      figures={
+        <MetricBand className="grid-cols-2">
+          <MetricBandItem
+            label="Saved entries"
+            value={`${saved.length.toLocaleString("en-US")}${status.capped ? "+" : ""}`}
+          />
+          <MetricBandItem
+            label={
+              <Term label="Sensitive">
+                Identity, contact, address or payment entries.
+              </Term>
+            }
+            value={
+              <TooltipFigure
+                value={`${String(sensitiveShare)}%`}
+                detail={`${sensitive.toLocaleString("en-US")} of ${saved.length.toLocaleString("en-US")} saved entries`}
+              />
+            }
+          />
+        </MetricBand>
+      }
+      sheet={
+        sheet.selected === null ? null : (
+          <RowSheet
+            selected={sheet.selected}
+            title={
+              formFieldLabel(fieldText(sheet.selected.row.fields.fieldName)) ??
+              "Form entry"
+            }
+            redactedFields={secretFieldsOf(sheet.selected.row)}
+            onClose={sheet.close}
+          />
+        )
+      }
+    >
+      <SectionPanel id="autofill-list" title="All form entries">
+        <CommitStateSplit
+          value={view}
+          onValueChange={setView}
+          label="Saved or recovered form entries"
+          {...status.split}
+          toolbar={
+            <>
+              {anyHidden ? (
+                <Switch
+                  label="Show values"
+                  checked={reveal}
+                  onToggle={() => {
+                    setReveal((value) => !value);
+                  }}
+                  className="max-sm:-ml-2.5 sm:mx-2"
+                />
+              ) : null}
+              <CompactFilters
+                active={
+                  (categoryFilter === null ? 0 : 1) +
+                  (lens.selected.length > 0 ? 1 : 0)
+                }
+              >
+                {!wide && listedCategories.length > 1 ? (
+                  <CategorySelect
+                    categories={listedCategories}
+                    entries={view === "saved" ? saved : recovered}
+                    active={categoryFilter}
+                    onPick={setCategoryFilter}
+                    partial={
+                      (view === "saved" ? lists.saved : lists.recovered)
+                        .cursor !== null
+                    }
+                  />
+                ) : null}
+                {lens.showPicker ? (
+                  <FilterField label="Profiles" htmlFor="autofill-profiles">
+                    <ProfilePicker
+                      id="autofill-profiles"
+                      profiles={lens.options}
+                      selected={lens.selected}
+                      onChange={lens.setSelected}
+                    />
+                  </FilterField>
+                ) : null}
+              </CompactFilters>
+              <FilterTextField
+                commit="change"
+                label="Search loaded form entries"
+                placeholder="Search value or type"
+                icon={SearchIcon}
+                value={search}
+                onCommit={setSearch}
+              />
+            </>
+          }
+          saved={
+            <EntryList
+              list={lists.saved}
+              entries={allSaved}
+              visible={savedVisible}
+              noun="saved"
+              reveal={reveal}
+              onSelect={sheet.select}
+              onClearFilters={clearSearchAndProfiles}
+              filteredMessage={filteredMessage("saved form entries")}
+              chips={chipsFor(saved, lists.saved.cursor !== null)}
+            />
+          }
+          recovered={
+            <EntryList
+              list={lists.recovered}
+              entries={allRecovered}
+              visible={recoveredVisible}
+              noun="recovered"
+              reveal={reveal}
+              onSelect={sheet.select}
+              onClearFilters={clearSearchAndProfiles}
+              filteredMessage={filteredMessage("recovered form entries")}
+              chips={chipsFor(recovered, lists.recovered.cursor !== null)}
+            />
+          }
+        />
+      </SectionPanel>
+    </CommitStatePage>
   );
 }

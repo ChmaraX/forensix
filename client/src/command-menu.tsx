@@ -1,6 +1,7 @@
 /**
- * ⌘K: jump anywhere in the Case. FF's CommandMenuDialog (the installed
- * registry component, bound to mod+K), with:
+ * ⌘K: jump anywhere in the Case. FF's CommandMenu in FF's Dialog (the
+ * composition FF's CommandMenuDialog makes, bound to mod+K here), so the
+ * dialog's own `onCloseAutoFocus` decides where focus goes. With:
  *
  *  - Pages: every nav section;
  *  - the Case index (once something is typed; rules in command-index.ts):
@@ -18,8 +19,15 @@
  *    single-key shortcuts switch (J, K and [).
  *
  * The index reads (hosts, activity, downloads, saved logins) start the
- * first time the menu opens, each once per session. Closing the menu
- * without a pick returns focus to where it was (a row, the trigger).
+ * first time the menu opens, each once per session.
+ *
+ * Focus: a pick runs once the dialog has closed (from its
+ * `onCloseAutoFocus`), so the focus it moves (a page's h1, a row) and the
+ * words it announces are never taken over by the dialog's own focus
+ * restore or hidden by its modal. Closing without a pick returns focus to
+ * where it was (a row, the trigger; else the page's h1). Each opening is a
+ * fresh dialog, so a menu reopened while the last one is still leaving is
+ * never left hidden from assistive tech by a sheet that opened meanwhile.
  *
  * Read-only: every row navigates or changes presentation, nothing else.
  */
@@ -35,14 +43,21 @@ import {
 
 import {
   CommandMenu,
-  CommandMenuDialog,
   CommandMenuEmpty,
   CommandMenuFooter,
   CommandMenuInput,
   CommandMenuList,
   defaultCommandMenuFilter,
+  matchesShortcut,
+  parseShortcut,
   type CommandMenuItemData,
 } from "@/components/ui/command-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useSidebar } from "@/components/ui/sidebar";
 import {
   ARTIFACT_ICONS,
@@ -53,7 +68,6 @@ import {
   SystemThemeIcon,
   KeyboardIcon,
   UserIcon,
-  type AppIcon,
 } from "@/lib/app-icons";
 import {
   caseActivity,
@@ -72,8 +86,11 @@ import {
   type UsernameEntry,
 } from "./command-index.js";
 import { bucketsToDays } from "./components/activity-data.js";
+import { hostSummary } from "./components/site-kinds.js";
+import { returnTarget } from "./focus.js";
+import { setCommandMenuOpen } from "./menu-open.js";
+import { PAGE_KEYS, PAGES } from "./pages.js";
 import { formatCaseDay } from "./related.js";
-import { PAGES } from "./router.js";
 import {
   moveRowFocus,
   setSingleKeyShortcuts,
@@ -81,34 +98,11 @@ import {
   useSingleKeyShortcuts,
 } from "./shortcuts.js";
 import { chooseTheme } from "./theme.js";
-import type { SiteArtifactKind, SiteHost } from "./types.js";
+import type { SiteHost } from "./types.js";
 import { openPage } from "./view-state.js";
 
 /** Days listed under "Recent days" (no query). */
 const RECENT_DAYS = 7;
-
-const HOST_KIND_WORDS: readonly (readonly [
-  SiteArtifactKind,
-  string,
-  string,
-])[] = [
-  ["visits", "visit", "visits"],
-  ["saved_logins", "saved login", "saved logins"],
-  ["cookies", "cookie", "cookies"],
-  ["bookmarks", "bookmark", "bookmarks"],
-  ["top_sites", "top site", "top sites"],
-  ["form_data", "form entry", "form entries"],
-];
-
-/** "3 visits · 1 cookie": the host's saved rows, as the Sites list counts. */
-function hostSummary(host: SiteHost): string {
-  return HOST_KIND_WORDS.flatMap(([kind, one, many]) => {
-    const count = host.savedCounts[kind] ?? 0;
-    return count === 0
-      ? []
-      : [`${count.toLocaleString("en-US")} ${count === 1 ? one : many}`];
-  }).join(" · ");
-}
 
 /** Rows the menu lists as they are (already matched by the index, or a
  *  group's "N more" row); every other row goes through FF's filter. */
@@ -118,22 +112,47 @@ function menuFilter(item: CommandMenuItemData, query: string): boolean {
   return PREMATCHED.test(item.value) || defaultCommandMenuFilter(item, query);
 }
 
-/** Runs `action` once the dialog has closed and handed focus back, so the
- *  focus it moves is not taken over by the dialog's focus restore. */
-function afterDialogCloses(action: () => void): void {
-  const started = performance.now();
-  const step = () => {
-    const open =
-      document.querySelector('[data-slot="command-menu-input"]') !== null ||
-      document.querySelector('[role="dialog"][data-state="open"]') !== null;
-    if (open && performance.now() - started < 1500) {
-      requestAnimationFrame(step);
-      return;
+/** The combo that opens and closes the menu from anywhere. */
+const MENU_SHORTCUT = parseShortcut("mod+k");
+
+/** The menu's open state, a count of openings (each opening mounts a
+ *  fresh dialog: `generation` keys it) and the pick waiting for the dialog
+ *  to close. */
+export interface CommandMenuState {
+  readonly open: boolean;
+  readonly generation: number;
+  readonly setOpen: (open: boolean) => void;
+  /** The picked row's action, run once the dialog has closed - or, when
+   *  the menu is opened again before that, first. */
+  readonly pending: RefObject<(() => void) | null>;
+}
+
+export function useCommandMenuState(): CommandMenuState {
+  const [state, setState] = useState({ open: false, generation: 0 });
+  const pending = useRef<(() => void) | null>(null);
+  const setOpen = useCallback((open: boolean) => {
+    if (open) {
+      // Reopened while the last pick still waits for its dialog to leave:
+      // the pick happens first, so whatever it opens (a sheet) is under
+      // the new menu, never over it.
+      const run = pending.current;
+      pending.current = null;
+      run?.();
     }
-    // Past the dialog's own focus restore (Radix runs it on a 0ms timer).
-    setTimeout(action, 50);
-  };
-  requestAnimationFrame(step);
+    setState((current) =>
+      current.open === open
+        ? current
+        : {
+            open,
+            generation: open ? current.generation + 1 : current.generation,
+          },
+    );
+  }, []);
+  // Shared with the row sheets, which do not open under the menu.
+  useEffect(() => {
+    setCommandMenuOpen(state.open);
+  }, [state.open]);
+  return { ...state, setOpen, pending };
 }
 
 interface Loaded {
@@ -206,48 +225,50 @@ function useMenuData(open: boolean): Loaded {
   return { hosts, days, files, usernames, pending };
 }
 
-/** The element focus should return to after the menu closes: what had it
- *  when the menu opened, if it is still on show; else the page's h1. */
-function returnTarget(
-  previous: HTMLElement | null,
-  column: HTMLElement | null,
-): HTMLElement | null {
-  if (
-    previous !== null &&
-    previous.isConnected &&
-    previous.getClientRects().length > 0
-  ) {
-    return previous;
-  }
-  const heading = column?.querySelector<HTMLElement>("h1") ?? null;
-  if (heading !== null && !heading.hasAttribute("tabindex")) {
-    heading.setAttribute("tabindex", "-1");
-    heading.classList.add("outline-none");
-  }
-  return heading;
-}
-
 /**
- * The ⌘K dialog. Mount once inside the shell's SidebarProvider; `open` is
- * controlled so the topbar's trigger can open it too. `scope` is the page
- * column, for the row shortcuts and the focus fallback; `announce` is the
- * shell's polite region (read once the dialog has closed).
+ * The ⌘K dialog. Mount once inside the shell's SidebarProvider; `state`
+ * (`useCommandMenuState`) is the shell's, so the topbar's trigger opens it
+ * too. `scope` is the page column, for the row shortcuts and the focus
+ * fallback; `announce` is the shell's polite region (spoken once the
+ * dialog has closed).
  */
 export function CaseCommandMenu({
-  open,
-  onOpenChange,
+  state,
   scope,
   announce,
 }: {
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
+  readonly state: CommandMenuState;
   readonly scope: RefObject<HTMLElement | null>;
   readonly announce: (message: string) => void;
 }) {
+  const { open, generation, setOpen, pending: pick } = state;
   const { toggleSidebar } = useSidebar();
   const [query, setQuery] = useState("");
   const { hosts, days, files, usernames, pending } = useMenuData(open);
   const singleKeys = useSingleKeyShortcuts();
+
+  // mod+K toggles the menu from anywhere, a field included.
+  const openRef = useRef(open);
+  useLayoutEffect(() => {
+    openRef.current = open;
+  });
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.repeat ||
+        event.defaultPrevented ||
+        !matchesShortcut(event, MENU_SHORTCUT)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setOpen(!openRef.current);
+    };
+    globalThis.addEventListener("keydown", onKeyDown);
+    return () => {
+      globalThis.removeEventListener("keydown", onKeyDown);
+    };
+  }, [setOpen]);
 
   // Where focus was when the menu opened (a row, the trigger), recorded
   // before the dialog moves it, so a close without a pick goes back there.
@@ -262,27 +283,34 @@ export function CaseCommandMenu({
     }
   }, [open]);
 
-  const restoreFocus = useCallback(() => {
-    const previous = returnTo.current;
-    returnTo.current = null;
-    afterDialogCloses(() => {
+  // The picked row's action runs once the dialog has closed.
+  const afterClose = useCallback(
+    (event: Event) => {
+      // Focus is placed here, not by the dialog's own restore.
+      event.preventDefault();
+      const action = pick.current;
+      const previous = returnTo.current;
+      pick.current = null;
+      returnTo.current = null;
+      action?.();
+      // Reopened meanwhile (this dialog left as a fresh one opened): the new
+      // menu keeps focus. A pick that moved focus (a page's h1, a row, a
+      // sheet) keeps it.
       const active = document.activeElement;
-      // A pick that moved focus (a page's h1, a row) keeps it.
-      if (active !== null && active !== document.body) {
+      if (openRef.current || (active !== null && active !== document.body)) {
         return;
       }
       returnTarget(previous, scope.current)?.focus({ preventScroll: true });
-    });
-  }, [scope]);
+    },
+    [pick, scope],
+  );
 
   const focusRow = useCallback(
     (delta: 1 | -1) => {
-      afterDialogCloses(() => {
-        const column = scope.current;
-        if (column !== null) {
-          moveRowFocus(null, delta, column);
-        }
-      });
+      const column = scope.current;
+      if (column !== null) {
+        moveRowFocus(null, delta, column);
+      }
     },
     [scope],
   );
@@ -290,14 +318,14 @@ export function CaseCommandMenu({
   // Stable apart from the index rows: the highlight resets only when the
   // rows on show change.
   const fixed = useMemo<readonly CommandMenuItemData[]>(() => {
-    const pages = PAGES.map((page) => ({
-      value: `page:${page.key}`,
-      label: page.label,
-      action: `Open ${page.label}`,
-      icon: (ARTIFACT_ICONS as Readonly<Record<string, AppIcon>>)[page.key],
+    const pages = PAGE_KEYS.map((key) => ({
+      value: `page:${key}`,
+      label: PAGES[key].label,
+      action: `Open ${PAGES[key].label}`,
+      icon: ARTIFACT_ICONS[key],
       group: "Pages",
       onSelect: () => {
-        openPage(page.key);
+        openPage(key);
       },
     }));
     const themes = (
@@ -324,9 +352,7 @@ export function CaseCommandMenu({
       "shortcut-previous": () => {
         focusRow(-1);
       },
-      "shortcut-sidebar": () => {
-        afterDialogCloses(toggleSidebar);
-      },
+      "shortcut-sidebar": toggleSidebar,
     };
     const shortcuts = SHORTCUTS.map((shortcut) => {
       const run = shortcutAction[shortcut.value];
@@ -525,13 +551,26 @@ export function CaseCommandMenu({
     return rows;
   }, [days, files, hosts, pending, trimmed, usernames]);
 
+  // A pick is held until the dialog has closed (`afterClose`).
   const items = useMemo(() => {
     const pages = fixed.filter((item) => item.group === "Pages");
     const rest = fixed.filter((item) => item.group !== "Pages");
-    return trimmed === ""
-      ? [...pages, ...recentRows, ...rest]
-      : [...pages, ...indexRows, ...rest];
-  }, [fixed, indexRows, recentRows, trimmed]);
+    const rows =
+      trimmed === ""
+        ? [...pages, ...recentRows, ...rest]
+        : [...pages, ...indexRows, ...rest];
+    return rows.map((item): CommandMenuItemData => {
+      const run = item.onSelect;
+      return run === undefined
+        ? item
+        : {
+            ...item,
+            onSelect: () => {
+              pick.current = run;
+            },
+          };
+    });
+  }, [fixed, indexRows, pick, recentRows, trimmed]);
 
   // The words for a query nothing matches, written into an always-mounted
   // polite region (FF's own empty row mounts with its text, which screen
@@ -541,38 +580,54 @@ export function CaseCommandMenu({
   const emptyWords = `No page, host, file, username or day matches "${trimmed}".`;
 
   return (
-    <CommandMenuDialog
+    <Dialog
+      key={generation}
       open={open}
       onOpenChange={(next) => {
         if (!next) {
           setQuery("");
-          restoreFocus();
         }
-        onOpenChange(next);
+        setOpen(next);
       }}
-      title="Jump to"
-      description="Search pages, hosts, files, usernames and days of this Case."
     >
-      <CommandMenu
-        items={items}
-        query={query}
-        onQueryChange={setQuery}
-        filter={menuFilter}
+      <DialogContent
+        size="lg"
+        showCloseButton={false}
+        // FF's command-menu shell: opens centered at its cap and keeps that
+        // top edge, so the field stays put while the rows filter down.
+        position="top"
+        className="top-[max(12dvh,calc(50dvh-220px))] flex max-h-[min(440px,76dvh)] flex-col overflow-hidden p-0"
+        onCloseAutoFocus={afterClose}
       >
-        <CommandMenuInput
-          aria-label="Jump to"
-          placeholder="Jump to a page, host, file, username or day…"
-        />
-        <CommandMenuList>
-          <CommandMenuEmpty role="none" aria-live="off">
-            {emptyWords}
-          </CommandMenuEmpty>
-        </CommandMenuList>
-        <div role="status" aria-live="polite" className="sr-only">
-          {nothing ? emptyWords : ""}
-        </div>
-        <CommandMenuFooter />
-      </CommandMenu>
-    </CommandMenuDialog>
+        <DialogTitle className="sr-only">Jump to</DialogTitle>
+        <DialogDescription className="sr-only">
+          Search pages, hosts, files, usernames and days of this Case.
+        </DialogDescription>
+        <CommandMenu
+          items={items}
+          query={query}
+          onQueryChange={setQuery}
+          filter={menuFilter}
+          onSelect={() => {
+            setQuery("");
+            setOpen(false);
+          }}
+        >
+          <CommandMenuInput
+            aria-label="Jump to"
+            placeholder="Jump to a page, host, file, username or day…"
+          />
+          <CommandMenuList>
+            <CommandMenuEmpty role="none" aria-live="off">
+              {emptyWords}
+            </CommandMenuEmpty>
+          </CommandMenuList>
+          <div role="status" aria-live="polite" className="sr-only">
+            {nothing ? emptyWords : ""}
+          </div>
+          <CommandMenuFooter />
+        </CommandMenu>
+      </DialogContent>
+    </Dialog>
   );
 }

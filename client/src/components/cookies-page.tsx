@@ -26,7 +26,6 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { rowRefOf } from "../router.js";
 import { useRowSelection, useViewSearch, useViewTab } from "../view-state.js";
 
-import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
 import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
@@ -34,11 +33,15 @@ import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
-import type { ArtifactConfig, FieldState, Finding } from "../types.js";
+import type { FieldState, Finding } from "../types.js";
+import { ARTIFACTS } from "../artifacts.js";
+import type { RowLookupSource } from "../row-lookup.js";
 import {
-  useCommitStateLists,
+  commitStateStatus,
   type PaginatedList,
+  useCommitStateLists,
 } from "../use-commit-state-lists.js";
+import { CommitStatePage } from "./commit-state-page.js";
 import { ChartEmpty, useChartTokens } from "./charts.js";
 import { SegmentBar } from "./charts-ready.js";
 import { EmptyRows } from "./data-table.js";
@@ -56,12 +59,13 @@ import {
   CompactFilters,
   FilterField,
   FilterTextField,
+  matchesSearch,
   ProfilePicker,
   sortKeyOf,
   SortSelect,
   type SortOption,
 } from "./filters.js";
-import { ListBlock, RevealSwap } from "./list-states.js";
+import { ListBlock } from "./list-states.js";
 import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import {
   ArtifactEmpty,
@@ -71,7 +75,7 @@ import {
   useProfileLens,
 } from "./identity-kit.js";
 import { SiteHostLink } from "./host-link.js";
-import { siteKeyOf } from "../related.js";
+import { siteHostKey } from "../site-host-key.js";
 import { useArtifactCoverage } from "../case-context.js";
 import {
   COOKIE_SECRET_FIELDS,
@@ -131,14 +135,14 @@ interface CookieRow {
   readonly lifespanDays: number | null;
 }
 
-/** A cookie host key as Sites keys it (`siteKeyOf`: no leading dot, lower
+/** A cookie host key as Sites keys it (`siteHostKey`: no leading dot, lower
  *  case, `www.` kept), so the cell reads as the host its link opens; the
  *  recorded text when it is no host key. */
 function displayHost(hostKey: string | null): string | null {
   if (hostKey === null || hostKey === "") {
     return null;
   }
-  return siteKeyOf(hostKey) ?? hostKey;
+  return siteHostKey(hostKey) ?? hostKey;
 }
 
 function toCookieRow(finding: Finding): CookieRow {
@@ -708,7 +712,11 @@ function CookiesSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
+const config = ARTIFACTS.cookies;
+/** A URL-named row this page has not loaded is read by its reference. */
+const ROW_LOOKUP: RowLookupSource = { route: config.route };
+
+export function CookiesPage() {
   const [order, setOrder] = useState<SortOption>(NEWEST_CREATED);
   const parameters = useMemo<QueryParameters>(
     () => [
@@ -738,8 +746,7 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
     () => [...lists.saved.rows, ...lists.recovered.rows],
     [lists.saved.rows, lists.recovered.rows],
   );
-  // A URL-named row this page has not loaded is read by its reference.
-  const sheet = useRowSelection(loadedFindings, { route: config.route });
+  const sheet = useRowSelection(loadedFindings, ROW_LOOKUP);
 
   const rowProfiles = useMemo(
     () => [...new Set(loadedFindings.map((row) => row.profile))],
@@ -760,19 +767,11 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
   const summary = useMemo(() => summarize(savedRows), [savedRows]);
 
   const narrow = useCallback(
-    (rows: readonly CookieRow[]) => {
-      const query = search.trim().toLocaleLowerCase("en-US");
-      if (query === "") {
-        return rows;
-      }
-      return rows.filter((row) => {
+    (rows: readonly CookieRow[]) =>
+      rows.filter((row) =>
         // Never the value: a search must not reveal a hidden secret.
-        const haystack = [row.host ?? "", row.name ?? "", row.sameSite ?? ""]
-          .join("\n")
-          .toLocaleLowerCase("en-US");
-        return haystack.includes(query);
-      });
-    },
+        matchesSearch(search, [row.host, row.name, row.sameSite]),
+      ),
     [search],
   );
   const savedVisible = useMemo(() => narrow(savedRows), [narrow, savedRows]);
@@ -781,19 +780,10 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
     [narrow, recoveredRows],
   );
 
-  const savedFirst = lists.saved.loading && allSaved.length === 0;
-  const recoveredFirst = lists.recovered.loading && allRecovered.length === 0;
-  const pageEmpty =
-    !savedFirst &&
-    !recoveredFirst &&
-    lists.saved.error === null &&
-    lists.recovered.error === null &&
-    allSaved.length === 0 &&
-    allRecovered.length === 0;
-  // The figures read the saved rows only; with none (or a failed read) they
-  // step aside and the Saved tab carries the reason.
-  const showFigures =
-    savedFirst || (lists.saved.error === null && savedRows.length > 0);
+  const status = commitStateStatus(lists, {
+    saved: savedRows.length,
+    recovered: recoveredRows.length,
+  });
   // A profile pick that leaves a list empty says so in its own words.
   const filteredMessage =
     lens.words !== null && search.trim() === ""
@@ -801,126 +791,106 @@ export function CookiesPage({ config }: { readonly config: ArtifactConfig }) {
       : () => undefined;
 
   return (
-    <div className="flex flex-col gap-5">
-      {pageEmpty ? (
-        <Panel>
-          <ArtifactEmpty
-            icon={ARTIFACT_ICONS.cookies}
-            coverage={emptyCoverageOf(coverage)}
-            artifact="Cookies"
-            title="No cookies"
-            what="cookies"
-            pivot={<EmptyPivot page="history">Open History</EmptyPivot>}
-          />
-        </Panel>
-      ) : (
-        <>
-          {showFigures ? (
-            <RevealSwap loading={savedFirst} skeleton={<CookiesSkeleton />}>
-              <div className="flex flex-col gap-5">
-                <PostureStrip
-                  summary={summary}
-                  more={lists.saved.cursor !== null}
-                />
-                <LifespanCard rows={savedRows} />
-              </div>
-            </RevealSwap>
-          ) : null}
-
-          <SectionPanel id="cookies-list" title="All cookies">
-            <CommitStateSplit
-              value={view}
-              onValueChange={setView}
-              label="Saved or recovered cookies"
-              savedCount={
-                savedFirst ||
-                (lists.saved.error !== null && allSaved.length === 0)
-                  ? null
-                  : savedRows.length
-              }
-              recoveredCount={
-                recoveredFirst ||
-                (lists.recovered.error !== null && allRecovered.length === 0)
-                  ? null
-                  : recoveredRows.length
-              }
-              savedMore={lists.saved.cursor !== null}
-              recoveredMore={lists.recovered.cursor !== null}
-              toolbar={
-                <>
-                  <Switch
-                    label="Show values"
-                    checked={reveal}
-                    onToggle={() => {
-                      setReveal((value) => !value);
-                    }}
-                    className="max-sm:-ml-2.5 sm:mr-2"
-                  />
-                  <CompactFilters active={lens.selected.length > 0 ? 1 : 0}>
-                    <SortSelect
-                      id="cookies-sort"
-                      options={COOKIE_SORTS}
-                      value={sortKeyOf(order)}
-                      onChange={setOrder}
-                    />
-                    {lens.showPicker ? (
-                      <FilterField label="Profiles" htmlFor="cookies-profiles">
-                        <ProfilePicker
-                          id="cookies-profiles"
-                          profiles={lens.options}
-                          selected={lens.selected}
-                          onChange={lens.setSelected}
-                        />
-                      </FilterField>
-                    ) : null}
-                  </CompactFilters>
-                  <FilterTextField
-                    commit="change"
-                    label="Search loaded cookies"
-                    placeholder="Search host or name"
-                    icon={SearchIcon}
-                    value={search}
-                    onCommit={setSearch}
-                  />
-                </>
-              }
-              saved={
-                <CookieList
-                  list={lists.saved}
-                  rows={allSaved}
-                  visible={savedVisible}
-                  noun="saved"
-                  reveal={reveal}
-                  onSelect={sheet.select}
-                  onClearFilters={clearSearchAndProfiles}
-                  filteredMessage={filteredMessage("saved cookies")}
-                />
-              }
-              recovered={
-                <CookieList
-                  list={lists.recovered}
-                  rows={allRecovered}
-                  visible={recoveredVisible}
-                  noun="recovered"
-                  reveal={reveal}
-                  onSelect={sheet.select}
-                  onClearFilters={clearSearchAndProfiles}
-                  filteredMessage={filteredMessage("recovered cookies")}
-                />
-              }
-            />
-          </SectionPanel>
-        </>
-      )}
-
-      {sheet.selected !== null ? (
-        <RowSheet
-          selected={sheet.selected}
-          title={fieldText(sheet.selected.row.fields.name) ?? "Cookie"}
-          redactedFields={COOKIE_SECRET_FIELDS}
-          onClose={sheet.close}
+    <CommitStatePage
+      status={status}
+      empty={
+        <ArtifactEmpty
+          icon={ARTIFACT_ICONS.cookies}
+          coverage={emptyCoverageOf(coverage)}
+          artifact="Cookies"
+          title="No cookies"
+          what="cookies"
+          pivot={<EmptyPivot page="history">Open History</EmptyPivot>}
         />
-      ) : null}
-    </div>
+      }
+      figuresSkeleton={<CookiesSkeleton />}
+      figures={
+        <div className="flex flex-col gap-5">
+          <PostureStrip summary={summary} more={lists.saved.cursor !== null} />
+          <LifespanCard rows={savedRows} />
+        </div>
+      }
+      sheet={
+        sheet.selected === null ? null : (
+          <RowSheet
+            selected={sheet.selected}
+            title={fieldText(sheet.selected.row.fields.name) ?? "Cookie"}
+            redactedFields={COOKIE_SECRET_FIELDS}
+            onClose={sheet.close}
+          />
+        )
+      }
+    >
+      <SectionPanel id="cookies-list" title="All cookies">
+        <CommitStateSplit
+          value={view}
+          onValueChange={setView}
+          label="Saved or recovered cookies"
+          {...status.split}
+          toolbar={
+            <>
+              <Switch
+                label="Show values"
+                checked={reveal}
+                onToggle={() => {
+                  setReveal((value) => !value);
+                }}
+                className="max-sm:-ml-2.5 sm:mr-2"
+              />
+              <CompactFilters active={lens.selected.length > 0 ? 1 : 0}>
+                <SortSelect
+                  id="cookies-sort"
+                  options={COOKIE_SORTS}
+                  value={sortKeyOf(order)}
+                  onChange={setOrder}
+                />
+                {lens.showPicker ? (
+                  <FilterField label="Profiles" htmlFor="cookies-profiles">
+                    <ProfilePicker
+                      id="cookies-profiles"
+                      profiles={lens.options}
+                      selected={lens.selected}
+                      onChange={lens.setSelected}
+                    />
+                  </FilterField>
+                ) : null}
+              </CompactFilters>
+              <FilterTextField
+                commit="change"
+                label="Search loaded cookies"
+                placeholder="Search host or name"
+                icon={SearchIcon}
+                value={search}
+                onCommit={setSearch}
+              />
+            </>
+          }
+          saved={
+            <CookieList
+              list={lists.saved}
+              rows={allSaved}
+              visible={savedVisible}
+              noun="saved"
+              reveal={reveal}
+              onSelect={sheet.select}
+              onClearFilters={clearSearchAndProfiles}
+              filteredMessage={filteredMessage("saved cookies")}
+            />
+          }
+          recovered={
+            <CookieList
+              list={lists.recovered}
+              rows={allRecovered}
+              visible={recoveredVisible}
+              noun="recovered"
+              reveal={reveal}
+              onSelect={sheet.select}
+              onClearFilters={clearSearchAndProfiles}
+              filteredMessage={filteredMessage("recovered cookies")}
+            />
+          }
+        />
+      </SectionPanel>
+    </CommitStatePage>
   );
 }

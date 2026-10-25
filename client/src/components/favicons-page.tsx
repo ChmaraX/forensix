@@ -29,20 +29,22 @@ import {
   useViewTab,
 } from "../view-state.js";
 
-import { Panel } from "@/components/panel";
 import { Skeleton } from "@/components/ui/misc";
 import { MissingImageIcon, SearchIcon } from "@/lib/app-icons";
 import { SizeProvider, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
-import { siteKeyOf } from "../related.js";
-import type { ArtifactConfig, Finding } from "../types.js";
+import type { Finding } from "../types.js";
+import { ARTIFACTS } from "../artifacts.js";
+import type { RowLookupSource } from "../row-lookup.js";
 import {
+  commitStateStatus,
   type PaginatedList,
   type RecoveredList,
   useCommitStateLists,
 } from "../use-commit-state-lists.js";
+import { CommitStatePage } from "./commit-state-page.js";
 import { EmptyRows } from "./data-table.js";
 import {
   FaviconBitmapsContext,
@@ -62,9 +64,10 @@ import {
   CompactFilters,
   FilterField,
   FilterTextField,
+  matchesSearch,
   ProfilePicker,
 } from "./filters.js";
-import { ListBlock, RevealSwap } from "./list-states.js";
+import { ListBlock } from "./list-states.js";
 import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import {
   CommitStateSplit,
@@ -406,7 +409,11 @@ function FiguresSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
+const config = ARTIFACTS.favicons;
+/** A URL-named row this page has not loaded is read by its reference. */
+const ROW_LOOKUP: RowLookupSource = { route: config.route };
+
+export function FaviconsPage() {
   const lists = useCommitStateLists<Finding>(config.route, FAVICON_PARAMETERS);
   // Saved / Recovered, the search, the open row and the Case-wide profile
   // pick live in the URL: Back and a refresh keep them.
@@ -420,8 +427,7 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
     () => [...savedRows, ...recoveredRows],
     [savedRows, recoveredRows],
   );
-  // A URL-named row this page has not loaded is read by its reference.
-  const sheet = useRowSelection(loadedRows, { route: config.route });
+  const sheet = useRowSelection(loadedRows, ROW_LOOKUP);
 
   // The picker lists the profiles the loaded icons carry, plus any the
   // lens already picked elsewhere (so it can be unpicked here).
@@ -433,16 +439,8 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
     [loadedRows, profileFilter],
   );
 
-  const hosts = useMemo(
-    () =>
-      loadedRows.flatMap((row) => {
-        // Asked as Sites keys hosts, the key the route answers by.
-        const host = siteKeyOf(faviconHostUrl(row));
-        return host === null ? [] : [host];
-      }),
-    [loadedRows],
-  );
-  const bitmaps = useOwnBitmaps(hosts);
+  // Each row's own stored bitmap, saved and recovered alike.
+  const bitmaps = useOwnBitmaps(loadedRows);
 
   const ofProfiles = useCallback(
     (row: Finding) =>
@@ -450,24 +448,15 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
     [profileFilter],
   );
   const narrow = useCallback(
-    (rows: readonly Finding[]) => {
-      const query = search.trim().toLocaleLowerCase("en-US");
-      return rows.filter((row) => {
-        if (!ofProfiles(row)) {
-          return false;
-        }
-        if (query === "") {
-          return true;
-        }
-        const haystack = [
-          faviconHost(row) ?? "",
-          fieldText(row.fields.iconUrl) ?? "",
-        ]
-          .join("\n")
-          .toLocaleLowerCase("en-US");
-        return haystack.includes(query);
-      });
-    },
+    (rows: readonly Finding[]) =>
+      rows.filter(
+        (row) =>
+          ofProfiles(row) &&
+          matchesSearch(search, [
+            faviconHost(row),
+            fieldText(row.fields.iconUrl),
+          ]),
+      ),
     [search, ofProfiles],
   );
   // The figures follow the profile pick (the lens); the search only
@@ -475,6 +464,10 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
   const savedOfProfiles = useMemo(
     () => savedRows.filter(ofProfiles),
     [savedRows, ofProfiles],
+  );
+  const recoveredOfProfiles = useMemo(
+    () => recoveredRows.filter(ofProfiles),
+    [recoveredRows, ofProfiles],
   );
   const savedVisible = useMemo(() => narrow(savedRows), [narrow, savedRows]);
   const recoveredVisible = useMemo(
@@ -487,119 +480,91 @@ export function FaviconsPage({ config }: { readonly config: ArtifactConfig }) {
     updateView({ profiles: [], q: null });
   }, []);
 
-  const savedFirst = lists.saved.loading && savedRows.length === 0;
-  const recoveredFirst = lists.recovered.loading && recoveredRows.length === 0;
-  const pageEmpty =
-    !savedFirst &&
-    !recoveredFirst &&
-    lists.saved.error === null &&
-    lists.recovered.error === null &&
-    savedRows.length === 0 &&
-    recoveredRows.length === 0;
-  // The figures read the saved rows only; with none (or a failed read) they
-  // step aside and the Saved tab carries the reason.
-  const showFigures =
-    savedFirst || (lists.saved.error === null && savedRows.length > 0);
+  // Tabs and figures count the rows the profile pick leaves (one base).
+  const status = commitStateStatus(lists, {
+    saved: savedOfProfiles.length,
+    recovered: recoveredOfProfiles.length,
+  });
 
   return (
-    <div className="flex flex-col gap-5">
-      {pageEmpty ? (
-        <Panel>
-          <EmptyRows
-            icon={MissingImageIcon}
-            title="No cached icons"
-            message="No Favicons rows in this Case, saved or recovered."
-          />
-        </Panel>
-      ) : (
-        <>
-          {showFigures ? (
-            <RevealSwap loading={savedFirst} skeleton={<FiguresSkeleton />}>
-              <SummaryBand
-                rows={savedOfProfiles}
-                more={lists.saved.cursor !== null}
-              />
-            </RevealSwap>
-          ) : null}
-
-          <FaviconBitmapsContext.Provider value={bitmaps}>
-            <SectionPanel id="favicons-list" title="Cached icons">
-              <CommitStateSplit
-                value={view}
-                onValueChange={setView}
-                label="Saved or recovered icons"
-                savedCount={
-                  savedFirst ||
-                  (lists.saved.error !== null && savedRows.length === 0)
-                    ? null
-                    : savedRows.length
-                }
-                recoveredCount={
-                  recoveredFirst ||
-                  (lists.recovered.error !== null && recoveredRows.length === 0)
-                    ? null
-                    : recoveredRows.length
-                }
-                savedMore={lists.saved.cursor !== null}
-                recoveredMore={lists.recovered.cursor !== null}
-                toolbar={
-                  <>
-                    <CompactFilters active={profileFilter.length > 0 ? 1 : 0}>
-                      {profiles.length > 1 ? (
-                        <FilterField
-                          label="Profiles"
-                          htmlFor="favicons-profiles"
-                        >
-                          <ProfilePicker
-                            id="favicons-profiles"
-                            profiles={profiles}
-                            selected={profileFilter}
-                            onChange={setProfileFilter}
-                          />
-                        </FilterField>
-                      ) : null}
-                    </CompactFilters>
-                    <FilterTextField
-                      commit="change"
-                      label="Search loaded favicons"
-                      icon={SearchIcon}
-                      placeholder="Search host or icon URL"
-                      value={search}
-                      onCommit={setSearch}
-                    />
-                  </>
-                }
-                saved={
-                  <IconList
-                    list={lists.saved}
-                    visible={savedVisible}
-                    noun="saved"
-                    onSelect={sheet.select}
-                    onClearFilters={clearFilters}
-                  />
-                }
-                recovered={
-                  <IconList
-                    list={lists.recovered}
-                    visible={recoveredVisible}
-                    noun="recovered"
-                    onSelect={sheet.select}
-                    onClearFilters={clearFilters}
-                  />
-                }
-              />
-            </SectionPanel>
-          </FaviconBitmapsContext.Provider>
-        </>
-      )}
-
-      {sheet.selected === null ? null : (
-        <RowSheet
-          selected={sheet.selected}
-          title="Favicon"
-          onClose={sheet.close}
+    <CommitStatePage
+      status={status}
+      empty={
+        <EmptyRows
+          icon={MissingImageIcon}
+          title="No cached icons"
+          message="No Favicons rows in this Case, saved or recovered."
         />
-      )}
-    </div>
+      }
+      figuresSkeleton={<FiguresSkeleton />}
+      figures={
+        <SummaryBand
+          rows={savedOfProfiles}
+          more={lists.saved.cursor !== null}
+        />
+      }
+      sheet={
+        sheet.selected === null ? null : (
+          <RowSheet
+            selected={sheet.selected}
+            title="Favicon"
+            onClose={sheet.close}
+          />
+        )
+      }
+    >
+      <FaviconBitmapsContext.Provider value={bitmaps}>
+        <SectionPanel id="favicons-list" title="Cached icons">
+          <CommitStateSplit
+            value={view}
+            onValueChange={setView}
+            label="Saved or recovered icons"
+            {...status.split}
+            toolbar={
+              <>
+                <CompactFilters active={profileFilter.length > 0 ? 1 : 0}>
+                  {profiles.length > 1 ? (
+                    <FilterField label="Profiles" htmlFor="favicons-profiles">
+                      <ProfilePicker
+                        id="favicons-profiles"
+                        profiles={profiles}
+                        selected={profileFilter}
+                        onChange={setProfileFilter}
+                      />
+                    </FilterField>
+                  ) : null}
+                </CompactFilters>
+                <FilterTextField
+                  commit="change"
+                  label="Search loaded favicons"
+                  icon={SearchIcon}
+                  placeholder="Search host or icon URL"
+                  value={search}
+                  onCommit={setSearch}
+                />
+              </>
+            }
+            saved={
+              <IconList
+                list={lists.saved}
+                visible={savedVisible}
+                noun="saved"
+                onSelect={sheet.select}
+                onClearFilters={clearFilters}
+              />
+            }
+            recovered={
+              <IconList
+                list={lists.recovered}
+                visible={recoveredVisible}
+                noun="recovered"
+                onSelect={sheet.select}
+                onClearFilters={clearFilters}
+              />
+            }
+          />
+        </SectionPanel>
+      </FaviconBitmapsContext.Provider>
+    </CommitStatePage>
   );
 }

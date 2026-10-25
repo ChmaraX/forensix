@@ -67,6 +67,7 @@ import { useShape } from "@/lib/shape-context";
 import { typeClass, useSize } from "@/lib/size-context";
 import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
+import { SM_UP, useMediaQuery } from "./use-media-query.js";
 
 /**
  * A two-month grid (each ~260px wide) does not fit a phone-width viewport.
@@ -75,20 +76,7 @@ import { cn } from "@/lib/utils";
  * inventing a new breakpoint.
  */
 function useNumberOfMonths(): 1 | 2 {
-  const [count, setCount] = useState<1 | 2>(() =>
-    globalThis.matchMedia("(min-width: 640px)").matches ? 2 : 1,
-  );
-  useEffect(() => {
-    const query = globalThis.matchMedia("(min-width: 640px)");
-    const onChange = () => {
-      setCount(query.matches ? 2 : 1);
-    };
-    query.addEventListener("change", onChange);
-    return () => {
-      query.removeEventListener("change", onChange);
-    };
-  }, []);
-  return count;
+  return useMediaQuery(SM_UP) ? 2 : 1;
 }
 
 function parseIsoDate(value: string): Date | undefined {

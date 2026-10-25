@@ -3,9 +3,9 @@
  * value this row records exactly - never a relationship the data does not
  * record.
  *
- *  - host → Sites: the host of a URL (or a cookie's host key) the row
- *    records, as the Sites view keys it (`siteKeyOf`), offered only when
- *    Sites lists that exact host;
+ *  - host → Sites: the first host the row is on as core's Sites keys it
+ *    (`siteHostsOf`, the same field table and key the Sites routes use),
+ *    offered only when Sites lists that exact host;
  *  - day → Timeline: the Case day of the row's own timestamp (the field
  *    `FINDING_KINDS` dates the kind by), in the Case's declared timezone;
  *  - URL → History: visits whose URL equals, character for character, a
@@ -18,10 +18,12 @@
  */
 import { FINDING_KINDS } from "./artifacts.js";
 import { localDayOf } from "./components/day-bounds.js";
-import { cacheResourceUrl } from "./components/url-host.js";
 import { fieldLabel } from "./field-labels.js";
+import { fieldText, fieldUtc } from "./field-readers.js";
+import type { PageKey } from "./pages.js";
 import { rowRefOf, type ViewLocation } from "./router.js";
-import type { FieldState, Finding } from "./types.js";
+import { siteHostsOf } from "./site-host-key.js";
+import type { Finding } from "./types.js";
 
 /** One related-evidence link. */
 export interface RelatedLink {
@@ -36,116 +38,30 @@ export interface RelatedLink {
   /** The value is code-like (a URL): monospace. */
   readonly mono: boolean;
   /** The page the link opens. */
-  readonly page: string;
+  readonly page: PageKey;
   /** The opened page's own view (host, search, tab, row; or a range). */
   readonly extras: Partial<Omit<ViewLocation, "page">>;
   /** The link's words ("Open in Sites"). */
   readonly action: string;
 }
 
-/* ------------------------------ field readers ----------------------------- */
-
-/** A recorded, non-empty string value, or null. */
-export function recordedText(field: FieldState | undefined): string | null {
-  return field?.state === "value" &&
-    typeof field.value === "string" &&
-    field.value !== ""
-    ? field.value
-    : null;
-}
-
-function utcOf(field: FieldState | undefined): string | null {
-  if (field?.state !== "value") {
-    return null;
-  }
-  const value = field.value;
-  if (typeof value !== "object" || value === null) {
-    return null;
-  }
-  const utc = (value as Record<string, unknown>).utc;
-  return typeof utc === "string" ? utc : null;
-}
-
 /* ---------------------------------- host ---------------------------------- */
 
-/**
- * A bare host key: a host with no scheme, port, path, query, fragment,
- * userinfo or whitespace ("example.com", "www.example.com"), or a bracketed
- * IPv6 literal ("[::1]").
- */
-const BARE_HOST = /^(?:[^\s/?#:@\\[\]]+|\[[0-9a-f:.]+\])$/i;
-
-/**
- * The key Sites groups a recorded host under - the same transform core's
- * `siteHostKey` (core/src/sites-query.ts) applies, so a key read here is one
- * the Sites route lists. A URL is keyed by its hostname (no port, userinfo
- * or path); a Chrome cookie host key - a domain cookie's ".example.com" or
- * a host-only cookie's bare "example.com" - by itself. One leading dot is
- * removed and the result lower-cased. Nothing else: no domain expansion,
- * so "www.example.com" is a host apart from "example.com". Null when there
- * is no host to read.
- */
-export function siteKeyOf(raw: string | null): string | null {
-  if (raw === null) {
-    return null;
-  }
-  const text = raw.startsWith(".") ? raw.slice(1) : raw;
-  if (text.length === 0) {
-    return null;
-  }
-  if (BARE_HOST.test(text)) {
-    return text.toLocaleLowerCase("en-US");
-  }
-  try {
-    return new URL(text).hostname.toLocaleLowerCase("en-US") || null;
-  } catch {
-    return null;
-  }
-}
-
-/** A field a row's host is read from, and how: the recorded text itself
- *  (a URL or host key), or `read` over it (a cache key names its
- *  resource URL behind an isolation scope). */
-type HostField =
-  | string
-  | {
-      readonly field: string;
-      readonly read: (text: string) => string | null;
-    };
-
-/** The fields, per kind, whose host a row is "on", most direct first. */
-const HOST_FIELDS: Readonly<Record<string, readonly HostField[]>> = {
-  history_visit: ["url"],
-  cookie: ["hostKey"],
-  login_credential: ["originUrl", "signonRealm"],
-  bookmark: ["url"],
-  top_site: ["url"],
-  download: ["tabUrl", "siteUrl"],
-  cache_entry: [{ field: "key", read: cacheResourceUrl }],
-  favicon: ["iconUrl"],
-};
-
-/** The row's host as Sites keys it, from the first host-bearing field it
- *  records; null when it records none. */
+/** The row's host as Sites keys it - the first host core's Sites puts the
+ *  row on (`SITE_HOST_FIELDS` order: a download's URL chain before its
+ *  referrer and tab page) - linked to Sites; null when it records none. */
 export function hostLinkOf(row: Finding): RelatedLink | null {
-  for (const entry of HOST_FIELDS[row.findingKind] ?? []) {
-    const field = typeof entry === "string" ? entry : entry.field;
-    const text = recordedText(row.fields[field]);
-    const key = siteKeyOf(
-      typeof entry === "string" || text === null ? text : entry.read(text),
-    );
-    if (key !== null) {
-      return {
-        key: `host:${key}`,
-        label: "Host",
-        field,
-        value: key,
-        mono: false,
-        page: "sites",
-        extras: { host: key },
-        action: "Open in Sites",
-      };
-    }
+  for (const [key, fields] of siteHostsOf(row.findingKind, row.fields)) {
+    return {
+      key: `host:${key}`,
+      label: "Host",
+      field: fields[0] ?? null,
+      value: key,
+      mono: false,
+      page: "sites",
+      extras: { host: key },
+      action: "Open in Sites",
+    };
   }
   return null;
 }
@@ -175,7 +91,7 @@ export function dayLinkOf(
   if (field === undefined) {
     return null;
   }
-  const day = localDayOf(utcOf(row.fields[field]), timeZone);
+  const day = localDayOf(fieldUtc(row.fields[field]), timeZone);
   if (day === null) {
     return null;
   }
@@ -208,7 +124,7 @@ export function visitedUrlsOf(
   const seen = new Set<string>();
   const urls: { field: string; url: string }[] = [];
   for (const field of VISITED_URL_FIELDS[row.findingKind] ?? []) {
-    const url = recordedText(row.fields[field]);
+    const url = fieldText(row.fields[field]);
     if (url !== null && !seen.has(url) && /^[a-z][a-z0-9+.-]*:/i.test(url)) {
       seen.add(url);
       urls.push({ field, url });
@@ -249,13 +165,13 @@ export function visitLinksOf(
   const exact = visits.filter(
     (visit) =>
       visit.findingKind === "history_visit" &&
-      recordedText(visit.fields.url) === source.url,
+      fieldText(visit.fields.url) === source.url,
   );
   const label = `Visit to ${fieldLabel(source.field, kind)}`;
   const links: RelatedLink[] = [];
   for (const visit of exact.slice(0, VISIT_LINKS)) {
     const ref = rowRefOf(visit);
-    const utc = utcOf(visit.fields.visitTime);
+    const utc = fieldUtc(visit.fields.visitTime);
     if (ref === null) {
       continue;
     }
@@ -350,7 +266,7 @@ export function citationOf(
     if (!isValueHash(name) || options.redacted?.includes(name) === true) {
       continue;
     }
-    const hash = recordedText(field);
+    const hash = fieldText(field);
     if (hash !== null) {
       parts.push(`${name}: ${hash}`);
     }

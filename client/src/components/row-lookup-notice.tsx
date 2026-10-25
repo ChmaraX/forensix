@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/banner";
 import { fontWeights } from "@/lib/font-weight";
 
+import { pageHeading } from "../focus.js";
 import { ROW_LOOKUP_ROW_CAP } from "../row-lookup.js";
 import { closeUrlRow, useRowLookupStatus } from "../view-state.js";
 
@@ -58,20 +59,14 @@ export function RowLookupNotice({
                 onClick={(event) => {
                   // The banner unmounts with the row: focus goes to the
                   // page's heading rather than falling to <body>.
-                  const heading =
-                    event.currentTarget
-                      .closest("[data-page-column]")
-                      ?.querySelector<HTMLElement>("h1") ?? null;
+                  const heading = pageHeading(
+                    event.currentTarget.closest<HTMLElement>(
+                      "[data-page-column]",
+                    ),
+                  );
                   closeUrlRow();
                   requestAnimationFrame(() => {
-                    if (heading === null) {
-                      return;
-                    }
-                    if (!heading.hasAttribute("tabindex")) {
-                      heading.setAttribute("tabindex", "-1");
-                      heading.classList.add("outline-none");
-                    }
-                    heading.focus({ preventScroll: true });
+                    heading?.focus({ preventScroll: true });
                   });
                 }}
               >

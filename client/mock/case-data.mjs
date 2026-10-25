@@ -13,217 +13,34 @@
 
 import { createHash } from "node:crypto";
 
-const CASE_ID = "CASE-2024-0417";
-
-const PROFILE_DEFAULT = "Default";
-const PROFILE_SECOND = "Profile 2";
-const PROFILES = [PROFILE_DEFAULT, PROFILE_SECOND];
-
-const SOURCE_IMAGE = "src-01-disk-image";
-const SOURCE_USER_DATA = "src-02-user-data-dir";
-
-/* --------------------------- FieldState helpers -------------------------- */
-
-function value(v, opts) {
-  return opts?.synthetic === true
-    ? { state: "value", value: v, synthetic: true }
-    : { state: "value", value: v };
-}
-
-function absent() {
-  return { state: "absent" };
-}
-
-function unavailable(reason) {
-  return { state: "unavailable", reason };
-}
-
-const UNAVAILABLE_REASONS = [
-  "column not present in this Chrome version",
-  "value could not be decrypted offline",
-  "row deleted, recovered from WAL without this field",
-  "value present but not a recognized encoding",
-  "related row missing from this database",
-];
-
-/** The reason core gives an encrypted value analysed without the OS key
- *  material (the dashboard words it "sealed"). */
-const SEALED_REASON = "encrypted_secret_without_key_material";
-
-function reasonFor(seed) {
-  return UNAVAILABLE_REASONS[seed % UNAVAILABLE_REASONS.length];
-}
-
-/** Deterministic pseudo-random in [0, 1) so fixture generation is stable. */
-function prng(seed) {
-  let state = seed >>> 0 || 1;
-  return () => {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    state >>>= 0;
-    return state / 4294967296;
-  };
-}
-
-function pick(rand, list) {
-  return list[Math.floor(rand() * list.length) % list.length];
-}
-
-function timestamp(isoUtc) {
-  return value({
-    utc: isoUtc,
-    raw: String((new Date(isoUtc).getTime() + 11_644_473_600_000) * 1000),
-  });
-}
-
-function isoAt(daysAgo, hour, minute) {
-  const base = new Date("2024-04-17T12:00:00.000Z");
-  base.setUTCDate(base.getUTCDate() - daysAgo);
-  base.setUTCHours(hour, minute, Math.floor(Math.random() * 60), 0);
-  return base.toISOString();
-}
-
-/** Deterministic ISO timestamp derived from a seed, not Math.random. */
-function isoAtSeeded(rand, daysAgo, hour, minute) {
-  const base = new Date("2024-04-17T12:00:00.000Z");
-  base.setUTCDate(base.getUTCDate() - daysAgo);
-  const jitterMinute = Math.floor(rand() * 60);
-  base.setUTCHours(hour, minute + jitterMinute, Math.floor(rand() * 60), 0);
-  return base.toISOString();
-}
-
-function provenance(table, rowId, sourceId = SOURCE_USER_DATA, extra) {
-  return {
-    manifestPath: `${sourceId}/manifest.jsonl`,
-    table,
-    rowId: String(rowId),
-    ...extra,
-  };
-}
-
-/* -------------------------------- Domains -------------------------------- */
-
-const EMAIL_DOMAINS = ["gmail.com", "outlook.com", "protonmail.com"];
-const BANKING_HOSTS = [
-  "onlinebanking.chase.com",
-  "secure.bankofamerica.com",
-  "www.wellsfargo.com",
-];
-const CRYPTO_HOSTS = ["www.coinbase.com", "www.binance.com", "www.kraken.com"];
-const CLOUD_HOSTS = [
-  "drive.google.com",
-  "www.dropbox.com",
-  "onedrive.live.com",
-];
-const JOB_HOSTS = ["www.linkedin.com", "www.indeed.com", "www.glassdoor.com"];
-const VPN_HOSTS = [
-  "www.nordvpn.com",
-  "www.expressvpn.com",
-  "account.protonvpn.com",
-];
-const INTERNAL_HOSTS = [
-  "intranet.northfieldpartners.internal",
-  "vpn-gateway.northfieldpartners.internal",
-  "sharepoint.northfieldpartners.internal",
-  "hr-portal.northfieldpartners.internal",
-];
-const SOCIAL_HOSTS = ["twitter.com", "www.reddit.com", "www.facebook.com"];
-const NEWS_HOSTS = ["www.bloomberg.com", "www.reuters.com", "www.wsj.com"];
-const SEARCH_HOSTS = ["www.google.com", "www.bing.com", "duckduckgo.com"];
-const REMOTE_ACCESS_HOSTS = [
-  "www.teamviewer.com",
-  "www.anydesk.com",
-  "remotedesktop.google.com",
-];
-const WEBMAIL_HOSTS = [
-  "mail.google.com",
-  "outlook.office.com",
-  "mail.protonmail.com",
-];
-
-const ALL_HOSTS = [
-  ...EMAIL_DOMAINS,
-  ...BANKING_HOSTS,
-  ...CRYPTO_HOSTS,
-  ...CLOUD_HOSTS,
-  ...JOB_HOSTS,
-  ...VPN_HOSTS,
-  ...INTERNAL_HOSTS,
-  ...SOCIAL_HOSTS,
-  ...NEWS_HOSTS,
-  ...SEARCH_HOSTS,
-  ...REMOTE_ACCESS_HOSTS,
-  ...WEBMAIL_HOSTS,
-];
-
-const PATHS_BY_CATEGORY = {
-  banking: [
-    "/login",
-    "/accounts/transfer",
-    "/statements/2024-03",
-    "/wires/new",
-  ],
-  crypto: ["/dashboard", "/trade/BTC-USD", "/withdraw", "/portfolio"],
-  cloud: ["/drive/folders/exports", "/s/company-financials", "/download"],
-  job: ["/jobs/view/394021", "/in/msandoval-finance", "/company/rivermark"],
-  vpn: ["/download", "/account/servers", "/setup/windows"],
-  internal: [
-    "/",
-    "/policies/data-handling",
-    "/finance/wire-approvals",
-    "/hr/offboarding",
-  ],
-  social: ["/", "/messages", "/search?q=resume%20tips"],
-  news: ["/markets", "/technology", "/business/deals"],
-  search: [
-    "/search?q=how+to+wire+transfer+internationally",
-    "/search?q=resign+notice+period",
-    "/search?q=usb+data+transfer+speed",
-  ],
-  remote: ["/download", "/session/new", "/support"],
-  webmail: ["/mail/u/0/#inbox", "/mail/u/0/#sent", "/owa/"],
-};
-
-function categoryOf(host) {
-  if (EMAIL_DOMAINS.includes(host)) return "webmail";
-  if (BANKING_HOSTS.includes(host)) return "banking";
-  if (CRYPTO_HOSTS.includes(host)) return "crypto";
-  if (CLOUD_HOSTS.includes(host)) return "cloud";
-  if (JOB_HOSTS.includes(host)) return "job";
-  if (VPN_HOSTS.includes(host)) return "vpn";
-  if (INTERNAL_HOSTS.includes(host)) return "internal";
-  if (SOCIAL_HOSTS.includes(host)) return "social";
-  if (NEWS_HOSTS.includes(host)) return "news";
-  if (SEARCH_HOSTS.includes(host)) return "search";
-  if (REMOTE_ACCESS_HOSTS.includes(host)) return "remote";
-  if (WEBMAIL_HOSTS.includes(host)) return "webmail";
-  return "internal";
-}
-
-function urlFor(rand, host) {
-  const category = categoryOf(host);
-  const paths = PATHS_BY_CATEGORY[category] ?? ["/"];
-  return `https://${host}${pick(rand, paths)}`;
-}
-
-const TITLES_BY_CATEGORY = {
-  banking: "Online Banking - Accounts",
-  crypto: "Trade - Portfolio",
-  cloud: "My Drive",
-  job: "LinkedIn - Jobs",
-  vpn: "VPN - Account",
-  internal: "Northfield Partners Intranet",
-  social: "Home",
-  news: "Markets",
-  search: "Search results",
-  remote: "Remote Desktop",
-  webmail: "Inbox",
-};
-
-function titleFor(host) {
-  return TITLES_BY_CATEGORY[categoryOf(host)] ?? host;
-}
+import {
+  buildCandidates,
+  buildCompleteness,
+  buildMetadata,
+  buildTopicCandidates,
+} from "./case-context-data.mjs";
+import {
+  ALL_HOSTS,
+  CASE_ID,
+  DECLARED_TIMEZONE,
+  PROFILES,
+  PROFILE_DEFAULT,
+  PROFILE_SECOND,
+  SEALED_REASON,
+  SOURCE_IMAGE,
+  SOURCE_USER_DATA,
+  absent,
+  isoAtSeeded,
+  pick,
+  prng,
+  provenance,
+  reasonFor,
+  timestamp,
+  titleFor,
+  unavailable,
+  urlFor,
+  value,
+} from "./case-kit.mjs";
 
 /* --------------------------------- History -------------------------------- */
 
@@ -333,7 +150,7 @@ function buildHistoryActivity() {
     fields: {
       localDate: value(bucket.date),
       localHour: value(bucket.hour),
-      declaredTimezone: value("UTC"),
+      declaredTimezone: value(DECLARED_TIMEZONE),
       supportingVisitCount: value(String(bucket.count)),
       visitsWithDurationCount: value(String(Math.max(0, bucket.count - 1))),
       visitsWithoutDurationCount: value("1"),
@@ -936,8 +753,9 @@ function buildCache() {
           ? value(urlFor(rand, host))
           : unavailable("value present but not a recognized encoding"),
         keyLength: value(String(30 + Math.floor(rand() * 60))),
-        keyHashValid: value(true),
-        entryHashMatchesFilename: value(true),
+        // Core writes the cache's integrity flags as "true" / "false".
+        keyHashValid: value("true"),
+        entryHashMatchesFilename: value("true"),
         keySha256: value(
           Array.from({ length: 8 }, () =>
             Math.floor(rand() * 16).toString(16),
@@ -971,8 +789,8 @@ const FAVICON_FILLS = [
 /**
  * A stand-in favicon bitmap for a host: a small SVG (a rounded square in a
  * host-picked hue with its initial), with the SHA-256 and byte length a
- * real recovered payload carries, so the Favicons page can match a
- * `site-favicons` icon to its own row exactly as it does on a real Case.
+ * real recovered payload carries, so a row's own bitmap is found by its
+ * `payloadSha256` (`favicon-bitmaps`) exactly as on a real Case.
  */
 function faviconPayload(host) {
   const name = host.replace(/^www\./, "");
@@ -1025,332 +843,17 @@ function buildFavicons() {
         lastRequested: value(""),
         payloadSha256: missing ? absent() : value(payload.sha256),
         payloadBytes: missing ? absent() : value(String(payload.bytes.length)),
+        payloadPath: missing
+          ? absent()
+          : value(`favicon-payloads/${payload.sha256}`),
         pageUrls: value([urlFor(rand, host)]),
       },
-      // The stored bitmap, for the mock's `site-favicons` route (stripped
-      // from the wire row like every `_` helper field).
+      // The stored bitmap, for the mock's `site-favicons` and
+      // `favicon-bitmaps` routes (stripped from the wire row like every `_`
+      // helper field).
       _dataUri: missing ? null : payload.dataUri,
     };
   });
-}
-
-/* -------------------------------- Metadata -------------------------------- */
-
-function buildMetadata() {
-  const rows = [];
-  rows.push({
-    recordType: "finding",
-    findingKind: "browser_metadata",
-    profile: PROFILE_DEFAULT,
-    commitState: "committed",
-    provenance: provenance("Local State", "browser", SOURCE_USER_DATA),
-    fields: {
-      scope: value("browser"),
-      chromeVersion: value("123.0.6312.122"),
-      variationsCountry: value("us"),
-      lastUsedProfile: value("Default"),
-      profileCount: value("2"),
-      osCryptKeyPresent: value(true),
-      osCryptAppBoundKeyPresent: value(false),
-    },
-  });
-  rows.push({
-    recordType: "finding",
-    findingKind: "profile_metadata",
-    profile: PROFILE_DEFAULT,
-    commitState: "committed",
-    provenance: provenance("Preferences", PROFILE_DEFAULT, SOURCE_USER_DATA),
-    fields: {
-      scope: value("profile"),
-      profileName: value("Marcus Sandoval"),
-      createdByVersion: value("118.0.5993.90"),
-      exitType: value("Normal"),
-      accountCount: value("1"),
-      accountEmail: value("m.sandoval83@gmail.com"),
-      accountGaiaId: value("108234871029384756"),
-      accountFullName: value("Marcus Sandoval"),
-      accountGivenName: value("Marcus"),
-      accountLocale: value("en-US"),
-      accountHostedDomain: unavailable(
-        "column not present in this Chrome version",
-      ),
-      workAreaLeft: value("0"),
-      workAreaTop: value("0"),
-      workAreaRight: value("1920"),
-      workAreaBottom: value("1040"),
-      screenWorkArea: value("1920x1040"),
-      avatarIcon: value("chrome://theme/IDR_PROFILE_AVATAR_26"),
-      gaiaName: value("Marcus Sandoval"),
-      gaiaGivenName: value("Marcus"),
-      gaiaId: value("108234871029384756"),
-      gaiaPictureFileName: absent(),
-      infoCacheUserName: value("m.sandoval83@gmail.com"),
-      isUsingDefaultAvatar: value(false),
-      isUsingDefaultName: value(false),
-    },
-  });
-  rows.push({
-    recordType: "finding",
-    findingKind: "profile_metadata",
-    profile: PROFILE_SECOND,
-    commitState: "committed",
-    provenance: provenance("Preferences", PROFILE_SECOND, SOURCE_USER_DATA),
-    fields: {
-      scope: value("profile"),
-      profileName: value("Personal"),
-      createdByVersion: value("120.0.6099.199"),
-      exitType: value("Crashed"),
-      accountCount: value("1"),
-      accountEmail: value("m.sandoval.priv@protonmail.com"),
-      accountGaiaId: absent(),
-      accountFullName: unavailable("value could not be decrypted offline"),
-      accountGivenName: absent(),
-      accountLocale: value("en-US"),
-      accountHostedDomain: absent(),
-      workAreaLeft: value("0"),
-      workAreaTop: value("0"),
-      workAreaRight: value("1920"),
-      workAreaBottom: value("1040"),
-      screenWorkArea: value("1920x1040"),
-      avatarIcon: value("chrome://theme/IDR_PROFILE_AVATAR_9"),
-      gaiaName: absent(),
-      gaiaGivenName: absent(),
-      gaiaId: absent(),
-      gaiaPictureFileName: absent(),
-      infoCacheUserName: value("m.sandoval.priv@protonmail.com"),
-      isUsingDefaultAvatar: value(true),
-      isUsingDefaultName: value(true),
-    },
-  });
-  return rows;
-}
-
-/* ------------------------------- Candidates ------------------------------- */
-
-function buildCandidates() {
-  const identity = [
-    {
-      kind: "identity_email",
-      value: "m.sandoval83@gmail.com",
-      supportingCount: 14,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "identity_email",
-      value: "m.sandoval.priv@protonmail.com",
-      supportingCount: 6,
-      profile: PROFILE_SECOND,
-    },
-    {
-      kind: "identity_name",
-      value: "Marcus Sandoval",
-      supportingCount: 9,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "identity_phone",
-      value: "+1 415 555 0142",
-      supportingCount: 3,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "identity_postal_address",
-      value: "482 Alder Street, San Mateo, CA 94401",
-      supportingCount: 2,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "identity_country",
-      value: "US",
-      supportingCount: 21,
-      profile: PROFILE_DEFAULT,
-    },
-  ];
-  const behavior = [
-    {
-      kind: "behavior_frequent_host",
-      value: "intranet.northfieldpartners.internal",
-      supportingCount: 41,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "behavior_frequent_host",
-      value: "www.coinbase.com",
-      supportingCount: 27,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "behavior_search_query",
-      value: "how to wire transfer internationally",
-      supportingCount: 4,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "behavior_search_query",
-      value: "resignation letter template finance",
-      supportingCount: 2,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "behavior_frequent_host",
-      value: "account.protonvpn.com",
-      supportingCount: 11,
-      profile: PROFILE_SECOND,
-    },
-  ];
-  const rows = [];
-  identity.forEach((c, i) => {
-    rows.push({
-      recordType: "candidate",
-      candidateKind: c.kind,
-      category: "identity",
-      profile: c.profile,
-      rank: i + 1,
-      supportingCount: c.supportingCount,
-      provenance: provenance("autofill", 2000 + i),
-      // Matches core's real field key (core/src/identity-candidates.ts
-      // `candidateFields`) — the design mock previously used a different
-      // key ("value") than the real analyzer output, which the client
-      // silently rendered as "absent" instead of the guess.
-      fields: { candidateValue: value(c.value) },
-    });
-  });
-  behavior.forEach((c, i) => {
-    rows.push({
-      recordType: "candidate",
-      candidateKind: c.kind,
-      category: "behavior",
-      profile: c.profile,
-      rank: i + 1,
-      supportingCount: c.supportingCount,
-      provenance: provenance("visits", 2100 + i),
-      fields: { candidateValue: value(c.value) },
-    });
-  });
-  return rows;
-}
-
-/* ---------------------------- Topic candidates ---------------------------- */
-
-function buildTopicCandidates() {
-  const topics = [
-    {
-      label: "cryptocurrency_trading",
-      name: "Cryptocurrency trading",
-      count: 38,
-      url: "https://www.coinbase.com/dashboard",
-    },
-    {
-      label: "active_job_search",
-      name: "Active job search",
-      count: 22,
-      url: "https://www.linkedin.com/jobs/view/394021",
-    },
-    {
-      label: "international_travel_planning",
-      name: "International travel planning",
-      count: 9,
-      url: "https://www.google.com/search?q=flights+to+lisbon",
-    },
-    {
-      label: "personal_finance_management",
-      name: "Personal finance management",
-      count: 17,
-      url: "https://onlinebanking.chase.com/accounts/transfer",
-    },
-    {
-      label: "remote_access_tooling",
-      name: "Remote access tooling",
-      count: 6,
-      url: "https://www.anydesk.com/download",
-    },
-  ];
-  return topics.map((topic, i) => ({
-    recordType: "candidate",
-    candidateKind: "topic",
-    rank: i + 1,
-    count: topic.count,
-    provenance: provenance("visits", 2200 + i),
-    fields: {
-      topicLabel: value(topic.label),
-      topicName: value(topic.name),
-      specialCategory: absent(),
-      score: value(Math.round((0.94 - i * 0.11) * 100) / 100, {
-        synthetic: true,
-      }),
-      scoreAxis: value("cosine", { synthetic: true }),
-      modelId: value("topic-embed-mini-v2", { synthetic: true }),
-      modelRevision: value("2024-02-01", { synthetic: true }),
-      url: value(topic.url),
-      title: value(titleFor(new URL(topic.url).hostname)),
-    },
-  }));
-}
-
-/* ------------------------------ Completeness ------------------------------ */
-
-const ARTIFACT_TABLES = [
-  "History",
-  "Cookies",
-  "Login Data",
-  "Top Sites",
-  "Downloads",
-  "Bookmarks",
-  "Web Data",
-  "Cache",
-  "Favicons",
-  "Preferences",
-];
-
-function buildCompleteness() {
-  const statements = ARTIFACT_TABLES.map((artifact) => {
-    // Every database the fixture serves rows for was read: an unreadable
-    // artifact belongs to the `?degraded=1` statement (server.mjs), which
-    // also withholds its rows.
-    const perProfile = PROFILES.map((profile, i) => {
-      const outcome = "produced";
-      return {
-        sourceId: i === 0 ? SOURCE_IMAGE : SOURCE_USER_DATA,
-        profile,
-        artifact,
-        databasePath:
-          artifact === "Preferences"
-            ? `${profile}/Preferences`
-            : `${profile}/${artifact.replace(/ /g, " ")}`,
-        outcome,
-        reason: null,
-        runId: "run-2024-04-17T09-12-00Z",
-      };
-    });
-    // Give one artifact a genuine "absent" entry (a Profile that simply
-    // never wrote this database) so all three non-produced outcomes exist.
-    if (artifact === "Web Data") {
-      perProfile.push({
-        sourceId: SOURCE_IMAGE,
-        profile: "Profile 3 (Guest)",
-        artifact,
-        databasePath: "Profile 3 (Guest)/Web Data",
-        outcome: "absent",
-        reason: "Profile directory has no Web Data database",
-        runId: "run-2024-04-17T09-12-00Z",
-      });
-    }
-    const attempted = perProfile.length;
-    const produced = perProfile.filter((a) => a.outcome === "produced").length;
-    const absentCount = perProfile.filter((a) => a.outcome === "absent").length;
-    const unavailableCount = perProfile.filter(
-      (a) => a.outcome === "unavailable",
-    ).length;
-    return {
-      artifact,
-      attempted,
-      produced,
-      absent: absentCount,
-      unavailable: unavailableCount,
-      artifacts: perProfile,
-    };
-  });
-  return { status: "ok", command: "completeness", caseId: CASE_ID, statements };
 }
 
 /* --------------------------------------------------------------------------

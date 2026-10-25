@@ -71,6 +71,27 @@ export function FilterField({
 }
 
 /**
+ * A loaded row's search: true when `query` (trimmed, any case) appears in
+ * any of the row's searched texts - or when there is no query. Pages pass
+ * only what may be searched (never a hidden secret's value).
+ */
+export function matchesSearch(
+  query: string,
+  texts: readonly (string | null | undefined)[],
+): boolean {
+  const wanted = query.trim().toLocaleLowerCase("en-US");
+  return (
+    wanted === "" ||
+    texts.some(
+      (text) =>
+        text !== null &&
+        text !== undefined &&
+        text.toLocaleLowerCase("en-US").includes(wanted),
+    )
+  );
+}
+
+/**
  * A toolbar text field (FF InputGroup + InputField), 240px wide (full width
  * on a phone). Two commit modes:
  *  - `commit="submit"` (default): commits on Enter or blur — for a field that

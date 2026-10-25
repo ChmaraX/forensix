@@ -26,7 +26,7 @@
  */
 import { useCallback, useMemo } from "react";
 
-import { siteKeyOf } from "../related.js";
+import { siteHostKey } from "../site-host-key.js";
 import { rowRefOf } from "../router.js";
 import {
   useRowSelection,
@@ -34,7 +34,6 @@ import {
   useViewSearch,
   useViewTab,
 } from "../view-state.js";
-import { Panel } from "@/components/panel";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
@@ -42,11 +41,15 @@ import { ARTIFACT_ICONS, FolderIcon, SearchIcon } from "@/lib/app-icons";
 import { SizeProvider, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import type { QueryParameters } from "../api.js";
-import type { ArtifactConfig, Finding } from "../types.js";
+import type { Finding } from "../types.js";
+import { ARTIFACTS } from "../artifacts.js";
+import type { RowLookupSource } from "../row-lookup.js";
 import {
-  useCommitStateLists,
+  commitStateStatus,
   type PaginatedList,
+  useCommitStateLists,
 } from "../use-commit-state-lists.js";
+import { CommitStatePage } from "./commit-state-page.js";
 import { EmptyRows } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
@@ -62,6 +65,7 @@ import {
   CompactFilters,
   FilterField,
   FilterTextField,
+  matchesSearch,
   ProfilePicker,
 } from "./filters.js";
 import {
@@ -378,7 +382,11 @@ function inFolder(row: BookmarkRow, folder: string): boolean {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
+const config = ARTIFACTS.bookmarks;
+/** A URL-named row this page has not loaded is read by its reference. */
+const ROW_LOOKUP: RowLookupSource = { route: config.route };
+
+export function BookmarksPage() {
   const lists = useCommitStateLists<Finding>(
     config.route,
     BOOKMARK_PARAMETERS,
@@ -386,7 +394,6 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
       drain: BOOKMARK_ROW_CAP,
     },
   );
-  const savedDone = lists.drained.saved;
   // Saved / Recovered, the search and the open row live in the URL: Back
   // and a refresh keep them. The profile pick is the Case-wide lens.
   const [view, setView] = useViewTab();
@@ -408,8 +415,7 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
     () => [...lists.saved.rows, ...lists.recovered.rows],
     [lists.saved.rows, lists.recovered.rows],
   );
-  // A URL-named row this page has not loaded is read by its reference.
-  const sheet = useRowSelection(loaded, { route: config.route });
+  const sheet = useRowSelection(loaded, ROW_LOOKUP);
   const lens = useProfileLens(
     useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
   );
@@ -433,7 +439,7 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
         folders.add(row.folderPath);
       }
       // A site as Sites keys it (the hostname, lower case).
-      const site = siteKeyOf(row.url);
+      const site = siteHostKey(row.url);
       if (site !== null) {
         hosts.add(site);
       }
@@ -450,21 +456,12 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
   }, [saved]);
 
   const narrow = useCallback(
-    (rows: readonly BookmarkRow[]) => {
-      const query = search.trim().toLocaleLowerCase("en-US");
-      return rows.filter((row) => {
-        if (folderFilter !== null && !inFolder(row, folderFilter)) {
-          return false;
-        }
-        if (query === "") {
-          return true;
-        }
-        const haystack = [row.name ?? "", row.url ?? "", row.folderPath ?? ""]
-          .join("\n")
-          .toLocaleLowerCase("en-US");
-        return haystack.includes(query);
-      });
-    },
+    (rows: readonly BookmarkRow[]) =>
+      rows.filter(
+        (row) =>
+          (folderFilter === null || inFolder(row, folderFilter)) &&
+          matchesSearch(search, [row.name, row.url, row.folderPath]),
+      ),
     [search, folderFilter],
   );
   const savedVisible = useMemo(() => narrow(saved), [narrow, saved]);
@@ -479,24 +476,12 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
     );
   }, []);
 
-  const clearFilters = useCallback(() => {
-    clearSearchAndProfiles();
-  }, []);
-
-  const savedFirst = lists.saved.loading && allSaved.length === 0;
-  const recoveredFirst = lists.recovered.loading && allRecovered.length === 0;
-  const pageEmpty =
-    !savedFirst &&
-    !recoveredFirst &&
-    savedDone &&
-    lists.saved.error === null &&
-    lists.recovered.error === null &&
-    allSaved.length === 0 &&
-    allRecovered.length === 0;
-  const figuresReady = savedDone || lists.saved.error !== null;
-  const showFigures =
-    !figuresReady || (lists.saved.error === null && saved.length > 0);
-  const capped = savedDone && lists.saved.cursor !== null;
+  const status = commitStateStatus(lists, {
+    saved: saved.length,
+    recovered: recovered.length,
+  });
+  const figuresReady = status.figures !== "loading";
+  const capped = status.capped;
   const filteredMessage = (noun: string) =>
     search.trim() === "" && folderFilter === null && lens.words !== null
       ? `No ${noun} in ${lens.words}.`
@@ -525,19 +510,7 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
         value={view}
         onValueChange={setView}
         label="Saved or recovered bookmarks"
-        savedCount={
-          savedFirst || (lists.saved.error !== null && allSaved.length === 0)
-            ? null
-            : saved.length
-        }
-        recoveredCount={
-          recoveredFirst ||
-          (lists.recovered.error !== null && allRecovered.length === 0)
-            ? null
-            : recovered.length
-        }
-        savedMore={lists.saved.cursor !== null}
-        recoveredMore={lists.recovered.cursor !== null}
+        {...status.split}
         toolbar={
           <>
             <CompactFilters
@@ -581,7 +554,7 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
             visible={savedVisible}
             noun="saved"
             onSelect={sheet.select}
-            onClearFilters={clearFilters}
+            onClearFilters={clearSearchAndProfiles}
             filteredMessage={filteredMessage("saved bookmarks")}
           />
         }
@@ -592,7 +565,7 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
             visible={recoveredVisible}
             noun="recovered"
             onSelect={sheet.select}
-            onClearFilters={clearFilters}
+            onClearFilters={clearSearchAndProfiles}
             filteredMessage={filteredMessage("recovered bookmarks")}
           />
         }
@@ -600,104 +573,97 @@ export function BookmarksPage({ config }: { readonly config: ArtifactConfig }) {
     </SectionPanel>
   );
 
-  return (
-    <div className="flex flex-col gap-5">
-      {pageEmpty ? (
-        <Panel>
-          <ArtifactEmpty
-            icon={ARTIFACT_ICONS.bookmarks}
-            coverage={emptyCoverageOf(coverage)}
-            artifact="Bookmarks"
-            title="No bookmarks"
-            what="bookmarks"
-            sidecars={false}
-            pivot={<EmptyPivot page="top-sites">Open Top sites</EmptyPivot>}
+  // The folder navigator sits beside the rows it focuses (the structure
+  // the person built, next to what they filed) while the figures show.
+  const navigator =
+    status.figures !== "hide" && treeBeside ? (
+      <div className="grid grid-cols-[260px_minmax(0,1fr)] items-start gap-4">
+        <RevealSwap
+          className="sticky top-14"
+          loading={!figuresReady}
+          skeleton={
+            <div role="status">
+              <span className="sr-only">Loading bookmark folders</span>
+              <Skeleton className="h-[240px] w-full rounded-xl" />
+            </div>
+          }
+        >
+          <FolderNavigator
+            rows={saved}
+            activePath={folderFilter}
+            onPick={pickFolder}
           />
-        </Panel>
-      ) : (
-        <>
-          {showFigures ? (
-            <RevealSwap
-              loading={!figuresReady}
-              skeleton={<BookmarksSkeleton />}
-            >
-              <div className="flex flex-col gap-5">
-                {capped ? (
-                  <Banner status="warning" contrast="high">
-                    <BannerTitle>
-                      These figures cover part of the Case
-                    </BannerTitle>
-                    <BannerDescription>
-                      They read the first{" "}
-                      {allSaved.length.toLocaleString("en-US")} saved bookmarks
-                      - the most this page loads at once. More rows exist in the
-                      Case.
-                    </BannerDescription>
-                  </Banner>
-                ) : null}
+        </RevealSwap>
+        {listPanel}
+      </div>
+    ) : (
+      listPanel
+    );
 
-                <MetricBand className="grid-cols-2 lg:grid-cols-4">
-                  <MetricBandItem
-                    label="Saved bookmarks"
-                    value={`${summary.total.toLocaleString("en-US")}${capped ? "+" : ""}`}
-                  />
-                  <MetricBandItem
-                    label="Folders"
-                    value={summary.folders.toLocaleString("en-US")}
-                  />
-                  <MetricBandItem
-                    label="Distinct sites"
-                    value={summary.hosts.toLocaleString("en-US")}
-                  />
-                  <MetricBandItem
-                    label={
-                      <Term label="From backup">
-                        Read from Bookmarks.bak, the backup copy Chrome keeps
-                        beside the live file.
-                      </Term>
-                    }
-                    value={summary.backup.toLocaleString("en-US")}
-                  />
-                </MetricBand>
-              </div>
-            </RevealSwap>
+  return (
+    <CommitStatePage
+      status={status}
+      empty={
+        <ArtifactEmpty
+          icon={ARTIFACT_ICONS.bookmarks}
+          coverage={emptyCoverageOf(coverage)}
+          artifact="Bookmarks"
+          title="No bookmarks"
+          what="bookmarks"
+          sidecars={false}
+          pivot={<EmptyPivot page="top-sites">Open Top sites</EmptyPivot>}
+        />
+      }
+      figuresSkeleton={<BookmarksSkeleton />}
+      figures={
+        <div className="flex flex-col gap-5">
+          {capped ? (
+            <Banner status="warning" contrast="high">
+              <BannerTitle>These figures cover part of the Case</BannerTitle>
+              <BannerDescription>
+                They read the first {allSaved.length.toLocaleString("en-US")}{" "}
+                saved bookmarks - the most this page loads at once. More rows
+                exist in the Case.
+              </BannerDescription>
+            </Banner>
           ) : null}
 
-          {/* The folder navigator beside the rows it focuses: the structure
-              the person built, next to what they filed. */}
-          {showFigures && treeBeside ? (
-            <div className="grid grid-cols-[260px_minmax(0,1fr)] items-start gap-4">
-              <RevealSwap
-                className="sticky top-14"
-                loading={!figuresReady}
-                skeleton={
-                  <div role="status">
-                    <span className="sr-only">Loading bookmark folders</span>
-                    <Skeleton className="h-[240px] w-full rounded-xl" />
-                  </div>
-                }
-              >
-                <FolderNavigator
-                  rows={saved}
-                  activePath={folderFilter}
-                  onPick={pickFolder}
-                />
-              </RevealSwap>
-              {listPanel}
-            </div>
-          ) : (
-            listPanel
-          )}
-        </>
-      )}
-
-      {sheet.selected !== null ? (
-        <RowSheet
-          selected={sheet.selected}
-          title={fieldText(sheet.selected.row.fields.name) ?? "Bookmark"}
-          onClose={sheet.close}
-        />
-      ) : null}
-    </div>
+          <MetricBand className="grid-cols-2 lg:grid-cols-4">
+            <MetricBandItem
+              label="Saved bookmarks"
+              value={`${summary.total.toLocaleString("en-US")}${capped ? "+" : ""}`}
+            />
+            <MetricBandItem
+              label="Folders"
+              value={summary.folders.toLocaleString("en-US")}
+            />
+            <MetricBandItem
+              label="Distinct sites"
+              value={summary.hosts.toLocaleString("en-US")}
+            />
+            <MetricBandItem
+              label={
+                <Term label="From backup">
+                  Read from Bookmarks.bak, the backup copy Chrome keeps beside
+                  the live file.
+                </Term>
+              }
+              value={summary.backup.toLocaleString("en-US")}
+            />
+          </MetricBand>
+        </div>
+      }
+      sheet={
+        sheet.selected === null ? null : (
+          <RowSheet
+            selected={sheet.selected}
+            title={fieldText(sheet.selected.row.fields.name) ?? "Bookmark"}
+            onClose={sheet.close}
+          />
+        )
+      }
+    >
+      {navigator}
+    </CommitStatePage>
   );
 }

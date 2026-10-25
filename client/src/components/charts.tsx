@@ -56,6 +56,7 @@ import { fontWeights } from "@/lib/font-weight";
 import { typeClass } from "@/lib/size-context";
 import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "./use-media-query.js";
 
 export interface DayCount {
   readonly date: string;
@@ -114,20 +115,7 @@ export function useChartTokens(): ChartTokens {
  * themselves.
  */
 export function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(
-    () => globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
-  useEffect(() => {
-    const query = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
-    const onChange = () => {
-      setReduced(query.matches);
-    };
-    query.addEventListener("change", onChange);
-    return () => {
-      query.removeEventListener("change", onChange);
-    };
-  }, []);
-  return reduced;
+  return useMediaQuery("(prefers-reduced-motion: reduce)");
 }
 
 /* ───────────────────────── Shared FF chart parts ───────────────────────── */

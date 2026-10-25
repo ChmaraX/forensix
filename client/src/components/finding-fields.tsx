@@ -3,7 +3,8 @@
  * invent data.
  *
  * The readers (`fieldText`, `fieldString`, `fieldBool`, `fieldUtc`,
- * `fieldInteger`) return the recorded value or `null` — and `null` covers
+ * `fieldInteger`, from field-readers.ts) return the recorded value or
+ * `null` — and `null` covers
  * absent, (empty) AND unavailable alike. Use them for arithmetic, grouping
  * and sorting only. To *show* a field, render `FieldCell` (or `TimeCell` in
  * page-kit for timestamps) with the FieldState itself, so each of the four
@@ -21,59 +22,13 @@ import { EvidenceDot } from "./evidence.js";
 import { FieldStateText, MaybeFieldStateText } from "./field-state.js";
 import { TermExplanation, TermTooltip } from "./term.js";
 
-/** `"value"`-state non-empty string, or null. */
-export function fieldText(field: FieldState | undefined): string | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  return typeof field.value === "string" && field.value !== ""
-    ? field.value
-    : null;
-}
-
-/** `"value"`-state field as a plain string (numbers included), or null. */
-export function fieldString(field: FieldState | undefined): string | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  if (typeof field.value === "string") {
-    return field.value === "" ? null : field.value;
-  }
-  if (typeof field.value === "number") {
-    return String(field.value);
-  }
-  return null;
-}
-
-/** A `"value"`-state boolean, or null — booleans arrive as real `true`/`false`. */
-export function fieldBool(field: FieldState | undefined): boolean | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  return typeof field.value === "boolean" ? field.value : null;
-}
-
-/** The UTC instant of a timestamp field (`{utc, ...}` value shape), or null. */
-export function fieldUtc(field: FieldState | undefined): string | null {
-  if (field === undefined || field.state !== "value") {
-    return null;
-  }
-  if (typeof field.value !== "object" || field.value === null) {
-    return null;
-  }
-  const utc = (field.value as Record<string, unknown>).utc;
-  return typeof utc === "string" ? utc : null;
-}
-
-/** Integer carried as a string field (ranks, counts), or null. */
-export function fieldInteger(field: FieldState | undefined): number | null {
-  const text = fieldText(field);
-  if (text === null) {
-    return null;
-  }
-  const value = Number(text);
-  return Number.isInteger(value) ? value : null;
-}
+export {
+  fieldBool,
+  fieldInteger,
+  fieldString,
+  fieldText,
+  fieldUtc,
+} from "../field-readers.js";
 
 /** "9 Dec 2024" / "14:32:07" (UTC) parts of an ISO instant, or null. */
 export function formatInstant(

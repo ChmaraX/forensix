@@ -8,8 +8,9 @@
  *
  * The shell lens (one date range and one profile selection for the whole
  * Case) is `useViewState()`; a page that honours it reads `useViewRange()` /
- * `useViewProfiles()`, which also tells the topbar chip the page applies it
- * (the chip only shows what the page on show actually filters by).
+ * `useViewProfiles()`. Which parts the page on show applies is the page
+ * registry's (`PAGES[page].lens`, pages.ts), so the topbar chip only shows
+ * what the page actually filters by.
  *
  * Page state: `useViewHost()`, `useViewSearch()`, `useViewFilter()`,
  * `useViewTab()` and
@@ -41,8 +42,10 @@ import {
   type ViewTab,
 } from "./router.js";
 
-import type { QueryParameters } from "./api.js";
+import { useCommandMenuOpen } from "./menu-open.js";
+import type { PageKey } from "./pages.js";
 import { findRowByRef, type RowLookupSource } from "./row-lookup.js";
+import { isAbortError } from "./api.js";
 
 export type { ViewLocation, ViewTab } from "./router.js";
 export type { RowLookupSource } from "./row-lookup.js";
@@ -120,7 +123,7 @@ export function navigate(
 /** Opens a page, carrying the lens; `extras` sets the new page's own state
  *  (a host for Sites, a row to open). */
 export function openPage(
-  page: string,
+  page: PageKey,
   extras: Partial<Omit<ViewLocation, "page">> = {},
   options: NavigateOptions = {},
 ): void {
@@ -130,7 +133,7 @@ export function openPage(
 /** The hash for a page view from here (for real `<a href>` links), with
  *  the lens carried as `openPage` would. */
 export function hrefFor(
-  page: string,
+  page: PageKey,
   extras: Partial<Omit<ViewLocation, "page">> = {},
 ): string {
   return formatLocation(withPage(readLocation(), page, extras));
@@ -167,61 +170,6 @@ export function useViewLocation(): ViewLocation {
   return useSyncExternalStore(subscribe, readLocation, () => DEFAULT_LOCATION);
 }
 
-/* ---------------------------- lens consumption ---------------------------- */
-
-type LensPart = "range" | "profiles";
-const consumers: Record<LensPart, number> = { range: 0, profiles: 0 };
-const consumerListeners = new Set<() => void>();
-let consumerSnapshot = "false:false";
-
-function consumerKey(): string {
-  return `${String(consumers.range > 0)}:${String(consumers.profiles > 0)}`;
-}
-
-function subscribeConsumers(listener: () => void): () => void {
-  consumerListeners.add(listener);
-  return () => {
-    consumerListeners.delete(listener);
-  };
-}
-
-function useLensConsumer(part: LensPart): void {
-  useEffect(() => {
-    consumers[part] += 1;
-    const changed = () => {
-      const key = consumerKey();
-      if (key !== consumerSnapshot) {
-        consumerSnapshot = key;
-        for (const listener of consumerListeners) {
-          listener();
-        }
-      }
-    };
-    changed();
-    return () => {
-      consumers[part] -= 1;
-      changed();
-    };
-  }, [part]);
-}
-
-/** Which parts of the lens the page on show applies (`useViewRange` /
- *  `useViewProfiles` mounted). The topbar chip shows only those. */
-export function useLensApplied(): {
-  readonly range: boolean;
-  readonly profiles: boolean;
-} {
-  const key = useSyncExternalStore(
-    subscribeConsumers,
-    () => consumerSnapshot,
-    () => "false:false",
-  );
-  return useMemo(() => {
-    const [range, profiles] = key.split(":");
-    return { range: range === "true", profiles: profiles === "true" };
-  }, [key]);
-}
-
 /* ---------------------------------- lens ---------------------------------- */
 
 /** A Case-day range; `""` is an open side, both `""` is every day. */
@@ -251,8 +199,8 @@ function setProfilesNow(profiles: readonly string[]): void {
   navigate((current) => ({ ...current, profiles: [...profiles], row: null }));
 }
 
-/** The lens, without marking it applied (the shell's chip, ⌘K). Pages use
- *  `useViewRange` / `useViewProfiles`. */
+/** The whole lens (the shell's chip, ⌘K). Pages use `useViewRange` /
+ *  `useViewProfiles`. */
 export function useViewState(): ViewState {
   const location = useViewLocation();
   const { from, to, profiles } = location;
@@ -277,24 +225,22 @@ export function useViewState(): ViewState {
 }
 
 /**
- * The Case-wide date range, for a page that filters by it (and so tells the
- * topbar chip it applies). Drop-in for a page's own
+ * The Case-wide date range, for a page that filters by it (its registry
+ * entry says so: `PAGES[page].lens.range`). Drop-in for a page's own
  * `useState({ from: "", to: "" })`; the range object is stable while the
  * days are unchanged, so it can sit in a memo's dependencies.
  */
 export function useViewRange(): readonly [DayRange, (range: DayRange) => void] {
-  useLensConsumer("range");
   const { range, setRange } = useViewState();
   return [range, setRange] as const;
 }
 
-/** The Case-wide profile selection (empty = every profile), for a page
- *  that filters by it. */
+/** The Case-wide profile selection (empty = every profile, sorted), for a
+ *  page that filters by it (`PAGES[page].lens.profiles`). */
 export function useViewProfiles(): readonly [
   readonly string[],
   (profiles: readonly string[]) => void,
 ] {
-  useLensConsumer("profiles");
   const { profiles, setProfiles } = useViewState();
   return [profiles, setProfiles] as const;
 }
@@ -440,18 +386,19 @@ export function closeUrlRow(): void {
  *
  *   const sheet = useRowSelection(
  *     [...lists.saved.rows, ...lists.recovered.rows],
- *     { route: config.route },
+ *     ROW_LOOKUP, // { route: "cookies" }, a module constant
  *   );
  *   <ResponsiveRows onSelect={sheet.select} … />
  *   {sheet.selected === null ? null : (
  *     <RowSheet selected={sheet.selected} onClose={sheet.close} />
  *   )}
  *
- * With `lookup` (the page's route), a URL-named row the lists do not hold
- * - a Timeline link into a large Case, a copied URL - is read from the
- * route by its reference (`findRowByRef`, row-lookup.ts) once the page's
- * own lists have had their first read, and opens from there; the shell
- * says when it is looked for and when it was not found.
+ * With `lookup` (the page's route; keep it stable - a module constant or a
+ * memo), a URL-named row the lists do not hold - a Timeline link into a
+ * large Case, a copied URL - is read from the route by its reference
+ * (`findRowByRef`, row-lookup.ts) once the page's own lists have had their
+ * first read, and opens from there; an abandoned lookup is aborted on the
+ * wire. The shell says when it is looked for and when it was not found.
  *
  * A row without a reference (no table or row id) still opens: it is held
  * for this page view only and is not addressable.
@@ -479,43 +426,30 @@ export function useRowSelection<Row extends RowRefSource>(
         : (rows.find((candidate) => rowRefOf(candidate) === ref) ?? null),
     [rows, ref],
   );
-  const route = lookup?.route ?? null;
-  const lookupKey =
-    lookup === undefined ? null : JSON.stringify(lookup.parameters ?? []);
-  const byCommitState = lookup?.byCommitState !== false;
   useEffect(() => {
-    if (ref === null || match !== null || route === null) {
+    if (ref === null || match !== null || lookup === undefined) {
       setLookupStatus(IDLE);
       return;
     }
     if (found?.ref === ref) {
       return;
     }
-    let live = true;
-    const parameters = JSON.parse(lookupKey ?? "[]") as QueryParameters;
+    const abort = new AbortController();
     // A beat for the page's own first read: a row on its first page opens
     // from there without a second read.
     const timer = setTimeout(() => {
       setLookupStatus({ state: "looking", ref });
-      void lookUp();
-    }, ROW_LOOKUP_DELAY);
-    const lookUp = () =>
-      findRowByRef({ route, parameters, byCommitState }, ref)
+      findRowByRef<Row>(lookup, ref, abort.signal)
         .then(({ row, capped }) => {
-          if (!live) {
-            return;
-          }
           if (row === null) {
             setLookupStatus({ state: "missing", ref, capped, failed: false });
             return;
           }
-          // The route's rows are this page's rows (every page's Row is the
-          // route's Finding).
-          setFound({ ref, row: row as unknown as Row });
+          setFound({ ref, row });
           setLookupStatus(IDLE);
         })
-        .catch(() => {
-          if (live) {
+        .catch((error: unknown) => {
+          if (!abort.signal.aborted && !isAbortError(error)) {
             setLookupStatus({
               state: "missing",
               ref,
@@ -524,11 +458,12 @@ export function useRowSelection<Row extends RowRefSource>(
             });
           }
         });
+    }, ROW_LOOKUP_DELAY);
     return () => {
-      live = false;
+      abort.abort();
       clearTimeout(timer);
     };
-  }, [ref, match, route, lookupKey, byCommitState, found]);
+  }, [ref, match, lookup, found]);
   useEffect(
     () => () => {
       setLookupStatus(IDLE);
@@ -539,9 +474,19 @@ export function useRowSelection<Row extends RowRefSource>(
     match ??
     (found !== null && found.ref === ref ? found.row : null) ??
     unaddressed;
+  // A sheet never opens under the ⌘K menu: one the URL names while the
+  // menu is open (a pick made just before it was reopened, its row still
+  // loading) opens once the menu closes. A sheet already open stays (⌘K
+  // from inside it switches its row).
+  const menuOpen = useCommandMenuOpen();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const shown = menuOpen && !sheetOpen ? null : row;
+  useEffect(() => {
+    setSheetOpen(shown !== null);
+  }, [shown]);
   const selected = useMemo(
-    () => (row === null ? null : ({ kind: "finding", row } as const)),
-    [row],
+    () => (shown === null ? null : ({ kind: "finding", row: shown } as const)),
+    [shown],
   );
   const select = useCallback((next: Row) => {
     const nextRef = rowRefOf(next);

@@ -1,130 +1,97 @@
-import type { ArtifactConfig } from "./types.js";
+/**
+ * The evidence pages: one per analysed artifact, in the sidebar's order
+ * (activity first, then stored identity data, with browser metadata last
+ * as context), each with the route it reads and the Completeness artifact
+ * its coverage names.
+ */
+export const EVIDENCE_ORDER = [
+  "history",
+  "downloads",
+  "bookmarks",
+  "top-sites",
+  "cookies",
+  "credentials",
+  "autofill",
+  "cache",
+  "favicons",
+  "metadata",
+] as const;
 
-export const ARTIFACTS: readonly ArtifactConfig[] = [
-  {
+export type EvidenceKey = (typeof EVIDENCE_ORDER)[number];
+
+export interface ArtifactConfig {
+  readonly key: EvidenceKey;
+  readonly label: string;
+  readonly route: string;
+  readonly completenessArtifact: string;
+  /** Cache records arrive with their Commit State already mixed; the query
+   *  cannot filter it. */
+  readonly combinedFindingList?: boolean;
+}
+
+export const ARTIFACTS: Readonly<Record<EvidenceKey, ArtifactConfig>> = {
+  history: {
     key: "history",
     label: "History",
     route: "history",
     completenessArtifact: "History",
-    sorts: ["visit-time", "url", "duration", "profile"],
-    extras: [
-      {
-        parameter: "view",
-        label: "View",
-        options: ["", "visits", "activity", "most-visited", "durations"],
-      },
-      { parameter: "transition", label: "Transition", placeholder: "any" },
-      { parameter: "from", label: "From", placeholder: "ISO instant" },
-      { parameter: "to", label: "To", placeholder: "ISO instant" },
-    ],
   },
-  {
-    key: "cookies",
-    label: "Cookies",
-    route: "cookies",
-    completenessArtifact: "Cookies",
-    sorts: [
-      "host",
-      "name",
-      "creation-time",
-      "expires-time",
-      "last-access-time",
-      "profile",
-    ],
-    extras: [
-      { parameter: "host", label: "Host key", placeholder: "example.com" },
-      {
-        parameter: "same-site",
-        label: "SameSite",
-        options: ["", "no_restriction", "lax", "strict", "unspecified"],
-      },
-    ],
-  },
-  {
-    key: "credentials",
-    label: "Saved logins",
-    route: "credentials",
-    completenessArtifact: "Login Data",
-    sorts: ["created-time", "last-used-time", "origin", "username", "profile"],
-    extras: [],
-  },
-  {
-    key: "top-sites",
-    label: "Top sites",
-    route: "top-sites",
-    completenessArtifact: "Top Sites",
-    sorts: ["rank", "url", "title", "profile"],
-    extras: [],
-  },
-  {
+  downloads: {
     key: "downloads",
     label: "Downloads",
     route: "downloads",
     completenessArtifact: "Downloads",
-    sorts: [
-      "start-time",
-      "end-time",
-      "target-path",
-      "state",
-      "total-bytes",
-      "profile",
-    ],
-    extras: [],
   },
-  {
+  bookmarks: {
     key: "bookmarks",
     label: "Bookmarks",
     route: "bookmarks",
     completenessArtifact: "Bookmarks",
-    sorts: ["name", "url", "date-added", "folder", "profile"],
-    extras: [
-      {
-        parameter: "source",
-        label: "Source",
-        options: ["", "primary", "backup"],
-      },
-    ],
   },
-  {
+  "top-sites": {
+    key: "top-sites",
+    label: "Top sites",
+    route: "top-sites",
+    completenessArtifact: "Top Sites",
+  },
+  cookies: {
+    key: "cookies",
+    label: "Cookies",
+    route: "cookies",
+    completenessArtifact: "Cookies",
+  },
+  credentials: {
+    key: "credentials",
+    label: "Saved logins",
+    route: "credentials",
+    completenessArtifact: "Login Data",
+  },
+  autofill: {
     key: "autofill",
     label: "Form data",
     route: "autofill",
     completenessArtifact: "Web Data",
-    sorts: ["created-time", "last-used-time", "field-name", "value", "profile"],
-    extras: [],
   },
-  {
+  cache: {
     key: "cache",
     label: "Cache",
     route: "cache",
     completenessArtifact: "Cache",
-    sorts: ["key", "last-used", "size", "entry-hash", "profile"],
     combinedFindingList: true,
-    extras: [{ parameter: "backend", label: "Backend", placeholder: "any" }],
   },
-  {
+  favicons: {
     key: "favicons",
     label: "Favicons",
     route: "favicons",
     completenessArtifact: "Favicons",
-    sorts: ["icon-url", "page-url", "last-updated", "width", "profile"],
-    extras: [],
   },
-  {
+  metadata: {
     key: "metadata",
     label: "Browser profile",
     route: "metadata",
     completenessArtifact: "Preferences",
-    sorts: ["type", "profile"],
-    extras: [
-      {
-        parameter: "type",
-        label: "Type",
-        options: ["", "browser_metadata", "profile_metadata"],
-      },
-    ],
   },
-];
+};
 
 /** Every Completeness artifact the Timeline merges (core's queryTimeline). */
 export const TIMELINE_COVERAGE: readonly string[] = [
@@ -134,9 +101,9 @@ export const TIMELINE_COVERAGE: readonly string[] = [
   "Web Data",
 ];
 
-/** Every Completeness artifact the Sites view groups by host: the six the
- *  host list counts, and the three its host view lists by exact URL
- *  host (Downloads, Cache, Favicons). */
+/** Every Completeness artifact the Sites view groups by host (core's
+ *  `querySiteHosts`: visits, downloads, cookies, saved logins, bookmarks,
+ *  top sites, cache entries and favicons). */
 export const SITES_COVERAGE: readonly string[] = [
   "History",
   "Downloads",
@@ -144,7 +111,6 @@ export const SITES_COVERAGE: readonly string[] = [
   "Login Data",
   "Bookmarks",
   "Top Sites",
-  "Web Data",
   "Cache",
   "Favicons",
 ];
@@ -179,8 +145,8 @@ export const FINDING_KINDS: Readonly<
     {
       /** The kind as a person says it ("Page visit"). */
       readonly noun: string;
-      /** The artifact page (`ArtifactConfig.key`) listing it. */
-      readonly artifact: string;
+      /** The artifact page listing it. */
+      readonly artifact: EvidenceKey;
       /** The timestamp field the row is dated by, if any. */
       readonly time?: string;
     }
@@ -210,5 +176,5 @@ export const FINDING_KINDS: Readonly<
 /** The artifact's page label for a Finding kind ("History"), or null. */
 export function artifactLabelOfKind(kind: string): string | null {
   const key = FINDING_KINDS[kind]?.artifact;
-  return ARTIFACTS.find((artifact) => artifact.key === key)?.label ?? null;
+  return key === undefined ? null : ARTIFACTS[key].label;
 }

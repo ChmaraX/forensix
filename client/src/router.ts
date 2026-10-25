@@ -8,7 +8,7 @@
  *
  * Parameters (each optional; the order is fixed so one view has one URL):
  *  - `from` / `to`  the Case-wide date range, Case days (`YYYY-MM-DD`);
- *  - `profile`      the Case-wide profile selection (repeated);
+ *  - `profile`      the Case-wide profile selection (repeated, sorted);
  *  - `host`         the host a page is focused on (Sites);
  *  - `q`            a page's search text (History);
  *  - `tab`          `recovered` when the page's Recovered list is on show;
@@ -22,7 +22,7 @@
  * Pure: parsing and formatting never touch `window`, so they are unit
  * tested (router.test.ts). The live store is `view-state.tsx`.
  */
-import { ARTIFACTS } from "./artifacts.js";
+import { DEFAULT_PAGE, isPageKey, type PageKey } from "./pages.js";
 import type { CommitState } from "./types.js";
 
 /** Which of a page's two lists is on show. */
@@ -30,13 +30,13 @@ export type ViewTab = "saved" | "recovered";
 
 /** Every view the URL can hold. */
 export interface ViewLocation {
-  /** A nav key: "overview", "timeline", "sites", or an artifact key. */
-  readonly page: string;
+  readonly page: PageKey;
   /** First Case day of the range, `YYYY-MM-DD`, or `""` (open). */
   readonly from: string;
   /** Last Case day of the range, `YYYY-MM-DD`, or `""` (open). */
   readonly to: string;
-  /** Profiles picked across the Case; empty means every profile. */
+  /** Profiles picked across the Case, sorted and distinct (so one pick has
+   *  one URL whatever order it was made in); empty means every profile. */
   readonly profiles: readonly string[];
   /** The host the page is focused on (Sites), or null. */
   readonly host: string | null;
@@ -50,44 +50,14 @@ export interface ViewLocation {
   readonly row: string | null;
 }
 
-export const DEFAULT_PAGE = "overview";
-
-/**
- * The evidence pages in the sidebar's order: activity first, then stored
- * identity data, with browser metadata last as context.
- */
-export const EVIDENCE_ORDER = [
-  "history",
-  "downloads",
-  "bookmarks",
-  "top-sites",
-  "cookies",
-  "credentials",
-  "autofill",
-  "cache",
-  "favicons",
-  "metadata",
-] as const;
-
-/** Every page the shell can show, in nav order, with its title. */
-export const PAGES: readonly {
-  readonly key: string;
-  readonly label: string;
-}[] = [
-  { key: "overview", label: "Overview" },
-  { key: "timeline", label: "Timeline" },
-  { key: "sites", label: "Sites" },
-  ...EVIDENCE_ORDER.flatMap((key) => {
-    const artifact = ARTIFACTS.find((entry) => entry.key === key);
-    return artifact === undefined
-      ? []
-      : [{ key: artifact.key, label: artifact.label }];
-  }),
-];
-
-/** The page's title ("Saved logins"), or null for an unknown key. */
-export function pageLabelOf(page: string): string | null {
-  return PAGES.find((entry) => entry.key === page)?.label ?? null;
+/** A profile pick in its one written form: distinct, non-empty, sorted by
+ *  code unit. */
+export function canonicalProfiles(
+  profiles: readonly string[],
+): readonly string[] {
+  return [...new Set(profiles.filter((name) => name !== ""))].sort((a, b) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  );
 }
 
 export const DEFAULT_LOCATION: ViewLocation = {
@@ -135,19 +105,17 @@ export function parseLocation(hash: string): ViewLocation {
   const queryAt = body.indexOf("?");
   const path = queryAt === -1 ? body : body.slice(0, queryAt);
   const query = new URLSearchParams(queryAt === -1 ? "" : body.slice(queryAt));
-  let page = DEFAULT_PAGE;
+  let page: PageKey = DEFAULT_PAGE;
   try {
     const decoded = decodeURIComponent(path.replace(/\/+$/, ""));
-    if (pageLabelOf(decoded) !== null) {
+    if (isPageKey(decoded)) {
       page = decoded;
     }
   } catch {
     // A malformed escape is an unknown page.
   }
   const range = normalizeRange(query.get("from") ?? "", query.get("to") ?? "");
-  const profiles = [
-    ...new Set(query.getAll("profile").filter((name) => name !== "")),
-  ];
+  const profiles = canonicalProfiles(query.getAll("profile"));
   const text = (name: string) => {
     const value = query.get(name);
     return value === null || value === "" ? null : value;
@@ -176,10 +144,8 @@ export function formatLocation(location: ViewLocation): string {
   if (range.to !== "") {
     query.append("to", range.to);
   }
-  for (const profile of new Set(location.profiles)) {
-    if (profile !== "") {
-      query.append("profile", profile);
-    }
+  for (const profile of canonicalProfiles(location.profiles)) {
+    query.append("profile", profile);
   }
   if (location.host !== null && location.host !== "") {
     query.append("host", location.host);
@@ -196,8 +162,7 @@ export function formatLocation(location: ViewLocation): string {
   if (location.row !== null && location.row !== "") {
     query.append("row", location.row);
   }
-  const page =
-    pageLabelOf(location.page) === null ? DEFAULT_PAGE : location.page;
+  const page = isPageKey(location.page) ? location.page : DEFAULT_PAGE;
   const search = query.toString();
   return `#/${encodeURIComponent(page)}${search === "" ? "" : `?${search}`}`;
 }
@@ -216,7 +181,7 @@ export function sameLocation(a: ViewLocation, b: ViewLocation): boolean {
  */
 export function withPage(
   current: ViewLocation,
-  page: string,
+  page: PageKey,
   extras: Partial<Omit<ViewLocation, "page">> = {},
 ): ViewLocation {
   return {

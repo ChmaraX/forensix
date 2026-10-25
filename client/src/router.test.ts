@@ -81,6 +81,17 @@ describe("parseLocation / formatLocation", () => {
       parseLocation("#/history?profile=Default&profile=Default").profiles,
     ).toEqual(["Default"]);
   });
+
+  it("gives one profile pick one URL, whatever order it was made in", () => {
+    const picked = (profiles: readonly string[]) =>
+      formatLocation({ ...DEFAULT_LOCATION, page: "history", profiles });
+    expect(picked(["Profile 2", "Default"])).toBe(
+      picked(["Default", "Profile 2"]),
+    );
+    expect(
+      parseLocation("#/history?profile=Profile+2&profile=Default").profiles,
+    ).toEqual(["Default", "Profile 2"]);
+  });
 });
 
 describe("isDay / normalizeRange", () => {

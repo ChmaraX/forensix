@@ -25,7 +25,6 @@ import { Fragment, useCallback, useMemo, useState } from "react";
 import { rowRefOf } from "../router.js";
 import { useRowSelection, useViewSearch, useViewTab } from "../view-state.js";
 
-import { Panel } from "@/components/panel";
 import {
   Card,
   CardDescription,
@@ -40,11 +39,15 @@ import { SizeProvider, typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import type { QueryParameters } from "../api.js";
-import type { ArtifactConfig, FieldState, Finding } from "../types.js";
+import type { FieldState, Finding } from "../types.js";
+import { ARTIFACTS } from "../artifacts.js";
+import type { RowLookupSource } from "../row-lookup.js";
 import {
-  useCommitStateLists,
+  commitStateStatus,
   type PaginatedList,
+  useCommitStateLists,
 } from "../use-commit-state-lists.js";
+import { CommitStatePage } from "./commit-state-page.js";
 import { EmptyRows } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
@@ -59,6 +62,7 @@ import {
   CompactFilters,
   FilterField,
   FilterTextField,
+  matchesSearch,
   ProfilePicker,
   sortKeyOf,
   SortSelect,
@@ -73,7 +77,7 @@ import {
 } from "./identity-kit.js";
 import { SiteHostLink } from "./host-link.js";
 import { useArtifactCoverage } from "../case-context.js";
-import { ListBlock, RevealSwap } from "./list-states.js";
+import { ListBlock } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import {
   HiddenValue,
@@ -465,11 +469,11 @@ function CredentialsSkeleton() {
 
 /* ---------------------------------- page ---------------------------------- */
 
-export function CredentialsPage({
-  config,
-}: {
-  readonly config: ArtifactConfig;
-}) {
+const config = ARTIFACTS.credentials;
+/** A URL-named row this page has not loaded is read by its reference. */
+const ROW_LOOKUP: RowLookupSource = { route: config.route };
+
+export function CredentialsPage() {
   const [order, setOrder] = useState<SortOption>(NEWEST_USED);
   const parameters = useMemo<QueryParameters>(
     () => [
@@ -482,8 +486,6 @@ export function CredentialsPage({
   const lists = useCommitStateLists<Finding>(config.route, parameters, {
     drain: CREDENTIAL_ROW_CAP,
   });
-  const savedDone = lists.drained.saved;
-  const recoveredDone = lists.drained.recovered;
   // Saved / Recovered, the search (a picked username too) and the open row
   // live in the URL: Back and a refresh keep them. The profile pick is the
   // Case-wide lens.
@@ -497,8 +499,7 @@ export function CredentialsPage({
     () => [...allSaved, ...allRecovered],
     [allSaved, allRecovered],
   );
-  // A URL-named row this page has not loaded is read by its reference.
-  const sheet = useRowSelection(loaded, { route: config.route });
+  const sheet = useRowSelection(loaded, ROW_LOOKUP);
   const lens = useProfileLens(
     useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
   );
@@ -515,23 +516,15 @@ export function CredentialsPage({
   const summary = useMemo(() => summarize(saved), [saved]);
 
   const narrow = useCallback(
-    (rows: readonly Finding[]) => {
-      const query = search.trim().toLocaleLowerCase("en-US");
-      if (query === "") {
-        return rows;
-      }
-      return rows.filter((row) => {
-        const haystack = [
-          credentialHost(row) ?? "",
-          fieldText(row.fields.usernameValue) ?? "",
-          fieldText(row.fields.signonRealm) ?? "",
-          fieldText(row.fields.originUrl) ?? "",
-        ]
-          .join("\n")
-          .toLocaleLowerCase("en-US");
-        return haystack.includes(query);
-      });
-    },
+    (rows: readonly Finding[]) =>
+      rows.filter((row) =>
+        matchesSearch(search, [
+          credentialHost(row),
+          fieldText(row.fields.usernameValue),
+          fieldText(row.fields.signonRealm),
+          fieldText(row.fields.originUrl),
+        ]),
+      ),
     [search],
   );
   const savedVisible = useMemo(() => narrow(saved), [narrow, saved]);
@@ -547,153 +540,121 @@ export function CredentialsPage({
     [search, setSearch],
   );
 
-  const savedFirst = lists.saved.loading && allSaved.length === 0;
-  const recoveredFirst = lists.recovered.loading && allRecovered.length === 0;
-  const pageEmpty =
-    savedDone &&
-    recoveredDone &&
-    lists.saved.error === null &&
-    lists.recovered.error === null &&
-    allSaved.length === 0 &&
-    allRecovered.length === 0;
-  // The figures wait for every saved page; with a failed saved read they
-  // step aside and the Saved tab carries the reason.
-  const figuresReady = savedDone || lists.saved.error !== null;
-  const showFigures =
-    !figuresReady || (lists.saved.error === null && saved.length > 0);
+  const status = commitStateStatus(lists, {
+    saved: saved.length,
+    recovered: recovered.length,
+  });
   const filteredMessage = (noun: string) =>
     search.trim() === "" && lens.words !== null
       ? `No ${noun} logins in ${lens.words}.`
       : `No ${noun} logins match this search.`;
 
   return (
-    <div className="flex flex-col gap-5">
-      {pageEmpty ? (
-        <Panel>
-          <ArtifactEmpty
-            icon={ARTIFACT_ICONS.credentials}
-            coverage={emptyCoverageOf(coverage)}
-            artifact="Login Data"
-            title="No saved logins"
-            what="stored logins"
-            pivot={<EmptyPivot page="cookies">Open Cookies</EmptyPivot>}
-          />
-        </Panel>
-      ) : (
-        <>
-          {showFigures ? (
-            <RevealSwap
-              loading={!figuresReady}
-              skeleton={<CredentialsSkeleton />}
-            >
-              <div className="flex flex-col gap-5">
-                {/* The reused-username count is the widget's own count, not
-                    a third figure: one fact, one place. */}
-                <MetricBand className="grid-cols-2">
-                  <MetricBandItem
-                    label="Saved logins"
-                    value={summary.total.toLocaleString("en-US")}
-                  />
-                  <MetricBandItem
-                    label="Distinct usernames"
-                    value={summary.identities.toLocaleString("en-US")}
-                  />
-                </MetricBand>
-                <ReusedIdentities
-                  reused={summary.reused}
-                  activeUsername={search === "" ? null : search}
-                  onPick={pickUsername}
-                />
-              </div>
-            </RevealSwap>
-          ) : null}
-
-          <SectionPanel id="credentials-list" title="Stored logins">
-            <CommitStateSplit
-              value={view}
-              onValueChange={setView}
-              label="Saved or recovered logins"
-              savedCount={
-                savedFirst ||
-                (lists.saved.error !== null && allSaved.length === 0)
-                  ? null
-                  : saved.length
-              }
-              recoveredCount={
-                recoveredFirst ||
-                (lists.recovered.error !== null && allRecovered.length === 0)
-                  ? null
-                  : recovered.length
-              }
-              savedMore={lists.saved.cursor !== null}
-              recoveredMore={lists.recovered.cursor !== null}
-              toolbar={
-                <>
-                  <CompactFilters active={lens.selected.length > 0 ? 1 : 0}>
-                    <SortSelect
-                      id="credentials-sort"
-                      options={CREDENTIAL_SORTS}
-                      value={sortKeyOf(order)}
-                      onChange={setOrder}
-                    />
-                    {lens.showPicker ? (
-                      <FilterField
-                        label="Profiles"
-                        htmlFor="credentials-profiles"
-                      >
-                        <ProfilePicker
-                          id="credentials-profiles"
-                          profiles={lens.options}
-                          selected={lens.selected}
-                          onChange={lens.setSelected}
-                        />
-                      </FilterField>
-                    ) : null}
-                  </CompactFilters>
-                  <FilterTextField
-                    commit="change"
-                    label="Search loaded logins"
-                    placeholder="Search site or username"
-                    icon={SearchIcon}
-                    value={search}
-                    onCommit={setSearch}
-                  />
-                </>
-              }
-              saved={
-                <CredentialList
-                  list={lists.saved}
-                  visible={savedVisible}
-                  noun="saved"
-                  onSelect={sheet.select}
-                  onClearFilters={clearSearchAndProfiles}
-                  filteredMessage={filteredMessage("saved")}
-                />
-              }
-              recovered={
-                <CredentialList
-                  list={lists.recovered}
-                  visible={recoveredVisible}
-                  noun="recovered"
-                  onSelect={sheet.select}
-                  onClearFilters={clearSearchAndProfiles}
-                  filteredMessage={filteredMessage("recovered")}
-                />
-              }
-            />
-          </SectionPanel>
-        </>
-      )}
-
-      {sheet.selected !== null ? (
-        <RowSheet
-          selected={sheet.selected}
-          // The site names the login; the header already says "Saved login".
-          title={credentialHost(sheet.selected.row) ?? "Saved login"}
-          redactedFields={secretFieldsOf(sheet.selected.row)}
-          onClose={sheet.close}
+    <CommitStatePage
+      status={status}
+      empty={
+        <ArtifactEmpty
+          icon={ARTIFACT_ICONS.credentials}
+          coverage={emptyCoverageOf(coverage)}
+          artifact="Login Data"
+          title="No saved logins"
+          what="stored logins"
+          pivot={<EmptyPivot page="cookies">Open Cookies</EmptyPivot>}
         />
-      ) : null}
-    </div>
+      }
+      figuresSkeleton={<CredentialsSkeleton />}
+      figures={
+        <div className="flex flex-col gap-5">
+          {/* The reused-username count is the widget's own count, not a
+              third figure: one fact, one place. */}
+          <MetricBand className="grid-cols-2">
+            <MetricBandItem
+              label="Saved logins"
+              value={summary.total.toLocaleString("en-US")}
+            />
+            <MetricBandItem
+              label="Distinct usernames"
+              value={summary.identities.toLocaleString("en-US")}
+            />
+          </MetricBand>
+          <ReusedIdentities
+            reused={summary.reused}
+            activeUsername={search === "" ? null : search}
+            onPick={pickUsername}
+          />
+        </div>
+      }
+      sheet={
+        sheet.selected === null ? null : (
+          <RowSheet
+            selected={sheet.selected}
+            // The site names the login; the header already says "Saved
+            // login".
+            title={credentialHost(sheet.selected.row) ?? "Saved login"}
+            redactedFields={secretFieldsOf(sheet.selected.row)}
+            onClose={sheet.close}
+          />
+        )
+      }
+    >
+      <SectionPanel id="credentials-list" title="Stored logins">
+        <CommitStateSplit
+          value={view}
+          onValueChange={setView}
+          label="Saved or recovered logins"
+          {...status.split}
+          toolbar={
+            <>
+              <CompactFilters active={lens.selected.length > 0 ? 1 : 0}>
+                <SortSelect
+                  id="credentials-sort"
+                  options={CREDENTIAL_SORTS}
+                  value={sortKeyOf(order)}
+                  onChange={setOrder}
+                />
+                {lens.showPicker ? (
+                  <FilterField label="Profiles" htmlFor="credentials-profiles">
+                    <ProfilePicker
+                      id="credentials-profiles"
+                      profiles={lens.options}
+                      selected={lens.selected}
+                      onChange={lens.setSelected}
+                    />
+                  </FilterField>
+                ) : null}
+              </CompactFilters>
+              <FilterTextField
+                commit="change"
+                label="Search loaded logins"
+                placeholder="Search site or username"
+                icon={SearchIcon}
+                value={search}
+                onCommit={setSearch}
+              />
+            </>
+          }
+          saved={
+            <CredentialList
+              list={lists.saved}
+              visible={savedVisible}
+              noun="saved"
+              onSelect={sheet.select}
+              onClearFilters={clearSearchAndProfiles}
+              filteredMessage={filteredMessage("saved")}
+            />
+          }
+          recovered={
+            <CredentialList
+              list={lists.recovered}
+              visible={recoveredVisible}
+              noun="recovered"
+              onSelect={sheet.select}
+              onClearFilters={clearSearchAndProfiles}
+              filteredMessage={filteredMessage("recovered")}
+            />
+          }
+        />
+      </SectionPanel>
+    </CommitStatePage>
   );
 }

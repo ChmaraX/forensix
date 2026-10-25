@@ -8,7 +8,7 @@
  * Pivots follow related.ts: a link appears only when the value it filters
  * by is recorded exactly and the other page holds it -
  *  - a host opens Sites only when Sites lists that exact host key
- *    (`siteKeyOf`, the Sites route's own key; a list cut short at its page
+ *    (`siteHostKey`, the Sites route's own key; a list cut short at its page
  *    cap cannot rule a host out, so then every host links);
  *  - a URL opens History only when History holds a visit whose URL is the
  *    same string (`exactVisitsOf`), on the tab that holds it.
@@ -44,8 +44,10 @@ import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 import { caseSiteHosts, exactVisitsOf } from "../case-reads.js";
-import { siteKeyOf } from "../related.js";
+import { once } from "../read-pages.js";
+import { siteHostKey } from "../site-host-key.js";
 import type { ViewLocation } from "../router.js";
+import type { PageKey } from "../pages.js";
 import type { FieldState } from "../types.js";
 import { hrefFor, openPage } from "../view-state.js";
 import { FieldCell } from "./finding-fields.js";
@@ -77,7 +79,7 @@ function CellLink({
   tabbable = false,
   children,
 }: {
-  readonly page: string;
+  readonly page: PageKey;
   readonly extras: Extras;
   /** Takes a tab stop: a link outside a row (a card's host list), where no
    *  row sheet offers the keyboard path. @default false */
@@ -143,30 +145,22 @@ function CellLink({
 export type SiteHostLookup = ((key: string) => boolean) | null;
 
 let lookup: SiteHostLookup = null;
-let hostRead: Promise<SiteHostLookup> | null = null;
 const listeners = new Set<() => void>();
 
-function readSiteHosts(): Promise<SiteHostLookup> {
-  hostRead ??= caseSiteHosts()
-    .then(({ hosts, complete }) => {
-      const keys = new Set(hosts.map((entry) => entry.host));
-      // A list cut short at its cap cannot rule a host out.
-      const next: SiteHostLookup = complete
-        ? (key) => keys.has(key)
-        : () => true;
-      lookup = next;
-      for (const listener of listeners) {
-        listener();
-      }
-      return next;
-    })
-    .catch(() => {
-      // Forgotten, so the next caller tries again; until then no link.
-      hostRead = null;
-      return null;
-    });
-  return hostRead;
-}
+/** The Sites host list as a lookup, read once per session (a failed read
+ *  is forgotten, so the next caller tries again). */
+const readSiteHosts = once(() =>
+  caseSiteHosts().then(({ hosts, complete }) => {
+    const keys = new Set(hosts.map((entry) => entry.host));
+    // A list cut short at its cap cannot rule a host out.
+    const next: SiteHostLookup = complete ? (key) => keys.has(key) : () => true;
+    lookup = next;
+    for (const listener of listeners) {
+      listener();
+    }
+    return next;
+  }),
+);
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
@@ -181,7 +175,9 @@ function subscribe(listener: () => void): () => void {
 export function useSiteHosts(): SiteHostLookup {
   const current = useSyncExternalStore(subscribe, () => lookup);
   useEffect(() => {
-    void readSiteHosts();
+    // Until it lands (or after a failure) no link: never one that may
+    // lead nowhere.
+    readSiteHosts().catch(() => undefined);
   }, []);
   return current;
 }
@@ -189,8 +185,11 @@ export function useSiteHosts(): SiteHostLookup {
 /** True when Sites lists `key` (the row sheet's Related block); false on
  *  a failed read. */
 export async function siteHostListed(key: string): Promise<boolean> {
-  const answer = await readSiteHosts();
-  return answer !== null && answer(key);
+  try {
+    return (await readSiteHosts())(key);
+  } catch {
+    return false;
+  }
 }
 
 /* ------------------------------ host → Sites ------------------------------ */
@@ -206,7 +205,7 @@ export function SiteHostLink({
   tabbable = false,
   children,
 }: {
-  /** The recorded host, URL or host key (`siteKeyOf` keys it). */
+  /** The recorded host, URL or host key (`siteHostKey` keys it). */
   readonly host: string | null;
   readonly className?: string;
   /** Takes a tab stop (outside a row; see `CellLink`). @default false */
@@ -214,7 +213,7 @@ export function SiteHostLink({
   /** The value as the cell shows it. */
   readonly children: ReactNode;
 }) {
-  const key = siteKeyOf(host);
+  const key = siteHostKey(host);
   const sites = useSiteHosts();
   const extras = useMemo(() => ({ host: key }), [key]);
   if (key === null || sites === null || !sites(key)) {
@@ -249,7 +248,7 @@ export function UrlWithSiteLink({
       ? field.value
       : null;
   const parts = url === null ? null : splitUrlHost(url);
-  if (url === null || parts === null || siteKeyOf(url) === null) {
+  if (url === null || parts === null || siteHostKey(url) === null) {
     return <FieldCell field={field} mono />;
   }
   return (
@@ -276,7 +275,17 @@ type VisitPresence = {
 } | null;
 
 const presence = new Map<string, VisitPresence>();
-const pending = new Map<string, Promise<VisitPresence>>();
+
+/** One URL's exact-visit read: who waits for it, and how to stop it. */
+interface VisitRead {
+  readonly answer: Promise<VisitPresence | undefined>;
+  readonly abort: AbortController;
+  /** Drops this read from the map (if it is still the URL's read). */
+  readonly forget: () => void;
+  waiting: number;
+}
+
+const reads = new Map<string, VisitRead>();
 const queue: (() => void)[] = [];
 let running = 0;
 /** At most this many exact-visit reads in flight, so a long list of
@@ -285,51 +294,96 @@ const VISIT_READS = 4;
 
 function runNext(): void {
   while (running < VISIT_READS && queue.length > 0) {
-    const task = queue.shift();
-    task?.();
+    queue.shift()?.();
   }
 }
 
-function visitPresenceOf(url: string): Promise<VisitPresence> {
-  const known = pending.get(url);
-  if (known !== undefined) {
-    return known;
+/** What a finished exact-visit read says about the URL. */
+function presenceOf({
+  visits,
+  more,
+  savedMore,
+}: Awaited<ReturnType<typeof exactVisitsOf>>): VisitPresence {
+  // Only a read that ran out proves "no visit"; a cut-off one with no exact
+  // match offers the search on the tab that was cut off.
+  if (visits.length === 0) {
+    return more
+      ? { tab: savedMore ? "saved" : "recovered", exact: false }
+      : null;
   }
-  const read = new Promise<VisitPresence>((resolve) => {
-    queue.push(() => {
-      running += 1;
-      exactVisitsOf(url)
-        .then(({ visits, more, savedMore }) => {
-          // Only a read that ran out proves "no visit"; a cut-off one with
-          // no exact match offers the search on the tab that was cut off.
-          const value: VisitPresence =
-            visits.length === 0
-              ? more
-                ? { tab: savedMore ? "saved" : "recovered", exact: false }
-                : null
-              : {
-                  tab: visits.some((visit) => visit.commitState === "committed")
-                    ? "saved"
-                    : "recovered",
-                  exact: true,
-                };
-          presence.set(url, value);
-          resolve(value);
-        })
-        .catch(() => {
-          // Unknown is not "none": forget it so a later mount asks again.
-          pending.delete(url);
-          resolve(null);
-        })
-        .finally(() => {
-          running -= 1;
-          runNext();
-        });
+  return {
+    tab: visits.some((visit) => visit.commitState === "committed")
+      ? "saved"
+      : "recovered",
+    exact: true,
+  };
+}
+
+/**
+ * The URL's visit presence, read through the queue (each URL once while
+ * someone waits). `undefined` when unknown: the read failed, or every
+ * waiter left first - its read is then dropped from the queue, or aborted
+ * on the wire, and a later mount asks again. Call the returned `leave`
+ * when the caller no longer needs the answer.
+ */
+function visitPresenceOf(url: string): {
+  readonly answer: Promise<VisitPresence | undefined>;
+  readonly leave: () => void;
+} {
+  let entry = reads.get(url);
+  if (entry === undefined) {
+    const abort = new AbortController();
+    const forget = () => {
+      if (reads.get(url) === created) {
+        reads.delete(url);
+      }
+    };
+    const answer = new Promise<VisitPresence | undefined>((resolve) => {
+      queue.push(() => {
+        if (abort.signal.aborted) {
+          resolve(undefined);
+          return;
+        }
+        running += 1;
+        exactVisitsOf(url, abort.signal)
+          .then((found) => {
+            const value = presenceOf(found);
+            presence.set(url, value);
+            resolve(value);
+          })
+          .catch(() => {
+            resolve(undefined);
+          })
+          .finally(() => {
+            forget();
+            running -= 1;
+            runNext();
+          });
+      });
+      runNext();
     });
-    runNext();
-  });
-  pending.set(url, read);
-  return read;
+    const created: VisitRead = { answer, abort, waiting: 0, forget };
+    entry = created;
+    reads.set(url, created);
+  }
+  const read = entry;
+  read.waiting += 1;
+  let left = false;
+  return {
+    answer: read.answer,
+    leave: () => {
+      if (left) {
+        return;
+      }
+      left = true;
+      read.waiting -= 1;
+      if (read.waiting === 0 && !presence.has(url)) {
+        // Nobody waits: a queued read is skipped, one in flight aborted.
+        read.abort.abort();
+        read.forget();
+      }
+    },
+  };
 }
 
 /**
@@ -360,13 +414,15 @@ export function VisitedUrlLink({
       return;
     }
     let live = true;
-    void visitPresenceOf(url).then((value) => {
-      if (live) {
+    const { answer, leave } = visitPresenceOf(url);
+    void answer.then((value) => {
+      if (live && value !== undefined) {
         setFound(value);
       }
     });
     return () => {
       live = false;
+      leave();
     };
   }, [url]);
   const extras = useMemo(

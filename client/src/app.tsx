@@ -36,38 +36,22 @@ import {
 } from "react";
 
 import logoMark from "./assets/forensix-logo.png";
-import {
-  ARTIFACTS,
-  artifactStoreOf,
-  SITES_COVERAGE,
-  TIMELINE_COVERAGE,
-} from "./artifacts.js";
-import { CaseCommandMenu } from "./command-menu.js";
-import { AutofillPage } from "./components/autofill-page.js";
-import { BookmarksPage } from "./components/bookmarks-page.js";
-import { CachePage } from "./components/cache-page.js";
+import { artifactStoreOf } from "./artifacts.js";
+import { CaseCommandMenu, useCommandMenuState } from "./command-menu.js";
 import {
   CoverageBanner,
   CoverageIndicator,
   coverageOf,
 } from "./components/completeness.js";
-import { CookiesPage } from "./components/cookies-page.js";
-import { CredentialsPage } from "./components/credentials-page.js";
-import { DownloadsPage } from "./components/downloads-page.js";
-import { FaviconsPage } from "./components/favicons-page.js";
-import { HistoryPage } from "./components/history-page.js";
 import { EmptyRows } from "./components/data-table.js";
 import { ErrorRows, LoadingRows } from "./components/list-states.js";
-import { MetadataPage } from "./components/metadata-page.js";
 import { Panel } from "./components/panel.js";
+import { RowLookupNotice } from "./components/row-lookup-notice.js";
 import { SidebarInsetTopbar } from "./components/sidebar-app/inset-topbar.js";
 import {
   SidebarWorkspaceHeader,
   WorkspaceTile,
 } from "./components/sidebar-app/workspace-header.js";
-import { SitesPage } from "./components/sites-page.js";
-import { TimelinePage } from "./components/timeline-page.js";
-import { TopSitesPage } from "./components/top-sites-page.js";
 import {
   Sidebar,
   SidebarContent,
@@ -85,16 +69,20 @@ import {
 import { TooltipProvider } from "./components/ui/tooltip.js";
 import { Button } from "./components/ui/button.js";
 import { CommandMenuShortcut } from "./components/ui/command-menu.js";
-import { ARTIFACT_ICONS, SearchIcon, type AppIcon } from "./lib/app-icons.js";
+import {
+  focusPageHeading,
+  pageHeading,
+  rescueFocusFromCollapsedSidebar,
+} from "./focus.js";
+import { ARTIFACT_ICONS, SearchIcon } from "./lib/app-icons.js";
 import { FluidProvider } from "./lib/fluid-provider.js";
 import { fontWeights } from "./lib/font-weight.js";
 import { untitleduiIcons } from "./lib/icons-untitledui.js";
 import { typeClass } from "./lib/size-context.js";
 import { SurfaceProvider } from "./lib/surface-context.js";
 import { cn } from "./lib/utils.js";
-import { OverviewPage } from "./overview.js";
-import { RowLookupNotice } from "./components/row-lookup-notice.js";
-import { EVIDENCE_ORDER } from "./router.js";
+import { PAGE_COMPONENTS } from "./page-views.js";
+import { PAGE_KEYS, PAGES, type PageGroup, type PageKey } from "./pages.js";
 import { useGlobalRowKeys, useSidebarKey } from "./shortcuts.js";
 import { ThemeToggle } from "./theme.js";
 import {
@@ -108,7 +96,6 @@ import {
   openPage,
   useViewLocation,
 } from "./view-state.js";
-import type { ArtifactConfig } from "./types.js";
 
 /**
  * The brand mark on FF's 20px workspace tile: the cutout logo painted in the
@@ -131,115 +118,23 @@ function BrandTile() {
   );
 }
 
-interface NavTarget {
-  readonly key: string;
-  readonly label: string;
-  readonly config: ArtifactConfig | null;
-  readonly icon: AppIcon;
-  readonly timeline?: boolean;
-  readonly sites?: boolean;
-}
-
-interface NavGroup {
-  readonly label: string;
-  readonly targets: readonly NavTarget[];
-}
-
 /**
- * Two groups, named by what the pages under them are, not by where they sit.
- * "Case" states conclusions about the evidence; "Evidence" is the evidence.
- * The split is what lets nine tables read as one set instead of nine peers of
- * the Overview.
- *
- * Icons come from `ARTIFACT_ICONS` (lib/app-icons, Untitled UI), picked for
- * what each record type *is*. They follow the FF sidebar rows: muted at
- * rest, foreground and a heavier stroke on the active or hovered row.
+ * Three groups, named by what the pages under them are, not by where they
+ * sit: "Case" states conclusions about the evidence, "Views" regroup it,
+ * "Evidence" is the evidence - the split that lets the evidence tables read
+ * as one set instead of peers of the Overview. Rows follow the registry's
+ * order (`PAGE_KEYS`, which ⌘K lists too). Icons (`ARTIFACT_ICONS`) are
+ * picked for what each record type *is*; they follow the FF sidebar rows:
+ * muted at rest, foreground and a heavier stroke on the active or hovered
+ * row.
  */
-const NAV_ICONS: Readonly<Record<string, AppIcon>> = ARTIFACT_ICONS;
-/**
- * Evidence is ordered for investigation (`EVIDENCE_ORDER`, router.ts, which
- * ⌘K lists too): activity first, then stored identity data, with browser
- * metadata last as context about the environment.
- */
-const EVIDENCE_KEYS = EVIDENCE_ORDER;
-
-const EVIDENCE_TARGETS: readonly NavTarget[] = EVIDENCE_KEYS.flatMap((key) => {
-  const config = ARTIFACTS.find((artifact) => artifact.key === key);
-  return config === undefined
-    ? []
-    : [
-        {
-          key: config.key,
-          label: config.label,
-          config,
-          icon: NAV_ICONS[config.key] ?? ARTIFACT_ICONS.cache,
-        },
-      ];
-});
-
-const NAV_GROUPS: readonly NavGroup[] = [
-  {
-    label: "Case",
-    targets: [
-      {
-        key: "overview",
-        label: "Overview",
-        config: null,
-        icon: ARTIFACT_ICONS.overview,
-      },
-    ],
-  },
-  {
-    label: "Views",
-    targets: [
-      {
-        key: "timeline",
-        label: "Timeline",
-        config: null,
-        timeline: true,
-        icon: ARTIFACT_ICONS.timeline,
-      },
-      {
-        key: "sites",
-        label: "Sites",
-        config: null,
-        sites: true,
-        icon: ARTIFACT_ICONS.sites,
-      },
-    ],
-  },
-  {
-    label: "Evidence",
-    targets: EVIDENCE_TARGETS,
-  },
-];
-
-const DEFAULT_TARGET: NavTarget = NAV_GROUPS[0]?.targets[0] ?? {
-  key: "overview",
-  label: "Overview",
-  config: null,
-  icon: ARTIFACT_ICONS.overview,
-};
-
-/** The nav target for a page key (unknown keys open the Overview). */
-function targetOf(key: string): NavTarget {
-  for (const group of NAV_GROUPS) {
-    const target = group.targets.find((entry) => entry.key === key);
-    if (target !== undefined) {
-      return target;
-    }
-  }
-  return DEFAULT_TARGET;
-}
-
-/** The section a target belongs to, for the topbar trail. */
-function groupOf(target: NavTarget): string {
-  return (
-    NAV_GROUPS.find((group) =>
-      group.targets.some((entry) => entry.key === target.key),
-    )?.label ?? ""
-  );
-}
+const NAV_GROUPS: readonly {
+  readonly label: PageGroup;
+  readonly keys: readonly PageKey[];
+}[] = (["Case", "Views", "Evidence"] as const).map((label) => ({
+  label,
+  keys: PAGE_KEYS.filter((key) => PAGES[key].group === label),
+}));
 
 /**
  * The sidebar: brand row, one SidebarGroup per nav group, theme control in
@@ -251,9 +146,9 @@ function CaseSidebar({
   activeKey,
   onSelect,
 }: {
-  readonly activeKey: string;
+  readonly activeKey: PageKey;
   /** `fromDrawer`: picked in the phone drawer, which closes on the pick. */
-  readonly onSelect: (target: NavTarget, fromDrawer: boolean) => void;
+  readonly onSelect: (key: PageKey, fromDrawer: boolean) => void;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
   return (
@@ -269,20 +164,20 @@ function CaseSidebar({
             {/* role="list": FF draws its hover and selection fills as
                 divs inside the ul; the explicit role keeps it a list. */}
             <SidebarMenu role="list" aria-label={group.label}>
-              {group.targets.map((target) => (
-                <SidebarMenuItem key={target.key}>
+              {group.keys.map((key) => (
+                <SidebarMenuItem key={key}>
                   <SidebarMenuButton
-                    icon={target.icon}
-                    isActive={target.key === activeKey}
-                    aria-current={target.key === activeKey ? "page" : undefined}
+                    icon={ARTIFACT_ICONS[key]}
+                    isActive={key === activeKey}
+                    aria-current={key === activeKey ? "page" : undefined}
                     onClick={() => {
-                      onSelect(target, isMobile);
+                      onSelect(key, isMobile);
                       if (isMobile) {
                         setOpenMobile(false);
                       }
                     }}
                   >
-                    {target.label}
+                    {PAGES[key].label}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -295,22 +190,6 @@ function CaseSidebar({
       </SidebarFooter>
     </Sidebar>
   );
-}
-
-/**
- * The Completeness artifact keys a page lists, for its coverage indicator
- * and banner: the artifact's own key, or every artifact a merged view reads.
- */
-function coverageScopeOf(target: NavTarget): readonly string[] | undefined {
-  if (target.timeline === true) {
-    return TIMELINE_COVERAGE;
-  }
-  if (target.sites === true) {
-    return SITES_COVERAGE;
-  }
-  return target.config === null
-    ? undefined
-    : [target.config.completenessArtifact];
 }
 
 /**
@@ -346,15 +225,16 @@ function PageHeader({
  * above names the reason; here the page says it has nothing to show because
  * of it — never "no rows in this Case", which would read as an absence.
  */
-function UnreadPage({ target }: { readonly target: NavTarget }) {
+function UnreadPage({ page }: { readonly page: PageKey }) {
+  const { label, artifact } = PAGES[page];
   return (
     <Panel>
       <EmptyRows
-        icon={target.icon}
-        message={`No rows to show: no ${target.label} ${
-          target.config === null
+        icon={ARTIFACT_ICONS[page]}
+        message={`No rows to show: no ${label} ${
+          artifact === null
             ? "database"
-            : artifactStoreOf(target.config.completenessArtifact)
+            : artifactStoreOf(artifact.completenessArtifact)
         } could be read.`}
       />
     </Panel>
@@ -362,149 +242,31 @@ function UnreadPage({ target }: { readonly target: NavTarget }) {
 }
 
 /**
- * The page for a nav target. Evidence coverage is the shell's: the page's
+ * The page for a key. Evidence coverage is the shell's: the page's
  * indicator sits in its title row and, when something was not read, a
  * banner sits above the page (forensic rule 1). A single-artifact page
  * whose every database is unreadable shows `UnreadPage` instead.
  */
 function ActivePage({
-  target,
+  page,
   context,
 }: {
-  readonly target: NavTarget;
+  readonly page: PageKey;
   readonly context: CaseContext;
 }) {
-  const { profiles } = context;
-  const scope = coverageOf(context.completeness, coverageScopeOf(target));
-  if (
-    target.config !== null &&
-    target.timeline !== true &&
-    target.sites !== true &&
-    scope.unavailable > 0 &&
-    scope.produced === 0
-  ) {
-    return <UnreadPage target={target} />;
+  const { artifact, coverage } = PAGES[page];
+  const scope = coverageOf(context.completeness, coverage ?? undefined);
+  if (artifact !== null && scope.unavailable > 0 && scope.produced === 0) {
+    return <UnreadPage page={page} />;
   }
-  if (target.timeline === true) {
-    return <TimelinePage />;
-  }
-  if (target.sites === true) {
-    return <SitesPage />;
-  }
-  const config = target.config;
-  switch (config?.key) {
-    case "history":
-      return <HistoryPage profiles={profiles} />;
-    case "top-sites":
-      return <TopSitesPage config={config} />;
-    case "downloads":
-      return <DownloadsPage config={config} />;
-    case "bookmarks":
-      return <BookmarksPage config={config} />;
-    case "cookies":
-      return <CookiesPage config={config} />;
-    case "favicons":
-      return <FaviconsPage config={config} />;
-    case "metadata":
-      return <MetadataPage config={config} />;
-    case "autofill":
-      return <AutofillPage config={config} />;
-    case "credentials":
-      return <CredentialsPage config={config} />;
-    case "cache":
-      return <CachePage config={config} />;
-    default:
-      // Every artifact in ARTIFACTS has a page above.
-      return null;
-  }
+  const Page = PAGE_COMPONENTS[page];
+  return <Page />;
 }
 
-/** The page's h1, made a programmatic focus target. */
-function headingIn(column: HTMLElement | null): HTMLElement | null {
-  const heading = column?.querySelector<HTMLElement>("h1") ?? null;
-  if (heading !== null && !heading.hasAttribute("tabindex")) {
-    heading.setAttribute("tabindex", "-1");
-    heading.classList.add("outline-none");
-  }
-  return heading;
-}
-
-/** Focus is somewhere a page change may take it from: nowhere, the nav,
- *  the topbar, or the drawer trigger - never a field the user is in. */
-function focusIsFree(column: HTMLElement): boolean {
-  const active = document.activeElement;
-  return (
-    active === null ||
-    active === document.body ||
-    !column.contains(active) ||
-    active.matches("h1")
-  );
-}
-
-/**
- * After a page change: focus the new page's h1 (waiting for it when the
- * page builds its own, e.g. the Overview masthead after its read). After a
- * pick in the phone drawer, the drawer hands focus back to its trigger as
- * it closes; for a moment that hand-back is redirected to the heading too,
- * so keyboard users continue from the page they opened.
- */
-function focusPageHeading(
-  column: HTMLElement,
-  fromDrawer: boolean,
-): () => void {
-  const cleanups: (() => void)[] = [];
-  const focus = () => {
-    const heading = headingIn(column);
-    if (heading === null || !focusIsFree(column)) {
-      return heading !== null;
-    }
-    heading.focus({ preventScroll: true });
-    return true;
-  };
-  if (!focus()) {
-    const observer = new MutationObserver(() => {
-      if (focus()) {
-        observer.disconnect();
-      }
-    });
-    observer.observe(column, { childList: true, subtree: true });
-    const stop = setTimeout(() => {
-      observer.disconnect();
-    }, 5000);
-    cleanups.push(() => {
-      observer.disconnect();
-      clearTimeout(stop);
-    });
-  }
-  if (fromDrawer) {
-    const onFocusIn = (event: FocusEvent) => {
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        target.closest('[data-sidebar="trigger"]') !== null
-      ) {
-        headingIn(column)?.focus({ preventScroll: true });
-      }
-    };
-    document.addEventListener("focusin", onFocusIn);
-    const stop = setTimeout(() => {
-      document.removeEventListener("focusin", onFocusIn);
-    }, 1500);
-    cleanups.push(() => {
-      document.removeEventListener("focusin", onFocusIn);
-      clearTimeout(stop);
-    });
-  }
-  return () => {
-    for (const cleanup of cleanups) {
-      cleanup();
-    }
-  };
-}
-
-/** The polite live region's text, set so a repeat is announced again. A
- *  message waits while a modal (⌘K, a sheet) still hides the page from
- *  assistive tech, up to a second. */
+/** The polite live region's text, set so a repeat is announced again.
+ *  Dialogs hand their announcements over once they have closed (⌘K runs a
+ *  pick from its `onCloseAutoFocus`), so the region is never hidden from
+ *  assistive tech when it speaks. */
 function useAnnouncer(): readonly [string, (message: string) => void] {
   const [message, setMessage] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -513,18 +275,10 @@ function useAnnouncer(): readonly [string, (message: string) => void] {
     if (timer.current !== null) {
       clearTimeout(timer.current);
     }
-    const started = Date.now();
-    const attempt = () => {
-      const hidden =
-        document.querySelector('[role="dialog"][data-state="open"]') !== null;
-      if (hidden && Date.now() - started < 1000) {
-        timer.current = setTimeout(attempt, 100);
-        return;
-      }
-      setMessage(next);
-    };
     // A beat after the clear, so the same words are read again.
-    timer.current = setTimeout(attempt, 150);
+    timer.current = setTimeout(() => {
+      setMessage(next);
+    }, 150);
   }, []);
   useEffect(
     () => () => {
@@ -551,39 +305,7 @@ function SidebarKeys({
 }) {
   const { toggleSidebar } = useSidebar();
   useSidebarKey(column, toggleSidebar);
-  useEffect(() => {
-    const trigger = () =>
-      document.querySelector<HTMLElement>(
-        '.inset-topbar [data-sidebar="trigger"]',
-      );
-    const collapsed = () =>
-      document.querySelector(
-        '[data-slot="sidebar"][data-state="collapsed"]',
-      ) !== null;
-    // Focus leaving a sidebar element for nowhere (it was hidden by the
-    // collapse): once the browser has settled on <body>, hand focus to the
-    // topbar's trigger - the control that brings the sidebar back.
-    const onFocusOut = (event: FocusEvent) => {
-      const target = event.target;
-      if (
-        event.relatedTarget !== null ||
-        !(target instanceof HTMLElement) ||
-        target.closest('[data-slot="sidebar"]') === null
-      ) {
-        return;
-      }
-      setTimeout(() => {
-        const active = document.activeElement;
-        if ((active === null || active === document.body) && collapsed()) {
-          trigger()?.focus({ preventScroll: true });
-        }
-      }, 0);
-    };
-    document.addEventListener("focusout", onFocusOut);
-    return () => {
-      document.removeEventListener("focusout", onFocusOut);
-    };
-  }, []);
+  useEffect(rescueFocusFromCollapsedSidebar, []);
   return null;
 }
 
@@ -625,11 +347,12 @@ function JumpToButton({ onOpen }: { readonly onOpen: () => void }) {
  */
 export function App() {
   const location = useViewLocation();
-  const active = targetOf(location.page);
+  const page = location.page;
+  const { label, group, coverage, ownHeader } = PAGES[page];
   const caseContext = useCaseContextRead();
   const { context, error, retry } = caseContext;
   const columnRef = useRef<HTMLDivElement>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const menu = useCommandMenuState();
   const [announcement, announce] = useAnnouncer();
   const lensSummary = useLensSummary();
   // Set by a drawer pick, read by the page-change focus below.
@@ -642,18 +365,18 @@ export function App() {
 
   useGlobalRowKeys(columnRef);
 
-  const selectTarget = useCallback((target: NavTarget, drawer: boolean) => {
+  const selectPage = useCallback((key: PageKey, drawer: boolean) => {
     fromDrawer.current = drawer;
-    openPage(target.key);
+    openPage(key);
   }, []);
 
   // The tab's title names the page (and a Sites host), like any app.
-  const host = active.sites === true ? location.host : null;
+  const host = page === "sites" ? location.host : null;
   useEffect(() => {
-    document.title = [host, active.label, "ForensiX"]
+    document.title = [host, label, "ForensiX"]
       .filter((part) => part !== null)
       .join(" · ");
-  }, [active.label, host]);
+  }, [label, host]);
 
   // A new page starts at the top, takes focus on its h1 and is announced.
   // The first page of a visit only scrolls: focus stays where a fresh load
@@ -667,43 +390,32 @@ export function App() {
     }
     const drawer = fromDrawer.current;
     fromDrawer.current = false;
-    announce(active.label);
+    announce(label);
     const column = columnRef.current;
     return column === null ? undefined : focusPageHeading(column, drawer);
-  }, [active.key, active.label, announce]);
+  }, [page, label, announce]);
 
   const clearedLens = useCallback(
     (message: string) => {
       announce(message);
-      headingIn(columnRef.current)?.focus({ preventScroll: true });
+      pageHeading(columnRef.current)?.focus({ preventScroll: true });
     },
     [announce],
   );
 
   // Evidence coverage for the page on show (forensic rule 1): the indicator
-  // for its title row and the banner for under it. Overview's scope is the
-  // whole Case.
-  const coverageIndicator =
-    context === null ? null : (
-      <CoverageIndicator
-        completeness={context.completeness}
-        artifacts={coverageScopeOf(active)}
-      />
-    );
-  const coverageBanner =
-    context === null ? null : (
-      <CoverageBanner
-        completeness={context.completeness}
-        artifacts={coverageScopeOf(active)}
-      />
-    );
+  // for its title row and the banner for under it. A page with its own
+  // masthead (Overview) reads the Case context itself - its loading, its
+  // failure, its quiet whole-Case indicator - and carries no banner.
+  const scope = coverage ?? undefined;
+  const OwnHeaderPage = PAGE_COMPONENTS[page];
 
   return (
     <FluidProvider icons={untitleduiIcons}>
       <TooltipProvider delayDuration={150}>
         <SidebarProvider persist={false} peek="hover" shortcut={null}>
           <SidebarKeys column={columnRef} />
-          <CaseSidebar activeKey={active.key} onSelect={selectTarget} />
+          <CaseSidebar activeKey={page} onSelect={selectPage} />
           {/* Below the drawer breakpoint the rail is gone; keep the inset card
               off the left edge as it is off the right. */}
           <SidebarInset className="max-md:ml-2!">
@@ -723,7 +435,7 @@ export function App() {
                   )}
                 >
                   <span className="truncate text-muted-foreground">
-                    {groupOf(active)}
+                    {group}
                   </span>
                   <span aria-hidden="true" className="text-muted-foreground">
                     /
@@ -732,14 +444,14 @@ export function App() {
                     aria-current="page"
                     className="truncate text-foreground"
                   >
-                    {active.label}
+                    {label}
                   </span>
                 </nav>
                 <div className="ml-auto flex min-w-0 items-center gap-1">
                   <ViewLensChip onClear={clearedLens} />
                   <JumpToButton
                     onOpen={() => {
-                      setMenuOpen(true);
+                      menu.setOpen(true);
                     }}
                   />
                 </div>
@@ -753,43 +465,42 @@ export function App() {
                   : `${announcement} - ${lensSummary}`}
             </div>
             <CaseCommandMenu
-              open={menuOpen}
-              onOpenChange={setMenuOpen}
+              state={menu}
               scope={columnRef}
               announce={announce}
             />
             <CaseContextProvider value={caseContext}>
               <SurfaceProvider value={2}>
                 <div
-                  key={active.key}
+                  key={page}
                   ref={columnRef}
                   data-page-column=""
                   className="reveal-product mx-auto flex w-full max-w-[1360px] min-w-0 flex-col gap-5 px-4 pb-10 md:px-8"
                 >
-                  {/* Overview builds its own masthead as its first block; the
-                    shell still owns its coverage (the whole Case): a quiet
-                    indicator at the right of the masthead and no banner —
-                    the landing page stays calm; every evidence page keeps
-                    its banner when degraded. */}
-                  {active.key === "overview" ? null : (
-                    <PageHeader
-                      title={active.label}
-                      aside={coverageIndicator}
-                    />
+                  {ownHeader === true ? null : (
+                    <>
+                      <PageHeader
+                        title={label}
+                        aside={
+                          context === null ? null : (
+                            <CoverageIndicator
+                              completeness={context.completeness}
+                              artifacts={scope}
+                            />
+                          )
+                        }
+                      />
+                      {context === null ? null : (
+                        <CoverageBanner
+                          completeness={context.completeness}
+                          artifacts={scope}
+                        />
+                      )}
+                    </>
                   )}
-                  {active.key === "overview" ? null : coverageBanner}
                   <RowLookupNotice />
-                  {active.key === "overview" ? (
-                    <OverviewPage
-                      coverage={
-                        context === null ? null : (
-                          <CoverageIndicator
-                            completeness={context.completeness}
-                            quiet
-                          />
-                        )
-                      }
-                    />
+                  {ownHeader === true ? (
+                    <OwnHeaderPage />
                   ) : error !== null ? (
                     <ErrorRows
                       message={error}
@@ -799,7 +510,7 @@ export function App() {
                   ) : context === null ? (
                     <LoadingRows className="px-0" />
                   ) : (
-                    <ActivePage target={active} context={context} />
+                    <ActivePage page={page} context={context} />
                   )}
                 </div>
               </SurfaceProvider>
