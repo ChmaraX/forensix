@@ -12,6 +12,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified } from "./record-store.js";
 import {
   createFinding,
   type CommitState,
@@ -40,7 +41,7 @@ export interface AutofillQuery {
 export interface AutofillPage {
   readonly status: "ok";
   readonly command: "autofill";
-  readonly items: readonly Finding[];
+  readonly items: readonly Identified<Finding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -68,6 +69,7 @@ const SORTS: Readonly<Record<AutofillSort, SortDefinition>> = {
 
 const AUTOFILL_SPEC: FindingQuerySpec<AutofillQuery, Finding> = {
   label: "Autofill",
+  store: "web-data",
   analysisNotFound: "Case has no Web Data analysis. Run analyse first.",
   schemaTable: "web_data_findings",
   mainTable: "web_data_findings",
@@ -79,11 +81,11 @@ const AUTOFILL_SPEC: FindingQuerySpec<AutofillQuery, Finding> = {
     const { provenance, fields } = decodeRecordJson(
       row,
       "Case contains invalid Web Data Finding JSON.",
-      "finding_id",
+      "findingId",
     );
     const commitState = assertCommitState(
       row.commit_state,
-      "finding_id",
+      "findingId",
       row.entity_id.toString(),
     );
     return createFinding({

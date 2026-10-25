@@ -326,7 +326,7 @@ export async function analyseWebDataProfile(options: {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Web Data recovery content has no resolvable sidecar Manifest entry.",
-        { database_path: databasePath },
+        { databasePath: databasePath },
       );
     }
     const committed = buildAutofillEntries({

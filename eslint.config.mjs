@@ -16,7 +16,11 @@ export default [
   {
     // Node build/verification scripts run under the Node runtime, so expose the
     // Node globals they use instead of tripping no-undef.
-    files: ["scripts/**/*.mjs", "core/scripts/**/*.mjs"],
+    files: [
+      "scripts/**/*.mjs",
+      "core/scripts/**/*.mjs",
+      "cli/scripts/**/*.mjs",
+    ],
     languageOptions: {
       globals: {
         process: "readonly",

@@ -447,7 +447,7 @@ export async function analyseLoginDataProfile(options: {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Login Data recovery content has no resolvable sidecar Manifest entry.",
-        { database_path: databasePath },
+        { databasePath: databasePath },
       );
     }
     const committed = buildCredentials({

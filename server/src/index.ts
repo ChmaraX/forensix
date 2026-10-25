@@ -10,12 +10,14 @@ import { createRequire } from "node:module";
 
 import {
   ForensixError,
+  getRecord,
   queryAutofill,
   queryBookmarks,
   queryCache,
   queryCandidates,
   queryCompleteness,
   queryCookies,
+  queryCount,
   queryCredentials,
   queryDownloads,
   queryFaviconBitmaps,
@@ -23,9 +25,11 @@ import {
   queryHistory,
   queryMetadata,
   queryProfiles,
+  querySchema,
   querySiteFavicons,
   querySiteFindings,
   querySiteHosts,
+  querySummary,
   queryTimeline,
   queryTopSites,
   queryTopicCandidates,
@@ -228,6 +232,7 @@ function statusForError(error: ForensixError): number {
     case "INVALID_CURSOR":
       return 400;
     case "ANALYSIS_NOT_FOUND":
+    case "RECORD_NOT_FOUND":
       return 404;
     default:
       return 409;
@@ -303,6 +308,34 @@ export const API_ROUTES = new Map<
     "profiles",
     (_parameters, caseDirectory) => queryProfiles({ caseDirectory }),
   ],
+  ["summary", (_parameters, caseDirectory) => querySummary({ caseDirectory })],
+  [
+    "schema",
+    (parameters, caseDirectory) =>
+      querySchema({ caseDirectory, kind: firstString(parameters.get("kind")) }),
+  ],
+  [
+    "count",
+    (parameters, caseDirectory) =>
+      queryCount({
+        caseDirectory,
+        // A missing kind or field reaches core as "" so core raises its own
+        // INVALID_ARGUMENT with the allowed values.
+        kind: parameters.get("kind") ?? "",
+        by: parameters.get("by") ?? "",
+        profiles: parameters.getAll("profile"),
+        search: firstString(parameters.get("search")),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
+        limit: integerParameter(parameters, "limit"),
+      }),
+  ],
+  [
+    "get",
+    (parameters, caseDirectory) =>
+      getRecord({ caseDirectory, id: parameters.get("id") ?? "" }),
+  ],
   [
     "history",
     (parameters, caseDirectory) =>
@@ -330,6 +363,12 @@ export const API_ROUTES = new Map<
         direction: firstString(parameters.get("direction")) as
           | TimelineDirection
           | undefined,
+        profiles: parameters.getAll("profile"),
+        kinds: parameters.getAll("kind"),
+        search: firstString(parameters.get("search")),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
       }),
   ],
   [
@@ -352,6 +391,11 @@ export const API_ROUTES = new Map<
         host: parameters.get("host") ?? "",
         limit: integerParameter(parameters, "limit"),
         after: firstString(parameters.get("after")),
+        kinds: parameters.getAll("kind"),
+        profiles: parameters.getAll("profile"),
+        commitState: firstString(parameters.get("commit-state")) as
+          | CommitState
+          | undefined,
       }),
   ],
   [
@@ -525,6 +569,7 @@ function handleRequest(
   // Loopback Host allowlist first: defeats DNS-rebinding before any work.
   if (!isLoopbackHost(headerValue(request.headers.host))) {
     sendJson(response, 403, {
+      status: "error",
       code: "FORBIDDEN_HOST",
       message: "The dashboard answers loopback hosts only.",
     });
@@ -533,6 +578,7 @@ function handleRequest(
   // The dashboard is strictly read-only: only GET is ever answered.
   if (request.method !== "GET" && request.method !== "HEAD") {
     sendJson(response, 405, {
+      status: "error",
       code: "METHOD_NOT_ALLOWED",
       message: "The read-only dashboard answers GET requests only.",
     });
@@ -569,6 +615,7 @@ function handleRequest(
     // read from the URL, so it cannot leak through logs or referrers.
     if (!tokensMatch(token, headerValue(request.headers[TOKEN_HEADER]))) {
       sendJson(response, 401, {
+        status: "error",
         code: "UNAUTHORIZED",
         message: "A valid per-run dashboard token is required.",
       });
@@ -576,6 +623,7 @@ function handleRequest(
     }
     if (!isSameOriginApiRequest(request)) {
       sendJson(response, 403, {
+        status: "error",
         code: "FORBIDDEN_ORIGIN",
         message: "The dashboard accepts same-origin loopback requests only.",
       });
@@ -594,6 +642,7 @@ function handleRequest(
         return;
       }
       sendJson(response, 500, {
+        status: "error",
         code: "DASHBOARD_ERROR",
         message: "The dashboard could not read the Case.",
       });
@@ -602,6 +651,7 @@ function handleRequest(
   }
 
   sendJson(response, 404, {
+    status: "error",
     code: "NOT_FOUND",
     message: "No such dashboard resource.",
   });

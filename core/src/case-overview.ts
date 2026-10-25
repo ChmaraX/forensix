@@ -1,8 +1,6 @@
-import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
+import type { DatabaseSync } from "node:sqlite";
 
-import { CASE_FILENAME } from "./case.js";
+import { openCaseReadOnly } from "./case.js";
 import { ForensixError } from "./errors.js";
 import { tableExists } from "./sqlite-artifact.js";
 
@@ -105,13 +103,7 @@ const ARTIFACT_TABLES: readonly ArtifactTable[] = [
   { artifact: "Cache", resultsTable: "cache_artifact_results" },
 ];
 
-function openCase(caseDirectory: string): DatabaseSync {
-  const url = pathToFileURL(join(resolve(caseDirectory), CASE_FILENAME));
-  url.searchParams.set("immutable", "1");
-  return new DatabaseSync(url.href, { readOnly: true, readBigInts: true });
-}
-
-function readCaseId(database: DatabaseSync): string {
+export function readCaseId(database: DatabaseSync): string {
   const caseRow = database
     .prepare("SELECT case_id FROM case_info LIMIT 1")
     .get();
@@ -223,20 +215,25 @@ function buildStatement(
  * is read. The dashboard shows this above every list.
  */
 export function queryCompleteness(input: OverviewQuery): CaseCompleteness {
-  const database = openCase(input.caseDirectory);
+  const database = openCaseReadOnly(input.caseDirectory, { readBigInts: true });
   try {
     const caseId = readCaseId(database);
     return {
       status: "ok",
       command: "completeness",
       caseId,
-      statements: ARTIFACT_TABLES.map((table) =>
-        buildStatement(database, table),
-      ),
+      statements: readCompletenessStatements(database),
     };
   } finally {
     database.close();
   }
+}
+
+/** Every artifact's Completeness Statement, read from an open Case. */
+export function readCompletenessStatements(
+  database: DatabaseSync,
+): readonly CompletenessStatement[] {
+  return ARTIFACT_TABLES.map((table) => buildStatement(database, table));
 }
 
 /**
@@ -244,33 +241,38 @@ export function queryCompleteness(input: OverviewQuery): CaseCompleteness {
  * artifact type. It backs the multi-Profile filter shared by all lists.
  */
 export function queryProfiles(input: OverviewQuery): CaseProfiles {
-  const database = openCase(input.caseDirectory);
+  const database = openCaseReadOnly(input.caseDirectory, { readBigInts: true });
   try {
     const caseId = readCaseId(database);
-    const profiles = new Set<string>();
-    for (const table of ARTIFACT_TABLES) {
-      if (!tableExists(database, table.resultsTable)) {
-        continue;
-      }
-      const rows = database
-        .prepare(
-          `SELECT DISTINCT profile_path
-             FROM ${table.resultsTable}
-            WHERE active = 1
-            ORDER BY profile_path`,
-        )
-        .all() as unknown as { readonly profile_path: string }[];
-      for (const row of rows) {
-        profiles.add(row.profile_path);
-      }
-    }
     return {
       status: "ok",
       command: "profiles",
       caseId,
-      profiles: [...profiles].sort((left, right) => left.localeCompare(right)),
+      profiles: readActiveProfiles(database),
     };
   } finally {
     database.close();
   }
+}
+
+/** The distinct Profiles with an active artifact result, sorted. */
+export function readActiveProfiles(database: DatabaseSync): readonly string[] {
+  const profiles = new Set<string>();
+  for (const table of ARTIFACT_TABLES) {
+    if (!tableExists(database, table.resultsTable)) {
+      continue;
+    }
+    const rows = database
+      .prepare(
+        `SELECT DISTINCT profile_path
+           FROM ${table.resultsTable}
+          WHERE active = 1
+          ORDER BY profile_path`,
+      )
+      .all() as unknown as { readonly profile_path: string }[];
+    for (const row of rows) {
+      profiles.add(row.profile_path);
+    }
+  }
+  return [...profiles].sort((left, right) => left.localeCompare(right));
 }

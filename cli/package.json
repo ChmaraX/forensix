@@ -14,7 +14,7 @@
     "@forensix/server": "workspace:*"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copy-skill.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }
 }

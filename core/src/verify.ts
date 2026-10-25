@@ -44,8 +44,13 @@ export interface WorkingCopyVerification {
   readonly sources: readonly WorkingCopySourceVerification[];
 }
 
-export interface AnalysisPreflightResult extends WorkingCopyVerification {
+export interface AnalysisPreflightResult extends Omit<
+  WorkingCopyVerification,
+  "status"
+> {
+  readonly status: "ok";
   readonly command: "analyse";
+  readonly workingCopyVerification: "verified";
   readonly analysisStatus: "ready";
   readonly artifactCount: 0;
 }
@@ -437,10 +442,13 @@ export async function verifyWorkingCopy(
 export async function preflightAnalysis(
   caseDirectory: string,
 ): Promise<AnalysisPreflightResult> {
-  const verification = await verifyWorkingCopy(caseDirectory);
+  const { status: workingCopyVerification, ...verification } =
+    await verifyWorkingCopy(caseDirectory);
   return {
-    ...verification,
+    status: "ok",
     command: "analyse",
+    workingCopyVerification,
+    ...verification,
     analysisStatus: "ready",
     artifactCount: 0,
   };

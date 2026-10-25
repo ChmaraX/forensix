@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
@@ -18,6 +18,8 @@ import {
 } from "./manifest.js";
 
 export const CASE_SCHEMA_VERSION = 2;
+/** `PRAGMA application_id` of every Case database ("FXJ2"). */
+const CASE_APPLICATION_ID = 0x46584a32;
 export const CASE_FILENAME = "case.fxdb";
 export const TOOL_VERSION = "2.0.0-alpha.1";
 
@@ -157,7 +159,7 @@ function createSchema(database: DatabaseSync): void {
     PRAGMA foreign_keys = ON;
     PRAGMA journal_mode = WAL;
     PRAGMA synchronous = FULL;
-    PRAGMA application_id = 0x46584A32;
+    PRAGMA application_id = ${CASE_APPLICATION_ID};
     PRAGMA user_version = ${CASE_SCHEMA_VERSION};
 
     CREATE TABLE case_info (
@@ -484,33 +486,107 @@ export function createCaseDatabase(options: CreateCaseDatabaseOptions): void {
   }
 }
 
-function openCaseDatabase(caseDirectory: string): {
+export interface OpenCaseOptions {
+  /** Return SQLite INTEGER columns as bigint (the list queries do). */
+  readonly readBigInts?: boolean;
+}
+
+/**
+ * The one read-only Case opener every read path uses. It opens `case.fxdb`
+ * immutable and read-only, then proves the file is a Case database by
+ * reading its identity row, so every caller sees the same typed errors:
+ *
+ *  - the Case directory or its `case.fxdb` does not exist: `CASE_NOT_FOUND`;
+ *  - the path is not a directory, or `case.fxdb` is not a SQLite Case
+ *    database: `CASE_INVALID`.
+ *
+ * It writes nothing and holds no lock (`immutable=1`).
+ */
+export function openCaseReadOnly(
+  caseDirectory: string,
+  options: OpenCaseOptions = {},
+): DatabaseSync {
+  return openCaseDatabase(caseDirectory, options).database;
+}
+
+/**
+ * Proves the file is a ForensiX Case database, not only a readable SQLite
+ * file: the application id that `createCaseDatabase` stamps, a known schema version,
+ * and exactly one Case identity row.
+ */
+function assertCaseIdentity(database: DatabaseSync): void {
+  const pragma = (name: string): bigint | number | undefined => {
+    const row = database.prepare(`PRAGMA ${name}`).get() as
+      | Record<string, bigint | number>
+      | undefined;
+    return row === undefined ? undefined : Object.values(row)[0];
+  };
+  const applicationId = Number(pragma("application_id"));
+  const userVersion = Number(pragma("user_version"));
+  if (applicationId !== CASE_APPLICATION_ID) {
+    throw new Error("The database is not a ForensiX Case (application id).");
+  }
+  if (userVersion < 1 || userVersion > CASE_SCHEMA_VERSION) {
+    throw new Error("The Case schema version is not supported.");
+  }
+  const rows = database
+    .prepare("SELECT case_id FROM case_info LIMIT 2")
+    .all() as { readonly case_id: unknown }[];
+  if (rows.length !== 1 || typeof rows[0]?.case_id !== "string") {
+    throw new Error("The Case identity row is missing or not unique.");
+  }
+}
+
+function openCaseDatabase(
+  caseDirectory: string,
+  options: OpenCaseOptions = {},
+): {
   readonly database: DatabaseSync;
   readonly databasePath: string;
   readonly resolvedCaseDirectory: string;
 } {
   const resolvedCaseDirectory = resolve(caseDirectory);
   const databasePath = join(resolvedCaseDirectory, CASE_FILENAME);
+  if (!existsSync(resolvedCaseDirectory)) {
+    throw new ForensixError(
+      "CASE_NOT_FOUND",
+      `Case directory does not exist: ${resolvedCaseDirectory}`,
+      { caseDirectory: resolvedCaseDirectory },
+    );
+  }
+  if (!statSync(resolvedCaseDirectory).isDirectory()) {
+    throw new ForensixError(
+      "CASE_INVALID",
+      `Case path is not a directory: ${resolvedCaseDirectory}`,
+      { caseDirectory: resolvedCaseDirectory },
+    );
+  }
   if (!existsSync(databasePath)) {
     throw new ForensixError(
       "CASE_NOT_FOUND",
       `Case file does not exist: ${databasePath}`,
-      { case_directory: resolvedCaseDirectory },
+      { caseDirectory: resolvedCaseDirectory },
     );
   }
+  let database: DatabaseSync | undefined;
   try {
+    if (!statSync(databasePath).isFile()) {
+      throw new Error("Case file is not a regular file.");
+    }
     const databaseUrl = pathToFileURL(databasePath);
     databaseUrl.searchParams.set("immutable", "1");
-    return {
-      database: openDatabaseSync(databaseUrl.href),
-      databasePath,
-      resolvedCaseDirectory,
-    };
+    database = openDatabaseSync(databaseUrl.href, {
+      readOnly: true,
+      readBigInts: options.readBigInts ?? false,
+    });
+    assertCaseIdentity(database);
+    return { database, databasePath, resolvedCaseDirectory };
   } catch (error) {
+    database?.close();
     throw new ForensixError(
       "CASE_INVALID",
-      `Case file cannot be opened: ${databasePath}`,
-      { case_directory: resolvedCaseDirectory },
+      `Case file is not a valid Case database: ${databasePath}`,
+      { caseDirectory: resolvedCaseDirectory },
       { cause: error },
     );
   }
@@ -566,7 +642,7 @@ export function loadCaseSources(
       .all() as unknown as SourceRow[];
     if (sourceRows.length === 0) {
       throw new ForensixError("CASE_INVALID", "Case file contains no Source.", {
-        case_directory: resolvedCaseDirectory,
+        caseDirectory: resolvedCaseDirectory,
       });
     }
 
@@ -582,7 +658,7 @@ export function loadCaseSources(
         throw new ForensixError(
           "CASE_INVALID",
           "Case Source contract is not supported.",
-          { case_directory: resolvedCaseDirectory },
+          { caseDirectory: resolvedCaseDirectory },
         );
       }
       const rows = database
@@ -655,7 +731,7 @@ export function loadCaseSources(
     throw new ForensixError(
       "CASE_INVALID",
       `Case file cannot be read: ${databasePath}`,
-      { case_directory: resolvedCaseDirectory },
+      { caseDirectory: resolvedCaseDirectory },
       { cause: error },
     );
   } finally {
@@ -677,7 +753,7 @@ export function caseArtifactAbsolutePath(
 ): string {
   if (isAbsolute(artifactPath)) {
     throw new ForensixError("CASE_INVALID", "Case artifact path is absolute.", {
-      artifact_path: artifactPath,
+      artifactPath: artifactPath,
     });
   }
 
@@ -693,7 +769,7 @@ export function caseArtifactAbsolutePath(
     throw new ForensixError(
       "CASE_INVALID",
       "Case artifact path escapes the Case Directory.",
-      { artifact_path: artifactPath },
+      { artifactPath: artifactPath },
     );
   }
 
@@ -713,7 +789,7 @@ export function caseArtifactAbsolutePath(
       throw new ForensixError(
         "CASE_INVALID",
         "Case artifact path escapes the Case Directory.",
-        { artifact_path: artifactPath },
+        { artifactPath: artifactPath },
       );
     }
   } catch (error) {
@@ -731,7 +807,7 @@ export function caseArtifactAbsolutePath(
     throw new ForensixError(
       "CASE_INVALID",
       "Case artifact path cannot be resolved.",
-      { artifact_path: artifactPath },
+      { artifactPath: artifactPath },
       { cause: error },
     );
   }
@@ -747,7 +823,7 @@ export function workingCopyAbsolutePath(
       throw new ForensixError(
         "CASE_INVALID",
         "Absolute Working Copy path is not absolute.",
-        { working_copy_path: source.workingCopyPath },
+        { workingCopyPath: source.workingCopyPath },
       );
     }
     return resolve(source.workingCopyPath);
@@ -756,7 +832,7 @@ export function workingCopyAbsolutePath(
     throw new ForensixError(
       "CASE_INVALID",
       "Relative Working Copy path is absolute.",
-      { working_copy_path: source.workingCopyPath },
+      { workingCopyPath: source.workingCopyPath },
     );
   }
 
@@ -774,7 +850,7 @@ export function workingCopyAbsolutePath(
     throw new ForensixError(
       "CASE_INVALID",
       "Relative Working Copy path escapes the Case Directory.",
-      { working_copy_path: source.workingCopyPath },
+      { workingCopyPath: source.workingCopyPath },
     );
   }
   let physicalCaseDirectory: string;
@@ -794,7 +870,7 @@ export function workingCopyAbsolutePath(
     throw new ForensixError(
       "CASE_INVALID",
       "Relative Working Copy path cannot be resolved.",
-      { working_copy_path: source.workingCopyPath },
+      { workingCopyPath: source.workingCopyPath },
       { cause: error },
     );
   }
@@ -811,7 +887,7 @@ export function workingCopyAbsolutePath(
     throw new ForensixError(
       "CASE_INVALID",
       "Relative Working Copy path escapes the Case Directory.",
-      { working_copy_path: source.workingCopyPath },
+      { workingCopyPath: source.workingCopyPath },
     );
   }
   return workingCopyPath;

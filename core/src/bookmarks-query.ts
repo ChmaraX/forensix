@@ -12,6 +12,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified } from "./record-store.js";
 import {
   createFinding,
   type CommitState,
@@ -38,7 +39,7 @@ export interface BookmarkQuery {
 export interface BookmarkPage {
   readonly status: "ok";
   readonly command: "bookmarks";
-  readonly items: readonly Finding[];
+  readonly items: readonly Identified<Finding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -75,6 +76,7 @@ const SORTS: Readonly<Record<BookmarkSort, SortDefinition>> = {
 
 const BOOKMARK_SPEC: FindingQuerySpec<BookmarkQuery, Finding> = {
   label: "Bookmarks",
+  store: "bookmarks",
   analysisNotFound: "Case has no Bookmarks analysis. Run analyse first.",
   schemaTable: "bookmarks_findings",
   mainTable: "bookmarks_findings",
@@ -86,11 +88,11 @@ const BOOKMARK_SPEC: FindingQuerySpec<BookmarkQuery, Finding> = {
     const { provenance, fields } = decodeRecordJson(
       row,
       "Case contains invalid Bookmark Finding JSON.",
-      "finding_id",
+      "findingId",
     );
     const commitState = assertCommitState(
       row.commit_state,
-      "finding_id",
+      "findingId",
       row.entity_id.toString(),
     );
     return createFinding({

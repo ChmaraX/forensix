@@ -104,7 +104,7 @@ function readSchema(database: DatabaseSync): CookieSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       "Cookies meta.version is missing or unsupported.",
-      { recorded_version: versionText ?? null },
+      { recordedVersion: versionText ?? null },
     );
   }
 
@@ -116,7 +116,7 @@ function readSchema(database: DatabaseSync): CookieSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       `Cookies schema version ${version} is missing required columns.`,
-      { version, missing_columns: missing },
+      { version, missingColumns: missing },
     );
   }
 

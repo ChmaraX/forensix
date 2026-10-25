@@ -218,8 +218,14 @@ export interface CacheAnalysisSummary {
   readonly findingCount: number;
 }
 
-export interface AnalyseCaseResult extends WorkingCopyVerification {
+export interface AnalyseCaseResult extends Omit<
+  WorkingCopyVerification,
+  "status"
+> {
+  readonly status: "ok";
   readonly command: "analyse";
+  /** The Working Copy was verified before and after the run. */
+  readonly workingCopyVerification: "verified";
   readonly analysisStatus: "ready";
   readonly artifactCount: number;
   readonly runId: string;
@@ -505,9 +511,12 @@ export async function analyseCase(
   const cacheUnavailable = cacheArtifacts.filter(
     (artifact) => artifact.status === "unavailable",
   );
+  const { status: workingCopyVerification, ...verified } = verification;
   return {
-    ...verification,
+    status: "ok",
     command: "analyse",
+    workingCopyVerification,
+    ...verified,
     analysisStatus: "ready",
     artifactCount:
       analysed.length +

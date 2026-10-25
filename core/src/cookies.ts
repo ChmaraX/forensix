@@ -542,7 +542,7 @@ async function analyseProfile(options: {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Cookie recovery content has no resolvable sidecar Manifest entry.",
-        { database_path: databasePath },
+        { databasePath: databasePath },
       );
     }
     const committed = buildCookies({

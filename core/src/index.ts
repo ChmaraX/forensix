@@ -3,6 +3,8 @@ export {
   CASE_SCHEMA_VERSION,
   TOOL_VERSION,
   caseArtifactAbsolutePath,
+  openCaseReadOnly,
+  type OpenCaseOptions,
   loadCaseSource,
   loadCaseSources,
   workingCopyAbsolutePath,
@@ -167,6 +169,7 @@ export {
   type OverviewArtifact,
 } from "./case-overview.js";
 export {
+  TIMELINE_KINDS,
   queryTimeline,
   type TimelineDirection,
   type TimelinePage,
@@ -192,6 +195,7 @@ export {
   type SiteFaviconsResult,
 } from "./site-favicons-query.js";
 export {
+  SITE_ARTIFACT_KINDS,
   querySiteFindings,
   querySiteHosts,
   type SiteArtifactKind,
@@ -335,5 +339,46 @@ export {
   type PersistedIdentityCandidate,
 } from "./case-findings.js";
 export { openDatabaseSync, type OpenDatabaseConfig } from "./sqlite-open.js";
+export {
+  RECORD_STORES,
+  RECORD_STORE_KEYS,
+  parseRecordId,
+  recordId,
+  type Identified,
+  type IdentityCandidateRecord,
+  type RecordStore,
+  type RecordStoreKey,
+  type StoredRecord,
+} from "./record-store.js";
+export {
+  SECRET_FIELDS_BY_KIND,
+  isSecretField,
+  limitSupportingRows,
+  redactSecrets,
+  type RedactedRecord,
+} from "./record-redaction.js";
+export {
+  COUNT_BUILT_IN_FIELDS,
+  getRecord,
+  queryCount,
+  querySchema,
+  querySummary,
+  type CountBucket,
+  type CountQuery,
+  type CountResult,
+  type GetRecordQuery,
+  type GetRecordResult,
+  type SchemaField,
+  type SchemaKind,
+  type SchemaQuery,
+  type SchemaResult,
+  type SchemaValueType,
+  type SummaryAnalysis,
+  type SummaryCompleteness,
+  type SummaryQuery,
+  type SummaryRecordCount,
+  type SummaryResult,
+  type SummarySource,
+} from "./record-queries.js";
 
 export const MINIMUM_NODE_VERSION = "24.15.0" as const;

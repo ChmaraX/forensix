@@ -12,6 +12,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified } from "./record-store.js";
 import {
   createFinding,
   type CommitState,
@@ -40,7 +41,7 @@ export interface CredentialQuery {
 export interface CredentialPage {
   readonly status: "ok";
   readonly command: "credentials";
-  readonly items: readonly Finding[];
+  readonly items: readonly Identified<Finding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -68,6 +69,7 @@ const SORTS: Readonly<Record<CredentialSort, SortDefinition>> = {
 
 const CREDENTIAL_SPEC: FindingQuerySpec<CredentialQuery, Finding> = {
   label: "Credential",
+  store: "logins",
   analysisNotFound: "Case has no Login Data analysis. Run analyse first.",
   schemaTable: "login_data_findings",
   mainTable: "login_data_findings",
@@ -79,11 +81,11 @@ const CREDENTIAL_SPEC: FindingQuerySpec<CredentialQuery, Finding> = {
     const { provenance, fields } = decodeRecordJson(
       row,
       "Case contains invalid Finding JSON.",
-      "finding_id",
+      "findingId",
     );
     const commitState = assertCommitState(
       row.commit_state,
-      "finding_id",
+      "findingId",
       row.entity_id.toString(),
     );
     return createFinding({

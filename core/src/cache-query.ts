@@ -11,6 +11,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified, RecordStoreKey } from "./record-store.js";
 import {
   createCandidate,
   createFinding,
@@ -38,7 +39,7 @@ export interface CachePage {
   readonly status: "ok";
   readonly command: "cache";
   readonly recordType: CacheRecordType;
-  readonly items: readonly (Finding | Candidate)[];
+  readonly items: readonly Identified<Finding | Candidate>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -77,6 +78,7 @@ const CANDIDATE_SORT_SQL: Readonly<Record<string, SortDefinition>> = {
  * single code path instead of a cluster of parallel ternaries.
  */
 interface RecordTypeConfig {
+  readonly store: RecordStoreKey;
   readonly mainTable: string;
   readonly idColumn: string;
   readonly kindFilter: {
@@ -95,6 +97,7 @@ const CACHE_INVALID_JSON = "Case contains invalid Cache record JSON.";
 const RECORD_TYPE_CONFIG: Readonly<Record<CacheRecordType, RecordTypeConfig>> =
   {
     finding: {
+      store: "cache",
       mainTable: "cache_findings",
       idColumn: "finding_id",
       kindFilter: { column: "finding_kind", value: CACHE_FINDING_KIND },
@@ -106,11 +109,11 @@ const RECORD_TYPE_CONFIG: Readonly<Record<CacheRecordType, RecordTypeConfig>> =
         const { provenance, fields } = decodeRecordJson(
           row,
           CACHE_INVALID_JSON,
-          "row_id",
+          "rowId",
         );
         const commitState = assertCommitState(
           row.commit_state,
-          "row_id",
+          "rowId",
           row.entity_id.toString(),
         );
         return createFinding({
@@ -123,6 +126,7 @@ const RECORD_TYPE_CONFIG: Readonly<Record<CacheRecordType, RecordTypeConfig>> =
       },
     },
     candidate: {
+      store: "cache-candidates",
       mainTable: "cache_candidates",
       idColumn: "candidate_id",
       kindFilter: null,
@@ -135,7 +139,7 @@ const RECORD_TYPE_CONFIG: Readonly<Record<CacheRecordType, RecordTypeConfig>> =
         const { provenance, fields } = decodeRecordJson(
           row,
           CACHE_INVALID_JSON,
-          "row_id",
+          "rowId",
         );
         return createCandidate({
           candidateKind: row.candidate_kind as string,
@@ -154,6 +158,7 @@ function createCacheSpec(
   const config = RECORD_TYPE_CONFIG[recordType];
   return {
     label: "Cache",
+    store: config.store,
     analysisNotFound: "Case has no Cache analysis. Run analyse first.",
     schemaTable: "cache_findings",
     mainTable: config.mainTable,

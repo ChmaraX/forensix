@@ -12,6 +12,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified } from "./record-store.js";
 import {
   createFinding,
   type CommitState,
@@ -43,7 +44,7 @@ export interface DownloadQuery {
 export interface DownloadPage {
   readonly status: "ok";
   readonly command: "downloads";
-  readonly items: readonly Finding[];
+  readonly items: readonly Identified<Finding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -70,6 +71,7 @@ const SORTS: Readonly<Record<DownloadSort, SortDefinition>> = {
 
 const DOWNLOAD_SPEC: FindingQuerySpec<DownloadQuery, Finding> = {
   label: "Downloads",
+  store: "downloads",
   analysisNotFound: "Case has no Downloads analysis. Run analyse first.",
   schemaTable: "downloads_findings",
   mainTable: "downloads_findings",
@@ -81,11 +83,11 @@ const DOWNLOAD_SPEC: FindingQuerySpec<DownloadQuery, Finding> = {
     const { provenance, fields } = decodeRecordJson(
       row,
       "Case contains invalid Downloads Finding JSON.",
-      "finding_id",
+      "findingId",
     );
     const commitState = assertCommitState(
       row.commit_state,
-      "finding_id",
+      "findingId",
       row.entity_id.toString(),
     );
     return createFinding({

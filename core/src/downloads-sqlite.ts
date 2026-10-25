@@ -150,7 +150,7 @@ function readSchema(database: DatabaseSync): DownloadsSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       "History meta.version is missing or unsupported.",
-      { recorded_version: versionText ?? null },
+      { recordedVersion: versionText ?? null },
     );
   }
 
@@ -162,7 +162,7 @@ function readSchema(database: DatabaseSync): DownloadsSchema {
     throw new ForensixError(
       "ANALYSIS_FAILED",
       `Downloads schema version ${version} is missing required downloads columns.`,
-      { version, missing_columns: missing },
+      { version, missingColumns: missing },
     );
   }
 

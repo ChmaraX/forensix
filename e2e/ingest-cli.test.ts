@@ -373,8 +373,9 @@ describe("compiled analyzer CLI ingest", () => {
     // unavailable and the analysis exits failed (3).
     expect(analysis.status).toBe(3);
     expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
-      status: "verified",
+      status: "ok",
       command: "analyse",
+      workingCopyVerification: "verified",
       analysisStatus: "ready",
       exitState: "failed",
       evidenceSetDigest: output.evidenceSetDigest,

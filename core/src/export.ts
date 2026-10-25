@@ -1,13 +1,12 @@
 import { createHash } from "node:crypto";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { pathToFileURL } from "node:url";
+import type { DatabaseSync } from "node:sqlite";
 
 import {
-  CASE_FILENAME,
   TOOL_VERSION,
   loadCaseSources,
+  openCaseReadOnly,
   type CaseSourceRecord,
 } from "./case.js";
 import { ForensixError } from "./errors.js";
@@ -225,7 +224,7 @@ function canonicalize(value: unknown): CanonicalValue {
   return value as CanonicalValue;
 }
 
-function canonicalJson(value: unknown): string {
+export function canonicalJson(value: unknown): string {
   return JSON.stringify(canonicalize(value));
 }
 
@@ -304,16 +303,10 @@ function parseJsonColumn<T>(value: string, findingId: string): T {
     throw new ForensixError(
       "CASE_INVALID",
       "Case contains invalid Extract row JSON.",
-      { record_id: findingId },
+      { recordId: findingId },
       { cause: error },
     );
   }
-}
-
-function openCase(caseDirectory: string): DatabaseSync {
-  const url = pathToFileURL(join(resolve(caseDirectory), CASE_FILENAME));
-  url.searchParams.set("immutable", "1");
-  return new DatabaseSync(url.href, { readOnly: true, readBigInts: true });
 }
 
 function findingSchemaExists(database: DatabaseSync): boolean {
@@ -353,7 +346,7 @@ function resolveOutDirectory(
     throw new ForensixError(
       "INVALID_ARGUMENT",
       "The Extract output directory must be outside the Case Directory.",
-      { out_directory: resolvedOut, case_directory: resolvedCase },
+      { outDirectory: resolvedOut, caseDirectory: resolvedCase },
     );
   }
   return resolvedOut;
@@ -366,7 +359,7 @@ async function assertEmptyOutDirectory(outDirectory: string): Promise<void> {
     throw new ForensixError(
       "INVALID_ARGUMENT",
       "The Extract output directory is not empty.",
-      { out_directory: outDirectory },
+      { outDirectory: outDirectory },
     );
   }
 }
@@ -774,7 +767,7 @@ export async function exportCase(
   await assertEmptyOutDirectory(outDirectory);
 
   const sources = loadCaseSources(caseDirectory);
-  const database = openCase(caseDirectory);
+  const database = openCaseReadOnly(caseDirectory, { readBigInts: true });
   let caseInfo: ReturnType<typeof loadCaseInfo>;
   let completeness: ExtractCompletenessStatement;
   let activeRuns: readonly RunRow[];

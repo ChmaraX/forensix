@@ -12,6 +12,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified } from "./record-store.js";
 import {
   createFinding,
   type CommitState,
@@ -43,7 +44,7 @@ export interface CookieQuery {
 export interface CookiePage {
   readonly status: "ok";
   readonly command: "cookies";
-  readonly items: readonly Finding[];
+  readonly items: readonly Identified<Finding>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -75,6 +76,7 @@ const SORTS: Readonly<Record<CookieSort, SortDefinition>> = {
 
 const COOKIE_SPEC: FindingQuerySpec<CookieQuery, Finding> = {
   label: "Cookies",
+  store: "cookies",
   analysisNotFound: "Case has no Cookies analysis. Run analyse first.",
   schemaTable: "cookie_findings",
   mainTable: "cookie_findings",
@@ -86,11 +88,11 @@ const COOKIE_SPEC: FindingQuerySpec<CookieQuery, Finding> = {
     const { provenance, fields } = decodeRecordJson(
       row,
       "Case contains invalid Cookie Finding JSON.",
-      "finding_id",
+      "findingId",
     );
     const commitState = assertCommitState(
       row.commit_state,
-      "finding_id",
+      "findingId",
       row.entity_id.toString(),
     );
     return createFinding({

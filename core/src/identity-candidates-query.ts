@@ -10,6 +10,7 @@ import {
   type FindingQuerySpec,
   type SortDefinition,
 } from "./finding-query.js";
+import type { Identified } from "./record-store.js";
 import { ForensixError } from "./errors.js";
 import type { CandidateCategory } from "./identity-candidates.js";
 import type { ForensicFields, Provenance } from "./forensic-model.js";
@@ -53,7 +54,7 @@ export interface CandidateRecord {
 export interface CandidatePage {
   readonly status: "ok";
   readonly command: "candidates";
-  readonly items: readonly CandidateRecord[];
+  readonly items: readonly Identified<CandidateRecord>[];
   readonly nextCursor: string | null;
   readonly limit: number;
 }
@@ -81,6 +82,7 @@ const SORT_DEFINITIONS: Readonly<Record<CandidateSort, SortDefinition>> = {
 
 const CANDIDATE_SPEC: FindingQuerySpec<CandidateQuery, CandidateRecord> = {
   label: "Candidates",
+  store: "identity-candidates",
   analysisNotFound: "Case has no Candidate analysis. Run analyse first.",
   schemaTable: "identity_candidates",
   mainTable: "identity_candidates",
@@ -93,13 +95,13 @@ const CANDIDATE_SPEC: FindingQuerySpec<CandidateQuery, CandidateRecord> = {
     const { provenance, fields } = decodeRecordJson(
       row,
       "Case contains invalid Candidate JSON.",
-      "candidate_id",
+      "candidateId",
     );
     if (row.category !== "identity" && row.category !== "behavior") {
       throw new ForensixError(
         "CASE_INVALID",
         "Case contains an invalid Candidate category.",
-        { candidate_id: row.entity_id.toString() },
+        { candidateId: row.entity_id.toString() },
       );
     }
     return {

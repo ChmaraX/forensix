@@ -1,7 +1,7 @@
 /**
  * The design mock Case's context data: browser and profile metadata,
  * Candidates, topic Candidates and the Completeness Statement. Design-only,
- * like case-data.mjs.
+ * like case-data.mjs; the people and accounts come from scenario.mjs.
  */
 
 import {
@@ -13,262 +13,186 @@ import {
   SOURCE_USER_DATA,
   absent,
   provenance,
-  titleFor,
   unavailable,
   value,
 } from "./case-kit.mjs";
+import { PERSONA, siteOf } from "./scenario.mjs";
 
 /* -------------------------------- Metadata -------------------------------- */
 
 export function buildMetadata() {
-  const rows = [];
-  rows.push({
-    recordType: "finding",
-    findingKind: "browser_metadata",
-    profile: PROFILE_DEFAULT,
-    commitState: "committed",
-    provenance: provenance("Local State", "browser", SOURCE_USER_DATA),
-    fields: {
-      scope: value("browser"),
-      chromeVersion: value("123.0.6312.122"),
-      variationsCountry: value("us"),
-      lastUsedProfile: value("Default"),
-      profileCount: value("2"),
-      osCryptKeyPresent: value(true),
-      osCryptAppBoundKeyPresent: value(false),
+  const screen = {
+    workAreaLeft: value("0"),
+    workAreaTop: value("0"),
+    workAreaRight: value("1512"),
+    workAreaBottom: value("944"),
+    screenWorkArea: value("1512x944"),
+  };
+  return [
+    {
+      recordType: "finding",
+      findingKind: "browser_metadata",
+      profile: PROFILE_DEFAULT,
+      commitState: "committed",
+      provenance: provenance("Local State", "browser", SOURCE_USER_DATA),
+      fields: {
+        scope: value("browser"),
+        chromeVersion: value("123.0.6312.122"),
+        variationsCountry: value("gb"),
+        lastUsedProfile: value(PROFILE_DEFAULT),
+        profileCount: value("2"),
+        osCryptKeyPresent: value(true),
+        osCryptAppBoundKeyPresent: value(false),
+      },
     },
-  });
-  rows.push({
-    recordType: "finding",
-    findingKind: "profile_metadata",
-    profile: PROFILE_DEFAULT,
-    commitState: "committed",
-    provenance: provenance("Preferences", PROFILE_DEFAULT, SOURCE_USER_DATA),
-    fields: {
-      scope: value("profile"),
-      profileName: value("Marcus Sandoval"),
-      createdByVersion: value("118.0.5993.90"),
-      exitType: value("Normal"),
-      accountCount: value("1"),
-      accountEmail: value("m.sandoval83@gmail.com"),
-      accountGaiaId: value("108234871029384756"),
-      accountFullName: value("Marcus Sandoval"),
-      accountGivenName: value("Marcus"),
-      accountLocale: value("en-US"),
-      accountHostedDomain: unavailable(
-        "column not present in this Chrome version",
-      ),
-      workAreaLeft: value("0"),
-      workAreaTop: value("0"),
-      workAreaRight: value("1920"),
-      workAreaBottom: value("1040"),
-      screenWorkArea: value("1920x1040"),
-      avatarIcon: value("chrome://theme/IDR_PROFILE_AVATAR_26"),
-      gaiaName: value("Marcus Sandoval"),
-      gaiaGivenName: value("Marcus"),
-      gaiaId: value("108234871029384756"),
-      gaiaPictureFileName: absent(),
-      infoCacheUserName: value("m.sandoval83@gmail.com"),
-      isUsingDefaultAvatar: value(false),
-      isUsingDefaultName: value(false),
+    {
+      recordType: "finding",
+      findingKind: "profile_metadata",
+      profile: PROFILE_DEFAULT,
+      commitState: "committed",
+      provenance: provenance("Preferences", PROFILE_DEFAULT, SOURCE_USER_DATA),
+      fields: {
+        scope: value("profile"),
+        profileName: value(`${PERSONA.givenName} (${PERSONA.company})`),
+        createdByVersion: value("114.0.5735.198"),
+        exitType: value("Normal"),
+        accountCount: value("1"),
+        accountEmail: value(PERSONA.workEmail),
+        accountGaiaId: value("114827301928374650"),
+        accountFullName: value(PERSONA.fullName),
+        accountGivenName: value(PERSONA.givenName),
+        accountLocale: value("en-GB"),
+        accountHostedDomain: value("halden.io"),
+        ...screen,
+        avatarIcon: value("chrome://theme/IDR_PROFILE_AVATAR_26"),
+        gaiaName: value(PERSONA.fullName),
+        gaiaGivenName: value(PERSONA.givenName),
+        gaiaId: value("114827301928374650"),
+        gaiaPictureFileName: absent(),
+        infoCacheUserName: value(PERSONA.workEmail),
+        isUsingDefaultAvatar: value(false),
+        isUsingDefaultName: value(false),
+      },
     },
-  });
-  rows.push({
-    recordType: "finding",
-    findingKind: "profile_metadata",
-    profile: PROFILE_SECOND,
-    commitState: "committed",
-    provenance: provenance("Preferences", PROFILE_SECOND, SOURCE_USER_DATA),
-    fields: {
-      scope: value("profile"),
-      profileName: value("Personal"),
-      createdByVersion: value("120.0.6099.199"),
-      exitType: value("Crashed"),
-      accountCount: value("1"),
-      accountEmail: value("m.sandoval.priv@protonmail.com"),
-      accountGaiaId: absent(),
-      accountFullName: unavailable("value could not be decrypted offline"),
-      accountGivenName: absent(),
-      accountLocale: value("en-US"),
-      accountHostedDomain: absent(),
-      workAreaLeft: value("0"),
-      workAreaTop: value("0"),
-      workAreaRight: value("1920"),
-      workAreaBottom: value("1040"),
-      screenWorkArea: value("1920x1040"),
-      avatarIcon: value("chrome://theme/IDR_PROFILE_AVATAR_9"),
-      gaiaName: absent(),
-      gaiaGivenName: absent(),
-      gaiaId: absent(),
-      gaiaPictureFileName: absent(),
-      infoCacheUserName: value("m.sandoval.priv@protonmail.com"),
-      isUsingDefaultAvatar: value(true),
-      isUsingDefaultName: value(true),
+    {
+      recordType: "finding",
+      findingKind: "profile_metadata",
+      profile: PROFILE_SECOND,
+      commitState: "committed",
+      provenance: provenance("Preferences", PROFILE_SECOND, SOURCE_USER_DATA),
+      fields: {
+        scope: value("profile"),
+        profileName: value("Personal"),
+        createdByVersion: value("116.0.5845.187"),
+        exitType: value("Normal"),
+        accountCount: value("1"),
+        accountEmail: value(PERSONA.personalEmail),
+        accountGaiaId: value("103948572610293847"),
+        accountFullName: value(PERSONA.fullName),
+        accountGivenName: unavailable("value could not be decrypted offline"),
+        accountLocale: value("en-GB"),
+        accountHostedDomain: absent(),
+        ...screen,
+        avatarIcon: value("chrome://theme/IDR_PROFILE_AVATAR_9"),
+        gaiaName: value(PERSONA.fullName),
+        gaiaGivenName: value(PERSONA.givenName),
+        gaiaId: value("103948572610293847"),
+        gaiaPictureFileName: absent(),
+        infoCacheUserName: value(PERSONA.personalEmail),
+        isUsingDefaultAvatar: value(true),
+        isUsingDefaultName: value(false),
+      },
     },
-  });
-  return rows;
+  ];
 }
 
 /* ------------------------------- Candidates ------------------------------- */
 
-export function buildCandidates() {
+export function buildCandidates(hostCounts) {
   const identity = [
-    {
-      kind: "identity_email",
-      value: "m.sandoval83@gmail.com",
-      supportingCount: 14,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "identity_email",
-      value: "m.sandoval.priv@protonmail.com",
-      supportingCount: 6,
-      profile: PROFILE_SECOND,
-    },
-    {
-      kind: "identity_name",
-      value: "Marcus Sandoval",
-      supportingCount: 9,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "identity_phone",
-      value: "+1 415 555 0142",
-      supportingCount: 3,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "identity_postal_address",
-      value: "482 Alder Street, San Mateo, CA 94401",
-      supportingCount: 2,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "identity_country",
-      value: "US",
-      supportingCount: 21,
-      profile: PROFILE_DEFAULT,
-    },
+    ["identity_email", PERSONA.workEmail, 31, PROFILE_DEFAULT],
+    ["identity_name", PERSONA.fullName, 18, PROFILE_DEFAULT],
+    ["identity_email", PERSONA.personalEmail, 12, PROFILE_SECOND],
+    ["identity_email", PERSONA.privateEmail, 5, PROFILE_DEFAULT],
+    ["identity_phone", PERSONA.phone, 3, PROFILE_DEFAULT],
+    [
+      "identity_postal_address",
+      `${PERSONA.street}, ${PERSONA.city} ${PERSONA.zip}`,
+      2,
+      PROFILE_DEFAULT,
+    ],
+    ["identity_country", PERSONA.country, 24, PROFILE_DEFAULT],
   ];
   const behavior = [
-    {
-      kind: "behavior_frequent_host",
-      value: "intranet.northfieldpartners.internal",
-      supportingCount: 41,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "behavior_frequent_host",
-      value: "www.coinbase.com",
-      supportingCount: 27,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "behavior_search_query",
-      value: "how to wire transfer internationally",
-      supportingCount: 4,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "behavior_search_query",
-      value: "resignation letter template finance",
-      supportingCount: 2,
-      profile: PROFILE_DEFAULT,
-    },
-    {
-      kind: "behavior_frequent_host",
-      value: "account.protonvpn.com",
-      supportingCount: 11,
-      profile: PROFILE_SECOND,
-    },
+    ["behavior_frequent_host", "app.slack.com", hostCounts["app.slack.com"]],
+    ["behavior_frequent_host", "www.figma.com", hostCounts["www.figma.com"]],
+    [
+      "behavior_frequent_host",
+      "mail.google.com",
+      hostCounts["mail.google.com"],
+    ],
+    ["behavior_search_query", "lumenworks lead product designer salary", 1],
+    ["behavior_search_query", "clear chrome history mac", 1],
   ];
-  const rows = [];
-  identity.forEach((c, i) => {
-    rows.push({
+  return [
+    ...identity.map(([kind, text, count, profile], i) => ({
       recordType: "candidate",
-      candidateKind: c.kind,
+      candidateKind: kind,
       category: "identity",
-      profile: c.profile,
+      profile,
       rank: i + 1,
-      supportingCount: c.supportingCount,
-      provenance: provenance("autofill", 2000 + i),
-      // Matches core's real field key (core/src/identity-candidates.ts
-      // `candidateFields`) — the design mock previously used a different
-      // key ("value") than the real analyzer output, which the client
-      // silently rendered as "absent" instead of the guess.
-      fields: { candidateValue: value(c.value) },
-    });
-  });
-  behavior.forEach((c, i) => {
-    rows.push({
+      supportingCount: count,
+      provenance: provenance("autofill", 900 + i),
+      // core's real field key (core/src/identity-candidates.ts
+      // `candidateFields`).
+      fields: { candidateValue: value(text) },
+    })),
+    ...behavior.map(([kind, text, count], i) => ({
       recordType: "candidate",
-      candidateKind: c.kind,
+      candidateKind: kind,
       category: "behavior",
-      profile: c.profile,
+      profile: PROFILE_DEFAULT,
       rank: i + 1,
-      supportingCount: c.supportingCount,
-      provenance: provenance("visits", 2100 + i),
-      fields: { candidateValue: value(c.value) },
-    });
-  });
-  return rows;
+      supportingCount: count,
+      provenance: provenance("visits", 950 + i),
+      fields: { candidateValue: value(text) },
+    })),
+  ];
 }
 
 /* ---------------------------- Topic candidates ---------------------------- */
 
-export function buildTopicCandidates() {
+export function buildTopicCandidates(hostCounts) {
   const topics = [
-    {
-      label: "cryptocurrency_trading",
-      name: "Cryptocurrency trading",
-      count: 38,
-      url: "https://www.coinbase.com/dashboard",
-    },
-    {
-      label: "active_job_search",
-      name: "Active job search",
-      count: 22,
-      url: "https://www.linkedin.com/jobs/view/394021",
-    },
-    {
-      label: "international_travel_planning",
-      name: "International travel planning",
-      count: 9,
-      url: "https://www.google.com/search?q=flights+to+lisbon",
-    },
-    {
-      label: "personal_finance_management",
-      name: "Personal finance management",
-      count: 17,
-      url: "https://onlinebanking.chase.com/accounts/transfer",
-    },
-    {
-      label: "remote_access_tooling",
-      name: "Remote access tooling",
-      count: 6,
-      url: "https://www.anydesk.com/download",
-    },
+    ["product_design", "Product & UX design", "www.figma.com", 0],
+    ["team_collaboration", "Team collaboration", "app.slack.com", 0],
+    ["job_search", "Job search", "www.linkedin.com", 1],
+    ["file_sharing", "File sharing & cloud storage", "wetransfer.com", 0],
+    ["travel_planning", "Travel planning", "www.airbnb.com", 0],
   ];
-  return topics.map((topic, i) => ({
-    recordType: "candidate",
-    candidateKind: "topic",
-    rank: i + 1,
-    count: topic.count,
-    provenance: provenance("visits", 2200 + i),
-    fields: {
-      topicLabel: value(topic.label),
-      topicName: value(topic.name),
-      specialCategory: absent(),
-      score: value(Math.round((0.94 - i * 0.11) * 100) / 100, {
-        synthetic: true,
-      }),
-      scoreAxis: value("cosine", { synthetic: true }),
-      modelId: value("topic-embed-mini-v2", { synthetic: true }),
-      modelRevision: value("2024-02-01", { synthetic: true }),
-      url: value(topic.url),
-      title: value(titleFor(new URL(topic.url).hostname)),
-    },
-  }));
+  return topics.map(([label, name, host, page], i) => {
+    const [path, title] = siteOf(host).pages[page];
+    return {
+      recordType: "candidate",
+      candidateKind: "topic",
+      rank: i + 1,
+      count: Math.max(2, hostCounts[host] ?? 2),
+      provenance: provenance("visits", 970 + i),
+      fields: {
+        topicLabel: value(label),
+        topicName: value(name),
+        specialCategory: absent(),
+        score: value(Math.round((0.92 - i * 0.09) * 100) / 100, {
+          synthetic: true,
+        }),
+        scoreAxis: value("cosine", { synthetic: true }),
+        modelId: value("topic-embed-mini-v2", { synthetic: true }),
+        modelRevision: value("2024-02-01", { synthetic: true }),
+        url: value(`https://${host}${path}`),
+        title: value(title),
+      },
+    };
+  });
 }
 
 /* ------------------------------ Completeness ------------------------------ */
@@ -288,49 +212,35 @@ const ARTIFACT_TABLES = [
 
 export function buildCompleteness() {
   const statements = ARTIFACT_TABLES.map((artifact) => {
-    // Every database the fixture serves rows for was read: an unreadable
-    // artifact belongs to the `?degraded=1` statement (server.mjs), which
-    // also withholds its rows.
-    const perProfile = PROFILES.map((profile, i) => {
-      const outcome = "produced";
+    // Every database the fixture serves rows for was read. The personal
+    // Profile never filled a form, so it has no Web Data database: one
+    // genuine absence. Unreadable artifacts belong to the `?degraded=1`
+    // statement (server.mjs), which also withholds their rows.
+    const perProfile = PROFILES.map((profile) => {
+      const absentHere = artifact === "Web Data" && profile === PROFILE_SECOND;
       return {
-        sourceId: i === 0 ? SOURCE_IMAGE : SOURCE_USER_DATA,
+        sourceId: SOURCE_IMAGE,
         profile,
         artifact,
         databasePath:
           artifact === "Preferences"
             ? `${profile}/Preferences`
-            : `${profile}/${artifact.replace(/ /g, " ")}`,
-        outcome,
-        reason: null,
-        runId: "run-2024-04-17T09-12-00Z",
+            : `${profile}/${artifact}`,
+        outcome: absentHere ? "absent" : "produced",
+        reason: absentHere
+          ? "Profile directory has no Web Data database"
+          : null,
+        runId: "run-2024-04-16T09-12-00Z",
       };
     });
-    // Give one artifact a genuine "absent" entry (a Profile that simply
-    // never wrote this database) so all three non-produced outcomes exist.
-    if (artifact === "Web Data") {
-      perProfile.push({
-        sourceId: SOURCE_IMAGE,
-        profile: "Profile 3 (Guest)",
-        artifact,
-        databasePath: "Profile 3 (Guest)/Web Data",
-        outcome: "absent",
-        reason: "Profile directory has no Web Data database",
-        runId: "run-2024-04-17T09-12-00Z",
-      });
-    }
-    const attempted = perProfile.length;
-    const produced = perProfile.filter((a) => a.outcome === "produced").length;
-    const absentCount = perProfile.filter((a) => a.outcome === "absent").length;
-    const unavailableCount = perProfile.filter(
-      (a) => a.outcome === "unavailable",
-    ).length;
+    const count = (outcome) =>
+      perProfile.filter((a) => a.outcome === outcome).length;
     return {
       artifact,
-      attempted,
-      produced,
-      absent: absentCount,
-      unavailable: unavailableCount,
+      attempted: perProfile.length,
+      produced: count("produced"),
+      absent: count("absent"),
+      unavailable: count("unavailable"),
       artifacts: perProfile,
     };
   });

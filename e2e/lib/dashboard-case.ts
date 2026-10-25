@@ -147,7 +147,7 @@ const HISTORY_SCHEMA = `
   );
 `;
 
-interface Visit {
+export interface Visit {
   readonly id: bigint;
   readonly url: string;
   readonly title: string;
@@ -216,11 +216,14 @@ function walVisits(): Visit[] {
 /** History with committed visits and a download, then an open writer holding
  *  `WAL_VISIT_COUNT` more visits in an uncheckpointed WAL. The caller closes
  *  the writer after ingest (closing would checkpoint the WAL away). */
-function createHistory(path: string): DatabaseSync {
+function createHistory(
+  path: string,
+  extraVisits: readonly Visit[],
+): DatabaseSync {
   const database = new DatabaseSync(path);
   try {
     database.exec(HISTORY_SCHEMA);
-    insertVisits(database, committedVisits());
+    insertVisits(database, [...committedVisits(), ...extraVisits]);
     const start = chromeTime(`${HISTORY_DAYS[1] ?? ""}T15:00:00Z`);
     const fileUrl = `https://${DOWNLOAD_ONLY_HOST}/files/${DOWNLOAD_FILE_NAME}`;
     database
@@ -382,9 +385,20 @@ function mustRun(arguments_: readonly string[]): void {
   }
 }
 
+/** Optional additions for callers that need more than the dashboard shapes.
+ *  The default build ignores them. */
+export interface DashboardCaseOptions {
+  /** More committed History visits. Their ids must not collide with the
+   *  base visits (1 to 180 and 10000 to 10119). */
+  readonly extraVisits?: readonly Visit[];
+}
+
 /** Writes the Source under `root`, ingests and analyses it into
  *  `<root>/case`, and returns that Case directory. `root` must be empty. */
-export async function buildDashboardCase(root: string): Promise<string> {
+export async function buildDashboardCase(
+  root: string,
+  options: DashboardCaseOptions = {},
+): Promise<string> {
   const source = join(root, "source");
   const profile = join(source, PROFILE);
   await mkdir(join(profile, "Network"), { recursive: true });
@@ -394,7 +408,10 @@ export async function buildDashboardCase(root: string): Promise<string> {
   const keyMaterial = join(root, "key-material.json");
   await writeKeyMaterial(keyMaterial);
   const caseDirectory = join(root, "case");
-  const writer = createHistory(join(profile, "History"));
+  const writer = createHistory(
+    join(profile, "History"),
+    options.extraVisits ?? [],
+  );
   try {
     mustRun(["ingest", source, "--case", caseDirectory, "--json"]);
   } finally {
