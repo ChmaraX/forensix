@@ -134,6 +134,12 @@ export interface QueryCommandSpec {
   readonly paged: boolean;
   /** For record commands: the default of --supporting-rows. */
   readonly supportingRowsDefault?: number | "all";
+  /**
+   * For `data` commands that print strings copied from the Source (a count
+   * bucket key, a site host): the list and the key that hold them. The output
+   * layer marks them untrusted and wraps them for --content-boundaries.
+   */
+  readonly evidence?: { readonly list: string; readonly key: string };
   readonly execute: (parsed: ParsedArguments, paging: Paging) => unknown;
 }
 
@@ -188,6 +194,7 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         "--after",
       ]),
       output: "data",
+      evidence: { list: "items", key: "host" },
       paged: true,
       execute: (parsed, paging) =>
         querySiteHosts({
@@ -269,6 +276,7 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         "--include-secrets",
       ]),
       output: "data",
+      evidence: { list: "buckets", key: "key" },
       // --limit is the bucket count, not a page: --max-output never lowers it.
       paged: false,
       execute: (parsed) =>

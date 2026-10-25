@@ -327,7 +327,13 @@ export interface CountQuery {
   readonly redactSecrets?: boolean;
 }
 
+/**
+ * One count bucket. `state` keeps the Field State of the grouped value apart
+ * from the value itself, so an evidence string such as "(absent)" can never
+ * merge with, or pass as, a real absent field.
+ */
 export interface CountBucket {
+  readonly state: "value" | "absent" | "unavailable" | "missing" | "redacted";
   readonly key: string;
   readonly count: number;
 }
@@ -347,7 +353,12 @@ export interface CountResult {
 
 export const COUNT_BUILT_IN_FIELDS = ["profile", "commitState"] as const;
 
-const BUCKET_SQL = `CASE
+const BUCKET_STATE_SQL = `CASE
+  WHEN fs IS NULL THEN 'missing'
+  ELSE COALESCE(json_extract(fs, '$.state'), 'unknown')
+END`;
+
+const BUCKET_KEY_SQL = `CASE
   WHEN fs IS NULL THEN '(missing)'
   WHEN json_extract(fs, '$.state') = 'value' THEN
     CASE json_type(fs, '$.value')
@@ -430,12 +441,13 @@ export function queryCount(input: CountQuery): CountResult {
     let bucketSql: string;
     const bucketParameters: string[] = [];
     if (input.by === "profile") {
-      bucketSql = `SELECT f.profile_path AS bucket ${from}`;
+      bucketSql = `SELECT 'value' AS bucket_state, f.profile_path AS bucket ${from}`;
     } else if (input.by === "commitState") {
-      bucketSql = `SELECT f.commit_state AS bucket ${from}`;
+      bucketSql = `SELECT 'value' AS bucket_state, f.commit_state AS bucket ${from}`;
     } else {
       assertFieldExists(database, store, kind, input.by);
-      bucketSql = `SELECT ${BUCKET_SQL} AS bucket
+      bucketSql = `SELECT ${BUCKET_STATE_SQL} AS bucket_state,
+               ${BUCKET_KEY_SQL} AS bucket
         FROM (SELECT json_extract(f.fields_json, ?) AS fs ${from})`;
       bucketParameters.push(`$."${input.by}"`);
     }
@@ -444,25 +456,30 @@ export function queryCount(input: CountQuery): CountResult {
       .get(...parameters) as { readonly total: bigint };
     const rows = database
       .prepare(
-        `SELECT bucket AS key, count(*) AS count
+        `SELECT bucket_state AS state, bucket AS key, count(*) AS count
            FROM (${bucketSql})
-          GROUP BY bucket
-          ORDER BY count DESC, key ASC
+          GROUP BY bucket_state, bucket
+          ORDER BY count DESC, key ASC, state ASC
           LIMIT ?`,
       )
       .all(...bucketParameters, ...parameters, BigInt(limit)) as unknown as {
       readonly key: string;
       readonly count: bigint;
+      readonly state: string;
     }[];
     const redact =
       input.redactSecrets === true && isSecretField(kind, input.by);
-    const buckets = rows.map((row) => ({
-      key:
-        redact && !/^\((absent|missing|unavailable:.*)\)$/.test(row.key)
-          ? `(redacted:sha256:${secretValueSha256(row.key)})`
-          : row.key,
-      count: Number(row.count),
-    }));
+    const buckets = rows.map((row): CountBucket => {
+      const state = bucketState(row.state);
+      if (redact && state === "value") {
+        return {
+          state: "redacted",
+          key: `(redacted:sha256:${secretValueSha256(row.key)})`,
+          count: Number(row.count),
+        };
+      }
+      return { state, key: row.key, count: Number(row.count) };
+    });
     const total = Number(totalRow.total);
     return {
       status: "ok",
@@ -478,6 +495,22 @@ export function queryCount(input: CountQuery): CountResult {
   } finally {
     database.close();
   }
+}
+
+function bucketState(value: string): CountBucket["state"] {
+  if (
+    value === "value" ||
+    value === "absent" ||
+    value === "unavailable" ||
+    value === "missing"
+  ) {
+    return value;
+  }
+  throw new ForensixError(
+    "CASE_INVALID",
+    "Case contains a field with an unknown Field State.",
+    { state: value },
+  );
 }
 
 function assertFieldExists(

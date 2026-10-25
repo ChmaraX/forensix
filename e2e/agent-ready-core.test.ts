@@ -15,7 +15,8 @@
  * time, one plaintext cookie, one download.
  */
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -138,7 +139,32 @@ describe("shared Case opener", () => {
     await writeFile(join(emptyDatabase, "case.fxdb"), "");
     const plainFile = join(root, "plain-file");
     await writeFile(plainFile, "{}\n");
-    for (const directory of [garbage, emptyDatabase, plainFile]) {
+    // A real SQLite file that only imitates the Case identity table.
+    const counterfeit = join(root, "counterfeit-case");
+    await mkdir(counterfeit);
+    const fake = new DatabaseSync(join(counterfeit, "case.fxdb"));
+    fake.exec(
+      "CREATE TABLE case_info (case_id TEXT); INSERT INTO case_info VALUES ('fake');",
+    );
+    fake.close();
+    // The right application id, but two identity rows.
+    const doubled = join(root, "doubled-identity");
+    await cp(caseDirectory, doubled, { recursive: true });
+    const twice = new DatabaseSync(join(doubled, "case.fxdb"));
+    twice.exec(
+      "PRAGMA foreign_keys = OFF; DROP TRIGGER IF EXISTS case_info_singleton;",
+    );
+    twice.exec("CREATE TABLE case_info_copy AS SELECT * FROM case_info;");
+    twice.exec("DROP TABLE case_info; CREATE TABLE case_info (case_id TEXT);");
+    twice.exec("INSERT INTO case_info VALUES ('one'), ('two');");
+    twice.close();
+    for (const directory of [
+      garbage,
+      emptyDatabase,
+      plainFile,
+      counterfeit,
+      doubled,
+    ]) {
       expect(
         caught(() => core.querySummary({ caseDirectory: directory })),
       ).toEqual({
@@ -355,7 +381,13 @@ describe("schema, count and summary", () => {
         by: "visitTime",
         commitState: "committed",
       }).buckets,
-    ).toEqual(HISTORY_DAYS.map((day) => ({ key: day, count: VISITS_PER_DAY })));
+    ).toEqual(
+      HISTORY_DAYS.map((day) => ({
+        state: "value",
+        key: day,
+        count: VISITS_PER_DAY,
+      })),
+    );
 
     // limit cuts buckets, and otherCount holds the rest.
     const top = core.queryCount({
@@ -376,19 +408,23 @@ describe("schema, count and summary", () => {
         by: "commitState",
       }).buckets,
     ).toEqual([
-      { key: "committed", count: HISTORY_DAYS.length * VISITS_PER_DAY },
-      { key: "wal_resident", count: WAL_VISIT_COUNT },
+      {
+        state: "value",
+        key: "committed",
+        count: HISTORY_DAYS.length * VISITS_PER_DAY,
+      },
+      { state: "value", key: "wal_resident", count: WAL_VISIT_COUNT },
     ]);
     expect(
       core.queryCount({ caseDirectory, kind: "cookie", by: "profile" }).buckets,
-    ).toEqual([{ key: PROFILE, count: 1 }]);
+    ).toEqual([{ state: "value", key: PROFILE, count: 1 }]);
     expect(
       core.queryCount({
         caseDirectory,
         kind: "login_credential",
         by: "actionUrl",
       }).buckets,
-    ).toEqual([{ key: "(absent)", count: LOGINS.length }]);
+    ).toEqual([{ state: "absent", key: "(absent)", count: LOGINS.length }]);
     const searched = core.queryCount({
       caseDirectory,
       kind: "login_credential",
@@ -635,7 +671,51 @@ describe("redactSecrets and limitSupportingRows", () => {
       redactSecrets: true,
     });
     expect(counted.buckets).toEqual([
-      { key: `(redacted:sha256:${sha256Json(COOKIE.value)})`, count: 1 },
+      {
+        state: "redacted",
+        key: `(redacted:sha256:${sha256Json(COOKIE.value)})`,
+        count: 1,
+      },
+    ]);
+  });
+
+  it("keeps a planted '(absent)' cookie value apart from real absent fields and hides it", async () => {
+    // A suspect controls cookie values. Plant the text of a bucket label as
+    // the value in a copy of the Case, the way a planted cookie would land.
+    const planted = join(await temporaryRoot(), "case");
+    await cp(caseDirectory, planted, { recursive: true });
+    const database = new DatabaseSync(join(planted, "case.fxdb"));
+    database
+      .prepare(
+        `UPDATE cookie_findings
+            SET fields_json = json_set(fields_json, '$.value',
+                  json_object('state', 'value', 'value', '(absent)'))`,
+      )
+      .run();
+    database.close();
+
+    const hidden = core.queryCount({
+      caseDirectory: planted,
+      kind: "cookie",
+      by: "value",
+      redactSecrets: true,
+    });
+    expect(hidden.buckets).toEqual([
+      {
+        state: "redacted",
+        key: `(redacted:sha256:${sha256Json("(absent)")})`,
+        count: 1,
+      },
+    ]);
+    expect(JSON.stringify(hidden)).not.toContain('"(absent)"');
+
+    const shown = core.queryCount({
+      caseDirectory: planted,
+      kind: "cookie",
+      by: "value",
+    });
+    expect(shown.buckets).toEqual([
+      { state: "value", key: "(absent)", count: 1 },
     ]);
   });
 
@@ -708,6 +788,19 @@ describe("superseded rows", () => {
       "value",
     ]);
 
+    // Sites cursors taken before the rerun.
+    const hostsBefore = core.querySiteHosts({
+      caseDirectory: directory,
+      limit: 1,
+    });
+    const findingsBefore = core.querySiteFindings({
+      caseDirectory: directory,
+      host: "alpha.example",
+      limit: 1,
+    });
+    expect(hostsBefore.nextCursor).not.toBeNull();
+    expect(findingsBefore.nextCursor).not.toBeNull();
+
     // A second Analysis Run without --decrypt supersedes every row.
     const rerun = runCli([
       "analyse",
@@ -726,6 +819,27 @@ describe("superseded rows", () => {
       workingCopyVerification: "verified",
       exitState: "complete",
     });
+
+    // A cursor from before the rerun no longer belongs to the Sites queries.
+    expect(
+      caught(() =>
+        core.querySiteHosts({
+          caseDirectory: directory,
+          limit: 1,
+          after: hostsBefore.nextCursor ?? "",
+        }),
+      ).code,
+    ).toBe("INVALID_CURSOR");
+    expect(
+      caught(() =>
+        core.querySiteFindings({
+          caseDirectory: directory,
+          host: "alpha.example",
+          limit: 1,
+          after: findingsBefore.nextCursor ?? "",
+        }),
+      ).code,
+    ).toBe("INVALID_CURSOR");
 
     const secondRun = core.queryCredentials({ caseDirectory: directory }).items;
     expect(secondRun).toHaveLength(LOGINS.length);

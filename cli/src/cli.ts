@@ -9,6 +9,7 @@ import {
   analyseCase,
   exportCase,
   ingestSource,
+  querySummary,
   renderReport,
   type CommitState,
   type DeclaredOriginOs,
@@ -18,12 +19,24 @@ import {
   type SourceKind,
 } from "@forensix/core";
 import { startDashboardServer } from "@forensix/server";
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  closeSync,
+  ftruncateSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  readSync,
+  rmSync,
+  writeSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
   assertAllowedOptions,
+  assertArgumentsHaveNoControlCharacters,
   assertNoParentSegments,
   enumOption,
   hasOption,
@@ -36,6 +49,7 @@ import {
 import {
   AUDIT_KEY_BYTES,
   appendAuditEntry,
+  assertAuditLogOutsideEvidence,
   verifyAuditLog,
   type AuditStamp,
 } from "./audit.js";
@@ -143,6 +157,7 @@ async function run(
       { actual: process.versions.node, minimum: MINIMUM_NODE_VERSION },
     );
   }
+  assertArgumentsHaveNoControlCharacters(arguments_);
   if (arguments_.length === 0 || arguments_.includes("--help")) {
     const command = arguments_[0];
     const usage = command === undefined ? undefined : commandUsage(command);
@@ -265,7 +280,11 @@ async function run(
       allowing(
         queryCommand.allowedOptions,
         QUERY_OUTPUT_OPTIONS,
-        queryCommand.output === "records" ? RECORD_OUTPUT_OPTIONS : [],
+        queryCommand.output === "records"
+          ? RECORD_OUTPUT_OPTIONS
+          : queryCommand.evidence === undefined
+            ? []
+            : ["--content-boundaries"],
         queryCommand.paged ? PAGED_OUTPUT_OPTIONS : [],
       ),
       queryCommand.repeatableOptions,
@@ -558,15 +577,70 @@ function emit(
   }
 
   let final = outcome;
-  let documents: object[] = [];
+  const hash = createHash("sha256");
+  // Spool the unstamped lines to a private temporary file while hashing them,
+  // so an audited --page-all stays in bounded memory.
+  const spoolDirectory = mkdtempSync(join(tmpdir(), "forensix-audit-"));
+  const spoolPath = join(spoolDirectory, "output.ndjson");
   try {
-    documents = [...(outcome.documents ?? [])];
-  } catch (error) {
-    final = failed(error, arguments_);
-    documents = [...(final.documents ?? [])];
+    const spool = openSync(spoolPath, "w", 0o600);
+    try {
+      const spoolLine = (text: string): void => {
+        hash.update(text, "utf8");
+        writeSync(spool, text);
+      };
+      try {
+        if (final.text !== undefined) {
+          hash.update(final.text, "utf8");
+        }
+        for (const document of final.documents ?? []) {
+          spoolLine(line(document));
+        }
+      } catch (error) {
+        // A page failed part way: audit and print only the error.
+        final = failed(error, arguments_);
+        ftruncateSync(spool, 0);
+        return emitAudited(final, arguments_, logPath, spoolDirectory);
+      }
+    } finally {
+      closeSync(spool);
+    }
+    let stamp: AuditStamp;
+    try {
+      stamp = appendAuditEntry(logPath, {
+        toolVersion: resolveToolVersion(),
+        command: arguments_[0] ?? null,
+        argv: arguments_,
+        caseDirectory: caseDirectoryOf(arguments_),
+        exitCode: final.exitCode,
+        outputSha256: hash.digest("hex"),
+      });
+    } catch (error) {
+      // No unaudited output when an audit log was asked for.
+      write("stderr", line(diagnosticOf(error, arguments_)));
+      return 1;
+    }
+    if (final.text !== undefined) {
+      write(final.stream, final.text);
+    }
+    for (const spooled of readLines(spoolPath)) {
+      write(final.stream, stampLine(spooled, stamp));
+    }
+    return final.exitCode;
+  } finally {
+    rmSync(spoolDirectory, { recursive: true, force: true });
   }
-  const text =
-    final.text ?? documents.map((document) => line(document)).join("");
+}
+
+/** Audits and prints an outcome that is already fully in memory (an error). */
+function emitAudited(
+  final: CommandOutcome,
+  arguments_: readonly string[],
+  logPath: string,
+  spoolDirectory: string,
+): number {
+  const documents = [...(final.documents ?? [])];
+  const text = documents.map((document) => line(document)).join("");
   let stamp: AuditStamp;
   try {
     stamp = appendAuditEntry(logPath, {
@@ -575,15 +649,13 @@ function emit(
       argv: arguments_,
       caseDirectory: caseDirectoryOf(arguments_),
       exitCode: final.exitCode,
-      output: text,
+      outputSha256: createHash("sha256").update(text, "utf8").digest("hex"),
     });
   } catch (error) {
-    // No unaudited output when an audit log was asked for.
     write("stderr", line(diagnosticOf(error, arguments_)));
     return 1;
-  }
-  if (final.text !== undefined) {
-    write(final.stream, final.text);
+  } finally {
+    rmSync(spoolDirectory, { recursive: true, force: true });
   }
   for (const document of documents) {
     write(final.stream, line(document, stamp));
@@ -591,14 +663,99 @@ function emit(
   return final.exitCode;
 }
 
+/** Adds the audit stamp as the last key of one printed JSON object line. */
+function stampLine(text: string, stamp: AuditStamp): string {
+  const body = text.endsWith("\n") ? text.slice(0, -1) : text;
+  const stampJson = JSON.stringify(stamp);
+  if (body === "{}") {
+    return `{"audit":${stampJson}}\n`;
+  }
+  return `${body.slice(0, -1)},"audit":${stampJson}}\n`;
+}
+
+/** Reads a file line by line (each line keeps its newline) in fixed chunks. */
+function* readLines(path: string): Generator<string> {
+  const descriptor = openSync(path, "r");
+  try {
+    const chunk = Buffer.alloc(64 * 1024);
+    let pending = Buffer.alloc(0);
+    while (true) {
+      const read = readSync(descriptor, chunk, 0, chunk.length, null);
+      if (read === 0) break;
+      pending = Buffer.concat([pending, chunk.subarray(0, read)]);
+      let newline = pending.indexOf(0x0a);
+      while (newline !== -1) {
+        yield pending.subarray(0, newline + 1).toString("utf8");
+        pending = pending.subarray(newline + 1);
+        newline = pending.indexOf(0x0a);
+      }
+    }
+    if (pending.length > 0) yield pending.toString("utf8");
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+/**
+ * Paths the audit log must stay out of: the Case Directory, the Sources the
+ * Case recorded (or the Source being ingested), and an Extract or Report path.
+ */
+function evidenceRoots(arguments_: readonly string[]): string[] {
+  const roots: string[] = [];
+  const optionValueOf = (option: string): string | undefined => {
+    const index = arguments_.indexOf(option);
+    const value = index === -1 ? undefined : arguments_[index + 1];
+    return value === undefined || value.startsWith("--") ? undefined : value;
+  };
+  for (const option of ["--case", "--out", "--extract"]) {
+    const value = optionValueOf(option);
+    if (value !== undefined) roots.push(resolve(value));
+  }
+  if (arguments_[0] === "ingest") {
+    try {
+      for (const source of parseArguments(arguments_).positionals) {
+        roots.push(resolve(source));
+      }
+    } catch {
+      // Unparsable ingest arguments: the command already failed.
+    }
+  }
+  const caseDirectory = caseDirectoryOf(arguments_);
+  if (caseDirectory !== null) {
+    try {
+      for (const source of querySummary({ caseDirectory }).sources) {
+        roots.push(resolve(source.sourcePath));
+      }
+    } catch {
+      // No readable Case: only its directory is protected.
+    }
+  }
+  return roots;
+}
+
 guardPipes();
 const cliArguments = process.argv.slice(2);
 const logPath = auditLogPath(cliArguments);
-let outcome: CommandOutcome;
-try {
-  outcome = await run(cliArguments, logPath !== undefined);
-} catch (error) {
-  outcome = failed(error, cliArguments);
+let refusedLog: unknown = null;
+if (logPath !== undefined) {
+  try {
+    // Before the command runs: an audit log inside evidence refuses the
+    // whole command, so nothing is written to the Case, Source, or Extract.
+    assertAuditLogOutsideEvidence(logPath, evidenceRoots(cliArguments));
+  } catch (error) {
+    refusedLog = error;
+  }
 }
-process.exitCode = emit(outcome, cliArguments, logPath);
-outcome.afterEmit?.();
+if (refusedLog !== null) {
+  write("stderr", line(diagnosticOf(refusedLog, cliArguments)));
+  process.exitCode = 1;
+} else {
+  let outcome: CommandOutcome;
+  try {
+    outcome = await run(cliArguments, logPath !== undefined);
+  } catch (error) {
+    outcome = failed(error, cliArguments);
+  }
+  process.exitCode = emit(outcome, cliArguments, logPath);
+  outcome.afterEmit?.();
+}

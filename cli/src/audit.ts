@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   closeSync,
   existsSync,
+  realpathSync,
   fstatSync,
   fsyncSync,
   linkSync,
@@ -13,6 +14,8 @@ import {
   unlinkSync,
   writeSync,
 } from "node:fs";
+
+import { basename, dirname, isAbsolute, join, relative } from "node:path";
 
 import { CliError } from "./cli-error.js";
 
@@ -59,7 +62,8 @@ export interface AuditInput {
   readonly argv: readonly string[];
   readonly caseDirectory: string | null;
   readonly exitCode: number;
-  readonly output: string;
+  /** SHA-256 (hex) of the printed output before the `audit` key is added. */
+  readonly outputSha256: string;
 }
 
 export interface AuditStamp {
@@ -242,15 +246,70 @@ function chainHead(
     throw damaged();
   }
   const record = entry as Partial<AuditEntry> | null;
+  // Authenticate the head before chaining onto it: an edited last line that
+  // kept its old hash must not get a valid-looking successor.
   if (
     record === null ||
+    typeof record !== "object" ||
+    record.version !== 1 ||
     typeof record.seq !== "number" ||
+    !Number.isSafeInteger(record.seq) ||
+    record.seq < 1 ||
+    typeof record.prevHash !== "string" ||
+    !/^[0-9a-f]{64}$/.test(record.prevHash) ||
     typeof record.hash !== "string" ||
-    !/^[0-9a-f]{64}$/.test(record.hash)
+    !/^[0-9a-f]{64}$/.test(record.hash) ||
+    entryHash(record as Readonly<Record<string, unknown>>) !== record.hash
   ) {
     throw damaged();
   }
   return { seq: record.seq, hash: record.hash };
+}
+
+/** The real path of `path`, resolving symlinks in the part that exists. */
+function realPathOf(path: string): string {
+  const missing: string[] = [];
+  let current = path;
+  while (true) {
+    try {
+      return join(realpathSync(current), ...missing.reverse());
+    } catch {
+      const parent = dirname(current);
+      if (parent === current) {
+        return join(current, ...missing.reverse());
+      }
+      missing.push(basename(current));
+      current = parent;
+    }
+  }
+}
+
+function isInside(path: string, root: string): boolean {
+  const between = relative(root, path);
+  return between === "" || (!between.startsWith("..") && !isAbsolute(between));
+}
+
+/**
+ * Refuses an audit log (and its lock file, which sits next to it) inside
+ * evidence: the Case Directory, a Source, or an Extract. Writing there would
+ * change the evidence that the log is meant to account for. Runs before the
+ * lock file is created.
+ */
+export function assertAuditLogOutsideEvidence(
+  logPath: string,
+  evidenceRoots: readonly string[],
+): void {
+  const log = realPathOf(logPath);
+  for (const root of evidenceRoots) {
+    const realRoot = realPathOf(root);
+    if (isInside(log, realRoot)) {
+      throw new CliError(
+        "AUDIT_LOG_FAILED",
+        "The audit log must be outside the Case, the Source, and the Extract.",
+        { auditLog: logPath, evidencePath: root },
+      );
+    }
+  }
 }
 
 /** Appends one entry under the lock and returns the stamp to print. */
@@ -283,7 +342,7 @@ export function appendAuditEntry(
         argv: input.argv,
         caseDirectory: input.caseDirectory,
         exitCode: input.exitCode,
-        outputSha256: sha256(input.output),
+        outputSha256: input.outputSha256,
         prevHash: head.hash,
       };
       const entry: AuditEntry = { ...body, hash: entryHash(body) };

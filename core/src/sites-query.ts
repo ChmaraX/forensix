@@ -353,8 +353,27 @@ function fingerprint(
     .get();
   if (typeof caseRow?.case_id !== "string")
     throw new ForensixError("CASE_INVALID", "Case identity is missing.");
+  // The active artifact results of every Sites table: a later Analysis Run
+  // changes them, so a cursor from before it no longer belongs to the query.
+  const activeArtifactResultIds = TABLES.filter((table) =>
+    schemaExists(database, table.results),
+  ).flatMap((table) =>
+    database
+      .prepare(
+        `SELECT artifact_result_id FROM ${table.results}
+          WHERE active = 1 ORDER BY artifact_result_id`,
+      )
+      .all()
+      .map((row) => `${table.artifactKind}:${String(row.artifact_result_id)}`),
+  );
   return createHash("sha256")
-    .update(JSON.stringify({ caseId: caseRow.case_id, query }))
+    .update(
+      JSON.stringify({
+        caseId: caseRow.case_id,
+        activeArtifactResultIds,
+        query,
+      }),
+    )
     .digest("hex");
 }
 

@@ -67,9 +67,12 @@ const SECTIONS: readonly UsageSection[] = [
     command: "count",
     text: `  forensix count --case <case-directory> --kind <kind> --by <field|profile|commitState>
                    [--profile <profile>]... [--commit-state ${COMMIT}]
-                   [--search <text>] [--limit <1-100>] [--include-secrets] [--json]
-                   A timestamp field buckets by UTC day (YYYY-MM-DD). A secret field
-                   buckets by hash unless --include-secrets.`,
+                   [--search <text>] [--limit <1-100>] [--include-secrets]
+                   [--content-boundaries] [--json]
+                   Each bucket has state (value, absent, unavailable, missing, redacted)
+                   and key. A timestamp field buckets by UTC day (YYYY-MM-DD). A secret
+                   field buckets by hash unless --include-secrets. Value keys are
+                   evidence: trust.untrusted = "buckets[].key".`,
   },
   {
     command: "get",
@@ -87,7 +90,8 @@ const SECTIONS: readonly UsageSection[] = [
   {
     command: "site-hosts",
     text: `  forensix site-hosts --case <case-directory> [--search <text>]
-                   ${PAGE} [--json]`,
+                   ${PAGE} [--content-boundaries] [--json]
+                   Hosts are evidence: trust.untrusted = "items[].host".`,
   },
   {
     command: "site-findings",

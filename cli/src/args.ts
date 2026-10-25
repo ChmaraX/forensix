@@ -89,6 +89,27 @@ function assertNoControlCharacters(value: string, option: string): void {
   }
 }
 
+/**
+ * Refuses a control character in any argument before any other handling,
+ * including `--help`, which answers before the arguments are parsed.
+ */
+export function assertArgumentsHaveNoControlCharacters(
+  arguments_: readonly string[],
+): void {
+  arguments_.forEach((argument, index) => {
+    const previous = index === 0 ? undefined : arguments_[index - 1];
+    const option =
+      index === 0
+        ? "command"
+        : argument.startsWith("--")
+          ? "option"
+          : previous !== undefined && VALUE_OPTIONS.has(previous)
+            ? previous
+            : "positional";
+    assertNoControlCharacters(argument, option);
+  });
+}
+
 export function parseArguments(arguments_: readonly string[]): ParsedArguments {
   const [command, ...remaining] = arguments_;
   if (command !== undefined) {

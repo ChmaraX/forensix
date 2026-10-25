@@ -21,6 +21,8 @@ async function caseDirectory(): Promise<string> {
   roots.push(root);
   const database = new DatabaseSync(join(root, CASE_FILENAME));
   database.exec(`
+    PRAGMA application_id = 1180191282;
+    PRAGMA user_version = 2;
     CREATE TABLE case_info (case_id TEXT);
     INSERT INTO case_info VALUES ('CASE-TEST');
     CREATE TABLE history_artifact_results (artifact_result_id INTEGER, active INTEGER);

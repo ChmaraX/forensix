@@ -171,7 +171,7 @@ function history(...extra: string[]): string[] {
 }
 
 describe("untrusted evidence marking", () => {
-  it("marks every record envelope as untrusted and leaves aggregates unmarked", () => {
+  it("marks every record envelope as untrusted, and aggregates only where they copy evidence", () => {
     for (const command of [
       ["history", "--limit", "3"],
       ["cookies"],
@@ -196,7 +196,8 @@ describe("untrusted evidence marking", () => {
       });
     }
     const hosts = okPage(runCli(["site-hosts", "--case", caseDirectory]));
-    expect(hosts.trust).toBeUndefined();
+    expect(hosts.trust?.untrusted).toBe("items[].host");
+    // Completeness holds ForensiX's own words only.
     const completeness = parseJson<Record<string, unknown>>(
       runCli(["completeness", "--case", caseDirectory]).stdout,
     );
@@ -236,6 +237,71 @@ describe("untrusted evidence marking", () => {
     expect(plain.trust?.boundary).toBeUndefined();
     expect(plain.items[0]?.fields.title?.value).toBe(INJECTED_TITLE);
     expect(plain.items[0]?.provenance).toEqual(visit?.provenance);
+  });
+
+  it("marks and wraps evidence that aggregates copy: count keys and site hosts", () => {
+    interface Aggregate {
+      readonly trust?: { untrusted: string; boundary?: string };
+      readonly buckets?: { state: string; key: string }[];
+      readonly items?: { host: string }[];
+    }
+    const counted = parseJson<Aggregate>(
+      runCli([
+        "count",
+        "--case",
+        caseDirectory,
+        "--kind",
+        "history_visit",
+        "--by",
+        "title",
+        "--search",
+        "inject.example",
+        "--content-boundaries",
+      ]).stdout,
+    );
+    const nonce = counted.trust?.boundary ?? "";
+    expect(counted.trust?.untrusted).toBe("buckets[].key");
+    expect(counted.buckets).toEqual([
+      {
+        state: "value",
+        key: `<<evidence:${nonce}>>${INJECTED_TITLE}<</evidence:${nonce}>>`,
+        count: 1,
+      },
+    ]);
+
+    // A bucket that is not a recorded value is ForensiX's own label.
+    const absent = parseJson<Aggregate>(
+      runCli([
+        "count",
+        "--case",
+        caseDirectory,
+        "--kind",
+        "login_credential",
+        "--by",
+        "actionUrl",
+        "--content-boundaries",
+      ]).stdout,
+    );
+    expect(absent.buckets?.[0]).toMatchObject({
+      state: "absent",
+      key: "(absent)",
+    });
+
+    const hosts = parseJson<Aggregate>(
+      runCli([
+        "site-hosts",
+        "--case",
+        caseDirectory,
+        "--search",
+        "inject",
+        "--content-boundaries",
+      ]).stdout,
+    );
+    const hostNonce = hosts.trust?.boundary ?? "";
+    expect(hosts.trust?.untrusted).toBe("items[].host");
+    expect(hosts.items?.map((item) => item.host)).toEqual([
+      `<<evidence:${hostNonce}>>inject.example<</evidence:${hostNonce}>>`,
+    ]);
   });
 });
 
@@ -562,8 +628,8 @@ describe("filters and Case overviews", () => {
     );
     expect(count.total).toBe(ALL_VISITS);
     expect(count.buckets).toEqual([
-      { key: "committed", count: COMMITTED_VISITS + 1 },
-      { key: "wal_resident", count: WAL_VISIT_COUNT },
+      { state: "value", key: "committed", count: COMMITTED_VISITS + 1 },
+      { state: "value", key: "wal_resident", count: WAL_VISIT_COUNT },
     ]);
   });
 });
@@ -749,6 +815,9 @@ describe("input checks", () => {
         "positional",
       ],
       [["hist\u0007ory", "--case", caseDirectory], "command"],
+      // --help answers before parsing; it must not skip the check.
+      [["history", "bad\nvalue", "--help"], "positional"],
+      [history("--search", "x\u001b[2J", "--help"), "--search"],
     ];
     for (const [arguments_, option] of cases) {
       const error = diagnostic(runCli(arguments_));

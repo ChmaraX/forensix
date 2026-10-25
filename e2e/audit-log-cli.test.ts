@@ -10,7 +10,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -405,6 +405,31 @@ describe("audit verify", () => {
     expect(await readFile(log, "utf8")).toBe(text.slice(0, text.length - 40));
   });
 
+  it("refuses to chain onto a last line edited under its old hash", async () => {
+    const log = freshLog();
+    writeSession(log);
+    const lines = (await readFile(log, "utf8")).split("\n").filter(Boolean);
+    const last = JSON.parse(lines.at(-1) ?? "{}") as AuditEntry;
+    // Rewrite what the last command was, keep its hash: a forged head.
+    lines[lines.length - 1] = JSON.stringify({ ...last, command: "forged" });
+    const forged = `${lines.join("\n")}\n`;
+    await writeFile(log, forged);
+
+    const refused = runCli([
+      "profiles",
+      "--case",
+      caseDirectory,
+      "--audit-log",
+      log,
+    ]);
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toBe("");
+    expect(parseJson<{ code: string }>(refused.stderr).code).toBe(
+      "AUDIT_LOG_FAILED",
+    );
+    expect(await readFile(log, "utf8")).toBe(forged);
+  });
+
   it("reports a missing log as an error", () => {
     const result = runCli([
       "audit",
@@ -416,5 +441,66 @@ describe("audit verify", () => {
     expect(parseJson<{ code: string }>(result.stderr).code).toBe(
       "AUDIT_LOG_NOT_FOUND",
     );
+  });
+});
+
+describe("audit log location", () => {
+  async function expectRefused(result: CliResult, log: string): Promise<void> {
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(parseJson<{ code: string }>(result.stderr).code).toBe(
+      "AUDIT_LOG_FAILED",
+    );
+    expect(existsSync(log)).toBe(false);
+    expect(existsSync(`${log}.lock`)).toBe(false);
+  }
+
+  it("refuses a log inside the Case Directory, even through a symlink", async () => {
+    const inside = join(caseDirectory, "working-copy", "audit.ndjson");
+    await expectRefused(
+      runCli(["summary", "--case", caseDirectory, "--audit-log", inside]),
+      inside,
+    );
+
+    const link = join(root, "case-link");
+    await symlink(caseDirectory, link);
+    const throughLink = join(link, "audit.ndjson");
+    await expectRefused(
+      runCli(["summary", "--case", caseDirectory, "--audit-log", throughLink]),
+      join(caseDirectory, "audit.ndjson"),
+    );
+  });
+
+  it("refuses a log inside the recorded Source, also from the environment", async () => {
+    const inside = join(root, "source", "Default", "audit.ndjson");
+    const result = spawnSync(
+      process.execPath,
+      [compiledCli, "profiles", "--case", caseDirectory],
+      {
+        encoding: "utf8",
+        env: { ...process.env, FORENSIX_AUDIT_LOG: inside },
+      },
+    );
+    await expectRefused(
+      { status: result.status, stdout: result.stdout, stderr: result.stderr },
+      inside,
+    );
+  });
+
+  it("refuses a log inside an Extract it writes", async () => {
+    const extract = join(root, "extract-audited");
+    const inside = join(extract, "audit.ndjson");
+    const result = runCli([
+      "export",
+      "--case",
+      caseDirectory,
+      "--out",
+      extract,
+      "--audit-log",
+      inside,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(existsSync(inside)).toBe(false);
   });
 });

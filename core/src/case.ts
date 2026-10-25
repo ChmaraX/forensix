@@ -18,6 +18,8 @@ import {
 } from "./manifest.js";
 
 export const CASE_SCHEMA_VERSION = 2;
+/** `PRAGMA application_id` of every Case database ("FXJ2"). */
+const CASE_APPLICATION_ID = 0x46584a32;
 export const CASE_FILENAME = "case.fxdb";
 export const TOOL_VERSION = "2.0.0-alpha.1";
 
@@ -157,7 +159,7 @@ function createSchema(database: DatabaseSync): void {
     PRAGMA foreign_keys = ON;
     PRAGMA journal_mode = WAL;
     PRAGMA synchronous = FULL;
-    PRAGMA application_id = 0x46584A32;
+    PRAGMA application_id = ${CASE_APPLICATION_ID};
     PRAGMA user_version = ${CASE_SCHEMA_VERSION};
 
     CREATE TABLE case_info (
@@ -507,6 +509,34 @@ export function openCaseReadOnly(
   return openCaseDatabase(caseDirectory, options).database;
 }
 
+/**
+ * Proves the file is a ForensiX Case database, not only a readable SQLite
+ * file: the application id that `createCaseDatabase` stamps, a known schema version,
+ * and exactly one Case identity row.
+ */
+function assertCaseIdentity(database: DatabaseSync): void {
+  const pragma = (name: string): bigint | number | undefined => {
+    const row = database.prepare(`PRAGMA ${name}`).get() as
+      | Record<string, bigint | number>
+      | undefined;
+    return row === undefined ? undefined : Object.values(row)[0];
+  };
+  const applicationId = Number(pragma("application_id"));
+  const userVersion = Number(pragma("user_version"));
+  if (applicationId !== CASE_APPLICATION_ID) {
+    throw new Error("The database is not a ForensiX Case (application id).");
+  }
+  if (userVersion < 1 || userVersion > CASE_SCHEMA_VERSION) {
+    throw new Error("The Case schema version is not supported.");
+  }
+  const rows = database
+    .prepare("SELECT case_id FROM case_info LIMIT 2")
+    .all() as { readonly case_id: unknown }[];
+  if (rows.length !== 1 || typeof rows[0]?.case_id !== "string") {
+    throw new Error("The Case identity row is missing or not unique.");
+  }
+}
+
 function openCaseDatabase(
   caseDirectory: string,
   options: OpenCaseOptions = {},
@@ -549,8 +579,7 @@ function openCaseDatabase(
       readOnly: true,
       readBigInts: options.readBigInts ?? false,
     });
-    // Proves the file is a SQLite Case database, not only a readable file.
-    database.prepare("SELECT case_id FROM case_info LIMIT 1").get();
+    assertCaseIdentity(database);
     return { database, databasePath, resolvedCaseDirectory };
   } catch (error) {
     database?.close();
