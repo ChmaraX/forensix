@@ -1020,3 +1020,82 @@ describe("compiled analyzer CLI read-only Case dashboard", () => {
     await stopServers();
   }, 30_000);
 });
+
+describe("compiled analyzer CLI dashboard origin check", () => {
+  it("accepts only the exact dashboard origin, not another loopback port or scheme", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-serve-origin-"));
+    temporaryRoots.push(root);
+    const { source, cookieWriter } = await createSource(root);
+    const caseDirectory = join(root, "CASE-ORIGIN");
+    try {
+      expect(
+        runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+      ).toBe(0);
+    } finally {
+      cookieWriter.close();
+    }
+    expect(
+      runCli([
+        "analyse",
+        "--case",
+        caseDirectory,
+        "--timezone",
+        "America/New_York",
+        "--json",
+      ]).status,
+    ).toBe(0);
+
+    const server = await startServer(caseDirectory);
+    const base = server.url.replace(/\/$/, "");
+    const token = { "x-forensix-token": server.token };
+    const otherPort =
+      server.port === 65_535 ? server.port - 1 : server.port + 1;
+    const historyWithOrigin = async (origin: string) => {
+      const response = await fetch(`${base}/api/history?limit=1`, {
+        headers: { ...token, origin },
+      });
+      return {
+        status: response.status,
+        body: (await response.json()) as { readonly code?: string },
+      };
+    };
+
+    // Same origin: the page this server serves.
+    expect((await historyWithOrigin(base)).status).toBe(200);
+
+    // Another app on loopback (different port, other loopback name, other
+    // scheme) is a different origin, even with a leaked token.
+    for (const origin of [
+      `http://127.0.0.1:${otherPort}`,
+      `http://localhost:${otherPort}`,
+      `https://127.0.0.1:${server.port}`,
+      "http://127.0.0.1",
+    ]) {
+      const refused = await historyWithOrigin(origin);
+      expect(refused, origin).toEqual({
+        status: 403,
+        body: expect.objectContaining({ code: "FORBIDDEN_ORIGIN" }),
+      });
+    }
+
+    // The anchor is the Host the request was made to: a page loaded from
+    // localhost:<port> calls the API with that Host and Origin.
+    expect(
+      await rawGet(server.port, "/api/history?limit=1", {
+        ...token,
+        host: `localhost:${server.port}`,
+        origin: `http://localhost:${server.port}`,
+      }),
+    ).toBe(200);
+    // An Origin that names a different loopback host than Host is refused.
+    expect(
+      await rawGet(server.port, "/api/history?limit=1", {
+        ...token,
+        host: `127.0.0.1:${server.port}`,
+        origin: `http://localhost:${server.port}`,
+      }),
+    ).toBe(403);
+
+    await stopServers();
+  }, 30_000);
+});

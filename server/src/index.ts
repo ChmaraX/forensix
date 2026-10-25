@@ -167,20 +167,53 @@ function isLoopbackHost(hostHeader: string | undefined): boolean {
   return authority !== null && LOOPBACK_HOSTNAMES.has(authority);
 }
 
+function effectivePort(url: URL): number {
+  if (url.port !== "") {
+    return Number(url.port);
+  }
+  return url.protocol === "https:" ? 443 : 80;
+}
+
+/**
+ * Whether `origin` is exactly the origin of this dashboard: scheme `http`, the
+ * loopback host the request was addressed to (Host), and the port the server
+ * is bound to. A hostname match alone is not enough: another loopback app on a
+ * different port or scheme is a different origin.
+ */
+function originIsDashboard(
+  origin: string,
+  hostHeader: string | undefined,
+  boundPort: number | undefined,
+): boolean {
+  if (hostHeader === undefined || boundPort === undefined) {
+    return false;
+  }
+  try {
+    const dashboard = new URL(`http://${hostHeader}`);
+    if (effectivePort(dashboard) !== boundPort) {
+      return false;
+    }
+    return new URL(origin).origin === dashboard.origin;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Whether an /api request is proven to originate from the loopback dashboard
- * itself. An Origin, when present, must be loopback. When Origin is absent the
- * request must carry Fetch Metadata proving it was not initiated cross-site;
- * an absent Origin with no such proof is rejected.
+ * itself. An Origin, when present, must equal the dashboard origin exactly
+ * (scheme, host, and port). When Origin is absent the request must carry Fetch
+ * Metadata proving it was not initiated cross-site; an absent Origin with no
+ * such proof is rejected.
  */
 function isSameOriginApiRequest(request: IncomingMessage): boolean {
   const origin = headerValue(request.headers.origin);
   if (origin !== undefined && origin !== "null") {
-    try {
-      return LOOPBACK_HOSTNAMES.has(new URL(origin).hostname);
-    } catch {
-      return false;
-    }
+    return originIsDashboard(
+      origin,
+      headerValue(request.headers.host),
+      request.socket.localPort,
+    );
   }
   const fetchSite = headerValue(request.headers["sec-fetch-site"]);
   return fetchSite !== undefined && SAME_ORIGIN_FETCH_SITES.has(fetchSite);

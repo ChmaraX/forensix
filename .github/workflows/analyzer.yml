@@ -25,6 +25,12 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.15.0
+      # The Collector -> Analyzer E2E (e2e/source-kinds-cli.test.ts) builds the
+      # Go Collector; pin the same Go as the Collector workflow.
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: collector/go.mod
+          cache-dependency-path: collector/go.mod
       - name: Enable Corepack
         run: corepack enable
       - name: Install locked dependencies
@@ -103,11 +109,13 @@ jobs:
       - name: Bounded scale gate (25k visits, 180s budget)
         run: corepack pnpm verify:scale 25000 180000
 
-  # Release packaging DRY RUN. Exercises the exact packaging path used by the
-  # analyzer-v* release (version + git SHA injection, npm pack, checksums) so a
-  # broken release is caught on every PR, but publishes NOTHING: no provenance
-  # attestation, no GitHub Release, no npm publish. Those run only from the
-  # tag-triggered release-analyzer.yml workflow.
+  # Release packaging DRY RUN. Runs the exact packaging path of the
+  # analyzer-v* release (scripts/pack-analyzer.mjs: one self-contained
+  # `forensix` package, version + git SHA stamped at pack time), then installs
+  # the tarball offline into an empty directory and smokes the INSTALLED binary
+  # (--version, skill get, ingest -> analyse -> history, serve). It publishes
+  # NOTHING: no provenance attestation, no GitHub Release, no npm publish.
+  # Those run only from the tag-triggered release-analyzer.yml workflow.
   package-dry-run:
     name: package (dry run)
     runs-on: ubuntu-latest
@@ -122,28 +130,20 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
       - name: Build
         run: corepack pnpm build
-      - name: Inject a placeholder version + git SHA
+      - name: Pack the forensix package with a placeholder version
         run: |
           set -euo pipefail
-          printf '{\n  "version": "0.0.0-dryrun",\n  "gitSha": "%s"\n}\n' "$GITHUB_SHA" \
-            > cli/dist/build-info.json
-          node cli/dist/cli.js --version
-      - name: Pack and checksum
+          node scripts/pack-analyzer.mjs --version 0.0.0-dryrun \
+            --git-sha "$GITHUB_SHA" --out "$PWD/dist/analyzer"
+      - name: Install the tarball offline and smoke the installed CLI
         run: |
           set -euo pipefail
-          mkdir -p dist/analyzer
-          corepack pnpm --filter @forensix/cli pack --pack-destination "$PWD/dist/analyzer"
-          cd dist/analyzer
+          node scripts/smoke-analyzer-package.mjs \
+            dist/analyzer/forensix-0.0.0-dryrun.tgz \
+            --version 0.0.0-dryrun --git-sha "$GITHUB_SHA"
+      - name: Checksum
+        working-directory: dist/analyzer
+        run: |
+          set -euo pipefail
           sha256sum ./*.tgz > SHA256SUMS
           cat SHA256SUMS
-      - name: Assert the tarball ships the compiled CLI
-        run: |
-          set -euo pipefail
-          tarball=$(ls dist/analyzer/*.tgz)
-          # Materialize the listing once; piping tar into `grep -q` makes grep
-          # close the pipe on first match, killing tar with SIGPIPE and failing
-          # the step under pipefail even though the files are present.
-          listing=$(tar tzf "$tarball")
-          grep -qx 'package/dist/cli.js' <<<"$listing"
-          grep -qx 'package/dist/build-info.json' <<<"$listing"
-          echo "tarball contains the compiled CLI and injected build info"
