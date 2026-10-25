@@ -34,6 +34,7 @@ import {
   formatLocation,
   normalizeRange,
   parseLocation,
+  rowMatchesRef,
   rowRefOf,
   sameLocation,
   withPage,
@@ -423,7 +424,7 @@ export function useRowSelection<Row extends RowRefSource>(
     () =>
       ref === null
         ? null
-        : (rows.find((candidate) => rowRefOf(candidate) === ref) ?? null),
+        : (rows.find((candidate) => rowMatchesRef(candidate, ref)) ?? null),
     [rows, ref],
   );
   useEffect(() => {

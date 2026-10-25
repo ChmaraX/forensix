@@ -47,6 +47,7 @@ import { fileURLToPath } from "node:url";
 
 import { siteHostKey, siteHostsOf } from "../../core/src/site-host-key.ts";
 import { caseData } from "./case-data.mjs";
+import { SOURCE_IMAGE, SOURCE_USER_DATA } from "./case-kit.mjs";
 
 const mockRoot = dirname(fileURLToPath(import.meta.url));
 const clientRoot = join(mockRoot, "..");
@@ -174,6 +175,43 @@ function readable(rows, artifact, request) {
     : rows.filter((row) => !unread.has(`${artifact}|${row.profile}`));
 }
 
+/* ------------------------------- record ids ------------------------------- */
+
+/** Every fixture record by core's store key, in the order its ids are
+ *  given: core puts a stable `<store>:<rowid>` id first on every Finding
+ *  and Candidate a list route returns (record-store.ts), unique in the
+ *  Case. */
+const RECORD_STORES = [
+  [
+    "history",
+    [
+      ...caseData.history.visits,
+      ...caseData.history.activity,
+      ...caseData.history.mostVisited,
+    ],
+  ],
+  ["cookies", caseData.cookies],
+  ["logins", caseData.credentials],
+  ["top-sites", caseData.topSites],
+  ["downloads", caseData.downloads],
+  ["bookmarks", caseData.bookmarks],
+  ["web-data", caseData.autofill],
+  ["cache", caseData.cache],
+  ["favicons", caseData.favicons],
+  ["preferences", caseData.metadata],
+  ["identity-candidates", caseData.candidates],
+  ["topic-candidates", caseData.topicCandidates],
+];
+
+/** Each record by its id (the `get` route), and the store it lives in. */
+const RECORDS_BY_ID = new Map();
+for (const [store, rows] of RECORD_STORES) {
+  rows.forEach((row, index) => {
+    row.id = `${store}:${String(index + 1)}`;
+    RECORDS_BY_ID.set(row.id, { store, row });
+  });
+}
+
 /* ------------------------------- HTML shell ------------------------------- */
 
 function htmlShell() {
@@ -202,6 +240,15 @@ class MockBadRequest extends Error {
   constructor(message, details = {}, code = "INVALID_ARGUMENT") {
     super(message);
     this.code = code;
+    this.details = details;
+  }
+}
+
+/** A 404 the real server sends for core's RECORD_NOT_FOUND. */
+class MockNotFound extends Error {
+  constructor(message, details = {}) {
+    super(message);
+    this.code = "RECORD_NOT_FOUND";
     this.details = details;
   }
 }
@@ -524,9 +571,11 @@ function byCommitState(rows, params) {
 function findingRows(rows) {
   // Strip the fixture's internal `_sort*`/`_host` helper fields before
   // serializing — the wire shape only carries `fields`, not the sort keys
-  // the fixture generator used to build `mostVisited`, etc.
+  // the fixture generator used to build `mostVisited`, etc. The record id
+  // comes first, as core emits it.
   return rows.map(
     ({
+      id,
       recordType,
       findingKind,
       profile,
@@ -534,6 +583,7 @@ function findingRows(rows) {
       provenance,
       fields,
     }) => ({
+      id,
       recordType,
       findingKind,
       profile,
@@ -545,7 +595,16 @@ function findingRows(rows) {
 }
 
 function candidateRows(rows) {
-  return rows.map((row) => ({ ...row }));
+  return rows.map(({ id, ...row }) => ({ id, ...row }));
+}
+
+/** The repeated `profile` filter, as every route that takes it applies it:
+ *  none → every row; else only rows of a named profile. */
+function byProfiles(rows, params) {
+  const profiles = params.getAll("profile");
+  return profiles.length === 0
+    ? rows
+    : rows.filter((row) => profiles.includes(row.profile));
 }
 
 /* --------------------------------- routes --------------------------------- */
@@ -758,7 +817,11 @@ function siteFindings(params, request) {
     for (const [kind, rowsOf] of SITE_SOURCES) {
       for (const row of rowsOf(request)) {
         const hostFields = siteHostsOf(row.findingKind, row.fields).get(host);
-        if (hostFields !== undefined) {
+        if (
+          hostFields !== undefined &&
+          byProfiles([row], params).length === 1 &&
+          byCommitState([row], params).length === 1
+        ) {
           items.push({
             ...findingRows([row])[0],
             artifactKind: kind,
@@ -771,16 +834,225 @@ function siteFindings(params, request) {
   return pageOf(items, params, "site-findings");
 }
 
+/* --------------------------- aggregate routes ---------------------------- */
+
+/** The rows of each record kind (less unread databases), for `count`,
+ *  `summary` and `get`: core's kinds, each with the Completeness artifact
+ *  it is read from (null for Candidates, which follow their inputs). */
+function rowsOfKind(kind, request) {
+  const all = [
+    ["History", caseData.history.visits],
+    ["History", caseData.history.activity],
+    ["History", caseData.history.mostVisited],
+    ["Cookies", caseData.cookies],
+    ["Login Data", caseData.credentials],
+    ["Top Sites", caseData.topSites],
+    ["Downloads", caseData.downloads],
+    ["Bookmarks", caseData.bookmarks],
+    ["Web Data", caseData.autofill],
+    ["Cache", caseData.cache],
+    ["Favicons", caseData.favicons],
+    ["Preferences", caseData.metadata],
+  ];
+  const findings = all.flatMap(([artifact, rows]) =>
+    readable(rows, artifact, request).filter((row) => row.findingKind === kind),
+  );
+  if (findings.length > 0) {
+    return findings;
+  }
+  return [...caseData.candidates, ...caseData.topicCandidates].filter(
+    (row) => row.candidateKind === kind,
+  );
+}
+
+/** Every kind the fixture holds (Findings, then Candidates). */
+function everyKind() {
+  const kinds = new Set();
+  for (const [, rows] of RECORD_STORES) {
+    for (const row of rows) {
+      kinds.add(row.findingKind ?? row.candidateKind);
+    }
+  }
+  return [...kinds];
+}
+
+/** One field's count bucket, as core's `queryCount` keys it: a value by
+ *  itself (a timestamp by its UTC day), any other Field State in words. */
+function bucketOf(field) {
+  if (field === undefined) return { state: "missing", key: "(missing)" };
+  if (field.state === "absent") return { state: "absent", key: "(absent)" };
+  if (field.state === "unavailable") {
+    return {
+      state: "unavailable",
+      key: `(unavailable:${field.reason ?? "unspecified"})`,
+    };
+  }
+  const value = field.value;
+  if (value !== null && typeof value === "object" && "utc" in value) {
+    return { state: "value", key: String(value.utc).slice(0, 10) };
+  }
+  if (typeof value === "object" && value !== null) {
+    return { state: "value", key: JSON.stringify(value) };
+  }
+  return { state: "value", key: String(value) };
+}
+
+/** `count`: one kind's records grouped by a field (or `profile` /
+ *  `commitState`), filtered by `profile` and `commit-state`, the largest
+ *  `limit` buckets (count desc, key asc) and the rest in `otherCount`. */
+function countRecords(params, request) {
+  const kind = params.get("kind") ?? "";
+  const by = params.get("by") ?? "";
+  if (!everyKind().includes(kind)) {
+    throw new MockBadRequest(`Count --kind ${kind} is not a record kind.`, {
+      kind,
+      allowed: everyKind(),
+    });
+  }
+  const raw = params.get("limit");
+  const limit = raw === null ? 20 : Number(raw);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new MockBadRequest(
+      "Count --limit must be an integer from 1 through 100.",
+      { limit: raw },
+    );
+  }
+  const rows = byCommitState(
+    byProfiles(rowsOfKind(kind, request), params),
+    params,
+  );
+  if (
+    by !== "profile" &&
+    by !== "commitState" &&
+    !rowsOfKind(kind, request).some((row) => by in row.fields)
+  ) {
+    throw new MockBadRequest(
+      `Count --by ${by} is not a field of kind ${kind}.`,
+      { by, kind },
+    );
+  }
+  const buckets = new Map();
+  for (const row of rows) {
+    const bucket =
+      by === "profile"
+        ? { state: "value", key: row.profile }
+        : by === "commitState"
+          ? { state: "value", key: row.commitState }
+          : bucketOf(row.fields[by]);
+    const id = `${bucket.state}\u0000${bucket.key}`;
+    const entry = buckets.get(id) ?? { ...bucket, count: 0 };
+    entry.count += 1;
+    buckets.set(id, entry);
+  }
+  const listed = [...buckets.values()]
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        (a.key < b.key ? -1 : a.key > b.key ? 1 : 0) ||
+        (a.state < b.state ? -1 : 1),
+    )
+    .slice(0, limit);
+  return {
+    status: "ok",
+    command: "count",
+    kind,
+    by,
+    total: rows.length,
+    buckets: listed,
+    otherCount: rows.length - listed.reduce((sum, b) => sum + b.count, 0),
+    limit,
+  };
+}
+
+/** `summary`: the Case id, its Sources, Profiles, the last run, records
+ *  per kind (committed / recovered; null for identity Candidates), the
+ *  time span and the coverage per artifact. */
+function summaryOf(request) {
+  const records = everyKind().map((kind) => {
+    const rows = rowsOfKind(kind, request);
+    const identity = rows.some(
+      (row) => row.recordType === "candidate" && row.category !== undefined,
+    );
+    const committed = rows.filter(
+      (row) => row.commitState === "committed",
+    ).length;
+    return {
+      recordType: rows[0]?.recordType ?? "finding",
+      kind,
+      store:
+        RECORD_STORES.find(([, list]) => list.includes(rows[0]))?.[0] ?? null,
+      committed: identity ? null : committed,
+      recovered: identity ? null : rows.length - committed,
+      total: rows.length,
+    };
+  });
+  const stream = timelineRows(request);
+  const instants = stream.map(timelineSortKey).sort();
+  return {
+    status: "ok",
+    command: "summary",
+    caseId: caseData.caseId,
+    sources: [SOURCE_IMAGE, SOURCE_USER_DATA].map((sourceId) => ({
+      sourceId,
+      sourceKind:
+        sourceId === SOURCE_IMAGE ? "IMAGE_CONTAINER" : "USER_DATA_DIR",
+      sourcePath: `/evidence/${sourceId}`,
+      profileCount: caseData.profiles.profiles.length,
+      entryCount: 0,
+      copiedEntryCount: 0,
+      unavailableCount: 0,
+      evidenceSetDigest: "0".repeat(64),
+    })),
+    profiles: caseData.profiles.profiles,
+    analysis: null,
+    records,
+    timeSpan:
+      instants.length === 0
+        ? null
+        : { earliest: instants[0], latest: instants[instants.length - 1] },
+    completeness: completenessFor(request).statements.map((statement) => ({
+      artifact: statement.artifact,
+      attempted: statement.attempted,
+      produced: statement.produced,
+      absent: statement.absent,
+      unavailable: statement.unavailable,
+    })),
+  };
+}
+
+/** `get`: one record by its id, or core's RECORD_NOT_FOUND (404). */
+function getRecord(params) {
+  const id = params.get("id") ?? "";
+  if (!/^[a-z-]+:[0-9]+$/.test(id)) {
+    throw new MockBadRequest(
+      "Record id must have the form <store>:<rowid>, for example cookies:1.",
+      { id },
+    );
+  }
+  const found = RECORDS_BY_ID.get(id);
+  if (found === undefined) {
+    throw new MockNotFound(`Case has no record with id ${id}.`, { id });
+  }
+  const item =
+    found.row.recordType === "candidate"
+      ? candidateRows([found.row])[0]
+      : findingRows([found.row])[0];
+  return { status: "ok", command: "get", active: true, item };
+}
+
 // `commit-state` is honored exactly where server/src/index.ts passes it to
-// core: not on `cache` (its records carry their state mixed) or `timeline`
-// (one chronological stream), and not on the site-* routes.
+// core: not on `cache` (its records carry their state mixed), and not on
+// `site-hosts`.
 /** A Finding route of one Completeness artifact: its readable rows, by
  *  `commit-state`, limited. */
 const artifactRoute = (route, rowsOf, artifact) => (params, request) => {
   checkSort(params, route, ROUTE_LABELS[route]);
   return pageOf(
     sortedRows(
-      byCommitState(findingRows(readable(rowsOf(), artifact, request)), params),
+      byCommitState(
+        byProfiles(findingRows(readable(rowsOf(), artifact, request)), params),
+        params,
+      ),
       params,
       route,
     ),
@@ -792,6 +1064,9 @@ const artifactRoute = (route, rowsOf, artifact) => (params, request) => {
 const HISTORY_VIEWS = ["visits", "activity", "most-visited", "durations"];
 
 const ROUTES = {
+  count: (params, request) => countRecords(params, request),
+  summary: (_params, request) => summaryOf(request),
+  get: (params) => getRecord(params),
   "site-hosts": (params, request) => siteHosts(params, request),
   "site-findings": (params, request) => siteFindings(params, request),
   completeness: (_params, request) => completenessFor(request),
@@ -821,7 +1096,7 @@ const ROUTES = {
         { view },
       );
     }
-    const rows = historyView(view, request);
+    const rows = byProfiles(historyView(view, request), params);
     return pageOf(
       byCommitState(
         view === "visits"
@@ -840,7 +1115,10 @@ const ROUTES = {
   },
   timeline: (params, request) => {
     checkSort(params, "timeline", "Timeline");
-    const stream = timelineRows(request);
+    const stream = byCommitState(
+      byProfiles(timelineRows(request), params),
+      params,
+    );
     return pageOf(
       byInstantRange(
         params.get("direction") === "asc" ? stream.reverse() : stream,
@@ -874,7 +1152,10 @@ const ROUTES = {
     }
     checkSort(params, `cache:${recordType}`, "Cache");
     return pageOf(
-      findingRows(readable(caseData.cache, "Cache", request)),
+      byProfiles(
+        findingRows(readable(caseData.cache, "Cache", request)),
+        params,
+      ),
       params,
       "cache",
       { recordType },
@@ -883,12 +1164,40 @@ const ROUTES = {
   favicons: artifactRoute("favicons", () => caseData.favicons, "Favicons"),
   candidates: (params) => {
     checkSort(params, "candidates", "Candidates");
-    return pageOf(candidateRows(caseData.candidates), params, "candidates");
+    const category = params.get("category");
+    if (category !== null && !["identity", "behavior"].includes(category)) {
+      throw new MockBadRequest(
+        "Candidates --category has an unsupported value.",
+        {
+          value: category,
+          allowed: ["identity", "behavior"],
+        },
+      );
+    }
+    const kind = params.get("kind");
+    const rows = byProfiles(candidateRows(caseData.candidates), params).filter(
+      (row) =>
+        (category === null || row.category === category) &&
+        (kind === null || kind === "" || row.candidateKind === kind),
+    );
+    // Core's default order: rank, then id.
+    const sorted =
+      (params.get("sort") ?? "rank") === "rank"
+        ? [...rows].sort((a, b) =>
+            params.get("direction") === "desc"
+              ? b.rank - a.rank
+              : a.rank - b.rank,
+          )
+        : rows;
+    return pageOf(sorted, params, "candidates");
   },
   "topic-candidates": (params) => {
     checkSort(params, "topic-candidates", "Topic Candidate");
     return pageOf(
-      byCommitState(candidateRows(caseData.topicCandidates), params),
+      byCommitState(
+        byProfiles(candidateRows(caseData.topicCandidates), params),
+        params,
+      ),
       params,
       "topic-candidates",
     );
@@ -961,6 +1270,15 @@ const server = createServer((request, response) => {
     try {
       sendJson(response, 200, handler(requestUrl.searchParams, request));
     } catch (error) {
+      if (error instanceof MockNotFound) {
+        sendJson(response, 404, {
+          status: "error",
+          code: error.code,
+          message: error.message,
+          details: error.details,
+        });
+        return;
+      }
       if (error instanceof MockBadRequest) {
         sendJson(response, 400, {
           status: "error",

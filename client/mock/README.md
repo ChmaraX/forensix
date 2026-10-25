@@ -47,10 +47,21 @@ The defaults are unchanged: `dist/index.js` and port 7799.
   real server's Content-Security-Policy header.
 - `GET /index.js` - the built client bundle.
 - `GET /api/<route>` for every route the real server exposes: `completeness`,
-  `profiles`, `history`, `timeline`, `site-hosts`, `site-findings`,
-  `site-favicons`, `favicon-bitmaps`, `cookies`, `credentials`, `top-sites`,
-  `cache`, `favicons`, `candidates`, `topic-candidates`, `metadata`,
-  `downloads`, `bookmarks`, `autofill`.
+  `profiles`, `summary`, `count`, `get`, `history`, `timeline`,
+  `site-hosts`, `site-findings`, `site-favicons`, `favicon-bitmaps`,
+  `cookies`, `credentials`, `top-sites`, `cache`, `favicons`, `candidates`,
+  `topic-candidates`, `metadata`, `downloads`, `bookmarks`, `autofill`.
+
+Every Finding and Candidate carries core's record id as its first key
+(`<store>:<rowid>`, for example `history:3`), unique in the Case; `get?id=`
+answers one record by it (a 404 `RECORD_NOT_FOUND` for an unknown id).
+`count?kind=&by=` groups one kind's records by a field (or `profile` /
+`commitState`) as core does: a value by itself (a timestamp by its UTC
+day), any other Field State in words (`(absent)`, `(unavailable:reason)`),
+honoring `profile` and `commit-state`, the largest `limit` buckets and the
+rest in `otherCount`. `summary` answers the Case id, its two Sources, the
+Profiles, the records per kind (committed and recovered) and the coverage.
+`candidates` honors `category` and `kind`, and orders by rank.
 
 `timeline` merges history visits, downloads, cookie creation, and autofill
 last-used rows by timestamp, newest first - mirroring core's
@@ -131,10 +142,14 @@ rejects is rejected here first, with the real 400 body (`{"status": "error",
   `most-visited` or `durations`; `record-type` on `cache` must be `finding`
   or `candidate`.
 - `commit-state` (`committed`, `wal_resident`, `journal_resident`) - applied
-  on exactly the routes the real server filters by it (`history`, `cookies`,
-  `credentials`, `top-sites`, `favicons`, `topic-candidates`, `metadata`,
-  `downloads`, `bookmarks`, `autofill`); any other value is a 400. `cache`
-  and `timeline` ignore it, as the real server does.
+  on exactly the routes the real server filters by it (`history`, `timeline`,
+  `site-findings`, `cookies`, `credentials`, `top-sites`, `favicons`,
+  `topic-candidates`, `metadata`, `downloads`, `bookmarks`, `autofill`,
+  `count`); any other value is a 400. `cache` ignores it, as the real server
+  does.
+- `profile` (repeated) - applied on every route that takes it (every list
+  route, `timeline`, `site-findings`, `candidates`, `count`): only rows of a
+  named profile.
 - `from` / `to` - full ISO 8601 instants with an offset, `from` not after
   `to`; applied on the History `visits` view and the `timeline`. On any
   other History view they (and `transition`) are a 400.

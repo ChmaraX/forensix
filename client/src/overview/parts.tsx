@@ -13,6 +13,11 @@ import { EmptyRows } from "@/components/data-table";
 import { toRow } from "@/components/downloads-model";
 import { DownloadSize, DownloadState } from "@/components/downloads-table";
 import { EvidenceDot } from "@/components/evidence";
+import {
+  AbsentWord,
+  codeClass,
+  FieldStateText,
+} from "@/components/field-state";
 import { FieldCell } from "@/components/finding-fields";
 import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
 import {
@@ -31,10 +36,10 @@ import {
 } from "@/hooks/use-fluid-hover";
 import {
   ARTIFACT_ICONS,
+  CaseIcon,
   DownloadedFileIcon,
   EmptyIcon,
   ExternalLinkIcon,
-  UserIcon,
   type ArtifactIconKey,
 } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
@@ -90,64 +95,69 @@ export function JumpLink({
 // ---------------------------------------------------------------------------
 
 /**
- * The Case masthead: whose browser this is, in the display role, with the
- * date range on the right. It sits on the page substrate like every other
- * page header — no saturated slab — so the first framed surface the examiner
- * meets is the figure band and then the evidence.
+ * The Case masthead: which Case this is (its id), what it holds (Sources,
+ * Profiles, the Chrome build), and the date range on the right. It names
+ * the Case, never a person: an account name recorded in one Profile is not
+ * the Case's subject, so it reads on its own line (`account`), scoped to
+ * its Profile in words. The masthead sits on the page substrate like every
+ * other page header - no saturated slab - so the first framed surface the
+ * examiner meets is the figure band and then the evidence.
  */
 export function Masthead({
-  subjectName,
+  caseId,
   meta,
+  account,
   coverage,
   picker,
 }: {
-  readonly subjectName: string | null;
-  readonly meta: string;
+  readonly caseId: string;
+  /** The Case's contents, one line ("2 Sources · 3 Profiles · Chrome …"). */
+  readonly meta: ReactNode;
+  /** The scoped Profile account line (`ProfileAccountLine`). */
+  readonly account: ReactNode;
   /** The shell's whole-Case coverage indicator, before the picker. */
   readonly coverage?: ReactNode;
   readonly picker: ReactNode;
 }) {
   const size = useSize();
+  const caseTitle = /^case\b/i.test(caseId) ? caseId : `Case ${caseId}`;
   return (
     <header
       aria-label="Case masthead"
       className="flex flex-col gap-4 pt-2 md:flex-row md:items-start md:justify-between md:gap-8"
     >
-      <div className="flex min-w-0 items-center gap-4">
+      <div className="flex min-w-0 items-start gap-4">
         <span
           aria-hidden="true"
-          className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-hover text-muted-foreground"
+          className="mt-0.5 inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-hover text-muted-foreground"
         >
-          <UserIcon size={size.icon} strokeWidth={1.5} />
+          <CaseIcon size={size.icon} strokeWidth={1.5} />
         </span>
         <div className="flex min-w-0 flex-col gap-0.5">
           <h1
-            className={cn(
-              typeClass("display"),
-              "truncate",
-              subjectName === null
-                ? "text-muted-foreground"
-                : "text-foreground",
-            )}
+            className={cn(typeClass("display"), "truncate text-foreground")}
             style={{ fontVariationSettings: fontWeights.bold }}
+            title={caseTitle}
           >
-            {subjectName ?? "Subject not recorded"}
+            {/* An id that already says "Case" ("CASE-2024-0416") is not
+                prefixed again. */}
+            {/^case\b/i.test(caseId) ? null : "Case "}
+            <span className={codeClass(caseId)}>{caseId}</span>
           </h1>
-          {meta.length > 0 ? (
-            <p
-              className={cn(
-                typeClass("body"),
-                "text-muted-foreground sm:truncate",
-              )}
-            >
-              {meta}
-            </p>
-          ) : null}
+          <p
+            className={cn(
+              typeClass("body"),
+              "text-muted-foreground sm:truncate",
+            )}
+          >
+            {meta}
+          </p>
+          {account}
         </div>
       </div>
-      {/* Below `md` the pair sits under the subject, flush left: the
-          ghost indicator's own padding is pulled back so its words align
-          with the name above, and both fit one phone line. */}
+      {/* Below `md` the pair sits under the Case, flush left: the ghost
+          indicator's own padding is pulled back so its words align with
+          the name above, and both fit one phone line. */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-1 gap-y-2 md:gap-2 md:pt-1">
         {coverage === undefined || coverage === null ? null : (
           <span className="flex max-md:-ml-3">{coverage}</span>
@@ -155,6 +165,100 @@ export function Masthead({
         {picker}
       </div>
     </header>
+  );
+}
+
+/** One account field on the masthead's account line: a value as recorded;
+ *  any other Field State in its own words after the field's name, so
+ *  "absent", "(empty)" and "unavailable" never read as a value or as each
+ *  other. */
+function AccountField({
+  name,
+  field,
+}: {
+  readonly name: string;
+  readonly field: FieldState | undefined;
+}) {
+  if (field?.state === "value" && field.value !== "") {
+    return (
+      <span className="min-w-0 truncate text-foreground">
+        <FieldStateText field={field} truncate />
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex min-w-0 items-baseline gap-1.5">
+      <span>{name}</span>
+      {field === undefined ? (
+        <AbsentWord />
+      ) : (
+        <span className="text-foreground">
+          <FieldStateText field={field} truncate />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * The account a Profile records, scoped to that Profile in words
+ * ("Default profile account: Olivia Bennett · olivia@…") and linked to its
+ * own row on Browser profile. Each field keeps its Field State: a missing
+ * name reads "name absent", an undecodable one "name unavailable - …".
+ * `others` Profiles with metadata of their own are named as a count with a
+ * link to Browser profile, which lists every one.
+ */
+export function ProfileAccountLine({
+  profile,
+  name,
+  email,
+  rowHref,
+  others,
+  othersHref,
+}: {
+  /** The Profile the account belongs to, already in its one written form
+   *  (`profileLabel`). Null when no Profile recorded metadata. */
+  readonly profile: string | null;
+  readonly name: FieldState | undefined;
+  readonly email: FieldState | undefined;
+  readonly rowHref: string;
+  readonly others: number;
+  readonly othersHref: string;
+}) {
+  const link =
+    "rounded-sm underline decoration-border underline-offset-4 outline-none transition-colors duration-80 hover:text-foreground hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-focus-ring";
+  if (profile === null) {
+    return (
+      <p className={cn(typeClass("body"), "text-muted-foreground")}>
+        No Profile in this Case recorded account metadata.
+      </p>
+    );
+  }
+  return (
+    <p
+      className={cn(
+        typeClass("body"),
+        "flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-muted-foreground",
+      )}
+    >
+      <span>
+        <a href={rowHref} className={link}>
+          {profile} account
+        </a>
+        :
+      </span>
+      <AccountField name="name" field={name} />
+      <span aria-hidden="true">·</span>
+      <AccountField name="e-mail" field={email} />
+      {others > 0 ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <a href={othersHref} className={link}>
+            {plural(others, "more profile", "more profiles")}
+          </a>
+        </>
+      ) : null}
+    </p>
   );
 }
 
@@ -195,7 +299,13 @@ export function CaseFigures({
 }) {
   return (
     <section aria-label="Case figures">
-      <MetricBand className="grid-cols-2 lg:grid-cols-4">
+      <MetricBand
+        className={
+          items.length === 3
+            ? "grid-cols-1 sm:grid-cols-3"
+            : "grid-cols-2 lg:grid-cols-4"
+        }
+      >
         {items.map((item) => {
           // A word for "nothing of that shape" reads at body size inside
           // the figure's line box: muted, not dressed as a figure, and the
@@ -585,9 +695,9 @@ export function DownloadsList({
 // Recovered
 // ---------------------------------------------------------------------------
 
-/** "1,000+" when the read stopped at its cap. */
-function countText(count: number, more: boolean): string {
-  return `${count.toLocaleString("en-US")}${more ? "+" : ""}`;
+/** A count as the panel prints it (the server's exact count). */
+function countText(count: number): string {
+  return count.toLocaleString("en-US");
 }
 
 /** "Bookmarks", "Bookmarks or Browser profile", "A, B or C". */
@@ -601,11 +711,9 @@ function orList(words: readonly string[]): string {
 function RecoveredPart({
   state,
   count,
-  more,
 }: {
   readonly state: "wal_resident" | "journal_resident";
   readonly count: number;
-  readonly more: boolean;
 }) {
   // "recovered - unsaved" → "unsaved": the panel's title already says
   // recovered; the dot repeats the word's hue, never stands in for it.
@@ -614,9 +722,7 @@ function RecoveredPart({
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
       <EvidenceDot state={meta.badge} />
-      <span className="text-foreground tabular-nums">
-        {countText(count, more)}
-      </span>
+      <span className="text-foreground tabular-nums">{countText(count)}</span>
       <span className="text-muted-foreground">{word}</span>
     </span>
   );
@@ -676,11 +782,9 @@ export function RecoveredList({
         {listed.map((count, index) => {
           const coverage = coverageOf(count.artifact);
           const parts = [
-            count.wal > 0
-              ? `${countText(count.wal, count.more)} unsaved`
-              : null,
+            count.wal > 0 ? `${countText(count.wal)} unsaved` : null,
             count.journal > 0
-              ? `${countText(count.journal, count.more)} overwritten`
+              ? `${countText(count.journal)} overwritten`
               : null,
           ].filter((part) => part !== null);
           // Nothing read: nothing could be recovered either, so the row
@@ -741,17 +845,12 @@ export function RecoveredList({
                 )}
               >
                 {count.wal > 0 ? (
-                  <RecoveredPart
-                    state="wal_resident"
-                    count={count.wal}
-                    more={count.more}
-                  />
+                  <RecoveredPart state="wal_resident" count={count.wal} />
                 ) : null}
                 {count.journal > 0 ? (
                   <RecoveredPart
                     state="journal_resident"
                     count={count.journal}
-                    more={count.more}
                   />
                 ) : null}
                 {parts.length === 0 ? (

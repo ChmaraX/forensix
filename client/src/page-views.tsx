@@ -9,6 +9,7 @@ import type { ComponentType } from "react";
 import { AutofillPage } from "./components/autofill-page.js";
 import { BookmarksPage } from "./components/bookmarks-page.js";
 import { CachePage } from "./components/cache-page.js";
+import { CandidatesPage } from "./components/candidates-page.js";
 import { CookiesPage } from "./components/cookies-page.js";
 import { CredentialsPage } from "./components/credentials-page.js";
 import { DownloadsPage } from "./components/downloads-page.js";
@@ -23,6 +24,7 @@ import type { PageKey } from "./pages.js";
 
 export const PAGE_COMPONENTS: Readonly<Record<PageKey, ComponentType>> = {
   overview: OverviewPage,
+  candidates: CandidatesPage,
   timeline: TimelinePage,
   sites: SitesPage,
   history: HistoryPage,

@@ -1,8 +1,9 @@
 /**
- * The Bookmarks folder navigator: the folder tree built from the loaded
- * rows' recorded folder paths, and its keyboard-navigable list of
- * `FolderRow`s (fluid hover, chevrons, counts). Split out of
- * `bookmarks-page.tsx`.
+ * The Bookmarks folder navigator: the folder tree built from the server's
+ * count of saved bookmarks per recorded folder path (`count`
+ * `by=folderPath`, every saved bookmark in the lens, not the rows loaded
+ * so far), and its keyboard-navigable list of `FolderRow`s (fluid hover,
+ * chevrons, counts). Split out of `bookmarks-page.tsx`.
  */
 import { motion } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -31,7 +32,24 @@ import { cn } from "@/lib/utils";
 import { ChartEmpty } from "./charts.js";
 import { FilterField } from "./filters.js";
 import { plural, SectionPanel, WeightLabel } from "./page-kit.js";
-import type { BookmarkRow } from "./bookmarks-page.js";
+
+/** Saved bookmarks per recorded folder path, as the server counted them. */
+export interface FolderCounts {
+  /** Each recorded folder path (split into its segments) and the saved
+   *  bookmarks filed directly in it. */
+  readonly folders: readonly {
+    readonly segments: readonly string[];
+    readonly count: number;
+  }[];
+  /** Saved bookmarks with no recorded folder (absent, empty or
+   *  unavailable). */
+  readonly unfiled: number;
+  /** Every saved bookmark counted. */
+  readonly total: number;
+  /** Saved bookmarks in folders past the server's bucket limit: not in the
+   *  tree, said under it. */
+  readonly unlisted: number;
+}
 
 /* ------------------------------- folder tree ------------------------------ */
 
@@ -48,12 +66,13 @@ export interface FolderNode {
 }
 
 /**
- * Rebuilds the subject's bookmark folder hierarchy from the `folderPath` of
- * every row. `direct` is bookmarks filed straight in a folder; `total` rolls
- * up the subtree. Rows with no recorded folder are excluded here and surfaced
- * as their own worded line under the tree, so absence stays visible.
+ * Rebuilds the subject's bookmark folder hierarchy from the saved
+ * bookmarks counted per `folderPath`. `direct` is bookmarks filed straight
+ * in a folder; `total` rolls up the subtree. Bookmarks with no recorded
+ * folder are excluded here and surfaced as their own worded line under the
+ * tree, so absence stays visible.
  */
-export function buildFolderTree(rows: readonly BookmarkRow[]): {
+export function buildFolderTree(counts: FolderCounts): {
   readonly roots: readonly FolderNode[];
   readonly unfiled: number;
 } {
@@ -66,17 +85,17 @@ export function buildFolderTree(rows: readonly BookmarkRow[]): {
     children: Map<string, Builder>;
   }
   const roots = new Map<string, Builder>();
-  let unfiled = 0;
+  let unfiled = counts.unfiled;
 
-  for (const row of rows) {
-    if (row.folderSegments.length === 0) {
-      unfiled += 1;
+  for (const folder of counts.folders) {
+    if (folder.segments.length === 0) {
+      unfiled += folder.count;
       continue;
     }
     let level = roots;
     let pathSoFar = "";
     let node: Builder | null = null;
-    for (const [index, segment] of row.folderSegments.entries()) {
+    for (const [index, segment] of folder.segments.entries()) {
       pathSoFar = pathSoFar === "" ? segment : `${pathSoFar} / ${segment}`;
       let child = level.get(segment);
       if (child === undefined) {
@@ -90,12 +109,12 @@ export function buildFolderTree(rows: readonly BookmarkRow[]): {
         };
         level.set(segment, child);
       }
-      child.total += 1;
+      child.total += folder.count;
       node = child;
       level = child.children;
     }
     if (node !== null) {
-      node.direct += 1;
+      node.direct += folder.count;
     }
   }
 
@@ -288,15 +307,15 @@ export function FolderRow({
  * it again (or "All bookmarks") clears the focus.
  */
 export function FolderNavigator({
-  rows,
+  counts,
   activePath,
   onPick,
 }: {
-  readonly rows: readonly BookmarkRow[];
+  readonly counts: FolderCounts;
   readonly activePath: string | null;
   readonly onPick: (path: string | null) => void;
 }) {
-  const { roots, unfiled } = useMemo(() => buildFolderTree(rows), [rows]);
+  const { roots, unfiled } = useMemo(() => buildFolderTree(counts), [counts]);
   // Top-level folders start open, deeper ones closed; `toggled` holds the
   // folders the examiner flipped from that default. Kept as the flips (not
   // the open set) so a tree rebuilt for another profile pick opens its own
@@ -346,7 +365,7 @@ export function FolderNavigator({
                 registerItem={hover.registerItem}
                 depth={0}
                 label="All bookmarks"
-                count={rows.length}
+                count={counts.total}
                 icon="library"
                 active={activePath === null}
                 onPick={() => {
@@ -394,6 +413,17 @@ export function FolderNavigator({
           recorded folder.
         </p>
       ) : null}
+      {counts.unlisted > 0 ? (
+        <p
+          className={cn(
+            typeClass("caption"),
+            "border-t border-border px-4 py-2.5 text-muted-foreground",
+          )}
+        >
+          {plural(counts.unlisted, "saved bookmark", "saved bookmarks")} in
+          smaller folders not listed here.
+        </p>
+      ) : null}
     </SectionPanel>
   );
 }
@@ -409,15 +439,15 @@ const ALL_FOLDERS = "\u0000all";
  * beneath it) as `FolderNavigator`.
  */
 export function FolderSelect({
-  rows,
+  counts,
   activePath,
   onPick,
 }: {
-  readonly rows: readonly BookmarkRow[];
+  readonly counts: FolderCounts;
   readonly activePath: string | null;
   readonly onPick: (path: string | null) => void;
 }) {
-  const { roots } = useMemo(() => buildFolderTree(rows), [rows]);
+  const { roots } = useMemo(() => buildFolderTree(counts), [counts]);
   const everyFolder = useMemo(() => {
     const out: FolderNode[] = [];
     const walk = (nodes: readonly FolderNode[]) => {
@@ -445,7 +475,7 @@ export function FolderSelect({
           <SelectItem index={0} value={ALL_FOLDERS}>
             All bookmarks{" "}
             <span className="text-muted-foreground tabular-nums">
-              {rows.length.toLocaleString("en-US")}
+              {counts.total.toLocaleString("en-US")}
             </span>
           </SelectItem>
           {everyFolder.map((node, index) => (

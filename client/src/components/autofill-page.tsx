@@ -20,9 +20,12 @@
  *
  * TYPE (the field type) is the first table column. Saved entries and entries
  * recovered from WAL / journal sidecars are separate server reads and
- * separate lists (the Saved / Recovered tabs); the figures count saved
- * entries only, in the profiles the Case-wide lens picks. No control here
- * can start or rerun ingest, analysis, or export.
+ * separate lists (the Saved / Recovered tabs), keyset-paged. The figures
+ * and the tab counts are the server's counts (`count-reads.ts`) of every
+ * saved entry in the profiles the Case-wide lens picks (a server filter
+ * too), never a reading of the rows loaded so far; the category chips count
+ * the loaded rows ("36+" while more pages stand). No control here can
+ * start or rerun ingest, analysis, or export.
  */
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
@@ -46,8 +49,15 @@ import { ARTIFACT_ICONS, SearchIcon } from "@/lib/app-icons";
 import { SizeProvider } from "@/lib/size-context";
 
 import type { QueryParameters } from "../api.js";
-import type { Finding } from "../types.js";
+import type { CountResult, Finding } from "../types.js";
 import { ARTIFACTS } from "../artifacts.js";
+import {
+  formatTally,
+  recordsWhere,
+  useCommitStateTotals,
+  useCount,
+  type Tally,
+} from "../count-reads.js";
 import type { RowLookupSource } from "../row-lookup.js";
 import {
   commitStateStatus,
@@ -90,7 +100,12 @@ import {
 import { useArtifactCoverage } from "../case-context.js";
 import { ListBlock } from "./list-states.js";
 import { SM_UP, useMediaQuery } from "./use-media-query.js";
-import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
+import {
+  figure,
+  MetricBand,
+  MetricBandItem,
+  TooltipFigure,
+} from "./metric-band.js";
 import { HiddenValue, RowSheet, secretFieldsOf } from "./row-sheet.js";
 import { Term } from "./term.js";
 
@@ -102,10 +117,8 @@ const AUTOFILL_PARAMETERS: QueryParameters = [
   ["limit", "100"],
 ];
 
-/** Rows read per list before the page stops following the cursor. The
- *  figures above the table are only honest if they cover the whole set, so
- *  every page is read rather than the first screen. */
-const AUTOFILL_ROW_CAP = 6000;
+/** The Finding kind of a form entry (the `count` route's `kind`). */
+const AUTOFILL_KIND = "autofill_entry";
 
 /** True for an entry whose recorded, non-empty value is a secret - a
  *  Payment field, or a field whose name was not recorded (fails closed) -
@@ -139,11 +152,18 @@ function toEntry(row: Finding): Entry {
 
 /** Identity + Contact + Address + Payment: the entries that carry directly
  *  identifying or financial data, as opposed to search text. */
-function sensitiveCount(entries: readonly Entry[]): number {
-  return entries.filter(
-    (entry) =>
-      entry.category.key !== "searches" && entry.category.key !== "other",
-  ).length;
+function isSensitive(category: FormDataCategory): boolean {
+  return category.key !== "searches" && category.key !== "other";
+}
+
+/** The sensitive saved entries in a `by=fieldName` count: each bucket's
+ *  field name sorted into its category by the same rule as the rows. A
+ *  floor when the server listed only its largest buckets. */
+export function sensitiveTally(result: CountResult): Tally {
+  return recordsWhere(
+    result,
+    (bucket) => bucket.state === "value" && isSensitive(categoryOf(bucket.key)),
+  );
 }
 
 /* ---------------------------------- table --------------------------------- */
@@ -237,6 +257,7 @@ function EntryList({
   list,
   entries,
   visible,
+  lensFiltered,
   noun,
   reveal,
   onSelect,
@@ -247,6 +268,8 @@ function EntryList({
   readonly list: PaginatedList<Finding>;
   readonly entries: readonly Entry[];
   readonly visible: readonly Entry[];
+  /** The profile pick (a server filter) narrows the list. */
+  readonly lensFiltered: boolean;
   readonly noun: "saved" | "recovered";
   readonly reveal: boolean;
   readonly onSelect: (row: Finding) => void;
@@ -270,7 +293,7 @@ function EntryList({
       list={list}
       noun={{ one: `${noun} form entry`, many: `${noun} form entries` }}
       shown={visible.length}
-      filtered={visible.length !== entries.length}
+      filtered={lensFiltered || visible.length !== entries.length}
       filteredMessage={filteredMessage}
       onClearFilters={onClearFilters}
       skeletonRows={3}
@@ -443,15 +466,22 @@ const config = ARTIFACTS.autofill;
 const ROW_LOOKUP: RowLookupSource = { route: config.route };
 
 export function AutofillPage() {
-  const lists = useCommitStateLists<Finding>(
-    config.route,
-    AUTOFILL_PARAMETERS,
-    {
-      drain: AUTOFILL_ROW_CAP,
-    },
+  // The profile pick is the Case-wide lens, applied by the server.
+  const lens = useProfileLens();
+  const parameters = useMemo<QueryParameters>(
+    () => [...AUTOFILL_PARAMETERS, ...lens.parameters],
+    [lens.parameters],
   );
+  const lists = useCommitStateLists<Finding>(config.route, parameters);
+  const totals = useCommitStateTotals(AUTOFILL_KIND, lens.selected);
+  const fieldNames = useCount({
+    kind: AUTOFILL_KIND,
+    by: "fieldName",
+    commitState: "committed",
+    profiles: lens.selected,
+  });
   // Saved / Recovered, the search and the open row live in the URL: Back
-  // and a refresh keep them. The profile pick is the Case-wide lens.
+  // and a refresh keep them.
   const [view, setView] = useViewTab();
   const [search, setSearch] = useViewSearch();
   // The category pick is in the URL (`filter`), so refresh and Back keep
@@ -474,20 +504,10 @@ export function AutofillPage() {
     [lists.saved.rows, lists.recovered.rows],
   );
   const sheet = useRowSelection(loaded, ROW_LOOKUP);
-  const lens = useProfileLens(
-    useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
-  );
-  // The profile lens narrows the figures and the chips too; the category
-  // and the search narrow only the lists.
-  const saved = useMemo(
-    () => allSaved.filter((entry) => lens.applies(entry.row.profile)),
-    [allSaved, lens],
-  );
-  const recovered = useMemo(
-    () => allRecovered.filter((entry) => lens.applies(entry.row.profile)),
-    [allRecovered, lens],
-  );
-  const sensitive = useMemo(() => sensitiveCount(saved), [saved]);
+  // The lists hold the lens's profiles only (a server filter); the category
+  // and the search narrow only the loaded lists.
+  const saved = allSaved;
+  const recovered = allRecovered;
   const anyHidden = useMemo(
     () => [...allSaved, ...allRecovered].some(holdsSecret),
     [allSaved, allRecovered],
@@ -519,10 +539,12 @@ export function AutofillPage() {
     [narrow, recovered],
   );
 
-  const status = commitStateStatus(lists, {
-    saved: saved.length,
-    recovered: recovered.length,
-  });
+  const status = commitStateStatus(
+    lists,
+    { saved: saved.length, recovered: recovered.length },
+    totals.state === "ready" ? totals.value : null,
+    { filtered: lens.selected.length > 0 },
+  );
   const filteredMessage = (noun: string) =>
     search.trim() === "" && categoryFilter === null && lens.words !== null
       ? `No ${noun} in ${lens.words}.`
@@ -539,9 +561,6 @@ export function AutofillPage() {
         partial={partial}
       />
     ) : null;
-
-  const sensitiveShare =
-    saved.length === 0 ? 0 : Math.round((sensitive / saved.length) * 100);
 
   return (
     <CommitStatePage
@@ -561,7 +580,9 @@ export function AutofillPage() {
         <MetricBand className="grid-cols-2">
           <MetricBandItem
             label="Saved entries"
-            value={`${saved.length.toLocaleString("en-US")}${status.capped ? "+" : ""}`}
+            value={figure(totals, (value) =>
+              value.saved.toLocaleString("en-US"),
+            )}
           />
           <MetricBandItem
             label={
@@ -569,12 +590,19 @@ export function AutofillPage() {
                 Identity, contact, address or payment entries.
               </Term>
             }
-            value={
-              <TooltipFigure
-                value={`${String(sensitiveShare)}%`}
-                detail={`${sensitive.toLocaleString("en-US")} of ${saved.length.toLocaleString("en-US")} saved entries`}
-              />
-            }
+            value={figure(fieldNames, (value) => {
+              const sensitive = sensitiveTally(value);
+              const share =
+                value.total === 0
+                  ? 0
+                  : Math.round((sensitive.count / value.total) * 100);
+              return (
+                <TooltipFigure
+                  value={`${String(share)}%${sensitive.more ? "+" : ""}`}
+                  detail={`${formatTally(sensitive)} of ${value.total.toLocaleString("en-US")} saved entries`}
+                />
+              );
+            })}
           />
         </MetricBand>
       }
@@ -654,6 +682,7 @@ export function AutofillPage() {
               list={lists.saved}
               entries={allSaved}
               visible={savedVisible}
+              lensFiltered={lens.selected.length > 0}
               noun="saved"
               reveal={reveal}
               onSelect={sheet.select}
@@ -667,6 +696,7 @@ export function AutofillPage() {
               list={lists.recovered}
               entries={allRecovered}
               visible={recoveredVisible}
+              lensFiltered={lens.selected.length > 0}
               noun="recovered"
               reveal={reveal}
               onSelect={sheet.select}

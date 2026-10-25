@@ -81,13 +81,11 @@ export function HostDetail({
   // The kind chip is in the URL (`filter`), so refresh and Back keep it.
   const [kindPick, setKindFilter] = useViewFilter();
   // A URL-named row past the host's read is looked up on its route: the
-  // host's own rows (the route takes no profile or Commit State).
+  // host's own rows of the row's profile and Commit State.
   const lookup = useMemo<RowLookupSource>(
     () => ({
       route: "site-findings",
       parameters: [["host", host]],
-      byCommitState: false,
-      byProfile: false,
     }),
     [host],
   );

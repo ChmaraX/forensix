@@ -6,6 +6,9 @@ import {
   isDay,
   normalizeRange,
   parseLocation,
+  isRecordId,
+  legacyRowRefOf,
+  rowMatchesRef,
   rowRefOf,
   withPage,
   type ViewLocation,
@@ -128,7 +131,53 @@ describe("withPage", () => {
 });
 
 describe("rowRefOf", () => {
-  it("joins the source chain, profile and Commit State", () => {
+  const chain = {
+    profile: "Default",
+    commitState: "committed" as const,
+    provenance: {
+      manifestPath: "Default/History",
+      table: "visits",
+      rowId: "180",
+    },
+  };
+
+  it("is the record id when the row has one", () => {
+    expect(rowRefOf({ ...chain, id: "history:2044" })).toBe("history:2044");
+    expect(isRecordId("history:2044")).toBe(true);
+    expect(isRecordId("Default/History|visits|180|Default|committed")).toBe(
+      false,
+    );
+  });
+
+  it("tells apart two Sources' rows with the same file, table and row id", () => {
+    // Two Sources ingested into one Case both hold Default/History; their
+    // legacy references collide, their record ids do not.
+    const first = { ...chain, id: "history:180" };
+    const second = { ...chain, id: "history:2044" };
+    expect(legacyRowRefOf(first)).toBe(legacyRowRefOf(second));
+    expect(rowRefOf(first)).not.toBe(rowRefOf(second));
+    expect(rowMatchesRef(first, "history:2044")).toBe(false);
+    expect(rowMatchesRef(second, "history:2044")).toBe(true);
+  });
+
+  it("still matches a row named by an older source-chain link", () => {
+    const row = { ...chain, id: "history:180" };
+    expect(
+      rowMatchesRef(row, "Default/History|visits|180|Default|committed"),
+    ).toBe(true);
+  });
+
+  it("references a Candidate, which has no Commit State, by its id only", () => {
+    const candidate = {
+      id: "identity-candidates:1",
+      profile: "Default",
+      provenance: { table: "visits", rowId: "1" },
+    };
+    expect(rowRefOf(candidate)).toBe("identity-candidates:1");
+    expect(legacyRowRefOf(candidate)).toBeNull();
+  });
+
+  it("joins the source chain, profile and Commit State without an id", () => {
     expect(
       rowRefOf({
         profile: "Default",

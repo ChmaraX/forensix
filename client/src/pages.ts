@@ -17,6 +17,7 @@ import {
 
 export const PAGE_KEYS = [
   "overview",
+  "candidates",
   "timeline",
   "sites",
   ...EVIDENCE_ORDER,
@@ -73,6 +74,16 @@ export const PAGES: Readonly<Record<PageKey, PageMeta>> = {
     artifact: null,
     lens: { range: "visit day", profiles: false },
     ownHeader: true,
+  },
+  // Ranked identity and behavior hypotheses: conclusions drawn from the
+  // evidence, never evidence themselves.
+  candidates: {
+    label: "Candidates",
+    group: "Case",
+    coverage: ["Candidates"],
+    artifact: null,
+    // `candidates` takes a profile, never a date.
+    lens: PROFILES_ONLY,
   },
   timeline: {
     label: "Timeline",

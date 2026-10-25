@@ -1,21 +1,26 @@
 /**
  * Overview — the Case at a glance: the first ten seconds of an examination.
  *
- * The page answers an examiner's first questions in reading order: whose
- * browser is this (the masthead, from Metadata Findings) and is the evidence
- * complete (the coverage indicator beside it); how much and when (the
- * figures and Browsing activity); where and what (Most visited sites,
- * Recent downloads); who exactly and at what hour (Subject, Time of day);
- * and was anything deleted or overwritten (Recovered). Nothing here is
+ * The page answers an examiner's first questions in reading order: which
+ * Case this is and what it holds (the masthead: the Case id, its Sources
+ * and Profiles, the Chrome build) and is the evidence complete (the
+ * coverage indicator beside it); how much and when (the figures and
+ * Browsing activity); where and what (Most visited sites, Recent
+ * downloads); which account a Profile records and at what hour (the
+ * Profile panel, Time of day); and was anything deleted or overwritten
+ * (Recovered). The masthead names the Case, never a person: an account
+ * name is one Profile's recorded field, shown scoped to that Profile
+ * ("Default profile account: …") with its Field State and a link to its
+ * row. Nothing here is
  * invented: a Metadata value renders through the same Field State text
  * every list page uses, so `absent` and `unavailable` stay visibly distinct
  * from a value. The one Candidate-backed panel (Topic categorization) is
  * labelled Candidate and never feeds a figure.
  *
  * Layout: an unframed masthead on the page substrate, one `MetricBand` of
- * four figures, then a two-column grid - the evidence on the left (8 of 12
+ * three figures, then a two-column grid - the evidence on the left (8 of 12
  * columns: activity, sites, downloads) and its context on the right
- * (subject, time of day, recovered rows).
+ * (profile, time of day, recovered rows).
  *
  * Saved and recovered rows: every figure and chart counts saved rows only
  * (Most visited sites and Recent downloads read `commit-state=committed`; the
@@ -56,6 +61,7 @@ import {
   coverageOf,
 } from "@/components/completeness";
 import { ErrorRows, LoadingRows, RevealSwap } from "@/components/list-states";
+import { TooltipFigure } from "@/components/metric-band";
 import { formatDaySpan, plural, SectionPanel } from "@/components/page-kit";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { typeClass } from "@/lib/size-context";
@@ -91,6 +97,7 @@ import {
   LoadingOverview,
   LoadingRecovered,
   Masthead,
+  ProfileAccountLine,
   RecoveredList,
   RecoveredTitle,
   SubjectList,
@@ -366,45 +373,28 @@ function OverviewContent({
           last: windowed.days[windowed.days.length - 1]?.date ?? "",
         };
   // Metadata carries one browser_metadata Finding per Source and one
-  // profile_metadata Finding per Profile. The subject readout takes the first
-  // of each: multi-Profile and multi-Source Cases still get a single, legible
-  // subject readout, and the Metadata page keeps the full, per-Profile table.
+  // profile_metadata Finding per Profile. The masthead's account line and
+  // the Profile panel read one Profile - the Default profile when it
+  // recorded metadata, else the first - and say which; Browser profile
+  // keeps the full, per-Profile table.
   const browserMetadata = data.metadata.find(
     (row) => row.findingKind === "browser_metadata",
   );
-  const profileMetadata = data.metadata.find(
+  const profileRows = data.metadata.filter(
     (row) => row.findingKind === "profile_metadata",
   );
+  const profileMetadata =
+    profileRows.find((row) => row.profile === "Default") ?? profileRows[0];
 
   const spanLabel = formatSpan(fullSpan.first, fullSpan.last);
   const chartsCoverLabel =
     formatSpan(chartsCover.first, chartsCover.last) ?? "no dated activity";
-  const subjectName =
-    fieldString(profileMetadata?.fields.accountFullName) ??
-    fieldString(profileMetadata?.fields.accountEmail) ??
-    fieldString(profileMetadata?.fields.profileName);
-
-  // The masthead's identity line under the subject name: the recorded e-mail
-  // (unless it already is the headline) and the Chrome build — values only,
-  // never invented; a missing value is simply not a segment. The Subject
-  // panel leaves these two out rather than repeat them.
-  const accountEmail = fieldString(profileMetadata?.fields.accountEmail);
   const chromeVersion = fieldString(browserMetadata?.fields.chromeVersion);
-  const heroMeta = [
-    accountEmail !== null && accountEmail !== subjectName ? accountEmail : null,
-    chromeVersion === null ? null : `Chrome ${chromeVersion}`,
-  ]
-    .filter((segment): segment is string => segment !== null)
-    .join("  ·  ");
 
-  // The figures: each a plain reading of a number the page already computed
-  // above, never a new query, and no caption — a sub-line appears only when
-  // it is itself data (the active days' span, the quiet stretch's dates,
-  // the profiles with nothing read). A Case (or range) with nothing of that
-  // shape says so in words, muted and at body size, rather than hiding the
-  // reading. Everything read from `activity` counts saved visits only.
-  // Every profile the Case knows, so the figure agrees with the coverage;
-  // a profile none of whose databases was read is named as such.
+  // The masthead's Case line: its Sources and every profile the Case knows
+  // (so the count agrees with the coverage; a profile none of whose
+  // databases was read is named as such on hover), and the Chrome build of
+  // the first Source - values only; a missing build is not a segment.
   const profiles = caseProfilesOf(caseContext.profiles, completeness);
   const unreadProfiles = profiles.filter(
     (profile) =>
@@ -415,8 +405,43 @@ function OverviewContent({
         ),
       ),
   );
-  // An activity read cut off at its page cap makes each activity figure a
-  // floor: "+" on the counts, "+" on the longest stretch found so far.
+  const sourceCount = data.summary.sources.length;
+  const caseMeta = (
+    <>
+      {plural(sourceCount, "Source", "Sources")}
+      {"  ·  "}
+      {profiles.length === 0 ? (
+        "No Profiles"
+      ) : (
+        <TooltipFigure
+          value={plural(profiles.length, "Profile", "Profiles")}
+          detail={profiles
+            .map(
+              (profile) =>
+                `${profileLabel(profile)}${
+                  unreadProfiles.includes(profile) ? " - nothing read" : ""
+                }`,
+            )
+            .join(", ")}
+        />
+      )}
+      {unreadProfiles.length === 0
+        ? null
+        : ` (${String(unreadProfiles.length)} with nothing read)`}
+      {chromeVersion === null ? null : `  ·  Chrome ${chromeVersion}`}
+    </>
+  );
+  const profileMetadataRef =
+    profileMetadata === undefined ? null : rowRefOf(profileMetadata);
+
+  // The figures: each a plain reading of a number the page already computed
+  // above, never a new query, and no caption — a sub-line appears only when
+  // it is itself data (the active days' span, the quiet stretch's dates).
+  // A Case (or range) with nothing of that shape says so in words, muted
+  // and at body size, rather than hiding the reading. Everything read from
+  // `activity` counts saved visits only. An activity read cut off at its
+  // page cap makes each activity figure a floor: "+" on the counts, "+" on
+  // the longest stretch found so far.
   const figures: readonly CaseFigure[] = [
     {
       key: "visits",
@@ -459,27 +484,6 @@ function OverviewContent({
         quietGap === null
           ? undefined
           : formatDaySpan(quietGap.from, quietGap.to),
-    },
-    {
-      key: "profiles",
-      label: profiles.length === 1 ? "Profile" : "Profiles",
-      value: profiles.length,
-      recorded: true,
-      detail:
-        unreadProfiles.length === 0
-          ? undefined
-          : `${String(unreadProfiles.length)} with nothing read`,
-      valueTooltip:
-        profiles.length === 0
-          ? undefined
-          : profiles
-              .map(
-                (profile) =>
-                  `${profileLabel(profile)}${
-                    unreadProfiles.includes(profile) ? " - nothing read" : ""
-                  }`,
-              )
-              .join(", "),
     },
   ];
 
@@ -529,8 +533,25 @@ function OverviewContent({
   return (
     <div className="reveal-items flex flex-col gap-5">
       <Masthead
-        subjectName={subjectName}
-        meta={heroMeta}
+        caseId={data.summary.caseId}
+        meta={caseMeta}
+        account={
+          <ProfileAccountLine
+            profile={
+              profileMetadata === undefined
+                ? null
+                : profileLabel(profileMetadata.profile)
+            }
+            name={profileMetadata?.fields.accountFullName}
+            email={profileMetadata?.fields.accountEmail}
+            rowHref={hrefFor(
+              "metadata",
+              profileMetadataRef === null ? {} : { row: profileMetadataRef },
+            )}
+            others={Math.max(0, profileRows.length - 1)}
+            othersHref={hrefFor("metadata")}
+          />
+        }
         coverage={coverage}
         picker={
           <DateRangePicker
@@ -613,11 +634,16 @@ function OverviewContent({
           </div>
         </ChartSection>
 
-        {/* Subject — the identity readout, beside the activity it belongs
-            next to. E-mail and Chrome version already read in the masthead. */}
+        {/* The Profile's recorded identity fields, beside the activity they
+            belong next to, scoped to that Profile by the title. The account
+            name and e-mail already read in the masthead's account line. */}
         <SectionPanel
           id={subjectId}
-          title="Subject"
+          title={
+            profileMetadata === undefined
+              ? "Profile"
+              : profileLabel(profileMetadata.profile)
+          }
           aside={
             <JumpLink label="Browser profile" href={hrefFor("metadata")} />
           }
@@ -625,10 +651,6 @@ function OverviewContent({
         >
           <SubjectList
             fields={[
-              {
-                label: "Account name",
-                field: profileMetadata?.fields.accountFullName,
-              },
               {
                 label: "Profile name",
                 field: profileMetadata?.fields.profileName,
@@ -642,7 +664,9 @@ function OverviewContent({
                 field: profileMetadata?.fields.accountLocale,
               },
               {
-                label: "Variations country",
+                // Recorded by the browser (Local State, Chrome's variations
+                // country), not by the Profile.
+                label: "Browser country",
                 field: browserMetadata?.fields.variationsCountry,
               },
               {

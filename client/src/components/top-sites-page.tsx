@@ -6,16 +6,17 @@
  * is ten-odd rows, so the page is the list alone: one table section, read as
  * two server reads kept apart (forensic rule 4) — Saved (committed) and
  * Recovered (WAL then journal), switched with `CommitStateSplit` — with
- * Profiles (`ProfilePicker`, when more than one Profile ranked) and a live
- * search narrowing the loaded rows of either list.
+ * Profiles (`ProfilePicker`, when the Case has more than one Profile; a
+ * server filter, so the lists hold the picked profiles' rows only) and a
+ * live search narrowing the loaded rows of either list.
  *
  * Columns: Rank (Chrome's recorded `urlRank`), Site (title over URL, the
  * URL's host linked to Sites when Sites lists that exact host), Profile
- * (only when the loaded rows span more than one), and — in the Recovered
+ * (only while more than one profile can be listed), and — in the Recovered
  * list only — the Commit State word (every saved row would say "saved").
  * `ResponsiveRows` stacks each row into a card below `sm`.
  *
- * The profile pick is the Case-wide lens (`useViewProfiles`); the search,
+ * The profile pick is the Case-wide lens (`useProfileLens`); the search,
  * the Saved / Recovered tab and the open row live in the URL, so Back and
  * a refresh restore the view.
  *
@@ -28,7 +29,6 @@ import { useCallback, useMemo } from "react";
 import {
   updateView,
   useRowSelection,
-  useViewProfiles,
   useViewSearch,
   useViewTab,
 } from "../view-state.js";
@@ -59,6 +59,7 @@ import {
   TwoLineCell,
 } from "./finding-fields.js";
 import { FilterTextField, matchesSearch, ProfilePicker } from "./filters.js";
+import { useProfileLens } from "./identity-kit.js";
 import { ListBlock } from "./list-states.js";
 import {
   CommitStateSplit,
@@ -352,12 +353,17 @@ const config = ARTIFACTS["top-sites"];
 const ROW_LOOKUP: RowLookupSource = { route: config.route };
 
 export function TopSitesPage() {
-  const lists = useCommitStateLists<Finding>(config.route, RANK_ORDER);
+  // The profile pick is the Case-wide lens, applied by the server.
+  const lens = useProfileLens();
+  const parameters = useMemo(
+    () => [...RANK_ORDER, ...lens.parameters],
+    [lens.parameters],
+  );
+  const lists = useCommitStateLists<Finding>(config.route, parameters);
   // Saved / Recovered lives in the URL (`tab`): Back and a refresh keep it.
   const [view, setView] = useViewTab();
-  // The search lives in the URL; the profile pick is the Case-wide lens.
+  // The search lives in the URL.
   const [search, setSearch] = useViewSearch();
-  const [profileFilter, setProfileFilter] = useViewProfiles();
 
   const saved = lists.saved;
   const recovered = lists.recovered;
@@ -368,34 +374,26 @@ export function TopSitesPage() {
   // The open row lives in the URL: Back and a refresh re-open it.
   const sheet = useRowSelection(loaded, ROW_LOOKUP);
 
-  // The profiles the loaded rows rank, plus any the lens holds (so a pick
-  // made on another page can be undone here).
-  const ranked = useMemo(
-    () => [...new Set(loaded.map((row) => row.profile))].sort(),
-    [loaded],
-  );
-  const profiles = useMemo(
-    () => [...new Set([...ranked, ...profileFilter])].sort(),
-    [ranked, profileFilter],
-  );
-  const withProfile = ranked.length > 1;
+  // The Profile column while more than one profile can be listed (one
+  // picked profile would read the same on every row).
+  const withProfile = lens.options.length > 1 && lens.selected.length !== 1;
 
   const rankNote = useMemo(
     () => rankGapNote(saved.rows, recovered.rows),
     [saved.rows, recovered.rows],
   );
 
-  const filtered = search.trim() !== "" || profileFilter.length > 0;
+  const filtered = search.trim() !== "" || lens.selected.length > 0;
   const matches = useCallback(
     (row: Finding) =>
-      (profileFilter.length === 0 || profileFilter.includes(row.profile)) &&
       matchesSearch(search, [
         fieldText(row.fields.url),
         fieldText(row.fields.title),
       ]),
-    [profileFilter, search],
+    [search],
   );
-  // The tabs count every loaded row; the search and pick narrow the lists.
+  // The tabs count every loaded row of the lens; the search narrows the
+  // lists.
   const { split } = commitStateStatus(lists, {
     saved: saved.rows.length,
     recovered: recovered.rows.length,
@@ -416,12 +414,12 @@ export function TopSitesPage() {
           {...split}
           toolbar={
             <>
-              {profiles.length > 1 ? (
+              {lens.showPicker ? (
                 <ProfilePicker
                   id="top-sites-profiles"
-                  profiles={profiles}
-                  selected={profileFilter}
-                  onChange={setProfileFilter}
+                  profiles={lens.options}
+                  selected={lens.selected}
+                  onChange={lens.setSelected}
                 />
               ) : null}
               <FilterTextField

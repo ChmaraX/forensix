@@ -4,19 +4,20 @@
  * Bookmarks are the one evidence kind the subject *curated* — every row is a
  * page they chose to keep and a folder they chose to file it under. So this
  * page reads them as a collection, not a log: a figure strip (saved
- * bookmarks, folders, distinct sites, rows read from the `.bak` backup copy),
- * then the folder tree they built beside the row lists. Every figure is a
- * plain reading of fields the evidence already carries (`name`, `url`,
- * `dateAdded`, `folderPath`, `sourceFile`).
+ * bookmarks, folders, rows read from the `.bak` backup copy), then the
+ * folder tree they built beside the row lists. Every figure is the
+ * server's count (`count-reads.ts`) of fields the evidence already carries
+ * (`folderPath`, `sourceFile`) over every saved bookmark in the lens -
+ * never a reading of the rows loaded so far.
  *
  * The folder navigator rebuilds the subject's own hierarchy from
  * `folderPath`, with per-branch counts; picking a folder focuses both lists
  * on that folder and everything beneath it.
  *
  * Saved bookmarks and bookmarks recovered from WAL / journal sidecars are
- * separate server reads (`useCommitStateLists`, every page followed so the
- * figures cover the whole set) and separate lists (the Saved / Recovered
- * tabs); every figure counts saved rows only. Columns are curated:
+ * separate server reads (`useCommitStateLists`, keyset-paged, the profile
+ * pick a server filter) and separate lists (the Saved / Recovered tabs);
+ * every figure counts saved rows only. Columns are curated:
  * Bookmark (name over URL - the URL opens History when History holds a
  * visit to exactly that URL), Folder, Added, Source (live file vs. `.bak`
  * backup), and - in the Recovered tab - the Commit State word; every wire
@@ -26,7 +27,6 @@
  */
 import { useCallback, useMemo } from "react";
 
-import { siteHostKey } from "../site-host-key.js";
 import { rowRefOf } from "../router.js";
 import {
   useRowSelection,
@@ -34,15 +34,21 @@ import {
   useViewSearch,
   useViewTab,
 } from "../view-state.js";
-import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { ARTIFACT_ICONS, FolderIcon, SearchIcon } from "@/lib/app-icons";
 import { SizeProvider, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import type { QueryParameters } from "../api.js";
-import type { Finding } from "../types.js";
+import type { CountResult, Finding } from "../types.js";
 import { ARTIFACTS } from "../artifacts.js";
+import {
+  distinctValues,
+  formatTally,
+  recordsWhere,
+  useCommitStateTotals,
+  useCount,
+} from "../count-reads.js";
 import type { RowLookupSource } from "../row-lookup.js";
 import {
   commitStateStatus,
@@ -78,7 +84,7 @@ import {
 import { VisitedUrlLink } from "./host-link.js";
 import { useArtifactCoverage } from "../case-context.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
-import { MetricBand, MetricBandItem } from "./metric-band.js";
+import { figure, MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet } from "./row-sheet.js";
 import {
   CommitStateSplit,
@@ -88,7 +94,11 @@ import {
   type RowColumn,
 } from "./page-kit.js";
 import { Term } from "./term.js";
-import { FolderNavigator, FolderSelect } from "./bookmarks-folders.js";
+import {
+  FolderNavigator,
+  FolderSelect,
+  type FolderCounts,
+} from "./bookmarks-folders.js";
 import { useMediaQuery } from "./use-media-query.js";
 
 /** Tailwind's `lg`: from here the folder tree stands beside the rows;
@@ -103,10 +113,30 @@ const BOOKMARK_PARAMETERS: QueryParameters = [
   ["limit", "100"],
 ];
 
-/** Above this many rows per list the read stops; the page then says the
- *  figures are partial. */
-const BOOKMARK_ROW_CAP = 15_000;
+/** The Finding kind of a bookmark (the `count` route's `kind`). */
+const BOOKMARK_KIND = "bookmark";
 
+/** The folder tree's counts from a `by=folderPath` count of saved
+ *  bookmarks: each recorded path with its bookmarks; absent, (empty) and
+ *  unavailable paths are unfiled. */
+export function folderCountsOf(result: CountResult): FolderCounts {
+  const folders: { segments: readonly string[]; count: number }[] = [];
+  let unfiled = 0;
+  for (const bucket of result.buckets) {
+    const segments = bucket.state === "value" ? segmentsOf(bucket.key) : [];
+    if (segments.length === 0) {
+      unfiled += bucket.count;
+    } else {
+      folders.push({ segments, count: bucket.count });
+    }
+  }
+  return {
+    folders,
+    unfiled,
+    total: result.total,
+    unlisted: result.otherCount,
+  };
+}
 /* ----------------------------- derived model ------------------------------ */
 
 export interface BookmarkRow {
@@ -310,6 +340,7 @@ function BookmarkList({
   list,
   rows,
   visible,
+  lensFiltered,
   noun,
   onSelect,
   onClearFilters,
@@ -318,6 +349,8 @@ function BookmarkList({
   readonly list: PaginatedList<Finding>;
   readonly rows: readonly BookmarkRow[];
   readonly visible: readonly BookmarkRow[];
+  /** The profile pick (a server filter) narrows the list. */
+  readonly lensFiltered: boolean;
   readonly noun: "saved" | "recovered";
   readonly onSelect: (finding: Finding) => void;
   readonly onClearFilters: () => void;
@@ -334,7 +367,7 @@ function BookmarkList({
       list={list}
       noun={{ one: `${noun} bookmark`, many: `${noun} bookmarks` }}
       shown={visible.length}
-      filtered={visible.length !== rows.length}
+      filtered={lensFiltered || visible.length !== rows.length}
       filteredMessage={filteredMessage}
       onClearFilters={onClearFilters}
       skeletonRows={3}
@@ -387,15 +420,33 @@ const config = ARTIFACTS.bookmarks;
 const ROW_LOOKUP: RowLookupSource = { route: config.route };
 
 export function BookmarksPage() {
-  const lists = useCommitStateLists<Finding>(
-    config.route,
-    BOOKMARK_PARAMETERS,
-    {
-      drain: BOOKMARK_ROW_CAP,
-    },
+  // The profile pick is the Case-wide lens, applied by the server.
+  const lens = useProfileLens();
+  const parameters = useMemo<QueryParameters>(
+    () => [...BOOKMARK_PARAMETERS, ...lens.parameters],
+    [lens.parameters],
+  );
+  const lists = useCommitStateLists<Finding>(config.route, parameters);
+  const totals = useCommitStateTotals(BOOKMARK_KIND, lens.selected);
+  const folderRead = useCount({
+    kind: BOOKMARK_KIND,
+    by: "folderPath",
+    commitState: "committed",
+    profiles: lens.selected,
+  });
+  const sourceRead = useCount({
+    kind: BOOKMARK_KIND,
+    by: "sourceFile",
+    commitState: "committed",
+    profiles: lens.selected,
+  });
+  const folderCounts = useMemo(
+    () =>
+      folderRead.state === "ready" ? folderCountsOf(folderRead.value) : null,
+    [folderRead],
   );
   // Saved / Recovered, the search and the open row live in the URL: Back
-  // and a refresh keep them. The profile pick is the Case-wide lens.
+  // and a refresh keep them.
   const [view, setView] = useViewTab();
   const [search, setSearch] = useViewSearch();
   // The folder pick is in the URL (`filter`), so refresh and Back keep it.
@@ -416,44 +467,10 @@ export function BookmarksPage() {
     [lists.saved.rows, lists.recovered.rows],
   );
   const sheet = useRowSelection(loaded, ROW_LOOKUP);
-  const lens = useProfileLens(
-    useMemo(() => [...new Set(loaded.map((row) => row.profile))], [loaded]),
-  );
-  // The profile lens narrows the figures and the folder tree too; the
-  // folder and the search narrow only the lists.
-  const saved = useMemo(
-    () => allSaved.filter((row) => lens.applies(row.finding.profile)),
-    [allSaved, lens],
-  );
-  const recovered = useMemo(
-    () => allRecovered.filter((row) => lens.applies(row.finding.profile)),
-    [allRecovered, lens],
-  );
-
-  const summary = useMemo(() => {
-    const folders = new Set<string>();
-    const hosts = new Set<string>();
-    let backup = 0;
-    for (const row of saved) {
-      if (row.folderPath !== null) {
-        folders.add(row.folderPath);
-      }
-      // A site as Sites keys it (the hostname, lower case).
-      const site = siteHostKey(row.url);
-      if (site !== null) {
-        hosts.add(site);
-      }
-      if (isBackupSource(row.source)) {
-        backup += 1;
-      }
-    }
-    return {
-      total: saved.length,
-      folders: folders.size,
-      hosts: hosts.size,
-      backup,
-    };
-  }, [saved]);
+  // The lists hold the lens's profiles only (a server filter); the folder
+  // and the search narrow only the loaded lists.
+  const saved = allSaved;
+  const recovered = allRecovered;
 
   const narrow = useCallback(
     (rows: readonly BookmarkRow[]) =>
@@ -476,12 +493,14 @@ export function BookmarksPage() {
     );
   }, []);
 
-  const status = commitStateStatus(lists, {
-    saved: saved.length,
-    recovered: recovered.length,
-  });
-  const figuresReady = status.figures !== "loading";
-  const capped = status.capped;
+  const status = commitStateStatus(
+    lists,
+    { saved: saved.length, recovered: recovered.length },
+    totals.state === "ready" ? totals.value : null,
+    { filtered: lens.selected.length > 0 },
+  );
+  const figuresReady =
+    status.figures !== "loading" && folderRead.state !== "loading";
   const filteredMessage = (noun: string) =>
     search.trim() === "" && folderFilter === null && lens.words !== null
       ? `No ${noun} in ${lens.words}.`
@@ -519,9 +538,12 @@ export function BookmarksPage() {
                 (lens.selected.length > 0 ? 1 : 0)
               }
             >
-              {treeBeside || !figuresReady || saved.length === 0 ? null : (
+              {treeBeside ||
+              !figuresReady ||
+              folderCounts === null ||
+              saved.length === 0 ? null : (
                 <FolderSelect
-                  rows={saved}
+                  counts={folderCounts}
                   activePath={folderFilter}
                   onPick={pickFolder}
                 />
@@ -552,6 +574,7 @@ export function BookmarksPage() {
             list={lists.saved}
             rows={allSaved}
             visible={savedVisible}
+            lensFiltered={lens.selected.length > 0}
             noun="saved"
             onSelect={sheet.select}
             onClearFilters={clearSearchAndProfiles}
@@ -563,6 +586,7 @@ export function BookmarksPage() {
             list={lists.recovered}
             rows={allRecovered}
             visible={recoveredVisible}
+            lensFiltered={lens.selected.length > 0}
             noun="recovered"
             onSelect={sheet.select}
             onClearFilters={clearSearchAndProfiles}
@@ -588,11 +612,13 @@ export function BookmarksPage() {
             </div>
           }
         >
-          <FolderNavigator
-            rows={saved}
-            activePath={folderFilter}
-            onPick={pickFolder}
-          />
+          {folderCounts === null ? null : (
+            <FolderNavigator
+              counts={folderCounts}
+              activePath={folderFilter}
+              onPick={pickFolder}
+            />
+          )}
         </RevealSwap>
         {listPanel}
       </div>
@@ -616,42 +642,37 @@ export function BookmarksPage() {
       }
       figuresSkeleton={<BookmarksSkeleton />}
       figures={
-        <div className="flex flex-col gap-5">
-          {capped ? (
-            <Banner status="warning" contrast="high">
-              <BannerTitle>These figures cover part of the Case</BannerTitle>
-              <BannerDescription>
-                They read the first {allSaved.length.toLocaleString("en-US")}{" "}
-                saved bookmarks - the most this page loads at once. More rows
-                exist in the Case.
-              </BannerDescription>
-            </Banner>
-          ) : null}
-
-          <MetricBand className="grid-cols-2 lg:grid-cols-4">
-            <MetricBandItem
-              label="Saved bookmarks"
-              value={`${summary.total.toLocaleString("en-US")}${capped ? "+" : ""}`}
-            />
-            <MetricBandItem
-              label="Folders"
-              value={summary.folders.toLocaleString("en-US")}
-            />
-            <MetricBandItem
-              label="Distinct sites"
-              value={summary.hosts.toLocaleString("en-US")}
-            />
-            <MetricBandItem
-              label={
-                <Term label="From backup">
-                  Read from Bookmarks.bak, the backup copy Chrome keeps beside
-                  the live file.
-                </Term>
-              }
-              value={summary.backup.toLocaleString("en-US")}
-            />
-          </MetricBand>
-        </div>
+        <MetricBand className="grid-cols-2 lg:grid-cols-3">
+          <MetricBandItem
+            label="Saved bookmarks"
+            value={figure(totals, (value) =>
+              value.saved.toLocaleString("en-US"),
+            )}
+          />
+          <MetricBandItem
+            label="Folders"
+            value={figure(folderRead, (value) =>
+              formatTally(distinctValues(value)),
+            )}
+          />
+          <MetricBandItem
+            label={
+              <Term label="From backup">
+                Read from Bookmarks.bak, the backup copy Chrome keeps beside the
+                live file.
+              </Term>
+            }
+            value={figure(sourceRead, (value) =>
+              formatTally(
+                recordsWhere(
+                  value,
+                  (bucket) =>
+                    bucket.state === "value" && isBackupSource(bucket.key),
+                ),
+              ),
+            )}
+          />
+        </MetricBand>
       }
       sheet={
         sheet.selected === null ? null : (

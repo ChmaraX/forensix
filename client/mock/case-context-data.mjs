@@ -134,30 +134,52 @@ export function buildCandidates(hostCounts) {
     ["behavior_search_query", "lumenworks lead product designer salary", 1],
     ["behavior_search_query", "clear chrome history mac", 1],
   ];
-  return [
+  // Core ranks each kind's candidates within one profile, strongest
+  // (most supporting rows) first, and writes the same four fields on every
+  // one (core/src/identity-candidates.ts `candidateFields`).
+  const rows = [
     ...identity.map(([kind, text, count, profile], i) => ({
-      recordType: "candidate",
-      candidateKind: kind,
-      category: "identity",
+      kind,
+      text,
+      count,
       profile,
-      rank: i + 1,
-      supportingCount: count,
+      category: "identity",
+      basis: kind === "identity_country" ? "autofill+preferences" : "autofill",
       provenance: provenance("autofill", 900 + i),
-      // core's real field key (core/src/identity-candidates.ts
-      // `candidateFields`).
-      fields: { candidateValue: value(text) },
     })),
     ...behavior.map(([kind, text, count], i) => ({
-      recordType: "candidate",
-      candidateKind: kind,
-      category: "behavior",
+      kind,
+      text,
+      count,
       profile: PROFILE_DEFAULT,
-      rank: i + 1,
-      supportingCount: count,
+      category: "behavior",
+      basis: "history",
       provenance: provenance("visits", 950 + i),
-      fields: { candidateValue: value(text) },
     })),
   ];
+  return rows.map((row, index) => ({
+    recordType: "candidate",
+    candidateKind: row.kind,
+    category: row.category,
+    profile: row.profile,
+    // Ties keep their listed order.
+    rank:
+      rows.filter(
+        (other, otherIndex) =>
+          other.kind === row.kind &&
+          other.profile === row.profile &&
+          (other.count > row.count ||
+            (other.count === row.count && otherIndex < index)),
+      ).length + 1,
+    supportingCount: row.count,
+    provenance: row.provenance,
+    fields: {
+      candidateValue: value(row.text),
+      normalizedValue: value(row.text.toLowerCase()),
+      supportingCount: value(String(row.count)),
+      evidenceBasis: value(row.basis),
+    },
+  }));
 }
 
 /* ---------------------------- Topic candidates ---------------------------- */
@@ -208,6 +230,7 @@ const ARTIFACT_TABLES = [
   "Cache",
   "Favicons",
   "Preferences",
+  "Candidates",
 ];
 
 export function buildCompleteness() {
@@ -222,10 +245,14 @@ export function buildCompleteness() {
         sourceId: SOURCE_IMAGE,
         profile,
         artifact,
+        // Candidates are derived, not read from a file: core names the
+        // artifact itself as their path.
         databasePath:
           artifact === "Preferences"
             ? `${profile}/Preferences`
-            : `${profile}/${artifact}`,
+            : artifact === "Candidates"
+              ? "Candidates"
+              : `${profile}/${artifact}`,
         outcome: absentHere ? "absent" : "produced",
         reason: absentHere
           ? "Profile directory has no Web Data database"

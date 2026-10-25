@@ -9,7 +9,8 @@
  * shows one `ResponsiveRows` list at a time (a table from `sm` up, stacked
  * rows below), with the profile picker and a live search on its toolbar.
  *
- * The profile pick is the Case-wide lens (`useViewProfiles`); the search,
+ * The profile pick is the Case-wide lens (`useProfileLens`), a server
+ * filter: lists and figures hold the picked profiles' rows only. The search,
  * the tab and the open row are in the URL too, so Back and a refresh keep
  * the view. A host Sites lists links to it (`SiteHostLink`).
  *
@@ -24,7 +25,6 @@ import { useCallback, useContext, useMemo } from "react";
 import {
   updateView,
   useRowSelection,
-  useViewProfiles,
   useViewSearch,
   useViewTab,
 } from "../view-state.js";
@@ -37,6 +37,8 @@ import { cn } from "@/lib/utils";
 import type { QueryParameters } from "../api.js";
 import type { Finding } from "../types.js";
 import { ARTIFACTS } from "../artifacts.js";
+import { useCommitStateTotals } from "../count-reads.js";
+import { useProfileLens } from "./identity-kit.js";
 import type { RowLookupSource } from "../row-lookup.js";
 import {
   commitStateStatus,
@@ -359,12 +361,15 @@ function IconsTable({
 function IconList({
   list,
   visible,
+  lensFiltered,
   noun,
   onSelect,
   onClearFilters,
 }: {
   readonly list: PaginatedList<Finding> | RecoveredList<Finding>;
   readonly visible: readonly Finding[];
+  /** The profile pick (a server filter) narrows the list. */
+  readonly lensFiltered: boolean;
   readonly noun: "saved" | "recovered";
   readonly onSelect: (row: Finding) => void;
   readonly onClearFilters: () => void;
@@ -374,6 +379,7 @@ function IconList({
       list={list}
       noun={{ one: `${noun} icon`, many: `${noun} icons` }}
       shown={visible.length}
+      filtered={lensFiltered || visible.length !== list.rows.length}
       onClearFilters={onClearFilters}
       empty={
         <EmptyRows
@@ -414,12 +420,17 @@ const config = ARTIFACTS.favicons;
 const ROW_LOOKUP: RowLookupSource = { route: config.route };
 
 export function FaviconsPage() {
-  const lists = useCommitStateLists<Finding>(config.route, FAVICON_PARAMETERS);
-  // Saved / Recovered, the search, the open row and the Case-wide profile
-  // pick live in the URL: Back and a refresh keep them.
+  // The profile pick is the Case-wide lens, applied by the server.
+  const lens = useProfileLens();
+  const parameters = useMemo<QueryParameters>(
+    () => [...FAVICON_PARAMETERS, ...lens.parameters],
+    [lens.parameters],
+  );
+  const lists = useCommitStateLists<Finding>(config.route, parameters);
+  // Saved / Recovered, the search and the open row live in the URL: Back
+  // and a refresh keep them.
   const [view, setView] = useViewTab();
   const [search, setSearch] = useViewSearch();
-  const [profileFilter, setProfileFilter] = useViewProfiles();
 
   const savedRows = lists.saved.rows;
   const recoveredRows = lists.recovered.rows;
@@ -429,45 +440,18 @@ export function FaviconsPage() {
   );
   const sheet = useRowSelection(loadedRows, ROW_LOOKUP);
 
-  // The picker lists the profiles the loaded icons carry, plus any the
-  // lens already picked elsewhere (so it can be unpicked here).
-  const profiles = useMemo(
-    () =>
-      [
-        ...new Set([...loadedRows.map((row) => row.profile), ...profileFilter]),
-      ].sort(),
-    [loadedRows, profileFilter],
-  );
-
   // Each row's own stored bitmap, saved and recovered alike.
   const bitmaps = useOwnBitmaps(loadedRows);
 
-  const ofProfiles = useCallback(
-    (row: Finding) =>
-      profileFilter.length === 0 || profileFilter.includes(row.profile),
-    [profileFilter],
-  );
   const narrow = useCallback(
     (rows: readonly Finding[]) =>
-      rows.filter(
-        (row) =>
-          ofProfiles(row) &&
-          matchesSearch(search, [
-            faviconHost(row),
-            fieldText(row.fields.iconUrl),
-          ]),
+      rows.filter((row) =>
+        matchesSearch(search, [
+          faviconHost(row),
+          fieldText(row.fields.iconUrl),
+        ]),
       ),
-    [search, ofProfiles],
-  );
-  // The figures follow the profile pick (the lens); the search only
-  // narrows the lists.
-  const savedOfProfiles = useMemo(
-    () => savedRows.filter(ofProfiles),
-    [savedRows, ofProfiles],
-  );
-  const recoveredOfProfiles = useMemo(
-    () => recoveredRows.filter(ofProfiles),
-    [recoveredRows, ofProfiles],
+    [search],
   );
   const savedVisible = useMemo(() => narrow(savedRows), [narrow, savedRows]);
   const recoveredVisible = useMemo(
@@ -480,11 +464,15 @@ export function FaviconsPage() {
     updateView({ profiles: [], q: null });
   }, []);
 
-  // Tabs and figures count the rows the profile pick leaves (one base).
-  const status = commitStateStatus(lists, {
-    saved: savedOfProfiles.length,
-    recovered: recoveredOfProfiles.length,
-  });
+  // Tabs and figures count the loaded rows of the lens (one base); the
+  // tabs read the server's count of each whole list.
+  const totals = useCommitStateTotals("favicon", lens.selected);
+  const status = commitStateStatus(
+    lists,
+    { saved: savedRows.length, recovered: recoveredRows.length },
+    totals.state === "ready" ? totals.value : null,
+    { filtered: lens.selected.length > 0 },
+  );
 
   return (
     <CommitStatePage
@@ -498,10 +486,7 @@ export function FaviconsPage() {
       }
       figuresSkeleton={<FiguresSkeleton />}
       figures={
-        <SummaryBand
-          rows={savedOfProfiles}
-          more={lists.saved.cursor !== null}
-        />
+        <SummaryBand rows={savedRows} more={lists.saved.cursor !== null} />
       }
       sheet={
         sheet.selected === null ? null : (
@@ -522,14 +507,14 @@ export function FaviconsPage() {
             {...status.split}
             toolbar={
               <>
-                <CompactFilters active={profileFilter.length > 0 ? 1 : 0}>
-                  {profiles.length > 1 ? (
+                <CompactFilters active={lens.selected.length > 0 ? 1 : 0}>
+                  {lens.showPicker ? (
                     <FilterField label="Profiles" htmlFor="favicons-profiles">
                       <ProfilePicker
                         id="favicons-profiles"
-                        profiles={profiles}
-                        selected={profileFilter}
-                        onChange={setProfileFilter}
+                        profiles={lens.options}
+                        selected={lens.selected}
+                        onChange={lens.setSelected}
                       />
                     </FilterField>
                   ) : null}
@@ -548,6 +533,7 @@ export function FaviconsPage() {
               <IconList
                 list={lists.saved}
                 visible={savedVisible}
+                lensFiltered={lens.selected.length > 0}
                 noun="saved"
                 onSelect={sheet.select}
                 onClearFilters={clearFilters}
@@ -557,6 +543,7 @@ export function FaviconsPage() {
               <IconList
                 list={lists.recovered}
                 visible={recoveredVisible}
+                lensFiltered={lens.selected.length > 0}
                 noun="recovered"
                 onSelect={sheet.select}
                 onClearFilters={clearFilters}
