@@ -79,7 +79,11 @@ const DANGER_TYPES = new Map<bigint, string>([
   [22n, "async_local_password_scanning"],
 ]);
 
-/** `downloads.interrupt_reason` — `download::DownloadInterruptReason` (sparse). */
+/**
+ * `downloads.interrupt_reason` — `download::DownloadInterruptReason` (sparse),
+ * from components/download/public/common/download_interrupt_reason_values.h.
+ * 32 is the obsolete `SERVER_PRECONDITION`; an older store can still hold it.
+ */
 const INTERRUPT_REASONS = new Map<bigint, string>([
   [0n, "none"],
   [1n, "file_failed"],
@@ -101,16 +105,18 @@ const INTERRUPT_REASONS = new Map<bigint, string>([
   [24n, "network_invalid_request"],
   [30n, "server_failed"],
   [31n, "server_no_range"],
-  [32n, "server_bad_content"],
-  [33n, "server_unauthorized"],
-  [34n, "server_cert_problem"],
-  [35n, "server_forbidden"],
-  [36n, "server_unreachable"],
-  [37n, "server_content_length_mismatch"],
-  [38n, "server_cross_origin_redirect"],
+  [32n, "server_precondition"],
+  [33n, "server_bad_content"],
+  [34n, "server_unauthorized"],
+  [35n, "server_cert_problem"],
+  [36n, "server_forbidden"],
+  [37n, "server_unreachable"],
+  [38n, "server_content_length_mismatch"],
+  [39n, "server_cross_origin_redirect"],
   [40n, "user_canceled"],
   [41n, "user_shutdown"],
   [50n, "crash"],
+  [51n, "local_download_blocked"],
 ]);
 
 interface ManifestIdentity {

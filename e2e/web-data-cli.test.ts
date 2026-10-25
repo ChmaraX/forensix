@@ -148,6 +148,85 @@ async function createSource(root: string): Promise<string> {
   return source;
 }
 
+/** Microseconds since 1601-01-01 (Chromium `base::Time`) for Unix seconds. */
+function chromeMicros(unixSeconds: bigint, extraMicros = 0n): bigint {
+  return (unixSeconds + 11_644_473_600n) * 1_000_000n + extraMicros;
+}
+
+/** A minimal History store with the given visits (one URL row each). */
+async function createHistory(
+  path: string,
+  visits: readonly { readonly url: string; readonly time: bigint }[],
+): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  const database = new DatabaseSync(path);
+  try {
+    database.exec(`
+      CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);
+      INSERT INTO meta (key, value) VALUES ('version', '70'), ('last_compatible_version', '16');
+      CREATE TABLE urls (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, url LONGVARCHAR, title LONGVARCHAR,
+        visit_count INTEGER DEFAULT 0 NOT NULL, typed_count INTEGER DEFAULT 0 NOT NULL,
+        last_visit_time INTEGER NOT NULL, hidden INTEGER DEFAULT 0 NOT NULL
+      );
+      CREATE TABLE visits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, url INTEGER NOT NULL,
+        visit_time INTEGER NOT NULL, from_visit INTEGER, external_referrer_url TEXT,
+        transition INTEGER DEFAULT 0 NOT NULL, segment_id INTEGER,
+        visit_duration INTEGER DEFAULT 0 NOT NULL,
+        incremented_omnibox_typed_score BOOLEAN DEFAULT FALSE NOT NULL,
+        opener_visit INTEGER, originator_cache_guid TEXT, originator_visit_id INTEGER,
+        originator_from_visit INTEGER, originator_opener_visit INTEGER,
+        is_known_to_sync BOOLEAN DEFAULT FALSE NOT NULL,
+        consider_for_ntp_most_visited BOOLEAN DEFAULT FALSE NOT NULL,
+        visited_link_id INTEGER, app_id TEXT
+      );
+      CREATE TABLE visit_source (id INTEGER PRIMARY KEY, source INTEGER NOT NULL);
+      CREATE TABLE segments (id INTEGER PRIMARY KEY, name VARCHAR, url_id INTEGER NON NULL);
+      CREATE TABLE segment_usage (
+        id INTEGER PRIMARY KEY, segment_id INTEGER NOT NULL,
+        time_slot INTEGER NOT NULL, visit_count INTEGER DEFAULT 0 NOT NULL
+      );
+      CREATE TABLE downloads (
+        id INTEGER PRIMARY KEY, guid VARCHAR NOT NULL,
+        current_path LONGVARCHAR NOT NULL, target_path LONGVARCHAR NOT NULL,
+        start_time INTEGER NOT NULL, received_bytes INTEGER NOT NULL,
+        total_bytes INTEGER NOT NULL, state INTEGER NOT NULL,
+        danger_type INTEGER NOT NULL, interrupt_reason INTEGER NOT NULL,
+        hash BLOB NOT NULL, end_time INTEGER NOT NULL, opened INTEGER NOT NULL,
+        last_access_time INTEGER NOT NULL, transient INTEGER NOT NULL,
+        referrer VARCHAR NOT NULL, site_url VARCHAR NOT NULL,
+        tab_url VARCHAR NOT NULL, tab_referrer_url VARCHAR NOT NULL,
+        http_method VARCHAR NOT NULL, by_ext_id VARCHAR NOT NULL,
+        by_ext_name VARCHAR NOT NULL, by_web_app_id VARCHAR NOT NULL,
+        etag VARCHAR NOT NULL, last_modified VARCHAR NOT NULL,
+        mime_type VARCHAR(255) NOT NULL, original_mime_type VARCHAR(255) NOT NULL
+      );
+      CREATE TABLE downloads_url_chains (
+        id INTEGER NOT NULL, chain_index INTEGER NOT NULL,
+        url LONGVARCHAR NOT NULL, PRIMARY KEY (id, chain_index)
+      );
+    `);
+    visits.forEach((visit, index) => {
+      const id = BigInt(index + 1);
+      database
+        .prepare(
+          `INSERT INTO urls (id, url, title, visit_count, last_visit_time)
+           VALUES (?, ?, '', 1, ?)`,
+        )
+        .run(id, visit.url, visit.time);
+      database
+        .prepare(
+          `INSERT INTO visits (id, url, visit_time, from_visit, transition)
+           VALUES (?, ?, ?, 0, 1)`,
+        )
+        .run(id, id, visit.time);
+    });
+  } finally {
+    database.close();
+  }
+}
+
 afterEach(async () => {
   await Promise.all(
     temporaryRoots
@@ -238,7 +317,7 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
       value: {
         raw: "1704164645",
         epochFamily: "unix-seconds",
-        utc: "2024-01-02T03:04:05.000Z",
+        utc: "2024-01-02T03:04:05.000000Z",
         declaredTimezone: "America/New_York",
         resolution: "verified_web_data_schema_version_133",
       },
@@ -400,6 +479,147 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
     });
   });
 
+  it("reads the rolled-back image of a hot rollback journal as committed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-web-journal-"));
+    temporaryRoots.push(root);
+    const source = join(root, "journal-source");
+    await mkdir(source, { recursive: true });
+    await writeLocalState(source);
+    const webPath = join(source, "Default", "Web Data");
+    await createWebData(webPath, [
+      {
+        name: "email",
+        value: "journal-target@example",
+        dateCreated: 1_704_164_645n,
+        dateLastUsed: 1_704_164_645n,
+        count: 1n,
+      },
+      ...Array.from({ length: 200 }, (_, index) => ({
+        name: "comment",
+        value: `filler-${index}-${"x".repeat(900)}`,
+        dateCreated: 1_704_200_000n + BigInt(index),
+        dateLastUsed: 1_704_200_000n + BigInt(index),
+        count: 2n,
+      })),
+    ]);
+
+    // One open transaction in rollback-journal mode inserts a row, deletes the
+    // target row and changes every filler row. The small cache spills these
+    // changes into the main file before any commit, so the copied main file
+    // holds uncommitted rows and the copied journal is hot.
+    const writer = new DatabaseSync(webPath);
+    writer.exec(`
+      PRAGMA journal_mode = DELETE;
+      PRAGMA cache_size = 1;
+      PRAGMA cache_spill = ON;
+      PRAGMA synchronous = FULL;
+      BEGIN IMMEDIATE;
+    `);
+    insertAutofill(writer, {
+      name: "city",
+      value: "Uncommitted City",
+      dateCreated: 1_704_300_000n,
+      dateLastUsed: 1_704_300_000n,
+      count: 5n,
+    });
+    writer
+      .prepare("DELETE FROM autofill WHERE value = ?")
+      .run("journal-target@example");
+    writer
+      .prepare("UPDATE autofill SET count = 99 WHERE name = 'comment'")
+      .run();
+
+    const caseDirectory = join(root, "CASE-WEB-JOURNAL");
+    try {
+      expect(
+        runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+      ).toBe(0);
+    } finally {
+      writer.exec("ROLLBACK");
+      writer.close();
+    }
+    const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
+    expect(analysis.status).toBe(0);
+    const summary = parseJson<{
+      readonly webData: {
+        readonly committedFieldCount: number;
+        readonly recoveredFieldCount: number;
+      };
+    }>(analysis.stdout).webData;
+    // The rolled-back image holds all 201 committed rows and no insert.
+    expect(summary.committedFieldCount).toBe(201);
+    expect(summary.recoveredFieldCount).toBeGreaterThan(0);
+
+    const allItems = (commitState: string): AutofillFinding[] => {
+      const items: AutofillFinding[] = [];
+      let after: string | null = null;
+      do {
+        const page: AutofillPage = parseJson<AutofillPage>(
+          runCli([
+            "autofill",
+            "--case",
+            caseDirectory,
+            "--commit-state",
+            commitState,
+            "--limit",
+            "100",
+            ...(after === null ? [] : ["--after", after]),
+            "--json",
+          ]).stdout,
+        );
+        items.push(...page.items);
+        after = page.nextCursor;
+      } while (after !== null);
+      return items;
+    };
+
+    const committed = allItems("committed");
+    expect(committed).toHaveLength(201);
+    expect(
+      committed.find(
+        (item) =>
+          item.fields.fieldValue.state === "value" &&
+          item.fields.fieldValue.value === "journal-target@example",
+      ),
+    ).toMatchObject({
+      commitState: "committed",
+      provenance: { manifestPath: "Default/Web Data", table: "autofill" },
+      fields: { timesUsed: { state: "value", value: "1" } },
+    });
+    for (const item of committed) {
+      expect(item.fields.fieldName).not.toEqual({
+        state: "value",
+        value: "city",
+      });
+      expect(item.fields.timesUsed).not.toEqual({
+        state: "value",
+        value: "99",
+      });
+    }
+
+    // Only uncommitted rows from the main file are journal_resident.
+    const recovered = allItems("journal_resident");
+    expect(recovered).toHaveLength(summary.recoveredFieldCount);
+    for (const item of recovered) {
+      expect(item).toMatchObject({
+        commitState: "journal_resident",
+        provenance: {
+          manifestPath: "Default/Web Data-journal",
+          database: "Default/Web Data",
+          table: "autofill",
+        },
+      });
+      expect(
+        item.fields.timesUsed.state === "value" &&
+          ["5", "99"].includes(item.fields.timesUsed.value),
+      ).toBe(true);
+      expect(item.fields.fieldValue).not.toEqual({
+        state: "value",
+        value: "journal-target@example",
+      });
+    }
+  });
+
   it("distinguishes a missing autofill table from a malformed database", async () => {
     const root = await mkdtemp(join(tmpdir(), "forensix-web-bad-"));
     temporaryRoots.push(root);
@@ -475,5 +695,79 @@ describe("compiled analyzer CLI Web Data autofill metadata", () => {
       /ANALYSIS_FAILED|web_data_read_failed/,
     );
     expect(reasons.Default).not.toBe(reasons["Profile 1"]);
+  });
+
+  it("places autofill instants exactly on the Timeline next to History", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-web-timeline-"));
+    temporaryRoots.push(root);
+    const source = join(root, "source");
+    await mkdir(source, { recursive: true });
+    await writeLocalState(source);
+    // 1704251045 -> 2024-01-03T03:04:05Z. A visit 1 microsecond later, in
+    // the same second, and one a full second earlier.
+    const used = 1_704_251_045n;
+    await createWebData(join(source, "Default", "Web Data"), [
+      {
+        name: "email",
+        value: "alice@alpha.example",
+        dateCreated: used - 86_400n,
+        dateLastUsed: used,
+        count: 3n,
+      },
+    ]);
+    await createHistory(join(source, "Default", "History"), [
+      { url: "https://before.example/", time: chromeMicros(used - 1n) },
+      { url: "https://after.example/", time: chromeMicros(used, 1n) },
+    ]);
+    const caseDirectory = join(root, "CASE-WEB-TIMELINE");
+    expect(
+      runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+    ).toBe(0);
+    expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
+      0,
+    );
+
+    interface TimelineItem {
+      readonly findingKind: string;
+      readonly fields: { readonly url?: { readonly value?: string } };
+    }
+    const timeline = (
+      from: string,
+      to: readonly string[] = [],
+    ): readonly string[] =>
+      parseJson<{ readonly items: readonly TimelineItem[] }>(
+        runCli([
+          "timeline",
+          "--case",
+          caseDirectory,
+          "--direction",
+          "asc",
+          "--from",
+          from,
+          ...to,
+          "--json",
+        ]).stdout,
+      ).items.map((item) =>
+        item.findingKind === "autofill_entry"
+          ? "autofill"
+          : (item.fields.url?.value ?? item.findingKind),
+      );
+
+    // The autofill instant sorts after the earlier visit and before the
+    // visit 1 microsecond later in the same second.
+    expect(timeline("2024-01-03T00:00:00Z")).toEqual([
+      "https://before.example/",
+      "autofill",
+      "https://after.example/",
+    ]);
+    // --to exactly at the autofill instant includes it and stops there.
+    expect(
+      timeline("2024-01-03T00:00:00Z", ["--to", "2024-01-03T03:04:05Z"]),
+    ).toEqual(["https://before.example/", "autofill"]);
+    // --from exactly at the autofill instant starts with it.
+    expect(timeline("2024-01-03T03:04:05Z")).toEqual([
+      "autofill",
+      "https://after.example/",
+    ]);
   });
 });

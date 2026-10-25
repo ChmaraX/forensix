@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 import {
@@ -29,7 +30,7 @@ import {
   type Provenance,
 } from "./forensic-model.js";
 import type { ForensicTimestamp } from "./history.js";
-import { decryptSecretField } from "./decrypted-field.js";
+import { decryptSecretField, type PlaintextUnwrap } from "./decrypted-field.js";
 import { schemeOf, type DecryptionSettings } from "./oscrypt.js";
 
 /**
@@ -39,6 +40,38 @@ import { schemeOf, type DecryptionSettings } from "./oscrypt.js";
  * Below it the analyzer refuses to assert an epoch without a Declared Origin OS.
  */
 const COOKIE_VERIFIED_SCHEMA_MINIMUM = 10;
+
+/**
+ * From Cookies schema version 24, Chromium encrypts `SHA-256(host_key)`
+ * followed by the cookie value, and on read it refuses a row whose decrypted
+ * bytes do not start with that hash (net/extras/sqlite/
+ * sqlite_persistent_cookie_store.cc, `MakeCookiesFromSQLStatement`).
+ */
+const COOKIE_HOST_KEY_HASH_SCHEMA_MINIMUM = 24;
+const HOST_KEY_HASH_BYTES = 32;
+
+/**
+ * The check for a version 24+ decrypted Cookie value: the first 32 bytes must
+ * equal SHA-256 of the row's `host_key`, and only the bytes after them are the
+ * value. A mismatch stays unavailable; the analyzer never guesses a value.
+ */
+function hostKeyHashUnwrap(hostKey: FieldState<string>): PlaintextUnwrap {
+  return (plaintext) => {
+    if (hostKey.state !== "value") {
+      return { ok: false, reason: "cookie_host_key_hash_unverifiable" };
+    }
+    const expected = createHash("sha256")
+      .update(Buffer.from(hostKey.value, "utf8"))
+      .digest();
+    if (
+      plaintext.length < HOST_KEY_HASH_BYTES ||
+      !expected.equals(plaintext.subarray(0, HOST_KEY_HASH_BYTES))
+    ) {
+      return { ok: false, reason: "cookie_host_key_hash_mismatch" };
+    }
+    return { ok: true, plaintext: plaintext.subarray(HOST_KEY_HASH_BYTES) };
+  };
+}
 
 const SAME_SITE_LABELS = new Map<bigint, string>([
   [-1n, "unspecified"],
@@ -241,7 +274,14 @@ function buildCookies(options: {
       schemeClass === null || schemeClass === "legacy" ? null : schemeClass;
     const decrypted =
       secretBlob !== null
-        ? decryptSecretField(secretBlob, options.profile, options.decryption)
+        ? decryptSecretField(
+            secretBlob,
+            options.profile,
+            options.decryption,
+            options.schema.version >= COOKIE_HOST_KEY_HASH_SCHEMA_MINIMUM
+              ? hostKeyHashUnwrap(hostKey)
+              : undefined,
+          )
         : null;
 
     const sameSite = enumFields(
@@ -357,16 +397,15 @@ function buildCookies(options: {
     return {
       persisted: {
         finding,
+        // The Cookie value is a secret (see record-redaction.ts), so it is
+        // never put in the search text: a substring search would otherwise
+        // let a caller rebuild a withheld value one prefix at a time.
         searchText: [
           options.profile,
           hostValue ?? "",
           nameValue ?? "",
           path.state === "value" ? path.value : "",
-          isEncrypted
-            ? `encrypted ${scheme ?? "unknown"}`
-            : plaintextValue.state === "value"
-              ? plaintextValue.value
-              : "",
+          isEncrypted ? `encrypted ${scheme ?? "unknown"}` : "",
         ]
           .join("\n")
           .toLocaleLowerCase("en-US"),
@@ -424,7 +463,9 @@ function unavailableArtifact(
 /**
  * Chromium moved the profile Cookies store under `Network/` in 2020. The
  * analyzer prefers that modern path and falls back to the legacy top-level
- * `Cookies` file so both schema generations are parsed.
+ * `Cookies` file so both schema generations are parsed. Only an `absent`
+ * entry falls back: a store that exists but could not be read (`unavailable`)
+ * is reported with its reason, and never replaced by an older copy.
  */
 function resolveDatabasePath(
   source: CaseSourceRecord,
@@ -441,7 +482,7 @@ function resolveDatabasePath(
       continue;
     }
     const entry = source.entries[manifest.ordinal];
-    if (entry !== undefined && entry.state === "value") {
+    if (entry !== undefined && entry.state !== "absent") {
       return { databasePath, manifest };
     }
   }
@@ -475,6 +516,16 @@ async function analyseProfile(options: {
   const entry = options.source.entries[manifest.ordinal];
   if (entry === undefined) {
     throw new Error("Manifest ordinal became invalid.");
+  }
+  if (entry.state === "unavailable") {
+    return unavailableArtifact(
+      options.source.sourceId,
+      options.profile,
+      databasePath,
+      manifest.ordinal,
+      "unavailable",
+      `cookies_unavailable:${entry.unavailable_reason ?? "unknown"}`,
+    );
   }
   if (!entry.copied) {
     return unavailableArtifact(

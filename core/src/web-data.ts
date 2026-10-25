@@ -16,6 +16,7 @@ import {
   type Finding,
   type SourceRowProvenance,
 } from "./forensic-model.js";
+import { utcFromUnixMicros } from "./forensic-time.js";
 import type { ForensicTimestamp } from "./history.js";
 import {
   readWebDataPasses,
@@ -39,17 +40,13 @@ interface ManifestIdentity {
   readonly databasePath: string;
 }
 
+/**
+ * Render whole seconds in the same 6-digit fractional form as every other
+ * artifact, so a text comparison against a normalized `--from`/`--to` instant
+ * and the Timeline order stay exact.
+ */
 function utcFromUnixSeconds(seconds: bigint): string | null {
-  const milliseconds = seconds * 1000n;
-  const numericMilliseconds = Number(milliseconds);
-  if (!Number.isSafeInteger(numericMilliseconds)) {
-    return null;
-  }
-  const date = new Date(numericMilliseconds);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return date.toISOString();
+  return utcFromUnixMicros(seconds * 1_000_000n);
 }
 
 function preservedString(value: RawWebDataValue): FieldState<string> {

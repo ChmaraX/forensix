@@ -1,4 +1,12 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -127,7 +135,7 @@ describe("compiled analyzer CLI HTML Report", () => {
 
     // The Report is derived from the Extract, not the Case.
     expect(summary.command).toBe("report");
-    expect(summary.extractSchema).toBe("forensix/extract/1");
+    expect(summary.extractSchema).toBe("forensix/extract/2");
     expect(summary.findingCount).toBeGreaterThan(0);
     // Integrity: An untouched Extract verifies against its Manifest.
     expect(summary.integrity).toBe("verified");
@@ -268,6 +276,93 @@ describe("compiled analyzer CLI HTML Report", () => {
     expect(afterCaseHtml).toBe(baseline);
     expect(afterCaseHtml).not.toContain("caseonly.example");
     expect(afterCaseHtml).toContain("https://alpha.example/");
+  });
+
+  it("renders Candidates as one ranked table without a Commit State", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-report-candidates-"));
+    temporaryRoots.push(root);
+    const caseDirectory = await ingestAndAnalyse(root);
+    const extract = join(root, "extract");
+    exportExtract(caseDirectory, extract);
+
+    const reportPath = join(root, "report.html");
+    const command = runCli([
+      "report",
+      "--extract",
+      extract,
+      "--out",
+      reportPath,
+      "--json",
+    ]);
+    expect(command.status, command.stderr).toBe(0);
+    // The visit gives a behavior_frequent_host identity Candidate.
+    expect(parseJson<ReportSummary>(command.stdout).candidateCount).toBe(1);
+    const html = await readFile(reportPath, "utf8");
+    const findings = html.slice(
+      html.indexOf("<h2>Findings</h2>"),
+      html.indexOf("<h2>Candidates</h2>"),
+    );
+    const candidates = html.slice(
+      html.indexOf("<h2>Candidates</h2>"),
+      html.indexOf("<h2>How to read Field State</h2>"),
+    );
+
+    // Findings keep their Commit State and the committed / sidecar groups.
+    expect(findings).toContain("<th>Commit State</th>");
+    expect(findings).toContain("Sidecar (WAL / rollback-journal)");
+
+    // Candidates are one table: no Commit State column, no Commit State
+    // groups, and each row shows its rank.
+    expect(candidates).toContain("CANDIDATE");
+    expect(candidates).toContain("behavior_frequent_host");
+    expect(candidates).toContain("rank 1");
+    expect(candidates.match(/<table/g)).toHaveLength(1);
+    expect(candidates).not.toContain("Commit State");
+    expect(candidates).not.toContain("Sidecar");
+    expect(candidates).not.toContain("committed");
+  });
+
+  it("refuses a Report path inside the Extract, also through a symbolic link", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-report-inside-"));
+    temporaryRoots.push(root);
+    const caseDirectory = await ingestAndAnalyse(root);
+    const extract = join(root, "extract");
+    exportExtract(caseDirectory, extract);
+    const extractLink = join(root, "extract-link");
+    await symlink(extract, extractLink);
+
+    for (const [outputPath, written] of [
+      [join(extract, "report.html"), join(extract, "report.html")],
+      [join(extract, "sub", "report.html"), join(extract, "sub")],
+      [join(extractLink, "report.html"), join(extract, "report.html")],
+    ] as const) {
+      const command = runCli([
+        "report",
+        "--extract",
+        extract,
+        "--out",
+        outputPath,
+        "--json",
+      ]);
+      expect(command.status, outputPath).toBe(1);
+      expect(parseJson<Record<string, unknown>>(command.stderr)).toMatchObject({
+        code: "INVALID_ARGUMENT",
+      });
+      expect(existsSync(written), written).toBe(false);
+    }
+
+    // The Extract is unchanged: a Report outside it still verifies.
+    const outside = parseJson<ReportSummary>(
+      runCli([
+        "report",
+        "--extract",
+        extract,
+        "--out",
+        join(root, "report.html"),
+        "--json",
+      ]).stdout,
+    );
+    expect(outside.integrity).toBe("verified");
   });
 
   it("refuses --case and a missing Extract, and never accepts a Case path", async () => {

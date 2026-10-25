@@ -1,17 +1,14 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import type { CommitState } from "./forensic-model.js";
 import { ForensixError } from "./errors.js";
-import { openDatabaseSync } from "./sqlite-open.js";
 import {
-  immutableDatabase,
-  snapshotVerifiedFile,
+  normalizeSqliteValue,
+  readIntegrity,
+  readSqlitePasses,
   tableColumns,
   tableExists,
   type RawSqliteValue,
+  type SqlitePasses,
   type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
 
@@ -63,15 +60,7 @@ export interface FaviconPass {
   readonly integrity: string;
 }
 
-export interface RecoveredFaviconPass extends FaviconPass {
-  readonly commitState: Exclude<CommitState, "committed">;
-}
-
-export interface FaviconPasses {
-  readonly committed: FaviconPass;
-  readonly recovered: RecoveredFaviconPass | null;
-  readonly recoveryUnavailableReason: string | null;
-}
+export type FaviconPasses = SqlitePasses<FaviconPass>;
 
 /**
  * Columns every supported Chromium Favicons schema (versions 7 and 8) must
@@ -145,23 +134,8 @@ function optionalColumn(
     : `NULL AS "${alias}"`;
 }
 
-function normalizeValue(value: unknown): RawFaviconValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "bigint" ||
-    value instanceof Uint8Array
-  ) {
-    return value;
-  }
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    return BigInt(value);
-  }
-  throw new ForensixError(
-    "ANALYSIS_FAILED",
-    "Favicons contains a value that cannot be preserved exactly.",
-  );
-}
+const normalize = (value: unknown): RawFaviconValue =>
+  normalizeSqliteValue(value, "Favicons");
 
 function readPass(database: DatabaseSync): FaviconPass {
   const schema = readSchema(database);
@@ -180,13 +154,13 @@ function readPass(database: DatabaseSync): FaviconPass {
   const bitmaps: RawFaviconBitmap[] = [];
   for (const row of bitmapStatement.iterate()) {
     bitmaps.push({
-      rowId: normalizeValue(row.rowId),
-      iconId: normalizeValue(row.iconId),
-      imageData: normalizeValue(row.imageData),
-      width: normalizeValue(row.width),
-      height: normalizeValue(row.height),
-      lastUpdated: normalizeValue(row.lastUpdated),
-      lastRequested: normalizeValue(row.lastRequested),
+      rowId: normalize(row.rowId),
+      iconId: normalize(row.iconId),
+      imageData: normalize(row.imageData),
+      width: normalize(row.width),
+      height: normalize(row.height),
+      lastUpdated: normalize(row.lastUpdated),
+      lastRequested: normalize(row.lastRequested),
     });
   }
 
@@ -201,9 +175,9 @@ function readPass(database: DatabaseSync): FaviconPass {
   const favicons: RawFaviconRecord[] = [];
   for (const row of faviconStatement.iterate()) {
     favicons.push({
-      rowId: normalizeValue(row.rowId),
-      url: normalizeValue(row.url),
-      iconType: normalizeValue(row.iconType),
+      rowId: normalize(row.rowId),
+      url: normalize(row.url),
+      iconType: normalize(row.iconType),
     });
   }
 
@@ -218,94 +192,31 @@ function readPass(database: DatabaseSync): FaviconPass {
   const iconMappings: RawIconMapping[] = [];
   for (const row of mappingStatement.iterate()) {
     iconMappings.push({
-      rowId: normalizeValue(row.rowId),
-      pageUrl: normalizeValue(row.pageUrl),
-      iconId: normalizeValue(row.iconId),
+      rowId: normalize(row.rowId),
+      pageUrl: normalize(row.pageUrl),
+      iconId: normalize(row.iconId),
     });
   }
 
-  const integrityRow = database.prepare("PRAGMA integrity_check(1)").get();
-  const integrity = String(integrityRow?.integrity_check ?? "unavailable");
-  return { schema, bitmaps, favicons, iconMappings, integrity };
+  return {
+    schema,
+    bitmaps,
+    favicons,
+    iconMappings,
+    integrity: readIntegrity(database),
+  };
 }
 
 export async function readFaviconPasses(options: {
   readonly database: VerifiedFaviconFile;
   readonly sidecars: readonly VerifiedFaviconFile[];
 }): Promise<FaviconPasses> {
-  const temporaryDirectory = await mkdtemp(
-    join(tmpdir(), "forensix-favicons-snapshot-"),
-  );
-  const temporaryDatabasePath = join(
-    temporaryDirectory,
-    basename(options.database.path),
-  );
-  try {
-    await snapshotVerifiedFile(options.database, temporaryDatabasePath);
-    for (const sidecar of options.sidecars) {
-      await snapshotVerifiedFile(
-        sidecar,
-        join(temporaryDirectory, basename(sidecar.path)),
-      );
-    }
-
-    const committedDatabase = immutableDatabase(temporaryDatabasePath);
-    let committed: FaviconPass;
-    try {
-      committed = readPass(committedDatabase);
-    } finally {
-      committedDatabase.close();
-    }
-
-    const wal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-wal"),
-    );
-    const journal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-journal"),
-    );
-    const commitState =
-      wal === undefined
-        ? journal === undefined
-          ? null
-          : "journal_resident"
-        : "wal_resident";
-    if (commitState === null) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: "sidecar_not_supplied",
-      };
-    }
-
-    let recoveryDatabase: DatabaseSync;
-    try {
-      recoveryDatabase = openDatabaseSync(temporaryDatabasePath, {
-        readBigInts: true,
-      });
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_open_failed:${String(error)}`,
-      };
-    }
-    try {
-      const fullRecoveryPass = readPass(recoveryDatabase);
-      return {
-        committed,
-        recovered: { ...fullRecoveryPass, commitState },
-        recoveryUnavailableReason: null,
-      };
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_read_failed:${String(error)}`,
-      };
-    } finally {
-      recoveryDatabase.close();
-    }
-  } finally {
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
+  return readSqlitePasses({
+    artifact: "Favicons",
+    ...options,
+    readPass,
+    // The sidecar pass stays complete: a Favicon joins three tables, so the
+    // Finding layer compares built Finding signatures with the committed pass.
+    sidecarOnly: (_committed, sidecar) => sidecar,
+  });
 }

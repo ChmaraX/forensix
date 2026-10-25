@@ -33,28 +33,6 @@ import {
   type VerifiedHistoryFile,
 } from "./history-sqlite.js";
 
-// The case analysis orchestrator lives in `analyse-case.ts`; it is re-exported
-// here so existing importers (and the public package surface) keep resolving
-// `analyseCase` and its summary types from this module. History-only parsing
-// stays below.
-export {
-  analyseCase,
-  ANALYSE_EXIT_CODES,
-  type AnalyseCaseOptions,
-  type AnalyseCaseResult,
-  type BookmarksAnalysisSummary,
-  type CacheAnalysisSummary,
-  type CookieAnalysisSummary,
-  type DecryptionSummary,
-  type DownloadsAnalysisSummary,
-  type FaviconsAnalysisSummary,
-  type HistoryAnalysisSummary,
-  type LoginDataAnalysisSummary,
-  type PreferencesAnalysisSummary,
-  type TopSitesAnalysisSummary,
-  type WebDataAnalysisSummary,
-} from "./analyse-case.js";
-
 export type EpochFamily =
   | "1601-us"
   | "1601-ms"

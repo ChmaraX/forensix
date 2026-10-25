@@ -1,17 +1,16 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import type { CommitState } from "./forensic-model.js";
 import { ForensixError } from "./errors.js";
-import { openDatabaseSync } from "./sqlite-open.js";
 import {
-  immutableDatabase,
-  snapshotVerifiedFile,
+  integerKey,
+  normalizeSqliteValue,
+  readIntegrity,
+  readSqlitePasses,
+  sidecarOnlyRows,
   tableColumns,
   tableExists,
   type RawSqliteValue,
+  type SqlitePasses,
   type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
 
@@ -53,15 +52,7 @@ export interface CookiePass {
   readonly integrity: string;
 }
 
-export interface RecoveredCookiePass extends CookiePass {
-  readonly commitState: Exclude<CommitState, "committed">;
-}
-
-export interface CookiePasses {
-  readonly committed: CookiePass;
-  readonly recovered: RecoveredCookiePass | null;
-  readonly recoveryUnavailableReason: string | null;
-}
+export type CookiePasses = SqlitePasses<CookiePass>;
 
 /**
  * Columns every supported Chromium `cookies` schema must expose. The remaining
@@ -133,23 +124,8 @@ function optionalColumn(
     : `NULL AS "${alias}"`;
 }
 
-function normalizeValue(value: unknown): RawCookieValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "bigint" ||
-    value instanceof Uint8Array
-  ) {
-    return value;
-  }
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    return BigInt(value);
-  }
-  throw new ForensixError(
-    "ANALYSIS_FAILED",
-    "Cookies contains a value that cannot be preserved exactly.",
-  );
-}
+const normalize = (value: unknown): RawCookieValue =>
+  normalizeSqliteValue(value, "Cookies");
 
 function readPass(database: DatabaseSync): CookiePass {
   const schema = readSchema(database);
@@ -184,187 +160,49 @@ function readPass(database: DatabaseSync): CookiePass {
   const rows: RawCookie[] = [];
   for (const row of statement.iterate()) {
     rows.push({
-      rowId: normalizeValue(row.rowId),
-      creationUtc: normalizeValue(row.creationUtc),
-      hostKey: normalizeValue(row.hostKey),
-      topFrameSiteKey: normalizeValue(row.topFrameSiteKey),
-      name: normalizeValue(row.name),
-      value: normalizeValue(row.value),
-      encryptedValue: normalizeValue(row.encryptedValue),
-      path: normalizeValue(row.path),
-      expiresUtc: normalizeValue(row.expiresUtc),
-      isSecure: normalizeValue(row.isSecure),
-      isHttpOnly: normalizeValue(row.isHttpOnly),
-      lastAccessUtc: normalizeValue(row.lastAccessUtc),
-      hasExpires: normalizeValue(row.hasExpires),
-      isPersistent: normalizeValue(row.isPersistent),
-      priority: normalizeValue(row.priority),
-      samesite: normalizeValue(row.samesite),
-      sourceScheme: normalizeValue(row.sourceScheme),
-      sourcePort: normalizeValue(row.sourcePort),
-      lastUpdateUtc: normalizeValue(row.lastUpdateUtc),
-      sourceType: normalizeValue(row.sourceType),
-      hasCrossSiteAncestor: normalizeValue(row.hasCrossSiteAncestor),
+      rowId: normalize(row.rowId),
+      creationUtc: normalize(row.creationUtc),
+      hostKey: normalize(row.hostKey),
+      topFrameSiteKey: normalize(row.topFrameSiteKey),
+      name: normalize(row.name),
+      value: normalize(row.value),
+      encryptedValue: normalize(row.encryptedValue),
+      path: normalize(row.path),
+      expiresUtc: normalize(row.expiresUtc),
+      isSecure: normalize(row.isSecure),
+      isHttpOnly: normalize(row.isHttpOnly),
+      lastAccessUtc: normalize(row.lastAccessUtc),
+      hasExpires: normalize(row.hasExpires),
+      isPersistent: normalize(row.isPersistent),
+      priority: normalize(row.priority),
+      samesite: normalize(row.samesite),
+      sourceScheme: normalize(row.sourceScheme),
+      sourcePort: normalize(row.sourcePort),
+      lastUpdateUtc: normalize(row.lastUpdateUtc),
+      sourceType: normalize(row.sourceType),
+      hasCrossSiteAncestor: normalize(row.hasCrossSiteAncestor),
     });
   }
 
-  const integrityRow = database.prepare("PRAGMA integrity_check(1)").get();
-  const integrity = String(integrityRow?.integrity_check ?? "unavailable");
-  return { schema, rows, integrity };
-}
-
-function fingerprint(values: readonly RawCookieValue[]): string {
-  return JSON.stringify(values, (_key, value: unknown) => {
-    if (typeof value === "bigint") {
-      return `${value.toString()}n`;
-    }
-    if (value instanceof Uint8Array) {
-      return `blob:${Buffer.from(value).toString("hex")}`;
-    }
-    return value;
-  });
-}
-
-function cookieFingerprint(row: RawCookie): string {
-  return fingerprint([
-    row.creationUtc,
-    row.hostKey,
-    row.topFrameSiteKey,
-    row.name,
-    row.value,
-    row.encryptedValue,
-    row.path,
-    row.expiresUtc,
-    row.isSecure,
-    row.isHttpOnly,
-    row.lastAccessUtc,
-    row.hasExpires,
-    row.isPersistent,
-    row.priority,
-    row.samesite,
-    row.sourceScheme,
-    row.sourcePort,
-    row.lastUpdateUtc,
-    row.sourceType,
-    row.hasCrossSiteAncestor,
-  ]);
-}
-
-function rowId(row: RawCookie): string | null {
-  return typeof row.rowId === "bigint" ? row.rowId.toString() : null;
-}
-
-/**
- * The `cookies` table is a single-table artifact, so a recovered row belongs to
- * the sidecar Commit State only when the committed image has no row with the
- * same rowid or holds a different exact byte image for it.
- */
-function recoveredOnlyCookies(
-  committed: readonly RawCookie[],
-  recovered: readonly RawCookie[],
-): RawCookie[] {
-  const committedByRowId = new Map(
-    committed.flatMap((row) => {
-      const id = rowId(row);
-      return id === null ? [] : [[id, cookieFingerprint(row)] as const];
-    }),
-  );
-  const rows: RawCookie[] = [];
-  for (const row of recovered) {
-    const id = rowId(row);
-    const committedFingerprint =
-      id === null ? undefined : committedByRowId.get(id);
-    if (
-      committedFingerprint === undefined ||
-      committedFingerprint !== cookieFingerprint(row)
-    ) {
-      rows.push(row);
-    }
-  }
-  return rows;
+  return { schema, rows, integrity: readIntegrity(database) };
 }
 
 export async function readCookiePasses(options: {
   readonly database: VerifiedCookieFile;
   readonly sidecars: readonly VerifiedCookieFile[];
 }): Promise<CookiePasses> {
-  const temporaryDirectory = await mkdtemp(
-    join(tmpdir(), "forensix-cookies-snapshot-"),
-  );
-  const temporaryDatabasePath = join(
-    temporaryDirectory,
-    basename(options.database.path),
-  );
-  try {
-    await snapshotVerifiedFile(options.database, temporaryDatabasePath);
-    for (const sidecar of options.sidecars) {
-      await snapshotVerifiedFile(
-        sidecar,
-        join(temporaryDirectory, basename(sidecar.path)),
-      );
-    }
-
-    const committedDatabase = immutableDatabase(temporaryDatabasePath);
-    let committed: CookiePass;
-    try {
-      committed = readPass(committedDatabase);
-    } finally {
-      committedDatabase.close();
-    }
-
-    const wal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-wal"),
-    );
-    const journal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-journal"),
-    );
-    const commitState =
-      wal === undefined
-        ? journal === undefined
-          ? null
-          : "journal_resident"
-        : "wal_resident";
-    if (commitState === null) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: "sidecar_not_supplied",
-      };
-    }
-
-    let recoveryDatabase: DatabaseSync;
-    try {
-      recoveryDatabase = openDatabaseSync(temporaryDatabasePath, {
-        readBigInts: true,
-      });
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_open_failed:${String(error)}`,
-      };
-    }
-    try {
-      const fullRecoveryPass = readPass(recoveryDatabase);
-      return {
-        committed,
-        recovered: {
-          ...fullRecoveryPass,
-          rows: recoveredOnlyCookies(committed.rows, fullRecoveryPass.rows),
-          commitState,
-        },
-        recoveryUnavailableReason: null,
-      };
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_read_failed:${String(error)}`,
-      };
-    } finally {
-      recoveryDatabase.close();
-    }
-  } finally {
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
+  // The `cookies` table is a single-table artifact: a sidecar row is kept only
+  // when the committed image has no row with the same rowid or holds a
+  // different exact image for it.
+  return readSqlitePasses({
+    artifact: "Cookies",
+    ...options,
+    readPass,
+    sidecarOnly: (committed, sidecar) => ({
+      ...sidecar,
+      rows: sidecarOnlyRows(committed.rows, sidecar.rows, (row) =>
+        integerKey(row.rowId),
+      ),
+    }),
+  });
 }

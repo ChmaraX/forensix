@@ -127,17 +127,19 @@ export {
   type CookieAnalysisSummary,
   type DecryptionSummary,
   type DownloadsAnalysisSummary,
-  type EpochFamily,
   type FaviconsAnalysisSummary,
-  type ForensicTimestamp,
   type HistoryAnalysisSummary,
   type LoginDataAnalysisSummary,
   type PreferencesAnalysisSummary,
   type BookmarksAnalysisSummary,
   type CacheAnalysisSummary,
-  type TopicCandidateSummary,
   type TopSitesAnalysisSummary,
   type WebDataAnalysisSummary,
+} from "./analyse-case.js";
+export {
+  type EpochFamily,
+  type ForensicTimestamp,
+  type TopicCandidateSummary,
 } from "./history.js";
 export {
   DECRYPTION_DISABLED,
@@ -220,8 +222,6 @@ export {
   REDACTION_POLICY,
   computeDerivedDigest,
   exportCase,
-  isSecretFieldName,
-  redactFields,
   type ExportCaseOptions,
   type ExportCaseResult,
   type ExtractCollection,

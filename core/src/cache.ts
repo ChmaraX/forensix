@@ -25,6 +25,7 @@ import {
   valueField,
   type FieldState,
   type Provenance,
+  type SimpleIndexFailureReason,
   type SourceRowProvenance,
 } from "./forensic-model.js";
 import type { ForensicTimestamp } from "./history.js";
@@ -115,7 +116,11 @@ async function readWhole(
 function timestampField(
   record: SimpleIndexRecord | undefined,
   declaredTimezone: string,
+  indexFailure: SimpleIndexFailureReason | null = null,
 ): FieldState<ForensicTimestamp> {
+  if (indexFailure !== null) {
+    return unavailableField(indexFailure);
+  }
   if (record === undefined || record.lastUsedInternalMicros === 0n) {
     return absentField();
   }
@@ -207,6 +212,8 @@ interface BuiltRecords {
   readonly findings: PersistedCacheFinding[];
   readonly candidates: PersistedCacheCandidate[];
   readonly payloads: Map<string, PayloadFile>;
+  /** Why the real index could not be used, or null when it was parsed. */
+  readonly indexFailure: SimpleIndexFailureReason | null;
 }
 
 async function buildSimpleRecords(options: {
@@ -228,18 +235,32 @@ async function buildSimpleRecords(options: {
   // Parse the real index first: presence of an entry hash here is the ground
   // truth that separates a live entry (Finding) from a doomed/orphaned entry
   // file or an evicted index reference (Candidates).
+  //
+  // When the index cannot be used (absent, not copied, or failed to parse),
+  // there is no ground truth for liveness. Chromium itself then rebuilds the
+  // index from the entry files on disk, so each parseable entry file stays a
+  // live but unindexed Finding. Its index-only fields (last used time, entry
+  // size) are unavailable with the index failure reason, never absent.
   const indexFile = cache.files.find(
     (file) => file.relativePath === REAL_INDEX_NAME,
   );
   let indexRecords: ReadonlyMap<string, SimpleIndexRecord> = new Map();
   let indexBase: ProvenanceBase | null = null;
-  if (indexFile !== undefined && indexFile.copied) {
+  let indexFailure: SimpleIndexFailureReason | null;
+  if (indexFile === undefined) {
+    indexFailure = "simple_index_absent";
+  } else if (!indexFile.copied) {
+    indexFailure = "simple_index_not_in_working_copy";
+  } else {
     const parsed = parseSimpleIndex(
       await readWhole(options.workingCopyPath, indexFile),
     );
     if (parsed.ok) {
       indexRecords = parsed.records;
       indexBase = base(indexFile);
+      indexFailure = null;
+    } else {
+      indexFailure = `simple_index_${parsed.reason}`;
     }
   }
 
@@ -316,6 +337,13 @@ async function buildSimpleRecords(options: {
     }
     const record = indexRecords.get(hash);
     const fields = {
+      indexState: valueField(
+        indexFailure !== null
+          ? "unindexed"
+          : record === undefined
+            ? "not_in_index"
+            : "indexed",
+      ),
       backend: valueField("simple"),
       entryHash: valueField(hash),
       key:
@@ -330,11 +358,13 @@ async function buildSimpleRecords(options: {
           ? absentField()
           : valueField(parsed.keySha256),
       version: valueField(parsed.version.toString()),
-      lastUsed: timestampField(record, declaredTimezone),
+      lastUsed: timestampField(record, declaredTimezone, indexFailure),
       entrySizeBytes:
-        record === undefined
-          ? absentField()
-          : valueField(record.entrySizeBytes.toString()),
+        indexFailure !== null
+          ? unavailableField(indexFailure)
+          : record === undefined
+            ? absentField()
+            : valueField(record.entrySizeBytes.toString()),
       stream0Size: valueField(parsed.stream0.size.toString()),
       stream1Size: valueField(parsed.stream1.size.toString()),
       stream1Crc32Valid:
@@ -344,7 +374,7 @@ async function buildSimpleRecords(options: {
       ...payloadFields(payload),
     };
 
-    if (record === undefined) {
+    if (record === undefined && indexFailure === null) {
       // On disk, parseable, but absent from the index: allocated-deleted or
       // doomed. Its key and payload are preserved as evidence, but the record
       // stays a Candidate and is never promoted to a Finding by heuristic.
@@ -457,7 +487,7 @@ async function buildSimpleRecords(options: {
     }
   }
 
-  return { findings, candidates, payloads };
+  return { findings, candidates, payloads, indexFailure };
 }
 
 function buildUnreadableCandidate(
@@ -658,7 +688,12 @@ async function analyseProfileCache(options: {
     manifestEntryOrdinal: stream0Ordinal,
     databasePath: cache.cacheDataPath,
     backend: "simple",
-    reason: null,
+    // A produced artifact whose entries could not be checked against the
+    // real index carries the index failure as its reason.
+    reason:
+      built.indexFailure === null
+        ? null
+        : `cache_index_unavailable:${built.indexFailure}`,
     findings: built.findings,
     candidates: built.candidates,
     candidateCount: built.candidates.length,

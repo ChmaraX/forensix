@@ -459,6 +459,10 @@ export function parseSimpleIndex(bytes: Uint8Array): SimpleIndexParse {
     if (hashKey === null || internalLastUsed === null || packed === null) {
       return { ok: false, reason: "malformed_entries" };
     }
+    // simple_index.cc packs `entry_size_256b_chunks << 8 | in_memory_data`.
+    // Current Chromium unpacks `in_memory_data` with `& 0x03` (a 2-bit field;
+    // bits 2-7 are empty). Chromium before the 30/2-bit split used `& 0xFF`
+    // with an 8-bit field, but only ever wrote hint values 0-3.
     const entrySizeBytes = (packed >> 8n) << 8n;
     const hashHex = BigInt.asUintN(64, hashKey).toString(16).padStart(16, "0");
     records.set(hashHex, {

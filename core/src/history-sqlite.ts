@@ -1,17 +1,18 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { ForensixError } from "./errors.js";
-import { openDatabaseSync } from "./sqlite-open.js";
-import type { CommitState } from "./forensic-model.js";
 import {
   immutableDatabase,
+  integerKey,
+  normalizeSqliteValue,
+  readIntegrity,
+  readSqlitePasses,
   snapshotVerifiedFile,
+  sqliteFingerprint,
   tableColumns,
   tableExists,
   type RawSqliteValue,
+  type SqlitePasses,
   type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
 
@@ -72,15 +73,7 @@ export interface HistoryPass {
   readonly integrity: string;
 }
 
-export interface RecoveredHistoryPass extends HistoryPass {
-  readonly commitState: Exclude<CommitState, "committed">;
-}
-
-export interface HistoryPasses {
-  readonly committed: HistoryPass;
-  readonly recovered: RecoveredHistoryPass | null;
-  readonly recoveryUnavailableReason: string | null;
-}
+export type HistoryPasses = SqlitePasses<HistoryPass>;
 
 const REQUIRED_VISIT_COLUMNS = [
   "id",
@@ -209,23 +202,8 @@ function optionalColumn(
     : `NULL AS "${alias}"`;
 }
 
-function normalizeValue(value: unknown): RawHistoryValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "bigint" ||
-    value instanceof Uint8Array
-  ) {
-    return value;
-  }
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    return BigInt(value);
-  }
-  throw new ForensixError(
-    "ANALYSIS_FAILED",
-    "History contains a value that cannot be preserved exactly.",
-  );
-}
+const normalize = (value: unknown): RawHistoryValue =>
+  normalizeSqliteValue(value, "History");
 
 function readPass(database: DatabaseSync): HistoryPass {
   const schema = readSchema(database);
@@ -275,48 +253,38 @@ function readPass(database: DatabaseSync): HistoryPass {
   const rows: RawHistoryVisit[] = [];
   for (const row of statement.iterate()) {
     rows.push({
-      visitId: normalizeValue(row.visitId),
-      urlId: normalizeValue(row.urlId),
-      visitTime: normalizeValue(row.visitTime),
-      fromVisit: normalizeValue(row.fromVisit),
-      externalReferrerUrl: normalizeValue(row.externalReferrerUrl),
-      transition: normalizeValue(row.transition),
-      segmentId: normalizeValue(row.segmentId),
-      visitDuration: normalizeValue(row.visitDuration),
-      incrementedOmniboxTypedScore: normalizeValue(
-        row.incrementedOmniboxTypedScore,
-      ),
-      openerVisit: normalizeValue(row.openerVisit),
-      originatorCacheGuid: normalizeValue(row.originatorCacheGuid),
-      originatorVisitId: normalizeValue(row.originatorVisitId),
-      originatorFromVisit: normalizeValue(row.originatorFromVisit),
-      originatorOpenerVisit: normalizeValue(row.originatorOpenerVisit),
-      isKnownToSync: normalizeValue(row.isKnownToSync),
-      considerForNtpMostVisited: normalizeValue(row.considerForNtpMostVisited),
-      visitedLinkId: normalizeValue(row.visitedLinkId),
-      appId: normalizeValue(row.appId),
-      urlRecordId: normalizeValue(row.urlRecordId),
-      url: normalizeValue(row.url),
-      title: normalizeValue(row.title),
-      urlVisitCount: normalizeValue(row.urlVisitCount),
-      typedCount: normalizeValue(row.typedCount),
-      lastVisitTime: normalizeValue(row.lastVisitTime),
-      hidden: normalizeValue(row.hidden),
-      visitSource: normalizeValue(row.visitSource),
+      visitId: normalize(row.visitId),
+      urlId: normalize(row.urlId),
+      visitTime: normalize(row.visitTime),
+      fromVisit: normalize(row.fromVisit),
+      externalReferrerUrl: normalize(row.externalReferrerUrl),
+      transition: normalize(row.transition),
+      segmentId: normalize(row.segmentId),
+      visitDuration: normalize(row.visitDuration),
+      incrementedOmniboxTypedScore: normalize(row.incrementedOmniboxTypedScore),
+      openerVisit: normalize(row.openerVisit),
+      originatorCacheGuid: normalize(row.originatorCacheGuid),
+      originatorVisitId: normalize(row.originatorVisitId),
+      originatorFromVisit: normalize(row.originatorFromVisit),
+      originatorOpenerVisit: normalize(row.originatorOpenerVisit),
+      isKnownToSync: normalize(row.isKnownToSync),
+      considerForNtpMostVisited: normalize(row.considerForNtpMostVisited),
+      visitedLinkId: normalize(row.visitedLinkId),
+      appId: normalize(row.appId),
+      urlRecordId: normalize(row.urlRecordId),
+      url: normalize(row.url),
+      title: normalize(row.title),
+      urlVisitCount: normalize(row.urlVisitCount),
+      typedCount: normalize(row.typedCount),
+      lastVisitTime: normalize(row.lastVisitTime),
+      hidden: normalize(row.hidden),
+      visitSource: normalize(row.visitSource),
       sidecarTables: [],
       sidecarRows: [],
     });
   }
 
-  const integrityRow = database.prepare("PRAGMA integrity_check(1)").get();
-  const integrity = String(integrityRow?.integrity_check ?? "unavailable");
-  return { schema, rows, integrity };
-}
-
-function fingerprint(values: readonly RawHistoryValue[]): string {
-  return JSON.stringify(values, (_key, value: unknown) =>
-    typeof value === "bigint" ? `${value.toString()}n` : value,
-  );
+  return { schema, rows, integrity: readIntegrity(database) };
 }
 
 function tableFingerprint(
@@ -324,7 +292,7 @@ function tableFingerprint(
   table: HistorySourceTable,
 ): string {
   if (table === "visits") {
-    return fingerprint([
+    return sqliteFingerprint([
       row.visitId,
       row.urlId,
       row.visitTime,
@@ -346,7 +314,7 @@ function tableFingerprint(
     ]);
   }
   if (table === "urls") {
-    return fingerprint([
+    return sqliteFingerprint([
       row.urlRecordId,
       row.url,
       row.title,
@@ -356,11 +324,7 @@ function tableFingerprint(
       row.hidden,
     ]);
   }
-  return fingerprint([row.visitId, row.visitSource]);
-}
-
-function rowId(row: RawHistoryVisit): string | null {
-  return typeof row.visitId === "bigint" ? row.visitId.toString() : null;
+  return sqliteFingerprint([row.visitId, row.visitSource]);
 }
 
 function presentTables(row: RawHistoryVisit): HistorySourceTable[] {
@@ -375,8 +339,7 @@ function tableRowId(
   row: RawHistoryVisit,
   table: HistorySourceTable,
 ): string | null {
-  const value = table === "urls" ? row.urlRecordId : row.visitId;
-  return typeof value === "bigint" ? value.toString() : null;
+  return integerKey(table === "urls" ? row.urlRecordId : row.visitId);
 }
 
 function recoveredOnlyRows(
@@ -385,13 +348,13 @@ function recoveredOnlyRows(
 ): RawHistoryVisit[] {
   const committedByVisitId = new Map(
     committed.flatMap((row) => {
-      const id = rowId(row);
+      const id = integerKey(row.visitId);
       return id === null ? [] : [[id, row] as const];
     }),
   );
   const rows: RawHistoryVisit[] = [];
   for (const row of recovered) {
-    const id = rowId(row);
+    const id = integerKey(row.visitId);
     const committedRow = id === null ? undefined : committedByVisitId.get(id);
     const tables = new Set<HistorySourceTable>([
       ...presentTables(row),
@@ -415,130 +378,17 @@ function recoveredOnlyRows(
   return rows;
 }
 
-/**
- * Windows CI can transiently refuse the read-write recovery open of a freshly
- * copied snapshot that still carries a hot rollback journal or WAL. This
- * budget is finite and comfortably under the History E2E ceiling (60s), so a
- * genuine deadlock still fails instead of hanging, while a slow-but-transient
- * Windows lock/scanner window is absorbed. Successful opens are unaffected.
- */
-const RECOVERY_OPEN_CONFIG = {
-  maxAttempts: 12,
-  maxTotalMs: 15_000,
-  busyTimeoutMs: 10_000,
-} as const;
-
 export async function readHistoryPasses(options: {
   readonly database: VerifiedHistoryFile;
   readonly sidecars: readonly VerifiedHistoryFile[];
 }): Promise<HistoryPasses> {
-  const temporaryDirectory = await mkdtemp(
-    join(tmpdir(), "forensix-history-snapshot-"),
-  );
-  // The committed pass reads an immutable (lock-free) snapshot. The recovery
-  // pass must open read-write to roll back a hot journal / checkpoint a WAL,
-  // which acquires exclusive locks and mutates the file. Give recovery its own
-  // pristine copy in a separate directory so its read-write open never contends
-  // with the just-closed committed handle. On Windows a handle close does not
-  // synchronously release the OS lock, and reusing one file for both opens is
-  // the observed source of intermittent "unable to open database file".
-  // Copy the verified database and every sidecar into `directory`, preserving
-  // basenames so a hot journal/WAL still sits next to its database. Returns the
-  // snapshot database path.
-  const snapshotInto = async (directory: string): Promise<string> => {
-    await mkdir(directory, { recursive: true });
-    const databasePath = join(directory, basename(options.database.path));
-    await snapshotVerifiedFile(options.database, databasePath);
-    for (const sidecar of options.sidecars) {
-      await snapshotVerifiedFile(
-        sidecar,
-        join(directory, basename(sidecar.path)),
-      );
-    }
-    return databasePath;
-  };
-
-  const committedDirectory = join(temporaryDirectory, "committed");
-  const recoveryDirectory = join(temporaryDirectory, "recovery");
-  try {
-    const committedDatabasePath = await snapshotInto(committedDirectory);
-    const committedDatabase = immutableDatabase(committedDatabasePath);
-    let committed: HistoryPass;
-    try {
-      committed = readPass(committedDatabase);
-    } finally {
-      committedDatabase.close();
-    }
-
-    const wal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-wal"),
-    );
-    const journal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-journal"),
-    );
-    const commitState =
-      wal === undefined
-        ? journal === undefined
-          ? null
-          : "journal_resident"
-        : "wal_resident";
-    if (commitState === null) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: "sidecar_not_supplied",
-      };
-    }
-
-    // Fresh, isolated copy for the read-write rollback/checkpoint open. A copy
-    // failure degrades to committed-only for symmetry with a recovery-open
-    // failure, rather than throwing and killing the whole read.
-    let recoveryDatabasePath: string;
-    try {
-      recoveryDatabasePath = await snapshotInto(recoveryDirectory);
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_snapshot_failed:${String(error)}`,
-      };
-    }
-
-    let recoveryDatabase: DatabaseSync;
-    try {
-      recoveryDatabase = openDatabaseSync(
-        recoveryDatabasePath,
-        { readBigInts: true },
-        RECOVERY_OPEN_CONFIG,
-      );
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_open_failed:${String(error)}`,
-      };
-    }
-    try {
-      const fullRecoveryPass = readPass(recoveryDatabase);
-      return {
-        committed,
-        recovered: {
-          ...fullRecoveryPass,
-          rows: recoveredOnlyRows(committed.rows, fullRecoveryPass.rows),
-          commitState,
-        },
-        recoveryUnavailableReason: null,
-      };
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_read_failed:${String(error)}`,
-      };
-    } finally {
-      recoveryDatabase.close();
-    }
-  } finally {
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
+  return readSqlitePasses({
+    artifact: "History",
+    ...options,
+    readPass,
+    sidecarOnly: (committed, sidecar) => ({
+      ...sidecar,
+      rows: recoveredOnlyRows(committed.rows, sidecar.rows),
+    }),
+  });
 }

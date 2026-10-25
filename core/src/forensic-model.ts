@@ -18,7 +18,24 @@ export type FieldUnavailableReason =
   | "decryption_wrong_key"
   | "decryption_malformed_ciphertext"
   | "decryption_missing_context"
-  | "decryption_authentication_failed";
+  | "decryption_authentication_failed"
+  // A Cookies store at schema version 24 or later binds each decrypted value
+  // to SHA-256(host_key). A missing or wrong binding is never stripped by guess.
+  | "cookie_host_key_hash_mismatch"
+  | "cookie_host_key_hash_unverifiable"
+  // The Simple Cache real index could not be used, so index-only fields of a
+  // cache entry (last used time, entry size) cannot be read.
+  | SimpleIndexFailureReason;
+
+export type SimpleIndexFailureReason =
+  | "simple_index_absent"
+  | "simple_index_not_in_working_copy"
+  | "simple_index_truncated"
+  | "simple_index_bad_header"
+  | "simple_index_bad_magic"
+  | "simple_index_crc_mismatch"
+  | "simple_index_entry_count_overflow"
+  | "simple_index_malformed_entries";
 
 export interface ValueField<T> {
   readonly state: "value";

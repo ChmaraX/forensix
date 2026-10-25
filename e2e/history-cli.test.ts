@@ -1203,7 +1203,11 @@ describe("compiled analyzer CLI History Finding pipeline", () => {
     // disabled: a genuine hang still fails within this ceiling.
   }, 60_000);
 
-  it("recovers rollback-journal rows without merging their Commit State", async () => {
+  it("reads the rolled-back image of a hot rollback journal as committed", async () => {
+    // The writer deletes visit 1 and changes app_id on visits 2-300 in one
+    // open transaction. The cache spill writes those changes into the main
+    // file before the commit, so the copied main file holds uncommitted rows.
+    // The rollback of the hot journal restores the committed image.
     const root = await mkdtemp(join(tmpdir(), "forensix-history-journal-"));
     temporaryRoots.push(root);
     const { source, writer } = await createHotJournalSource(root);
@@ -1223,61 +1227,90 @@ describe("compiled analyzer CLI History Finding pipeline", () => {
 
     const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
     expect(analysis.status).toBe(0);
-    expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject({
-      history: {
-        committedVisitCount: expect.any(Number),
-        recoveredVisitCount: 300,
-        candidateCount: 0,
-      },
-    });
+    const summary = parseJson<{
+      readonly history: {
+        readonly committedVisitCount: number;
+        readonly recoveredVisitCount: number;
+        readonly candidateCount: number;
+      };
+    }>(analysis.stdout).history;
+    // All 300 committed visits survive: the uncommitted delete is not applied.
+    expect(summary.committedVisitCount).toBe(300);
+    expect(summary.recoveredVisitCount).toBeGreaterThan(0);
+    expect(summary.candidateCount).toBe(0);
 
-    const committed = parseJson<HistoryPage>(
-      runCli([
-        "history",
-        "--case",
-        caseDirectory,
-        "--commit-state",
-        "committed",
-        "--search",
-        "journal-target",
-        "--limit",
-        "10",
-        "--json",
-      ]).stdout,
-    );
-    expect(committed.items).toHaveLength(0);
+    const page = (
+      commitState: string,
+      search?: string,
+    ): { readonly items: readonly HistoryFinding[] } => {
+      const items: HistoryFinding[] = [];
+      let after: string | null = null;
+      do {
+        const result: HistoryPage = parseJson<HistoryPage>(
+          runCli([
+            "history",
+            "--case",
+            caseDirectory,
+            "--commit-state",
+            commitState,
+            ...(search === undefined ? [] : ["--search", search]),
+            "--limit",
+            "100",
+            ...(after === null ? [] : ["--after", after]),
+            "--json",
+          ]).stdout,
+        );
+        items.push(...result.items);
+        after = result.nextCursor;
+      } while (after !== null);
+      return { items };
+    };
 
-    const recovered = parseJson<HistoryPage>(
-      runCli([
-        "history",
-        "--case",
-        caseDirectory,
-        "--commit-state",
-        "journal_resident",
-        "--search",
-        "journal-target",
-        "--limit",
-        "10",
-        "--json",
-      ]).stdout,
-    );
-    expect(recovered.items).toHaveLength(1);
-    expect(recovered.items[0]).toMatchObject({
-      recordType: "finding",
-      commitState: "journal_resident",
+    // The visit that the open transaction deleted is committed evidence.
+    const target = page("committed", "journal-target");
+    expect(target.items).toHaveLength(1);
+    expect(target.items[0]).toMatchObject({
+      commitState: "committed",
       provenance: {
-        manifestPath: "Default/History-journal",
-        database: "Default/History",
+        manifestPath: "Default/History",
         table: "visits",
         rowId: "1",
       },
       fields: {
-        url: {
-          state: "value",
-          value: "https://journal-target.example/",
-        },
+        url: { state: "value", value: "https://journal-target.example/" },
+        appId: { state: "value", value: "com.example.browser" },
       },
     });
+    expect(page("journal_resident", "journal-target").items).toHaveLength(0);
+
+    // Every committed visit holds the committed app_id, never the
+    // uncommitted change.
+    const committed = page("committed");
+    expect(committed.items).toHaveLength(300);
+    for (const item of committed.items) {
+      expect(item.fields.appId).toEqual({
+        state: "value",
+        value: "com.example.browser",
+      });
+    }
+
+    // Only the uncommitted changes from the main file are journal_resident.
+    const recovered = page("journal_resident");
+    expect(recovered.items).toHaveLength(summary.recoveredVisitCount);
+    for (const item of recovered.items) {
+      expect(item).toMatchObject({
+        commitState: "journal_resident",
+        provenance: {
+          manifestPath: "Default/History-journal",
+          database: "Default/History",
+          table: "visits",
+        },
+        fields: {
+          appId: { state: "value", value: `changed-${"y".repeat(1000)}` },
+        },
+      });
+      expect(item.provenance.rowId).not.toBe("1");
+    }
     // Finite (not disabled): the compiled CLI opens a freshly-copied working
     // snapshot that still carries a hot rollback journal while a live writer
     // holds the source. On Windows CI the open can be transiently refused and

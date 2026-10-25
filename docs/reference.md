@@ -93,6 +93,8 @@ For Image Containers, mount or extract the container offline and read-only first
 The Analyzer does not boot images, write to them, or parse opaque E01 files directly.
 
 An Acquisition Bundle preserves every supplied acquisition-time Manifest in the Case.
+The Analyzer accepts only the current bundle schema version, `forensix-acquisition-bundle-draft/2` (see `contracts/acquisition-bundle`).
+It refuses another version with `INGEST_FAILED` and the reason `unsupported_bundle_schema_version`.
 Verification reports `match`, `mismatch`, `missing_on_disk`, and `missing_in_manifest` per file.
 Divergent files do not enter the Working Copy. Unaffected evidence remains available.
 
@@ -355,6 +357,9 @@ node cli/dist/cli.js analyse \
 
 Key material is either operator-`supplied` (`forensix/supplied-key-material/1`) or Collector-`captured` (`forensix/key-material-bundle/1`).
 A captured bundle seals each derived OSCrypt row key to an X25519 recipient key, so `--recipient-key` unseals it offline (see `collector/contracts/key-material`).
+For Collector key material, give `--key-material` the subtree directory `key_material/<account>/udd-N` from the Acquisition Bundle.
+The Analyzer then verifies each file against the key-material Manifest before it uses a record, and refuses a changed subtree with `INVALID_ARGUMENT`.
+The file `key_material_bundle.json` in that subtree is also a valid input, but the Analyzer does not verify it against the Manifest.
 Each row is dispatched independently by its own `v10`, `v11`, or `v20` prefix, so a mixed-version database is handled correctly.
 Supported routes are Linux basic, GNOME Keyring, KWallet, macOS Keychain, the Windows `v10` key, and legacy Windows DPAPI, each only within its evidenced bounds.
 A decrypted secret becomes a `value`. It is a Redaction State secret.
@@ -369,11 +374,17 @@ Everything else stays `unavailable` with a distinct typed reason and is never a 
 - `decryption_malformed_ciphertext`
 - `decryption_missing_context`
 - `decryption_authentication_failed`
+- `cookie_host_key_hash_mismatch` (a Cookies store at schema version 24 or later: the decrypted bytes do not start with SHA-256 of the row `host_key`)
+- `cookie_host_key_hash_unverifiable` (a Cookies store at schema version 24 or later: the row has no `host_key` value to check)
+
+From Cookies schema version 24, Chromium puts SHA-256 of `host_key` before the Cookie value and then encrypts both.
+The Analyzer makes sure that the hash is correct and removes it. Only the bytes after the hash become the Cookie `value`.
 
 ## Export a canonical Extract
 
 An Extract is a scoped, deterministic, citable read over the Case.
 It never becomes a second record of truth: every row is copied from Findings and Candidates that an Analysis Run already recorded.
+The Extract covers every record store of the Case: History, Cookies, Login Data, Web Data, Downloads, Top Sites, Favicons, Preferences, Bookmarks, Cache, and the topic, identity, and Cache Candidates.
 
 ```sh
 node cli/dist/cli.js export \
@@ -384,7 +395,10 @@ node cli/dist/cli.js export \
   --json
 ```
 
-The output directory must be outside the Case Directory and empty.
+The output directory must be empty.
+It must be outside the Case Directory and outside each recorded Source path (and its Working Copy).
+The command compares physical paths: it resolves the real path of the nearest existing ancestor, so a symbolic link cannot bypass the check.
+The command refuses a bad target before it makes a directory.
 The command writes these files:
 
 - `export_header.json`: a versioned header with the Case, Source, tool, examiner, Declared Timezone, scope, Redaction State, and the Completeness Statement.
@@ -393,11 +407,32 @@ The command writes these files:
 - `export_manifest.json`: the Export Manifest listing each file digest and a derived digest over them.
 - `export_generation.json`: the single quarantined generation instant.
 
-Each row keeps its Provenance, Field State, Commit State, and timestamp semantics.
-The Completeness Statement records attempted, produced, absent, and unavailable artifacts before any result row is interpreted.
+The Extract schema is `forensix/extract/2`.
+Each JSONL row has these keys:
+
+- `record_type` (`finding` or `candidate`), `collection`, and `store` (the record store key, for example `cookies`).
+- `id`: the stable record id `<store>:<rowid>`. It is the same id that the queries and `get` use.
+- `source_id`, `profile`, `kind`, `run_id`, `artifact_result_id`, `provenance`, and `fields`.
+- `commit_state`: on Finding rows only. A Candidate has no Commit State, so a Candidate row has no `commit_state` key.
+- `rank` and `supporting_count`: on Candidate rows only. An identity Candidate row also has `category` (`identity` or `behavior`).
+
+Schema 1 had History rows only, a bare row number as `id`, no `store`, and a `commit_state` on Candidate rows.
+
+Rows come only from the active artifact results.
+The rows are in a fixed order: by record store, then Source, Profile, kind, rank (Candidates), and row id.
+Text sorts by its UTF-8 bytes, so the host locale cannot change the order or the digest.
+Each row keeps its Provenance, Field State, Commit State (Findings), and timestamp semantics.
+
+The Completeness Statement lists every artifact that the Analyzer attempts, per Source and Profile, before any result row is interpreted.
+For each artifact, the outcome is the active result when there is one, else the most recent attempt.
+Thus a later run that produced no result does not hide the active result that the rows come from.
+The header `scope.stores` lists the record stores that the Extract read.
+With `--commit-state`, the Extract reads only the stores that record a Commit State, so identity Candidates are not in scope.
 
 Plaintext secrets are redacted by default. Each withheld value keeps a hash so it stays citable.
 Add `--include-secrets` to disclose them.
+The redaction uses the same secret table as the queries: the Cookie `value` and the saved-login `secret`.
+Other fields, for example `secretEncryptionScheme`, stay readable.
 Binary payloads are separately hashed files, never base64 cells.
 
 The Export Manifest and its derived digest are independently reproducible.
@@ -420,9 +455,13 @@ The output is one self-contained HTML file with no runtime network dependency.
 Every style is inlined.
 When the Report is opened, it loads no external script, stylesheet, font, or image.
 The `report` command accepts no `--case` option. Its only forensic input is the Extract.
+The Report path must be outside the Extract directory. The command compares physical paths, so a symbolic link cannot bypass the check.
+The command writes the Report to a temporary file and then renames it into place, so a reader never sees a partial Report.
 
+The Report schema is `forensix/report/2`.
 The Report preserves the Extract scope, Redaction State, Completeness Statement, Finding vs Candidate type, Field State, Commit State, Provenance, and timestamp semantics.
-Committed and sidecar (WAL / rollback-journal) rows stay in separate groups.
+Committed and sidecar (WAL / rollback-journal) Findings stay in separate groups.
+Candidates show in one ranked table with no Commit State column, because a Candidate has no Commit State.
 An empty string, an absent field, and an unavailable value render with three distinct words, never by color alone.
 The Report recomputes the Export Manifest derived digest from the Extract bytes.
 It marks the integrity as `verified` or `altered`.

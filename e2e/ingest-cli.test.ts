@@ -446,6 +446,58 @@ describe("compiled analyzer CLI ingest", () => {
     expect(await sourceSnapshot(source)).toEqual(sourceBefore);
   });
 
+  it.runIf(
+    process.platform !== "win32" &&
+      typeof process.getuid === "function" &&
+      process.getuid() !== 0,
+  )(
+    "leaves no empty Working Copy directory for an unreadable file, so analysis is not refused",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "forensix-unreadable-e2e-"));
+      temporaryRoots.push(root);
+      const { source } = await createRecordedSource(root);
+      // The only file in Default/Network: its copy attempt creates the
+      // directory, then the read fails.
+      const cookies = join(source, "Default", "Network", "Cookies");
+      const caseDirectory = join(root, "CASE-UNREADABLE");
+      await chmod(cookies, 0o000);
+      let ingest: CliResult;
+      try {
+        ingest = runCli(["ingest", source, "--case", caseDirectory, "--json"]);
+      } finally {
+        await chmod(cookies, 0o600);
+      }
+      expect(ingest.status).toBe(0);
+      const output = parseJson<IngestOutput>(ingest.stdout);
+      const manifest = (
+        await readFile(join(caseDirectory, "manifest.jsonl"), "utf8")
+      )
+        .trim()
+        .split("\n")
+        .map(
+          (line) =>
+            JSON.parse(line) as {
+              path: string;
+              state: string;
+              unavailable_reason: string | null;
+            },
+        );
+      expect(
+        manifest.find((entry) => entry.path === "Default/Network/Cookies"),
+      ).toMatchObject({
+        state: "unavailable",
+        unavailable_reason: "permission_denied",
+      });
+      expect(
+        await readdir(join(output.workingCopyPath, "Default")),
+      ).not.toContain("Network");
+
+      const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
+      expect(analysis.stderr).not.toContain("WORKING_COPY_INTEGRITY_REFUSAL");
+      expect(analysis.status).not.toBe(1);
+    },
+  );
+
   it("refuses missing, moved, and changed Working Copy content before analysis", async () => {
     const root = await mkdtemp(join(tmpdir(), "forensix-refusal-e2e-"));
     temporaryRoots.push(root);

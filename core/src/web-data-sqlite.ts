@@ -1,17 +1,16 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { ForensixError } from "./errors.js";
-import type { CommitState } from "./forensic-model.js";
 import {
-  immutableDatabase,
-  snapshotVerifiedFile,
+  integerKey,
+  normalizeSqliteValue,
+  readIntegrity,
+  readSqlitePasses,
+  sidecarOnlyRows,
   tableColumns,
   tableExists,
+  type SqlitePasses,
 } from "./sqlite-artifact.js";
-import { openDatabaseSync } from "./sqlite-open.js";
 
 export type RawWebDataValue = null | string | bigint | Uint8Array;
 
@@ -39,15 +38,7 @@ export interface WebDataPass {
   readonly integrity: string;
 }
 
-export interface RecoveredWebDataPass extends WebDataPass {
-  readonly commitState: Exclude<CommitState, "committed">;
-}
-
-export interface WebDataPasses {
-  readonly committed: WebDataPass;
-  readonly recovered: RecoveredWebDataPass | null;
-  readonly recoveryUnavailableReason: string | null;
-}
+export type WebDataPasses = SqlitePasses<WebDataPass>;
 
 export interface VerifiedWebDataFile {
   readonly path: string;
@@ -120,23 +111,8 @@ function readSchema(database: DatabaseSync): WebDataSchema {
   return { version, columns };
 }
 
-function normalizeValue(value: unknown): RawWebDataValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "bigint" ||
-    value instanceof Uint8Array
-  ) {
-    return value;
-  }
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    return BigInt(value);
-  }
-  throw new ForensixError(
-    "ANALYSIS_FAILED",
-    "Web Data contains a value that cannot be preserved exactly.",
-  );
-}
+const normalize = (value: unknown): RawWebDataValue =>
+  normalizeSqliteValue(value, "Web Data");
 
 function readPass(database: DatabaseSync): WebDataPass {
   const schema = readSchema(database);
@@ -157,150 +133,33 @@ function readPass(database: DatabaseSync): WebDataPass {
   for (const row of statement.iterate()) {
     const values = new Map<string, RawWebDataValue>();
     for (const column of selected) {
-      values.set(column, normalizeValue(row[column]));
+      values.set(column, normalize(row[column]));
     }
-    const rawRowId = normalizeValue(row.__rowid);
+    const rawRowId = normalize(row.__rowid);
     rows.push({
       values,
       rowId: typeof rawRowId === "bigint" ? rawRowId : null,
     });
   }
 
-  const integrityRow = database.prepare("PRAGMA integrity_check(1)").get();
-  const integrity = String(integrityRow?.integrity_check ?? "unavailable");
-  return { schema, rows, integrity };
-}
-
-function fingerprint(row: RawAutofillRow): string {
-  return JSON.stringify(
-    [...row.values.entries()].sort(([left], [right]) =>
-      left < right ? -1 : left > right ? 1 : 0,
-    ),
-    (_key, value: unknown) => {
-      if (typeof value === "bigint") {
-        return `${value.toString()}n`;
-      }
-      if (value instanceof Uint8Array) {
-        return `blob:${Buffer.from(value).toString("base64")}`;
-      }
-      return value;
-    },
-  );
-}
-
-/**
- * Return only rows that a WAL or rollback journal adds or changes relative to
- * the committed database, keyed by `autofill.rowid`. This keeps recovered
- * evidence separate from committed evidence, mirroring the History recovery
- * contract.
- */
-function recoveredOnlyRows(
-  committed: readonly RawAutofillRow[],
-  recovered: readonly RawAutofillRow[],
-): RawAutofillRow[] {
-  const committedByRowId = new Map(
-    committed.flatMap((row) =>
-      row.rowId === null
-        ? []
-        : [[row.rowId.toString(), fingerprint(row)] as const],
-    ),
-  );
-  const rows: RawAutofillRow[] = [];
-  for (const row of recovered) {
-    const id = row.rowId === null ? null : row.rowId.toString();
-    const committedFingerprint =
-      id === null ? undefined : committedByRowId.get(id);
-    if (
-      committedFingerprint === undefined ||
-      committedFingerprint !== fingerprint(row)
-    ) {
-      rows.push(row);
-    }
-  }
-  return rows;
+  return { schema, rows, integrity: readIntegrity(database) };
 }
 
 export async function readWebDataPasses(options: {
   readonly database: VerifiedWebDataFile;
   readonly sidecars: readonly VerifiedWebDataFile[];
 }): Promise<WebDataPasses> {
-  const temporaryDirectory = await mkdtemp(
-    join(tmpdir(), "forensix-web-data-snapshot-"),
-  );
-  const temporaryDatabasePath = join(
-    temporaryDirectory,
-    basename(options.database.path),
-  );
-  try {
-    await snapshotVerifiedFile(options.database, temporaryDatabasePath);
-    for (const sidecar of options.sidecars) {
-      await snapshotVerifiedFile(
-        sidecar,
-        join(temporaryDirectory, basename(sidecar.path)),
-      );
-    }
-
-    const committedDatabase = immutableDatabase(temporaryDatabasePath);
-    let committed: WebDataPass;
-    try {
-      committed = readPass(committedDatabase);
-    } finally {
-      committedDatabase.close();
-    }
-
-    const wal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-wal"),
-    );
-    const journal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-journal"),
-    );
-    const commitState =
-      wal === undefined
-        ? journal === undefined
-          ? null
-          : "journal_resident"
-        : "wal_resident";
-    if (commitState === null) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: "sidecar_not_supplied",
-      };
-    }
-
-    let recoveryDatabase: DatabaseSync;
-    try {
-      recoveryDatabase = openDatabaseSync(temporaryDatabasePath, {
-        readBigInts: true,
-      });
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_open_failed:${String(error)}`,
-      };
-    }
-    try {
-      const fullRecoveryPass = readPass(recoveryDatabase);
-      return {
-        committed,
-        recovered: {
-          ...fullRecoveryPass,
-          rows: recoveredOnlyRows(committed.rows, fullRecoveryPass.rows),
-          commitState,
-        },
-        recoveryUnavailableReason: null,
-      };
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_read_failed:${String(error)}`,
-      };
-    } finally {
-      recoveryDatabase.close();
-    }
-  } finally {
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
+  // A sidecar row is kept only when the committed image has no row with the
+  // same `autofill.rowid` or holds a different exact image for it.
+  return readSqlitePasses({
+    artifact: "Web Data",
+    ...options,
+    readPass,
+    sidecarOnly: (committed, sidecar) => ({
+      ...sidecar,
+      rows: sidecarOnlyRows(committed.rows, sidecar.rows, (row) =>
+        integerKey(row.rowId),
+      ),
+    }),
+  });
 }

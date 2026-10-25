@@ -1,4 +1,12 @@
-import { lstat, mkdir, open, readlink, readdir, rm } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  open,
+  readlink,
+  readdir,
+  rm,
+  rmdir,
+} from "node:fs/promises";
 import type { BigIntStats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -124,6 +132,31 @@ async function writeAll(destination: FileHandle, chunk: Buffer): Promise<void> {
   }
 }
 
+/**
+ * After a file that was not copied (unreadable, or changed during ingest),
+ * removes the parent directories the copy attempt created and left empty, up
+ * to the Working Copy root. The Working Copy must hold only the directories of
+ * copied entries: verification refuses any other directory.
+ */
+async function removeEmptyParents(
+  destinationPath: string,
+  workingCopyRoot: string,
+): Promise<void> {
+  let directory = dirname(destinationPath);
+  while (
+    directory !== workingCopyRoot &&
+    directory.startsWith(workingCopyRoot)
+  ) {
+    try {
+      await rmdir(directory);
+    } catch {
+      // Not empty (another copied file lives here) or already gone: stop.
+      return;
+    }
+    directory = dirname(directory);
+  }
+}
+
 async function inspectFile(
   absolutePath: string,
   manifestPath: string,
@@ -224,6 +257,7 @@ async function inspectFile(
       await destination.close().catch(() => undefined);
       if (!keepDestination) {
         await rm(destinationPath, { force: true }).catch(() => undefined);
+        await removeEmptyParents(destinationPath, context.workingCopyRoot);
       }
     }
   }

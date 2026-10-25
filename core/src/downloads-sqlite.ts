@@ -1,18 +1,17 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { ForensixError } from "./errors.js";
-import type { CommitState } from "./forensic-model.js";
 import {
-  immutableDatabase,
-  snapshotVerifiedFile,
+  integerKey,
+  normalizeSqliteValue,
+  readIntegrity,
+  readSqlitePasses,
+  sidecarOnlyRows,
   tableColumns,
   tableExists,
+  type SqlitePasses,
   type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
-import { openDatabaseSync } from "./sqlite-open.js";
 
 /**
  * Signals that a History database has no `downloads` table at all. This is a
@@ -69,15 +68,7 @@ export interface DownloadsPass {
   readonly integrity: string;
 }
 
-export interface RecoveredDownloadsPass extends DownloadsPass {
-  readonly commitState: Exclude<CommitState, "committed">;
-}
-
-export interface DownloadsPasses {
-  readonly committed: DownloadsPass;
-  readonly recovered: RecoveredDownloadsPass | null;
-  readonly recoveryUnavailableReason: string | null;
-}
+export type DownloadsPasses = SqlitePasses<DownloadsPass>;
 
 /**
  * Columns the Downloads pipeline preserves when present. The `downloads` table
@@ -173,23 +164,8 @@ function readSchema(database: DatabaseSync): DownloadsSchema {
   };
 }
 
-function normalizeValue(value: unknown): RawDownloadValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "bigint" ||
-    value instanceof Uint8Array
-  ) {
-    return value;
-  }
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    return BigInt(value);
-  }
-  throw new ForensixError(
-    "ANALYSIS_FAILED",
-    "Downloads contains a value that cannot be preserved exactly.",
-  );
-}
+const normalize = (value: unknown): RawDownloadValue =>
+  normalizeSqliteValue(value, "Downloads");
 
 function readUrlChains(
   database: DatabaseSync,
@@ -201,16 +177,16 @@ function readUrlChains(
       ORDER BY id, chain_index`,
   );
   for (const row of statement.iterate()) {
-    const id = normalizeValue(row.id);
+    const id = normalize(row.id);
     if (typeof id !== "bigint") {
       continue;
     }
-    const chainIndex = normalizeValue(row.chainIndex);
+    const chainIndex = normalize(row.chainIndex);
     const key = id.toString();
     const nodes = chains.get(key) ?? [];
     nodes.push({
       chainIndex: typeof chainIndex === "bigint" ? chainIndex : null,
-      url: normalizeValue(row.url),
+      url: normalize(row.url),
       rowId:
         typeof chainIndex === "bigint"
           ? `${key}:${chainIndex.toString()}`
@@ -243,9 +219,9 @@ function readPass(database: DatabaseSync): DownloadsPass {
   for (const row of statement.iterate()) {
     const values = new Map<string, RawDownloadValue>();
     for (const column of selected) {
-      values.set(column, normalizeValue(row[column]));
+      values.set(column, normalize(row[column]));
     }
-    const rawRowId = normalizeValue(row.__rowid);
+    const rawRowId = normalize(row.__rowid);
     const rowId = typeof rawRowId === "bigint" ? rawRowId : null;
     rows.push({
       values,
@@ -255,147 +231,25 @@ function readPass(database: DatabaseSync): DownloadsPass {
     });
   }
 
-  const integrityRow = database.prepare("PRAGMA integrity_check(1)").get();
-  const integrity = String(integrityRow?.integrity_check ?? "unavailable");
-  return { schema, rows, integrity };
-}
-
-function fingerprint(row: RawDownloadRow): string {
-  return JSON.stringify(
-    {
-      values: [...row.values.entries()].sort(([left], [right]) =>
-        left < right ? -1 : left > right ? 1 : 0,
-      ),
-      chain: row.urlChain.map((node) => [
-        node.chainIndex === null ? null : node.chainIndex.toString(),
-        node.url,
-      ]),
-    },
-    (_key, value: unknown) => {
-      if (typeof value === "bigint") {
-        return `${value.toString()}n`;
-      }
-      if (value instanceof Uint8Array) {
-        return `blob:${Buffer.from(value).toString("base64")}`;
-      }
-      return value;
-    },
-  );
-}
-
-/**
- * Return only rows that a WAL or rollback journal adds or changes relative to
- * the committed database, keyed by `downloads.rowid`. This keeps recovered
- * evidence separate from committed evidence, mirroring the History and Web Data
- * recovery contract.
- */
-function recoveredOnlyRows(
-  committed: readonly RawDownloadRow[],
-  recovered: readonly RawDownloadRow[],
-): RawDownloadRow[] {
-  const committedByRowId = new Map(
-    committed.flatMap((row) =>
-      row.rowId === null
-        ? []
-        : [[row.rowId.toString(), fingerprint(row)] as const],
-    ),
-  );
-  const rows: RawDownloadRow[] = [];
-  for (const row of recovered) {
-    const id = row.rowId === null ? null : row.rowId.toString();
-    const committedFingerprint =
-      id === null ? undefined : committedByRowId.get(id);
-    if (
-      committedFingerprint === undefined ||
-      committedFingerprint !== fingerprint(row)
-    ) {
-      rows.push(row);
-    }
-  }
-  return rows;
+  return { schema, rows, integrity: readIntegrity(database) };
 }
 
 export async function readDownloadsPasses(options: {
   readonly database: VerifiedSqliteFile;
   readonly sidecars: readonly VerifiedSqliteFile[];
 }): Promise<DownloadsPasses> {
-  const temporaryDirectory = await mkdtemp(
-    join(tmpdir(), "forensix-downloads-snapshot-"),
-  );
-  const temporaryDatabasePath = join(
-    temporaryDirectory,
-    basename(options.database.path),
-  );
-  try {
-    await snapshotVerifiedFile(options.database, temporaryDatabasePath);
-    for (const sidecar of options.sidecars) {
-      await snapshotVerifiedFile(
-        sidecar,
-        join(temporaryDirectory, basename(sidecar.path)),
-      );
-    }
-
-    const committedDatabase = immutableDatabase(temporaryDatabasePath);
-    let committed: DownloadsPass;
-    try {
-      committed = readPass(committedDatabase);
-    } finally {
-      committedDatabase.close();
-    }
-
-    const wal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-wal"),
-    );
-    const journal = options.sidecars.find((sidecar) =>
-      sidecar.path.endsWith("-journal"),
-    );
-    const commitState =
-      wal === undefined
-        ? journal === undefined
-          ? null
-          : "journal_resident"
-        : "wal_resident";
-    if (commitState === null) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: "sidecar_not_supplied",
-      };
-    }
-
-    let recoveryDatabase: DatabaseSync;
-    try {
-      recoveryDatabase = openDatabaseSync(temporaryDatabasePath, {
-        readBigInts: true,
-      });
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_open_failed:${String(error)}`,
-      };
-    }
-    try {
-      const fullRecoveryPass = readPass(recoveryDatabase);
-      return {
-        committed,
-        recovered: {
-          ...fullRecoveryPass,
-          rows: recoveredOnlyRows(committed.rows, fullRecoveryPass.rows),
-          commitState,
-        },
-        recoveryUnavailableReason: null,
-      };
-    } catch (error) {
-      return {
-        committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_read_failed:${String(error)}`,
-      };
-    } finally {
-      recoveryDatabase.close();
-    }
-  } finally {
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
+  // A sidecar row (with its URL chain) is kept only when the committed image
+  // has no row with the same `downloads.rowid` or holds a different exact
+  // image for it.
+  return readSqlitePasses({
+    artifact: "Downloads",
+    ...options,
+    readPass,
+    sidecarOnly: (committed, sidecar) => ({
+      ...sidecar,
+      rows: sidecarOnlyRows(committed.rows, sidecar.rows, (row) =>
+        integerKey(row.rowId),
+      ),
+    }),
+  });
 }

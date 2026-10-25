@@ -3,6 +3,7 @@ import {
   unavailableField,
   valueField,
   type FieldState,
+  type FieldUnavailableReason,
 } from "./forensic-model.js";
 import { decryptOscryptValue, type DecryptionSettings } from "./oscrypt.js";
 
@@ -18,6 +19,17 @@ export interface DecryptedSecretField {
 }
 
 /**
+ * A store-specific check on decrypted plaintext bytes. It returns the secret
+ * bytes to keep (for example, with a verified binding prefix removed), or a
+ * typed reason when the plaintext fails the check. It never guesses.
+ */
+export type PlaintextUnwrap = (
+  plaintext: Uint8Array,
+) =>
+  | { readonly ok: true; readonly plaintext: Uint8Array }
+  | { readonly ok: false; readonly reason: FieldUnavailableReason };
+
+/**
  * Resolve one encrypted secret blob strictly within the opt-in gate. This is
  * the single decryption seam shared by the Cookies and Login Data parsers, so
  * the gate behaves identically for both:
@@ -28,11 +40,14 @@ export interface DecryptedSecretField {
  * - Enabled: the blob is dispatched offline by its own prefix. Success yields
  *   the plaintext plus the citing route and key-material record; every failure
  *   keeps a distinct typed reason.
+ * - `unwrap`, when given, checks the decrypted bytes before they become a
+ *   `value`; a failed check keeps the secret `unavailable` with its reason.
  */
 export function decryptSecretField(
   ciphertext: Uint8Array,
   profile: string,
   decryption: DecryptionSettings,
+  unwrap?: PlaintextUnwrap,
 ): DecryptedSecretField {
   if (!decryption.enabled) {
     return {
@@ -53,8 +68,19 @@ export function decryptSecretField(
       keyMaterialRecordId: absentField(),
     };
   }
+  const checked =
+    unwrap === undefined
+      ? { ok: true as const, plaintext: outcome.plaintext }
+      : unwrap(outcome.plaintext);
+  if (!checked.ok) {
+    return {
+      value: unavailableField(checked.reason),
+      route: absentField(),
+      keyMaterialRecordId: absentField(),
+    };
+  }
   return {
-    value: valueField(Buffer.from(outcome.plaintext).toString("utf8")),
+    value: valueField(Buffer.from(checked.plaintext).toString("utf8")),
     route: valueField(outcome.route),
     keyMaterialRecordId: valueField(outcome.provenance.recordId),
   };
