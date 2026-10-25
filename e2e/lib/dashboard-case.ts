@@ -376,29 +376,21 @@ async function writeKeyMaterial(path: string): Promise<void> {
   );
 }
 
-function mustRun(
-  arguments_: readonly string[],
-  exitCodes: readonly number[] = [0],
-): void {
+function mustRun(arguments_: readonly string[]): void {
   const result = runCli(arguments_);
-  if (result.status === null || !exitCodes.includes(result.status)) {
+  if (result.status !== 0) {
     throw new Error(
       `forensix ${arguments_[0] ?? ""} failed (${String(result.status)}): ${result.stderr}${result.stdout}`,
     );
   }
 }
 
-/** Optional additions for callers that need more than the dashboard shapes
- *  (the agent eval). The default build ignores all of them. */
+/** Optional additions for callers that need more than the dashboard shapes.
+ *  The default build ignores them. */
 export interface DashboardCaseOptions {
   /** More committed History visits. Their ids must not collide with the
    *  base visits (1 to 180 and 10000 to 10119). */
   readonly extraVisits?: readonly Visit[];
-  /** Writes more artifacts into the Profile directory before ingest. */
-  readonly extendProfile?: (profileDirectory: string) => Promise<void>;
-  /** The analyse exit codes to accept (default `[0]`). Use `[2]` when the
-   *  Source has an artifact that is planned to be unavailable. */
-  readonly analyseExitCodes?: readonly number[];
 }
 
 /** Writes the Source under `root`, ingests and analyses it into
@@ -415,7 +407,6 @@ export async function buildDashboardCase(
   createCookies(join(profile, "Network", "Cookies"));
   const keyMaterial = join(root, "key-material.json");
   await writeKeyMaterial(keyMaterial);
-  await options.extendProfile?.(profile);
   const caseDirectory = join(root, "case");
   const writer = createHistory(
     join(profile, "History"),
@@ -426,21 +417,18 @@ export async function buildDashboardCase(
   } finally {
     writer.close();
   }
-  mustRun(
-    [
-      "analyse",
-      "--case",
-      caseDirectory,
-      "--timezone",
-      TIMEZONE,
-      "--decrypt",
-      "--key-material",
-      keyMaterial,
-      "--no-topic-classification",
-      "--json",
-    ],
-    options.analyseExitCodes,
-  );
+  mustRun([
+    "analyse",
+    "--case",
+    caseDirectory,
+    "--timezone",
+    TIMEZONE,
+    "--decrypt",
+    "--key-material",
+    keyMaterial,
+    "--no-topic-classification",
+    "--json",
+  ]);
   return caseDirectory;
 }
 

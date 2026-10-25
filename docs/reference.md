@@ -338,8 +338,6 @@ node cli/dist/cli.js skill install [--dir <skills-directory>]   # default .agent
 Every other command writes the warning `SKILL_OUTDATED` to stderr when a copy in `.agents/skills`, `.claude/skills`, `.codex/skills`, or `.cursor/skills` (in the current directory or the home directory) differs from the bundled skill. Changes to the front matter only, such as installer metadata, do not count.
 The first line of `forensix --help` tells an agent without the skill to run `forensix skill get`.
 
-The agent eval in [`e2e/agent-eval/`](../e2e/agent-eval/README.md) measures an agent with and without the skill on a Case with planted prompt injections.
-
 ## Decrypt supported secrets offline
 
 Decryption is disabled by default.
