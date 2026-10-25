@@ -183,8 +183,11 @@ export {
   type SiteHostFieldState,
 } from "./site-host-key.js";
 export {
+  queryFaviconBitmaps,
   querySiteFavicons,
   SITE_FAVICON_HOST_LIMIT,
+  type FaviconBitmapsQuery,
+  type FaviconBitmapsResult,
   type SiteFaviconsQuery,
   type SiteFaviconsResult,
 } from "./site-favicons-query.js";

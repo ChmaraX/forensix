@@ -18,6 +18,7 @@ import {
   queryCookies,
   queryCredentials,
   queryDownloads,
+  queryFaviconBitmaps,
   queryFavicons,
   queryHistory,
   queryMetadata,
@@ -357,6 +358,14 @@ export const API_ROUTES = new Map<
     "site-favicons",
     (parameters, caseDirectory) =>
       querySiteFavicons({ caseDirectory, hosts: parameters.getAll("host") }),
+  ],
+  [
+    "favicon-bitmaps",
+    (parameters, caseDirectory) =>
+      queryFaviconBitmaps({
+        caseDirectory,
+        sha256s: parameters.getAll("sha256"),
+      }),
   ],
   [
     "cookies",

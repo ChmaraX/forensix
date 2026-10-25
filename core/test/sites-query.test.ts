@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,7 +7,10 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { CASE_FILENAME } from "../src/case.js";
-import { querySiteFavicons } from "../src/site-favicons-query.js";
+import {
+  queryFaviconBitmaps,
+  querySiteFavicons,
+} from "../src/site-favicons-query.js";
 import { cacheResourceUrl, siteHostKey } from "../src/site-host-key.js";
 import { querySiteFindings, querySiteHosts } from "../src/sites-query.js";
 
@@ -766,6 +770,85 @@ describe("Sites favicons", () => {
       "escape.test": `data:image/gif;base64,${GIF.toString("base64")}`,
       "outside.test": null,
     });
+  });
+
+  it("reads each row's own bitmap by its recorded hash, recovered rows too", async () => {
+    const directory = await caseDirectory();
+    const sha = (bytes: Buffer) =>
+      createHash("sha256").update(bytes).digest("hex");
+    const ICO = Buffer.from([0x00, 0x00, 0x01, 0x00, 7]);
+    const saved = await payload(directory, sha(PNG), PNG);
+    const recovered = await payload(directory, sha(ICO), ICO);
+    // A path whose bytes do not hash to what the row records.
+    const forged = await payload(directory, "forged", GIF);
+    const bitmapRow = (
+      id: number,
+      payloadPath: string,
+      hash: string,
+      commitState = "committed",
+    ) => {
+      insertRow(directory, {
+        table: "favicon_findings",
+        kind: "favicon",
+        id,
+        width: 16,
+        commitState,
+        column: "https://icons.test/favicon.ico",
+        fields: {
+          iconUrl: value("https://icons.test/favicon.ico"),
+          payloadPath: value(payloadPath),
+          payloadSha256: value(hash),
+        },
+      });
+    };
+    bitmapRow(1, saved, sha(PNG));
+    // The widest saved icon of the host is another row: this one is still
+    // drawn from its own payload.
+    bitmapRow(2, recovered, sha(ICO), "wal_resident");
+    bitmapRow(3, forged, sha(Buffer.from("not the payload")));
+    bitmapRow(4, "../outside", "f".repeat(64));
+    const unrecorded = "0".repeat(64);
+    const result = queryFaviconBitmaps({
+      caseDirectory: directory,
+      sha256s: [
+        sha(PNG),
+        sha(ICO),
+        sha(Buffer.from("not the payload")),
+        "f".repeat(64),
+        unrecorded,
+      ],
+    });
+    expect(result).toEqual({
+      status: "ok",
+      command: "favicon-bitmaps",
+      bitmaps: {
+        [sha(PNG)]: `data:image/png;base64,${PNG.toString("base64")}`,
+        [sha(ICO)]: `data:image/x-icon;base64,${ICO.toString("base64")}`,
+        [sha(Buffer.from("not the payload"))]: null,
+        ["f".repeat(64)]: null,
+        [unrecorded]: null,
+      },
+    });
+    // A file named by an unrecorded hash is never read.
+    await payload(directory, unrecorded, PNG);
+    expect(
+      queryFaviconBitmaps({ caseDirectory: directory, sha256s: [unrecorded] })
+        .bitmaps,
+    ).toEqual({ [unrecorded]: null });
+  });
+
+  it("rejects hashes that are not SHA-256 hex and bounds their number", async () => {
+    const directory = await caseDirectory();
+    for (const sha256s of [
+      ["../favicon-payloads/x"],
+      ["A".repeat(64)],
+      Array.from({ length: 101 }, (_, index) =>
+        index.toString(16).padStart(64, "0"),
+      ),
+    ])
+      expect(() =>
+        queryFaviconBitmaps({ caseDirectory: directory, sha256s }),
+      ).toThrow(expect.objectContaining({ code: "INVALID_ARGUMENT" }));
   });
 
   it("bounds the hosts one request may name", async () => {
