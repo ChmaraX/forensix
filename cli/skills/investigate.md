@@ -36,8 +36,6 @@ Your context window is small and the Case can be large. One History row is about
    forensix downloads --case <case> --fields targetPath,finalUrl,startTime,state --limit 20
    ```
 
-   Add `--max-output 40000` to keep one response under about 40 KB; the CLI then lowers the page size and warns you (`LIMIT_REDUCED`).
-
 4. **Bulk work goes to a file.** When you need every row, write it to disk and filter it there:
 
    ```bash

@@ -97,9 +97,8 @@ function baseListInput(
 }
 
 /**
- * A page request the output layer can override: `--max-output` reruns a query
- * with a smaller limit, and `--page-all` follows `nextCursor`. An unset key
- * falls back to the parsed `--limit` / `--after`.
+ * A page request the output layer can override: `--page-all` follows
+ * `nextCursor`. An unset key falls back to the parsed `--limit` / `--after`.
  */
 export interface Paging {
   readonly limit?: number;
@@ -119,7 +118,7 @@ function pagingInput(
 /**
  * What a command prints:
  * - `records`: Findings or Candidates in `items` (or one in `item`); the
- *   output layer applies redaction, trust, boundaries, fields, and supporting
+ *   output layer applies redaction, trust, fields, and supporting
  *   rows to them;
  * - `data`: aggregate rows or counts (no record fields).
  */
@@ -137,7 +136,7 @@ export interface QueryCommandSpec {
   /**
    * For `data` commands that print strings copied from the Source (a count
    * bucket key, a site host): the list and the key that hold them. The output
-   * layer marks them untrusted and wraps them for --content-boundaries.
+   * layer marks them untrusted.
    */
   readonly evidence?: { readonly list: string; readonly key: string };
   readonly execute: (parsed: ParsedArguments, paging: Paging) => unknown;
@@ -277,7 +276,7 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       ]),
       output: "data",
       evidence: { list: "buckets", key: "key" },
-      // --limit is the bucket count, not a page: --max-output never lowers it.
+      // --limit is the bucket count, not a page.
       paged: false,
       execute: (parsed) =>
         queryCount({

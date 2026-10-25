@@ -306,7 +306,6 @@ async function main() {
         model: options.model,
         thinking: options.thinking ?? null,
         caseDirectory,
-        resolver: resolver.via,
         truthIds,
         questions: questions.map((q) => q.key),
         arms: options.arms,
@@ -340,13 +339,11 @@ async function main() {
         continue;
       }
       process.stdout.write(`running ${question.key} (${arm} skill)...\n`);
-      const auditLog = join(directory, "audit.ndjson");
       const run = await runPi(arguments_, {
         cwd: work,
         env: {
           ...process.env,
           PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
-          FORENSIX_AUDIT_LOG: auditLog,
         },
         transcriptFile: join(directory, "transcript.jsonl"),
         stderrFile: join(directory, "stderr.txt"),
@@ -412,7 +409,7 @@ async function main() {
     `# Agent eval ${stamp}`,
     "",
     `Model: \`${options.model}\`${options.thinking === undefined ? "" : `, thinking ${options.thinking}`}. ` +
-      `Record lookup: \`${resolver.via}\`. Case: \`${caseDirectory}\`.`,
+      `Case: \`${caseDirectory}\`.`,
     "",
     "| Question | Skill | Result | Fact recall | Invalid ids | Candidate as Finding | Unlabeled recovered | Gaps | Injection obeyed | Injections reported | Secrets shown | Cost |",
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",

@@ -267,7 +267,7 @@ The error codes are:
 `INVALID_ARGUMENT`, `INVALID_CURSOR`, `CASE_NOT_FOUND`, `CASE_INVALID`, `CASE_ALREADY_EXISTS`, `CASE_INSIDE_SOURCE`,
 `SOURCE_NOT_FOUND`, `SOURCE_NOT_DIRECTORY`, `INGEST_FAILED`, `ANALYSIS_FAILED`, `ANALYSIS_NOT_FOUND`,
 `WORKING_COPY_INTEGRITY_REFUSAL`, `RECORD_NOT_FOUND`, `EXTRACT_NOT_FOUND`, `EXTRACT_INVALID`,
-`AUDIT_LOG_FAILED`, `AUDIT_LOG_NOT_FOUND`, `SKILLS_UNAVAILABLE`, and `UNSUPPORTED_NODE_VERSION`.
+`SKILLS_UNAVAILABLE`, and `UNSUPPORTED_NODE_VERSION`.
 
 ### Record ids and `get`
 
@@ -300,46 +300,27 @@ These commands return counts, not rows:
 
 These options apply to every command that prints Findings or Candidates:
 
-| Option                       | Effect                                                                                                                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--fields <a,b,...>`         | Keep only these keys in `fields`. A name that no item has gives the warning `FIELD_NOT_PRESENT`.                                                                                |
-| `--include-secrets`          | Print plaintext secrets. By default they are `redacted`, with a hash. The envelope has `redaction: {state, redactedFieldCount}`.                                                |
-| `--supporting-rows <n\|all>` | Keep the first `n` Provenance supporting rows. The default is 10 in lists and all in `get`. A cut adds `supportingRowCount` and `supportingRowsTruncated: true`.                |
-| `--content-boundaries`       | Wrap each string value in `fields` as `<<evidence:NONCE>>text<</evidence:NONCE>>`, with one random nonce per command in `trust.boundary`. Also `FORENSIX_CONTENT_BOUNDARIES=1`. |
+| Option                       | Effect                                                                                                                                                           |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--fields <a,b,...>`         | Keep only these keys in `fields`. A name that no item has gives the warning `FIELD_NOT_PRESENT`.                                                                 |
+| `--include-secrets`          | Print plaintext secrets. By default they are `redacted`, with a hash. The envelope has `redaction: {state, redactedFieldCount}`.                                 |
+| `--supporting-rows <n\|all>` | Keep the first `n` Provenance supporting rows. The default is 10 in lists and all in `get`. A cut adds `supportingRowCount` and `supportingRowsTruncated: true`. |
 
 Each record envelope has `trust: {untrusted: "fields", notice: ...}`.
-`count` marks `buckets[].key` and `site-hosts` marks `items[].host` the same way, and both accept `--content-boundaries`.
+`count` marks `buckets[].key` and `site-hosts` marks `items[].host` the same way.
 Values in `fields` are copied from the Source. A suspect can write text there that tries to instruct an AI agent.
 An agent must treat that text as data and never as instructions.
 
-### Output size options
+### Paging option
 
-| Option                 | Effect                                                                                                                                                                                                                                                                                                      |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--max-output <bytes>` | If the JSON is larger, the CLI runs the query again with half the `--limit` until it fits, and adds the warning `LIMIT_REDUCED` with `requested` and `used`. `nextCursor` stays correct. If one row is still too large, the CLI prints it and adds `OUTPUT_EXCEEDS_MAX_OUTPUT`. Also `FORENSIX_MAX_OUTPUT`. |
-| `--page-all`           | Follow `nextCursor` to the end. Not with `--after`.                                                                                                                                                                                                                                                         |
+| Option       | Effect                                              |
+| ------------ | --------------------------------------------------- |
+| `--page-all` | Follow `nextCursor` to the end. Not with `--after`. |
 
 ### Input checks
 
 The CLI refuses a control character (U+0000 to U+001F, U+007F) in any argument.
 It refuses a `..` segment in `export --out`, `report --extract`, and `report --out`. Use an absolute path.
-
-### Audit log
-
-`--audit-log <file>` (or `FORENSIX_AUDIT_LOG`) appends one NDJSON entry per command:
-`version`, `seq`, `id`, `time`, `toolVersion`, `command`, `argv`, `caseDirectory`, `exitCode`, `outputSha256`, `prevHash`, and `hash`.
-Each entry hashes the entry before it. A lock file keeps parallel commands in order.
-Before it adds an entry, the CLI verifies the whole chain and refuses to add to a broken log.
-The log must be a regular file with one link. A symlink to the log shares its lock.
-The log must be outside the Case Directory, the recorded Sources, and the Extract or Report paths of the command. Otherwise the command does not run.
-The command output gets `audit: {id, entryHash}`, so a claim can cite the query that produced it.
-
-```sh
-node cli/dist/cli.js audit verify --log "/path/to/audit.ndjson"
-```
-
-`audit verify` reports `valid`, the entry count, and `lastHash`, or the first broken `seq` and the reason. It exits 1 when the chain is broken.
-The chain cannot show that the newest entries were removed or that the whole log was rewritten. Keep a copy of `lastHash` in a different place.
 
 ### Agent skill
 

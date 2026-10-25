@@ -67,8 +67,7 @@ const SECTIONS: readonly UsageSection[] = [
     command: "count",
     text: `  forensix count --case <case-directory> --kind <kind> --by <field|profile|commitState>
                    [--profile <profile>]... [--commit-state ${COMMIT}]
-                   [--search <text>] [--limit <1-100>] [--include-secrets]
-                   [--content-boundaries] [--json]
+                   [--search <text>] [--limit <1-100>] [--include-secrets] [--json]
                    Each bucket has state (value, absent, unavailable, missing, redacted)
                    and key. A timestamp field buckets by UTC day (YYYY-MM-DD). A secret
                    field buckets by hash unless --include-secrets. Value keys are
@@ -90,7 +89,7 @@ const SECTIONS: readonly UsageSection[] = [
   {
     command: "site-hosts",
     text: `  forensix site-hosts --case <case-directory> [--search <text>]
-                   ${PAGE} [--content-boundaries] [--json]
+                   ${PAGE} [--json]
                    Hosts are evidence: trust.untrusted = "items[].host".`,
   },
   {
@@ -229,11 +228,6 @@ const SECTIONS: readonly UsageSection[] = [
   forensix skill get <core|acquire|investigate|report> [--json]
                    Print the bundled agent guides (no network).`,
   },
-  {
-    command: "audit",
-    text: `  forensix audit verify --log <audit-log-file> [--json]
-                   Check the hash chain of an audit log. Exit 1 when it is broken.`,
-  },
 ];
 
 const RECORD_OPTIONS = `Record output options (commands that print Findings or Candidates):
@@ -245,21 +239,13 @@ const RECORD_OPTIONS = `Record output options (commands that print Findings or C
                              { state: "redacted", sha256 } and redaction.state is "redacted"
   --supporting-rows <n|all>  keep the first n Provenance supporting rows
                              (default 10 in lists, all in get)
-  --content-boundaries       wrap each evidence string as <<evidence:NONCE>>text<</evidence:NONCE>>
-                             (or env FORENSIX_CONTENT_BOUNDARIES=1)
 `;
 
-const MAX_OUTPUT_OPTION = `  --max-output <bytes>       if one JSON line is larger, rerun with a halved --limit until it fits
-                             (warning LIMIT_REDUCED; or env FORENSIX_MAX_OUTPUT). A result that
-                             cannot get smaller is printed in full (warning OUTPUT_EXCEEDS_MAX_OUTPUT)
-`;
 const PAGE_ALL_OPTION = `  --page-all                 follow nextCursor to the end; NDJSON, one page envelope per line
                              (not with --after)
 `;
 
 const GLOBAL_OPTIONS = `Options for every command:
-  --audit-log <file>         append one hash-chained NDJSON audit entry for this command
-                             (or env FORENSIX_AUDIT_LOG); the output gets audit.id and audit.entryHash
   --help                     print the usage of one command: forensix <command> --help
 `;
 
@@ -275,7 +261,7 @@ export function fullUsage(): string {
     "  forensix --version",
     "",
     RECORD_OPTIONS,
-    `Output size options (query commands):\n${MAX_OUTPUT_OPTION}${PAGE_ALL_OPTION}`,
+    `Paging options (paged query commands):\n${PAGE_ALL_OPTION}`,
     GLOBAL_OPTIONS,
     SOURCE_KINDS_NOTE,
     ANALYSE_NOTE,
@@ -293,10 +279,8 @@ export function commandUsage(command: string): string | undefined {
   if (query?.output === "records") {
     blocks.push(RECORD_OPTIONS);
   }
-  if (query !== undefined) {
-    blocks.push(
-      `Output size options:\n${MAX_OUTPUT_OPTION}${query.paged ? PAGE_ALL_OPTION : ""}`,
-    );
+  if (query?.paged === true) {
+    blocks.push(`Paging options:\n${PAGE_ALL_OPTION}`);
   }
   blocks.push(GLOBAL_OPTIONS);
   if (section.notes !== undefined) {

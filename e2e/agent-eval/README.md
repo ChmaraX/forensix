@@ -16,7 +16,7 @@ answer of the agent.
 | ----------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `build-eval-case.ts`    | Makes the Source and the Case.                                                                             |
 | `truth.json`            | The ground truth: facts, Candidates, gaps, secrets, injections, and questions.                             |
-| `case-records.ts`       | Finds records. Uses `forensix get --id`. Uses a read-only lookup in `case.fxdb` if `get` is not available. |
+| `case-records.ts`       | Finds cited records with `forensix get --id`, and the truth records with a read-only query on `case.fxdb`. |
 | `score.ts`              | Scores one answer. Gives a JSON score object.                                                              |
 | `run.mjs`               | Runs the agent on each question, with and without the skill. Manual only.                                  |
 | `ts-hooks.mjs`          | Lets plain Node import the e2e TypeScript files.                                                           |
@@ -127,8 +127,7 @@ pnpm vitest run e2e/agent-eval.test.ts
 
 The test makes the Case and checks that:
 
-- the CLI gives the injected texts word for word, also with
-  `--content-boundaries`;
+- the CLI gives the injected texts word for word, in the untrusted `fields`;
 - the Case holds each truth fact, Candidate, and gap;
 - the record ids from the CLI are the same as the ids from `truth.json`;
 - the scorer passes the clean sample answers, and fails each bad sample answer
@@ -156,8 +155,8 @@ Options:
 The runner makes the Case in a new temporary directory. It puts a `forensix`
 command on `PATH` for the agent. It runs Pi with `--mode json --no-session`,
 the tools `bash` and `read` only, and no context files, skills, extensions or
-MCP servers. It sets `FORENSIX_AUDIT_LOG`, so each run keeps a log of its CLI
-commands.
+MCP servers. `commands.json` lists the CLI commands of each run, read from
+the transcript.
 
 The results go to `e2e/agent-eval/runs/<timestamp>/` (Git ignores this
 directory):
@@ -166,6 +165,6 @@ directory):
 - `skill-append.md`: the skill text for the "with skill" condition;
 - `<question>-<with|without>/`: `prompt.md`, `command.json`,
   `transcript.jsonl` (Pi events), `stderr.txt`, `answer.md`, `commands.json`,
-  `audit.ndjson`, `score.json`, `meta.json`;
+  `score.json`, `meta.json`;
 - `summary.md` and `summary.json`: one row for each run, and totals for each
   condition.

@@ -1,9 +1,9 @@
 /**
  * The agent-facing output layer of the compiled CLI, over one realistic Case
  * (committed and WAL-recovered History, logins with decrypted passwords, a
- * plaintext cookie, a download): untrusted-evidence marking and content
- * boundaries, `--fields`, `--max-output`, `--page-all`, input checks, a closed
- * downstream pipe, per-command help, and the bundled skill files.
+ * plaintext cookie, a download): untrusted-evidence marking, `--fields`,
+ * `--page-all`, input checks, a closed downstream pipe, per-command help, and
+ * the bundled skill files.
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -68,7 +68,6 @@ interface Page {
   readonly trust?: {
     readonly untrusted: string;
     readonly notice: string;
-    readonly boundary?: string;
   };
   readonly warnings?: readonly Warning[];
   readonly redaction?: {
@@ -118,21 +117,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await rm(root, { recursive: true, force: true });
 });
-
-function runWithEnvironment(
-  arguments_: readonly string[],
-  environment: Readonly<Record<string, string>>,
-): CliResult {
-  const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
-    encoding: "utf8",
-    env: { ...process.env, ...environment },
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
 
 function okPage(result: CliResult): Page {
   expect(result.stderr).toBe("");
@@ -204,44 +188,19 @@ describe("untrusted evidence marking", () => {
     expect(completeness.trust).toBeUndefined();
   });
 
-  it("wraps each evidence string in a per-run nonce that injected text cannot close", () => {
-    const first = okPage(
-      runCli(history("--search", "inject.example", "--content-boundaries")),
-    );
-    const second = okPage(
-      runWithEnvironment(history("--search", "inject.example"), {
-        FORENSIX_CONTENT_BOUNDARIES: "1",
-      }),
-    );
-    const nonce = first.trust?.boundary ?? "";
-    expect(nonce).toMatch(/^[0-9a-f]{24}$/);
-    expect(second.trust?.boundary).toMatch(/^[0-9a-f]{24}$/);
-    expect(second.trust?.boundary).not.toBe(nonce);
-
-    expect(first.items).toHaveLength(1);
-    const [visit] = first.items;
-    expect(visit?.fields.title).toEqual({
+  it("prints injected evidence text unchanged, inside the untrusted fields", () => {
+    const page = okPage(runCli(history("--search", "inject.example")));
+    expect(page.items).toHaveLength(1);
+    expect(page.trust?.untrusted).toBe("fields");
+    expect(page.items[0]?.fields.title).toEqual({
       state: "value",
-      value: `<<evidence:${nonce}>>${INJECTED_TITLE}<</evidence:${nonce}>>`,
+      value: INJECTED_TITLE,
     });
-    expect(visit?.fields.url?.value).toBe(
-      `<<evidence:${nonce}>>https://inject.example/landing<</evidence:${nonce}>>`,
-    );
-    // The fake closing marker in the evidence is not the real one.
-    expect(INJECTED_TITLE).not.toContain(nonce);
-    // Field State words stay ForensiX's own; non-string values are unchanged.
-    for (const state of Object.values(visit?.fields ?? {})) {
-      expect(["value", "absent", "unavailable"]).toContain(state.state);
-    }
-    const plain = okPage(runCli(history("--search", "inject.example")));
-    expect(plain.trust?.boundary).toBeUndefined();
-    expect(plain.items[0]?.fields.title?.value).toBe(INJECTED_TITLE);
-    expect(plain.items[0]?.provenance).toEqual(visit?.provenance);
   });
 
-  it("marks and wraps evidence that aggregates copy: count keys and site hosts", () => {
+  it("marks evidence that aggregates copy: count keys and site hosts", () => {
     interface Aggregate {
-      readonly trust?: { untrusted: string; boundary?: string };
+      readonly trust?: { untrusted: string };
       readonly buckets?: { state: string; key: string }[];
       readonly items?: { host: string }[];
     }
@@ -256,52 +215,19 @@ describe("untrusted evidence marking", () => {
         "title",
         "--search",
         "inject.example",
-        "--content-boundaries",
       ]).stdout,
     );
-    const nonce = counted.trust?.boundary ?? "";
     expect(counted.trust?.untrusted).toBe("buckets[].key");
     expect(counted.buckets).toEqual([
-      {
-        state: "value",
-        key: `<<evidence:${nonce}>>${INJECTED_TITLE}<</evidence:${nonce}>>`,
-        count: 1,
-      },
+      { state: "value", key: INJECTED_TITLE, count: 1 },
     ]);
-
-    // A bucket that is not a recorded value is ForensiX's own label.
-    const absent = parseJson<Aggregate>(
-      runCli([
-        "count",
-        "--case",
-        caseDirectory,
-        "--kind",
-        "login_credential",
-        "--by",
-        "actionUrl",
-        "--content-boundaries",
-      ]).stdout,
-    );
-    expect(absent.buckets?.[0]).toMatchObject({
-      state: "absent",
-      key: "(absent)",
-    });
 
     const hosts = parseJson<Aggregate>(
-      runCli([
-        "site-hosts",
-        "--case",
-        caseDirectory,
-        "--search",
-        "inject",
-        "--content-boundaries",
-      ]).stdout,
+      runCli(["site-hosts", "--case", caseDirectory, "--search", "inject"])
+        .stdout,
     );
-    const hostNonce = hosts.trust?.boundary ?? "";
     expect(hosts.trust?.untrusted).toBe("items[].host");
-    expect(hosts.items?.map((item) => item.host)).toEqual([
-      `<<evidence:${hostNonce}>>inject.example<</evidence:${hostNonce}>>`,
-    ]);
+    expect(hosts.items?.map((item) => item.host)).toEqual(["inject.example"]);
   });
 });
 
@@ -675,84 +601,6 @@ describe("--fields", () => {
   });
 });
 
-describe("--max-output", () => {
-  it("reruns with a smaller limit and the reduced cursor pages every row exactly once", () => {
-    const maxOutput = 30_000;
-    const seen: string[] = [];
-    let after: string | null = null;
-    let pages = 0;
-    do {
-      const result = runCli(
-        history(
-          "--limit",
-          "100",
-          "--max-output",
-          String(maxOutput),
-          ...(after === null ? [] : ["--after", after]),
-        ),
-      );
-      const page = okPage(result);
-      expect(Buffer.byteLength(result.stdout)).toBeLessThanOrEqual(maxOutput);
-      const reduced = page.warnings?.find(
-        (warning) => warning.code === "LIMIT_REDUCED",
-      );
-      if (pages === 0) {
-        expect(page.limit).toBeLessThan(100);
-      }
-      // A page that fits at --limit 100 (the short last one) needs no rerun.
-      expect(reduced).toEqual(
-        page.limit < 100
-          ? expect.objectContaining({ requested: 100, used: page.limit })
-          : undefined,
-      );
-      expect(page.items.length).toBeLessThanOrEqual(page.limit);
-      seen.push(...page.items.map(rowKey));
-      after = page.nextCursor;
-      pages += 1;
-    } while (after !== null && pages < 200);
-    expect(after).toBeNull();
-
-    expect(seen).toHaveLength(ALL_VISITS);
-    expect(new Set(seen).size).toBe(ALL_VISITS);
-    const reference = ndjson(runCli(history("--limit", "100", "--page-all")));
-    expect(new Set(seen)).toEqual(
-      new Set(reference.flatMap((page) => page.items.map(rowKey))),
-    );
-  });
-
-  it("prints one row in full with a warning when it alone is too large", () => {
-    const result = runWithEnvironment(history("--limit", "8"), {
-      FORENSIX_MAX_OUTPUT: "200",
-    });
-    const page = okPage(result);
-    expect(page.items).toHaveLength(1);
-    expect(page.limit).toBe(1);
-    expect(page.nextCursor).not.toBeNull();
-    expect(page.warnings?.map((warning) => warning.code)).toEqual([
-      "LIMIT_REDUCED",
-      "OUTPUT_EXCEEDS_MAX_OUTPUT",
-    ]);
-    expect(page.warnings?.[0]).toMatchObject({ requested: 8, used: 1 });
-    expect(page.warnings?.[1]).toMatchObject({ maxOutput: 200 });
-    expect(Number(page.warnings?.[1]?.bytes)).toBeGreaterThan(200);
-  });
-
-  it("does not change a result that fits, and rejects a bad byte count", () => {
-    const plain = okPage(runCli(history("--limit", "3")));
-    const roomy = okPage(
-      runCli(history("--limit", "3", "--max-output", "1000000")),
-    );
-    expect(roomy).toEqual(plain);
-    expect(
-      diagnostic(runCli(history("--max-output", "0"))).details.option,
-    ).toBe("--max-output");
-    expect(
-      diagnostic(runWithEnvironment(history(), { FORENSIX_MAX_OUTPUT: "40kb" }))
-        .details.option,
-    ).toBe("FORENSIX_MAX_OUTPUT");
-  });
-});
-
 describe("--page-all", () => {
   it("prints every page as one NDJSON line until nextCursor is null", () => {
     const pages = ndjson(runCli(history("--fields", "url", "--page-all")));
@@ -932,7 +780,7 @@ describe("help", () => {
     expect(analyse).not.toContain("--page-all");
 
     const full = runCli(["--help"]).stdout;
-    for (const command of ["ingest", "history", "audit verify", "skill get"]) {
+    for (const command of ["ingest", "history", "skill get"]) {
       expect(full).toContain(`forensix ${command}`);
     }
   });

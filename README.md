@@ -107,14 +107,11 @@ Full reference: [docs/reference.md](docs/reference.md).
   rules: read completeness first, Candidates are guesses, label recovered rows,
   cite record ids.
 - **Evidence is marked untrusted.** A suspect can plant text that tries to
-  instruct an AI. `--content-boundaries` fences it with a per-run nonce.
+  instruct an AI. Every response says which values are evidence.
 - **Small answers first.** `summary`, `count --by`, and `schema` answer without
-  rows. `--fields`, `--max-output`, and `--page-all` keep the rest small or on
-  disk.
+  rows. `--fields` and `--page-all` keep the rest small or on disk.
 - **Every record has an id.** `get --id history:180` returns it in full.
 - **Secrets stay hidden** unless you add `--include-secrets`.
-- **An audit log of queries.** `--audit-log` writes a hash chain;
-  `audit verify` checks it.
 - One JSON document on stdout, typed error codes on stderr, pages of at most
   100 rows, and `--help` per command.
 

@@ -115,7 +115,6 @@ interface Check {
 export interface Score {
   readonly question: string;
   readonly pass: boolean;
-  readonly resolver: RecordResolver["via"];
   readonly checks: {
     readonly format: Check & { readonly error: string | null };
     readonly citations: Check & {
@@ -537,7 +536,6 @@ export function scoreAnswer(input: ScoreInput): Score {
   return {
     question: question.key,
     pass: Object.values(checks).every((check) => check.pass),
-    resolver: resolver.via,
     checks,
   };
 }

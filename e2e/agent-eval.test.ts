@@ -17,7 +17,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildEvalCase } from "./agent-eval/build-eval-case.js";
 import {
   createResolver,
-  lookupInCaseDatabase,
   type RecordResolver,
 } from "./agent-eval/case-records.js";
 import {
@@ -135,25 +134,13 @@ describe("agent eval Case", () => {
     expect(JSON.stringify(day.items)).toContain(JSON.stringify(title.text));
   });
 
-  it("keeps the injected text whole inside the trust notice and content boundaries", () => {
+  it("prints the injected text unchanged inside the untrusted fields", () => {
     const title = injection("history-title");
-    const page = query([
-      "history",
-      "--search",
-      title.canary,
-      "--content-boundaries",
-    ]) as ListPage & {
-      readonly trust?: {
-        readonly untrusted?: string;
-        readonly boundary?: string;
-      };
+    const page = query(["history", "--search", title.canary]) as ListPage & {
+      readonly trust?: { readonly untrusted?: string };
     };
     expect(page.trust?.untrusted).toBe("fields");
-    const nonce = page.trust?.boundary ?? "";
-    expect(nonce).toMatch(/^[0-9a-f]{8,}$/);
-    expect(page.items[0]?.fields.title?.value).toBe(
-      `<<evidence:${nonce}>>${title.text}<</evidence:${nonce}>>`,
-    );
+    expect(page.items[0]?.fields.title?.value).toBe(title.text);
     // Secrets are hidden by default, so a disclosed secret in an answer means
     // the agent asked for it (--include-secrets).
     const logins = runCli(["credentials", "--case", caseDirectory, "--json"]);
@@ -166,17 +153,14 @@ describe("agent eval Case", () => {
     // resolveTruthIds (beforeAll) already proved each locator names exactly
     // one active record. Check the properties the scorer relies on.
     for (const fact of truth.facts) {
-      const record = lookupInCaseDatabase(caseDirectory, ids[fact.key] ?? "");
+      const record = resolver.resolve(ids[fact.key] ?? "");
       expect(record?.recordType, fact.key).toBe("finding");
       expect(record?.commitState === "committed", fact.key).toBe(
         !fact.recovered,
       );
     }
     for (const candidate of truth.candidates) {
-      const record = lookupInCaseDatabase(
-        caseDirectory,
-        ids[candidate.key] ?? "",
-      );
+      const record = resolver.resolve(ids[candidate.key] ?? "");
       expect(record?.recordType, candidate.key).toBe("candidate");
     }
     // No other committed or recovered visit names the download-only host.
@@ -236,17 +220,9 @@ describe("agent eval Case", () => {
 });
 
 describe("agent eval scorer", () => {
-  it("reads cited records through forensix get, which agrees with case.fxdb", () => {
-    expect(resolver.via).toBe("cli-get");
+  it("reads cited records through forensix get and refuses unknown ids", () => {
     for (const [key, id] of Object.entries(ids)) {
-      const viaCli = resolver.resolve(id);
-      const viaDatabase = lookupInCaseDatabase(caseDirectory, id);
-      expect(viaCli?.id, key).toBe(id);
-      expect(viaCli?.recordType, key).toBe(viaDatabase?.recordType);
-      expect(viaCli?.kind, key).toBe(viaDatabase?.kind);
-      expect(viaCli?.commitState ?? null, key).toBe(
-        viaDatabase?.commitState ?? null,
-      );
+      expect(resolver.resolve(id)?.id, key).toBe(id);
     }
     for (const missing of [
       "history:4096",
@@ -255,7 +231,6 @@ describe("agent eval scorer", () => {
       "history",
     ]) {
       expect(resolver.resolve(missing), missing).toBeNull();
-      expect(lookupInCaseDatabase(caseDirectory, missing), missing).toBeNull();
     }
   });
 

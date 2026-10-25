@@ -2,14 +2,14 @@
  * Record lookup for the agent eval: does a cited record id exist, and what
  * does the record hold?
  *
- * Primary path: `forensix get --case <case> --id <id> --json` (PLAN A3/B2).
- * Fallback path, while that command does not exist: a read-only lookup in
- * `case.fxdb`. A record id is `<store>:<rowid>` (PLAN A2). The fallback maps the
- * store key to its storage table with `STORE_TABLES`.
+ * A cited id is looked up with `forensix get --case <case> --id <id> --json`.
+ * A record id is `<store>:<rowid>`.
  *
- * The store keys copy core's record-store table (core/src/record-store.ts).
- * The deterministic test compares the ids that the CLI prints with
- * `locateRecords`, so a change in core fails that test.
+ * `locateRecords` finds the truth records (by store, kind, and one field
+ * value) with a read-only query on `case.fxdb`. Its store keys copy core's
+ * record-store table (core/src/record-store.ts); the deterministic test
+ * compares them with the ids that the CLI prints, so a change in core fails
+ * that test.
  */
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
@@ -61,13 +61,9 @@ export interface EvalRecord {
 }
 
 export interface RecordResolver {
-  /** `cli-get` once `forensix get --id` exists, else `case-db`. */
-  readonly via: "cli-get" | "case-db";
   /** The record, or null when the id is malformed or names no record. */
   resolve(id: string): EvalRecord | null;
 }
-
-const ID_PATTERN = /^([a-z][a-z0-9-]*):([1-9][0-9]*)$/;
 
 interface Row {
   readonly rowid: number;
@@ -116,43 +112,10 @@ function selectSql(
           FROM ${store.table} t ${join_} WHERE ${where}`;
 }
 
-function toRecord(id: string, row: Row): EvalRecord {
-  return {
-    id,
-    recordType: row.record_type === "candidate" ? "candidate" : "finding",
-    kind: row.kind,
-    profile: row.profile_path,
-    commitState: row.commit_state,
-    active: row.active === null ? null : row.active === 1,
-    fields: JSON.parse(row.fields_json) as Record<string, unknown>,
-  };
-}
-
 function openCaseDatabase(caseDirectory: string): DatabaseSync {
   return new DatabaseSync(join(caseDirectory, "case.fxdb"), {
     readOnly: true,
   });
-}
-
-/** Read-only lookup of one id in `case.fxdb`. */
-export function lookupInCaseDatabase(
-  caseDirectory: string,
-  id: string,
-): EvalRecord | null {
-  const match = ID_PATTERN.exec(id.trim());
-  const store = match === null ? undefined : storeTable(match[1] ?? "");
-  if (match === null || store === undefined) {
-    return null;
-  }
-  const database = openCaseDatabase(caseDirectory);
-  try {
-    const row = database
-      .prepare(selectSql(database, store, `t.${store.idColumn} = ?`))
-      .get(Number(match[2])) as Row | undefined;
-    return row === undefined ? null : toRecord(id.trim(), row);
-  } finally {
-    database.close();
-  }
 }
 
 /** How truth.json names a record: its store, kind, and one field value. */
@@ -239,19 +202,12 @@ function runGet(
   };
 }
 
-/** True when the compiled CLI answers `get --id` (found or RECORD_NOT_FOUND). */
-export function cliHasGet(cli: string, caseDirectory: string): boolean {
-  const probe = runGet(cli, caseDirectory, "history:1");
-  if (probe.status === 0) {
-    return true;
-  }
-  const error = parseJson<CliError>(probe.stderr);
-  return error?.code === "RECORD_NOT_FOUND";
-}
-
-function cliResolver(cli: string, caseDirectory: string): RecordResolver {
+/** Looks up cited ids with `forensix get --id`. */
+export function createResolver(
+  caseDirectory: string,
+  cli: string,
+): RecordResolver {
   return {
-    via: "cli-get",
     resolve(id) {
       const result = runGet(cli, caseDirectory, id);
       if (result.status !== 0) {
@@ -281,20 +237,6 @@ function cliResolver(cli: string, caseDirectory: string): RecordResolver {
         fields: item.fields ?? {},
       };
     },
-  };
-}
-
-/** `forensix get --id` when the CLI has it, else the read-only fallback. */
-export function createResolver(
-  caseDirectory: string,
-  cli: string,
-): RecordResolver {
-  if (cliHasGet(cli, caseDirectory)) {
-    return cliResolver(cli, caseDirectory);
-  }
-  return {
-    via: "case-db",
-    resolve: (id) => lookupInCaseDatabase(caseDirectory, id),
   };
 }
 

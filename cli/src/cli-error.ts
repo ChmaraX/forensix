@@ -1,11 +1,8 @@
 /**
- * Errors that only the CLI raises (the audit log and the bundled skill files).
+ * Errors that only the CLI raises (the bundled skill files).
  * They print the same diagnostic shape as a core ForensixError.
  */
-export type CliErrorCode =
-  | "AUDIT_LOG_FAILED"
-  | "AUDIT_LOG_NOT_FOUND"
-  | "SKILLS_UNAVAILABLE";
+export type CliErrorCode = "SKILLS_UNAVAILABLE";
 
 export class CliError extends Error {
   public readonly code: CliErrorCode;

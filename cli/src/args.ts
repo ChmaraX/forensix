@@ -21,7 +21,6 @@ const FLAG_OPTIONS = new Set([
   "--include-secrets",
   "--decrypt",
   "--no-topic-classification",
-  "--content-boundaries",
   "--page-all",
 ]);
 const VALUE_OPTIONS = new Set([
@@ -62,9 +61,6 @@ const VALUE_OPTIONS = new Set([
   "--by",
   "--fields",
   "--supporting-rows",
-  "--max-output",
-  "--audit-log",
-  "--log",
 ]);
 /** Options the parser lets repeat. A command accepts a repeat only when the
  *  option is also in its own repeatable set (see {@link assertAllowedOptions}). */
@@ -108,24 +104,6 @@ export function assertArgumentsHaveNoControlCharacters(
             : "positional";
     assertNoControlCharacters(argument, option);
   });
-}
-
-/**
- * The positional arguments after the command, read without validation: every
- * argument that is not an option and not the value of a known value option.
- * Used where a command failed to parse but its paths must still be known.
- */
-export function rawPositionals(arguments_: readonly string[]): string[] {
-  const positionals: string[] = [];
-  for (let index = 1; index < arguments_.length; index += 1) {
-    const argument = arguments_[index] ?? "";
-    if (argument.startsWith("--")) {
-      if (VALUE_OPTIONS.has(argument)) index += 1;
-      continue;
-    }
-    positionals.push(argument);
-  }
-  return positionals;
 }
 
 export function parseArguments(arguments_: readonly string[]): ParsedArguments {
