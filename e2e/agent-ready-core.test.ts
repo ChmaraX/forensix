@@ -719,6 +719,73 @@ describe("redactSecrets and limitSupportingRows", () => {
     ]);
   });
 
+  it("orders and cuts equal-count redacted buckets by hash, not by plaintext", async () => {
+    // Two cookie values whose plaintext order is the reverse of their hash order.
+    const pairs = ["a", "b", "c", "d", "e", "f", "g", "h"].map(
+      (letter) => [`${letter}-first`, `${letter}-second`] as const,
+    );
+    const pair = pairs.find(
+      ([left, right]) => left < right && sha256Json(left) > sha256Json(right),
+    );
+    if (pair === undefined) throw new Error("No discriminating pair.");
+    const [plainFirst, hashFirst] = pair;
+    const planted = join(await temporaryRoot(), "case");
+    await cp(caseDirectory, planted, { recursive: true });
+    const database = new DatabaseSync(join(planted, "case.fxdb"));
+    const columns = (
+      database.prepare("PRAGMA table_info(cookie_findings)").all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name);
+    const copied = columns.map((name) =>
+      name === "finding_id"
+        ? "finding_id + 1000"
+        : name === "fields_json"
+          ? "json_set(fields_json, '$.value', json_object('state', 'value', 'value', ?))"
+          : name,
+    );
+    database
+      .prepare(
+        `INSERT INTO cookie_findings (${columns.join(", ")})
+         SELECT ${copied.join(", ")} FROM cookie_findings`,
+      )
+      .run(hashFirst);
+    database
+      .prepare(
+        `UPDATE cookie_findings
+            SET fields_json = json_set(fields_json, '$.value',
+                  json_object('state', 'value', 'value', ?))
+          WHERE finding_id < 1000`,
+      )
+      .run(plainFirst);
+    database.close();
+
+    const top = core.queryCount({
+      caseDirectory: planted,
+      kind: "cookie",
+      by: "value",
+      redactSecrets: true,
+      limit: 1,
+    });
+    expect(top.buckets).toEqual([
+      {
+        state: "redacted",
+        key: `(redacted:sha256:${sha256Json(hashFirst)})`,
+        count: 1,
+      },
+    ]);
+    expect(top.otherCount).toBe(1);
+    // Without redaction the plaintext order applies as before.
+    expect(
+      core.queryCount({
+        caseDirectory: planted,
+        kind: "cookie",
+        by: "value",
+        limit: 1,
+      }).buckets,
+    ).toEqual([{ state: "value", key: plainFirst, count: 1 }]);
+  });
+
   it("keeps the first supporting rows and records the original total", () => {
     const summary = core.queryHistory({
       caseDirectory,

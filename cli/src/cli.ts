@@ -22,7 +22,6 @@ import { startDashboardServer } from "@forensix/server";
 import { createHash } from "node:crypto";
 import {
   closeSync,
-  ftruncateSync,
   mkdtempSync,
   openSync,
   readFileSync,
@@ -44,6 +43,7 @@ import {
   optionValue,
   optionValues,
   parseArguments,
+  rawPositionals,
   requiredCasePath,
 } from "./args.js";
 import {
@@ -576,91 +576,133 @@ function emit(
     return outcome.exitCode;
   }
 
-  let final = outcome;
-  const hash = createHash("sha256");
-  // Spool the unstamped lines to a private temporary file while hashing them,
-  // so an audited --page-all stays in bounded memory.
-  const spoolDirectory = mkdtempSync(join(tmpdir(), "forensix-audit-"));
-  const spoolPath = join(spoolDirectory, "output.ndjson");
+  const spool = spoolOutput(outcome, arguments_);
   try {
-    const spool = openSync(spoolPath, "w", 0o600);
-    try {
-      const spoolLine = (text: string): void => {
-        hash.update(text, "utf8");
-        writeSync(spool, text);
-      };
-      try {
-        if (final.text !== undefined) {
-          hash.update(final.text, "utf8");
-        }
-        for (const document of final.documents ?? []) {
-          spoolLine(line(document));
-        }
-      } catch (error) {
-        // A page failed part way: audit and print only the error.
-        final = failed(error, arguments_);
-        ftruncateSync(spool, 0);
-        return emitAudited(final, arguments_, logPath, spoolDirectory);
-      }
-    } finally {
-      closeSync(spool);
-    }
     let stamp: AuditStamp;
     try {
+      if (spool.error !== null) throw spool.error;
       stamp = appendAuditEntry(logPath, {
         toolVersion: resolveToolVersion(),
         command: arguments_[0] ?? null,
         argv: arguments_,
         caseDirectory: caseDirectoryOf(arguments_),
-        exitCode: final.exitCode,
-        outputSha256: hash.digest("hex"),
+        exitCode: spool.outcome.exitCode,
+        outputSha256: spool.outputSha256,
       });
     } catch (error) {
       // No unaudited output when an audit log was asked for.
       write("stderr", line(diagnosticOf(error, arguments_)));
       return 1;
     }
+    const final = spool.outcome;
     if (final.text !== undefined) {
       write(final.stream, final.text);
     }
-    for (const spooled of readLines(spoolPath)) {
-      write(final.stream, stampLine(spooled, stamp));
+    try {
+      for (const spooled of readLines(spool.path)) {
+        write(final.stream, stampLine(spooled, stamp));
+      }
+    } catch (error) {
+      write("stderr", line(diagnosticOf(auditFailure(error), arguments_)));
+      return 1;
     }
     return final.exitCode;
   } finally {
-    rmSync(spoolDirectory, { recursive: true, force: true });
+    spool.cleanup();
   }
 }
 
-/** Audits and prints an outcome that is already fully in memory (an error). */
-function emitAudited(
-  final: CommandOutcome,
-  arguments_: readonly string[],
-  logPath: string,
-  spoolDirectory: string,
-): number {
-  const documents = [...(final.documents ?? [])];
-  const text = documents.map((document) => line(document)).join("");
-  let stamp: AuditStamp;
+interface Spool {
+  /** The outcome to print: the command's, or its error if a page failed. */
+  readonly outcome: CommandOutcome;
+  readonly path: string;
+  readonly outputSha256: string;
+  /** A spool failure (temp directory, write): audited output is impossible. */
+  readonly error: unknown;
+  cleanup(): void;
+}
+
+function auditFailure(error: unknown): CliError {
+  return error instanceof CliError
+    ? error
+    : new CliError(
+        "AUDIT_LOG_FAILED",
+        "The audited output could not be spooled to a temporary file.",
+        { cause: error instanceof Error ? error.message : String(error) },
+      );
+}
+
+/** Writes one outcome's unstamped lines to `path` and hashes them. */
+function writeSpool(path: string, source: CommandOutcome): string {
+  const hash = createHash("sha256");
+  if (source.text !== undefined) hash.update(source.text, "utf8");
+  const descriptor = openSync(path, "w", 0o600);
   try {
-    stamp = appendAuditEntry(logPath, {
-      toolVersion: resolveToolVersion(),
-      command: arguments_[0] ?? null,
-      argv: arguments_,
-      caseDirectory: caseDirectoryOf(arguments_),
-      exitCode: final.exitCode,
-      outputSha256: createHash("sha256").update(text, "utf8").digest("hex"),
-    });
-  } catch (error) {
-    write("stderr", line(diagnosticOf(error, arguments_)));
-    return 1;
+    for (const document of source.documents ?? []) {
+      const text = line(document);
+      hash.update(text, "utf8");
+      try {
+        writeSync(descriptor, text);
+      } catch (error) {
+        throw new SpoolWriteError(error);
+      }
+    }
   } finally {
-    rmSync(spoolDirectory, { recursive: true, force: true });
+    closeSync(descriptor);
   }
-  for (const document of documents) {
-    write(final.stream, line(document, stamp));
+  return hash.digest("hex");
+}
+
+/** A write to the spool file failed (as opposed to the command's pages). */
+class SpoolWriteError extends Error {
+  public constructor(cause: unknown) {
+    super("The spool file could not be written.", { cause });
   }
-  return final.exitCode;
+}
+
+/**
+ * Writes the unstamped output lines to a private temporary file while hashing
+ * them, so an audited --page-all stays in bounded memory. A page that fails
+ * part way replaces the whole output with that error (the descriptor is
+ * closed first). Every spool file error comes back as AUDIT_LOG_FAILED, and
+ * cleanup is best effort.
+ */
+function spoolOutput(
+  outcome: CommandOutcome,
+  arguments_: readonly string[],
+): Spool {
+  let directory: string | undefined;
+  const cleanup = (): void => {
+    if (directory === undefined) return;
+    try {
+      rmSync(directory, { recursive: true, force: true });
+    } catch {
+      // Best effort: the private temp directory holds only printed output.
+    }
+  };
+  try {
+    directory = mkdtempSync(join(tmpdir(), "forensix-audit-"));
+    const path = join(directory, "output.ndjson");
+    let final = outcome;
+    let outputSha256: string;
+    try {
+      outputSha256 = writeSpool(path, final);
+    } catch (error) {
+      if (error instanceof SpoolWriteError) throw error.cause;
+      // A page failed part way: audit and print only the error.
+      final = failed(error, arguments_);
+      outputSha256 = writeSpool(path, final);
+    }
+    return { outcome: final, path, outputSha256, error: null, cleanup };
+  } catch (error) {
+    return {
+      outcome,
+      path: "",
+      outputSha256: "",
+      error: auditFailure(error),
+      cleanup,
+    };
+  }
 }
 
 /** Adds the audit stamp as the last key of one printed JSON object line. */
@@ -712,12 +754,9 @@ function evidenceRoots(arguments_: readonly string[]): string[] {
     if (value !== undefined) roots.push(resolve(value));
   }
   if (arguments_[0] === "ingest") {
-    try {
-      for (const source of parseArguments(arguments_).positionals) {
-        roots.push(resolve(source));
-      }
-    } catch {
-      // Unparsable ingest arguments: the command already failed.
+    // From the raw arguments, so a malformed ingest still protects its Source.
+    for (const source of rawPositionals(arguments_)) {
+      roots.push(resolve(source));
     }
   }
   const caseDirectory = caseDirectoryOf(arguments_);
@@ -736,12 +775,16 @@ function evidenceRoots(arguments_: readonly string[]): string[] {
 guardPipes();
 const cliArguments = process.argv.slice(2);
 const logPath = auditLogPath(cliArguments);
+let auditLog: string | undefined;
 let refusedLog: unknown = null;
 if (logPath !== undefined) {
   try {
     // Before the command runs: an audit log inside evidence refuses the
     // whole command, so nothing is written to the Case, Source, or Extract.
-    assertAuditLogOutsideEvidence(logPath, evidenceRoots(cliArguments));
+    auditLog = assertAuditLogOutsideEvidence(
+      logPath,
+      evidenceRoots(cliArguments),
+    );
   } catch (error) {
     refusedLog = error;
   }
@@ -752,10 +795,10 @@ if (refusedLog !== null) {
 } else {
   let outcome: CommandOutcome;
   try {
-    outcome = await run(cliArguments, logPath !== undefined);
+    outcome = await run(cliArguments, auditLog !== undefined);
   } catch (error) {
     outcome = failed(error, cliArguments);
   }
-  process.exitCode = emit(outcome, cliArguments, logPath);
+  process.exitCode = emit(outcome, cliArguments, auditLog);
   outcome.afterEmit?.();
 }

@@ -8,7 +8,6 @@ import {
   linkSync,
   openSync,
   readFileSync,
-  readSync,
   renameSync,
   statSync,
   unlinkSync,
@@ -195,30 +194,11 @@ function acquireLock(path: string): void {
   }
 }
 
-/** Reads the last line of the log (the chain head) without reading it all. */
-function lastLine(descriptor: number): string | undefined {
-  const size = fstatSync(descriptor).size;
-  if (size === 0) {
-    return undefined;
-  }
-  const chunkSize = 64 * 1024;
-  let end = size;
-  let tail = Buffer.alloc(0);
-  while (end > 0) {
-    const start = Math.max(0, end - chunkSize);
-    const chunk = Buffer.alloc(end - start);
-    readSync(descriptor, chunk, 0, chunk.length, start);
-    tail = Buffer.concat([chunk, tail]);
-    end = start;
-    // The file ends with "\n"; look for the newline before the last line.
-    const previous = tail.lastIndexOf(0x0a, tail.length - 2);
-    if (previous !== -1) {
-      return tail.subarray(previous + 1).toString("utf8");
-    }
-  }
-  return tail.toString("utf8");
-}
-
+/**
+ * The chain head, after the whole existing log is verified under the lock.
+ * Checking only the last line would let a forged but self-hashed entry, a
+ * sequence jump, or a broken predecessor link get a valid-looking successor.
+ */
 function chainHead(
   logPath: string,
   descriptor: number,
@@ -226,44 +206,33 @@ function chainHead(
   readonly seq: number;
   readonly hash: string;
 } {
-  const line = lastLine(descriptor);
-  if (line === undefined) {
-    return { seq: 0, hash: GENESIS_HASH };
-  }
-  const damaged = (): CliError =>
-    new CliError(
+  const stats = fstatSync(descriptor);
+  if (!stats.isFile() || stats.nlink > 1) {
+    throw new CliError(
       "AUDIT_LOG_FAILED",
-      "The last audit log entry is damaged. Run forensix audit verify on the log.",
+      "The audit log must be a regular file with one link.",
       { auditLog: logPath },
     );
-  if (!line.endsWith("\n")) {
-    throw damaged();
   }
-  let entry: unknown;
-  try {
-    entry = JSON.parse(line);
-  } catch {
-    throw damaged();
+  if (stats.size === 0) {
+    return { seq: 0, hash: GENESIS_HASH };
   }
-  const record = entry as Partial<AuditEntry> | null;
-  // Authenticate the head before chaining onto it: an edited last line that
-  // kept its old hash must not get a valid-looking successor.
-  if (
-    record === null ||
-    typeof record !== "object" ||
-    record.version !== 1 ||
-    typeof record.seq !== "number" ||
-    !Number.isSafeInteger(record.seq) ||
-    record.seq < 1 ||
-    typeof record.prevHash !== "string" ||
-    !/^[0-9a-f]{64}$/.test(record.prevHash) ||
-    typeof record.hash !== "string" ||
-    !/^[0-9a-f]{64}$/.test(record.hash) ||
-    entryHash(record as Readonly<Record<string, unknown>>) !== record.hash
-  ) {
-    throw damaged();
+  const verification = verifyAuditLog(logPath);
+  if (!verification.valid) {
+    throw new CliError(
+      "AUDIT_LOG_FAILED",
+      "The audit log chain is broken. Run forensix audit verify on the log.",
+      {
+        auditLog: logPath,
+        brokenSeq: verification.brokenSeq,
+        reason: verification.reason,
+      },
+    );
   }
-  return { seq: record.seq, hash: record.hash };
+  return {
+    seq: verification.entries,
+    hash: verification.lastHash ?? GENESIS_HASH,
+  };
 }
 
 /** The real path of `path`, resolving symlinks in the part that exists. */
@@ -298,7 +267,7 @@ function isInside(path: string, root: string): boolean {
 export function assertAuditLogOutsideEvidence(
   logPath: string,
   evidenceRoots: readonly string[],
-): void {
+): string {
   const log = realPathOf(logPath);
   for (const root of evidenceRoots) {
     const realRoot = realPathOf(root);
@@ -310,6 +279,9 @@ export function assertAuditLogOutsideEvidence(
       );
     }
   }
+  // One canonical spelling for the containment check, the lock, and the
+  // append, so a symlinked alias of the same log shares its lock.
+  return log;
 }
 
 /** Appends one entry under the lock and returns the stamp to print. */

@@ -430,6 +430,54 @@ describe("audit verify", () => {
     expect(await readFile(log, "utf8")).toBe(forged);
   });
 
+  it("refuses to chain onto self-hashed entries that break seq or prevHash", async () => {
+    // Recompute an entry's own hash (entries hold no nested objects, so a
+    // top-level key sort is their canonical JSON).
+    const forge = (body: AuditEntry): string => {
+      const rest = Object.entries(body)
+        .filter(([key]) => key !== "hash")
+        .sort(([left], [right]) => (left < right ? -1 : 1));
+      return JSON.stringify({
+        ...Object.fromEntries(rest),
+        hash: sha256(JSON.stringify(Object.fromEntries(rest))),
+      });
+    };
+    const log = freshLog();
+    writeSession(log);
+    const lines = (await readFile(log, "utf8")).split("\n").filter(Boolean);
+    const entries = lines.map((text) => JSON.parse(text) as AuditEntry);
+    const last = entries.at(-1) as AuditEntry;
+
+    // A first entry that starts at seq 50, with its own hash correct.
+    const jumped = freshLog();
+    await writeFile(
+      jumped,
+      `${forge({ ...(entries[0] as AuditEntry), seq: 50 })}\n`,
+    );
+    // A last entry that links to the wrong predecessor, its own hash correct.
+    const relinked = freshLog();
+    await writeFile(
+      relinked,
+      `${[...lines.slice(0, -1), forge({ ...last, prevHash: "f".repeat(64) })].join("\n")}\n`,
+    );
+    for (const forged of [jumped, relinked]) {
+      const before = await readFile(forged, "utf8");
+      const refused = runCli([
+        "profiles",
+        "--case",
+        caseDirectory,
+        "--audit-log",
+        forged,
+      ]);
+      expect(refused.status).toBe(1);
+      expect(refused.stdout).toBe("");
+      expect(parseJson<{ code: string }>(refused.stderr).code).toBe(
+        "AUDIT_LOG_FAILED",
+      );
+      expect(await readFile(forged, "utf8")).toBe(before);
+    }
+  });
+
   it("reports a missing log as an error", () => {
     const result = runCli([
       "audit",
@@ -484,6 +532,61 @@ describe("audit log location", () => {
     await expectRefused(
       { status: result.status, stdout: result.stdout, stderr: result.stderr },
       inside,
+    );
+  });
+
+  it("refuses a log inside the Source of an ingest that does not parse", async () => {
+    const inside = join(root, "source", "audit.ndjson");
+    const result = runCli([
+      "ingest",
+      join(root, "source"),
+      "--bogus-option",
+      "--audit-log",
+      inside,
+    ]);
+    await expectRefused(result, inside);
+  });
+
+  it("shares one lock and one chain between a log path and its symlink", async () => {
+    const real = freshLog();
+    const alias = join(root, `alias-${String(logCounter)}.ndjson`);
+    await writeFile(real, "");
+    await symlink(real, alias);
+    const writers = Array.from({ length: 10 }, (_, index) =>
+      runAsync([
+        "profiles",
+        "--case",
+        caseDirectory,
+        "--audit-log",
+        index % 2 === 0 ? real : alias,
+      ]),
+    );
+    const results = await Promise.all(writers);
+    expect(results.every((result) => result.status === 0)).toBe(true);
+    const { body } = verify(real);
+    expect(body).toMatchObject({ valid: true, entries: 10 });
+  });
+
+  it("fails typed, without a stack trace, when the output cannot be spooled", () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        compiledCli,
+        "profiles",
+        "--case",
+        caseDirectory,
+        "--audit-log",
+        freshLog(),
+      ],
+      {
+        encoding: "utf8",
+        env: { ...process.env, TMPDIR: join(root, "no-such-temp-directory") },
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(parseJson<{ code: string }>(result.stderr).code).toBe(
+      "AUDIT_LOG_FAILED",
     );
   });
 

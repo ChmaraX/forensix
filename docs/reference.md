@@ -329,7 +329,8 @@ It refuses a `..` segment in `export --out`, `report --extract`, and `report --o
 `--audit-log <file>` (or `FORENSIX_AUDIT_LOG`) appends one NDJSON entry per command:
 `version`, `seq`, `id`, `time`, `toolVersion`, `command`, `argv`, `caseDirectory`, `exitCode`, `outputSha256`, `prevHash`, and `hash`.
 Each entry hashes the entry before it. A lock file keeps parallel commands in order.
-The CLI checks the hash of the last entry before it adds one, and refuses to add to a damaged log.
+Before it adds an entry, the CLI verifies the whole chain and refuses to add to a broken log.
+The log must be a regular file with one link. A symlink to the log shares its lock.
 The log must be outside the Case Directory, the recorded Sources, and the Extract or Report paths of the command. Otherwise the command does not run.
 The command output gets `audit: {id, entryHash}`, so a claim can cite the query that produced it.
 

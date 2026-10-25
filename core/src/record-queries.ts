@@ -454,22 +454,27 @@ export function queryCount(input: CountQuery): CountResult {
     const totalRow = database
       .prepare(`SELECT count(*) AS total ${from}`)
       .get(...parameters) as { readonly total: bigint };
+    const redact =
+      input.redactSecrets === true && isSecretField(kind, input.by);
+    // A redacted count must not order or cut buckets by the plaintext: then
+    // every bucket is read, hashed, sorted by the hash, and cut here.
     const rows = database
       .prepare(
         `SELECT bucket_state AS state, bucket AS key, count(*) AS count
            FROM (${bucketSql})
           GROUP BY bucket_state, bucket
-          ORDER BY count DESC, key ASC, state ASC
-          LIMIT ?`,
+          ${redact ? "" : "ORDER BY count DESC, key ASC, state ASC LIMIT ?"}`,
       )
-      .all(...bucketParameters, ...parameters, BigInt(limit)) as unknown as {
+      .all(
+        ...bucketParameters,
+        ...parameters,
+        ...(redact ? [] : [BigInt(limit)]),
+      ) as unknown as {
       readonly key: string;
       readonly count: bigint;
       readonly state: string;
     }[];
-    const redact =
-      input.redactSecrets === true && isSecretField(kind, input.by);
-    const buckets = rows.map((row): CountBucket => {
+    const shown = rows.map((row): CountBucket => {
       const state = bucketState(row.state);
       if (redact && state === "value") {
         return {
@@ -480,6 +485,16 @@ export function queryCount(input: CountQuery): CountResult {
       }
       return { state, key: row.key, count: Number(row.count) };
     });
+    const buckets = redact
+      ? shown
+          .sort(
+            (left, right) =>
+              right.count - left.count ||
+              (left.key < right.key ? -1 : left.key > right.key ? 1 : 0) ||
+              (left.state < right.state ? -1 : 1),
+          )
+          .slice(0, limit)
+      : shown;
     const total = Number(totalRow.total);
     return {
       status: "ok",
