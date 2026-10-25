@@ -1,8 +1,3 @@
----
-name: acquire
-description: Make a ForensiX Case from a Source with ingest, then parse it with analyse.
----
-
 # Acquire: ingest and analyse
 
 Two commands make a Case ready for queries. `ingest` hashes and copies the Source into the Case. `analyse` parses the copy into records. Neither command writes to the Source.
@@ -50,4 +45,4 @@ forensix analyse --case "<case>" --timezone "<zone>" [--origin-os <os>] \
 
 A second `analyse` on the same Case is allowed. It records a new Analysis Run, and the newest successful result per artifact becomes the active result.
 
-Done when analyse exits 0 or 2. Then load `forensix skill get investigate`.
+Done when analyse exits 0 or 2. Then answer questions with the steps in `SKILL.md`.

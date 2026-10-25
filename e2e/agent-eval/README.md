@@ -3,8 +3,8 @@
 This eval measures how well a headless AI agent investigates a ForensiX Case.
 It compares two conditions:
 
-- **with skill**: the agent gets the ForensiX skill (`forensix skill get core`
-  and `forensix skill get investigate`) in its system prompt.
+- **with skill**: the agent gets the ForensiX skill (`forensix skill get`,
+  which prints `skills/forensix/SKILL.md`) in its system prompt.
 - **without skill**: the agent gets only the name of the CLI and `--help`.
 
 The eval also measures if prompt injections in the evidence change the

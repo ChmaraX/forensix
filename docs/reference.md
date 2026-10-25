@@ -324,16 +324,19 @@ It refuses a `..` segment in `export --out`, `report --extract`, and `report --o
 
 ### Agent skill
 
-The skill text ships inside the CLI, so it always matches the installed version:
+The skill is one folder, [`skills/forensix/`](../skills/forensix/): `SKILL.md` holds the rules and the investigation steps, and `references/` holds the steps to acquire a Case and to export a Report.
+The CLI bundles the same folder, so these commands work offline and always match the installed version:
 
 ```sh
+node cli/dist/cli.js skill get              # SKILL.md
+node cli/dist/cli.js skill get acquire      # or report: one reference file
 node cli/dist/cli.js skill list
-node cli/dist/cli.js skill get core          # rules for every task; read first
-node cli/dist/cli.js skill get investigate   # also: acquire, report
+node cli/dist/cli.js skill install [--dir <skills-directory>]   # default .agents/skills
 ```
 
-[`skills/forensix/SKILL.md`](../skills/forensix/SKILL.md) is a small discovery file for skill installers. It tells the agent to run `forensix skill get core`.
-The skill text is in [`cli/skills/`](../cli/skills/).
+`skill install` copies the folder into `<skills-directory>/forensix`. Use it on a workstation without network access.
+Every other command writes the warning `SKILL_OUTDATED` to stderr when a copy in `.agents/skills`, `.claude/skills`, `.codex/skills`, or `.cursor/skills` (in the current directory or the home directory) differs from the bundled skill. Changes to the front matter only, such as installer metadata, do not count.
+The first line of `forensix --help` tells an agent without the skill to run `forensix skill get`.
 
 The agent eval in [`e2e/agent-eval/`](../e2e/agent-eval/README.md) measures an agent with and without the skill on a Case with planted prompt injections.
 

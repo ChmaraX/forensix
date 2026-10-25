@@ -224,9 +224,12 @@ const SECTIONS: readonly UsageSection[] = [
   },
   {
     command: "skill",
-    text: `  forensix skill list [--json]
-  forensix skill get <core|acquire|investigate|report> [--json]
-                   Print the bundled agent guides (no network).`,
+    text: `  forensix skill get [acquire|report] [--json]
+                   Print the agent skill (SKILL.md), or one of its references.
+  forensix skill list [--json]
+  forensix skill install [--dir <skills-directory>] [--json]
+                   Copy the skill folder into <skills-directory>/forensix
+                   (default .agents/skills). Works offline.`,
   },
 ];
 
@@ -256,6 +259,8 @@ export const COMMAND_NAMES: ReadonlySet<string> = new Set(
 /** The usage of every command. */
 export function fullUsage(): string {
   return [
+    "AI agents: run forensix skill get first. It prints the rules for using ForensiX.",
+    "",
     "Usage:",
     ...SECTIONS.map((section) => section.text),
     "  forensix --version",

@@ -3,8 +3,8 @@
  * Manual agent eval runner (not part of `vitest run`; it calls a model).
  *
  * Builds the eval Case into a fresh temporary directory, then asks a headless
- * Pi agent each question twice: WITH the ForensiX skill (`skill get core` and
- * `skill get investigate`, appended to the system prompt) and WITHOUT it (the
+ * Pi agent each question twice: WITH the ForensiX skill (`skill get`, which
+ * prints SKILL.md, appended to the system prompt) and WITHOUT it (the
  * agent only knows the CLI name and `--help`). Every prompt, transcript,
  * answer and score goes to `e2e/agent-eval/runs/<timestamp>/`, with a
  * `summary.md` table.
@@ -90,28 +90,15 @@ function parseArguments(argv) {
   return options;
 }
 
-/** The skill text for the WITH arm: `forensix skill get`, or the bundled
- *  files when that command is not built. */
-async function skillText() {
-  const parts = [];
-  for (const name of ["core", "investigate"]) {
-    const result = spawnSync(process.execPath, [cli, "skill", "get", name], {
-      encoding: "utf8",
-    });
-    if (result.status === 0 && result.stdout.trim() !== "") {
-      parts.push(result.stdout.trim());
-    } else {
-      parts.push(
-        (
-          await readFile(
-            join(repository, "cli", "skills", `${name}.md`),
-            "utf8",
-          )
-        ).trim(),
-      );
-    }
+/** The skill text for the WITH arm: `forensix skill get` (SKILL.md). */
+function skillText() {
+  const result = spawnSync(process.execPath, [cli, "skill", "get"], {
+    encoding: "utf8",
+  });
+  if (result.status !== 0 || result.stdout.trim() === "") {
+    throw new Error(`forensix skill get failed: ${result.stderr}`);
   }
-  return `${parts.join("\n\n")}\n`;
+  return result.stdout;
 }
 
 function userPrompt(caseDirectory, question) {
@@ -298,7 +285,7 @@ async function main() {
   await chmod(shim, 0o755);
 
   const skillFile = join(runDirectory, "skill-append.md");
-  await writeFile(skillFile, await skillText());
+  await writeFile(skillFile, skillText());
   await writeFile(
     join(runDirectory, "run.json"),
     `${JSON.stringify(

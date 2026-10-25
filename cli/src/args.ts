@@ -25,6 +25,7 @@ const FLAG_OPTIONS = new Set([
 ]);
 const VALUE_OPTIONS = new Set([
   "--case",
+  "--dir",
   "--port",
   "--source-kind",
   "--timezone",

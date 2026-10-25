@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "forensix",
+  "description": "Offline Google Chrome forensic analysis for AI agents",
+  "owner": {
+    "name": "ChmaraX"
+  },
+  "plugins": [
+    {
+      "name": "forensix",
+      "description": "Investigate Chrome evidence with the ForensiX CLI: completeness first, cited records, Candidates as guesses",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/forensix"],
+      "category": "security"
+    }
+  ]
+}

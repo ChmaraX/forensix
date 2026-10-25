@@ -1,8 +1,3 @@
----
-name: report
-description: Export a scoped Extract from a ForensiX Case and render a self-contained HTML Report.
----
-
 # Export and report
 
 An **Extract** is a deterministic, hashed copy of selected records from the Case. A **Report** is one self-contained HTML file made only from an Extract. Neither changes the Case.

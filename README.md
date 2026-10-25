@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="#features">features</a> · <a href="#install">install</a> · <a href="#quick-start">quick start</a> · <a href="#cli">cli</a> · <a href="#collector">collector</a> · <a href="#limitations">limitations</a>
+  <a href="#features">features</a> · <a href="#install">install</a> · <a href="#quick-start">quick start</a> · <a href="#cli">cli</a> · <a href="#agent-skill">agent skill</a> · <a href="#collector">collector</a> · <a href="#limitations">limitations</a>
 </p>
 
 **Everything Chrome recorded, and where it came from.** History, cookies,
@@ -103,9 +103,9 @@ Full reference: [docs/reference.md](docs/reference.md).
 
 ### Built for scripts and agents
 
-- **A skill ships in the CLI.** `forensix skill get core` gives an agent the
-  rules: read completeness first, Candidates are guesses, label recovered rows,
-  cite record ids.
+- **An agent skill.** It gives an agent the rules: read completeness first,
+  Candidates are guesses, label recovered rows, cite record ids. See
+  [Agent skill](#agent-skill).
 - **Evidence is marked untrusted.** A suspect can plant text that tries to
   instruct an AI. Every response says which values are evidence.
 - **Small answers first.** `summary`, `count --by`, and `schema` answer without
@@ -114,6 +114,24 @@ Full reference: [docs/reference.md](docs/reference.md).
 - **Secrets stay hidden** unless you add `--include-secrets`.
 - One JSON document on stdout, typed error codes on stderr, pages of at most
   100 rows, and `--help` per command.
+
+## Agent skill
+
+The skill teaches an AI agent to investigate a Case correctly. Install it in
+the way that fits your agent:
+
+```sh
+npx skills add ChmaraX/forensix               # Claude Code, Codex, Cursor, and others
+gh skill install ChmaraX/forensix forensix    # the same, with GitHub CLI 2.90+
+forensix skill install --dir ~/.claude/skills # offline, from the installed CLI
+```
+
+In Claude Code you can also add it as a plugin:
+`/plugin marketplace add ChmaraX/forensix`.
+
+For a headless agent, put the output of `forensix skill get` in its system
+prompt. An agent without the skill is told to run that command by the first
+line of `forensix --help`.
 
 ## Collector
 

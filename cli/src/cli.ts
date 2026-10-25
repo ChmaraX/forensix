@@ -42,7 +42,13 @@ import {
   runQueryCommand,
 } from "./output.js";
 import { QUERY_COMMANDS } from "./query-commands.js";
-import { listSkills, readSkill } from "./skills.js";
+import {
+  DEFAULT_SKILLS_DIRECTORY,
+  installSkill,
+  listSkills,
+  outdatedSkillCopies,
+  readSkill,
+} from "./skills.js";
 import { commandUsage, fullUsage } from "./usage.js";
 
 /**
@@ -268,7 +274,7 @@ async function run(arguments_: readonly string[]): Promise<CommandOutcome> {
   }
 
   if (parsed.command === "skill") {
-    assertAllowedOptions(parsed, allowing(["--json"]));
+    assertAllowedOptions(parsed, allowing(["--json", "--dir"]));
     const [action, name, ...extra] = parsed.positionals;
     if (action === "list" && name === undefined) {
       const skills = listSkills();
@@ -283,16 +289,22 @@ async function run(arguments_: readonly string[]): Promise<CommandOutcome> {
           .join(""),
       };
     }
-    if (action === "get" && name !== undefined && extra.length === 0) {
+    if (action === "get" && extra.length === 0) {
       const skill = readSkill(name);
       if (jsonOutput) {
         return printed({ status: "ok", command: "skill-get", ...skill });
       }
       return { exitCode: 0, stream: "stdout", text: skill.content };
     }
+    if (action === "install" && name === undefined) {
+      const installed = installSkill(
+        optionValue(parsed, "--dir") ?? DEFAULT_SKILLS_DIRECTORY,
+      );
+      return printed({ status: "ok", command: "skill-install", ...installed });
+    }
     throw new ForensixError(
       "INVALID_ARGUMENT",
-      "Use forensix skill list, or forensix skill get <name>.",
+      "Use forensix skill get [name], forensix skill list, or forensix skill install [--dir <skills-directory>].",
       { positionals: parsed.positionals },
     );
   }
@@ -490,8 +502,38 @@ function emit(outcome: CommandOutcome, arguments_: readonly string[]): number {
   return outcome.exitCode;
 }
 
+/**
+ * Warns once on stderr when an installed copy of the agent skill differs from
+ * the one bundled with this CLI. Skipped for `skill`, help, and version.
+ */
+function warnOutdatedSkill(arguments_: readonly string[]): void {
+  const command = arguments_[0];
+  if (
+    command === undefined ||
+    command === "skill" ||
+    command === "--version" ||
+    arguments_.includes("--help")
+  ) {
+    return;
+  }
+  const outdated = outdatedSkillCopies();
+  if (outdated.length === 0) return;
+  write(
+    "stderr",
+    line({
+      status: "warning",
+      code: "SKILL_OUTDATED",
+      message:
+        "An installed ForensiX skill differs from this CLI version. " +
+        "Run forensix skill install --dir <its skills directory> to update it.",
+      details: { paths: outdated },
+    }),
+  );
+}
+
 guardPipes();
 const cliArguments = process.argv.slice(2);
+warnOutdatedSkill(cliArguments);
 let outcome: CommandOutcome;
 try {
   outcome = await run(cliArguments);

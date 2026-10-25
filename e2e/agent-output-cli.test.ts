@@ -7,7 +7,13 @@
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -787,45 +793,99 @@ describe("help", () => {
 });
 
 describe("skill", () => {
-  const names = ["core", "acquire", "investigate", "report"];
+  const skillSource = resolve("skills/forensix");
 
-  it("lists the bundled guides with the descriptions in their front matter", () => {
-    const listed = parseJson<{
-      readonly status: string;
-      readonly skills: readonly {
-        readonly name: string;
-        readonly description: string;
-      }[];
-    }>(runCli(["skill", "list", "--json"]).stdout);
-    expect(listed.status).toBe("ok");
-    expect(listed.skills.map((skill) => skill.name)).toEqual(names);
-    for (const skill of listed.skills) {
-      const file = readFileSync(
-        resolve("cli/skills", `${skill.name}.md`),
-        "utf8",
-      );
-      expect(file).toContain(`description: ${skill.description}`);
-      expect(skill.description.length).toBeGreaterThan(10);
-    }
-    const text = runCli(["skill", "list"]);
-    expect(
-      text.stdout
-        .trimEnd()
-        .split("\n")
-        .map((line) => line.split("\t")[0]),
-    ).toEqual(names);
-  });
+  /** Runs the CLI in `cwd` with HOME there too, so only that tree's
+   *  installed skill copies exist. */
+  function runIn(cwd: string, arguments_: readonly string[]): CliResult {
+    const result = spawnSync(process.execPath, [compiledCli, ...arguments_], {
+      cwd,
+      encoding: "utf8",
+      env: { ...process.env, HOME: cwd },
+    });
+    return {
+      status: result.status,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    };
+  }
 
-  it("prints a guide exactly and refuses names outside the set", () => {
-    const result = runCli(["skill", "get", "investigate"]);
-    expect(result.status).toBe(0);
-    expect(result.stdout).toBe(
-      readFileSync(resolve("cli/skills/investigate.md"), "utf8"),
+  it("prints SKILL.md and each reference exactly, and lists them", () => {
+    const main = runCli(["skill", "get"]);
+    expect(main.status).toBe(0);
+    expect(main.stdout).toBe(
+      readFileSync(join(skillSource, "SKILL.md"), "utf8"),
     );
-    for (const name of ["../core", "missing", "core.md"]) {
+    expect(runCli(["skill", "get", "forensix"]).stdout).toBe(main.stdout);
+    expect(runCli(["skill", "get", "report"]).stdout).toBe(
+      readFileSync(join(skillSource, "references", "report.md"), "utf8"),
+    );
+    const listed = parseJson<{
+      readonly skills: readonly { name: string; description: string }[];
+    }>(runCli(["skill", "list", "--json"]).stdout);
+    expect(listed.skills.map((skill) => skill.name)).toEqual([
+      "forensix",
+      "acquire",
+      "report",
+    ]);
+    // The description is the trigger an agent host shows; it must be real.
+    expect(listed.skills[0]?.description).toMatch(/^Investigate Google Chrome/);
+    for (const name of ["../SKILL", "missing", "report.md"]) {
       const error = diagnostic(runCli(["skill", "get", name]));
       expect(error.code).toBe("INVALID_ARGUMENT");
-      expect(error.details.allowed).toEqual(names);
+      expect(error.details.allowed).toEqual(["forensix", "acquire", "report"]);
+    }
+  });
+
+  it("installs the folder offline and warns only while an installed copy is out of date", async () => {
+    const project = await mkdtemp(join(tmpdir(), "forensix-skill-"));
+    try {
+      const installed = parseJson<{ path: string; files: string[] }>(
+        runIn(project, ["skill", "install"]).stdout,
+      );
+      const copy = join(project, ".agents", "skills", "forensix");
+      expect(realpathSync(installed.path)).toBe(realpathSync(copy));
+      for (const file of installed.files) {
+        expect(readFileSync(join(copy, file), "utf8"), file).toBe(
+          readFileSync(join(skillSource, file), "utf8"),
+        );
+      }
+      const query = ["profiles", "--case", caseDirectory];
+      expect(runIn(project, query).stderr).toBe("");
+
+      // An installer may add provenance to the front matter: still current.
+      const skillFile = join(copy, "SKILL.md");
+      const original = readFileSync(skillFile, "utf8");
+      writeFileSync(
+        skillFile,
+        original.replace(
+          "license: MIT",
+          "license: MIT\nmetadata:\n  github-ref: v1",
+        ),
+      );
+      expect(runIn(project, query).stderr).toBe("");
+
+      // A changed body or a missing reference is out of date.
+      writeFileSync(skillFile, `${original}\nOld advice.\n`);
+      const warned = runIn(project, query);
+      expect(warned.status).toBe(0);
+      expect(JSON.parse(warned.stdout)).toMatchObject({ status: "ok" });
+      expect(JSON.parse(warned.stderr)).toMatchObject({
+        status: "warning",
+        code: "SKILL_OUTDATED",
+        details: { paths: [realpathSync(copy)] },
+      });
+      runIn(project, ["skill", "install", "--dir", ".agents/skills"]);
+      rmSync(join(copy, "references", "report.md"));
+      expect(JSON.parse(runIn(project, query).stderr).code).toBe(
+        "SKILL_OUTDATED",
+      );
+
+      // Reinstalling clears it.
+      runIn(project, ["skill", "install"]);
+      expect(runIn(project, query).stderr).toBe("");
+    } finally {
+      await rm(project, { recursive: true, force: true });
     }
   });
 });
