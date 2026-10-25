@@ -163,6 +163,38 @@ watch(sourceDirectory, { recursive: true }, (_event, filename) => {
   }, 80);
 });
 
+// The mock server reads its fixture and routes once at start, so a change
+// under mock/ restarts it; otherwise the bundle would hot-rebuild against a
+// stale API.
+let restartDebounce = null;
+
+function restartServer(reason) {
+  const previous = server;
+  server = null;
+  if (previous === null) {
+    startServer();
+  } else {
+    previous.once("exit", startServer);
+    previous.kill("SIGTERM");
+  }
+  console.log(`[forensix mock-dev] mock server restarted (${reason})`);
+}
+
+watch(join(clientRoot, "mock"), (_event, filename) => {
+  if (filename === null || filename === undefined) {
+    return;
+  }
+  if (!filename.endsWith(".mjs")) {
+    return;
+  }
+  if (restartDebounce !== null) {
+    clearTimeout(restartDebounce);
+  }
+  restartDebounce = setTimeout(() => {
+    restartServer(filename);
+  }, 80);
+});
+
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => {
     stopServer();
