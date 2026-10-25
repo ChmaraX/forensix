@@ -19,3 +19,6 @@ DESIGN.md
 
 # Browser E2E traces, screenshots and fixture Case (rebuilt every run).
 e2e/.artifacts/
+
+# Agent eval runs (transcripts, answers, scores; rebuilt by e2e/agent-eval/run.mjs).
+e2e/agent-eval/runs/

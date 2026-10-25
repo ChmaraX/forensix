@@ -147,7 +147,7 @@ const HISTORY_SCHEMA = `
   );
 `;
 
-interface Visit {
+export interface Visit {
   readonly id: bigint;
   readonly url: string;
   readonly title: string;
@@ -216,11 +216,14 @@ function walVisits(): Visit[] {
 /** History with committed visits and a download, then an open writer holding
  *  `WAL_VISIT_COUNT` more visits in an uncheckpointed WAL. The caller closes
  *  the writer after ingest (closing would checkpoint the WAL away). */
-function createHistory(path: string): DatabaseSync {
+function createHistory(
+  path: string,
+  extraVisits: readonly Visit[],
+): DatabaseSync {
   const database = new DatabaseSync(path);
   try {
     database.exec(HISTORY_SCHEMA);
-    insertVisits(database, committedVisits());
+    insertVisits(database, [...committedVisits(), ...extraVisits]);
     const start = chromeTime(`${HISTORY_DAYS[1] ?? ""}T15:00:00Z`);
     const fileUrl = `https://${DOWNLOAD_ONLY_HOST}/files/${DOWNLOAD_FILE_NAME}`;
     database
@@ -373,18 +376,37 @@ async function writeKeyMaterial(path: string): Promise<void> {
   );
 }
 
-function mustRun(arguments_: readonly string[]): void {
+function mustRun(
+  arguments_: readonly string[],
+  exitCodes: readonly number[] = [0],
+): void {
   const result = runCli(arguments_);
-  if (result.status !== 0) {
+  if (result.status === null || !exitCodes.includes(result.status)) {
     throw new Error(
       `forensix ${arguments_[0] ?? ""} failed (${String(result.status)}): ${result.stderr}${result.stdout}`,
     );
   }
 }
 
+/** Optional additions for callers that need more than the dashboard shapes
+ *  (the agent eval). The default build ignores all of them. */
+export interface DashboardCaseOptions {
+  /** More committed History visits. Their ids must not collide with the
+   *  base visits (1 to 180 and 10000 to 10119). */
+  readonly extraVisits?: readonly Visit[];
+  /** Writes more artifacts into the Profile directory before ingest. */
+  readonly extendProfile?: (profileDirectory: string) => Promise<void>;
+  /** The analyse exit codes to accept (default `[0]`). Use `[2]` when the
+   *  Source has an artifact that is planned to be unavailable. */
+  readonly analyseExitCodes?: readonly number[];
+}
+
 /** Writes the Source under `root`, ingests and analyses it into
  *  `<root>/case`, and returns that Case directory. `root` must be empty. */
-export async function buildDashboardCase(root: string): Promise<string> {
+export async function buildDashboardCase(
+  root: string,
+  options: DashboardCaseOptions = {},
+): Promise<string> {
   const source = join(root, "source");
   const profile = join(source, PROFILE);
   await mkdir(join(profile, "Network"), { recursive: true });
@@ -393,25 +415,32 @@ export async function buildDashboardCase(root: string): Promise<string> {
   createCookies(join(profile, "Network", "Cookies"));
   const keyMaterial = join(root, "key-material.json");
   await writeKeyMaterial(keyMaterial);
+  await options.extendProfile?.(profile);
   const caseDirectory = join(root, "case");
-  const writer = createHistory(join(profile, "History"));
+  const writer = createHistory(
+    join(profile, "History"),
+    options.extraVisits ?? [],
+  );
   try {
     mustRun(["ingest", source, "--case", caseDirectory, "--json"]);
   } finally {
     writer.close();
   }
-  mustRun([
-    "analyse",
-    "--case",
-    caseDirectory,
-    "--timezone",
-    TIMEZONE,
-    "--decrypt",
-    "--key-material",
-    keyMaterial,
-    "--no-topic-classification",
-    "--json",
-  ]);
+  mustRun(
+    [
+      "analyse",
+      "--case",
+      caseDirectory,
+      "--timezone",
+      TIMEZONE,
+      "--decrypt",
+      "--key-material",
+      keyMaterial,
+      "--no-topic-classification",
+      "--json",
+    ],
+    options.analyseExitCodes,
+  );
   return caseDirectory;
 }
 
