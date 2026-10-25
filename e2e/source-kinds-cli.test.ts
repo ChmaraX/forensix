@@ -742,8 +742,9 @@ describe("compiled analyzer CLI Source kinds", () => {
         ["build", "-o", collector, "./cmd/forensix-collect"],
         { cwd: resolve("collector"), encoding: "utf8" },
       );
-      expect(build.stderr).toBe("");
-      expect(build.status).toBe(0);
+      // `go build` writes module download progress to stderr on a fresh
+      // module cache (CI), so only its exit status says whether it built.
+      expect(build.status, build.stderr).toBe(0);
 
       // The account's Chrome directory is a symlink to the real User Data
       // Dir, as on a machine that moved its browser data to another volume.
