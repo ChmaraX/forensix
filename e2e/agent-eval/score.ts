@@ -300,6 +300,15 @@ export interface ScoreInput {
   readonly truthIds: Record<string, string>;
 }
 
+/** The claim calls the value a Candidate within a few words of it. */
+function hedgedAsCandidate(text: string, value: string): boolean {
+  const haystack = lower(text);
+  const at = haystack.indexOf(lower(value));
+  if (at === -1) return false;
+  const window = haystack.slice(Math.max(0, at - 40), at + value.length + 40);
+  return /\bcandidate\b/.test(window);
+}
+
 export function scoreAnswer(input: ScoreInput): Score {
   const { answer, truth, resolver, truthIds } = input;
   const question = truth.questions.find(
@@ -337,21 +346,22 @@ export function scoreAnswer(input: ScoreInput): Score {
     if (fact === undefined) {
       throw new Error(`question "${question.key}" names unknown fact "${key}"`);
     }
-    const matching = claims.filter((claim) =>
-      mentionsAny(claim.text, fact.mentions),
+    // A claim recalls a fact when it cites a record that holds the fact's
+    // locator value (the strongest proof), or when its text names the fact.
+    const citesFact = (claim: AnswerClaim): boolean =>
+      cited(claim).some((record) =>
+        fieldStrings(record).some((value) =>
+          value.includes(fact.locator.value),
+        ),
+      );
+    const matching = claims.filter(
+      (claim) => citesFact(claim) || mentionsAny(claim.text, fact.mentions),
     );
     if (matching.length === 0) {
       continue;
     }
     recalled.push(key);
-    const supported = matching.some((claim) =>
-      cited(claim).some((record) =>
-        fieldStrings(record).some((value) =>
-          value.includes(fact.locator.value),
-        ),
-      ),
-    );
-    if (supported) {
+    if (matching.some(citesFact)) {
       citedFacts.push(key);
     }
   }
@@ -386,7 +396,9 @@ export function scoreAnswer(input: ScoreInput): Score {
             lower(value).includes(lower(candidate.value)),
           ),
       );
-      if (!backed) {
+      // "consistent with the Ada Lovelace candidate" names the guess as a
+      // guess: a hedged reference, not a Candidate stated as fact.
+      if (!backed && !hedgedAsCandidate(claim.text, candidate.value)) {
         candidateViolations.push({
           claim: claim.text,
           reason: `states Candidate value "${candidate.value}" as ${claim.recordType || "(no recordType)"} without a Finding that holds it`,
