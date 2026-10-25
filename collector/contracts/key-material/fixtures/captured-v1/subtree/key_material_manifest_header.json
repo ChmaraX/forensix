@@ -1,0 +1,6 @@
+{
+  "manifest_schema": "forensix/key-material-manifest/1",
+  "hash_algorithm": "sha-256",
+  "manifest_digest": "9e1f23c3bd2f12c391e299d4618e8b88aea21d86b8f5f04fdfde0069af37f6e6",
+  "entry_count": 3
+}

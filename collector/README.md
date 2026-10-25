@@ -53,6 +53,30 @@ Tier 2 bulk content is off by default.
 Add `--include-bulk` to copy Tier 2 content.
 The Collector always hashes and manifests every Source entry.
 
+If Chrome locks a file, or the Collector cannot read a file, the Manifest entry is `unavailable` with the reason `permission_denied` or `io_error`.
+If a file changes between the inventory and the copy, the reason is `changed_during_ingest`.
+The Collector does not copy that file, and it continues with the other files.
+The User Data Dir fails only when the Collector cannot read its root or cannot write the bundle.
+
+If the selected User Data Dir is a symlink or a junction, the Collector resolves it one time and collects the target.
+It does not follow symlinks inside the User Data Dir.
+
+### Collect from a mounted filesystem
+
+Use `--source-root` to scan the accounts in a mounted filesystem instead of the live host accounts:
+
+```sh
+forensix-collect \
+  --source-root /mnt/evidence \
+  --out ./BUNDLE-2026-015 \
+  --operator examiner-7 \
+  --authorization-reference "CASE-2026-015, authorized by lab lead"
+```
+
+The Collector looks for accounts in `Users/` on macOS and Windows, and in `home/` and `root` on Linux.
+It uses the Chrome paths of the host operating system.
+You cannot use `--source-root` with `--capture-key-material`, because key capture reads the live key store.
+
 ## Capture authorized key material
 
 Key capture is off by default.
@@ -83,6 +107,18 @@ The private key stays with the investigator.
      --capture-key-material \
      --key-material-recipient-file ./key-material-public.pem
    ```
+
+5. Decrypt offline with the analyzer. Give it the key-material subtree of the User Data Dir and the private key.
+
+   ```sh
+   forensix analyse \
+     --case ./CASE-2026-014 \
+     --decrypt \
+     --key-material ./BUNDLE-2026-014/key_material/<account>/udd-1 \
+     --recipient-key ./key-material-private.pem
+   ```
+
+   The analyzer verifies the subtree against its key-material Manifest before it uses a record.
 
 The sealed record uses X25519, HKDF-SHA-256, and AES-256-GCM.
 The associated data covers the provider, context, policy, and wrapper references.
@@ -154,6 +190,7 @@ Each key-material directory contains:
 
 - `key_material_manifest_header.json`
 - canonical, path-sorted `key_material_manifest.jsonl`
+- `key_material_bundle.json` with all records, for the analyzer
 - `records/` with sealed key records
 - `evidence/` with opaque provider wrappers, when present
 

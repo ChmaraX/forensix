@@ -9,6 +9,7 @@ Each collected User Data Dir has this shape when the operator explicitly enables
 key_material/<account-id>/udd-N/
   key_material_manifest_header.json
   key_material_manifest.jsonl
+  key_material_bundle.json
   records/<record-id>.json
   evidence/<opaque-wrapper>.bin      # when a provider has wrapper evidence
 ```
@@ -33,6 +34,30 @@ No plaintext provider secret or derived row key is serialized.
 `unsupported` and `unavailable` records have `usable_row_key: false` and `sealed_material: null`.
 A Windows App-Bound `v20` record preserves the exact decoded `Local State` wrapper as opaque evidence and records version `v20` plus policy reason `unsupported-google-app-bound-key-variant`.
 It never claims a usable row key.
+
+## Analyzer input
+
+`key_material_bundle.json` is the analyzer input for the subtree.
+It is one JSON object with these fields:
+
+- `schema`: `forensix/key-material-bundle/1`
+- `records`: every record of `records/`, sorted by `record_id`, with the same fields and values
+
+The analyzer reads it with `forensix analyse --decrypt --key-material <subtree> --recipient-key <private-key>`.
+When `<subtree>` is the subtree directory, the analyzer first does these checks:
+
+- The SHA-256 of `key_material_manifest.jsonl` is equal to `manifest_digest`.
+- Each Manifest entry matches the size and SHA-256 of its file.
+- Each regular file in the subtree, other than the Manifest and its header, has a Manifest entry.
+- The records in `key_material_bundle.json` are equal to the files in `records/`.
+
+If a check fails, the analyzer stops with `INVALID_ARGUMENT`.
+
+`fixtures/captured-v1/` contains the exact Collector output for one captured GNOME libsecret row key and one unavailable KWallet record.
+`recipient-private.pem` is a test-only X25519 key. It protects no real key material.
+The Collector test `TestKeyMaterialSubtreeMatchesSharedGolden` writes the subtree again and compares the bytes.
+The analyzer test `e2e/decrypt-cli.test.ts` decrypts with the fixture.
+After an intentional contract change, run `FORENSIX_UPDATE_GOLDEN=1 go test ./internal/collector -run Golden` to write the fixture again.
 
 ## Canonical Manifest
 

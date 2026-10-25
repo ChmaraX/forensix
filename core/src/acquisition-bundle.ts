@@ -150,15 +150,57 @@ function canonicalRelativePath(value: unknown, name: string): string {
   return path;
 }
 
+/**
+ * The one Acquisition Bundle schema version that the Collector writes and the
+ * analyzer accepts. `contracts/acquisition-bundle/` defines it.
+ */
+export const ACQUISITION_BUNDLE_SCHEMA_VERSION =
+  "forensix-acquisition-bundle-draft/2";
+
+class UnsupportedBundleSchemaVersion extends TypeError {
+  public readonly schemaVersion: unknown;
+
+  public constructor(schemaVersion: unknown) {
+    super(
+      `Acquisition Bundle schema version ${String(JSON.stringify(schemaVersion))} is not supported; expected ${ACQUISITION_BUNDLE_SCHEMA_VERSION}.`,
+    );
+    this.schemaVersion = schemaVersion;
+  }
+}
+
+function booleanValue(value: unknown, name: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new TypeError(`${name} must be a boolean.`);
+  }
+  return value;
+}
+
 function decodeBundleManifest(value: unknown): DecodedBundleManifest {
   const object = record(value, "Acquisition Bundle manifest");
+  if (object.schema_version !== ACQUISITION_BUNDLE_SCHEMA_VERSION) {
+    throw new UnsupportedBundleSchemaVersion(object.schema_version);
+  }
   if (
-    object.schema_version !== "forensix-acquisition-bundle-draft/1" ||
     object.hash_algorithm !== HASH_ALGORITHM ||
     !Array.isArray(object.files) ||
-    !Array.isArray(object.user_data_dirs)
+    !Array.isArray(object.user_data_dirs) ||
+    !Array.isArray(object.key_material)
   ) {
     throw new TypeError("Acquisition Bundle manifest is unsupported.");
+  }
+  booleanValue(
+    object.key_material_capture_requested,
+    "key_material_capture_requested",
+  );
+  booleanValue(object.key_material_captured, "key_material_captured");
+  if (booleanValue(object.key_material_stripped, "key_material_stripped")) {
+    const original = stringValue(
+      object.original_bundle_digest,
+      "original_bundle_digest",
+    );
+    if (!/^[0-9a-f]{64}$/.test(original)) {
+      throw new TypeError("original_bundle_digest is invalid.");
+    }
   }
 
   const paths = new Set<string>();
@@ -349,6 +391,20 @@ export async function inspectAcquisitionBundle(
       JSON.parse(await readFile(manifestNode.absolutePath, "utf8")),
     );
   } catch (error) {
+    if (error instanceof UnsupportedBundleSchemaVersion) {
+      throw new ForensixError(
+        "INGEST_FAILED",
+        error.message,
+        {
+          sourcePath: bundleRoot,
+          bundleStatus: "failed_to_open",
+          reason: "unsupported_bundle_schema_version",
+          schemaVersion: error.schemaVersion ?? null,
+          supportedSchemaVersion: ACQUISITION_BUNDLE_SCHEMA_VERSION,
+        },
+        { cause: error },
+      );
+    }
     throw new ForensixError(
       "INGEST_FAILED",
       "Acquisition Bundle could not be opened.",

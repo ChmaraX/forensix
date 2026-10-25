@@ -30,6 +30,10 @@ const (
 	keyMaterialRecordSchema     = "forensix/key-material-record/1"
 	keyMaterialManifestSchema   = "forensix/key-material-manifest/1"
 	keyMaterialSealingAlgorithm = "x25519-hkdf-sha256-aes-256-gcm"
+	// keyMaterialBundleSchema is the aggregate file that the analyzer reads
+	// with `forensix analyse --decrypt --key-material`.
+	keyMaterialBundleSchema = "forensix/key-material-bundle/1"
+	keyMaterialBundleFile   = "key_material_bundle.json"
 )
 
 var safeRecordID = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
@@ -106,6 +110,13 @@ type keyMaterialRecord struct {
 	Policy         KeyPolicyEvidence      `json:"policy"`
 	Evidence       []KeyEvidenceReference `json:"evidence"`
 	SealedMaterial *sealedKeyMaterial     `json:"sealed_material"`
+}
+
+// keyMaterialBundle is the analyzer input for one key-material subtree. It
+// contains the same records as records/*.json, in record-id order.
+type keyMaterialBundle struct {
+	Schema  string              `json:"schema"`
+	Records []keyMaterialRecord `json:"records"`
 }
 
 type KeyMaterialManifestEntry struct {
@@ -194,6 +205,7 @@ func writeKeyMaterialSubtree(destination, bundlePath, accountID string, capture 
 
 	sort.Slice(capture.Records, func(i, j int) bool { return capture.Records[i].RecordID < capture.Records[j].RecordID })
 	seenRecords := make(map[string]bool, len(capture.Records))
+	aggregate := keyMaterialBundle{Schema: keyMaterialBundleSchema, Records: make([]keyMaterialRecord, 0, len(capture.Records))}
 	unsupported := false
 	for i := range capture.Records {
 		record := &capture.Records[i]
@@ -255,6 +267,10 @@ func writeKeyMaterialSubtree(destination, bundlePath, accountID string, capture 
 		if err := conformance.WriteJSON(recordPath, wire); err != nil {
 			return summary, err
 		}
+		aggregate.Records = append(aggregate.Records, wire)
+	}
+	if err := conformance.WriteJSON(filepath.Join(destination, keyMaterialBundleFile), aggregate); err != nil {
+		return summary, err
 	}
 
 	entries, lines, err := keyMaterialManifest(destination)

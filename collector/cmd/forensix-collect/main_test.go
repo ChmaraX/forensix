@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"os"
@@ -54,7 +55,7 @@ func TestStripKeysSubcommandWritesNewBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifest := collector.BundleManifest{
-		SchemaVersion: "forensix-acquisition-bundle-draft/2", HashAlgorithm: conformance.HashAlgorithm,
+		SchemaVersion: collector.BundleSchemaVersion, HashAlgorithm: conformance.HashAlgorithm,
 		KeyMaterialCaptureRequested: true, KeyMaterialCaptured: true,
 		UserDataDirs: []collector.BundleUserDataDir{}, KeyMaterial: []collector.BundleKeyMaterial{{AccountID: "a", BundlePath: "key_material/a/udd-1"}},
 		Files: files, BundleDigest: conformance.Digest(append(encoded, '\n')),
@@ -83,5 +84,23 @@ func TestStripKeysSubcommandWritesNewBundle(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(output, "key_material")); !os.IsNotExist(err) {
 		t.Fatal("key-material subtree remains after strip-keys")
+	}
+}
+
+func TestSourceRootRefusesLiveKeyCapture(t *testing.T) {
+	recipient := filepath.Join(t.TempDir(), "recipient.txt")
+	if err := os.WriteFile(recipient, []byte("forensix-x25519-public-v1:"+base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(t.TempDir(), "bundle")
+	exit := run([]string{
+		"--source-root", t.TempDir(), "--out", output, "--operator", "examiner",
+		"--authorization-reference", "case/ref", "--capture-key-material", "--key-material-recipient-file", recipient,
+	})
+	if exit != 1 {
+		t.Fatalf("exit=%d want=1", exit)
+	}
+	if _, err := os.Stat(output); !os.IsNotExist(err) {
+		t.Fatal("bundle was written although the live key store does not belong to the mounted root")
 	}
 }

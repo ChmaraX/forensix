@@ -78,7 +78,7 @@ func StripKeys(input, output string) (BundleManifest, error) {
 	}
 
 	originalDigest := manifest.BundleDigest
-	manifest.SchemaVersion = "forensix-acquisition-bundle-draft/2"
+	manifest.SchemaVersion = BundleSchemaVersion
 	manifest.KeyMaterialCaptured = false
 	manifest.KeyMaterialStripped = true
 	manifest.OriginalBundleDigest = originalDigest
@@ -117,6 +117,9 @@ func readBundleManifest(filePath string) (BundleManifest, error) {
 }
 
 func verifyBundleManifest(root string, manifest BundleManifest) error {
+	if manifest.SchemaVersion != BundleSchemaVersion {
+		return fmt.Errorf("unsupported Acquisition Bundle schema version %q; expected %q", manifest.SchemaVersion, BundleSchemaVersion)
+	}
 	if manifest.HashAlgorithm != conformance.HashAlgorithm {
 		return fmt.Errorf("unsupported bundle hash algorithm %q", manifest.HashAlgorithm)
 	}

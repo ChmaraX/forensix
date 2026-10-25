@@ -1,5 +1,7 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  chmod,
   cp,
   lstat,
   mkdir,
@@ -8,11 +10,12 @@ import {
   readdir,
   realpath,
   rm,
+  symlink,
   unlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -219,10 +222,13 @@ async function createBundle(
     join(bundle, "bundle_manifest.json"),
     `${JSON.stringify(
       {
-        schema_version: "forensix-acquisition-bundle-draft/1",
+        schema_version: "forensix-acquisition-bundle-draft/2",
         hash_algorithm: "sha-256",
+        key_material_capture_requested: false,
         key_material_captured: false,
+        key_material_stripped: false,
         user_data_dirs: userDataDirs,
+        key_material: [],
         files,
         bundle_digest: bundleDigest,
       },
@@ -231,6 +237,95 @@ async function createBundle(
     )}\n`,
   );
   return bundle;
+}
+
+/** The Go toolchain builds the real Collector. CI installs Go; a developer
+ * machine without Go skips only the cross-language test. */
+const goAvailable =
+  spawnSync("go", ["version"], { encoding: "utf8" }).status === 0;
+
+/** The Collector's per-account User Data Dir location under a scan root. */
+function collectorUserDataDir(sourceRoot: string, account: string): string {
+  if (process.platform === "win32") {
+    return join(
+      sourceRoot,
+      "Users",
+      account,
+      "AppData",
+      "Local",
+      "Google",
+      "Chrome",
+      "User Data",
+    );
+  }
+  if (process.platform === "darwin") {
+    return join(
+      sourceRoot,
+      "Users",
+      account,
+      "Library",
+      "Application Support",
+      "Google",
+      "Chrome",
+    );
+  }
+  return join(sourceRoot, "home", account, ".config", "google-chrome");
+}
+
+/** A Chrome History database with committed visits. */
+async function createHistoryDatabase(
+  path: string,
+  visits: readonly { readonly url: string; readonly title: string }[],
+): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  const database = new DatabaseSync(path);
+  try {
+    database.exec(`
+      CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);
+      INSERT INTO meta (key, value) VALUES ('version', '70'), ('last_compatible_version', '16');
+      CREATE TABLE urls (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, url LONGVARCHAR, title LONGVARCHAR,
+        visit_count INTEGER DEFAULT 0 NOT NULL, typed_count INTEGER DEFAULT 0 NOT NULL,
+        last_visit_time INTEGER NOT NULL, hidden INTEGER DEFAULT 0 NOT NULL
+      );
+      CREATE TABLE visits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, url INTEGER NOT NULL, visit_time INTEGER NOT NULL,
+        from_visit INTEGER, external_referrer_url TEXT, transition INTEGER DEFAULT 0 NOT NULL,
+        segment_id INTEGER, visit_duration INTEGER DEFAULT 0 NOT NULL,
+        incremented_omnibox_typed_score BOOLEAN DEFAULT FALSE NOT NULL, opener_visit INTEGER,
+        originator_cache_guid TEXT, originator_visit_id INTEGER, originator_from_visit INTEGER,
+        originator_opener_visit INTEGER, is_known_to_sync BOOLEAN DEFAULT FALSE NOT NULL,
+        consider_for_ntp_most_visited BOOLEAN DEFAULT FALSE NOT NULL,
+        visited_link_id INTEGER, app_id TEXT
+      );
+      CREATE TABLE visit_source (id INTEGER PRIMARY KEY, source INTEGER NOT NULL);
+      CREATE TABLE segments (id INTEGER PRIMARY KEY, name VARCHAR, url_id INTEGER NON NULL);
+      CREATE TABLE segment_usage (
+        id INTEGER PRIMARY KEY, segment_id INTEGER NOT NULL,
+        time_slot INTEGER NOT NULL, visit_count INTEGER DEFAULT 0 NOT NULL
+      );
+    `);
+    const insertUrl = database.prepare(
+      "INSERT INTO urls (id, url, title, visit_count, typed_count, last_visit_time, hidden) VALUES (?, ?, ?, 1, 0, ?, 0)",
+    );
+    const insertVisit = database.prepare(
+      `INSERT INTO visits
+         (id, url, visit_time, from_visit, external_referrer_url, transition,
+          segment_id, visit_duration, incremented_omnibox_typed_score,
+          opener_visit, originator_cache_guid, originator_visit_id,
+          originator_from_visit, originator_opener_visit, is_known_to_sync,
+          consider_for_ntp_most_visited, visited_link_id, app_id)
+       VALUES (?, ?, ?, 0, '', 1, 0, 1000000, 0, 0, '', 0, 0, 0, 0, 1, 0, '')`,
+    );
+    for (const [index, visit] of visits.entries()) {
+      const id = BigInt(index + 1);
+      const time = 13_348_638_245_000_000n + id * 60_000_000n;
+      insertUrl.run(id, visit.url, visit.title, time);
+      insertVisit.run(id, id, time);
+    }
+  } finally {
+    database.close();
+  }
 }
 
 afterEach(async () => {
@@ -631,4 +726,182 @@ describe("compiled analyzer CLI Source kinds", () => {
       database.close();
     }
   });
+  it.skipIf(!goAvailable)(
+    "ingests and analyses an Acquisition Bundle that the compiled Go Collector wrote",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "forensix-collector-bundle-"));
+      temporaryRoots.push(root);
+      const collector = join(
+        root,
+        process.platform === "win32"
+          ? "forensix-collect.exe"
+          : "forensix-collect",
+      );
+      const build = spawnSync(
+        "go",
+        ["build", "-o", collector, "./cmd/forensix-collect"],
+        { cwd: resolve("collector"), encoding: "utf8" },
+      );
+      expect(build.stderr).toBe("");
+      expect(build.status).toBe(0);
+
+      // The account's Chrome directory is a symlink to the real User Data
+      // Dir, as on a machine that moved its browser data to another volume.
+      const sourceRoot = join(root, "mounted-root");
+      const realUserDataDir = join(root, "other-volume", "chrome-data");
+      await writeFixtureFile(join(realUserDataDir, "Local State"), "{}\n");
+      await writeFixtureFile(
+        join(realUserDataDir, "Default", "Preferences"),
+        '{"profile":{"name":"Collected"}}\n',
+      );
+      const historyPath = join(realUserDataDir, "Default", "History");
+      await createHistoryDatabase(historyPath, [
+        { url: "https://collected.example/start", title: "Collected start" },
+        { url: "https://collected.example/next", title: "Collected next" },
+      ]);
+      const chromeDirectory = collectorUserDataDir(sourceRoot, "alice");
+      await mkdir(dirname(chromeDirectory), { recursive: true });
+      await symlink(realUserDataDir, chromeDirectory, "junction");
+      // A file the Collector cannot read becomes an unavailable entry; it
+      // does not stop the collection.
+      const lockedPath = join(realUserDataDir, "Default", "Bookmarks");
+      await writeFixtureFile(lockedPath, '{"roots":{}}\n');
+      const canLock = process.platform !== "win32" && process.getuid?.() !== 0;
+      if (canLock) {
+        await chmod(lockedPath, 0o000);
+      }
+      const historyBefore = await readFile(historyPath);
+
+      const bundle = join(root, "BUNDLE-E2E");
+      const collect = spawnSync(
+        collector,
+        [
+          "--source-root",
+          sourceRoot,
+          "--out",
+          bundle,
+          "--operator",
+          "examiner-7",
+          "--authorization-reference",
+          "CASE-E2E, authorized by lab lead",
+        ],
+        { encoding: "utf8" },
+      );
+      if (canLock) {
+        await chmod(lockedPath, 0o600);
+      }
+      expect(collect.stderr).toBe("");
+      expect(collect.status).toBe(0);
+      const bundleManifest = JSON.parse(
+        await readFile(join(bundle, "bundle_manifest.json"), "utf8"),
+      ) as {
+        readonly schema_version: string;
+        readonly user_data_dirs: readonly { readonly outcome: string }[];
+      };
+      expect(bundleManifest.schema_version).toBe(
+        "forensix-acquisition-bundle-draft/2",
+      );
+      expect(bundleManifest.user_data_dirs.map((udd) => udd.outcome)).toEqual([
+        "collected",
+      ]);
+
+      const caseDirectory = join(root, "CASE-COLLECTED");
+      const { command, output } = ingest(
+        bundle,
+        "ACQUISITION_BUNDLE",
+        caseDirectory,
+      );
+      expect(output).toMatchObject({
+        sourceKind: "ACQUISITION_BUNDLE",
+        sourceCount: 1,
+        profileCount: 1,
+        acquisitionBundleVerification: { status: "verified" },
+      });
+      const ingested = parseJson<{ readonly unavailableCount: number }>(
+        command.stdout,
+      );
+      expect(ingested.unavailableCount).toBe(canLock ? 1 : 0);
+      if (canLock) {
+        const manifest = await readFile(
+          output.sources[0]?.manifestPath ?? "",
+          "utf8",
+        );
+        expect(manifest).toContain(
+          '"path":"Default/Bookmarks","state":"unavailable","unavailable_reason":"permission_denied"',
+        );
+      }
+
+      const analysis = runCli([
+        "analyse",
+        "--case",
+        caseDirectory,
+        "--no-topic-classification",
+        "--json",
+      ]);
+      expect(analysis.stderr).toBe("");
+      expect(analysis.status).toBe(0);
+      expect(parseJson<Record<string, unknown>>(analysis.stdout)).toMatchObject(
+        {
+          status: "ok",
+          exitState: "complete",
+          workingCopyVerification: "verified",
+          history: { status: "complete", committedVisitCount: 2 },
+        },
+      );
+      const visits = parseJson<{
+        readonly items: readonly {
+          readonly commitState: string;
+          readonly fields: { readonly url: { readonly value?: string } };
+        }[];
+      }>(
+        runCli([
+          "history",
+          "--case",
+          caseDirectory,
+          "--view",
+          "visits",
+          "--json",
+        ]).stdout,
+      ).items;
+      expect(visits.map((visit) => visit.fields.url.value).sort()).toEqual([
+        "https://collected.example/next",
+        "https://collected.example/start",
+      ]);
+      expect(visits.every((visit) => visit.commitState === "committed")).toBe(
+        true,
+      );
+      expect(await readFile(historyPath)).toEqual(historyBefore);
+
+      // An Acquisition Bundle with another schema version is refused with a
+      // typed reason instead of a guessed interpretation.
+      const otherVersion = join(root, "BUNDLE-OTHER-VERSION");
+      await cp(bundle, otherVersion, { recursive: true });
+      await writeFile(
+        join(otherVersion, "bundle_manifest.json"),
+        (await readFile(join(bundle, "bundle_manifest.json"), "utf8")).replace(
+          "forensix-acquisition-bundle-draft/2",
+          "forensix-acquisition-bundle-draft/1",
+        ),
+      );
+      const refused = runCli([
+        "ingest",
+        otherVersion,
+        "--source-kind",
+        "ACQUISITION_BUNDLE",
+        "--case",
+        join(root, "CASE-REFUSED"),
+        "--json",
+      ]);
+      expect(refused.status).not.toBe(0);
+      expect(parseJson<Record<string, unknown>>(refused.stderr)).toMatchObject({
+        code: "INGEST_FAILED",
+        details: {
+          reason: "unsupported_bundle_schema_version",
+          schemaVersion: "forensix-acquisition-bundle-draft/1",
+          supportedSchemaVersion: "forensix-acquisition-bundle-draft/2",
+        },
+      });
+    },
+    180_000,
+  );
 });

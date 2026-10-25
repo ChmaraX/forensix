@@ -16,6 +16,10 @@ import (
 
 var ErrChromeRunning = errors.New("chrome-running liveness evidence detected")
 
+// BundleSchemaVersion is the one current Acquisition Bundle schema version.
+// contracts/acquisition-bundle defines it, and the analyzer accepts only it.
+const BundleSchemaVersion = "forensix-acquisition-bundle-draft/2"
+
 type Options struct {
 	Output                 string
 	OperatorIdentifier     string
@@ -161,7 +165,7 @@ func (c Collector) Run(opts Options) (BundleManifest, error) {
 		}
 	}()
 	manifest := BundleManifest{
-		SchemaVersion: "forensix-acquisition-bundle-draft/2", HashAlgorithm: conformance.HashAlgorithm,
+		SchemaVersion: BundleSchemaVersion, HashAlgorithm: conformance.HashAlgorithm,
 		KeyMaterialCaptureRequested: opts.CaptureKeyMaterial, KeyMaterial: []BundleKeyMaterial{},
 	}
 	if err := conformance.WriteJSON(filepath.Join(tmp, "scan_record.json"), ScanRecord{Attempts: scan.Attempts}); err != nil {
@@ -216,18 +220,23 @@ func (c Collector) Run(opts Options) (BundleManifest, error) {
 }
 
 func collectUserDataDir(found platformscanner.UserDataDir, destination string, opts Options) (BundleUserDataDir, error) {
-	result := BundleUserDataDir{AccountID: found.AccountID, SourcePath: found.Path, Outcome: Failed}
+	result := BundleUserDataDir{AccountID: found.AccountID, SourcePath: found.Path, Outcome: Failed, LivenessEvidence: []string{}}
 	plan, err := planAcquisition(found, opts.IncludeBulk)
 	if err != nil {
 		result.Error = err.Error()
 		return result, err
 	}
 	result.ChromeRunning = plan.running
-	result.LivenessEvidence = plan.liveness
+	if plan.liveness != nil {
+		result.LivenessEvidence = plan.liveness
+	}
 	result.LivenessExplanation = livenessExplanation(plan.running, plan.liveness)
 	if plan.running && !opts.ContinueIfRunning {
 		result.Outcome, result.Error = SkippedRunning, ErrChromeRunning.Error()
 		return result, ErrChromeRunning
+	}
+	if testHookAfterInventory != nil {
+		testHookAfterInventory(found)
 	}
 	if err := os.MkdirAll(destination, 0o700); err != nil {
 		return result, err
