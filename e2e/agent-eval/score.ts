@@ -300,13 +300,15 @@ export interface ScoreInput {
   readonly truthIds: Record<string, string>;
 }
 
-/** The claim calls the value a Candidate within a few words of it. */
+/** The claim calls the value a Candidate, or hedges it, within a few words. */
 function hedgedAsCandidate(text: string, value: string): boolean {
   const haystack = lower(text);
   const at = haystack.indexOf(lower(value));
   if (at === -1) return false;
   const window = haystack.slice(Math.max(0, at - 40), at + value.length + 40);
-  return /\bcandidate\b/.test(window);
+  return /\bcandidate\b|consistent with|(?:does|do|did) not (?:\w+ )?(?:prove|establish|confirm)|\b(?:may|might|possibly|perhaps|likely|suggests?|hypothes\w*)\b/.test(
+    window,
+  );
 }
 
 export function scoreAnswer(input: ScoreInput): Score {
