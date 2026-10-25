@@ -16,3 +16,6 @@ DESIGN.md
 
 # PR Lens writes its previews here. They are rebuilt on demand.
 .pr-lens/
+
+# Browser E2E traces, screenshots and fixture Case (rebuilt every run).
+e2e/.artifacts/

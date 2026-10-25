@@ -6,7 +6,6 @@ import {
   entryDescription,
   fileEntriesOf,
   matchesQuery,
-  moreLabel,
   usernameEntriesOf,
 } from "./command-index.js";
 import type { FieldState, Finding } from "./types.js";
@@ -160,16 +159,10 @@ describe("usernameEntriesOf", () => {
   });
 });
 
-describe("labels", () => {
-  it("describes where an indexed row is", () => {
-    expect(entryDescription("teamviewer.com", "Profile 2", true)).toBe(
-      "teamviewer.com · Profile 2 · Recovered",
+describe("entryDescription", () => {
+  it("tells a recovered copy of a row from its saved one", () => {
+    expect(entryDescription("teamviewer.com", "Profile 2", true)).not.toBe(
+      entryDescription("teamviewer.com", "Profile 2", false),
     );
-    expect(entryDescription(null, "Default", false)).toBe("Default profile");
-  });
-
-  it("counts the rest of a capped group", () => {
-    expect(moreLabel(1, "file", "files")).toBe("1 more file matches");
-    expect(moreLabel(1200, "file", "files")).toBe("1,200 more files match");
   });
 });

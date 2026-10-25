@@ -1,17 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { FieldState, Finding } from "../types.js";
-import {
-  categoryOf,
-  isPaymentField,
-  isSecretFormField,
-  PAYMENT_SECRET_FIELDS,
-} from "./form-data.js";
-import {
-  COOKIE_SECRET_FIELDS,
-  CREDENTIAL_SECRET_FIELDS,
-  secretFieldsOf,
-} from "./secrets.js";
+import { categoryOf, isPaymentField, isSecretFormField } from "./form-data.js";
+import { secretFieldsOf } from "./secrets.js";
 
 function row(
   findingKind: string,
@@ -96,32 +87,24 @@ describe("secret Form data values (fail closed)", () => {
   });
 });
 
+// A cookie's value and a saved login's password are checked on screen by
+// the browser E2E (e2e/dashboard-browser.test.ts).
 describe("secretFieldsOf", () => {
-  it("hides a cookie's value", () => {
-    expect(secretFieldsOf(row("cookie", {}))).toBe(COOKIE_SECRET_FIELDS);
-  });
-
-  it("hides a saved login's password", () => {
-    expect(secretFieldsOf(row("login_credential", {}))).toEqual(["secret"]);
-    expect(CREDENTIAL_SECRET_FIELDS).toEqual(["secret"]);
-  });
+  const PAYMENT_VALUES = ["fieldValue", "fieldValueLower"];
 
   it("hides a Payment form entry's value and its folded copy", () => {
     expect(
       secretFieldsOf(
         row("autofill_entry", { fieldName: named("security_code") }),
       ),
-    ).toBe(PAYMENT_SECRET_FIELDS);
-    expect(PAYMENT_SECRET_FIELDS).toEqual(["fieldValue", "fieldValueLower"]);
+    ).toEqual(PAYMENT_VALUES);
   });
 
   it("hides a form entry whose name was not recorded", () => {
     expect(
       secretFieldsOf(row("autofill_entry", { fieldName: { state: "absent" } })),
-    ).toBe(PAYMENT_SECRET_FIELDS);
-    expect(secretFieldsOf(row("autofill_entry", {}))).toBe(
-      PAYMENT_SECRET_FIELDS,
-    );
+    ).toEqual(PAYMENT_VALUES);
+    expect(secretFieldsOf(row("autofill_entry", {}))).toEqual(PAYMENT_VALUES);
   });
 
   it("shows an ordinary form entry and other rows", () => {

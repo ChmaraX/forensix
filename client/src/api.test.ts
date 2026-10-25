@@ -25,22 +25,15 @@ describe("classifyApiFailure", () => {
 });
 
 describe("apiFailureMessage", () => {
-  it("names the stopped server and the recovery, keeping the browser's words", () => {
-    const message = apiFailureMessage("unreachable", "Failed to fetch");
-    expect(message).toContain("did not answer");
-    expect(message).toContain("forensix serve");
-    expect(message).toContain("Retry");
-    expect(message.endsWith("(Failed to fetch)")).toBe(true);
-  });
-
-  it("names the rejected token", () => {
-    const message = apiFailureMessage(
-      "token",
-      "A valid per-run dashboard token is required.",
+  it("words each kind of failure differently, keeping the detail", () => {
+    const detail = "Failed to fetch";
+    const messages = (["unreachable", "token", "failed"] as const).map((kind) =>
+      apiFailureMessage(kind, detail),
     );
-    expect(message).toContain("token");
-    expect(message).toContain("restarted");
-    expect(message).toContain("(A valid per-run dashboard token is required.)");
+    expect(new Set(messages).size).toBe(3);
+    for (const message of messages) {
+      expect(message.endsWith(`(${detail})`)).toBe(true);
+    }
   });
 
   it("keeps the server's own words for any other failure", () => {

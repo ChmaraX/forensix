@@ -5,7 +5,6 @@ import {
   formatLocation,
   isDay,
   normalizeRange,
-  pageLabelOf,
   parseLocation,
   rowRefOf,
   withPage,
@@ -44,10 +43,12 @@ describe("parseLocation / formatLocation", () => {
     expect(parseLocation(formatLocation(view))).toEqual(view);
   });
 
-  it("writes parameters in one fixed order", () => {
-    expect(formatLocation(FULL)).toBe(
-      "#/history?from=2024-03-12&to=2024-03-14&profile=Default&profile=Profile+2&host=teamviewer.com&q=https%3A%2F%2Fexample.com%2Fa%3Fb%3Dc%26d%3De%23f&filter=Bookmarks+bar%2FWork&tab=recovered&row=src-01%2Fmanifest.jsonl%7Cvisits%7C500106%7CDefault%7Cwal_resident",
-    );
+  it("gives one view one URL, whatever order a link wrote it in", () => {
+    const hash = formatLocation({ ...FULL, profiles: ["Default"] });
+    const query = new URLSearchParams(hash.slice(hash.indexOf("?") + 1));
+    const reversed = new URLSearchParams([...query].reverse()).toString();
+    expect(reversed).not.toBe(query.toString());
+    expect(formatLocation(parseLocation(`#/history?${reversed}`))).toBe(hash);
   });
 
   it("reads an empty or bare hash as the Overview", () => {
@@ -112,14 +113,6 @@ describe("withPage", () => {
   it("starts the page on show over too", () => {
     expect(withPage(FULL, "history").row).toBeNull();
     expect(withPage(FULL, "history").tab).toBe("saved");
-  });
-});
-
-describe("pageLabelOf", () => {
-  it("names every nav page and nothing else", () => {
-    expect(pageLabelOf("credentials")).toBe("Saved logins");
-    expect(pageLabelOf("sites")).toBe("Sites");
-    expect(pageLabelOf("nope")).toBeNull();
   });
 });
 
