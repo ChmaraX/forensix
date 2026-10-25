@@ -83,7 +83,7 @@ forensix export --case ./CASE-1 --out ./OUT
 forensix report --extract ./OUT --out report.html
 ```
 
-`analyse` exits `0` when clean, `2` when partial, `3` when failed, and `1` on
+`analyse` exits `0` when complete, `2` when partial, `3` when failed, and `1` on
 errors.
 
 ## CLI
@@ -97,15 +97,26 @@ errors.
 | `bookmarks`, `top-sites`, `favicons`   | Saved and frequent sites, icons                               |
 | `metadata`, `profiles`, `completeness` | Profile details and coverage                                  |
 | `candidates`, `topic-candidates`       | Ranked identity, behaviour, and topic guesses                 |
+| `summary`, `schema`, `count`, `get`    | Counts, field lists, and one full record by its id            |
 
 Full reference: [docs/reference.md](docs/reference.md).
 
 ### Built for scripts and agents
 
-- `--json` on every command.
-- Pages of at most 100 rows, with `--after <cursor>` for the next page.
-- Typed error codes such as `INVALID_CURSOR` and `CASE_INVALID`.
-- `completeness` tells you what is missing before you draw conclusions.
+- **A skill ships in the CLI.** `forensix skill get core` gives an agent the
+  rules: read completeness first, Candidates are guesses, label recovered rows,
+  cite record ids.
+- **Evidence is marked untrusted.** A suspect can plant text that tries to
+  instruct an AI. `--content-boundaries` fences it with a per-run nonce.
+- **Small answers first.** `summary`, `count --by`, and `schema` answer without
+  rows. `--fields`, `--max-output`, and `--page-all` keep the rest small or on
+  disk.
+- **Every record has an id.** `get --id history:180` returns it in full.
+- **Secrets stay hidden** unless you add `--include-secrets`.
+- **An audit log of queries.** `--audit-log` writes a hash chain;
+  `audit verify` checks it.
+- One JSON document on stdout, typed error codes on stderr, pages of at most
+  100 rows, and `--help` per command.
 
 ## Collector
 
