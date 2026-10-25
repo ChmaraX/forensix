@@ -1,6 +1,5 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import {
   createServer,
   type IncomingMessage,
@@ -23,15 +22,13 @@ import {
   queryHistory,
   queryMetadata,
   queryProfiles,
+  querySiteFavicons,
   querySiteFindings,
   querySiteHosts,
-  siteHostKey,
   queryTimeline,
   queryTopSites,
   queryTopicCandidates,
   type AutofillDirection,
-  type Finding,
-  type ForensicFields,
   type AutofillSort,
   type BookmarkDirection,
   type BookmarkSort,
@@ -240,162 +237,6 @@ function firstString(value: string | null): string | undefined {
   return value ?? undefined;
 }
 
-function findingFieldString(
-  fields: ForensicFields,
-  key: string,
-): string | null {
-  const field = fields[key];
-  return field !== undefined &&
-    field.state === "value" &&
-    typeof field.value === "string"
-    ? field.value
-    : null;
-}
-
-function findingFieldStringArray(
-  fields: ForensicFields,
-  key: string,
-): readonly string[] {
-  const field = fields[key];
-  if (
-    field === undefined ||
-    field.state !== "value" ||
-    !Array.isArray(field.value)
-  ) {
-    return [];
-  }
-  return field.value.filter(
-    (entry): entry is string => typeof entry === "string",
-  );
-}
-
-/** A favicon URL's host as Sites keys hosts (core's `siteHostKey`: the
- *  hostname, lower case, no domain expansion), so a Sites host key finds
- *  its icon. */
-function hostOf(url: string): string | null {
-  return siteHostKey(url);
-}
-
-/**
- * Sniffs the image container from its leading bytes. The recovered favicon
- * payload carries no format field of its own — Chrome writes
- * `favicon_bitmaps.image_data` as whichever container the site served,
- * historically almost always PNG but never guaranteed. Unrecognized bytes
- * fall back to PNG, the overwhelming common case, rather than dropping the
- * icon entirely.
- */
-function sniffImageMimeType(bytes: Buffer): string {
-  if (
-    bytes.length >= 4 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47
-  ) {
-    return "image/png";
-  }
-  if (
-    bytes.length >= 3 &&
-    bytes[0] === 0xff &&
-    bytes[1] === 0xd8 &&
-    bytes[2] === 0xff
-  ) {
-    return "image/jpeg";
-  }
-  if (bytes.length >= 3 && bytes.toString("ascii", 0, 3) === "GIF") {
-    return "image/gif";
-  }
-  if (
-    bytes.length >= 4 &&
-    bytes[0] === 0x00 &&
-    bytes[1] === 0x00 &&
-    bytes[2] === 0x01 &&
-    bytes[3] === 0x00
-  ) {
-    return "image/x-icon";
-  }
-  if (
-    bytes.length >= 12 &&
-    bytes.toString("ascii", 0, 4) === "RIFF" &&
-    bytes.toString("ascii", 8, 12) === "WEBP"
-  ) {
-    return "image/webp";
-  }
-  return "image/png";
-}
-
-/**
- * Best-effort favicon lookup for a set of hosts, read straight from the
- * Case's own recovered `favicon_bitmaps` payloads and returned as inline
- * `data:` URIs — the dashboard's CSP (`img-src data:`) admits no other image
- * source, so this is the only way a recovered icon can render at all; it is
- * never fetched live. "Best" is the largest recovered bitmap whose page URLs
- * or icon URL resolve to that host. A host with no recovered favicon maps to
- * `null`, the dashboard's cue to fall back to its own letter tile — the
- * absence is real, not a loading state.
- *
- * Reads one page of favicons (the route's own cap, 100 rows) rather than
- * paginating the whole table: enough for every dashboard caller today (a
- * handful of Overview or Sites-tab hosts at a time). A Case with more than
- * 100 recovered favicons can miss one for a requested host; that host then
- * falls back to its letter tile exactly as if none had been recovered,
- * never a wrong or stale icon.
- */
-function resolveFaviconDataUris(
-  caseDirectory: string,
-  hosts: readonly string[],
-): Record<string, string | null> {
-  const wanted = new Set(hosts);
-  const best = new Map<string, { width: number; path: string }>();
-  const page = queryFavicons({ caseDirectory, limit: 100 });
-  for (const finding of page.items as readonly Finding[]) {
-    const payloadPath = findingFieldString(finding.fields, "payloadPath");
-    if (payloadPath === null) {
-      continue;
-    }
-    const width = Number(findingFieldString(finding.fields, "width") ?? "0");
-    const candidates = new Set<string>();
-    for (const url of findingFieldStringArray(finding.fields, "pageUrls")) {
-      const host = hostOf(url);
-      if (host !== null) {
-        candidates.add(host);
-      }
-    }
-    const iconUrl = findingFieldString(finding.fields, "iconUrl");
-    if (iconUrl !== null) {
-      const host = hostOf(iconUrl);
-      if (host !== null) {
-        candidates.add(host);
-      }
-    }
-    for (const host of candidates) {
-      if (!wanted.has(host)) {
-        continue;
-      }
-      const current = best.get(host);
-      if (current === undefined || width > current.width) {
-        best.set(host, { width, path: payloadPath });
-      }
-    }
-  }
-  const result: Record<string, string | null> = {};
-  for (const host of hosts) {
-    const record = best.get(host);
-    if (record === undefined) {
-      result[host] = null;
-      continue;
-    }
-    try {
-      const bytes = readFileSync(join(caseDirectory, record.path));
-      result[host] =
-        `data:${sniffImageMimeType(bytes)};base64,${bytes.toString("base64")}`;
-    } catch {
-      result[host] = null;
-    }
-  }
-  return result;
-}
-
 function integerParameter(
   parameters: URLSearchParams,
   name: string,
@@ -514,10 +355,8 @@ export const API_ROUTES = new Map<
   ],
   [
     "site-favicons",
-    (parameters, caseDirectory) => ({
-      status: "ok",
-      icons: resolveFaviconDataUris(caseDirectory, parameters.getAll("host")),
-    }),
+    (parameters, caseDirectory) =>
+      querySiteFavicons({ caseDirectory, hosts: parameters.getAll("host") }),
   ],
   [
     "cookies",

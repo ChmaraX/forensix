@@ -173,9 +173,24 @@ export {
   type TimelineQuery,
 } from "./timeline-query.js";
 export {
+  cacheResourceUrl,
+  recordedStrings,
+  SITE_HOST_FIELDS,
+  siteHostKey,
+  siteHostKeysOfField,
+  siteHostsOf,
+  type SiteHostField,
+  type SiteHostFieldState,
+} from "./site-host-key.js";
+export {
+  querySiteFavicons,
+  SITE_FAVICON_HOST_LIMIT,
+  type SiteFaviconsQuery,
+  type SiteFaviconsResult,
+} from "./site-favicons-query.js";
+export {
   querySiteFindings,
   querySiteHosts,
-  siteHostKey,
   type SiteArtifactKind,
   type SiteFinding,
   type SiteFindingsPage,
