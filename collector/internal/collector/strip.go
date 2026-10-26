@@ -90,7 +90,7 @@ func StripKeys(input, output string) (BundleManifest, error) {
 	if err := conformance.WriteJSON(filepath.Join(tmp, "bundle_manifest.json"), manifest); err != nil {
 		return BundleManifest{}, err
 	}
-	if err := os.Rename(tmp, output); err != nil {
+	if err := publishStaging(tmp, output); err != nil {
 		return BundleManifest{}, fmt.Errorf("publish stripped Acquisition Bundle: %w", err)
 	}
 	committed = true

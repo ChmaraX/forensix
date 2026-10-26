@@ -22,14 +22,6 @@ import { EvidenceDot } from "./evidence.js";
 import { FieldStateText, MaybeFieldStateText } from "./field-state.js";
 import { TermExplanation, TermTooltip } from "./term.js";
 
-export {
-  fieldBool,
-  fieldInteger,
-  fieldString,
-  fieldText,
-  fieldUtc,
-} from "../field-readers.js";
-
 /** "9 Dec 2024" / "14:32:07" (UTC) parts of an ISO instant, or null. */
 export function formatInstant(
   utc: string,
@@ -53,18 +45,6 @@ export function formatInstant(
       timeZone: "UTC",
     }),
   };
-}
-
-/** The host of a URL, or null when the value is not a parseable URL. */
-export function hostOf(url: string | null): string | null {
-  if (url === null) {
-    return null;
-  }
-  try {
-    return new URL(url).host;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -204,10 +184,6 @@ export function TwoLineCell({
   );
 }
 
-/** Monospace rule for any value outside `FieldCell`: `isCodeLike(text)` and
- *  `codeClass(text, mono?)` (→ `"font-mono"` or `""`). */
-export { codeClass, isCodeLike } from "./field-state.js";
-
 /**
  * A Chrome profile directory as a person reads it: "Default" (and the
  * browser-wide ".") → "Default profile"; a name that already says
@@ -221,9 +197,6 @@ export function profileLabel(profile: string): string {
   }
   return /\bprofile\b/i.test(profile) ? profile : `${profile} profile`;
 }
-
-/** The word "absent" (one shared copy, from field-state.tsx). */
-export { AbsentWord } from "./field-state.js";
 
 const AVATAR_SIZE = {
   md: { box: "size-7 rounded-md", type: typeClass("caption"), image: "size-4" },

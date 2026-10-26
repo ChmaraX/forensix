@@ -62,7 +62,7 @@ import {
 } from "@/components/completeness";
 import { ErrorRows, LoadingRows, RevealSwap } from "@/components/list-states";
 import { TooltipFigure } from "@/components/metric-band";
-import { formatDaySpan, plural, SectionPanel } from "@/components/page-kit";
+import { plural, SectionPanel } from "@/components/page-kit";
 import { Banner, BannerDescription, BannerTitle } from "@/components/ui/banner";
 import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
@@ -77,8 +77,6 @@ import { rowRefOf } from "./router.js";
 import type { PageKey } from "./pages.js";
 import { hrefFor, useViewRange } from "./view-state.js";
 import {
-  fieldString,
-  formatDay,
   formatSpan,
   loadDownloadsIn,
   loadMostVisitedIn,
@@ -89,7 +87,7 @@ import {
   type RecoveredCount,
   type TopSite,
 } from "./overview/data";
-import type { Finding } from "./types.js";
+import type { Finding, OverviewArtifact } from "./types.js";
 import {
   CaseFigures,
   DownloadsList,
@@ -105,6 +103,8 @@ import {
   type ArtifactCoverage,
   type CaseFigure,
 } from "./overview/parts";
+import { fieldString } from "./field-readers.js";
+import { formatDaySpan, formatDay } from "@/day-format";
 
 export function OverviewPage() {
   // The Completeness Statement and the profiles are the shell's one read
@@ -489,7 +489,9 @@ function OverviewContent({
 
   // How much of each artifact was read, for the Recovered rows: `null`
   // when every database was (the row then needs no note).
-  const artifactCoverage = (artifact: string): ArtifactCoverage | null => {
+  const artifactCoverage = (
+    artifact: OverviewArtifact,
+  ): ArtifactCoverage | null => {
     const scope = coverageOf(completeness, [artifact]);
     return scope.degraded
       ? { produced: scope.produced, attempted: scope.attempted }
@@ -521,8 +523,7 @@ function OverviewContent({
   // Links carry the lens (`hrefFor`), so a page opens on the same days.
   const sitesHref = (host: string) => hrefFor("sites", { host });
   const downloadHref = (download: Finding) => {
-    const row = rowRefOf(download);
-    return hrefFor("downloads", row === null ? {} : { row, tab: "saved" });
+    return hrefFor("downloads", { row: rowRefOf(download), tab: "saved" });
   };
   // Recovered counts cover every day and every profile, so their links open
   // the page without the lens: the Recovered tab then lists the rows

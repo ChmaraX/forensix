@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
+import { once } from "node:events";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -1097,5 +1098,44 @@ describe("compiled analyzer CLI dashboard origin check", () => {
     ).toBe(403);
 
     await stopServers();
+  }, 30_000);
+
+  it("refuses analyse and a second serve of the same Case while serve runs", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-serve-lock-"));
+    temporaryRoots.push(root);
+    const { source, cookieWriter } = await createSource(root);
+    const caseDirectory = join(root, "CASE-LOCK");
+    try {
+      expect(
+        runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+      ).toBe(0);
+    } finally {
+      cookieWriter.close();
+    }
+    expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
+      0,
+    );
+    const caseFiles = (await readdir(caseDirectory)).sort();
+
+    await startServer(caseDirectory);
+    const serving = runningServers.at(-1);
+    const analyse = runCli(["analyse", "--case", caseDirectory, "--json"]);
+    expect(analyse.status).toBe(1);
+    expect(JSON.parse(analyse.stderr.trim())).toMatchObject({
+      code: "CASE_IN_USE",
+      details: { holder: "serve", pid: serving?.pid },
+    });
+    await expect(startServer(caseDirectory)).rejects.toThrow(
+      "serve exited early with code 1",
+    );
+    // The lock lives outside the Case Directory: serve writes nothing there.
+    expect((await readdir(caseDirectory)).sort()).toEqual(caseFiles);
+
+    // A stopped serve releases the lock, so analyse runs again.
+    serving?.kill("SIGTERM");
+    if (serving !== undefined) await once(serving, "exit");
+    expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
+      0,
+    );
   }, 30_000);
 });

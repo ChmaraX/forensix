@@ -1,32 +1,18 @@
 import {
-  assertCommitState,
   createConditions,
-  decodeRecordJson,
   normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
   resolveCommitState,
   resolveProfiles,
   resolveSearch,
   runFindingQuery,
-  validateEnum,
-  type EngineRow,
   type FindingQuerySpec,
+  type QueryDirection,
   type SortDefinition,
 } from "./finding-query.js";
-import type { Identified } from "./record-store.js";
-import {
-  createFinding,
-  type CommitState,
-  type Finding,
-} from "./forensic-model.js";
-
-export type CookieDirection = "asc" | "desc";
-export type CookieSort =
-  | "host"
-  | "name"
-  | "creation-time"
-  | "expires-time"
-  | "last-access-time"
-  | "profile";
+import { decodeFinding, type Identified } from "./record-store.js";
+import type { CommitState, Finding } from "./forensic-model.js";
 
 export interface CookieQuery {
   readonly caseDirectory: string;
@@ -36,7 +22,7 @@ export interface CookieQuery {
   readonly host?: string;
   readonly sameSite?: string;
   readonly sort?: CookieSort;
-  readonly direction?: CookieDirection;
+  readonly direction?: QueryDirection;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -49,8 +35,7 @@ export interface CookiePage {
   readonly limit: number;
 }
 
-const COOKIE_DIRECTIONS = ["asc", "desc"] as const;
-const COOKIE_SORTS = [
+export const COOKIE_SORTS = [
   "host",
   "name",
   "creation-time",
@@ -58,6 +43,7 @@ const COOKIE_SORTS = [
   "last-access-time",
   "profile",
 ] as const;
+export type CookieSort = (typeof COOKIE_SORTS)[number];
 
 const SORTS: Readonly<Record<CookieSort, SortDefinition>> = {
   host: { expression: "COALESCE(f.sort_host, '')", kind: "text" },
@@ -78,47 +64,12 @@ const COOKIE_SPEC: FindingQuerySpec<CookieQuery, Finding> = {
   label: "Cookies",
   store: "cookies",
   analysisNotFound: "Case has no Cookies analysis. Run analyse first.",
-  schemaTable: "cookie_findings",
-  mainTable: "cookie_findings",
-  resultsTable: "cookie_artifact_results",
-  idColumn: "finding_id",
-  cursorIdField: "findingId",
-  selectColumns: "f.finding_kind, f.profile_path, f.commit_state",
-  parse: (row: EngineRow): Finding => {
-    const { provenance, fields } = decodeRecordJson(
-      row,
-      "Case contains invalid Cookie Finding JSON.",
-      "findingId",
-    );
-    const commitState = assertCommitState(
-      row.commit_state,
-      "findingId",
-      row.entity_id.toString(),
-    );
-    return createFinding({
-      findingKind: row.finding_kind as string,
-      profile: row.profile_path as string,
-      commitState,
-      provenance,
-      fields,
-    });
-  },
+  decode: decodeFinding,
   plan: (input) => {
-    const direction = validateEnum(
-      input.direction,
-      "asc",
-      COOKIE_DIRECTIONS,
-      "--direction",
-      "Cookies",
-    );
-    const sort = validateEnum(
-      input.sort,
-      "host",
-      COOKIE_SORTS,
-      "--sort",
-      "Cookies",
-    );
-    const commitState = resolveCommitState(input.commitState, "Cookies");
+    const direction =
+      parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "asc";
+    const sort = parseOption(input.sort, "--sort", COOKIE_SORTS) ?? "host";
+    const commitState = resolveCommitState(input.commitState);
     const limit = normalizeLimit(input.limit, "Cookies");
     const profiles = resolveProfiles(input.profiles, "Cookies");
     const search = resolveSearch(input.search);
@@ -127,7 +78,6 @@ const COOKIE_SPEC: FindingQuerySpec<CookieQuery, Finding> = {
 
     const where = createConditions();
     where.add("f.finding_kind = 'cookie'");
-    where.add("f.record_type = 'finding'");
     if (commitState !== null) {
       where.add("f.commit_state = ?", commitState);
     }
@@ -141,7 +91,6 @@ const COOKIE_SPEC: FindingQuerySpec<CookieQuery, Finding> = {
     where.addSearch(search);
 
     return {
-      sort,
       direction,
       limit,
       sortDefinition: SORTS[sort],

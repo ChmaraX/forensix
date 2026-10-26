@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type {
@@ -7,31 +5,40 @@ import type {
   PersistedFaviconFinding,
 } from "./case-findings.js";
 import type { CaseSourceRecord } from "./case.js";
-import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
+import { ForensixError } from "./errors.js";
 import {
   absentField,
   createFinding,
   unavailableField,
   valueField,
-  type CommitState,
   type FieldState,
-  type ManifestEntryReference,
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
-import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
 import {
-  WINDOWS_EPOCH_OFFSET_MICROS,
-  utcFromUnixMicros,
-} from "./forensic-time.js";
-import type { ForensicTimestamp } from "./history.js";
+  citedPasses,
+  completeArtifactHeader,
+  preservedInteger,
+  preservedString,
+  readFailureHeader,
+  resolveProfileDatabase,
+  sourceRowProvenance,
+  timestampField,
+  type CitedPass,
+  type ManifestIdentity,
+  type RawSqliteValue,
+  type SqliteArtifactHeader,
+} from "./sqlite-artifact.js";
 import {
   readFaviconPasses,
   type FaviconPass,
   type RawFaviconBitmap,
-  type RawFaviconValue,
-  type VerifiedFaviconFile,
 } from "./favicons-sqlite.js";
+import {
+  payloadFile,
+  writePayloadFiles,
+  type PayloadFile,
+} from "./payload-files.js";
 
 /**
  * The Case-relative directory that holds icon payloads as separately hashed
@@ -50,19 +57,6 @@ const ICON_TYPES = new Map<bigint, string>([
   [8n, "web_manifest_icon"],
 ]);
 
-interface ManifestIdentity {
-  readonly sourceId: string;
-  readonly ordinal: number;
-  readonly path: string;
-  readonly databasePath: string;
-}
-
-interface PayloadFile {
-  readonly sha256: string;
-  readonly bytes: number;
-  readonly data: Uint8Array;
-}
-
 interface BuiltFavicon {
   readonly signature: string;
   readonly persisted: PersistedFaviconFinding;
@@ -73,58 +67,12 @@ interface BuiltFavicon {
  * microseconds since the 1601-01-01 UTC Windows epoch on every platform. The
  * epoch is therefore fixed and needs no declared origin OS, unlike History.
  */
-function faviconTimestamp(
-  raw: RawFaviconValue,
-  columnPresent: boolean,
-  declaredTimezone: string,
-): FieldState<ForensicTimestamp> {
-  if (!columnPresent || raw === null || raw === 0n) {
-    return absentField();
-  }
-  if (typeof raw !== "bigint") {
-    return unavailableField("unsupported_value");
-  }
-  const utc = utcFromUnixMicros(raw - WINDOWS_EPOCH_OFFSET_MICROS);
-  if (utc === null) {
-    return unavailableField("timestamp_out_of_range");
-  }
-  return valueField(
-    {
-      raw: raw.toString(),
-      epochFamily: "1601-us",
-      utc,
-      declaredTimezone,
-      resolution: "chromium_base_time_internal_value",
-    },
-    { synthetic: false },
-  );
-}
+const FAVICON_EPOCH = {
+  epochFamily: "1601-us",
+  resolution: "chromium_base_time_internal_value",
+} as const;
 
-function preservedString(
-  value: RawFaviconValue,
-  columnPresent: boolean,
-): FieldState<string> {
-  if (!columnPresent || value === null) {
-    return absentField();
-  }
-  return typeof value === "string"
-    ? valueField(value)
-    : unavailableField("unsupported_value");
-}
-
-function preservedInteger(
-  value: RawFaviconValue,
-  columnPresent: boolean,
-): FieldState<string> {
-  if (!columnPresent || value === null) {
-    return absentField();
-  }
-  return typeof value === "bigint"
-    ? valueField(value.toString())
-    : unavailableField("unsupported_value");
-}
-
-function iconTypeField(value: RawFaviconValue): FieldState<string> {
+function iconTypeField(value: RawSqliteValue): FieldState<string> {
   if (value === null) {
     return absentField();
   }
@@ -146,7 +94,7 @@ function iconTypeField(value: RawFaviconValue): FieldState<string> {
  *   `unavailable`, so a corrupt payload is never confused with a missing one.
  */
 function classifyPayload(
-  value: RawFaviconValue,
+  value: RawSqliteValue,
   columnPresent: boolean,
 ):
   | { readonly state: "value"; readonly payload: PayloadFile }
@@ -163,16 +111,12 @@ function classifyPayload(
   if (value.byteLength === 0) {
     return { state: "absent" };
   }
-  const sha256 = createHash("sha256").update(value).digest("hex");
-  return {
-    state: "value",
-    payload: { sha256, bytes: value.byteLength, data: value },
-  };
+  return { state: "value", payload: payloadFile(value) };
 }
 
 type PayloadClassification = ReturnType<typeof classifyPayload>;
 
-function bigintText(value: RawFaviconValue): string | null {
+function bigintText(value: RawSqliteValue): string | null {
   return typeof value === "bigint" ? value.toString() : null;
 }
 
@@ -180,11 +124,11 @@ function faviconRecords(
   pass: FaviconPass,
 ): ReadonlyMap<
   string,
-  { readonly url: RawFaviconValue; readonly iconType: RawFaviconValue }
+  { readonly url: RawSqliteValue; readonly iconType: RawSqliteValue }
 > {
   const records = new Map<
     string,
-    { readonly url: RawFaviconValue; readonly iconType: RawFaviconValue }
+    { readonly url: RawSqliteValue; readonly iconType: RawSqliteValue }
   >();
   for (const record of pass.favicons) {
     const id = bigintText(record.rowId);
@@ -243,22 +187,18 @@ interface FaviconRow {
   readonly bitmapId: string | null;
   readonly iconId: string | null;
   readonly record:
-    | { readonly url: RawFaviconValue; readonly iconType: RawFaviconValue }
+    | { readonly url: RawSqliteValue; readonly iconType: RawSqliteValue }
     | undefined;
   readonly associations: readonly PageAssociation[];
 }
 
 interface BuildFaviconContext {
-  readonly commitState: CommitState;
+  readonly cited: CitedPass<FaviconPass>;
   readonly profile: string;
-  readonly manifest: ManifestIdentity;
-  readonly recoveredVia?: ManifestEntryReference;
   readonly declaredTimezone: string;
   readonly payloads: Map<string, PayloadFile>;
   readonly bitmapColumns: ReadonlySet<string>;
 }
-
-type ProvenanceBase = Omit<SourceRowProvenance, "table" | "rowId">;
 
 function payloadField<T>(
   payload: PayloadClassification,
@@ -279,12 +219,17 @@ function payloadField<T>(
  * bitmap, no record, and no mapping is unreachable by construction and fails
  * loud rather than emitting an un-citable empty rowId.
  */
-function faviconProvenance(base: ProvenanceBase, row: FaviconRow): Provenance {
+function faviconProvenance(
+  manifest: ManifestIdentity,
+  row: FaviconRow,
+): Provenance {
+  const cite = (table: string, rowId: string): SourceRowProvenance =>
+    sourceRowProvenance(manifest, table, rowId);
   let primary: SourceRowProvenance;
   if (row.bitmap !== null && row.bitmapId !== null) {
-    primary = { ...base, table: "favicon_bitmaps", rowId: row.bitmapId };
+    primary = cite("favicon_bitmaps", row.bitmapId);
   } else if (row.record !== undefined && row.iconId !== null) {
-    primary = { ...base, table: "favicons", rowId: row.iconId };
+    primary = cite("favicons", row.iconId);
   } else {
     const first = row.associations[0];
     if (first === undefined) {
@@ -293,7 +238,7 @@ function faviconProvenance(base: ProvenanceBase, row: FaviconRow): Provenance {
         "A bitmap-less favicon has no citable favicons or icon_mapping row.",
       );
     }
-    primary = { ...base, table: "icon_mapping", rowId: first.rowId };
+    primary = cite("icon_mapping", first.rowId);
   }
   const supportingRows: SourceRowProvenance[] = [];
   if (
@@ -301,7 +246,7 @@ function faviconProvenance(base: ProvenanceBase, row: FaviconRow): Provenance {
     row.iconId !== null &&
     primary.table !== "favicons"
   ) {
-    supportingRows.push({ ...base, table: "favicons", rowId: row.iconId });
+    supportingRows.push(cite("favicons", row.iconId));
   }
   for (const association of row.associations) {
     if (
@@ -310,11 +255,7 @@ function faviconProvenance(base: ProvenanceBase, row: FaviconRow): Provenance {
     ) {
       continue;
     }
-    supportingRows.push({
-      ...base,
-      table: "icon_mapping",
-      rowId: association.rowId,
-    });
+    supportingRows.push(cite("icon_mapping", association.rowId));
   }
   return supportingRows.length === 0 ? primary : { ...primary, supportingRows };
 }
@@ -346,18 +287,12 @@ function buildFaviconFinding(
   context: BuildFaviconContext,
   row: FaviconRow,
 ): BuiltFavicon {
-  const base: ProvenanceBase = {
-    manifestEntryId: `${context.manifest.sourceId}:${context.manifest.ordinal}`,
-    sourceId: context.manifest.sourceId,
-    manifestEntryOrdinal: context.manifest.ordinal,
-    manifestPath: context.manifest.path,
-    database: context.manifest.databasePath,
-  };
+  const { cited } = context;
   const provenance: Provenance = {
-    ...faviconProvenance(base, row),
-    ...(context.recoveredVia === undefined
+    ...faviconProvenance(cited.manifest, row),
+    ...(cited.recoveredVia === undefined
       ? {}
-      : { recoveredVia: context.recoveredVia }),
+      : { recoveredVia: cited.recoveredVia }),
   };
 
   const payload = classifyPayload(
@@ -377,9 +312,10 @@ function buildFaviconFinding(
     row.record !== undefined,
   );
   const iconType = iconTypeField(row.record?.iconType ?? null);
-  const lastUpdated = faviconTimestamp(
+  const lastUpdated = timestampField(
     row.bitmap?.lastUpdated ?? null,
     bitmapColumn("last_updated"),
+    FAVICON_EPOCH,
     context.declaredTimezone,
   );
   const pageUrls = row.associations
@@ -414,9 +350,10 @@ function buildFaviconFinding(
       bitmapColumn("height"),
     ),
     lastUpdated,
-    lastRequested: faviconTimestamp(
+    lastRequested: timestampField(
       row.bitmap?.lastRequested ?? null,
       bitmapColumn("last_requested"),
+      FAVICON_EPOCH,
       context.declaredTimezone,
     ),
     payloadSha256: payloadField(payload, (file) => file.sha256),
@@ -435,7 +372,7 @@ function buildFaviconFinding(
   const finding = createFinding({
     findingKind: "favicon",
     profile: context.profile,
-    commitState: context.commitState,
+    commitState: cited.commitState,
     provenance,
     fields,
   });
@@ -469,29 +406,26 @@ function buildFaviconFinding(
   };
 }
 
-function buildFavicons(options: {
-  readonly pass: FaviconPass;
-  readonly commitState: CommitState;
-  readonly profile: string;
-  readonly manifest: ManifestIdentity;
-  readonly recoveredVia?: ManifestEntryReference;
-  readonly declaredTimezone: string;
-  readonly payloads: Map<string, PayloadFile>;
-}): BuiltFavicon[] {
-  const records = faviconRecords(options.pass);
-  const mappings = iconMappingsByIcon(options.pass);
+function buildFavicons(
+  cited: CitedPass<FaviconPass>,
+  options: {
+    readonly profile: string;
+    readonly declaredTimezone: string;
+    readonly payloads: Map<string, PayloadFile>;
+  },
+): BuiltFavicon[] {
+  const records = faviconRecords(cited.pass);
+  const mappings = iconMappingsByIcon(cited.pass);
   const context: BuildFaviconContext = {
-    commitState: options.commitState,
+    cited,
     profile: options.profile,
-    manifest: options.manifest,
-    recoveredVia: options.recoveredVia,
     declaredTimezone: options.declaredTimezone,
     payloads: options.payloads,
-    bitmapColumns: options.pass.schema.bitmapColumns,
+    bitmapColumns: cited.pass.schema.bitmapColumns,
   };
   const results: BuiltFavicon[] = [];
   const bitmapIconIds = new Set<string>();
-  for (const bitmap of options.pass.bitmaps) {
+  for (const bitmap of cited.pass.bitmaps) {
     const bitmapId = bigintText(bitmap.rowId);
     if (bitmapId === null) {
       throw new ForensixError(
@@ -518,7 +452,7 @@ function buildFavicons(options: {
   // becomes one Finding, so a known icon URL or page association is never lost
   // just because its payload was never cached.
   const bitmaplessIconIds = new Set<string>();
-  for (const record of options.pass.favicons) {
+  for (const record of cited.pass.favicons) {
     const id = bigintText(record.rowId);
     if (id !== null && !bitmapIconIds.has(id)) {
       bitmaplessIconIds.add(id);
@@ -546,58 +480,16 @@ function buildFavicons(options: {
   return results;
 }
 
-function manifestIdentity(
-  source: CaseSourceRecord,
-  path: string,
-  databasePath = path,
-): ManifestIdentity | null {
-  const ordinal = source.entries.findIndex((entry) => entry.path === path);
-  return ordinal < 0
-    ? null
-    : { sourceId: source.sourceId, ordinal, path, databasePath };
-}
-
 function unavailableArtifact(
-  sourceId: string,
-  profile: string,
-  databasePath: string,
-  manifestEntryOrdinal: number | null,
-  status: "absent" | "unavailable",
-  reason: string,
+  header: SqliteArtifactHeader,
 ): FaviconArtifactWrite {
   return {
-    sourceId,
-    profile,
-    status,
-    manifestEntryOrdinal,
-    databasePath,
-    schemaVersion: null,
-    integrity: null,
-    recoveryStatus: "unavailable",
-    reason,
+    ...header,
     findings: [],
     committedFaviconCount: 0,
     recoveredFaviconCount: 0,
     payloadFileCount: 0,
   };
-}
-
-async function writePayloads(
-  caseDirectory: string,
-  payloads: ReadonlyMap<string, PayloadFile>,
-): Promise<void> {
-  if (payloads.size === 0) {
-    return;
-  }
-  const directory = join(caseDirectory, FAVICON_PAYLOAD_DIRECTORY);
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  for (const payload of payloads.values()) {
-    // Payload files are content-addressed by SHA-256, so an identical write is
-    // idempotent; a re-analysis rewrites byte-for-byte identical content.
-    await writeFile(join(directory, payload.sha256), payload.data, {
-      mode: 0o600,
-    });
-  }
 }
 
 async function analyseProfile(options: {
@@ -607,128 +499,22 @@ async function analyseProfile(options: {
   readonly caseDirectory: string;
   readonly declaredTimezone: string;
 }): Promise<FaviconArtifactWrite> {
-  const databasePath =
-    options.profile === "." ? "Favicons" : `${options.profile}/Favicons`;
-  const manifest = manifestIdentity(options.source, databasePath);
-  if (manifest === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      null,
-      "absent",
-      "favicons_absent",
-    );
+  const resolved = resolveProfileDatabase({
+    ...options,
+    label: "favicons",
+    relativePaths: ["Favicons"],
+  });
+  if (!resolved.readable) {
+    return unavailableArtifact(resolved.header);
   }
-  const entry = options.source.entries[manifest.ordinal];
-  if (entry === undefined) {
-    throw new Error("Manifest ordinal became invalid.");
-  }
-  if (entry.state === "absent") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "absent",
-      "favicons_absent",
-    );
-  }
-  if (entry.state === "unavailable") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      `favicons_unavailable:${entry.unavailable_reason ?? "unknown"}`,
-    );
-  }
-  if (!entry.copied) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "favicons_not_in_working_copy",
-    );
-  }
-  if (entry.size === null || entry.sha256 === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "favicons_manifest_representation_incomplete",
-    );
-  }
-
-  const verifiedDatabase: VerifiedFaviconFile = {
-    path: join(options.workingCopyPath, ...databasePath.split("/")),
-    manifestPath: databasePath,
-    size: entry.size,
-    sha256: entry.sha256,
-  };
-  const sidecars: VerifiedFaviconFile[] = options.source.entries
-    .filter(
-      (candidate) =>
-        candidate.copied &&
-        candidate.state === "value" &&
-        candidate.size !== null &&
-        candidate.sha256 !== null &&
-        (candidate.path === `${databasePath}-wal` ||
-          candidate.path === `${databasePath}-journal`),
-    )
-    .map((candidate) => ({
-      path: join(options.workingCopyPath, ...candidate.path.split("/")),
-      manifestPath: candidate.path,
-      size: candidate.size as number,
-      sha256: candidate.sha256 as string,
-    }));
-
+  const { target } = resolved;
   try {
-    const passes = await readFaviconPasses({
-      database: verifiedDatabase,
-      sidecars,
-    });
-    const sidecarManifest =
-      passes.recovered === null
-        ? null
-        : manifestIdentity(
-            options.source,
-            `${databasePath}${
-              passes.recovered.commitState === "wal_resident"
-                ? "-wal"
-                : "-journal"
-            }`,
-            databasePath,
-          );
-    if (passes.recovered !== null && sidecarManifest === null) {
-      throw new ForensixError(
-        "ANALYSIS_FAILED",
-        "Favicons recovery content has no resolvable sidecar Manifest entry.",
-        { databasePath: databasePath },
-      );
-    }
-    const recoveredCitation =
-      passes.recovered === null || sidecarManifest === null
-        ? null
-        : recoveredRowCitation(
-            passes.recovered.commitState,
-            manifest,
-            sidecarManifest,
-          );
+    const passes = await readFaviconPasses(target);
+    const cited = citedPasses(target, passes);
     const payloads = new Map<string, PayloadFile>();
-    const committed = buildFavicons({
-      pass: passes.committed,
-      commitState: "committed",
-      profile: options.profile,
-      manifest,
-      declaredTimezone: options.declaredTimezone,
-      payloads,
-    });
+    const build = (pass: CitedPass<FaviconPass>): BuiltFavicon[] =>
+      buildFavicons(pass, { ...options, payloads });
+    const committed = build(cited.committed);
     const committedSignatures = new Set(
       committed.map((favicon) => favicon.signature),
     );
@@ -738,30 +524,19 @@ async function analyseProfile(options: {
     // that only adds an icon-to-page mapping still surfaces as a distinct
     // sidecar-resident Finding while committed associations stay untouched.
     const recovered =
-      passes.recovered === null
+      cited.recovered === null
         ? []
-        : buildFavicons({
-            pass: passes.recovered,
-            commitState: passes.recovered.commitState,
-            profile: options.profile,
-            manifest: recoveredCitation?.manifest ?? manifest,
-            recoveredVia: recoveredCitation?.recoveredVia,
-            declaredTimezone: options.declaredTimezone,
-            payloads,
-          }).filter((favicon) => !committedSignatures.has(favicon.signature));
+        : build(cited.recovered).filter(
+            (favicon) => !committedSignatures.has(favicon.signature),
+          );
 
-    await writePayloads(options.caseDirectory, payloads);
+    await writePayloadFiles(
+      join(options.caseDirectory, FAVICON_PAYLOAD_DIRECTORY),
+      payloads.values(),
+    );
 
     return {
-      sourceId: options.source.sourceId,
-      profile: options.profile,
-      status: "complete",
-      manifestEntryOrdinal: manifest.ordinal,
-      databasePath,
-      schemaVersion: passes.committed.schema.version,
-      integrity: passes.committed.integrity,
-      recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: sqlitePassesReason(passes),
+      ...completeArtifactHeader(target, passes),
       findings: [...committed, ...recovered].map(
         (favicon) => favicon.persisted,
       ),
@@ -770,21 +545,7 @@ async function analyseProfile(options: {
       payloadFileCount: payloads.size,
     };
   } catch (error) {
-    if (error instanceof WorkingCopyIntegrityRefusal) {
-      throw error;
-    }
-    const reason =
-      error instanceof ForensixError
-        ? `${error.code}:${error.message}`
-        : `favicons_read_failed:${String(error)}`;
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      reason,
-    );
+    return unavailableArtifact(readFailureHeader(target, "favicons", error));
   }
 }
 

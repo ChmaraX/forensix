@@ -16,7 +16,7 @@
  * cannot be ruled out as Payment: `isSecretFormField` fails closed): they
  * read "value hidden" in the table until the page's "Show values" switch
  * is on, are left out of the search text while hidden, and stay hidden in
- * the row sheet behind its own Reveal (`secretFieldsOf`).
+ * the row sheet behind its own Reveal (`RowSheet`).
  *
  * TYPE (the field type) is the first table column. Saved entries and entries
  * recovered from WAL / journal sidecars are separate server reads and
@@ -69,13 +69,11 @@ import { EmptyRows } from "./data-table.js";
 import {
   CommitStateSplit,
   CountChips,
-  ResponsiveRows,
   SectionPanel,
   TimeCell,
   type CountChip,
-  type RowColumn,
 } from "./page-kit.js";
-import { FieldCell, fieldText, StateWord } from "./finding-fields.js";
+import { FieldCell, StateWord } from "./finding-fields.js";
 import {
   CompactFilters,
   FilterField,
@@ -93,7 +91,6 @@ import {
 import {
   ArtifactEmpty,
   clearSearchAndProfiles,
-  emptyCoverageOf,
   EmptyPivot,
   useProfileLens,
 } from "./identity-kit.js";
@@ -106,8 +103,11 @@ import {
   MetricBandItem,
   TooltipFigure,
 } from "./metric-band.js";
-import { HiddenValue, RowSheet, secretFieldsOf } from "./row-sheet.js";
+import { HiddenValue, RowSheet } from "./row-sheet.js";
 import { Term } from "./term.js";
+import { fieldText } from "../field-readers.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
+import { emptyCoverageOf } from "./identity-coverage.js";
 
 /* ------------------------------ data reading ------------------------------ */
 
@@ -244,8 +244,8 @@ function entryColumns(
 
 /** A row's key: its reference, so a filter never hands one row's memoised
  *  cells to another. */
-function entryKey(entry: Entry, index: number): string {
-  return rowRefOf(entry.row) ?? `${entry.row.commitState}-${String(index)}`;
+function entryKey(entry: Entry): string {
+  return rowRefOf(entry.row);
 }
 
 function entryLabel(entry: Entry): string {
@@ -491,11 +491,11 @@ export function AutofillPage() {
   const [reveal, setReveal] = useState(false);
   const coverage = useArtifactCoverage(config.completenessArtifact);
 
-  const allSaved = useMemo(
+  const saved = useMemo(
     () => lists.saved.rows.map(toEntry),
     [lists.saved.rows],
   );
-  const allRecovered = useMemo(
+  const recovered = useMemo(
     () => lists.recovered.rows.map(toEntry),
     [lists.recovered.rows],
   );
@@ -506,18 +506,16 @@ export function AutofillPage() {
   const sheet = useRowSelection(loaded, ROW_LOOKUP);
   // The lists hold the lens's profiles only (a server filter); the category
   // and the search narrow only the loaded lists.
-  const saved = allSaved;
-  const recovered = allRecovered;
   const anyHidden = useMemo(
-    () => [...allSaved, ...allRecovered].some(holdsSecret),
-    [allSaved, allRecovered],
+    () => [...saved, ...recovered].some(holdsSecret),
+    [saved, recovered],
   );
   const listedCategories = useMemo(() => {
     const keys = new Set(
-      [...allSaved, ...allRecovered].map((entry) => entry.category.key),
+      [...saved, ...recovered].map((entry) => entry.category.key),
     );
     return FORM_DATA_CATEGORIES.filter((category) => keys.has(category.key));
-  }, [allSaved, allRecovered]);
+  }, [saved, recovered]);
 
   const narrow = useCallback(
     (entries: readonly Entry[]) =>
@@ -542,8 +540,8 @@ export function AutofillPage() {
   const status = commitStateStatus(
     lists,
     { saved: saved.length, recovered: recovered.length },
-    totals.state === "ready" ? totals.value : null,
-    { filtered: lens.selected.length > 0 },
+    totals,
+    lens.selected.length > 0,
   );
   const filteredMessage = (noun: string) =>
     search.trim() === "" && categoryFilter === null && lens.words !== null
@@ -614,7 +612,6 @@ export function AutofillPage() {
               formFieldLabel(fieldText(sheet.selected.row.fields.fieldName)) ??
               "Form entry"
             }
-            redactedFields={secretFieldsOf(sheet.selected.row)}
             onClose={sheet.close}
           />
         )
@@ -680,7 +677,7 @@ export function AutofillPage() {
           saved={
             <EntryList
               list={lists.saved}
-              entries={allSaved}
+              entries={saved}
               visible={savedVisible}
               lensFiltered={lens.selected.length > 0}
               noun="saved"
@@ -694,7 +691,7 @@ export function AutofillPage() {
           recovered={
             <EntryList
               list={lists.recovered}
-              entries={allRecovered}
+              entries={recovered}
               visible={recoveredVisible}
               lensFiltered={lens.selected.length > 0}
               noun="recovered"

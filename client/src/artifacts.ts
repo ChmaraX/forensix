@@ -4,6 +4,8 @@
  * as context), each with the route it reads and the Completeness artifact
  * its coverage names.
  */
+import type { OverviewArtifact } from "./types.js";
+
 export const EVIDENCE_ORDER = [
   "history",
   "downloads",
@@ -23,7 +25,7 @@ export interface ArtifactConfig {
   readonly key: EvidenceKey;
   readonly label: string;
   readonly route: string;
-  readonly completenessArtifact: string;
+  readonly completenessArtifact: OverviewArtifact;
   /** Cache records arrive with their Commit State already mixed; the query
    *  cannot filter it. */
   readonly combinedFindingList?: boolean;
@@ -94,7 +96,7 @@ export const ARTIFACTS: Readonly<Record<EvidenceKey, ArtifactConfig>> = {
 };
 
 /** Every Completeness artifact the Timeline merges (core's queryTimeline). */
-export const TIMELINE_COVERAGE: readonly string[] = [
+export const TIMELINE_COVERAGE: readonly OverviewArtifact[] = [
   "History",
   "Downloads",
   "Cookies",
@@ -104,7 +106,7 @@ export const TIMELINE_COVERAGE: readonly string[] = [
 /** Every Completeness artifact the Sites view groups by host (core's
  *  `querySiteHosts`: visits, downloads, cookies, saved logins, bookmarks,
  *  top sites, cache entries and favicons). */
-export const SITES_COVERAGE: readonly string[] = [
+export const SITES_COVERAGE: readonly OverviewArtifact[] = [
   "History",
   "Downloads",
   "Cookies",
@@ -116,20 +118,23 @@ export const SITES_COVERAGE: readonly string[] = [
 ];
 
 /** How Chrome keeps an artifact's evidence, in the word a sentence about
- *  it needs: a SQLite `database`, a plain `file` (Bookmarks, Preferences,
- *  Local State are JSON) or a `folder` of files (the disk cache). */
+ *  it needs: a SQLite `database`, a plain `file` (Bookmarks and Preferences
+ *  are JSON) or a `folder` of files (the disk cache). */
 export type ArtifactStore = "database" | "file" | "folder";
 
-const ARTIFACT_STORES: Readonly<Record<string, ArtifactStore>> = {
+const ARTIFACT_STORES: Readonly<
+  Partial<Record<OverviewArtifact, ArtifactStore>>
+> = {
   Bookmarks: "file",
   Preferences: "file",
-  "Local State": "file",
   Cache: "folder",
 };
 
 /** The store word for a Completeness artifact ("No Bookmarks file", "No
  *  Cookies database"); SQLite artifacts, the rest, say database. */
-export function artifactStoreOf(completenessArtifact: string): ArtifactStore {
+export function artifactStoreOf(
+  completenessArtifact: OverviewArtifact,
+): ArtifactStore {
   return ARTIFACT_STORES[completenessArtifact] ?? "database";
 }
 

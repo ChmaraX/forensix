@@ -22,7 +22,11 @@ import {
 
 import { callApi } from "./api.js";
 import { coverageOf, type CoverageScope } from "./components/completeness.js";
-import type { CaseCompleteness, CaseProfiles } from "./types.js";
+import type {
+  CaseCompleteness,
+  CaseProfiles,
+  OverviewArtifact,
+} from "./types.js";
 
 export interface CaseContext {
   readonly completeness: CaseCompleteness;
@@ -93,7 +97,9 @@ export function useCaseContext(): CaseContextState {
 
 /** One Completeness artifact's coverage ("Login Data"), from the shell's
  *  statement; null until it is read (or when it could not be). */
-export function useArtifactCoverage(artifact: string): CoverageScope | null {
+export function useArtifactCoverage(
+  artifact: OverviewArtifact,
+): CoverageScope | null {
   const { context } = useCaseContext();
   return useMemo(
     () =>

@@ -58,24 +58,9 @@ import {
   type ChartTokens,
   type DayCount,
 } from "./charts.js";
-import { formatDayTick } from "./page-kit.js";
+import { formatDayLong, formatDayTick } from "../day-format.js";
 
 /* ───────────────────────────── Formatting ───────────────────────────── */
-
-/** "Thu, 14 Mar 2024": a chart day in full, for tooltips and speech. */
-export function formatDayLong(date: string): string {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 function formatCount(value: number): string {
   return value.toLocaleString("en-US");

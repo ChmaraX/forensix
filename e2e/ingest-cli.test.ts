@@ -493,8 +493,19 @@ describe("compiled analyzer CLI ingest", () => {
       ).not.toContain("Network");
 
       const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
-      expect(analysis.stderr).not.toContain("WORKING_COPY_INTEGRITY_REFUSAL");
-      expect(analysis.status).not.toBe(1);
+      // The fixture's databases are not SQLite, so the run reads nothing and
+      // fails (exit 3). It is not refused (exit 1): the Working Copy verifies.
+      expect(analysis.stderr).toBe("");
+      expect(analysis.status).toBe(3);
+      expect(
+        parseJson<{
+          readonly exitState: string;
+          readonly workingCopyVerification: string;
+        }>(analysis.stdout),
+      ).toMatchObject({
+        exitState: "failed",
+        workingCopyVerification: "verified",
+      });
     },
   );
 

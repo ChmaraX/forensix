@@ -568,6 +568,20 @@ function byCommitState(rows, params) {
   return rows.filter((row) => row.commitState === state);
 }
 
+/** Candidates have no Commit State: `commit-state` (or a count `by`
+ *  `commitState`) on a Candidate kind is a 400, in core's count words. The
+ *  Candidate list routes have no such filter; the mock rejects it there
+ *  too, so a client that sends one fails at design time. */
+function noCommitState(params, kind) {
+  const state = params.get("commit-state");
+  if ((state !== null && state !== "") || params.get("by") === "commitState") {
+    throw new MockBadRequest(
+      `Kind ${kind} records are Candidates. A Candidate has no Commit State.`,
+      { kind },
+    );
+  }
+}
+
 function findingRows(rows) {
   // Strip the fixture's internal `_sort*`/`_host` helper fields before
   // serializing — the wire shape only carries `fields`, not the sort keys
@@ -917,6 +931,9 @@ function countRecords(params, request) {
       { limit: raw },
     );
   }
+  if (rowsOfKind(kind, request)[0]?.recordType === "candidate") {
+    noCommitState(params, kind);
+  }
   const rows = byCommitState(
     byProfiles(rowsOfKind(kind, request), params),
     params,
@@ -964,15 +981,65 @@ function countRecords(params, request) {
   };
 }
 
+/** A value's schema type, as core's `querySchema` names it. */
+function valueTypeOf(value) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  if (typeof value === "object") return "utc" in value ? "timestamp" : "object";
+  return typeof value;
+}
+
+/** `schema`: the fields of each kind with records (or the one `kind`
+ *  named), per Field State, as core's `querySchema` counts them. */
+function schemaOf(params, request) {
+  const requested = params.get("kind");
+  if (requested !== null && !everyKind().includes(requested)) {
+    throw new MockBadRequest(
+      `Kind ${requested} is not a Finding or Candidate kind.`,
+      { kind: requested, allowed: everyKind() },
+    );
+  }
+  const kinds = (requested === null ? everyKind() : [requested]).map((kind) => {
+    const rows = rowsOfKind(kind, request);
+    const fields = new Map();
+    for (const row of rows) {
+      for (const [name, field] of Object.entries(row.fields)) {
+        const entry = fields.get(name) ?? {
+          name,
+          states: { value: 0, absent: 0, unavailable: 0 },
+          empty: 0,
+          valueTypes: new Set(),
+        };
+        if (field.state in entry.states) entry.states[field.state] += 1;
+        if (field.state === "value") {
+          entry.valueTypes.add(valueTypeOf(field.value));
+          if (field.value === "") entry.empty += 1;
+        }
+        fields.set(name, entry);
+      }
+    }
+    return {
+      recordType: rows[0]?.recordType ?? "finding",
+      kind,
+      store:
+        RECORD_STORES.find(([, list]) => list.includes(rows[0]))?.[0] ?? null,
+      count: rows.length,
+      fields: [...fields.values()].map((entry) => ({
+        ...entry,
+        valueTypes: [...entry.valueTypes].sort(),
+      })),
+    };
+  });
+  return { status: "ok", command: "schema", kinds };
+}
+
 /** `summary`: the Case id, its Sources, Profiles, the last run, records
- *  per kind (committed / recovered; null for identity Candidates), the
+ *  per kind (committed / recovered; null for Candidates), the
  *  time span and the coverage per artifact. */
 function summaryOf(request) {
   const records = everyKind().map((kind) => {
     const rows = rowsOfKind(kind, request);
-    const identity = rows.some(
-      (row) => row.recordType === "candidate" && row.category !== undefined,
-    );
+    const candidate = rows[0]?.recordType === "candidate";
     const committed = rows.filter(
       (row) => row.commitState === "committed",
     ).length;
@@ -981,8 +1048,8 @@ function summaryOf(request) {
       kind,
       store:
         RECORD_STORES.find(([, list]) => list.includes(rows[0]))?.[0] ?? null,
-      committed: identity ? null : committed,
-      recovered: identity ? null : rows.length - committed,
+      committed: candidate ? null : committed,
+      recovered: candidate ? null : rows.length - committed,
       total: rows.length,
     };
   });
@@ -1066,6 +1133,7 @@ const HISTORY_VIEWS = ["visits", "activity", "most-visited", "durations"];
 const ROUTES = {
   count: (params, request) => countRecords(params, request),
   summary: (_params, request) => summaryOf(request),
+  schema: (params, request) => schemaOf(params, request),
   get: (params) => getRecord(params),
   "site-hosts": (params, request) => siteHosts(params, request),
   "site-findings": (params, request) => siteFindings(params, request),
@@ -1164,6 +1232,7 @@ const ROUTES = {
   favicons: artifactRoute("favicons", () => caseData.favicons, "Favicons"),
   candidates: (params) => {
     checkSort(params, "candidates", "Candidates");
+    noCommitState(params, params.get("kind") ?? "identity");
     const category = params.get("category");
     if (category !== null && !["identity", "behavior"].includes(category)) {
       throw new MockBadRequest(
@@ -1193,11 +1262,9 @@ const ROUTES = {
   },
   "topic-candidates": (params) => {
     checkSort(params, "topic-candidates", "Topic Candidate");
+    noCommitState(params, "topic");
     return pageOf(
-      byCommitState(
-        byProfiles(candidateRows(caseData.topicCandidates), params),
-        params,
-      ),
+      byProfiles(candidateRows(caseData.topicCandidates), params),
       params,
       "topic-candidates",
     );

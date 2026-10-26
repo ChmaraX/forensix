@@ -3,7 +3,6 @@ import {
   absentField,
   createCandidate,
   valueField,
-  type CommitState,
   type Provenance,
 } from "./forensic-model.js";
 import {
@@ -71,7 +70,6 @@ export interface TopicCandidateInput {
   readonly url: string | null;
   readonly title: string | null;
   readonly profile: string;
-  readonly commitState: CommitState;
   readonly provenance: Provenance;
   /** Number of source rows (browsing visits) this input summarises. >= 1. */
   readonly supportingCount: number;
@@ -238,7 +236,6 @@ function candidateFromLabel(input: {
   return {
     candidate,
     profile: input.source.profile,
-    commitState: input.source.commitState,
     searchText,
   };
 }

@@ -112,7 +112,6 @@ function topicInputsFromArtifact(
       url,
       title,
       profile: finding.profile,
-      commitState: finding.commitState,
       provenance: finding.provenance,
       supportingCount:
         Number.isSafeInteger(rawCount) && rawCount >= 1 ? rawCount : 1,

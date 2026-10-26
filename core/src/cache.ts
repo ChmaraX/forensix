@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type {
@@ -30,6 +29,11 @@ import {
 } from "./forensic-model.js";
 import type { ForensicTimestamp } from "./history.js";
 import type { ManifestEntry } from "./manifest.js";
+import {
+  payloadFile,
+  writePayloadFiles,
+  type PayloadFile,
+} from "./payload-files.js";
 
 /**
  * The Case-relative directory that holds cached response bodies as separately
@@ -49,12 +53,6 @@ interface CacheEntryFile {
   readonly relativePath: string;
   readonly copied: boolean;
   readonly size: number | null;
-}
-
-interface PayloadFile {
-  readonly sha256: string;
-  readonly bytes: number;
-  readonly data: Uint8Array;
 }
 
 interface ProfileCache {
@@ -139,14 +137,6 @@ function timestampField(
   );
 }
 
-function payloadFrom(data: Uint8Array): PayloadFile {
-  return {
-    sha256: createHash("sha256").update(data).digest("hex"),
-    bytes: data.byteLength,
-    data,
-  };
-}
-
 function payloadFields(
   payload: PayloadFile | null,
 ): Record<string, FieldState<string>> {
@@ -166,24 +156,6 @@ function payloadFields(
 
 function booleanField(value: boolean): FieldState<string> {
   return valueField(value ? "true" : "false");
-}
-
-async function writePayloads(
-  caseDirectory: string,
-  payloads: ReadonlyMap<string, PayloadFile>,
-): Promise<void> {
-  if (payloads.size === 0) {
-    return;
-  }
-  const directory = join(caseDirectory, CACHE_PAYLOAD_DIRECTORY);
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  for (const payload of payloads.values()) {
-    // Content-addressed by SHA-256, so a re-analysis rewrites byte-for-byte
-    // identical content and stays idempotent.
-    await writeFile(join(directory, payload.sha256), payload.data, {
-      mode: 0o600,
-    });
-  }
 }
 
 function unavailableArtifact(
@@ -331,7 +303,7 @@ async function buildSimpleRecords(options: {
     }
 
     const payload =
-      parsed.stream1.size > 0 ? payloadFrom(parsed.stream1.data) : null;
+      parsed.stream1.size > 0 ? payloadFile(parsed.stream1.data) : null;
     if (payload !== null) {
       payloads.set(payload.sha256, payload);
     }
@@ -400,7 +372,6 @@ async function buildSimpleRecords(options: {
           },
         }),
         profile,
-        commitState: "committed",
         backend: "simple",
         candidateKind: "doomed_entry",
         searchText: searchTextOf(profile, hash, parsed.keyText),
@@ -477,7 +448,6 @@ async function buildSimpleRecords(options: {
           },
         }),
         profile,
-        commitState: "committed",
         backend: "simple",
         candidateKind: "evicted_reference",
         searchText: searchTextOf(profile, hash, null),
@@ -516,7 +486,6 @@ function buildUnreadableCandidate(
       },
     }),
     profile: options.profile,
-    commitState: "committed",
     backend: "simple",
     candidateKind: "unreadable_entry",
     searchText: searchTextOf(options.profile, hash, null),
@@ -669,7 +638,10 @@ async function analyseProfileCache(options: {
     };
   }
 
-  await writePayloads(options.caseDirectory, built.payloads);
+  await writePayloadFiles(
+    join(options.caseDirectory, CACHE_PAYLOAD_DIRECTORY),
+    built.payloads.values(),
+  );
 
   // Cite a real stream-0 entry file as the artifact's representative Manifest
   // ordinal, matched with the same precise regex used to group entries.

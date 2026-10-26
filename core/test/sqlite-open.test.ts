@@ -30,11 +30,11 @@ describe("isTransientOpenError", () => {
     expect(isTransientOpenError({ errcode: 14 })).toBe(true);
   });
 
-  it("masks extended result codes to their primary code", () => {
-    // SQLITE_CANTOPEN with an extended high byte still classifies as transient.
-    expect(isTransientOpenError({ errcode: 14 + (1 << 8) })).toBe(true);
-    // SQLITE_BUSY_SNAPSHOT (0x205) masks to SQLITE_BUSY.
-    expect(isTransientOpenError({ errcode: 0x205 })).toBe(true);
+  it("does not retry an extended result code", () => {
+    // SQLITE_CANTOPEN_ISDIR (14 | 2 << 8): the path is a directory.
+    expect(isTransientOpenError({ errcode: 14 | (2 << 8) })).toBe(false);
+    // SQLITE_BUSY_SNAPSHOT (0x205): a stale read snapshot, not a lock wait.
+    expect(isTransientOpenError({ errcode: 0x205 })).toBe(false);
   });
 
   it("does not retry genuine, non-transient errors", () => {

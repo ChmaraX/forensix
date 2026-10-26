@@ -12,10 +12,11 @@ import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import { ForensixError } from "./errors.js";
-import type {
-  AuthorizedKeyMaterial,
-  KeyMaterialProvenance,
-  OscryptRoute,
+import {
+  OSCRYPT_ROUTES,
+  type AuthorizedKeyMaterial,
+  type KeyMaterialProvenance,
+  type OscryptRoute,
 } from "./oscrypt.js";
 
 /**
@@ -57,32 +58,6 @@ export interface LoadKeyMaterialOptions {
   readonly keyMaterialPath: string;
   /** PEM (PKCS8) X25519 private key path, required to unseal captured records. */
   readonly recipientKeyPath?: string;
-}
-
-interface SuppliedEntry {
-  readonly recordId?: string;
-  readonly record_id?: string;
-  readonly route: OscryptRoute;
-  readonly keyKind?: AuthorizedKeyMaterial["keyKind"];
-  readonly key_kind?: AuthorizedKeyMaterial["keyKind"];
-  readonly secretBase64?: string;
-  readonly secret_base64?: string;
-  readonly rowPrefix?: "" | "v10" | "v11" | "v20";
-  readonly row_prefix?: "" | "v10" | "v11" | "v20";
-  readonly profile?: string | null;
-  readonly masterKeyGuid?: string;
-  readonly master_key_guid?: string;
-  readonly provider?: {
-    readonly platform?: KeyMaterialProvenance["providerPlatform"];
-    readonly name?: string;
-    readonly item?: string;
-    readonly scope?: string;
-  };
-}
-
-interface SuppliedFile {
-  readonly schema: "forensix/supplied-key-material/1";
-  readonly entries: readonly SuppliedEntry[];
 }
 
 interface CapturedProvider {
@@ -133,9 +108,104 @@ interface CapturedRecord {
   readonly sealed_material: CapturedSealedMaterial | null;
 }
 
-interface CapturedFile {
-  readonly schema: "forensix/key-material-bundle/1";
-  readonly records: readonly CapturedRecord[];
+type JsonObject = Readonly<Record<string, unknown>>;
+
+function isObject(value: unknown): value is JsonObject {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || isString(value);
+}
+
+function isOneOf<T extends string>(
+  values: readonly T[],
+  value: unknown,
+): value is T {
+  return (values as readonly unknown[]).includes(value);
+}
+
+const KEY_KINDS: readonly AuthorizedKeyMaterial["keyKind"][] = [
+  "row_key",
+  "passphrase",
+  "dpapi_master_key",
+];
+const ROW_PREFIXES: readonly KeyMaterialProvenance["rowPrefix"][] = [
+  "",
+  "v10",
+  "v11",
+  "v20",
+];
+const PLATFORMS: readonly KeyMaterialProvenance["providerPlatform"][] = [
+  "darwin",
+  "linux",
+  "windows",
+  "unknown",
+];
+const CAPTURE_STATES: readonly CapturedRecord["capture_state"][] = [
+  "captured",
+  "unsupported",
+  "unavailable",
+];
+const POLICY_SUPPORT: readonly CapturedPolicy["support"][] = [
+  "supported",
+  "unsupported",
+  "unavailable",
+];
+const SEALED_TEXT_FIELDS = [
+  "recipient_fingerprint",
+  "ephemeral_public_key",
+  "salt",
+  "nonce",
+  "ciphertext",
+  "associated_data_sha256",
+] as const;
+
+/** Whether a bundle record has the shape of the key-material record schema. */
+function isCapturedRecord(value: unknown): value is CapturedRecord {
+  if (!isObject(value)) {
+    return false;
+  }
+  const { provider, context, policy, evidence } = value;
+  const sealed = value.sealed_material;
+  return (
+    value.schema_version === "forensix/key-material-record/1" &&
+    isString(value.record_id) &&
+    isOneOf(CAPTURE_STATES, value.capture_state) &&
+    value.key_kind === "oscrypt_row_key" &&
+    typeof value.usable_row_key === "boolean" &&
+    isObject(provider) &&
+    isOneOf(PLATFORMS, provider.platform) &&
+    isString(provider.name) &&
+    isString(provider.item) &&
+    isString(provider.scope) &&
+    Array.isArray(context) &&
+    context.every(
+      (entry) =>
+        isObject(entry) && isString(entry.name) && isString(entry.value),
+    ) &&
+    isObject(policy) &&
+    isOneOf(ROW_PREFIXES, policy.row_prefix) &&
+    isOneOf(POLICY_SUPPORT, policy.support) &&
+    isOptionalString(policy.reason) &&
+    Array.isArray(evidence) &&
+    evidence.every(
+      (entry) =>
+        isObject(entry) &&
+        isString(entry.path) &&
+        isString(entry.sha256) &&
+        isOptionalString(entry.version) &&
+        isOptionalString(entry.policy),
+    ) &&
+    (sealed === null ||
+      (isObject(sealed) &&
+        sealed.algorithm === "x25519-hkdf-sha256-aes-256-gcm" &&
+        SEALED_TEXT_FIELDS.every((field) => isString(sealed[field]))))
+  );
 }
 
 function invalid(message: string): ForensixError {
@@ -364,52 +434,96 @@ function readVerifiedKeyMaterialSubtree(root: string): unknown {
   return aggregate;
 }
 
-function providerFromSupplied(
-  entry: SuppliedEntry,
-): Pick<
-  KeyMaterialProvenance,
-  "providerPlatform" | "providerName" | "providerItem" | "providerScope"
-> {
+/**
+ * Parse one supplied entry. Each field takes its camelCase or snake_case name.
+ * An entry that does not parse is an issue, never a guessed key.
+ */
+function resolveSuppliedEntry(
+  entry: unknown,
+  index: number,
+): AuthorizedKeyMaterial | KeyMaterialIssue {
+  const fallbackId = `supplied-${index}`;
+  if (!isObject(entry)) {
+    return { recordId: fallbackId, reason: "invalid_entry" };
+  }
+  const pick = (camel: string, snake: string): unknown =>
+    entry[camel] ?? entry[snake];
+  const recordId = pick("recordId", "record_id") ?? fallbackId;
+  if (!isString(recordId)) {
+    return { recordId: fallbackId, reason: "invalid_record_id" };
+  }
+  const issue = (reason: string): KeyMaterialIssue => ({ recordId, reason });
+  const route = entry.route;
+  const keyKind = pick("keyKind", "key_kind") ?? "row_key";
+  const rowPrefix = pick("rowPrefix", "row_prefix") ?? "";
+  const profileScope = entry.profile ?? null;
+  const masterKeyGuid = pick("masterKeyGuid", "master_key_guid");
   const provider = entry.provider ?? {};
+  const secretBase64 = pick("secretBase64", "secret_base64");
+  if (!isOneOf(OSCRYPT_ROUTES, route)) {
+    return issue("invalid_route");
+  }
+  if (!isOneOf(KEY_KINDS, keyKind)) {
+    return issue("invalid_key_kind");
+  }
+  if (!isOneOf(ROW_PREFIXES, rowPrefix)) {
+    return issue("invalid_row_prefix");
+  }
+  if (profileScope !== null && !isString(profileScope)) {
+    return issue("invalid_profile");
+  }
+  if (!isOptionalString(masterKeyGuid)) {
+    return issue("invalid_master_key_guid");
+  }
+  if (
+    !isObject(provider) ||
+    (provider.platform !== undefined &&
+      !isOneOf(PLATFORMS, provider.platform)) ||
+    !isOptionalString(provider.name) ||
+    !isOptionalString(provider.item) ||
+    !isOptionalString(provider.scope)
+  ) {
+    return issue("invalid_provider");
+  }
+  if (secretBase64 === undefined) {
+    return issue("missing_secret");
+  }
+  if (!isString(secretBase64)) {
+    return issue("invalid_secret");
+  }
+  const secret = new Uint8Array(Buffer.from(secretBase64, "base64"));
+  if (secret.length === 0) {
+    return issue("empty_secret");
+  }
   return {
-    providerPlatform: provider.platform ?? "unknown",
-    providerName: provider.name ?? "supplied",
-    providerItem: provider.item ?? "supplied",
-    providerScope: provider.scope ?? "supplied",
+    provenance: {
+      origin: "supplied",
+      recordId,
+      route,
+      rowPrefix,
+      profileScope,
+      evidenceSha256: [],
+      providerPlatform: provider.platform ?? "unknown",
+      providerName: provider.name ?? "supplied",
+      providerItem: provider.item ?? "supplied",
+      providerScope: provider.scope ?? "supplied",
+    },
+    keyKind,
+    secret,
+    ...(masterKeyGuid === undefined ? {} : { masterKeyGuid }),
   };
 }
 
-function resolveSupplied(file: SuppliedFile): ResolvedKeyMaterial {
+function resolveSupplied(entries: readonly unknown[]): ResolvedKeyMaterial {
   const material: AuthorizedKeyMaterial[] = [];
   const issues: KeyMaterialIssue[] = [];
-  file.entries.forEach((entry, index) => {
-    const recordId = entry.recordId ?? entry.record_id ?? `supplied-${index}`;
-    const secretBase64 = entry.secretBase64 ?? entry.secret_base64;
-    if (secretBase64 === undefined) {
-      issues.push({ recordId, reason: "missing_secret" });
-      return;
+  entries.forEach((entry, index) => {
+    const resolved = resolveSuppliedEntry(entry, index);
+    if ("reason" in resolved) {
+      issues.push(resolved);
+    } else {
+      material.push(resolved);
     }
-    const secret = new Uint8Array(Buffer.from(secretBase64, "base64"));
-    if (secret.length === 0) {
-      issues.push({ recordId, reason: "empty_secret" });
-      return;
-    }
-    const provenance: KeyMaterialProvenance = {
-      origin: "supplied",
-      recordId,
-      route: entry.route,
-      rowPrefix: entry.rowPrefix ?? entry.row_prefix ?? "",
-      profileScope: entry.profile ?? null,
-      evidenceSha256: [],
-      ...providerFromSupplied(entry),
-    };
-    const masterKeyGuid = entry.masterKeyGuid ?? entry.master_key_guid;
-    material.push({
-      provenance,
-      keyKind: entry.keyKind ?? entry.key_kind ?? "row_key",
-      secret,
-      ...(masterKeyGuid === undefined ? {} : { masterKeyGuid }),
-    });
   });
   return { material, issues };
 }
@@ -542,7 +656,7 @@ function profileScopeFromContext(record: CapturedRecord): string | null {
 }
 
 function resolveCaptured(
-  file: CapturedFile,
+  records: readonly unknown[],
   recipientKeyPath: string | undefined,
 ): ResolvedKeyMaterial {
   const material: AuthorizedKeyMaterial[] = [];
@@ -555,7 +669,14 @@ function resolveCaptured(
       throw invalid(`Recipient private key is unusable: ${String(error)}`);
     }
   }
-  for (const record of file.records) {
+  for (const [index, record] of records.entries()) {
+    if (!isCapturedRecord(record)) {
+      issues.push({
+        recordId: recordIdOf(record) || `record-${index}`,
+        reason: "invalid_record",
+      });
+      continue;
+    }
     if (record.capture_state !== "captured" || !record.usable_row_key) {
       issues.push({
         recordId: record.record_id,
@@ -628,15 +749,20 @@ export function loadAuthorizedKeyMaterial(
   const parsed = isDirectory
     ? readVerifiedKeyMaterialSubtree(options.keyMaterialPath)
     : readJson(options.keyMaterialPath);
-  if (parsed === null || typeof parsed !== "object") {
+  if (!isObject(parsed)) {
     throw invalid("Key material file must be a JSON object.");
   }
-  const schema = (parsed as { readonly schema?: unknown }).schema;
-  if (schema === "forensix/supplied-key-material/1") {
-    return resolveSupplied(parsed as SuppliedFile);
+  if (parsed.schema === "forensix/supplied-key-material/1") {
+    if (!Array.isArray(parsed.entries)) {
+      throw invalid("Supplied key material file has no entries array.");
+    }
+    return resolveSupplied(parsed.entries);
   }
-  if (schema === "forensix/key-material-bundle/1") {
-    return resolveCaptured(parsed as CapturedFile, options.recipientKeyPath);
+  if (parsed.schema === "forensix/key-material-bundle/1") {
+    if (!Array.isArray(parsed.records)) {
+      throw invalid("Key material bundle has no records array.");
+    }
+    return resolveCaptured(parsed.records, options.recipientKeyPath);
   }
   throw invalid(
     "Key material file has an unrecognised schema; expected " +

@@ -24,6 +24,7 @@ export type {
   CaseProfiles,
   CompletenessArtifact,
   CompletenessStatement,
+  OverviewArtifact,
 } from "../../core/src/case-overview.js";
 export type {
   CommitState,
@@ -56,7 +57,7 @@ export interface Finding extends Pick<
 > {
   /** The record id every list route puts first (`history:180`): unique in
    *  the Case, the row's URL reference (`rowRefOf`). */
-  readonly id?: string;
+  readonly id: string;
   readonly commitState: CommitState;
   readonly provenance: Provenance;
 }
@@ -78,7 +79,7 @@ export interface IdentityCandidate extends Pick<
   | "supportingCount"
   | "fields"
 > {
-  readonly id?: string;
+  readonly id: string;
   readonly provenance: Provenance & {
     readonly supportingRows?: readonly Provenance[];
   };

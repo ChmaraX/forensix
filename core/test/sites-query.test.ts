@@ -119,6 +119,17 @@ function insertRow(
     database: "X",
     table: row.table,
     rowId: String(row.id),
+    // A journal_resident row cites the hot journal that shows it uncommitted.
+    ...(row.commitState === "journal_resident"
+      ? {
+          recoveredVia: {
+            manifestEntryId: "SRC:1",
+            sourceId: "SRC",
+            manifestEntryOrdinal: 1,
+            manifestPath: "Default/X-journal",
+          },
+        }
+      : {}),
   });
   database.prepare(`INSERT INTO ${results} VALUES (?, 1)`).run(row.id);
   const base = [

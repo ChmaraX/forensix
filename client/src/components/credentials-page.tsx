@@ -6,7 +6,7 @@
  * material) and the Password column reads "sealed" (the column header says
  * why); any other unavailable reason shows as itself. A password decrypted
  * with `--decrypt` reads "value hidden" in the table and opens hidden in the
- * row sheet, revealable there one field at a time (`secretFieldsOf`).
+ * row sheet, revealable there one field at a time (`RowSheet`).
  *
  * What the page reads instead is the shape of an account footprint: how many
  * logins and distinct usernames were saved, and which usernames repeat
@@ -56,14 +56,7 @@ import {
 import { CommitStatePage } from "./commit-state-page.js";
 import { EmptyRows } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
-import {
-  AbsentWord,
-  FieldCell,
-  fieldText,
-  hostOf,
-  SiteAvatar,
-  StateWord,
-} from "./finding-fields.js";
+import { FieldCell, SiteAvatar, StateWord } from "./finding-fields.js";
 import {
   CompactFilters,
   FilterField,
@@ -77,7 +70,6 @@ import {
 import {
   ArtifactEmpty,
   clearSearchAndProfiles,
-  emptyCoverageOf,
   EmptyPivot,
   useProfileLens,
 } from "./identity-kit.js";
@@ -85,23 +77,22 @@ import { SiteHostLink } from "./host-link.js";
 import { useArtifactCoverage } from "../case-context.js";
 import { ListBlock } from "./list-states.js";
 import { figure, MetricBand, MetricBandItem } from "./metric-band.js";
-import {
-  HiddenValue,
-  RowSheet,
-  SEALED_REASON,
-  secretFieldsOf,
-} from "./row-sheet.js";
+import { HiddenValue, RowSheet } from "./row-sheet.js";
+import { SEALED_REASON } from "./secrets.js";
 import { Term } from "./term.js";
 import {
   CARD_TITLE_CLEAR,
   CommitStateSplit,
   Count,
   plural,
-  ResponsiveRows,
   SectionPanel,
   TimeCell,
-  type RowColumn,
 } from "./page-kit.js";
+import { fieldText } from "../field-readers.js";
+import { AbsentWord } from "./field-state.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
+import { urlHostOf } from "./url-host.js";
+import { emptyCoverageOf } from "./identity-coverage.js";
 
 /* ------------------------------ data loading ------------------------------ */
 
@@ -127,8 +118,8 @@ const CREDENTIAL_KIND = "login_credential";
 /** The host a credential belongs to, from its origin URL then its realm. */
 function credentialHost(row: Finding): string | null {
   return (
-    hostOf(fieldText(row.fields.originUrl)) ??
-    hostOf(fieldText(row.fields.signonRealm)) ??
+    urlHostOf(fieldText(row.fields.originUrl)) ??
+    urlHostOf(fieldText(row.fields.signonRealm)) ??
     fieldText(row.fields.signonRealm)
   );
 }
@@ -370,8 +361,8 @@ const RECOVERED_COLUMNS = credentialColumns(true);
 
 /** A row's key: its reference, so a search never hands one row's memoised
  *  cells to another. */
-function credentialKey(row: Finding, index: number): string {
-  return rowRefOf(row) ?? `${row.commitState}-${String(index)}`;
+function credentialKey(row: Finding): string {
+  return rowRefOf(row);
 }
 
 function credentialLabel(row: Finding): string {
@@ -513,8 +504,8 @@ export function CredentialsPage() {
   const status = commitStateStatus(
     lists,
     { saved: saved.length, recovered: recovered.length },
-    totals.state === "ready" ? totals.value : null,
-    { filtered: lens.selected.length > 0 },
+    totals,
+    lens.selected.length > 0,
   );
   const filteredMessage = (noun: string) =>
     search.trim() === "" && lens.words !== null
@@ -569,7 +560,6 @@ export function CredentialsPage() {
             // The site names the login; the header already says "Saved
             // login".
             title={credentialHost(sheet.selected.row) ?? "Saved login"}
-            redactedFields={secretFieldsOf(sheet.selected.row)}
             onClose={sheet.close}
           />
         )

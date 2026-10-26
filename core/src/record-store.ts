@@ -48,8 +48,6 @@ export interface RecordStore {
   readonly resultsTable: string;
   readonly idColumn: "finding_id" | "candidate_id";
   readonly kindColumn: "finding_kind" | "candidate_kind";
-  /** False only for identity Candidates, which carry no Commit State. */
-  readonly hasCommitState: boolean;
   /** Every kind the analyzer writes to this table. */
   readonly kinds: readonly string[];
 }
@@ -63,7 +61,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "history_artifact_results",
     idColumn: "finding_id",
     kindColumn: "finding_kind",
-    hasCommitState: true,
     kinds: [
       "history_visit",
       "history_activity_summary",
@@ -79,7 +76,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "history_artifact_results",
     idColumn: "candidate_id",
     kindColumn: "candidate_kind",
-    hasCommitState: true,
     kinds: ["topic"],
   },
   {
@@ -90,7 +86,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "candidate_artifact_results",
     idColumn: "candidate_id",
     kindColumn: "candidate_kind",
-    hasCommitState: false,
     kinds: [
       "identity_name",
       "identity_email",
@@ -109,7 +104,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "cookie_artifact_results",
     idColumn: "finding_id",
     kindColumn: "finding_kind",
-    hasCommitState: true,
     kinds: ["cookie"],
   },
   {
@@ -120,7 +114,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "login_data_artifact_results",
     idColumn: "finding_id",
     kindColumn: "finding_kind",
-    hasCommitState: true,
     kinds: ["login_credential"],
   },
   {
@@ -131,7 +124,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "web_data_artifact_results",
     idColumn: "finding_id",
     kindColumn: "finding_kind",
-    hasCommitState: true,
     kinds: ["autofill_entry"],
   },
   {
@@ -142,7 +134,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "downloads_artifact_results",
     idColumn: "finding_id",
     kindColumn: "finding_kind",
-    hasCommitState: true,
     kinds: ["download"],
   },
   {
@@ -153,7 +144,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "top_sites_artifact_results",
     idColumn: "finding_id",
     kindColumn: "finding_kind",
-    hasCommitState: true,
     kinds: ["top_site"],
   },
   {
@@ -164,7 +154,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "favicon_artifact_results",
     idColumn: "finding_id",
     kindColumn: "finding_kind",
-    hasCommitState: true,
     kinds: ["favicon"],
   },
   {
@@ -175,7 +164,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "preferences_artifact_results",
     idColumn: "finding_id",
     kindColumn: "finding_kind",
-    hasCommitState: true,
     kinds: ["browser_metadata", "profile_metadata"],
   },
   {
@@ -186,7 +174,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "bookmarks_artifact_results",
     idColumn: "finding_id",
     kindColumn: "finding_kind",
-    hasCommitState: true,
     kinds: ["bookmark"],
   },
   {
@@ -197,7 +184,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "cache_artifact_results",
     idColumn: "finding_id",
     kindColumn: "finding_kind",
-    hasCommitState: true,
     kinds: ["cache_entry"],
   },
   {
@@ -208,7 +194,6 @@ export const RECORD_STORES: readonly RecordStore[] = [
     resultsTable: "cache_artifact_results",
     idColumn: "candidate_id",
     kindColumn: "candidate_kind",
-    hasCommitState: true,
     kinds: ["doomed_entry", "evicted_reference", "unreadable_entry"],
   },
 ];
@@ -218,15 +203,11 @@ export const RECORD_STORE_KEYS: readonly RecordStoreKey[] = RECORD_STORES.map(
 );
 
 const STORE_BY_KEY = new Map(RECORD_STORES.map((store) => [store.key, store]));
-const STORE_BY_TABLE = new Map(
-  RECORD_STORES.map((store) => [store.table, store]),
-);
-
-/** The store key for a Case table; throws for a table that holds no records. */
-export function recordStoreForTable(table: string): RecordStore {
-  const store = STORE_BY_TABLE.get(table);
+/** The store behind a store key. */
+export function recordStore(key: RecordStoreKey): RecordStore {
+  const store = STORE_BY_KEY.get(key);
   if (store === undefined) {
-    throw new Error(`Table ${table} is not a record store.`);
+    throw new Error(`Store ${key} is not a record store.`);
   }
   return store;
 }
@@ -236,15 +217,6 @@ export type Identified<T> = { readonly id: string } & T;
 
 export function recordId(store: RecordStoreKey, rowId: bigint): string {
   return `${store}:${rowId.toString()}`;
-}
-
-/** Puts `id` first, so it is the first key in every emitted JSON item. */
-export function withRecordId<T extends object>(
-  store: RecordStoreKey,
-  rowId: bigint,
-  item: T,
-): Identified<T> {
-  return { id: recordId(store, rowId), ...item };
 }
 
 const INT64_MAX = 9_223_372_036_854_775_807n;
@@ -321,7 +293,7 @@ export function storedRecordColumns(store: RecordStore): string {
     `f.${store.idColumn} AS row_id`,
     `f.${store.kindColumn} AS kind`,
     "f.profile_path",
-    store.hasCommitState ? "f.commit_state" : "NULL AS commit_state",
+    store.recordType === "finding" ? "f.commit_state" : "NULL AS commit_state",
     store.shape === "identity-candidate" ? "f.category" : "NULL AS category",
     store.recordType === "candidate" ? "f.rank" : "NULL AS rank",
     store.recordType === "candidate"
@@ -330,6 +302,184 @@ export function storedRecordColumns(store: RecordStore): string {
     "f.provenance_json",
     "f.fields_json",
   ].join(", ");
+}
+
+function invalidRecord(
+  message: string,
+  id: string,
+  cause?: unknown,
+): ForensixError {
+  return new ForensixError(
+    "CASE_INVALID",
+    message,
+    { id },
+    cause === undefined ? undefined : { cause },
+  );
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const SOURCE_ROW_KEYS = [
+  "manifestEntryId",
+  "sourceId",
+  "manifestPath",
+  "database",
+  "table",
+  "rowId",
+] as const;
+
+function isSourceRow(value: unknown): value is Record<string, unknown> {
+  return (
+    isObject(value) &&
+    typeof value.manifestEntryOrdinal === "number" &&
+    SOURCE_ROW_KEYS.every((key) => typeof value[key] === "string")
+  );
+}
+
+function isFieldState(value: unknown): boolean {
+  if (!isObject(value)) return false;
+  switch (value.state) {
+    case "value":
+      return "value" in value;
+    case "absent":
+      return true;
+    case "unavailable":
+      return typeof value.reason === "string";
+    default:
+      return false;
+  }
+}
+
+/**
+ * The one decoder of a stored row's Provenance and fields JSON. It checks
+ * that the Provenance names its source rows and that every field has a known
+ * Field State (`value`, `absent`, or `unavailable` with a reason). A bad row
+ * is CASE_INVALID, never a cast.
+ */
+export function decodeRecordJson(
+  row: Pick<StoredRecordRow, "provenance_json" | "fields_json">,
+  id: string,
+): { readonly provenance: Provenance; readonly fields: ForensicFields } {
+  let provenance: unknown;
+  let fields: unknown;
+  try {
+    provenance = JSON.parse(row.provenance_json);
+    fields = JSON.parse(row.fields_json);
+  } catch (error) {
+    throw invalidRecord("Case contains invalid record JSON.", id, error);
+  }
+  if (
+    !isSourceRow(provenance) ||
+    (provenance.supportingRows !== undefined &&
+      !(
+        Array.isArray(provenance.supportingRows) &&
+        provenance.supportingRows.every(isSourceRow)
+      )) ||
+    (provenance.recoveredVia !== undefined &&
+      !isObject(provenance.recoveredVia))
+  ) {
+    throw invalidRecord("Case contains invalid record Provenance.", id);
+  }
+  if (!isObject(fields) || !Object.values(fields).every(isFieldState)) {
+    throw invalidRecord(
+      "Case contains a field with an invalid Field State.",
+      id,
+    );
+  }
+  return {
+    provenance: provenance as unknown as Provenance,
+    fields: fields as ForensicFields,
+  };
+}
+
+/** A stored Commit State, or CASE_INVALID. */
+export function assertCommitState(
+  value: string | null,
+  id: string,
+): CommitState {
+  if (
+    value !== "committed" &&
+    value !== "wal_resident" &&
+    value !== "journal_resident"
+  ) {
+    throw invalidRecord("Case contains an invalid Commit State.", id);
+  }
+  return value;
+}
+
+/** Runs a model constructor; its TypeError on a bad row is CASE_INVALID. */
+function rebuild<T>(id: string, build: () => T): T {
+  try {
+    return build();
+  } catch (error) {
+    throw invalidRecord("Case contains an invalid record.", id, error);
+  }
+}
+
+export function decodeFinding(
+  store: RecordStore,
+  row: StoredRecordRow,
+): Identified<Finding> {
+  const id = recordId(store.key, row.row_id);
+  const { provenance, fields } = decodeRecordJson(row, id);
+  const commitState = assertCommitState(row.commit_state, id);
+  return {
+    id,
+    ...rebuild(id, () =>
+      createFinding({
+        findingKind: row.kind,
+        profile: row.profile_path,
+        commitState,
+        provenance,
+        fields,
+      }),
+    ),
+  };
+}
+
+export function decodeCandidate(
+  store: RecordStore,
+  row: StoredRecordRow,
+): Identified<Candidate> {
+  const id = recordId(store.key, row.row_id);
+  const { provenance, fields } = decodeRecordJson(row, id);
+  return {
+    id,
+    ...rebuild(id, () =>
+      createCandidate({
+        candidateKind: row.kind,
+        rank: Number(row.rank),
+        count: Number(row.supporting_count),
+        provenance,
+        fields,
+      }),
+    ),
+  };
+}
+
+export function decodeIdentityCandidate(
+  store: RecordStore,
+  row: StoredRecordRow,
+): Identified<IdentityCandidateRecord> {
+  // The Candidate decoder checks rank, count, Provenance and fields.
+  const { id, candidateKind, rank, count, provenance, fields } =
+    decodeCandidate(store, row);
+  if (row.category !== "identity" && row.category !== "behavior") {
+    throw invalidRecord("Case contains an invalid Candidate category.", id);
+  }
+  return {
+    id,
+    recordType: "candidate",
+    candidateKind,
+    category: row.category,
+    profile: row.profile_path,
+    rank,
+    supportingCount: count,
+    provenance,
+    fields,
+  };
 }
 
 /**
@@ -341,71 +491,12 @@ export function decodeStoredRecord(
   store: RecordStore,
   row: StoredRecordRow,
 ): StoredRecord {
-  const id = recordId(store.key, row.row_id);
-  let provenance: Provenance;
-  let fields: ForensicFields;
-  try {
-    provenance = JSON.parse(row.provenance_json) as Provenance;
-    fields = JSON.parse(row.fields_json) as ForensicFields;
-  } catch (error) {
-    throw new ForensixError(
-      "CASE_INVALID",
-      "Case contains invalid record JSON.",
-      { id },
-      { cause: error },
-    );
+  switch (store.shape) {
+    case "finding":
+      return decodeFinding(store, row);
+    case "candidate":
+      return decodeCandidate(store, row);
+    case "identity-candidate":
+      return decodeIdentityCandidate(store, row);
   }
-  if (store.shape === "identity-candidate") {
-    if (row.category !== "identity" && row.category !== "behavior") {
-      throw new ForensixError(
-        "CASE_INVALID",
-        "Case contains an invalid Candidate category.",
-        { id },
-      );
-    }
-    return {
-      id,
-      recordType: "candidate",
-      candidateKind: row.kind,
-      category: row.category,
-      profile: row.profile_path,
-      rank: Number(row.rank),
-      supportingCount: Number(row.supporting_count),
-      provenance,
-      fields,
-    };
-  }
-  if (store.shape === "candidate") {
-    return {
-      id,
-      ...createCandidate({
-        candidateKind: row.kind,
-        rank: Number(row.rank),
-        count: Number(row.supporting_count),
-        provenance,
-        fields,
-      }),
-    };
-  }
-  if (
-    row.commit_state !== "committed" &&
-    row.commit_state !== "wal_resident" &&
-    row.commit_state !== "journal_resident"
-  ) {
-    throw new ForensixError(
-      "CASE_INVALID",
-      "Case contains an invalid Commit State.",
-      { id },
-    );
-  }
-  return {
-    id,
-    ...createFinding({
-      findingKind: row.kind,
-      profile: row.profile_path,
-      commitState: row.commit_state satisfies CommitState,
-      provenance,
-      fields,
-    }),
-  };
 }

@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { CASE_FILENAME, TOOL_VERSION } from "./case.js";
+import { ForensixError } from "./errors.js";
 import { openDatabaseSync } from "./sqlite-open.js";
 import type {
   Candidate,
@@ -25,7 +26,6 @@ export interface PersistedFinding {
 export interface PersistedCandidate {
   readonly candidate: Candidate;
   readonly profile: string;
-  readonly commitState: "committed" | "wal_resident" | "journal_resident";
   readonly searchText: string;
 }
 
@@ -230,7 +230,6 @@ export interface PersistedCacheFinding {
 export interface PersistedCacheCandidate {
   readonly candidate: Candidate;
   readonly profile: string;
-  readonly commitState: "committed" | "wal_resident" | "journal_resident";
   readonly backend: string;
   readonly candidateKind: string;
   readonly searchText: string;
@@ -306,26 +305,6 @@ export interface MetadataArtifactWrite {
   readonly databasePath: string;
   readonly reason: string | null;
   readonly findings: readonly PersistedMetadataFinding[];
-}
-
-export interface StoreHistoryAnalysisOptions {
-  readonly caseDirectory: string;
-  readonly sourceIds: readonly string[];
-  readonly declaredTimezone: string;
-  readonly declaredOriginOs: DeclaredOriginOs | null;
-  readonly invocation: readonly string[];
-  readonly startedAt: string;
-  readonly artifacts: readonly HistoryArtifactWrite[];
-  readonly cookieArtifacts?: readonly CookieArtifactWrite[];
-  readonly loginDataArtifacts?: readonly LoginDataArtifactWrite[];
-  readonly topSitesArtifacts?: readonly TopSitesArtifactWrite[];
-  readonly webDataArtifacts?: readonly WebDataArtifactWrite[];
-  readonly faviconArtifacts?: readonly FaviconArtifactWrite[];
-  readonly downloadsArtifacts?: readonly DownloadsArtifactWrite[];
-  readonly metadataArtifacts?: readonly MetadataArtifactWrite[];
-  readonly bookmarksArtifacts?: readonly BookmarksArtifactWrite[];
-  readonly cacheArtifacts?: readonly CacheArtifactWrite[];
-  readonly candidateArtifacts?: readonly CandidateArtifactWrite[];
 }
 
 export type AnalysisRunExitState = "complete" | "partial" | "failed";
@@ -432,9 +411,6 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       record_type TEXT NOT NULL CHECK (record_type = 'candidate'),
       candidate_kind TEXT NOT NULL,
       profile_path TEXT NOT NULL,
-      commit_state TEXT NOT NULL CHECK (
-        commit_state IN ('committed', 'wal_resident', 'journal_resident')
-      ),
       rank INTEGER NOT NULL CHECK (rank > 0),
       supporting_count INTEGER NOT NULL CHECK (supporting_count > 0),
       -- topic-specific projection of fields.topicLabel, kept as a column so the
@@ -452,7 +428,7 @@ export function initializeFindingSchema(database: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS forensic_candidates_label_query
       ON forensic_candidates(candidate_kind, COALESCE(topic_label, ''), candidate_id);
     CREATE INDEX IF NOT EXISTS forensic_candidates_profile_query
-      ON forensic_candidates(candidate_kind, profile_path, commit_state, candidate_id);
+      ON forensic_candidates(candidate_kind, profile_path, candidate_id);
 
     CREATE TABLE IF NOT EXISTS candidate_artifact_results (
       artifact_result_id INTEGER PRIMARY KEY,
@@ -1027,9 +1003,6 @@ export function initializeFindingSchema(database: DatabaseSync): void {
       record_type TEXT NOT NULL CHECK (record_type = 'candidate'),
       candidate_kind TEXT NOT NULL,
       profile_path TEXT NOT NULL,
-      commit_state TEXT NOT NULL CHECK (
-        commit_state IN ('committed', 'wal_resident', 'journal_resident')
-      ),
       backend TEXT NOT NULL,
       rank INTEGER NOT NULL CHECK (rank > 0),
       supporting_count INTEGER NOT NULL CHECK (supporting_count > 0),
@@ -1097,7 +1070,6 @@ function insertCandidate(
     candidate.recordType,
     candidate.candidateKind,
     row.profile,
-    row.commitState,
     candidate.rank,
     candidate.count,
     topicLabel,
@@ -1332,7 +1304,6 @@ function insertCacheCandidate(
     candidate.recordType,
     candidate.candidateKind,
     row.profile,
-    row.commitState,
     row.backend,
     candidate.rank,
     candidate.count,
@@ -1397,13 +1368,8 @@ function insertBookmarkFinding(
 
 type PreparedStatement = ReturnType<DatabaseSync["prepare"]>;
 
-/**
- * Normalized, non-optional artifact write set. The public
- * {@link storeHistoryAnalysis} entrypoint accepts the historical shape with
- * optional per-family arrays and normalizes it into this structure before
- * persistence, so the engine never has to branch on `undefined`.
- */
-interface ArtifactWrites {
+/** Every artifact family one Analysis Run writes. */
+export interface ArtifactWrites {
   readonly historyArtifacts: readonly HistoryArtifactWrite[];
   readonly cookieArtifacts: readonly CookieArtifactWrite[];
   readonly topSitesArtifacts: readonly TopSitesArtifactWrite[];
@@ -1417,7 +1383,7 @@ interface ArtifactWrites {
   readonly candidateArtifacts: readonly CandidateArtifactWrite[];
 }
 
-interface AnalysisRunMetadata {
+export interface AnalysisRunMetadata {
   readonly caseDirectory: string;
   readonly sourceIds: readonly string[];
   readonly declaredTimezone: string;
@@ -1574,12 +1540,10 @@ function bindSourceProfileDeactivate(
 }
 
 /**
- * Persist a full analysis run from a normalized, non-optional write set. This
- * is the engine behind {@link storeHistoryAnalysis}; the families are persisted
- * in the historical order and with the exact per-table SQL so the Case DB is
- * byte-for-byte identical to the previous hand-wired transaction.
+ * Persist a full Analysis Run in one transaction, then checkpoint the WAL so
+ * the immutable read-only Case opener sees the run.
  */
-function storeAnalysisWrites(
+export function storeAnalysisWrites(
   metadata: AnalysisRunMetadata,
   writes: ArtifactWrites,
 ): StoredHistoryAnalysis {
@@ -1590,6 +1554,7 @@ function storeAnalysisWrites(
   );
   try {
     initializeFindingSchema(database);
+    let stored: StoredHistoryAnalysis;
     database.exec("BEGIN IMMEDIATE;");
     try {
       database
@@ -1646,9 +1611,9 @@ function storeAnalysisWrites(
           childPersist<HistoryArtifactWrite, PersistedCandidate>(
             `INSERT INTO forensic_candidates
            (artifact_result_id, run_id, record_type, candidate_kind,
-            profile_path, commit_state, rank, supporting_count,
+            profile_path, rank, supporting_count,
             topic_label, provenance_json, fields_json, search_text)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             (artifact) => artifact.candidates ?? [],
             insertCandidate,
           ),
@@ -1946,10 +1911,10 @@ function storeAnalysisWrites(
           childPersist<CacheArtifactWrite, PersistedCacheCandidate>(
             `INSERT INTO cache_candidates
            (artifact_result_id, run_id, source_id, manifest_entry_ordinal,
-            record_type, candidate_kind, profile_path, commit_state, backend,
+            record_type, candidate_kind, profile_path, backend,
             rank, supporting_count, provenance_json, fields_json, search_text,
             sort_key, sort_last_used)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             (artifact) => artifact.candidates,
             insertCacheCandidate,
           ),
@@ -2034,48 +1999,27 @@ function storeAnalysisWrites(
         )
         .run(finishedAt, runStatus, runId);
       database.exec("COMMIT;");
-      database.exec("PRAGMA wal_checkpoint(TRUNCATE);");
-      return { runId, finishedAt, runStatus };
+      stored = { runId, finishedAt, runStatus };
     } catch (error) {
       database.exec("ROLLBACK;");
       throw error;
     }
+    // Every read path opens the Case immutable and ignores the WAL, so the run
+    // is visible only after a full checkpoint. The connection busy timeout
+    // already waits for other connections; a checkpoint that is still busy is
+    // a typed failure, not a silent invisible run.
+    const checkpoint = database
+      .prepare("PRAGMA wal_checkpoint(TRUNCATE);")
+      .get() as { readonly busy: bigint } | undefined;
+    if (checkpoint === undefined || checkpoint.busy !== 0n) {
+      throw new ForensixError(
+        "ANALYSIS_FAILED",
+        "The Analysis Run is stored, but another process holds the Case database, so the write-ahead log cannot be checkpointed. Close the other process and run analyse again.",
+        { caseDirectory: metadata.caseDirectory, runId },
+      );
+    }
+    return stored;
   } finally {
     database.close();
   }
-}
-
-/**
- * Persist a full analysis run. This is a thin, backward-compatible wrapper: it
- * accepts the historical options shape (with optional per-family arrays),
- * normalizes it into a non-optional {@link ArtifactWrites} set, and delegates
- * to {@link storeAnalysisWrites}. Existing callers keep compiling unchanged.
- */
-export function storeHistoryAnalysis(
-  options: StoreHistoryAnalysisOptions,
-): StoredHistoryAnalysis {
-  const writes: ArtifactWrites = {
-    historyArtifacts: options.artifacts,
-    cookieArtifacts: options.cookieArtifacts ?? [],
-    topSitesArtifacts: options.topSitesArtifacts ?? [],
-    faviconArtifacts: options.faviconArtifacts ?? [],
-    loginDataArtifacts: options.loginDataArtifacts ?? [],
-    webDataArtifacts: options.webDataArtifacts ?? [],
-    downloadsArtifacts: options.downloadsArtifacts ?? [],
-    metadataArtifacts: options.metadataArtifacts ?? [],
-    bookmarksArtifacts: options.bookmarksArtifacts ?? [],
-    cacheArtifacts: options.cacheArtifacts ?? [],
-    candidateArtifacts: options.candidateArtifacts ?? [],
-  };
-  return storeAnalysisWrites(
-    {
-      caseDirectory: options.caseDirectory,
-      sourceIds: options.sourceIds,
-      declaredTimezone: options.declaredTimezone,
-      declaredOriginOs: options.declaredOriginOs,
-      invocation: options.invocation,
-      startedAt: options.startedAt,
-    },
-    writes,
-  );
 }

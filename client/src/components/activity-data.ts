@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import { once, readPages } from "../read-pages.js";
 import type { Finding } from "../types.js";
 import type { DayCount } from "./charts.js";
-import { fieldString } from "./finding-fields.js";
+import { fieldString } from "../field-readers.js";
 
 /** One `activity` row: recorded page-visit count for a local date and hour. */
 export interface ActivityBucket {

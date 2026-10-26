@@ -2,14 +2,11 @@ import { createHash } from "node:crypto";
 import { readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
+import { openCaseReadOnly } from "./case.js";
 import { ForensixError } from "./errors.js";
 import { recordedStrings, siteHostsOf } from "./site-host-key.js";
-import {
-  openSitesCase,
-  parseFieldState,
-  readingJson,
-  schemaExists,
-} from "./sites-query.js";
+import { parseFieldState, readingJson } from "./sites-query.js";
+import { tableExists } from "./sqlite-artifact.js";
 
 export interface SiteFaviconsQuery {
   readonly caseDirectory: string;
@@ -104,10 +101,10 @@ function payloadDataUri(caseRoot: string, payloadPath: string): string | null {
 }
 
 function openFavicons(caseDirectory: string) {
-  const database = openSitesCase(caseDirectory);
+  const database = openCaseReadOnly(caseDirectory, { readBigInts: true });
   if (
-    !schemaExists(database, "favicon_findings") ||
-    !schemaExists(database, "favicon_artifact_results")
+    !tableExists(database, "favicon_findings") ||
+    !tableExists(database, "favicon_artifact_results")
   ) {
     database.close();
     throw new ForensixError(
@@ -149,7 +146,7 @@ export function querySiteFavicons(
       if (wanted.size === 0) return;
       const rows = database
         .prepare(
-          `SELECT f.sort_icon_url AS icon_url, json_extract(f.fields_json, '$.pageUrls') AS page_urls, json_extract(f.fields_json, '$.payloadPath') AS payload_path FROM favicon_findings f JOIN favicon_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = 'favicon' AND f.commit_state = 'committed' ORDER BY COALESCE(f.sort_width, -1) DESC, f.finding_id ASC`,
+          `SELECT f.sort_icon_url AS icon_url, json_extract(f.fields_json, '$.pageUrls') AS page_urls, json_extract(f.fields_json, '$.payloadPath') AS payload_path FROM favicon_findings f JOIN favicon_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.finding_kind = 'favicon' AND f.commit_state = 'committed' ORDER BY COALESCE(f.sort_width, -1) DESC, f.finding_id ASC`,
         )
         .iterate();
       for (const row of rows) {
@@ -237,7 +234,7 @@ export function queryFaviconBitmaps(
     readingJson("favicon_findings", () => {
       const rows = database
         .prepare(
-          `SELECT json_extract(f.fields_json, '$.payloadSha256') AS payload_sha256, json_extract(f.fields_json, '$.payloadPath') AS payload_path FROM favicon_findings f JOIN favicon_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = 'favicon' AND json_extract(f.fields_json, '$.payloadSha256.value') IN (${[...wanted].map(() => "?").join(", ")}) ORDER BY f.finding_id ASC`,
+          `SELECT json_extract(f.fields_json, '$.payloadSha256') AS payload_sha256, json_extract(f.fields_json, '$.payloadPath') AS payload_path FROM favicon_findings f JOIN favicon_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.finding_kind = 'favicon' AND json_extract(f.fields_json, '$.payloadSha256.value') IN (${[...wanted].map(() => "?").join(", ")}) ORDER BY f.finding_id ASC`,
         )
         .iterate(...wanted);
       for (const row of rows) {

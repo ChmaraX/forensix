@@ -1,27 +1,31 @@
 import {
   createConditions,
-  decodeRecordJson,
   normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
   resolveProfiles,
   resolveSearch,
   runFindingQuery,
-  validateEnum,
-  type EngineRow,
   type FindingQuerySpec,
+  type QueryDirection,
   type SortDefinition,
 } from "./finding-query.js";
-import type { Identified } from "./record-store.js";
-import { ForensixError } from "./errors.js";
+import { decodeIdentityCandidate, type Identified } from "./record-store.js";
 import type { CandidateCategory } from "./identity-candidates.js";
 import type { ForensicFields, Provenance } from "./forensic-model.js";
 
-export type CandidateSort =
-  | "rank"
-  | "kind"
-  | "supporting-count"
-  | "value"
-  | "profile";
-export type CandidateDirection = "asc" | "desc";
+export const CANDIDATE_SORTS = [
+  "rank",
+  "kind",
+  "supporting-count",
+  "value",
+  "profile",
+] as const;
+export type CandidateSort = (typeof CANDIDATE_SORTS)[number];
+export const CANDIDATE_CATEGORIES = [
+  "identity",
+  "behavior",
+] as const satisfies readonly CandidateCategory[];
 
 export interface CandidateQuery {
   readonly caseDirectory: string;
@@ -30,7 +34,7 @@ export interface CandidateQuery {
   readonly kind?: string;
   readonly search?: string;
   readonly sort?: CandidateSort;
-  readonly direction?: CandidateDirection;
+  readonly direction?: QueryDirection;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -59,16 +63,6 @@ export interface CandidatePage {
   readonly limit: number;
 }
 
-const CANDIDATE_SORTS = [
-  "rank",
-  "kind",
-  "supporting-count",
-  "value",
-  "profile",
-] as const;
-const CANDIDATE_DIRECTIONS = ["asc", "desc"] as const;
-const CATEGORIES = ["identity", "behavior"] as const;
-
 const SORT_DEFINITIONS: Readonly<Record<CandidateSort, SortDefinition>> = {
   rank: { expression: "printf('%020d', f.rank)", kind: "text" },
   kind: { expression: "f.candidate_kind", kind: "text" },
@@ -84,62 +78,13 @@ const CANDIDATE_SPEC: FindingQuerySpec<CandidateQuery, CandidateRecord> = {
   label: "Candidates",
   store: "identity-candidates",
   analysisNotFound: "Case has no Candidate analysis. Run analyse first.",
-  schemaTable: "identity_candidates",
-  mainTable: "identity_candidates",
-  resultsTable: "candidate_artifact_results",
-  idColumn: "candidate_id",
-  cursorIdField: "candidateId",
-  selectColumns:
-    "f.candidate_kind, f.category, f.profile_path, f.rank, f.supporting_count",
-  parse: (row: EngineRow): CandidateRecord => {
-    const { provenance, fields } = decodeRecordJson(
-      row,
-      "Case contains invalid Candidate JSON.",
-      "candidateId",
-    );
-    if (row.category !== "identity" && row.category !== "behavior") {
-      throw new ForensixError(
-        "CASE_INVALID",
-        "Case contains an invalid Candidate category.",
-        { candidateId: row.entity_id.toString() },
-      );
-    }
-    return {
-      recordType: "candidate",
-      candidateKind: row.candidate_kind as string,
-      category: row.category,
-      profile: row.profile_path as string,
-      rank: Number(row.rank),
-      supportingCount: Number(row.supporting_count),
-      provenance,
-      fields,
-    };
-  },
+  decode: decodeIdentityCandidate,
   plan: (input) => {
-    const direction = validateEnum(
-      input.direction,
-      "asc",
-      CANDIDATE_DIRECTIONS,
-      "--direction",
-      "Candidates",
-    );
-    const sort = validateEnum(
-      input.sort,
-      "rank",
-      CANDIDATE_SORTS,
-      "--sort",
-      "Candidates",
-    );
+    const direction =
+      parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "asc";
+    const sort = parseOption(input.sort, "--sort", CANDIDATE_SORTS) ?? "rank";
     const category =
-      input.category === undefined
-        ? null
-        : validateEnum(
-            input.category,
-            "identity",
-            CATEGORIES,
-            "--category",
-            "Candidates",
-          );
+      parseOption(input.category, "--category", CANDIDATE_CATEGORIES) ?? null;
     const kind =
       input.kind === undefined || input.kind.length === 0 ? null : input.kind;
     const limit = normalizeLimit(input.limit, "Candidates");
@@ -147,7 +92,6 @@ const CANDIDATE_SPEC: FindingQuerySpec<CandidateQuery, CandidateRecord> = {
     const search = resolveSearch(input.search);
 
     const where = createConditions();
-    where.add("f.record_type = 'candidate'");
     if (category !== null) {
       where.add("f.category = ?", category);
     }
@@ -158,7 +102,6 @@ const CANDIDATE_SPEC: FindingQuerySpec<CandidateQuery, CandidateRecord> = {
     where.addSearch(search);
 
     return {
-      sort,
       direction,
       limit,
       sortDefinition: SORT_DEFINITIONS[sort],

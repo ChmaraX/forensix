@@ -20,6 +20,7 @@ function finding(
   extra: Partial<Finding> = {},
 ): Finding {
   return {
+    id: "history:1",
     recordType: "finding",
     findingKind,
     profile: "Default",
@@ -168,6 +169,7 @@ describe("visitedUrlsOf / visitLinksOf", () => {
       "history_visit",
       { url: value(url), visitTime: time("2024-03-12T10:00:00.000Z") },
       {
+        id: `history:${rowId}`,
         commitState: commitState as Finding["commitState"],
         provenance: { manifestPath: "m", table: "visits", rowId },
       },
@@ -187,8 +189,8 @@ describe("visitedUrlsOf / visitLinksOf", () => {
       (utc) => utc,
     );
     expect(links.map((link) => link.extras.row)).toEqual([
-      "m|visits|1|Default|committed",
-      "m|visits|4|Default|wal_resident",
+      "history:1",
+      "history:4",
     ]);
     expect(links.map((link) => link.extras.tab)).toEqual([
       "saved",
@@ -280,7 +282,7 @@ describe("citationOf", () => {
     expect(
       citationOf(row, { artifact: "Favicons", profile: "Default profile" }),
     ).toBe(
-      "Artifact: Favicons (favicon) · Profile: Default profile · File: src-01/manifest.jsonl · Table: t · Row id: 1 · Commit State: journal_resident · payloadSha256: ab12",
+      "Artifact: Favicons (favicon) · Profile: Default profile · File: src-01/manifest.jsonl · Table: t · Row id: 1 · Commit State: journal_resident · Record id: history:1 · payloadSha256: ab12",
     );
   });
 

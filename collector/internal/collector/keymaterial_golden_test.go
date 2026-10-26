@@ -35,16 +35,7 @@ func TestKeyMaterialSubtreeMatchesSharedGolden(t *testing.T) {
 	}
 	privatePEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
 
-	capture := KeyCaptureResult{Records: []CapturedKeyRecord{
-		capturedProviderKey("linux-libsecret-v11-1", "linux", "gnome-libsecret", "Chrome Safe Storage", "live_account_session", "v11", []byte("keyring-secret"), 1,
-			[]KeyContext{{Name: "application", Value: "chrome"}, {Name: "derivation", Value: "pbkdf2-hmac-sha1"}, {Name: "iterations", Value: "1"}, {Name: "salt", Value: "saltysalt"}}),
-		unavailableProviderKey("linux-kwallet-unavailable", "linux", "kwallet6", "Chrome Safe Storage", "live_account_session", "v11", "provider-store-locked"),
-	}}
-	generated := filepath.Join(t.TempDir(), "subtree")
-	random := bytes.NewReader(bytes.Repeat([]byte{0x5a}, 4096))
-	if _, err := writeKeyMaterialSubtree(generated, "key_material/alice/udd-1", "alice", capture, private.PublicKey().Bytes(), random); err != nil {
-		t.Fatal(err)
-	}
+	generated := writeGoldenKeyMaterialSubtree(t, private.PublicKey().Bytes())
 
 	if os.Getenv("FORENSIX_UPDATE_GOLDEN") == "1" {
 		if err := os.RemoveAll(fixture); err != nil {
@@ -82,6 +73,23 @@ func TestKeyMaterialSubtreeMatchesSharedGolden(t *testing.T) {
 		}
 		t.Fatal("Collector key-material output diverged from the shared fixture; analyzer interoperability is at risk")
 	}
+}
+
+// writeGoldenKeyMaterialSubtree writes the subtree for the fixed capture of the
+// shared fixture: one captured and one unavailable record.
+func writeGoldenKeyMaterialSubtree(t *testing.T, recipient []byte) string {
+	t.Helper()
+	capture := KeyCaptureResult{Records: []CapturedKeyRecord{
+		capturedProviderKey("linux-libsecret-v11-1", "linux", "gnome-libsecret", "Chrome Safe Storage", "live_account_session", "v11", []byte("keyring-secret"), 1,
+			[]KeyContext{{Name: "application", Value: "chrome"}, {Name: "derivation", Value: "pbkdf2-hmac-sha1"}, {Name: "iterations", Value: "1"}, {Name: "salt", Value: "saltysalt"}}),
+		unavailableProviderKey("linux-kwallet-unavailable", "linux", "kwallet6", "Chrome Safe Storage", "live_account_session", "v11", "provider-store-locked"),
+	}}
+	generated := filepath.Join(t.TempDir(), "subtree")
+	random := bytes.NewReader(bytes.Repeat([]byte{0x5a}, 4096))
+	if _, err := writeKeyMaterialSubtree(generated, "key_material/alice/udd-1", "alice", capture, recipient, random); err != nil {
+		t.Fatal(err)
+	}
+	return generated
 }
 
 func treeBytes(t *testing.T, root string) map[string][]byte {

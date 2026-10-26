@@ -9,13 +9,11 @@
  *    dot removed, lower case (`www.example.com` stays apart from
  *    `example.com`);
  *  - `cacheResourceUrl(key)`: the resource URL a cache key names;
- *  - `SITE_HOST_FIELDS` / `siteHostsOf(kind, fields)`: the fields, per kind,
- *    that put a row on a host, and the hosts a row is on.
+ *  - `siteHostsOf(kind, fields)`: the hosts a row is on, from the fields,
+ *    per kind, that put a row on a host (core's `SITE_HOST_FIELDS`).
  */
 export {
   cacheResourceUrl,
-  recordedStrings,
-  SITE_HOST_FIELDS,
   siteHostKey,
   siteHostsOf,
 } from "../../core/src/site-host-key.js";

@@ -14,8 +14,12 @@ import { DatabaseSync } from "node:sqlite";
  *   1. A finite `busy_timeout` so a lock contended DURING an open/rollback is
  *      waited on for a few seconds instead of failing instantly.
  *   2. A small, fixed-budget retry that ONLY re-attempts the transient open
- *      errors above. It is never infinite and never retries a genuine error
- *      (corruption, missing file with no writer, schema faults).
+ *      errors above, matched by their exact primary result code. An extended
+ *      result code (for example SQLITE_CANTOPEN_ISDIR or SQLITE_BUSY_SNAPSHOT)
+ *      names a specific, non-transient cause and is not retried. An error
+ *      with no result code is retried only when its message is one of the
+ *      two transient SQLite messages. The retry is never infinite and never
+ *      retries a genuine error (corruption, schema faults).
  *
  * A successful open behaves exactly as before: same options, same handle,
  * same reads. Only the failure path changes.
@@ -50,8 +54,9 @@ const TRANSIENT_PRIMARY_CODES = new Set([
 
 /**
  * Classify an error thrown while opening a SQLite database as transient
- * (worth a bounded retry) or not. Exported for unit testing; not re-exported
- * from the package index.
+ * (worth a bounded retry) or not. Only the exact primary codes are transient;
+ * an extended code is not. Exported for unit testing; not re-exported from
+ * the package index.
  */
 export function isTransientOpenError(error: unknown): boolean {
   if (typeof error !== "object" || error === null) {
@@ -59,9 +64,7 @@ export function isTransientOpenError(error: unknown): boolean {
   }
   const errcode = (error as { errcode?: unknown }).errcode;
   if (typeof errcode === "number") {
-    // Mask to the primary result code; the high bits are extended codes
-    // (e.g. SQLITE_CANTOPEN_ISDIR) that share the same transient class.
-    return TRANSIENT_PRIMARY_CODES.has(errcode & 0xff);
+    return TRANSIENT_PRIMARY_CODES.has(errcode);
   }
   const message = (error as { message?: unknown }).message;
   return (

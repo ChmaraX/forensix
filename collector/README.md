@@ -11,6 +11,7 @@ The Collector:
 - opens Source paths for reading only
 - never starts, stops, or signals Chrome
 - opens no IP network endpoint and imports no process-control package
+- links only reviewed dependencies; a test lists each dependency that can open a socket or make a system call, with its reason
 - performs no update or telemetry check
 - copies Source bytes without opening SQLite or decrypting Source data
 - reads Windows `Local State` only for the authorized OSCrypt wrapper capture
@@ -57,6 +58,12 @@ If Chrome locks a file, or the Collector cannot read a file, the Manifest entry 
 If a file changes between the inventory and the copy, the reason is `changed_during_ingest`.
 The Collector does not copy that file, and it continues with the other files.
 The User Data Dir fails only when the Collector cannot read its root or cannot write the bundle.
+A failed or skipped User Data Dir always has an `error` in `bundle_manifest.json`.
+
+The Collector writes the bundle in `<out>.partial` and then renames it to `<out>`.
+The directory contains the process ID of the Collector.
+If a stopped Collector left `<out>.partial`, the next run removes it.
+If that process still runs, the Collector stops with an error that names the directory.
 
 If the selected User Data Dir is a symlink or a junction, the Collector resolves it one time and collects the target.
 It does not follow symlinks inside the User Data Dir.

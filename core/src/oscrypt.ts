@@ -140,13 +140,6 @@ export type DecryptionOutcome =
     }
   | { readonly state: "unavailable"; readonly reason: DecryptionFailureReason };
 
-const CBC_ROUTES: ReadonlySet<OscryptRoute> = new Set([
-  "linux-basic",
-  "gnome-keyring",
-  "kwallet",
-  "macos-keychain",
-]);
-
 const CBC_IV = Buffer.alloc(16, 0x20);
 const CBC_SALT = Buffer.from("saltysalt", "latin1");
 const LINUX_BASIC_PASSWORD = Buffer.from("peanuts", "latin1");
@@ -435,19 +428,26 @@ function decryptLegacyDpapi(
 
 function decryptWith(
   material: AuthorizedKeyMaterial,
-  scheme: OscryptScheme,
   ciphertext: Uint8Array,
 ): Uint8Array {
-  if (material.provenance.route === "windows-dpapi-v10") {
-    return decryptGcm(material, ciphertext);
+  const route = material.provenance.route;
+  switch (route) {
+    case "windows-dpapi-v10":
+      return decryptGcm(material, ciphertext);
+    case "windows-dpapi-legacy":
+      return decryptLegacyDpapi(material, ciphertext);
+    case "linux-basic":
+    case "gnome-keyring":
+    case "kwallet":
+    case "macos-keychain":
+      return decryptCbc(material, ciphertext);
+    default: {
+      // Every route names its algorithm above; key-material parsing refuses
+      // any other route.
+      const unsupported: never = route;
+      throw new Error(`Unsupported OSCrypt route: ${String(unsupported)}`);
+    }
   }
-  if (material.provenance.route === "windows-dpapi-legacy") {
-    return decryptLegacyDpapi(material, ciphertext);
-  }
-  if (CBC_ROUTES.has(material.provenance.route)) {
-    return decryptCbc(material, ciphertext);
-  }
-  throw new DecryptionFailure("unsupported_encryption_route");
 }
 
 /**
@@ -478,7 +478,7 @@ export function decryptOscryptValue(options: {
   let failure: DecryptionFailureReason = "no_authorized_key_material";
   for (const material of candidates) {
     try {
-      const plaintext = decryptWith(material, scheme, options.ciphertext);
+      const plaintext = decryptWith(material, options.ciphertext);
       return {
         state: "value",
         plaintext,

@@ -222,11 +222,14 @@ describe("compiled analyzer CLI identity and behavior Candidates", () => {
     expect(
       runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
     ).toBe(0);
-    // The run is queryable (clean or partial); Candidate generation is derived
-    // and never changes the exit-code semantics of the source artifacts.
-    expect(
-      runCli(["analyse", "--case", caseDirectory, "--json"]).status,
-    ).not.toBe(1);
+    // Candidate generation is derived and never changes the exit-code
+    // semantics of the source artifacts.
+    const analysis = runCli(["analyse", "--case", caseDirectory, "--json"]);
+    expect({
+      status: analysis.status,
+      exitState: parseJson<{ readonly exitState: string }>(analysis.stdout)
+        .exitState,
+    }).toEqual({ status: 0, exitState: "complete" });
 
     // AC: every heuristic is nominal + ranked. The Candidate list returns rows
     // only, like every other artifact list; Completeness is a separate route.
@@ -398,5 +401,84 @@ describe("compiled analyzer CLI identity and behavior Candidates", () => {
       runCli(["metadata", "--case", caseDirectory, "--json"]).stdout,
     );
     expect(metadata.items.length).toBeGreaterThan(0);
+  });
+
+  it("reports a stored Candidate with an unknown Field State, bad Provenance or bad rank as CASE_INVALID", async () => {
+    const root = await mkdtemp(join(tmpdir(), "forensix-candidates-bad-"));
+    temporaryRoots.push(root);
+    const source = await createSource(root);
+    const caseDirectory = join(root, "CASE-BAD");
+    expect(
+      runCli(["ingest", source, "--case", caseDirectory, "--json"]).status,
+    ).toBe(0);
+    expect(
+      runCli(["analyse", "--case", caseDirectory, "--json"]).status,
+    ).not.toBe(1);
+    const first = parseJson<CandidatePage>(
+      runCli(["candidates", "--case", caseDirectory, "--json"]).stdout,
+    ).items[0];
+    const id = (first as { readonly id?: string } | undefined)?.id ?? "";
+    const rowId = Number(id.split(":")[1]);
+
+    const original = new DatabaseSync(join(caseDirectory, "case.fxdb"), {
+      readOnly: true,
+    });
+    let provenanceJson: string;
+    try {
+      provenanceJson = (
+        original
+          .prepare(
+            "SELECT provenance_json FROM identity_candidates WHERE candidate_id = ?",
+          )
+          .get(rowId) as { readonly provenance_json: string }
+      ).provenance_json;
+    } finally {
+      original.close();
+    }
+    const tamper = (column: string, value: string | bigint): void => {
+      const database = new DatabaseSync(join(caseDirectory, "case.fxdb"));
+      try {
+        database
+          .prepare(
+            `UPDATE identity_candidates SET ${column} = ? WHERE candidate_id = ?`,
+          )
+          .run(value, rowId);
+      } finally {
+        database.close();
+      }
+    };
+    const refused = (): void => {
+      for (const command of [
+        ["candidates", "--case", caseDirectory, "--json"],
+        ["get", "--case", caseDirectory, "--id", id, "--json"],
+      ]) {
+        const result = runCli(command);
+        expect(result.status, command[0]).toBe(1);
+        expect(
+          parseJson<{ readonly code: string; readonly details: unknown }>(
+            result.stderr,
+          ),
+        ).toMatchObject({ code: "CASE_INVALID", details: { id } });
+      }
+    };
+
+    // A field state outside value / absent / unavailable is never cast.
+    tamper(
+      "fields_json",
+      JSON.stringify({ candidateValue: { state: "guessed" } }),
+    );
+    refused();
+    // Provenance that names no source row is refused the same way.
+    tamper(
+      "fields_json",
+      JSON.stringify({ candidateValue: { state: "absent" } }),
+    );
+    tamper("provenance_json", "null");
+    refused();
+    // A rank that is not a safe positive integer is refused too: the column
+    // CHECK (rank > 0) lets 2^53 + 1 in, so only the decoder catches it.
+    tamper("provenance_json", provenanceJson);
+    tamper("rank", 2n ** 53n + 1n);
+    refused();
   });
 });

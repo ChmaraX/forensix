@@ -75,12 +75,20 @@ jobs:
         with:
           subject-path: "dist/collector/forensix-collect-*"
 
-      - name: Create GitHub Release
+      # A rerun after a later failure finds the release and updates its assets.
+      - name: Create or update the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          COMMIT: ${{ steps.meta.outputs.sha }}
         run: |
           set -euo pipefail
+          assets=(dist/collector/forensix-collect-* dist/collector/SHA256SUMS)
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+            exit 0
+          fi
           gh release create "$GITHUB_REF_NAME" \
-            --title "Collector ${{ steps.meta.outputs.version }}" \
-            --notes "Collector ${{ steps.meta.outputs.version }} (${{ steps.meta.outputs.sha }}). Six static binaries with checksums and provenance attestations." \
-            dist/collector/forensix-collect-* dist/collector/SHA256SUMS
+            --title "Collector $VERSION" \
+            --notes "Collector $VERSION ($COMMIT). Six static binaries with checksums and provenance attestations." \
+            "${assets[@]}"

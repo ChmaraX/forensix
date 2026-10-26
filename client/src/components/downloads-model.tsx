@@ -11,8 +11,9 @@ import {
 } from "@/lib/app-icons";
 import type { CommitState, Finding } from "../types.js";
 import { fieldZone } from "./day-bounds.js";
-import { fieldInteger, fieldText, fieldUtc, hostOf } from "./finding-fields.js";
 import { useDrainedRead } from "./use-drained-read.js";
+import { fieldInteger, fieldText, fieldUtc } from "../field-readers.js";
+import { urlHostOf } from "./url-host.js";
 
 /* --------------------------------- reads ---------------------------------- */
 
@@ -334,7 +335,7 @@ export function toRow(finding: Finding): DownloadRow {
     finding,
     name,
     path,
-    host: hostOf(sourceUrl),
+    host: urlHostOf(sourceUrl),
     sourceUrl,
     received: fieldInteger(finding.fields.receivedBytes),
     expected: positive(fieldInteger(finding.fields.totalBytes)),

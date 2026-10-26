@@ -60,9 +60,6 @@ import { EmptyRows } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
   FieldCell,
-  fieldText,
-  fieldUtc,
-  hostOf,
   SiteAvatar,
   StateWord,
   TwoLineCell,
@@ -77,7 +74,6 @@ import {
 import {
   ArtifactEmpty,
   clearSearchAndProfiles,
-  emptyCoverageOf,
   EmptyPivot,
   useProfileLens,
 } from "./identity-kit.js";
@@ -86,13 +82,7 @@ import { useArtifactCoverage } from "../case-context.js";
 import { ListBlock, RevealSwap } from "./list-states.js";
 import { figure, MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet } from "./row-sheet.js";
-import {
-  CommitStateSplit,
-  ResponsiveRows,
-  SectionPanel,
-  TimeCell,
-  type RowColumn,
-} from "./page-kit.js";
+import { CommitStateSplit, SectionPanel, TimeCell } from "./page-kit.js";
 import { Term } from "./term.js";
 import {
   FolderNavigator,
@@ -100,6 +90,10 @@ import {
   type FolderCounts,
 } from "./bookmarks-folders.js";
 import { useMediaQuery } from "./use-media-query.js";
+import { fieldText, fieldUtc } from "../field-readers.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
+import { urlHostOf } from "./url-host.js";
+import { emptyCoverageOf } from "./identity-coverage.js";
 
 /** Tailwind's `lg`: from here the folder tree stands beside the rows;
  *  below it the folder pick is a Select in the list's toolbar. */
@@ -168,7 +162,7 @@ function toRow(finding: Finding): BookmarkRow {
     finding,
     name: fieldText(finding.fields.name),
     url,
-    host: hostOf(url),
+    host: urlHostOf(url),
     folderPath,
     folderSegments: segmentsOf(folderPath),
     addedUtc: fieldUtc(finding.fields.dateAdded),
@@ -327,8 +321,8 @@ const RECOVERED_COLUMNS = bookmarkColumns(true);
 
 /** A row's key: its reference, so a filter never hands one row's memoised
  *  cells to another. */
-function bookmarkKey(row: BookmarkRow, index: number): string {
-  return rowRefOf(row.finding) ?? `${row.finding.commitState}-${String(index)}`;
+function bookmarkKey(row: BookmarkRow): string {
+  return rowRefOf(row.finding);
 }
 
 function bookmarkLabel(row: BookmarkRow): string {
@@ -454,11 +448,8 @@ export function BookmarksPage() {
   const coverage = useArtifactCoverage(config.completenessArtifact);
   const treeBeside = useMediaQuery(LG_UP);
 
-  const allSaved = useMemo(
-    () => lists.saved.rows.map(toRow),
-    [lists.saved.rows],
-  );
-  const allRecovered = useMemo(
+  const saved = useMemo(() => lists.saved.rows.map(toRow), [lists.saved.rows]);
+  const recovered = useMemo(
     () => lists.recovered.rows.map(toRow),
     [lists.recovered.rows],
   );
@@ -469,8 +460,6 @@ export function BookmarksPage() {
   const sheet = useRowSelection(loaded, ROW_LOOKUP);
   // The lists hold the lens's profiles only (a server filter); the folder
   // and the search narrow only the loaded lists.
-  const saved = allSaved;
-  const recovered = allRecovered;
 
   const narrow = useCallback(
     (rows: readonly BookmarkRow[]) =>
@@ -496,8 +485,8 @@ export function BookmarksPage() {
   const status = commitStateStatus(
     lists,
     { saved: saved.length, recovered: recovered.length },
-    totals.state === "ready" ? totals.value : null,
-    { filtered: lens.selected.length > 0 },
+    totals,
+    lens.selected.length > 0,
   );
   const figuresReady =
     status.figures !== "loading" && folderRead.state !== "loading";
@@ -572,7 +561,7 @@ export function BookmarksPage() {
         saved={
           <BookmarkList
             list={lists.saved}
-            rows={allSaved}
+            rows={saved}
             visible={savedVisible}
             lensFiltered={lens.selected.length > 0}
             noun="saved"
@@ -584,7 +573,7 @@ export function BookmarksPage() {
         recovered={
           <BookmarkList
             list={lists.recovered}
-            rows={allRecovered}
+            rows={recovered}
             visible={recoveredVisible}
             lensFiltered={lens.selected.length > 0}
             noun="recovered"

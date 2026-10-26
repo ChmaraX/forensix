@@ -14,6 +14,7 @@ import {
   TIMELINE_COVERAGE,
   type ArtifactConfig,
 } from "./artifacts.js";
+import type { OverviewArtifact } from "./types.js";
 
 export const PAGE_KEYS = [
   "overview",
@@ -34,7 +35,7 @@ export interface PageMeta {
   readonly group: PageGroup;
   /** The Completeness artifacts the page's coverage speaks for; null for
    *  the whole Case (Overview). */
-  readonly coverage: readonly string[] | null;
+  readonly coverage: readonly OverviewArtifact[] | null;
   /** The artifact page's own read, or null for a merged view. */
   readonly artifact: ArtifactConfig | null;
   /** The parts of the Case-wide lens the page applies. */

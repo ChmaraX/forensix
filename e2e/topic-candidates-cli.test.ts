@@ -158,7 +158,7 @@ describe("topic-candidates CLI", () => {
     }
   });
 
-  it("rejects unsupported sort and positional arguments", async () => {
+  it("rejects an unsupported sort, a Commit State filter, and positional arguments", async () => {
     const caseDirectory = await buildCase();
     expect(runCli(["analyse", "--case", caseDirectory, "--json"]).status).toBe(
       0,
@@ -176,5 +176,35 @@ describe("topic-candidates CLI", () => {
     expect(
       runCli(["topic-candidates", "--case", caseDirectory, "stray"]).status,
     ).toBe(1);
+    // A Candidate has no Commit State, so there is nothing to filter by.
+    const commitState = runCli([
+      "topic-candidates",
+      "--case",
+      caseDirectory,
+      "--commit-state",
+      "committed",
+    ]);
+    expect(commitState.status).toBe(1);
+    expect(
+      parseJson<{ readonly code: string; readonly details: unknown }>(
+        commitState.stderr,
+      ),
+    ).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      details: { invalidOptions: ["--commit-state"] },
+    });
+    const count = runCli([
+      "count",
+      "--case",
+      caseDirectory,
+      "--kind",
+      "topic",
+      "--by",
+      "commitState",
+    ]);
+    expect(count.status).toBe(1);
+    expect(parseJson<{ readonly code: string }>(count.stderr).code).toBe(
+      "INVALID_ARGUMENT",
+    );
   });
 });

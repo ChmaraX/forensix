@@ -24,26 +24,28 @@ describe("classifyApiFailure", () => {
   });
 });
 
-describe("apiFailureMessage", () => {
-  it("words each kind of failure differently, keeping the detail", () => {
-    const detail = "Failed to fetch";
-    const messages = (["unreachable", "token", "failed"] as const).map((kind) =>
-      apiFailureMessage(kind, detail),
-    );
-    expect(new Set(messages).size).toBe(3);
-    for (const message of messages) {
-      expect(message.endsWith(`(${detail})`)).toBe(true);
-    }
-  });
+const UNREACHABLE =
+  "The ForensiX server did not answer - it may have stopped. Retry; if it still does not answer, start forensix serve again and open the link it prints.";
+const TOKEN =
+  "The ForensiX server refused this tab's token - usually because the server was restarted after this tab opened. Open the dashboard again from the link forensix serve printed.";
+const FAILED =
+  "The ForensiX server could not complete this read. Retry; if it fails again, the server's own words are in brackets.";
 
-  it("keeps the server's own words for any other failure", () => {
+describe("apiFailureMessage", () => {
+  it("words each kind of failure, keeping the detail in brackets", () => {
+    expect(apiFailureMessage("unreachable", "Failed to fetch")).toBe(
+      `${UNREACHABLE} (Failed to fetch)`,
+    );
+    expect(apiFailureMessage("token", "Forbidden")).toBe(
+      `${TOKEN} (Forbidden)`,
+    );
     expect(
       apiFailureMessage("failed", "The dashboard could not read the Case."),
-    ).toContain("(The dashboard could not read the Case.)");
+    ).toBe(`${FAILED} (The dashboard could not read the Case.)`);
   });
 
   it("adds no empty brackets", () => {
-    expect(apiFailureMessage("failed", " ")).not.toContain("()");
+    expect(apiFailureMessage("failed", " ")).toBe(FAILED);
   });
 });
 
@@ -54,9 +56,7 @@ describe("ApiError", () => {
     expect(error.kind).toBe("unreachable");
     expect(error.detail).toBe("Failed to fetch");
     expect(error.status).toBeNull();
-    expect(error.message).toBe(
-      apiFailureMessage("unreachable", "Failed to fetch"),
-    );
+    expect(error.message).toBe(`${UNREACHABLE} (Failed to fetch)`);
   });
 });
 

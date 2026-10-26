@@ -13,7 +13,7 @@ import { spring } from "@/lib/springs";
 import { typeClass } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { profileLabel } from "./components/finding-fields.js";
-import { formatCaseDay } from "./related.js";
+import { formatDay } from "./day-format.js";
 import { PAGES } from "./pages.js";
 import { useViewLocation, useViewState } from "./view-state.js";
 
@@ -34,22 +34,20 @@ export function rangeLabel(from: string, to: string): string | null {
   }
   if (from !== "" && to !== "") {
     if (from === to) {
-      return formatCaseDay(from);
+      return formatDay(from);
     }
     const [first = "", firstMonth = "", firstYear = ""] =
-      formatCaseDay(from).split(" ");
-    const last = formatCaseDay(to);
+      formatDay(from).split(" ");
+    const last = formatDay(to);
     const [, lastMonth = "", lastYear = ""] = last.split(" ");
     if (firstYear !== lastYear) {
-      return `${formatCaseDay(from)} - ${last}`;
+      return `${formatDay(from)} - ${last}`;
     }
     return firstMonth === lastMonth
       ? `${first} - ${last}`
       : `${first} ${firstMonth} - ${last}`;
   }
-  return from !== ""
-    ? `From ${formatCaseDay(from)}`
-    : `Until ${formatCaseDay(to)}`;
+  return from !== "" ? `From ${formatDay(from)}` : `Until ${formatDay(to)}`;
 }
 
 /** "Default profile", "2 profiles". */

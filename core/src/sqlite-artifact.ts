@@ -1,12 +1,27 @@
-import { lstat, mkdir, mkdtemp, open, rm } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, open, readdir, rm } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
 
+import type { CaseSourceRecord } from "./case.js";
 import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
-import type { CommitState, ManifestEntryReference } from "./forensic-model.js";
+import {
+  absentField,
+  unavailableField,
+  valueField,
+  type CommitState,
+  type FieldState,
+  type ManifestEntryReference,
+  type SourceRowProvenance,
+} from "./forensic-model.js";
+import {
+  utcFromUnixMicros,
+  WINDOWS_EPOCH_OFFSET_MICROS,
+} from "./forensic-time.js";
+import type { ForensicTimestamp } from "./history.js";
+import { ownerIsDead, writeOwnerMarker } from "./owner-marker.js";
 import { openDatabaseSync } from "./sqlite-open.js";
 import { readStableRegularFile } from "./stable-file.js";
 
@@ -17,6 +32,126 @@ import { readStableRegularFile } from "./stable-file.js";
  */
 export type RawSqliteValue = null | string | bigint | Uint8Array;
 
+/** A text cell. A missing column or NULL is absent; another type is unavailable. */
+export function preservedString(
+  value: RawSqliteValue,
+  columnPresent = true,
+): FieldState<string> {
+  if (!columnPresent || value === null) {
+    return absentField();
+  }
+  return typeof value === "string"
+    ? valueField(value)
+    : unavailableField("unsupported_value");
+}
+
+/** An integer cell as exact decimal text. */
+export function preservedInteger(
+  value: RawSqliteValue,
+  columnPresent = true,
+): FieldState<string> {
+  if (!columnPresent || value === null) {
+    return absentField();
+  }
+  return typeof value === "bigint"
+    ? valueField(value.toString())
+    : unavailableField("unsupported_value");
+}
+
+/** A 0/1 integer cell. Any other value is unavailable, never guessed. */
+export function preservedBoolean(
+  value: RawSqliteValue,
+  columnPresent = true,
+): FieldState<boolean> {
+  if (!columnPresent || value === null) {
+    return absentField();
+  }
+  if (value === 0n) {
+    return valueField(false);
+  }
+  if (value === 1n) {
+    return valueField(true);
+  }
+  return unavailableField("unsupported_value");
+}
+
+/**
+ * An enumerated integer cell: the raw value and its decoded label. An
+ * unmapped code keeps the raw value and makes the label unavailable.
+ */
+export function enumFields(
+  value: RawSqliteValue,
+  labels: ReadonlyMap<bigint, string>,
+  columnPresent = true,
+): { readonly raw: FieldState<string>; readonly label: FieldState<string> } {
+  if (!columnPresent || value === null) {
+    return { raw: absentField(), label: absentField() };
+  }
+  if (typeof value !== "bigint") {
+    return {
+      raw: unavailableField("unsupported_value"),
+      label: unavailableField("unsupported_value"),
+    };
+  }
+  const label = labels.get(value);
+  return {
+    raw: valueField(value.toString()),
+    label:
+      label === undefined
+        ? unavailableField("unsupported_value")
+        : valueField(label),
+  };
+}
+
+/** The Epoch Family of a time column and why the analyzer knows it. */
+export interface TimestampEpoch {
+  readonly epochFamily: "1601-us" | "unix-us" | "unix-seconds";
+  readonly resolution: string;
+}
+
+const UNIX_MICROS: Readonly<
+  Record<TimestampEpoch["epochFamily"], (raw: bigint) => bigint>
+> = {
+  "1601-us": (raw) => raw - WINDOWS_EPOCH_OFFSET_MICROS,
+  "unix-us": (raw) => raw,
+  "unix-seconds": (raw) => raw * 1_000_000n,
+};
+
+/**
+ * A time cell. A missing column, NULL, or 0 is absent. A `null` epoch means
+ * the Epoch Family cannot be known without a Declared Origin OS.
+ */
+export function timestampField(
+  raw: RawSqliteValue,
+  columnPresent: boolean,
+  epoch: TimestampEpoch | null,
+  declaredTimezone: string,
+): FieldState<ForensicTimestamp> {
+  if (!columnPresent || raw === null || raw === 0n) {
+    return absentField();
+  }
+  if (typeof raw !== "bigint") {
+    return unavailableField("unsupported_value");
+  }
+  if (epoch === null) {
+    return unavailableField("epoch_requires_declared_origin_os");
+  }
+  const utc = utcFromUnixMicros(UNIX_MICROS[epoch.epochFamily](raw));
+  if (utc === null) {
+    return unavailableField("timestamp_out_of_range");
+  }
+  return valueField(
+    {
+      raw: raw.toString(),
+      epochFamily: epoch.epochFamily,
+      utc,
+      declaredTimezone,
+      resolution: epoch.resolution,
+    },
+    { synthetic: false },
+  );
+}
+
 /**
  * A working-copy source file whose bytes were verified against the acquisition
  * manifest. The snapshot step re-verifies size and SHA-256 before any read, so
@@ -25,8 +160,308 @@ export type RawSqliteValue = null | string | bigint | Uint8Array;
 export interface VerifiedSqliteFile {
   readonly path: string;
   readonly manifestPath: string;
+  /** The Manifest entry ordinal of `manifestPath`. */
+  readonly ordinal: number;
   readonly size: number;
   readonly sha256: string;
+}
+
+/** The Manifest entry that a row cites, and the database that holds the row. */
+export interface ManifestIdentity {
+  readonly sourceId: string;
+  readonly ordinal: number;
+  readonly path: string;
+  readonly databasePath: string;
+}
+
+export function sourceRowProvenance(
+  manifest: ManifestIdentity,
+  table: string,
+  rowId: string,
+): SourceRowProvenance {
+  return {
+    manifestEntryId: `${manifest.sourceId}:${manifest.ordinal}`,
+    sourceId: manifest.sourceId,
+    manifestEntryOrdinal: manifest.ordinal,
+    manifestPath: manifest.path,
+    database: manifest.databasePath,
+    table,
+    rowId,
+  };
+}
+
+/** A Profile database and its sidecars that the Working Copy holds. */
+export interface ProfileDatabase {
+  readonly sourceId: string;
+  readonly profile: string;
+  readonly database: VerifiedSqliteFile;
+  readonly sidecars: readonly VerifiedSqliteFile[];
+}
+
+/** The fields that every per-Profile SQLite artifact result has. */
+export interface SqliteArtifactHeader {
+  readonly sourceId: string;
+  readonly profile: string;
+  readonly status: "complete" | "absent" | "unavailable";
+  readonly manifestEntryOrdinal: number | null;
+  readonly databasePath: string;
+  readonly schemaVersion: number | null;
+  readonly integrity: string | null;
+  readonly recoveryStatus: "complete" | "unavailable";
+  readonly reason: string | null;
+}
+
+function unreadHeader(
+  target: Pick<SqliteArtifactHeader, "sourceId" | "profile" | "databasePath">,
+  manifestEntryOrdinal: number | null,
+  status: "absent" | "unavailable",
+  reason: string,
+): SqliteArtifactHeader {
+  return {
+    sourceId: target.sourceId,
+    profile: target.profile,
+    status,
+    manifestEntryOrdinal,
+    databasePath: target.databasePath,
+    schemaVersion: null,
+    integrity: null,
+    recoveryStatus: "unavailable",
+    reason,
+  };
+}
+
+/** The result header of a Profile database that was not read. */
+export function unreadArtifactHeader(
+  target: ProfileDatabase,
+  status: "absent" | "unavailable",
+  reason: string,
+): SqliteArtifactHeader {
+  return unreadHeader(
+    { ...target, databasePath: target.database.manifestPath },
+    target.database.ordinal,
+    status,
+    reason,
+  );
+}
+
+/**
+ * The result header of a failed read. A Working Copy integrity refusal stops
+ * the analysis, so it is thrown again. Any other error makes the artifact
+ * unavailable with its reason.
+ */
+export function readFailureHeader(
+  target: ProfileDatabase,
+  label: string,
+  error: unknown,
+): SqliteArtifactHeader {
+  if (error instanceof WorkingCopyIntegrityRefusal) {
+    throw error;
+  }
+  return unreadArtifactHeader(
+    target,
+    "unavailable",
+    error instanceof ForensixError
+      ? `${error.code}:${error.message}`
+      : `${label}_read_failed:${String(error)}`,
+  );
+}
+
+/** The result header of a read that completed. */
+export function completeArtifactHeader(
+  target: ProfileDatabase,
+  passes: SqlitePasses<{
+    readonly schema: { readonly version: number };
+    readonly integrity: string;
+  }>,
+): SqliteArtifactHeader {
+  return {
+    sourceId: target.sourceId,
+    profile: target.profile,
+    status: "complete",
+    manifestEntryOrdinal: target.database.ordinal,
+    databasePath: target.database.manifestPath,
+    schemaVersion: passes.committed.schema.version,
+    integrity: passes.committed.integrity,
+    recoveryStatus: passes.recovery.status,
+    reason: sqlitePassesReason(passes),
+  };
+}
+
+const SIDECAR_SUFFIXES = ["-wal", "-shm", "-journal"] as const;
+
+/**
+ * Find the Profile database in the Manifest and check that the Working Copy
+ * holds it. `relativePaths` are Profile-relative, preferred first: a later
+ * path is used only when the earlier entries are missing or `absent`.
+ *
+ * - No Manifest entry: unavailable, `<label>_manifest_entry_missing`.
+ * - An `absent` entry: absent, `<label>_absent`.
+ * - An `unavailable`, uncopied, or incomplete entry: unavailable.
+ *
+ * A readable database comes with each copied `-wal`, `-shm`, and `-journal`
+ * sidecar that the Manifest hashed.
+ */
+export function resolveProfileDatabase(options: {
+  readonly source: Pick<CaseSourceRecord, "sourceId" | "entries">;
+  readonly profile: string;
+  readonly workingCopyPath: string;
+  /** The reason prefix, for example `history`. */
+  readonly label: string;
+  readonly relativePaths: readonly [string, ...string[]];
+}):
+  | { readonly readable: true; readonly target: ProfileDatabase }
+  | { readonly readable: false; readonly header: SqliteArtifactHeader } {
+  const { source, label } = options;
+  const prefix = options.profile === "." ? "" : `${options.profile}/`;
+  const found = options.relativePaths.flatMap((relative) => {
+    const path = `${prefix}${relative}`;
+    const ordinal = source.entries.findIndex((entry) => entry.path === path);
+    const entry = source.entries[ordinal];
+    return entry === undefined ? [] : [{ path, ordinal, entry }];
+  });
+  const chosen =
+    found.find((candidate) => candidate.entry.state !== "absent") ?? found[0];
+  const unread = (
+    databasePath: string,
+    ordinal: number | null,
+    status: "absent" | "unavailable",
+    reason: string,
+  ) =>
+    ({
+      readable: false,
+      header: unreadHeader(
+        { sourceId: source.sourceId, profile: options.profile, databasePath },
+        ordinal,
+        status,
+        reason,
+      ),
+    }) as const;
+  if (chosen === undefined) {
+    return unread(
+      `${prefix}${options.relativePaths[0]}`,
+      null,
+      "unavailable",
+      `${label}_manifest_entry_missing`,
+    );
+  }
+  const { path, ordinal, entry } = chosen;
+  if (entry.state === "absent") {
+    return unread(path, ordinal, "absent", `${label}_absent`);
+  }
+  if (entry.state === "unavailable") {
+    return unread(
+      path,
+      ordinal,
+      "unavailable",
+      `${label}_unavailable:${entry.unavailable_reason ?? "unknown"}`,
+    );
+  }
+  if (!entry.copied) {
+    return unread(path, ordinal, "unavailable", `${label}_not_in_working_copy`);
+  }
+  if (entry.size === null || entry.sha256 === null) {
+    return unread(
+      path,
+      ordinal,
+      "unavailable",
+      `${label}_manifest_representation_incomplete`,
+    );
+  }
+  const verified = (
+    manifestPath: string,
+    index: number,
+    size: number,
+    sha256: string,
+  ): VerifiedSqliteFile => ({
+    path: join(options.workingCopyPath, ...manifestPath.split("/")),
+    manifestPath,
+    ordinal: index,
+    size,
+    sha256,
+  });
+  return {
+    readable: true,
+    target: {
+      sourceId: source.sourceId,
+      profile: options.profile,
+      database: verified(path, ordinal, entry.size, entry.sha256),
+      sidecars: source.entries.flatMap((candidate, index) =>
+        candidate.copied &&
+        candidate.state === "value" &&
+        candidate.size !== null &&
+        candidate.sha256 !== null &&
+        SIDECAR_SUFFIXES.some((suffix) => candidate.path === `${path}${suffix}`)
+          ? [verified(candidate.path, index, candidate.size, candidate.sha256)]
+          : [],
+      ),
+    },
+  };
+}
+
+/** One pass with the Commit State and the Manifest entries its rows cite. */
+export interface CitedPass<Pass> {
+  readonly pass: Pass;
+  readonly commitState: CommitState;
+  readonly manifest: ManifestIdentity;
+  readonly recoveredVia?: ManifestEntryReference;
+}
+
+/**
+ * The committed pass and the recovered pass, each with the Manifest entry
+ * that its rows cite.
+ *
+ * - `wal_resident`: the WAL frames hold the row image, so the row cites the
+ *   `-wal` entry.
+ * - `journal_resident`: the row image is in the un-rolled-back main database,
+ *   so the row cites the main database entry. The `-journal` entry is kept as
+ *   `recoveredVia`, because the hot journal is why the row is not committed.
+ */
+export function citedPasses<Pass>(
+  target: ProfileDatabase,
+  passes: SqlitePasses<Pass>,
+): {
+  readonly committed: CitedPass<Pass>;
+  readonly recovered: CitedPass<Pass> | null;
+} {
+  const cite = (file: VerifiedSqliteFile): ManifestIdentity => ({
+    sourceId: target.sourceId,
+    ordinal: file.ordinal,
+    path: file.manifestPath,
+    databasePath: target.database.manifestPath,
+  });
+  const committed = {
+    pass: passes.committed,
+    commitState: "committed",
+    manifest: cite(target.database),
+  } as const;
+  const recovery = passes.recovery;
+  if (recovery.status === "unavailable") {
+    return { committed, recovered: null };
+  }
+  if (recovery.commitState === "wal_resident") {
+    return {
+      committed,
+      recovered: {
+        pass: recovery.pass,
+        commitState: recovery.commitState,
+        manifest: cite(recovery.sidecar),
+      },
+    };
+  }
+  return {
+    committed,
+    recovered: {
+      pass: recovery.pass,
+      commitState: recovery.commitState,
+      manifest: committed.manifest,
+      recoveredVia: {
+        manifestEntryId: `${target.sourceId}:${recovery.sidecar.ordinal}`,
+        sourceId: target.sourceId,
+        manifestEntryOrdinal: recovery.sidecar.ordinal,
+        manifestPath: recovery.sidecar.manifestPath,
+      },
+    },
+  };
 }
 
 /**
@@ -34,7 +469,7 @@ export interface VerifiedSqliteFile {
  * `immutable=1` URI parameter tells SQLite the file cannot change underneath
  * it, so it reads the committed image without acquiring any lock.
  */
-export function immutableDatabase(path: string): DatabaseSync {
+function immutableDatabase(path: string): DatabaseSync {
   const url = pathToFileURL(path);
   url.searchParams.set("immutable", "1");
   return openDatabaseSync(url.href, {
@@ -159,7 +594,7 @@ async function writeAll(destination: FileHandle, chunk: Buffer): Promise<void> {
   }
 }
 
-export async function snapshotVerifiedFile(
+async function snapshotVerifiedFile(
   source: VerifiedSqliteFile,
   destinationPath: string,
 ): Promise<void> {
@@ -218,10 +653,19 @@ export type SidecarCommitState = Exclude<CommitState, "committed">;
 
 export interface SqlitePasses<Pass> {
   readonly committed: Pass;
-  readonly recovered:
-    | (Pass & { readonly commitState: SidecarCommitState })
-    | null;
-  readonly recoveryUnavailableReason: string | null;
+  /**
+   * The sidecar pass, reduced to the content that the committed pass does not
+   * hold, with the sidecar that makes it uncommitted. Or the reason why no
+   * sidecar pass exists.
+   */
+  readonly recovery:
+    | {
+        readonly status: "complete";
+        readonly commitState: SidecarCommitState;
+        readonly pass: Pass;
+        readonly sidecar: VerifiedSqliteFile;
+      }
+    | { readonly status: "unavailable"; readonly reason: string };
   /**
    * Null when the temporary snapshots were removed. Otherwise the reason why
    * the removal failed after its retries. The read result stays valid: the
@@ -234,54 +678,12 @@ export interface SqlitePasses<Pass> {
  * The non-fatal reasons of a read, joined with `; `, or null when there are
  * none. An artifact records this as its result reason.
  */
-export function sqlitePassesReason(
-  passes: Pick<
-    SqlitePasses<unknown>,
-    "recoveryUnavailableReason" | "cleanupFailureReason"
-  >,
-): string | null {
+function sqlitePassesReason(passes: SqlitePasses<unknown>): string | null {
   const reasons = [
-    passes.recoveryUnavailableReason,
+    passes.recovery.status === "unavailable" ? passes.recovery.reason : null,
     passes.cleanupFailureReason,
   ].filter((reason): reason is string => reason !== null);
   return reasons.length === 0 ? null : reasons.join("; ");
-}
-
-interface CitedManifestEntry {
-  readonly sourceId: string;
-  readonly ordinal: number;
-  readonly path: string;
-}
-
-/**
- * The Manifest entry that a recovered row cites, and the recovery entry.
- *
- * - `wal_resident`: the WAL frames hold the row image, so the row cites the
- *   `-wal` entry.
- * - `journal_resident`: the row image is in the un-rolled-back main database,
- *   so the row cites the main database entry. The `-journal` entry is kept as
- *   `recoveredVia`, because the hot journal is why the row is not committed.
- */
-export function recoveredRowCitation<Entry extends CitedManifestEntry>(
-  commitState: SidecarCommitState,
-  database: Entry,
-  sidecar: Entry,
-): {
-  readonly manifest: Entry;
-  readonly recoveredVia?: ManifestEntryReference;
-} {
-  if (commitState === "wal_resident") {
-    return { manifest: sidecar };
-  }
-  return {
-    manifest: database,
-    recoveredVia: {
-      manifestEntryId: `${sidecar.sourceId}:${sidecar.ordinal}`,
-      sourceId: sidecar.sourceId,
-      manifestEntryOrdinal: sidecar.ordinal,
-      manifestPath: sidecar.path,
-    },
-  };
 }
 
 export interface SqlitePassOptions<Pass> {
@@ -336,6 +738,46 @@ async function removeSnapshots(directory: string): Promise<string | null> {
   }
 }
 
+/** Snapshot directories are `forensix-<artifact>-snapshot-<random>`. */
+const SNAPSHOT_DIRECTORY = /^forensix-[a-z0-9-]+-snapshot-[A-Za-z0-9]+$/;
+async function snapshotIsStale(directory: string): Promise<boolean> {
+  const stats = await lstat(directory);
+  return (
+    stats.isDirectory() &&
+    (process.getuid === undefined || stats.uid === process.getuid()) &&
+    (await ownerIsDead(directory))
+  );
+}
+
+/**
+ * Remove the snapshot directories that a killed process left in the
+ * temporary directory. They can hold copies of secrets (Cookies, Login Data).
+ * A directory is removed only when it holds a ForensiX owner record whose
+ * process is dead; any other directory stays. The sweep is best effort and
+ * never fails a read.
+ */
+async function sweepStaleSnapshots(directory: string): Promise<void> {
+  let names: string[];
+  try {
+    names = await readdir(directory);
+  } catch {
+    return;
+  }
+  for (const name of names.filter((item) => SNAPSHOT_DIRECTORY.test(item))) {
+    const path = join(directory, name);
+    try {
+      if (await snapshotIsStale(path)) {
+        await rm(path, { recursive: true, force: true });
+      }
+    } catch {
+      // Another process can remove or own the directory. Keep going.
+    }
+  }
+}
+
+/** One sweep per temporary directory and process, before its first snapshot. */
+const sweptDirectories = new Map<string, Promise<void>>();
+
 /**
  * Read a verified SQLite artifact as a committed pass and, when a sidecar is
  * supplied, a separate sidecar pass. Every pass reads its own fresh snapshot in
@@ -373,19 +815,28 @@ async function removeSnapshots(directory: string): Promise<string | null> {
  *
  * The temporary snapshots are removed with bounded retries. A removal that
  * still fails does not fail the read and does not replace a read error: the
- * result keeps it as `cleanupFailureReason`.
+ * result keeps it as `cleanupFailureReason`. Before the first snapshot, the
+ * process removes the stale snapshot directories of dead processes.
  */
 export async function readSqlitePasses<Pass>(
   options: SqlitePassOptions<Pass>,
 ): Promise<SqlitePasses<Pass>> {
+  const snapshotRoot = tmpdir();
+  let sweep = sweptDirectories.get(snapshotRoot);
+  if (sweep === undefined) {
+    sweep = sweepStaleSnapshots(snapshotRoot);
+    sweptDirectories.set(snapshotRoot, sweep);
+  }
+  await sweep;
   const temporaryDirectory = await mkdtemp(
     join(
-      tmpdir(),
+      snapshotRoot,
       `forensix-${options.artifact.toLowerCase().replaceAll(" ", "-")}-snapshot-`,
     ),
   );
   let passes: Omit<SqlitePasses<Pass>, "cleanupFailureReason">;
   try {
+    await writeOwnerMarker(temporaryDirectory);
     passes = await readSnapshotPasses(options, temporaryDirectory);
   } catch (error) {
     // The read error is the result. A cleanup failure cannot replace it.
@@ -457,18 +908,12 @@ async function readSnapshotPasses<Pass>(
       return { stage: "read", error };
     }
   };
-  const hasSidecar = (suffix: string): boolean =>
-    options.sidecars.some((sidecar) => sidecar.path.endsWith(suffix));
+  const sidecarOf = (suffix: string): VerifiedSqliteFile | undefined =>
+    options.sidecars.find((sidecar) => sidecar.path.endsWith(suffix));
+  const wal = sidecarOf("-wal");
+  const journal = sidecarOf("-journal");
 
-  if (!hasSidecar("-wal") && !hasSidecar("-journal")) {
-    return {
-      committed: await readImmutable(),
-      recovered: null,
-      recoveryUnavailableReason: "sidecar_not_supplied",
-    };
-  }
-
-  if (hasSidecar("-wal")) {
+  if (wal !== undefined) {
     const committed = await readImmutable();
     const applied = await readReadWrite();
     if (!("pass" in applied)) {
@@ -478,17 +923,27 @@ async function readSnapshotPasses<Pass>(
       }
       return {
         committed,
-        recovered: null,
-        recoveryUnavailableReason: `recovery_${applied.stage}_failed:${String(applied.error)}`,
+        recovery: {
+          status: "unavailable",
+          reason: `recovery_${applied.stage}_failed:${String(applied.error)}`,
+        },
       };
     }
     return {
       committed,
-      recovered: {
-        ...options.sidecarOnly(committed, applied.pass),
+      recovery: {
+        status: "complete",
         commitState: "wal_resident",
+        pass: options.sidecarOnly(committed, applied.pass),
+        sidecar: wal,
       },
-      recoveryUnavailableReason: null,
+    };
+  }
+
+  if (journal === undefined) {
+    return {
+      committed: await readImmutable(),
+      recovery: { status: "unavailable", reason: "sidecar_not_supplied" },
     };
   }
 
@@ -523,16 +978,19 @@ async function readSnapshotPasses<Pass>(
     }
     return {
       committed,
-      recovered: null,
-      recoveryUnavailableReason: `recovery_read_failed:${String(error)}`,
+      recovery: {
+        status: "unavailable",
+        reason: `recovery_read_failed:${String(error)}`,
+      },
     };
   }
   return {
     committed,
-    recovered: {
-      ...options.sidecarOnly(committed, unrolled),
+    recovery: {
+      status: "complete",
       commitState: "journal_resident",
+      pass: options.sidecarOnly(committed, unrolled),
+      sidecar: journal,
     },
-    recoveryUnavailableReason: null,
   };
 }

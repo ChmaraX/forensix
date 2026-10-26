@@ -2,12 +2,10 @@ import { DatabaseSync } from "node:sqlite";
 
 import { ForensixError } from "./errors.js";
 import {
-  immutableDatabase,
   integerKey,
   normalizeSqliteValue,
   readIntegrity,
   readSqlitePasses,
-  snapshotVerifiedFile,
   sqliteFingerprint,
   tableColumns,
   tableExists,
@@ -16,12 +14,6 @@ import {
   type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
 
-// The shared verified-SQLite helpers live in `sqlite-artifact.ts`. These
-// aliases and re-exports preserve this module's historical public surface so
-// existing importers keep working unchanged.
-export { immutableDatabase, snapshotVerifiedFile };
-export type RawHistoryValue = RawSqliteValue;
-export type VerifiedHistoryFile = VerifiedSqliteFile;
 export type HistorySourceTable = "visits" | "urls" | "visit_source";
 
 export interface SidecarSourceRow {
@@ -30,32 +22,32 @@ export interface SidecarSourceRow {
 }
 
 export interface RawHistoryVisit {
-  readonly visitId: RawHistoryValue;
-  readonly urlId: RawHistoryValue;
-  readonly visitTime: RawHistoryValue;
-  readonly fromVisit: RawHistoryValue;
-  readonly externalReferrerUrl: RawHistoryValue;
-  readonly transition: RawHistoryValue;
-  readonly segmentId: RawHistoryValue;
-  readonly visitDuration: RawHistoryValue;
-  readonly incrementedOmniboxTypedScore: RawHistoryValue;
-  readonly openerVisit: RawHistoryValue;
-  readonly originatorCacheGuid: RawHistoryValue;
-  readonly originatorVisitId: RawHistoryValue;
-  readonly originatorFromVisit: RawHistoryValue;
-  readonly originatorOpenerVisit: RawHistoryValue;
-  readonly isKnownToSync: RawHistoryValue;
-  readonly considerForNtpMostVisited: RawHistoryValue;
-  readonly visitedLinkId: RawHistoryValue;
-  readonly appId: RawHistoryValue;
-  readonly urlRecordId: RawHistoryValue;
-  readonly url: RawHistoryValue;
-  readonly title: RawHistoryValue;
-  readonly urlVisitCount: RawHistoryValue;
-  readonly typedCount: RawHistoryValue;
-  readonly lastVisitTime: RawHistoryValue;
-  readonly hidden: RawHistoryValue;
-  readonly visitSource: RawHistoryValue;
+  readonly visitId: RawSqliteValue;
+  readonly urlId: RawSqliteValue;
+  readonly visitTime: RawSqliteValue;
+  readonly fromVisit: RawSqliteValue;
+  readonly externalReferrerUrl: RawSqliteValue;
+  readonly transition: RawSqliteValue;
+  readonly segmentId: RawSqliteValue;
+  readonly visitDuration: RawSqliteValue;
+  readonly incrementedOmniboxTypedScore: RawSqliteValue;
+  readonly openerVisit: RawSqliteValue;
+  readonly originatorCacheGuid: RawSqliteValue;
+  readonly originatorVisitId: RawSqliteValue;
+  readonly originatorFromVisit: RawSqliteValue;
+  readonly originatorOpenerVisit: RawSqliteValue;
+  readonly isKnownToSync: RawSqliteValue;
+  readonly considerForNtpMostVisited: RawSqliteValue;
+  readonly visitedLinkId: RawSqliteValue;
+  readonly appId: RawSqliteValue;
+  readonly urlRecordId: RawSqliteValue;
+  readonly url: RawSqliteValue;
+  readonly title: RawSqliteValue;
+  readonly urlVisitCount: RawSqliteValue;
+  readonly typedCount: RawSqliteValue;
+  readonly lastVisitTime: RawSqliteValue;
+  readonly hidden: RawSqliteValue;
+  readonly visitSource: RawSqliteValue;
   readonly sidecarTables: readonly HistorySourceTable[];
   readonly sidecarRows: readonly SidecarSourceRow[];
 }
@@ -202,7 +194,7 @@ function optionalColumn(
     : `NULL AS "${alias}"`;
 }
 
-const normalize = (value: unknown): RawHistoryValue =>
+const normalize = (value: unknown): RawSqliteValue =>
   normalizeSqliteValue(value, "History");
 
 function readPass(database: DatabaseSync): HistoryPass {
@@ -379,8 +371,8 @@ function recoveredOnlyRows(
 }
 
 export async function readHistoryPasses(options: {
-  readonly database: VerifiedHistoryFile;
-  readonly sidecars: readonly VerifiedHistoryFile[];
+  readonly database: VerifiedSqliteFile;
+  readonly sidecars: readonly VerifiedSqliteFile[];
 }): Promise<HistoryPasses> {
   return readSqlitePasses({
     artifact: "History",

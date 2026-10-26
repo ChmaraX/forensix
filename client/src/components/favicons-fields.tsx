@@ -6,7 +6,8 @@
 import { createContext } from "react";
 
 import type { Finding } from "../types.js";
-import { FieldCell, fieldInteger } from "./finding-fields.js";
+import { FieldCell } from "./finding-fields.js";
+import { fieldInteger } from "../field-readers.js";
 
 /** A favicon's stored resolution as a `"32×32"` label, or null when either
  *  edge is not recorded as a number. */

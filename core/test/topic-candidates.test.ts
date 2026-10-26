@@ -15,7 +15,6 @@ import {
   classifyTopicCandidates,
   topicInputText,
   TOPIC_CANDIDATE_KIND,
-  TOPIC_TAXONOMY,
   UNCLASSIFIED_LABEL_ID,
   type EmbeddingEngine,
   type TopicCandidateInput,
@@ -81,7 +80,6 @@ function input(
     url,
     title,
     profile: "Default",
-    commitState: "committed",
     provenance: {
       manifestEntryId: "source-1:0",
       sourceId: "source-1",
@@ -205,12 +203,14 @@ describe("classifyTopicCandidates", () => {
       [input("https://x.example", "brokerage casino")],
       { maxLabels: 5, multiLabelDelta: 1 },
     )) as PersistedCandidate[];
-    const labels = result.map(labelOf);
-    expect(labels).toContain("finance_banking");
-    expect(labels).toContain("gambling");
     // Equal scores tie-break deterministically by label id (ascending).
-    const ranks = result.map((row) => row.candidate.rank);
-    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    expect(result.map((row) => [labelOf(row), row.candidate.rank])).toEqual([
+      ["finance_banking", 1],
+      ["gambling", 2],
+      ["ads_trackers_infrastructure", 3],
+      ["adult_sexual_content", 4],
+      ["anonymity_privacy_tooling", 5],
+    ]);
   });
 
   it("reports typed unavailability when inference throws, without fabricating rows", async () => {
@@ -228,16 +228,6 @@ describe("classifyTopicCandidates", () => {
     const unavailable = result as TopicClassifierUnavailable;
     expect(unavailable.available).toBe(false);
     expect(unavailable.reason).toBe("inference_failed");
-  });
-
-  it("holds a complete 20-label frozen taxonomy including unclassified", () => {
-    expect(TOPIC_TAXONOMY).toHaveLength(20);
-    expect(TOPIC_TAXONOMY.map((label) => label.id)).toContain(
-      UNCLASSIFIED_LABEL_ID,
-    );
-    expect(
-      TOPIC_TAXONOMY.filter((label) => label.specialCategory),
-    ).toHaveLength(2);
   });
 
   it("builds encoder input as title then URL", () => {

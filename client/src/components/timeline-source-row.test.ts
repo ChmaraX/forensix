@@ -12,6 +12,7 @@ function finding(
   extra: Partial<Finding> = {},
 ): Finding {
   return {
+    id: "history:7",
     recordType: "finding",
     findingKind,
     profile: "Default",
@@ -23,7 +24,7 @@ function finding(
     },
     fields,
     ...extra,
-  } as Finding;
+  };
 }
 
 describe("splitUrlHost", () => {
@@ -59,7 +60,7 @@ describe("sourceRowOf (Timeline row → its page row)", () => {
     expect(source?.page).toBe("history");
     expect(source?.label).toBe("History");
     expect(source?.extras).toEqual({
-      row: "src-01/manifest.jsonl|t|7|Default|committed",
+      row: "history:7",
       tab: "saved",
       q: "https://mail.example.com/inbox",
     });
@@ -81,16 +82,5 @@ describe("sourceRowOf (Timeline row → its page row)", () => {
       "Default",
     ]);
     expect(sourceRowOf(visit, ["Default"])?.extras.profiles).toBeUndefined();
-  });
-
-  it("has no link for a row without a reference", () => {
-    expect(
-      sourceRowOf(
-        finding("cookie", {}, {
-          provenance: { manifestPath: "m", table: "", rowId: "" },
-        } as Partial<Finding>),
-        [],
-      ),
-    ).toBeNull();
   });
 });

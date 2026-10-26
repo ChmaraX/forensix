@@ -34,19 +34,16 @@ import { OUTCOME_META } from "../terms.js";
 import {
   ARTIFACTS,
   artifactStoreOf,
-  SITES_COVERAGE,
-  TIMELINE_COVERAGE,
   type ArtifactStore,
 } from "../artifacts.js";
 import type {
   CaseCompleteness,
   CompletenessArtifact,
   CompletenessStatement,
+  OverviewArtifact,
 } from "../types.js";
 import { EvidenceDot, type EvidenceState } from "./evidence.js";
 import { profileLabel } from "./finding-fields.js";
-
-export { SITES_COVERAGE, TIMELINE_COVERAGE };
 
 /** The plain label of a Completeness artifact ("Web Data" → "Form data"). */
 export function artifactLabel(artifact: string): string {
@@ -83,7 +80,7 @@ export function caseProfilesOf(
 export interface CoverageScope {
   readonly statements: readonly CompletenessStatement[];
   /** Artifacts in scope with no statement at all ("not analyzed"). */
-  readonly missing: readonly string[];
+  readonly missing: readonly OverviewArtifact[];
   readonly attempted: number;
   readonly produced: number;
   readonly absent: number;
@@ -105,7 +102,7 @@ export interface CoverageScope {
  */
 export function coverageOf(
   completeness: CaseCompleteness,
-  artifacts?: readonly string[],
+  artifacts?: readonly OverviewArtifact[],
 ): CoverageScope {
   const statements =
     artifacts === undefined
@@ -323,7 +320,7 @@ export function CoverageIndicator({
 }: {
   readonly completeness: CaseCompleteness;
   /** Completeness artifact keys in scope; omit for the whole Case. */
-  readonly artifacts?: readonly string[];
+  readonly artifacts?: readonly OverviewArtifact[];
   /** The landing page's reading (Overview): the dot stays a neutral ring
    *  unless something in scope is unreadable (then red). @default false */
   readonly quiet?: boolean;
@@ -494,7 +491,7 @@ export function CoverageBanner({
 }: {
   readonly completeness: CaseCompleteness;
   /** Completeness artifact keys in scope; omit for the whole Case. */
-  readonly artifacts?: readonly string[];
+  readonly artifacts?: readonly OverviewArtifact[];
   readonly className?: string;
 }) {
   const scope = coverageOf(completeness, artifacts);

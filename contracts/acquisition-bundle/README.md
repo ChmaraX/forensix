@@ -35,6 +35,7 @@ The Collector does not copy that file, and it continues with the other files.
 If the Collector cannot list a directory, the directory entry is `unavailable`.
 An expected path under that directory is `unavailable` with the reason `parent_unavailable`, not `absent`.
 The User Data Dir `outcome` is `failed` only when the Collector cannot read the root or cannot write the Bundle.
+A `collected` User Data Dir has `evidence_set_digest` and `working_copy_digest`. A `failed` or `skipped_chrome_running` User Data Dir has `error`.
 
 ## Acquisition Bundle Digest
 

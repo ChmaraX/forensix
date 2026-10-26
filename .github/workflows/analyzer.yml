@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24.15.0
+          node-version-file: .nvmrc
       # The Collector -> Analyzer E2E (e2e/source-kinds-cli.test.ts) builds the
       # Go Collector; pin the same Go as the Collector workflow.
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24.15.0
+          node-version-file: .nvmrc
       - name: Enable Corepack
         run: corepack enable
       - name: Install locked dependencies
@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24.15.0
+          node-version-file: .nvmrc
       - name: Enable Corepack
         run: corepack enable
       - name: Install with a frozen lockfile
@@ -101,7 +101,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24.15.0
+          node-version-file: .nvmrc
       - name: Enable Corepack
         run: corepack enable
       - name: Install locked dependencies
@@ -123,7 +123,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24.15.0
+          node-version-file: .nvmrc
       - name: Enable Corepack
         run: corepack enable
       - name: Install locked dependencies

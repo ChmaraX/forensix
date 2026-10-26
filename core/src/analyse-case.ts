@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { analyseSourceBookmarks } from "./bookmarks.js";
 import { analyseSourceCache } from "./cache.js";
 import {
-  storeHistoryAnalysis,
+  storeAnalysisWrites,
   type AnalysisRunExitState,
   type BookmarksArtifactWrite,
   type CacheArtifactWrite,
@@ -17,6 +17,7 @@ import {
   type TopSitesArtifactWrite,
   type WebDataArtifactWrite,
 } from "./case-findings.js";
+import { acquireCaseLock } from "./case-lock.js";
 import { loadCaseSources, workingCopyAbsolutePath } from "./case.js";
 import { analyseSourceCookies } from "./cookies.js";
 import { analyseDownloadsProfile } from "./downloads.js";
@@ -258,9 +259,23 @@ export interface AnalyseCaseResult extends Omit<
  * an encrypted value stays `unavailable` with a typed reason whenever key
  * material is missing or fails.
  *
+ * The pass holds the Case lock from start to end, so a `serve` or a second
+ * `analyse` of the same Case stops with `CASE_IN_USE` while it runs.
+ *
  * Returns the per-artifact summaries, the new `runId`, and the run exit state.
  */
 export async function analyseCase(
+  options: AnalyseCaseOptions,
+): Promise<AnalyseCaseResult> {
+  const lock = await acquireCaseLock(options.caseDirectory, "analyse");
+  try {
+    return await runAnalysis(options);
+  } finally {
+    await lock.release();
+  }
+}
+
+async function runAnalysis(
   options: AnalyseCaseOptions,
 ): Promise<AnalyseCaseResult> {
   const caseDirectory = resolve(options.caseDirectory);
@@ -396,25 +411,29 @@ export async function analyseCase(
   });
 
   await verifyWorkingCopy(caseDirectory);
-  const stored = storeHistoryAnalysis({
-    caseDirectory,
-    sourceIds: sources.map((source) => source.sourceId),
-    declaredTimezone,
-    declaredOriginOs,
-    invocation: options.invocation ?? ["analyse", "--case", caseDirectory],
-    startedAt,
-    artifacts: classification.artifacts,
-    cookieArtifacts,
-    loginDataArtifacts,
-    topSitesArtifacts,
-    webDataArtifacts,
-    faviconArtifacts,
-    downloadsArtifacts,
-    metadataArtifacts,
-    bookmarksArtifacts,
-    cacheArtifacts,
-    candidateArtifacts,
-  });
+  const stored = storeAnalysisWrites(
+    {
+      caseDirectory,
+      sourceIds: sources.map((source) => source.sourceId),
+      declaredTimezone,
+      declaredOriginOs,
+      invocation: options.invocation ?? ["analyse", "--case", caseDirectory],
+      startedAt,
+    },
+    {
+      historyArtifacts: classification.artifacts,
+      cookieArtifacts,
+      loginDataArtifacts,
+      topSitesArtifacts,
+      webDataArtifacts,
+      faviconArtifacts,
+      downloadsArtifacts,
+      metadataArtifacts,
+      bookmarksArtifacts,
+      cacheArtifacts,
+      candidateArtifacts,
+    },
+  );
   const singletonLockPresent = sources.some((source) =>
     source.entries.some(
       (entry) =>

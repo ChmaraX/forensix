@@ -400,9 +400,6 @@ export function closeUrlRow(): void {
  * (`findRowByRef`, row-lookup.ts) once the page's own lists have had their
  * first read, and opens from there; an abandoned lookup is aborted on the
  * wire. The shell says when it is looked for and when it was not found.
- *
- * A row without a reference (no table or row id) still opens: it is held
- * for this page view only and is not addressable.
  */
 export function useRowSelection<Row extends RowRefSource>(
   rows: readonly Row[],
@@ -413,8 +410,6 @@ export function useRowSelection<Row extends RowRefSource>(
   readonly close: () => void;
 } {
   const { row: ref } = useViewLocation();
-  // A row with no reference opens for this page view only.
-  const [unaddressed, setUnaddressed] = useState<Row | null>(null);
   // A URL-named row read by its reference (not in the loaded lists).
   const [found, setFound] = useState<{
     readonly ref: string;
@@ -471,10 +466,7 @@ export function useRowSelection<Row extends RowRefSource>(
     },
     [],
   );
-  const row =
-    match ??
-    (found !== null && found.ref === ref ? found.row : null) ??
-    unaddressed;
+  const row = match ?? (found !== null && found.ref === ref ? found.row : null);
   // A sheet never opens under the ⌘K menu: one the URL names while the
   // menu is open (a pick made just before it was reopened, its row still
   // loading) opens once the menu closes. A sheet already open stays (⌘K
@@ -490,16 +482,11 @@ export function useRowSelection<Row extends RowRefSource>(
     [shown],
   );
   const select = useCallback((next: Row) => {
-    const nextRef = rowRefOf(next);
-    if (nextRef === null) {
-      setUnaddressed(next);
-      return;
-    }
-    setUnaddressed(null);
-    navigate((current) => ({ ...current, row: nextRef }), { rowEntry: true });
+    navigate((current) => ({ ...current, row: rowRefOf(next) }), {
+      rowEntry: true,
+    });
   }, []);
   const close = useCallback(() => {
-    setUnaddressed(null);
     const current = readLocation();
     if (current.row === null) {
       return;

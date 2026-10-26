@@ -76,7 +76,7 @@ import { caseProfilesOf } from "./completeness.js";
 import { EmptyRows } from "./data-table.js";
 import { EvidenceDot, type EvidenceState } from "./evidence.js";
 import { MaybeFieldStateText } from "./field-state.js";
-import { fieldString, profileLabel } from "./finding-fields.js";
+import { profileLabel } from "./finding-fields.js";
 import {
   FilterField,
   FilterTextField,
@@ -95,6 +95,7 @@ import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { CommitStateSplit, SectionPanel, Toolbar } from "./page-kit.js";
 import { RowSheet } from "./row-sheet.js";
 import { useMediaQuery } from "./use-media-query.js";
+import { fieldString } from "../field-readers.js";
 
 /** Browser row first, then profiles; each Commit State is its own read. */
 const METADATA_PARAMETERS: QueryParameters = [

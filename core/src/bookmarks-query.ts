@@ -1,28 +1,18 @@
 import {
   createConditions,
-  decodeRecordJson,
-  assertCommitState,
   normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
   resolveCommitState,
   resolveProfiles,
   resolveSearch,
   runFindingQuery,
-  validateEnum,
-  type EngineRow,
   type FindingQuerySpec,
+  type QueryDirection,
   type SortDefinition,
 } from "./finding-query.js";
-import type { Identified } from "./record-store.js";
-import {
-  createFinding,
-  type CommitState,
-  type Finding,
-} from "./forensic-model.js";
-
-export type BookmarkDirection = "asc" | "desc";
-export type BookmarkSort = "name" | "url" | "date-added" | "folder" | "profile";
-/** Primary `Bookmarks` vs backup `Bookmarks.bak`, exposed as a CLI filter. */
-export type BookmarkSource = "primary" | "backup";
+import { decodeFinding, type Identified } from "./record-store.js";
+import type { CommitState, Finding } from "./forensic-model.js";
 
 export interface BookmarkQuery {
   readonly caseDirectory: string;
@@ -31,7 +21,7 @@ export interface BookmarkQuery {
   readonly commitState?: CommitState;
   readonly source?: BookmarkSource;
   readonly sort?: BookmarkSort;
-  readonly direction?: BookmarkDirection;
+  readonly direction?: QueryDirection;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -44,15 +34,17 @@ export interface BookmarkPage {
   readonly limit: number;
 }
 
-const BOOKMARK_DIRECTIONS = ["asc", "desc"] as const;
-const BOOKMARK_SORTS = [
+export const BOOKMARK_SORTS = [
   "name",
   "url",
   "date-added",
   "folder",
   "profile",
 ] as const;
-const BOOKMARK_SOURCES = ["primary", "backup"] as const;
+export type BookmarkSort = (typeof BOOKMARK_SORTS)[number];
+/** Primary `Bookmarks` vs backup `Bookmarks.bak`, exposed as a CLI filter. */
+export const BOOKMARK_SOURCES = ["primary", "backup"] as const;
+export type BookmarkSource = (typeof BOOKMARK_SOURCES)[number];
 const BOOKMARK_KIND = "bookmark";
 
 const SOURCE_FILES: Readonly<Record<BookmarkSource, string>> = {
@@ -78,64 +70,20 @@ const BOOKMARK_SPEC: FindingQuerySpec<BookmarkQuery, Finding> = {
   label: "Bookmarks",
   store: "bookmarks",
   analysisNotFound: "Case has no Bookmarks analysis. Run analyse first.",
-  schemaTable: "bookmarks_findings",
-  mainTable: "bookmarks_findings",
-  resultsTable: "bookmarks_artifact_results",
-  idColumn: "finding_id",
-  cursorIdField: "findingId",
-  selectColumns: "f.finding_kind, f.profile_path, f.commit_state",
-  parse: (row: EngineRow): Finding => {
-    const { provenance, fields } = decodeRecordJson(
-      row,
-      "Case contains invalid Bookmark Finding JSON.",
-      "findingId",
-    );
-    const commitState = assertCommitState(
-      row.commit_state,
-      "findingId",
-      row.entity_id.toString(),
-    );
-    return createFinding({
-      findingKind: row.finding_kind as string,
-      profile: row.profile_path as string,
-      commitState,
-      provenance,
-      fields,
-    });
-  },
+  decode: decodeFinding,
   plan: (input) => {
-    const direction = validateEnum(
-      input.direction,
-      "asc",
-      BOOKMARK_DIRECTIONS,
-      "--direction",
-      "Bookmarks",
-    );
-    const sort = validateEnum(
-      input.sort,
-      "name",
-      BOOKMARK_SORTS,
-      "--sort",
-      "Bookmarks",
-    );
-    const commitState = resolveCommitState(input.commitState, "Bookmarks");
+    const direction =
+      parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "asc";
+    const sort = parseOption(input.sort, "--sort", BOOKMARK_SORTS) ?? "name";
+    const commitState = resolveCommitState(input.commitState);
     const source =
-      input.source === undefined
-        ? null
-        : validateEnum(
-            input.source,
-            "primary",
-            BOOKMARK_SOURCES,
-            "--source",
-            "Bookmarks",
-          );
+      parseOption(input.source, "--source", BOOKMARK_SOURCES) ?? null;
     const limit = normalizeLimit(input.limit, "Bookmarks");
     const profiles = resolveProfiles(input.profiles, "Bookmarks");
     const search = resolveSearch(input.search);
 
     const where = createConditions();
     where.add("f.finding_kind = ?", BOOKMARK_KIND);
-    where.add("f.record_type = 'finding'");
     if (commitState !== null) {
       where.add("f.commit_state = ?", commitState);
     }
@@ -146,7 +94,6 @@ const BOOKMARK_SPEC: FindingQuerySpec<BookmarkQuery, Finding> = {
     where.addSearch(search);
 
     return {
-      sort,
       direction,
       limit,
       sortDefinition: SORTS[sort],

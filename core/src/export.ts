@@ -1,5 +1,13 @@
-import { createHash } from "node:crypto";
-import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  mkdir,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  rmdir,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 
@@ -669,23 +677,16 @@ function csvBytes(rows: readonly ExtractRow[], commitState: boolean): Buffer {
 
 /**
  * The stores the Extract reads: every present store of a requested
- * collection, in `RECORD_STORES` order. A Commit State scope applies only to
- * Findings: it keeps only the Finding stores that record a Commit State. A
- * Candidate has no Commit State, so the scope never removes a Candidate store.
+ * collection, in `RECORD_STORES` order.
  */
 function scopedStores(
   database: DatabaseSync,
   collections: readonly ExtractCollection[],
-  commitState: CommitState | undefined,
 ): readonly RecordStore[] {
-  return presentStores(database).filter(
-    (store) =>
-      collections.includes(
-        store.recordType === "finding" ? "findings" : "candidates",
-      ) &&
-      (commitState === undefined ||
-        store.recordType === "candidate" ||
-        store.hasCommitState),
+  return presentStores(database).filter((store) =>
+    collections.includes(
+      store.recordType === "finding" ? "findings" : "candidates",
+    ),
   );
 }
 
@@ -714,13 +715,8 @@ function loadStoreRows(
     );
     parameters.push(...profiles);
   }
-  // Only a Finding has a Commit State. A Candidate table can hold a
-  // commit_state column, but a Candidate row is never filtered by it.
-  if (
-    commitState !== undefined &&
-    store.recordType === "finding" &&
-    store.hasCommitState
-  ) {
+  // Only a Finding has a Commit State. A Candidate is never filtered by it.
+  if (commitState !== undefined && store.recordType === "finding") {
     conditions.push("f.commit_state = ?");
     parameters.push(commitState);
   }
@@ -836,7 +832,7 @@ export async function exportCase(
     caseInfo = loadCaseInfo(database);
     completeness = buildCompleteness(database);
     runs = loadRuns(database, completeness);
-    stores = scopedStores(database, collections, options.commitState);
+    stores = scopedStores(database, collections);
     for (const store of stores) {
       const result = loadStoreRows(
         database,
@@ -959,10 +955,37 @@ export async function exportCase(
     ),
   });
 
-  await mkdir(outDirectory, { recursive: true });
-  await assertEmptyOutDirectory(outDirectory);
-  for (const file of emitted) {
-    await writeFile(join(outDirectory, file.path), file.bytes, { flag: "wx" });
+  // Write every file into a sibling staging directory, then rename it into
+  // place: a failed export never leaves a partial Extract in the output path.
+  const physicalOut = await plannedPhysicalPath(outDirectory);
+  await mkdir(dirname(physicalOut), { recursive: true });
+  const staging = `${physicalOut}.tmp-${randomUUID()}`;
+  await mkdir(staging);
+  let removedEmptyOut = false;
+  try {
+    for (const file of emitted) {
+      await writeFile(join(staging, file.path), file.bytes, { flag: "wx" });
+    }
+    await assertEmptyOutDirectory(physicalOut);
+    // An empty output directory is replaced; rmdir refuses one that is not.
+    await rmdir(physicalOut).then(
+      () => {
+        removedEmptyOut = true;
+      },
+      (error: unknown) => {
+        if (filesystemErrorCode(error) !== "ENOENT") {
+          throw error;
+        }
+      },
+    );
+    await rename(staging, physicalOut);
+  } catch (error) {
+    await rm(staging, { recursive: true, force: true }).catch(() => undefined);
+    // Give the caller back the empty output directory that was removed.
+    if (removedEmptyOut) {
+      await mkdir(physicalOut).catch(() => undefined);
+    }
+    throw error;
   }
 
   return {

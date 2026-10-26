@@ -27,6 +27,7 @@ interface HistoryPage {
   readonly status: "ok";
   readonly items: readonly {
     readonly provenance: { readonly rowId: string };
+    readonly fields: { readonly url: { readonly value?: unknown } };
   }[];
 }
 
@@ -259,7 +260,7 @@ describe("compiled analyzer CLI Analysis Run identity and supersede", () => {
       exitState: "complete",
       history: { status: "complete", unavailableProfileCount: 0 },
     });
-    expect(firstResult.history.findingCount).toBeGreaterThan(0);
+    expect(firstResult.history.findingCount).toBe(4);
 
     const second = runCli(["analyse", "--case", caseDirectory, "--json"]);
     expect(second.status).toBe(0);
@@ -311,7 +312,9 @@ describe("compiled analyzer CLI Analysis Run identity and supersede", () => {
         .stdout,
     );
     expect(page.items.length).toBe(state.activeVisitFindingCount);
-    expect(page.items.length).toBeGreaterThan(0);
+    expect(page.items.map((item) => item.fields.url.value)).toEqual([
+      "https://alpha.example/",
+    ]);
   });
 
   it("records a failed Analysis Run and a failed rerun supersedes nothing", async () => {
@@ -382,7 +385,9 @@ describe("compiled analyzer CLI Analysis Run identity and supersede", () => {
         .stdout,
     );
     expect(page.items.length).toBe(after.activeVisitFindingCount);
-    expect(page.items.length).toBeGreaterThan(0);
+    expect(page.items.map((item) => item.fields.url.value)).toEqual([
+      "https://beta.example/",
+    ]);
   });
 
   it("isolates a failing artifact so other artifacts stay queryable across reruns", async () => {
@@ -438,7 +443,9 @@ describe("compiled analyzer CLI Analysis Run identity and supersede", () => {
         "--json",
       ]).stdout,
     );
-    expect(goodPage.items.length).toBeGreaterThan(0);
+    expect(goodPage.items.map((item) => item.fields.url.value)).toEqual([
+      "https://good.example/",
+    ]);
 
     // Rerun: the Default artifact supersedes its prior row, Profile 1 stays
     // unavailable and untouched.
@@ -473,6 +480,8 @@ describe("compiled analyzer CLI Analysis Run identity and supersede", () => {
       ]).stdout,
     );
     expect(rerunPage.items.length).toBe(secondState.activeVisitFindingCount);
-    expect(rerunPage.items.length).toBeGreaterThan(0);
+    expect(rerunPage.items.map((item) => item.fields.url.value)).toEqual([
+      "https://good.example/",
+    ]);
   });
 });

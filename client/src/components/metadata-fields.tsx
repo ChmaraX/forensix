@@ -18,7 +18,7 @@ import type {
 } from "../use-commit-state-lists.js";
 import { EmptyRows } from "./data-table.js";
 import { MaybeFieldStateText } from "./field-state.js";
-import { fieldString, StateWord } from "./finding-fields.js";
+import { StateWord } from "./finding-fields.js";
 import { ListBlock } from "./list-states.js";
 import {
   exitReading,
@@ -28,6 +28,7 @@ import {
   rowHeadline,
 } from "./metadata-readings.js";
 import { Term } from "./term.js";
+import { fieldString } from "../field-readers.js";
 
 /* ------------------------------ Recorded fields --------------------------- */
 

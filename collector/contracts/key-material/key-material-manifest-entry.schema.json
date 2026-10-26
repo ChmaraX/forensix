@@ -9,7 +9,7 @@
     "path": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(/|$)).+$"
+      "not": { "pattern": "(^/)|\\\\|(^|/)\\.{1,2}(/|$)" }
     },
     "size": { "type": "integer", "minimum": 0 },
     "hash_algorithm": { "const": "sha-256" },

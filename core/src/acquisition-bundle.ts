@@ -104,10 +104,17 @@ export function acquisitionBundleFilesDigest(
   return sha256(`${JSON.stringify(files)}\n`);
 }
 
+/** The Collector outcomes of one User Data Dir, as the schema lists them. */
+const USER_DATA_DIR_OUTCOMES = [
+  "collected",
+  "failed",
+  "skipped_chrome_running",
+] as const;
+
 interface BundleUserDataDir {
   readonly bundlePath: string;
   readonly sourcePath: string;
-  readonly outcome: string;
+  readonly outcome: (typeof USER_DATA_DIR_OUTCOMES)[number];
 }
 
 interface DecodedBundleManifest {
@@ -156,6 +163,9 @@ function canonicalRelativePath(value: unknown, name: string): string {
  */
 export const ACQUISITION_BUNDLE_SCHEMA_VERSION =
   "forensix-acquisition-bundle-draft/2";
+
+/** A User Data Dir entry that breaks the bundle manifest schema. */
+class InvalidBundleManifest extends TypeError {}
 
 class UnsupportedBundleSchemaVersion extends TypeError {
   public readonly schemaVersion: unknown;
@@ -225,7 +235,30 @@ function decodeBundleManifest(value: unknown): DecodedBundleManifest {
   });
 
   const userDataDirs = object.user_data_dirs.map((item, index) => {
-    const source = record(item, `user_data_dirs[${index}]`);
+    const name = `user_data_dirs[${index}]`;
+    const source = record(item, name);
+    const outcome = USER_DATA_DIR_OUTCOMES.find(
+      (known) => known === source.outcome,
+    );
+    if (outcome === undefined) {
+      throw new InvalidBundleManifest(
+        `${name}.outcome ${String(JSON.stringify(source.outcome))} is not one of ${USER_DATA_DIR_OUTCOMES.join(", ")}.`,
+      );
+    }
+    if (outcome === "collected") {
+      for (const digest of ["evidence_set_digest", "working_copy_digest"]) {
+        const text = source[digest];
+        if (typeof text !== "string" || !/^[0-9a-f]{64}$/.test(text)) {
+          throw new InvalidBundleManifest(
+            `${name}.${digest} is required for a collected User Data Dir.`,
+          );
+        }
+      }
+    } else if (typeof source.error !== "string" || source.error.length === 0) {
+      throw new InvalidBundleManifest(
+        `${name}.error is required for outcome ${outcome}.`,
+      );
+    }
     return {
       bundlePath: canonicalRelativePath(
         source.bundle_path,
@@ -235,7 +268,7 @@ function decodeBundleManifest(value: unknown): DecodedBundleManifest {
         source.source_path,
         `user_data_dirs[${index}].source_path`,
       ),
-      outcome: stringValue(source.outcome, `user_data_dirs[${index}].outcome`),
+      outcome,
     };
   });
   const bundleDigest = stringValue(object.bundle_digest, "bundle_digest");
@@ -401,6 +434,18 @@ export async function inspectAcquisitionBundle(
           reason: "unsupported_bundle_schema_version",
           schemaVersion: error.schemaVersion ?? null,
           supportedSchemaVersion: ACQUISITION_BUNDLE_SCHEMA_VERSION,
+        },
+        { cause: error },
+      );
+    }
+    if (error instanceof InvalidBundleManifest) {
+      throw new ForensixError(
+        "INGEST_FAILED",
+        error.message,
+        {
+          sourcePath: bundleRoot,
+          bundleStatus: "failed_to_open",
+          reason: "bundle_manifest_invalid",
         },
         { cause: error },
       );

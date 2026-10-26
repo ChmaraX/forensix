@@ -3,6 +3,7 @@ package platformscanner
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -62,13 +63,22 @@ func TestWindowsAndDarwinCustomHomesUsePlatformPaths(t *testing.T) {
 
 func TestPlatformCandidatesAreExplicit(t *testing.T) {
 	t.Parallel()
-	if got := len(candidates("windows", `C:\\Users\\alice`)); got != 1 {
-		t.Fatalf("windows candidates=%d", got)
-	}
-	if got := len(candidates("darwin", "/Users/alice")); got != 1 {
-		t.Fatalf("darwin candidates=%d", got)
-	}
-	if got := len(candidates("linux", "/home/alice")); got != 3 {
-		t.Fatalf("linux candidates=%d", got)
+	sep := string(filepath.Separator)
+	for _, test := range []struct {
+		goos, home string
+		want       []string
+	}{
+		{"windows", `C:\Users\alice`, []string{`C:\Users\alice` + sep + filepath.FromSlash("AppData/Local/Google/Chrome/User Data")}},
+		{"darwin", "/Users/alice", []string{filepath.FromSlash("/Users/alice/Library/Application Support/Google/Chrome")}},
+		{"linux", "/home/alice", []string{
+			filepath.FromSlash("/home/alice/.config/google-chrome"),
+			filepath.FromSlash("/home/alice/snap/chromium/common/chromium"),
+			filepath.FromSlash("/home/alice/.var/app/com.google.Chrome/config/google-chrome"),
+		}},
+		{"freebsd", "/home/alice", nil},
+	} {
+		if got := candidates(test.goos, test.home); !reflect.DeepEqual(got, test.want) {
+			t.Errorf("%s candidates=%q, want %q", test.goos, got, test.want)
+		}
 	}
 }

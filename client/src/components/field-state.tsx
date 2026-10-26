@@ -19,12 +19,23 @@
  */
 import { Fragment, type ReactNode } from "react";
 
-import { formatValue } from "../lib.js";
 import type { FieldState } from "../types.js";
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { EvidenceDot } from "./evidence.js";
 import { Term } from "./term.js";
+
+/** Render an arbitrary field value as text; time objects show their UTC form. */
+function formatValue(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return typeof record.utc === "string" ? record.utc : JSON.stringify(value);
+  }
+  return String(value);
+}
 
 /**
  * Monospace is for values a person might copy or compare character by

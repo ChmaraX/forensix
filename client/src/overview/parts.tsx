@@ -40,14 +40,13 @@ import {
   DownloadedFileIcon,
   EmptyIcon,
   ExternalLinkIcon,
-  type ArtifactIconKey,
 } from "@/lib/app-icons";
 import { fontWeights } from "@/lib/font-weight";
 import { typeClass, useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import type { EvidenceKey } from "@/artifacts";
 import { COMMIT_META } from "@/terms";
-import type { FieldState, Finding } from "@/types";
+import type { FieldState, Finding, OverviewArtifact } from "@/types";
 
 import type { RecoveredCount, TopSite } from "./data";
 
@@ -748,7 +747,7 @@ export function RecoveredList({
   hrefOf,
 }: {
   readonly counts: readonly RecoveredCount[];
-  readonly coverageOf: (artifact: string) => ArtifactCoverage | null;
+  readonly coverageOf: (artifact: OverviewArtifact) => ArtifactCoverage | null;
   /** The link to a page's Recovered tab. */
   readonly hrefOf: (page: EvidenceKey) => string;
 }) {
@@ -822,7 +821,7 @@ export function RecoveredList({
               <span className="flex min-w-0 flex-col">
                 <span className={cn(typeClass("body"), "text-foreground")}>
                   <TypeLabel
-                    icon={ARTIFACT_ICONS[count.page as ArtifactIconKey]}
+                    icon={ARTIFACT_ICONS[count.page]}
                     label={count.label}
                   />
                 </span>

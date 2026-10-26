@@ -1,26 +1,31 @@
-import { createHash } from "node:crypto";
-
 import { openCaseReadOnly } from "./case.js";
+import { readCaseId } from "./case-overview.js";
 import { ForensixError } from "./errors.js";
+import type { CommitState, Finding } from "./forensic-model.js";
 import {
-  createFinding,
-  type CommitState,
-  type Finding,
-  type ForensicFields,
-  type Provenance,
-} from "./forensic-model.js";
-import {
+  activeArtifactResultIds,
+  cursorRowId,
+  decodeCursor,
+  encodeCursor,
+  normalizeInstant,
+  normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
+  queryFingerprint,
   resolveCommitState,
   resolveProfiles,
   resolveSearch,
+  type QueryDirection,
 } from "./finding-query.js";
 import {
-  withRecordId,
+  decodeFinding,
+  recordStore,
+  storedRecordColumns,
   type Identified,
   type RecordStoreKey,
+  type StoredRecordRow,
 } from "./record-store.js";
-
-export type TimelineDirection = "asc" | "desc";
+import { tableExists } from "./sqlite-artifact.js";
 
 export interface TimelineQuery {
   readonly caseDirectory: string;
@@ -28,7 +33,7 @@ export interface TimelineQuery {
   readonly after?: string;
   readonly from?: string;
   readonly to?: string;
-  readonly direction?: TimelineDirection;
+  readonly direction?: QueryDirection;
   /** Only Findings of these Profiles. */
   readonly profiles?: readonly string[];
   /** Only these Finding kinds (see {@link TIMELINE_KINDS}). */
@@ -38,13 +43,26 @@ export interface TimelineQuery {
   readonly commitState?: CommitState;
 }
 
+/**
+ * The timestamped Finding kinds: one per store, with the column that holds
+ * its recorded instant. The Timeline merges them and the summary time span
+ * reads them.
+ */
+export const TIMELINE_SOURCES = [
+  { store: "history", kind: "history_visit", column: "sort_time" },
+  { store: "downloads", kind: "download", column: "sort_start" },
+  { store: "cookies", kind: "cookie", column: "sort_creation" },
+  { store: "web-data", kind: "autofill_entry", column: "sort_last_used" },
+] as const satisfies readonly {
+  readonly store: RecordStoreKey;
+  readonly kind: string;
+  readonly column: string;
+}[];
+
 /** The Finding kinds the Timeline merges, one per timestamped table. */
-export const TIMELINE_KINDS = [
-  "history_visit",
-  "download",
-  "cookie",
-  "autofill_entry",
-] as const;
+export const TIMELINE_KINDS: readonly string[] = TIMELINE_SOURCES.map(
+  (source) => source.kind,
+);
 
 export interface TimelinePage {
   readonly status: "ok";
@@ -54,162 +72,18 @@ export interface TimelinePage {
   readonly limit: number;
 }
 
-interface CursorPayload {
-  readonly version: 1;
-  readonly fingerprint: string;
-  readonly key: string;
-  readonly findingId: string;
-  readonly findingKind: string;
-}
-
-interface QueryRow {
+interface QueryRow extends StoredRecordRow {
   readonly store: RecordStoreKey;
-  readonly finding_id: bigint;
-  readonly finding_kind: string;
-  readonly profile_path: string;
-  readonly commit_state: string;
-  readonly provenance_json: string;
-  readonly fields_json: string;
   readonly cursor_key: string;
-}
-
-const DIRECTIONS = ["asc", "desc"] as const;
-
-function normalizeLimit(value: number | undefined): number {
-  const limit = value ?? 50;
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      "Timeline --limit must be an integer from 1 through 100.",
-      { limit },
-    );
-  }
-  return limit;
-}
-
-function normalizeInstant(
-  value: string | undefined,
-  option: string,
-): string | null {
-  if (value === undefined) return null;
-  const match =
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}:\d{2})$/.exec(
-      value,
-    );
-  const date = new Date(value);
-  const year = Number(match?.[1]);
-  const month = Number(match?.[2]);
-  const day = Number(match?.[3]);
-  const hour = Number(match?.[4]);
-  const minute = Number(match?.[5]);
-  const second = Number(match?.[6]);
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  if (
-    match === null ||
-    Number.isNaN(date.getTime()) ||
-    month < 1 ||
-    month > 12 ||
-    day < 1 ||
-    day > daysInMonth ||
-    hour > 23 ||
-    minute > 59 ||
-    second > 59
-  ) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      `Timeline ${option} must be an ISO 8601 instant with an offset.`,
-      { value },
-    );
-  }
-  const fraction = (match[7] ?? "").padEnd(6, "0");
-  const milliseconds = date.toISOString();
-  return `${milliseconds.slice(0, -5)}.${milliseconds.slice(-4, -1)}${fraction.slice(3)}Z`;
-}
-
-function decodeCursor(value: string, fingerprint: string): CursorPayload {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-  } catch (error) {
-    throw new ForensixError(
-      "INVALID_CURSOR",
-      "Timeline cursor is not valid.",
-      {},
-      { cause: error },
-    );
-  }
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !(
-      "version" in parsed &&
-      parsed.version === 1 &&
-      "fingerprint" in parsed &&
-      parsed.fingerprint === fingerprint &&
-      "key" in parsed &&
-      typeof parsed.key === "string" &&
-      "findingId" in parsed &&
-      typeof parsed.findingId === "string" &&
-      /^[0-9]+$/.test(parsed.findingId) &&
-      "findingKind" in parsed &&
-      typeof parsed.findingKind === "string"
-    )
-  ) {
-    throw new ForensixError(
-      "INVALID_CURSOR",
-      "Timeline cursor does not belong to this query.",
-    );
-  }
-  return parsed as CursorPayload;
-}
-
-function parseFinding(row: QueryRow): Finding {
-  let provenance: Provenance;
-  let fields: ForensicFields;
-  try {
-    provenance = JSON.parse(row.provenance_json) as Provenance;
-    fields = JSON.parse(row.fields_json) as ForensicFields;
-  } catch (error) {
-    throw new ForensixError(
-      "CASE_INVALID",
-      "Case contains invalid Finding JSON.",
-      { findingId: row.finding_id.toString() },
-      { cause: error },
-    );
-  }
-  if (
-    row.commit_state !== "committed" &&
-    row.commit_state !== "wal_resident" &&
-    row.commit_state !== "journal_resident"
-  ) {
-    throw new ForensixError(
-      "CASE_INVALID",
-      "Case contains an invalid Commit State.",
-      { findingId: row.finding_id.toString() },
-    );
-  }
-  return createFinding({
-    findingKind: row.finding_kind,
-    profile: row.profile_path,
-    commitState: row.commit_state,
-    provenance,
-    fields,
-  });
 }
 
 /** Merges only recorded timestamps; it does not infer events or alter Findings. */
 export function queryTimeline(input: TimelineQuery): TimelinePage {
-  const direction = input.direction ?? "desc";
-  if (!DIRECTIONS.includes(direction)) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      "Timeline --direction has an unsupported value.",
-      { value: direction, allowed: DIRECTIONS },
-    );
-  }
-  const limit = normalizeLimit(input.limit);
-  const from = normalizeInstant(input.from, "--from");
-  const to = normalizeInstant(input.to, "--to");
+  const direction =
+    parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "desc";
+  const limit = normalizeLimit(input.limit, "Timeline");
+  const from = normalizeInstant(input.from, "--from", "Timeline");
+  const to = normalizeInstant(input.to, "--to", "Timeline");
   if (from !== null && to !== null && from > to)
     throw new ForensixError(
       "INVALID_ARGUMENT",
@@ -218,7 +92,7 @@ export function queryTimeline(input: TimelineQuery): TimelinePage {
   const profiles = resolveProfiles(input.profiles, "Timeline");
   const kinds = [...new Set(input.kinds ?? [])].sort();
   for (const kind of kinds) {
-    if (!(TIMELINE_KINDS as readonly string[]).includes(kind)) {
+    if (!TIMELINE_KINDS.includes(kind)) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
         "Timeline --kind has an unsupported value.",
@@ -227,70 +101,45 @@ export function queryTimeline(input: TimelineQuery): TimelinePage {
     }
   }
   const search = resolveSearch(input.search);
-  const commitState = resolveCommitState(input.commitState, "Timeline");
+  const commitState = resolveCommitState(input.commitState);
 
   const database = openCaseReadOnly(input.caseDirectory, { readBigInts: true });
   try {
-    const requiredTables = [
-      "forensic_findings",
-      "downloads_findings",
-      "cookie_findings",
-      "web_data_findings",
-    ];
-    for (const table of requiredTables) {
-      if (
-        database
-          .prepare(
-            "SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?",
-          )
-          .get(table) === undefined
-      ) {
-        throw new ForensixError(
-          "ANALYSIS_NOT_FOUND",
-          "Case has no Timeline analysis. Run analyse first.",
-        );
-      }
+    const stores = TIMELINE_SOURCES.map((source) => ({
+      ...source,
+      store: recordStore(source.store),
+    }));
+    if (stores.some(({ store }) => !tableExists(database, store.table))) {
+      throw new ForensixError(
+        "ANALYSIS_NOT_FOUND",
+        "Case has no Timeline analysis. Run analyse first.",
+      );
     }
-    const caseRow = database
-      .prepare("SELECT case_id FROM case_info LIMIT 1")
-      .get();
-    if (typeof caseRow?.case_id !== "string")
-      throw new ForensixError("CASE_INVALID", "Case identity is missing.");
-    const results = database
-      .prepare(
-        `SELECT artifact_result_id FROM history_artifact_results WHERE active = 1
-      UNION ALL SELECT artifact_result_id FROM downloads_artifact_results WHERE active = 1
-      UNION ALL SELECT artifact_result_id FROM cookie_artifact_results WHERE active = 1
-      UNION ALL SELECT artifact_result_id FROM web_data_artifact_results WHERE active = 1
-      ORDER BY artifact_result_id`,
-      )
-      .all()
-      .map((row) => String(row.artifact_result_id));
-    const fingerprint = createHash("sha256")
-      .update(
-        JSON.stringify({
-          caseId: caseRow.case_id,
-          activeArtifactResultIds: results,
-          from,
-          to,
-          direction,
-          profiles,
-          kinds,
-          search,
-          commitState,
-        }),
-      )
-      .digest("hex");
+    const fingerprint = queryFingerprint({
+      caseId: readCaseId(database),
+      activeArtifactResultIds: stores.map(({ store }) =>
+        activeArtifactResultIds(database, store.resultsTable),
+      ),
+      from,
+      to,
+      direction,
+      profiles,
+      kinds,
+      search,
+      commitState,
+    });
     const cursor =
-      input.after === undefined ? null : decodeCursor(input.after, fingerprint);
-    const columns =
-      "f.finding_id, f.finding_kind, f.profile_path, f.commit_state, f.provenance_json, f.fields_json, f.search_text";
-    const branches = [
-      `SELECT 'history' AS store, ${columns}, f.sort_time AS cursor_key FROM forensic_findings f JOIN history_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = 'history_visit' AND f.sort_time IS NOT NULL`,
-      `SELECT 'downloads' AS store, ${columns}, f.sort_start AS cursor_key FROM downloads_findings f JOIN downloads_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.sort_start IS NOT NULL`,
-      `SELECT 'cookies' AS store, ${columns}, f.sort_creation AS cursor_key FROM cookie_findings f JOIN cookie_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.sort_creation IS NOT NULL`,
-      `SELECT 'web-data' AS store, ${columns}, f.sort_last_used AS cursor_key FROM web_data_findings f JOIN web_data_artifact_results r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = 'autofill_entry' AND f.sort_last_used IS NOT NULL`,
-    ];
+      input.after === undefined
+        ? null
+        : decodeCursor(input.after, fingerprint, "Timeline", [
+            "key",
+            "id",
+            "kind",
+          ]);
+    const branches = stores.map(
+      ({ store, kind, column }) =>
+        `SELECT '${store.key}' AS store, ${storedRecordColumns(store)}, f.search_text, f.${column} AS cursor_key FROM ${store.table} f JOIN ${store.resultsTable} r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.finding_kind = '${kind}' AND f.${column} IS NOT NULL`,
+    );
     const conditions: string[] = [];
     const parameters: (string | bigint)[] = [];
     if (from !== null) {
@@ -308,7 +157,7 @@ export function queryTimeline(input: TimelineQuery): TimelinePage {
       parameters.push(...profiles);
     }
     if (kinds.length > 0) {
-      conditions.push(`finding_kind IN (${kinds.map(() => "?").join(", ")})`);
+      conditions.push(`kind IN (${kinds.map(() => "?").join(", ")})`);
       parameters.push(...kinds);
     }
     if (search !== null) {
@@ -323,20 +172,20 @@ export function queryTimeline(input: TimelineQuery): TimelinePage {
     if (cursor !== null) {
       const operator = direction === "asc" ? ">" : "<";
       conditions.push(
-        `(cursor_key ${operator} ? OR (cursor_key = ? AND (finding_kind ${operator} ? OR (finding_kind = ? AND finding_id ${operator} ?))))`,
+        `(cursor_key ${operator} ? OR (cursor_key = ? AND (kind ${operator} ? OR (kind = ? AND row_id ${operator} ?))))`,
       );
       parameters.push(
         cursor.key,
         cursor.key,
-        cursor.findingKind,
-        cursor.findingKind,
-        BigInt(cursor.findingId),
+        cursor.kind,
+        cursor.kind,
+        cursorRowId(cursor.id, "Timeline"),
       );
     }
     parameters.push(BigInt(limit + 1));
     const rows = database
       .prepare(
-        `SELECT * FROM (${branches.join(" UNION ALL ")}) WHERE ${conditions.length === 0 ? "1 = 1" : conditions.join(" AND ")} ORDER BY cursor_key ${order}, finding_kind ${order}, finding_id ${order} LIMIT ?`,
+        `SELECT * FROM (${branches.join(" UNION ALL ")}) WHERE ${conditions.length === 0 ? "1 = 1" : conditions.join(" AND ")} ORDER BY cursor_key ${order}, kind ${order}, row_id ${order} LIMIT ?`,
       )
       .all(...parameters) as unknown as QueryRow[];
     const hasNext = rows.length > limit;
@@ -345,21 +194,14 @@ export function queryTimeline(input: TimelineQuery): TimelinePage {
     return {
       status: "ok",
       command: "timeline",
-      items: pageRows.map((row) =>
-        withRecordId(row.store, row.finding_id, parseFinding(row)),
-      ),
+      items: pageRows.map((row) => decodeFinding(recordStore(row.store), row)),
       nextCursor:
         hasNext && last !== undefined
-          ? Buffer.from(
-              JSON.stringify({
-                version: 1,
-                fingerprint,
-                key: last.cursor_key,
-                findingId: last.finding_id.toString(),
-                findingKind: last.finding_kind,
-              }),
-              "utf8",
-            ).toString("base64url")
+          ? encodeCursor(fingerprint, {
+              key: last.cursor_key,
+              id: last.row_id.toString(),
+              kind: last.kind,
+            })
           : null,
       limit,
     };

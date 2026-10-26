@@ -14,20 +14,17 @@ import {
   type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
 
-export type RawTopSiteValue = RawSqliteValue;
-export type VerifiedTopSiteFile = VerifiedSqliteFile;
-
 /**
  * One row of the Chromium `top_sites` table, preserved column-by-column exactly
  * as stored. Values keep their raw SQLite type so the Finding layer can classify
  * each Field State (value, absent, or unavailable) without lossy coercion.
  */
 export interface RawTopSite {
-  readonly rowId: RawTopSiteValue;
-  readonly url: RawTopSiteValue;
-  readonly urlRank: RawTopSiteValue;
-  readonly title: RawTopSiteValue;
-  readonly redirects: RawTopSiteValue;
+  readonly rowId: RawSqliteValue;
+  readonly url: RawSqliteValue;
+  readonly urlRank: RawSqliteValue;
+  readonly title: RawSqliteValue;
+  readonly redirects: RawSqliteValue;
 }
 
 export interface TopSiteSchema {
@@ -103,7 +100,7 @@ function optionalColumn(
     : `NULL AS "${alias}"`;
 }
 
-const normalize = (value: unknown): RawTopSiteValue =>
+const normalize = (value: unknown): RawSqliteValue =>
   normalizeSqliteValue(value, "Top Sites");
 
 function readPass(database: DatabaseSync): TopSitePass {
@@ -135,8 +132,8 @@ function readPass(database: DatabaseSync): TopSitePass {
 }
 
 export async function readTopSitePasses(options: {
-  readonly database: VerifiedTopSiteFile;
-  readonly sidecars: readonly VerifiedTopSiteFile[];
+  readonly database: VerifiedSqliteFile;
+  readonly sidecars: readonly VerifiedSqliteFile[];
 }): Promise<TopSitePasses> {
   // The `top_sites` table is a single-table artifact: a sidecar row is kept
   // only when the committed image has no row with the same rowid or holds a

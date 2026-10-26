@@ -16,9 +16,6 @@ import type { PaginatedList } from "../use-commit-state-lists.js";
 import { EmptyRows } from "./data-table.js";
 import {
   FieldCell,
-  fieldString,
-  fieldText,
-  hostOf,
   SiteAvatar,
   StateWord,
   TwoLineCell,
@@ -30,8 +27,11 @@ import {
 } from "./history-filters.js";
 import { UrlWithSiteLink } from "./host-link.js";
 import { ListBlock } from "./list-states.js";
-import { ResponsiveRows, TimeCell, type RowColumn } from "./page-kit.js";
+import { TimeCell } from "./page-kit.js";
 import { Term } from "./term.js";
+import { fieldString, fieldText } from "../field-readers.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
+import { urlHostOf } from "./url-host.js";
 
 /**
  * A recorded `visitDuration` (microseconds, as a string or number field)
@@ -82,7 +82,7 @@ function VisitPage({ row }: { readonly row: Finding }) {
 function VisitPageLinked({ row }: { readonly row: Finding }) {
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
+      <SiteAvatar host={urlHostOf(fieldText(row.fields.url))} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="block min-w-0 text-foreground">
           <FieldCell field={row.fields.title} mono={false} />
@@ -171,10 +171,10 @@ const STATE_COLUMN: RowColumn<Finding> = {
   cell: (row) => <StateWord state={row.commitState} />,
 };
 
-/** A visit's stable key: its row reference (file, table, row id, profile,
- *  Commit State), so a re-sort or a new page re-renders no kept row. */
-function visitKey(row: Finding, index: number): string {
-  return rowRefOf(row) ?? `${row.commitState}-${String(index)}`;
+/** A visit's stable key: its row reference, so a re-sort or a new page
+ *  re-renders no kept row. */
+function visitKey(row: Finding): string {
+  return rowRefOf(row);
 }
 
 function visitLabel(row: Finding): string {

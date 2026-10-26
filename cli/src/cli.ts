@@ -2,6 +2,7 @@
 
 import {
   ANALYSE_EXIT_CODES,
+  COMMIT_STATES,
   ForensixError,
   MINIMUM_NODE_VERSION,
   SOURCE_KINDS,
@@ -9,13 +10,12 @@ import {
   analyseCase,
   exportCase,
   ingestSource,
+  parseOption,
   renderReport,
-  type CommitState,
   type DeclaredOriginOs,
   type ExtractCollection,
   type IngestProgress,
   type IngestResult,
-  type SourceKind,
 } from "@forensix/core";
 import { startDashboardServer } from "@forensix/server";
 import { readFileSync } from "node:fs";
@@ -32,7 +32,7 @@ import {
   optionValue,
   optionValues,
   parseArguments,
-  requiredCasePath,
+  requiredOption,
 } from "./args.js";
 import { CliError } from "./cli-error.js";
 import {
@@ -118,6 +118,16 @@ interface CommandOutcome {
   readonly afterEmit?: () => void;
 }
 
+const ORIGIN_OSES = [
+  "windows",
+  "macos",
+  "linux",
+] as const satisfies readonly DeclaredOriginOs[];
+const EXTRACT_COLLECTIONS = [
+  "findings",
+  "candidates",
+] as const satisfies readonly ExtractCollection[];
+
 function allowing(...groups: readonly Iterable<string>[]): Set<string> {
   return new Set(groups.flatMap((group) => [...group]));
 }
@@ -172,19 +182,12 @@ async function run(arguments_: readonly string[]): Promise<CommandOutcome> {
         "The Source path is missing.",
       );
     }
-    const requestedKind =
-      optionValue(parsed, "--source-kind") ?? "USER_DATA_DIR";
-    if (!SOURCE_KINDS.includes(requestedKind as SourceKind)) {
-      throw new ForensixError(
-        "INVALID_ARGUMENT",
-        `Unsupported Source kind: ${String(requestedKind)}`,
-      );
-    }
     const result = await consumeIngest(
       ingestSource({
         sourcePath,
-        sourceKind: requestedKind as SourceKind,
-        caseDirectory: requiredCasePath(parsed),
+        sourceKind:
+          enumOption(parsed, "--source-kind", SOURCE_KINDS) ?? "USER_DATA_DIR",
+        caseDirectory: requiredOption(parsed, "--case"),
         includeTier2: hasOption(parsed, "--include-tier-2"),
       }),
       !jsonOutput,
@@ -229,13 +232,9 @@ async function run(arguments_: readonly string[]): Promise<CommandOutcome> {
       );
     }
     const result = await analyseCase({
-      caseDirectory: requiredCasePath(parsed),
+      caseDirectory: requiredOption(parsed, "--case"),
       declaredTimezone: optionValue(parsed, "--timezone"),
-      declaredOriginOs: enumOption(parsed, "--origin-os", [
-        "windows",
-        "macos",
-        "linux",
-      ] as const) as DeclaredOriginOs | undefined,
+      declaredOriginOs: enumOption(parsed, "--origin-os", ORIGIN_OSES),
       decryptionEnabled,
       ...(keyMaterialPath === undefined ? {} : { keyMaterialPath }),
       ...(recipientKeyPath === undefined ? {} : { recipientKeyPath }),
@@ -257,7 +256,6 @@ async function run(arguments_: readonly string[]): Promise<CommandOutcome> {
         queryCommand.output === "records" ? RECORD_OUTPUT_OPTIONS : [],
         queryCommand.paged ? PAGED_OUTPUT_OPTIONS : [],
       ),
-      queryCommand.repeatableOptions,
     );
     if (parsed.positionals.length !== 0) {
       throw new ForensixError(
@@ -331,34 +329,17 @@ async function run(arguments_: readonly string[]): Promise<CommandOutcome> {
       );
     }
     assertNoParentSegments(parsed, "--out");
-    const outDirectory = optionValue(parsed, "--out");
-    if (outDirectory === undefined) {
-      throw new ForensixError("INVALID_ARGUMENT", "Option --out is required.");
-    }
-    const collections = optionValues(parsed, "--collection");
-    for (const collection of collections) {
-      if (collection !== "findings" && collection !== "candidates") {
-        throw new ForensixError(
-          "INVALID_ARGUMENT",
-          `Option --collection has an unsupported value: ${collection}`,
-          { option: "--collection", value: collection },
-        );
-      }
-    }
+    const outDirectory = requiredOption(parsed, "--out");
+    const collections = optionValues(parsed, "--collection").map((value) =>
+      parseOption(value, "--collection", EXTRACT_COLLECTIONS),
+    );
     const result = await exportCase({
-      caseDirectory: requiredCasePath(parsed),
+      caseDirectory: requiredOption(parsed, "--case"),
       outDirectory,
       examiner: optionValue(parsed, "--examiner"),
       profiles: optionValues(parsed, "--profile"),
-      commitState: enumOption(parsed, "--commit-state", [
-        "committed",
-        "wal_resident",
-        "journal_resident",
-      ] as const) as CommitState | undefined,
-      collections:
-        collections.length === 0
-          ? undefined
-          : (collections as ExtractCollection[]),
+      commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
+      collections: collections.length === 0 ? undefined : collections,
       csv: hasOption(parsed, "--csv"),
       includeSecrets: hasOption(parsed, "--include-secrets"),
     });
@@ -375,17 +356,8 @@ async function run(arguments_: readonly string[]): Promise<CommandOutcome> {
     }
     assertNoParentSegments(parsed, "--extract");
     assertNoParentSegments(parsed, "--out");
-    const extractDirectory = optionValue(parsed, "--extract");
-    if (extractDirectory === undefined) {
-      throw new ForensixError(
-        "INVALID_ARGUMENT",
-        "Option --extract is required.",
-      );
-    }
-    const outputPath = optionValue(parsed, "--out");
-    if (outputPath === undefined) {
-      throw new ForensixError("INVALID_ARGUMENT", "Option --out is required.");
-    }
+    const extractDirectory = requiredOption(parsed, "--extract");
+    const outputPath = requiredOption(parsed, "--out");
     const result = await renderReport({ extractDirectory, outputPath });
     return printed(result);
   }
@@ -407,7 +379,7 @@ async function run(arguments_: readonly string[]): Promise<CommandOutcome> {
       );
     }
     const server = await startDashboardServer({
-      caseDirectory: requiredCasePath(parsed),
+      caseDirectory: requiredOption(parsed, "--case"),
       port,
     });
     const announcement = {
@@ -427,8 +399,9 @@ async function run(arguments_: readonly string[]): Promise<CommandOutcome> {
               `Press Ctrl+C to stop.\n`,
           );
         }
+        // Closing the server releases its Case lock.
         const stop = (): void => {
-          void server.close().then(() => {
+          void server.close().finally(() => {
             process.exit(0);
           });
         };

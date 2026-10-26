@@ -9,10 +9,10 @@ import {
   sidecarOnlyRows,
   tableColumns,
   tableExists,
+  type RawSqliteValue,
   type SqlitePasses,
+  type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
-
-export type RawWebDataValue = null | string | bigint | Uint8Array;
 
 /**
  * One row of the Chrome `autofill` table, preserved column-by-column exactly as
@@ -23,7 +23,7 @@ export type RawWebDataValue = null | string | bigint | Uint8Array;
  * coercion.
  */
 export interface RawAutofillRow {
-  readonly values: ReadonlyMap<string, RawWebDataValue>;
+  readonly values: ReadonlyMap<string, RawSqliteValue>;
   readonly rowId: bigint | null;
 }
 
@@ -39,13 +39,6 @@ export interface WebDataPass {
 }
 
 export type WebDataPasses = SqlitePasses<WebDataPass>;
-
-export interface VerifiedWebDataFile {
-  readonly path: string;
-  readonly manifestPath: string;
-  readonly size: number;
-  readonly sha256: string;
-}
 
 /**
  * Columns the metadata pipeline preserves when present. The `autofill` table is
@@ -111,7 +104,7 @@ function readSchema(database: DatabaseSync): WebDataSchema {
   return { version, columns };
 }
 
-const normalize = (value: unknown): RawWebDataValue =>
+const normalize = (value: unknown): RawSqliteValue =>
   normalizeSqliteValue(value, "Web Data");
 
 function readPass(database: DatabaseSync): WebDataPass {
@@ -131,7 +124,7 @@ function readPass(database: DatabaseSync): WebDataPass {
   `);
   const rows: RawAutofillRow[] = [];
   for (const row of statement.iterate()) {
-    const values = new Map<string, RawWebDataValue>();
+    const values = new Map<string, RawSqliteValue>();
     for (const column of selected) {
       values.set(column, normalize(row[column]));
     }
@@ -146,8 +139,8 @@ function readPass(database: DatabaseSync): WebDataPass {
 }
 
 export async function readWebDataPasses(options: {
-  readonly database: VerifiedWebDataFile;
-  readonly sidecars: readonly VerifiedWebDataFile[];
+  readonly database: VerifiedSqliteFile;
+  readonly sidecars: readonly VerifiedSqliteFile[];
 }): Promise<WebDataPasses> {
   // A sidecar row is kept only when the committed image has no row with the
   // same `autofill.rowid` or holds a different exact image for it.

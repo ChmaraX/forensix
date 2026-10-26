@@ -55,8 +55,6 @@ import {
 } from "./favicons-fields.js";
 import {
   FieldCell,
-  fieldText,
-  hostOf,
   SiteAvatar,
   StateWord,
   TwoLineCell,
@@ -71,17 +69,14 @@ import {
 } from "./filters.js";
 import { ListBlock } from "./list-states.js";
 import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
-import {
-  CommitStateSplit,
-  formatBytes,
-  ResponsiveRows,
-  type RowColumn,
-  SectionPanel,
-  TimeCell,
-} from "./page-kit.js";
+import { CommitStateSplit, SectionPanel, TimeCell } from "./page-kit.js";
 import { RowSheet } from "./row-sheet.js";
 import { SiteHostLink } from "./host-link.js";
 import { useOwnBitmaps } from "./site-favicons.js";
+import { fieldText } from "../field-readers.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
+import { formatBytes } from "./bytes.js";
+import { urlHostOf } from "./url-host.js";
 
 /** Newest refresh first; each Commit State is its own read. */
 const FAVICON_PARAMETERS: QueryParameters = [
@@ -95,7 +90,7 @@ const FAVICON_PARAMETERS: QueryParameters = [
  *  URL; null when neither has a host. */
 function faviconHostUrl(row: Finding): string | null {
   const icon = fieldText(row.fields.iconUrl);
-  if (hostOf(icon) !== null) {
+  if (urlHostOf(icon) !== null) {
     return icon;
   }
   const pages = row.fields.pageUrls;
@@ -105,7 +100,7 @@ function faviconHostUrl(row: Finding): string | null {
       const first = list.find(
         (entry): entry is string => typeof entry === "string",
       );
-      if (first !== undefined && hostOf(first) !== null) {
+      if (first !== undefined && urlHostOf(first) !== null) {
         return first;
       }
     }
@@ -115,7 +110,7 @@ function faviconHostUrl(row: Finding): string | null {
 
 /** The host a favicon belongs to: its icon URL host, then its first page URL. */
 function faviconHost(row: Finding): string | null {
-  return hostOf(faviconHostUrl(row));
+  return urlHostOf(faviconHostUrl(row));
 }
 
 /* --------------------------------- widgets --------------------------------- */
@@ -470,8 +465,8 @@ export function FaviconsPage() {
   const status = commitStateStatus(
     lists,
     { saved: savedRows.length, recovered: recoveredRows.length },
-    totals.state === "ready" ? totals.value : null,
-    { filtered: lens.selected.length > 0 },
+    totals,
+    lens.selected.length > 0,
   );
 
   return (

@@ -11,11 +11,6 @@ import { fieldText } from "./field-readers.js";
 import { COMMIT_STATES, once, readPages } from "./read-pages.js";
 import type { Finding, PageOf, SiteHost } from "./types.js";
 
-/** The Case's activity, read once. One read for the whole app: the same
- *  shared read History and Timeline use (`caseActivity` in
- *  components/activity-data). */
-export { caseActivity };
-
 /** The Case's declared timezone (null: the rows declare none or disagree,
  *  so days are UTC days), read once: the one zone for server `from` / `to`
  *  bounds (a day link into the Timeline). Rejects when the activity read

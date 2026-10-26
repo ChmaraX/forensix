@@ -1,4 +1,25 @@
-import { SITE_ARTIFACT_KINDS, TIMELINE_KINDS } from "@forensix/core";
+import {
+  AUTOFILL_SORTS,
+  BOOKMARK_SORTS,
+  BOOKMARK_SOURCES,
+  CACHE_RECORD_TYPES,
+  CACHE_SORTS,
+  CANDIDATE_CATEGORIES,
+  CANDIDATE_SORTS,
+  COMMIT_STATES,
+  COOKIE_SORTS,
+  CREDENTIAL_SORTS,
+  DOWNLOAD_SORTS,
+  FAVICON_SORTS,
+  HISTORY_VIEWS,
+  METADATA_SORTS,
+  METADATA_TYPES,
+  QUERY_DIRECTIONS,
+  SITE_ARTIFACT_KINDS,
+  TIMELINE_KINDS,
+  TOP_SITE_SORTS,
+  TOPIC_CANDIDATE_SORTS,
+} from "@forensix/core";
 
 import { QUERY_COMMANDS } from "./query-commands.js";
 
@@ -8,7 +29,13 @@ import { QUERY_COMMANDS } from "./query-commands.js";
  * blocks that command accepts.
  */
 
-const COMMIT = "<committed|wal_resident|journal_resident>";
+/** `<a|b|c>`: the allowed values of one option, as core defines them. */
+function oneOf(values: readonly string[]): string {
+  return `<${values.join("|")}>`;
+}
+
+const COMMIT = oneOf(COMMIT_STATES);
+const DIRECTION = `[--direction ${oneOf(QUERY_DIRECTIONS)}]`;
 const PAGE = "[--limit <1-100>] [--after <cursor>]";
 const RECORD = "[record output options]";
 
@@ -68,7 +95,7 @@ const SECTIONS: readonly UsageSection[] = [
     text: `  forensix count --case <case-directory> --kind <kind> --by <field|profile|commitState>
                    [--profile <profile>]... [--commit-state ${COMMIT}]
                    [--search <text>] [--limit <1-100>] [--include-secrets] [--json]
-                   Each bucket has state (value, absent, unavailable, missing, redacted)
+                   A Candidate kind has no Commit State. Each bucket has state (value, absent, unavailable, missing, redacted)
                    and key. A timestamp field buckets by UTC day (YYYY-MM-DD). A secret
                    field buckets by hash unless --include-secrets. Value keys are
                    evidence: trust.untrusted = "buckets[].key".`,
@@ -84,7 +111,7 @@ const SECTIONS: readonly UsageSection[] = [
                    [--kind <${TIMELINE_KINDS.join("|")}>]...
                    [--profile <profile>]... [--search <text>]
                    [--commit-state ${COMMIT}]
-                   [--direction <asc|desc>] ${PAGE} ${RECORD} [--json]`,
+                   ${DIRECTION} ${PAGE} ${RECORD} [--json]`,
   },
   {
     command: "site-hosts",
@@ -109,11 +136,11 @@ const SECTIONS: readonly UsageSection[] = [
   },
   {
     command: "history",
-    text: `  forensix history --case <case-directory> [--view <visits|activity|most-visited|durations>]
+    text: `  forensix history --case <case-directory> [--view ${oneOf(HISTORY_VIEWS)}]
                    [--profile <profile>]... [--search <text>]
                    [--commit-state ${COMMIT}]
                    [--transition <name>] [--from <instant>] [--to <instant>]
-                   [--sort <field>] [--direction <asc|desc>]
+                   [--sort <field>] ${DIRECTION}
                    ${PAGE} ${RECORD} [--json]`,
   },
   {
@@ -121,62 +148,62 @@ const SECTIONS: readonly UsageSection[] = [
     text: listCommand("cookies", [
       `[--commit-state ${COMMIT}]`,
       `[--host <host-key>] [--same-site <name>]`,
-      `[--sort <host|name|creation-time|expires-time|last-access-time|profile>]`,
-      `[--direction <asc|desc>]`,
+      `[--sort ${oneOf(COOKIE_SORTS)}]`,
+      DIRECTION,
     ]),
   },
   {
     command: "credentials",
     text: listCommand("credentials", [
       `[--commit-state ${COMMIT}]`,
-      `[--sort <created-time|last-used-time|origin|username|profile>]`,
-      `[--direction <asc|desc>]`,
+      `[--sort ${oneOf(CREDENTIAL_SORTS)}]`,
+      DIRECTION,
     ]),
   },
   {
     command: "top-sites",
     text: listCommand("top-sites", [
       `[--commit-state ${COMMIT}]`,
-      `[--sort <rank|url|title|profile>] [--direction <asc|desc>]`,
+      `[--sort ${oneOf(TOP_SITE_SORTS)}] ${DIRECTION}`,
     ]),
   },
   {
     command: "topic-candidates",
     text: listCommand("topic-candidates", [
-      `[--commit-state ${COMMIT}] [--label <topic-id>]`,
-      `[--sort <rank|supporting|label|profile>] [--direction <asc|desc>]`,
+      `[--label <topic-id>]`,
+      `[--sort ${oneOf(TOPIC_CANDIDATE_SORTS)}] ${DIRECTION}`,
     ]),
   },
   {
     command: "autofill",
     text: listCommand("autofill", [
       `[--commit-state ${COMMIT}]`,
-      `[--sort <created-time|last-used-time|field-name|value|profile>]`,
-      `[--direction <asc|desc>]`,
+      `[--sort ${oneOf(AUTOFILL_SORTS)}]`,
+      DIRECTION,
     ]),
   },
   {
     command: "candidates",
     text: listCommand("candidates", [
-      `[--category <identity|behavior>] [--kind <candidate-kind>]`,
-      `[--sort <rank|kind|supporting-count|value|profile>]`,
-      `[--direction <asc|desc>]`,
+      `[--category ${oneOf(CANDIDATE_CATEGORIES)}] [--kind <candidate-kind>]`,
+      `[--sort ${oneOf(CANDIDATE_SORTS)}]`,
+      DIRECTION,
     ]),
   },
   {
     command: "favicons",
     text: listCommand("favicons", [
       `[--commit-state ${COMMIT}]`,
-      `[--sort <icon-url|page-url|last-updated|width|profile>]`,
-      `[--direction <asc|desc>]`,
+      `[--sort ${oneOf(FAVICON_SORTS)}]`,
+      DIRECTION,
     ]),
   },
   {
     command: "cache",
     text: listCommand("cache", [
-      `[--record-type <finding|candidate>] [--backend <simple>]`,
-      `[--sort <key|last-used|size|entry-hash|profile>]`,
-      `[--direction <asc|desc>]`,
+      `[--record-type ${oneOf(CACHE_RECORD_TYPES)}] [--backend <simple>]`,
+      `[--sort ${oneOf(CACHE_SORTS)}]`,
+      DIRECTION,
     ]),
   },
   {
@@ -185,29 +212,30 @@ const SECTIONS: readonly UsageSection[] = [
       `[--commit-state ${COMMIT}]`,
       `[--state <in_progress|complete|cancelled|interrupted>]`,
       `[--danger <danger-type>]`,
-      `[--sort <start-time|end-time|target-path|state|total-bytes|profile>]`,
-      `[--direction <asc|desc>]`,
+      `[--sort ${oneOf(DOWNLOAD_SORTS)}]`,
+      DIRECTION,
     ]),
   },
   {
     command: "metadata",
     text: listCommand("metadata", [
       `[--commit-state ${COMMIT}]`,
-      `[--type <browser_metadata|profile_metadata>]`,
-      `[--sort <type|profile>] [--direction <asc|desc>]`,
+      `[--type ${oneOf(METADATA_TYPES)}]`,
+      `[--sort ${oneOf(METADATA_SORTS)}] ${DIRECTION}`,
     ]),
   },
   {
     command: "bookmarks",
     text: listCommand("bookmarks", [
-      `[--commit-state ${COMMIT}] [--source <primary|backup>]`,
-      `[--sort <name|url|date-added|folder|profile>]`,
-      `[--direction <asc|desc>]`,
+      `[--commit-state ${COMMIT}] [--source ${oneOf(BOOKMARK_SOURCES)}]`,
+      `[--sort ${oneOf(BOOKMARK_SORTS)}]`,
+      DIRECTION,
     ]),
   },
   {
     command: "serve",
-    text: `  forensix serve --case <case-directory> [--port <port>] [--json]`,
+    text: `  forensix serve --case <case-directory> [--port <port>] [--json]
+                   serve and analyse of the same Case exclude each other (CASE_IN_USE).`,
   },
   {
     command: "export",

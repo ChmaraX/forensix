@@ -56,13 +56,13 @@ import type { Finding } from "../types.js";
 import { ARTIFACTS } from "../artifacts.js";
 import type { RowLookupSource } from "../row-lookup.js";
 import { fillGaps } from "./activity-data.js";
-import { cacheSiteKey } from "./cache-keys.js";
+import { cacheResourceHost, cacheSiteKey } from "./cache-keys.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { useChartTokens, type ChartTokens, type DayCount } from "./charts.js";
 import { ActivityBars } from "./charts-ready.js";
 import { EmptyRows } from "./data-table.js";
-import { fieldText, fieldUtc, profileLabel } from "./finding-fields.js";
+import { profileLabel } from "./finding-fields.js";
 import {
   caseDayTotals,
   fieldZone,
@@ -80,10 +80,7 @@ import { DrainNote } from "./list-states.js";
 import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import {
   CHART_HEIGHT,
-  formatDay,
-  formatDaySpan,
   CommitStateSplit,
-  formatBytes,
   plural,
   SectionPanel,
   splitByCommit,
@@ -91,13 +88,11 @@ import {
 import { RowSheet } from "./row-sheet.js";
 import { mixedReadStatus } from "../use-commit-state-lists.js";
 import { CommitStatePage } from "./commit-state-page.js";
-import {
-  entryBytes,
-  EntryList,
-  integrityVerified,
-  keyHost,
-} from "./cache-table.js";
+import { entryBytes, EntryList, integrityVerified } from "./cache-table.js";
 import { useDrainedRead } from "./use-drained-read.js";
+import { fieldText, fieldUtc } from "../field-readers.js";
+import { formatBytes } from "./bytes.js";
+import { formatDay, formatDaySpan } from "../day-format.js";
 
 /**
  * Reads the whole Cache list for this Case, up to a bounded number of pages.
@@ -442,7 +437,7 @@ export function CachePage() {
             inLens(row) &&
             matchesSearch(search, [
               fieldText(row.fields.key),
-              keyHost(row),
+              cacheResourceHost(row),
               fieldText(row.fields.entryHash),
             ]),
         ),

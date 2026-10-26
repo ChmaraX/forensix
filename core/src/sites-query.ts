@@ -1,26 +1,33 @@
-import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 
 import { openCaseReadOnly } from "./case.js";
+import { readCaseId } from "./case-overview.js";
 import { ForensixError } from "./errors.js";
+import type { CommitState, Finding } from "./forensic-model.js";
 import {
-  createFinding,
-  type CommitState,
-  type Finding,
-  type ForensicFields,
-  type Provenance,
-} from "./forensic-model.js";
-import { resolveCommitState, resolveProfiles } from "./finding-query.js";
+  activeArtifactResultIds,
+  cursorRowId,
+  decodeCursor,
+  encodeCursor,
+  normalizeLimit,
+  queryFingerprint,
+  resolveCommitState,
+  resolveProfiles,
+} from "./finding-query.js";
 import {
-  recordStoreForTable,
-  withRecordId,
+  decodeFinding,
+  recordStore,
+  storedRecordColumns,
   type Identified,
+  type RecordStore,
+  type StoredRecordRow,
 } from "./record-store.js";
 import {
   SITE_HOST_FIELDS,
   siteHostsOf,
   type SiteHostFieldState,
 } from "./site-host-key.js";
+import { tableExists } from "./sqlite-artifact.js";
 
 /** The evidence kinds Sites groups by host. Each is one Case table; which
  *  of a row's fields put it on a host is `SITE_HOST_FIELDS`. */
@@ -86,12 +93,11 @@ export interface SiteFindingsPage {
   readonly limit: number;
 }
 
-/** One Case table Sites groups, and the write-time columns that copy a host
+/** One record store Sites groups, and the write-time columns that copy a host
  *  field's string value (read instead of the fields JSON; any other host
  *  field is read from the JSON in SQL, never materialised in full). */
 interface SiteTable {
-  readonly table: string;
-  readonly results: string;
+  readonly store: RecordStore;
   readonly findingKind: string;
   readonly artifactKind: SiteArtifactKind;
   readonly columns: Readonly<Record<string, string>>;
@@ -100,57 +106,49 @@ interface SiteTable {
 /** Ordered by artifact kind, the order rows page in. */
 const TABLES: readonly SiteTable[] = [
   {
-    table: "forensic_findings",
-    results: "history_artifact_results",
+    store: recordStore("history"),
     findingKind: "history_visit",
     artifactKind: "visits",
     columns: { url: "sort_url" },
   },
   {
-    table: "cookie_findings",
-    results: "cookie_artifact_results",
+    store: recordStore("cookies"),
     findingKind: "cookie",
     artifactKind: "cookies",
     columns: { hostKey: "host_key" },
   },
   {
-    table: "login_data_findings",
-    results: "login_data_artifact_results",
+    store: recordStore("logins"),
     findingKind: "login_credential",
     artifactKind: "saved_logins",
     columns: { originUrl: "sort_origin" },
   },
   {
-    table: "bookmarks_findings",
-    results: "bookmarks_artifact_results",
+    store: recordStore("bookmarks"),
     findingKind: "bookmark",
     artifactKind: "bookmarks",
     columns: { url: "sort_url" },
   },
   {
-    table: "top_sites_findings",
-    results: "top_sites_artifact_results",
+    store: recordStore("top-sites"),
     findingKind: "top_site",
     artifactKind: "top_sites",
     columns: { url: "sort_url" },
   },
   {
-    table: "downloads_findings",
-    results: "downloads_artifact_results",
+    store: recordStore("downloads"),
     findingKind: "download",
     artifactKind: "downloads",
     columns: {},
   },
   {
-    table: "cache_findings",
-    results: "cache_artifact_results",
+    store: recordStore("cache"),
     findingKind: "cache_entry",
     artifactKind: "cache",
     columns: { key: "sort_key" },
   },
   {
-    table: "favicon_findings",
-    results: "favicon_artifact_results",
+    store: recordStore("favicons"),
     findingKind: "favicon",
     artifactKind: "favicons",
     columns: { iconUrl: "sort_icon_url" },
@@ -171,39 +169,6 @@ interface HostRow {
   readonly id: bigint;
   readonly committed: boolean;
   readonly hosts: ReadonlyMap<string, readonly string[]>;
-}
-
-interface StoredRow {
-  readonly finding_id: bigint;
-  readonly finding_kind: string;
-  readonly profile_path: string;
-  readonly commit_state: string;
-  readonly provenance_json: string;
-  readonly fields_json: string;
-}
-
-export function openSitesCase(caseDirectory: string): DatabaseSync {
-  return openCaseReadOnly(caseDirectory, { readBigInts: true });
-}
-
-function normalizeLimit(value: number | undefined, label: string): number {
-  const limit = value ?? 50;
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      `${label} --limit must be an integer from 1 through 100.`,
-      { limit },
-    );
-  }
-  return limit;
-}
-
-export function schemaExists(database: DatabaseSync, table: string): boolean {
-  return (
-    database
-      .prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")
-      .get(table) !== undefined
-  );
 }
 
 function invalidJson(table: string, cause: unknown): ForensixError {
@@ -276,9 +241,9 @@ function hostRows(
   filter: HostRowFilter = NO_FILTER,
 ): HostRow[] {
   const available = TABLES.filter(
-    (table) =>
-      schemaExists(database, table.table) &&
-      schemaExists(database, table.results),
+    ({ store }) =>
+      tableExists(database, store.table) &&
+      tableExists(database, store.resultsTable),
   );
   if (available.length === 0)
     throw new ForensixError(
@@ -313,10 +278,10 @@ function hostRows(
             : `json_extract(f.fields_json, '$.${entry.field}') AS h${String(index)}`,
       };
     });
-    const stored = readingJson(table.table, () =>
+    const stored = readingJson(table.store.table, () =>
       database
         .prepare(
-          `SELECT f.finding_id, f.commit_state${reads.map((read) => `, ${read.sql}`).join("")} FROM ${table.table} f JOIN ${table.results} r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.record_type = 'finding' AND f.finding_kind = ?${filterSql.map((condition) => ` AND ${condition}`).join("")}`,
+          `SELECT f.finding_id, f.commit_state${reads.map((read) => `, ${read.sql}`).join("")} FROM ${table.store.table} f JOIN ${table.store.resultsTable} r ON r.artifact_result_id = f.artifact_result_id WHERE r.active = 1 AND f.finding_kind = ?${filterSql.map((condition) => ` AND ${condition}`).join("")}`,
         )
         .all(table.findingKind, ...filterParameters),
     );
@@ -326,7 +291,7 @@ function hostRows(
         fields[entry.field] = fieldStateOf(
           reads[index]?.fromColumn ?? false,
           row[`h${String(index)}`],
-          table.table,
+          table.store.table,
         );
       });
       const hosts = siteHostsOf(table.findingKind, fields);
@@ -348,56 +313,24 @@ function fingerprint(
   database: DatabaseSync,
   query: Record<string, unknown>,
 ): string {
-  const caseRow = database
-    .prepare("SELECT case_id FROM case_info LIMIT 1")
-    .get();
-  if (typeof caseRow?.case_id !== "string")
-    throw new ForensixError("CASE_INVALID", "Case identity is missing.");
   // The active artifact results of every Sites table: a later Analysis Run
   // changes them, so a cursor from before it no longer belongs to the query.
-  const activeArtifactResultIds = TABLES.filter((table) =>
-    schemaExists(database, table.results),
-  ).flatMap((table) =>
-    database
-      .prepare(
-        `SELECT artifact_result_id FROM ${table.results}
-          WHERE active = 1 ORDER BY artifact_result_id`,
-      )
-      .all()
-      .map((row) => `${table.artifactKind}:${String(row.artifact_result_id)}`),
-  );
-  return createHash("sha256")
-    .update(
-      JSON.stringify({
-        caseId: caseRow.case_id,
-        activeArtifactResultIds,
-        query,
-      }),
-    )
-    .digest("hex");
+  return queryFingerprint({
+    caseId: readCaseId(database),
+    activeArtifactResultIds: TABLES.filter(({ store }) =>
+      tableExists(database, store.resultsTable),
+    ).map(({ store }) => activeArtifactResultIds(database, store.resultsTable)),
+    query,
+  });
 }
 
 function cursor(
   value: string | undefined,
-  expected: string,
-  label: string,
+  fingerprintValue: string,
 ): string | null {
-  if (value === undefined) return null;
-  try {
-    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-    if (
-      parsed?.version === 1 &&
-      parsed.fingerprint === expected &&
-      typeof parsed.key === "string"
-    )
-      return parsed.key;
-  } catch {
-    /* typed error below */
-  }
-  throw new ForensixError(
-    "INVALID_CURSOR",
-    `${label} cursor does not belong to this query.`,
-  );
+  return value === undefined
+    ? null
+    : decodeCursor(value, fingerprintValue, "Sites", ["key"]).key;
 }
 
 /** Code-unit (or numeric) order: the order every Sites keyset pages in. */
@@ -405,61 +338,36 @@ function compare<T extends string | bigint>(left: T, right: T): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-/** A site-findings cursor key, `<artifact kind>:<finding id>`, or null. */
-function findingPosition(
-  key: string,
-): { readonly kind: string; readonly id: bigint } | null {
+/** A site-findings cursor key, `<artifact kind>:<finding id>`. */
+function findingPosition(key: string): {
+  readonly kind: string;
+  readonly id: bigint;
+} {
   const match = /^([a-z_]+):([0-9]+)$/.exec(key);
-  if (match?.[1] === undefined || match[2] === undefined) return null;
-  return { kind: match[1], id: BigInt(match[2]) };
-}
-
-function nextCursor(fingerprintValue: string, key: string): string {
-  return Buffer.from(
-    JSON.stringify({ version: 1, fingerprint: fingerprintValue, key }),
-    "utf8",
-  ).toString("base64url");
-}
-
-function parseFinding(row: StoredRow): Finding {
-  let provenance: Provenance;
-  let fields: ForensicFields;
-  try {
-    provenance = JSON.parse(row.provenance_json) as Provenance;
-    fields = JSON.parse(row.fields_json) as ForensicFields;
-  } catch (error) {
-    throw new ForensixError(
-      "CASE_INVALID",
-      "Case contains invalid Finding JSON.",
-      { findingId: row.finding_id.toString() },
-      { cause: error },
-    );
-  }
-  return createFinding({
-    findingKind: row.finding_kind,
-    profile: row.profile_path,
-    commitState: row.commit_state as Finding["commitState"],
-    provenance,
-    fields,
-  });
+  return {
+    kind: match?.[1] ?? "",
+    id: cursorRowId(match?.[2] ?? "", "Sites"),
+  };
 }
 
 /** The full stored rows behind one page, read only for that page. */
 function storedRows(
   database: DatabaseSync,
   page: readonly HostRow[],
-): Map<string, StoredRow> {
-  const found = new Map<string, StoredRow>();
+): Map<HostRow, Identified<Finding>> {
+  const found = new Map<HostRow, Identified<Finding>>();
   for (const table of TABLES) {
-    const ids = page.filter((row) => row.table === table).map((row) => row.id);
-    if (ids.length === 0) continue;
-    const rows = database
+    const rows = page.filter((row) => row.table === table);
+    if (rows.length === 0) continue;
+    const stored = database
       .prepare(
-        `SELECT finding_id, finding_kind, profile_path, commit_state, provenance_json, fields_json FROM ${table.table} WHERE finding_id IN (${ids.map(() => "?").join(", ")})`,
+        `SELECT ${storedRecordColumns(table.store)} FROM ${table.store.table} f WHERE f.finding_id IN (${rows.map(() => "?").join(", ")})`,
       )
-      .all(...ids) as unknown as StoredRow[];
-    for (const row of rows)
-      found.set(`${table.artifactKind}:${String(row.finding_id)}`, row);
+      .all(...rows.map((row) => row.id)) as unknown as StoredRecordRow[];
+    for (const row of rows) {
+      const full = stored.find((candidate) => candidate.row_id === row.id);
+      if (full !== undefined) found.set(row, decodeFinding(table.store, full));
+    }
   }
   return found;
 }
@@ -467,11 +375,11 @@ function storedRows(
 export function querySiteHosts(input: SiteHostQuery): SiteHostPage {
   const limit = normalizeLimit(input.limit, "Sites");
   const search = input.search?.toLocaleLowerCase("en-US") ?? null;
-  const database = openSitesCase(input.caseDirectory);
+  const database = openCaseReadOnly(input.caseDirectory, { readBigInts: true });
   try {
     const query = { search };
     const fingerprintValue = fingerprint(database, query);
-    const after = cursor(input.after, fingerprintValue, "Sites");
+    const after = cursor(input.after, fingerprintValue);
     const zeroCounts = () =>
       Object.fromEntries(ARTIFACT_KINDS.map((kind) => [kind, 0])) as Record<
         SiteArtifactKind,
@@ -512,7 +420,7 @@ export function querySiteHosts(input: SiteHostQuery): SiteHostPage {
       items: page,
       nextCursor:
         filtered.length > limit && lastHost !== undefined
-          ? nextCursor(fingerprintValue, lastHost.host)
+          ? encodeCursor(fingerprintValue, { key: lastHost.host })
           : null,
       limit,
     };
@@ -540,8 +448,8 @@ export function querySiteFindings(input: SiteFindingsQuery): SiteFindingsPage {
     }
   }
   const profiles = resolveProfiles(input.profiles, "Sites");
-  const commitState = resolveCommitState(input.commitState, "Sites");
-  const database = openSitesCase(input.caseDirectory);
+  const commitState = resolveCommitState(input.commitState);
+  const database = openCaseReadOnly(input.caseDirectory, { readBigInts: true });
   try {
     const fingerprintValue = fingerprint(database, {
       host,
@@ -549,13 +457,8 @@ export function querySiteFindings(input: SiteFindingsQuery): SiteFindingsPage {
       profiles,
       commitState,
     });
-    const after = cursor(input.after, fingerprintValue, "Sites");
+    const after = cursor(input.after, fingerprintValue);
     const position = after === null ? null : findingPosition(after);
-    if (after !== null && position === null)
-      throw new ForensixError(
-        "INVALID_CURSOR",
-        "Sites cursor does not belong to this query.",
-      );
     // Keyset on (artifact kind, numeric finding id), the sort order itself:
     // comparing the joined key as a string would put id 10 before id 9.
     const filtered = hostRows(database, { kinds, profiles, commitState })
@@ -574,18 +477,13 @@ export function querySiteFindings(input: SiteFindingsQuery): SiteFindingsPage {
     const page = filtered.slice(0, limit);
     const stored = storedRows(database, page);
     const items = page.map((row): Identified<SiteFinding> => {
-      const key = `${row.table.artifactKind}:${String(row.id)}`;
-      const full = stored.get(key);
+      const full = stored.get(row);
       if (full === undefined)
         throw new ForensixError("CASE_INVALID", "Sites row is missing.", {
-          key,
+          key: `${row.table.artifactKind}:${String(row.id)}`,
         });
       return {
-        ...withRecordId(
-          recordStoreForTable(row.table.table).key,
-          row.id,
-          parseFinding(full),
-        ),
+        ...full,
         artifactKind: row.table.artifactKind,
         hostFields: row.hosts.get(host) ?? [],
       };
@@ -597,10 +495,9 @@ export function querySiteFindings(input: SiteFindingsQuery): SiteFindingsPage {
       items,
       nextCursor:
         filtered.length > limit && lastRow !== undefined
-          ? nextCursor(
-              fingerprintValue,
-              `${lastRow.table.artifactKind}:${String(lastRow.id)}`,
-            )
+          ? encodeCursor(fingerprintValue, {
+              key: `${lastRow.table.artifactKind}:${String(lastRow.id)}`,
+            })
           : null,
       limit,
     };

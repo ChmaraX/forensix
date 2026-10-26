@@ -22,14 +22,12 @@ import { callApi, type QueryParameters } from "../api.js";
 import { FINDING_KINDS } from "../artifacts.js";
 import type { PageOf } from "../types.js";
 import { caseDayOf } from "./day-bounds.js";
-import { fieldUtc } from "./finding-fields.js";
 import type { Finding } from "../types.js";
 import type { RowLookupSource } from "../row-lookup.js";
 import { usePaginatedList } from "../use-paginated-list.js";
 import { bucketsOfProfiles, useActivity } from "./activity-data.js";
 import { dayRangeParameters } from "./day-bounds.js";
-import { formatDay, formatDaySpan } from "./page-kit.js";
-import { RowSheet, secretFieldsOf } from "./row-sheet.js";
+import { RowSheet } from "./row-sheet.js";
 import { TimelineActivityCard } from "./timeline-activity.js";
 import { TimelineSourceLink } from "./timeline-source-link.js";
 import {
@@ -37,6 +35,8 @@ import {
   timelineRowTitle,
   type TimelineDirection,
 } from "./timeline-table.js";
+import { fieldUtc } from "../field-readers.js";
+import { formatDay, formatDaySpan } from "../day-format.js";
 
 /** The event's own recorded instant (the kind's time field), or null. */
 function eventUtc(row: Finding | undefined): string | null {
@@ -101,11 +101,14 @@ export function TimelinePage() {
   // The chart's days are the Case's own days (core buckets activity in the
   // declared timezone of the Analysis Run), so a picked range goes to the
   // server as the first and last instant of those local days: clicking day D
-  // lists exactly day D. Without one declared timezone the bounds are UTC
-  // days (see `dayRangeBounds`). Only the bounds depend on the zone, so the
-  // unranged list does not re-read when the activity lands.
+  // lists exactly day D. Without one declared timezone (`null`) the bounds
+  // are UTC days (see `dayRangeBounds`). Until the activity lands, or when
+  // it failed (`undefined`), a ranged list waits, or shows that error:
+  // its bounds are never guessed in UTC. Only the bounds depend on the
+  // zone, so the unranged list does not re-read when the activity lands.
   const activity = useActivity();
-  const timeZone = activity.activity?.timeZone ?? null;
+  const timeZone =
+    activity.activity === null ? undefined : activity.activity.timeZone;
   // The profile pick is a server filter (repeated `profile`): the stream
   // holds the picked profiles' events only, never a filter over the pages
   // loaded so far.
@@ -114,13 +117,19 @@ export function TimelinePage() {
   const parameters = useMemo<QueryParameters>(
     () => [
       ["direction", direction],
-      ...dayRangeParameters(range, timeZone),
+      ...dayRangeParameters(range, timeZone ?? null),
       ...profiles.map((profile) => ["profile", profile] as const),
     ],
     [range, direction, timeZone, profiles],
   );
-  const list = usePaginatedList<Finding>("timeline", parameters);
-  const eventSpan = useEventSpan(timeZone);
+  const zoneHeld =
+    timeZone === undefined && (range.from !== "" || range.to !== "");
+  const list = usePaginatedList<Finding>(
+    "timeline",
+    parameters,
+    zoneHeld ? { error: activity.error, retry: activity.retry } : null,
+  );
+  const eventSpan = useEventSpan(timeZone ?? null);
   const rows = list.rows;
   // The chart draws the picked profiles' activity (each activity row
   // records its profile).
@@ -151,10 +160,10 @@ export function TimelinePage() {
   // The open row lives in the URL: Back and a refresh re-open it. A row
   // the stream has not loaded (a link into a large Case, a copied URL) is
   // looked up on the same stream by its id (its profile and Commit State
-  // narrow the read).
-  const lookup = useMemo<RowLookupSource>(
-    () => ({ route: "timeline", parameters }),
-    [parameters],
+  // narrow the read), with the list's range: so not while the list waits.
+  const lookup = useMemo<RowLookupSource | undefined>(
+    () => (zoneHeld ? undefined : { route: "timeline", parameters }),
+    [zoneHeld, parameters],
   );
   const sheet = useRowSelection(list.rows, lookup);
 
@@ -197,7 +206,6 @@ export function TimelinePage() {
         <RowSheet
           selected={sheet.selected}
           title={timelineRowTitle(sheet.selected.row)}
-          redactedFields={secretFieldsOf(sheet.selected.row)}
           onClose={sheet.close}
         >
           <TimelineSourceLink row={sheet.selected.row} />

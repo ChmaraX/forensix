@@ -18,6 +18,7 @@ function finding(
   extra: Partial<Finding> = {},
 ): Finding {
   return {
+    id: "downloads:7",
     recordType: "finding",
     findingKind,
     profile: "Default",
@@ -96,7 +97,11 @@ describe("fileEntriesOf", () => {
           targetPath: value("C:\\Users\\m\\Downloads\\client_ledger.xlsx"),
           tabUrl: value("https://mail.example.com/inbox"),
         },
-        { commitState: "wal_resident", profile: "Profile 2" },
+        {
+          commitState: "wal_resident",
+          profile: "Profile 2",
+          id: "downloads:3",
+        },
       ),
     ]);
     expect(entry).toEqual({
@@ -105,46 +110,41 @@ describe("fileEntriesOf", () => {
       host: "mail.example.com",
       profile: "Profile 2",
       recovered: true,
-      ref: "src-01/manifest.jsonl|t|7|Profile 2|wal_resident",
+      ref: "downloads:3",
     });
   });
 
-  it("skips a download with no path or no reference", () => {
+  it("skips a download with no path", () => {
     expect(fileEntriesOf([finding("download", {})])).toEqual([]);
-    expect(
-      fileEntriesOf([
-        finding(
-          "download",
-          { targetPath: value("/a/b.zip") },
-          { provenance: {} },
-        ),
-      ]),
-    ).toEqual([]);
   });
 });
 
 describe("usernameEntriesOf", () => {
   it("keeps the username, the site and the reference - never the password", () => {
     const [entry] = usernameEntriesOf([
-      finding("saved_login", {
-        usernameValue: value("m.sandoval83@gmail.com"),
-        originUrl: value("https://www.dropbox.com/login"),
-        secret: value("hunter2"),
-      }),
+      finding(
+        "login_credential",
+        {
+          usernameValue: value("m.sandoval83@gmail.com"),
+          originUrl: value("https://www.dropbox.com/login"),
+          secret: value("hunter2"),
+        },
+        { id: "logins:2" },
+      ),
     ]);
     expect(entry).toEqual({
       username: "m.sandoval83@gmail.com",
       site: "www.dropbox.com",
       profile: "Default",
       recovered: false,
-      ref: "src-01/manifest.jsonl|t|7|Default|committed",
+      ref: "logins:2",
     });
     expect(JSON.stringify(entry)).not.toContain("hunter2");
   });
 
   it("falls back to the signon realm for the site", () => {
     const [entry] = usernameEntriesOf([
-      finding("saved_login", {
+      finding("login_credential", {
         usernameValue: value("omar"),
         signonRealm: value("android://hash@com.example/"),
       }),
@@ -154,15 +154,20 @@ describe("usernameEntriesOf", () => {
 
   it("skips a login with no recorded username", () => {
     expect(
-      usernameEntriesOf([finding("saved_login", { usernameValue: value("") })]),
+      usernameEntriesOf([
+        finding("login_credential", { usernameValue: value("") }),
+      ]),
     ).toEqual([]);
   });
 });
 
 describe("entryDescription", () => {
   it("tells a recovered copy of a row from its saved one", () => {
-    expect(entryDescription("teamviewer.com", "Profile 2", true)).not.toBe(
-      entryDescription("teamviewer.com", "Profile 2", false),
+    expect(entryDescription("teamviewer.com", "Profile 2", true)).toBe(
+      "teamviewer.com · Profile 2 · Recovered",
+    );
+    expect(entryDescription("teamviewer.com", "Profile 2", false)).toBe(
+      "teamviewer.com · Profile 2",
     );
   });
 });

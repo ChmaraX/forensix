@@ -7,6 +7,7 @@ const value = (v: unknown): FieldState => ({ state: "value", value: v });
 
 function download(fields: Record<string, FieldState>): Finding {
   return {
+    id: "downloads:7",
     recordType: "finding",
     findingKind: "download",
     profile: "Default",

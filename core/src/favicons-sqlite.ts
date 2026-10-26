@@ -12,9 +12,6 @@ import {
   type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
 
-export type RawFaviconValue = RawSqliteValue;
-export type VerifiedFaviconFile = VerifiedSqliteFile;
-
 /**
  * One `favicon_bitmaps` row: a single stored icon payload at one pixel size,
  * with its raw SQLite values preserved so the Finding layer classifies each
@@ -22,27 +19,27 @@ export type VerifiedFaviconFile = VerifiedSqliteFile;
  * blob is present so the analyzer can hash it into a separate payload file.
  */
 export interface RawFaviconBitmap {
-  readonly rowId: RawFaviconValue;
-  readonly iconId: RawFaviconValue;
-  readonly imageData: RawFaviconValue;
-  readonly width: RawFaviconValue;
-  readonly height: RawFaviconValue;
-  readonly lastUpdated: RawFaviconValue;
-  readonly lastRequested: RawFaviconValue;
+  readonly rowId: RawSqliteValue;
+  readonly iconId: RawSqliteValue;
+  readonly imageData: RawSqliteValue;
+  readonly width: RawSqliteValue;
+  readonly height: RawSqliteValue;
+  readonly lastUpdated: RawSqliteValue;
+  readonly lastRequested: RawSqliteValue;
 }
 
 /** One `favicons` row: the icon URL and its type, keyed by `id`. */
 export interface RawFaviconRecord {
-  readonly rowId: RawFaviconValue;
-  readonly url: RawFaviconValue;
-  readonly iconType: RawFaviconValue;
+  readonly rowId: RawSqliteValue;
+  readonly url: RawSqliteValue;
+  readonly iconType: RawSqliteValue;
 }
 
 /** One `icon_mapping` row: a page URL bound to an icon `id`. */
 export interface RawIconMapping {
-  readonly rowId: RawFaviconValue;
-  readonly pageUrl: RawFaviconValue;
-  readonly iconId: RawFaviconValue;
+  readonly rowId: RawSqliteValue;
+  readonly pageUrl: RawSqliteValue;
+  readonly iconId: RawSqliteValue;
 }
 
 export interface FaviconSchema {
@@ -134,7 +131,7 @@ function optionalColumn(
     : `NULL AS "${alias}"`;
 }
 
-const normalize = (value: unknown): RawFaviconValue =>
+const normalize = (value: unknown): RawSqliteValue =>
   normalizeSqliteValue(value, "Favicons");
 
 function readPass(database: DatabaseSync): FaviconPass {
@@ -208,8 +205,8 @@ function readPass(database: DatabaseSync): FaviconPass {
 }
 
 export async function readFaviconPasses(options: {
-  readonly database: VerifiedFaviconFile;
-  readonly sidecars: readonly VerifiedFaviconFile[];
+  readonly database: VerifiedSqliteFile;
+  readonly sidecars: readonly VerifiedSqliteFile[];
 }): Promise<FaviconPasses> {
   return readSqlitePasses({
     artifact: "Favicons",

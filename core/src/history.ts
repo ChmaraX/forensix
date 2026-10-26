@@ -1,38 +1,42 @@
-import { join } from "node:path";
-
 import {
   type DeclaredOriginOs,
   type HistoryArtifactWrite,
   type PersistedFinding,
 } from "./case-findings.js";
 import { type CaseSourceRecord } from "./case.js";
-import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
-import {
-  boundedSortInteger,
-  utcFromUnixMicros,
-  WINDOWS_EPOCH_OFFSET_MICROS,
-} from "./forensic-time.js";
+import { ForensixError } from "./errors.js";
+import { boundedSortInteger } from "./forensic-time.js";
 import {
   absentField,
   createFinding,
   unavailableField,
   valueField,
-  type CommitState,
   type FieldState,
   type Finding,
-  type ManifestEntryReference,
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
-import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
+import {
+  citedPasses,
+  completeArtifactHeader,
+  preservedBoolean,
+  preservedInteger,
+  preservedString,
+  readFailureHeader,
+  resolveProfileDatabase,
+  sourceRowProvenance,
+  timestampField,
+  type CitedPass,
+  type ManifestIdentity,
+  type RawSqliteValue,
+  type SqliteArtifactHeader,
+  type TimestampEpoch,
+} from "./sqlite-artifact.js";
 export type { TopicCandidateSummary } from "./history-topic-classification.js";
 import {
   readHistoryPasses,
-  type HistorySchema,
+  type HistoryPass,
   type HistorySourceTable,
-  type RawHistoryValue,
-  type RawHistoryVisit,
-  type VerifiedHistoryFile,
 } from "./history-sqlite.js";
 
 export type EpochFamily =
@@ -50,13 +54,6 @@ export interface ForensicTimestamp {
   readonly utc: string;
   readonly declaredTimezone: string;
   readonly resolution: string;
-}
-
-interface ManifestIdentity {
-  readonly sourceId: string;
-  readonly ordinal: number;
-  readonly path: string;
-  readonly databasePath: string;
 }
 
 interface BuiltVisit {
@@ -122,70 +119,14 @@ export function validateDeclaredTimezone(timezone: string): string {
   return timezone;
 }
 
-function bigintValue(value: RawHistoryValue): bigint | null {
+function bigintValue(value: RawSqliteValue): bigint | null {
   return typeof value === "bigint" ? value : null;
-}
-
-function preservedInteger(
-  value: RawHistoryValue,
-  columnPresent: boolean,
-): FieldState<string> {
-  if (!columnPresent) {
-    return absentField();
-  }
-  if (value === null) {
-    return absentField();
-  }
-  return typeof value === "bigint"
-    ? valueField(value.toString())
-    : unavailableField("unsupported_value");
-}
-
-function preservedBoolean(
-  value: RawHistoryValue,
-  columnPresent: boolean,
-): FieldState<boolean> {
-  if (!columnPresent) {
-    return absentField();
-  }
-  if (value === null) {
-    return absentField();
-  }
-  if (value === 0n) {
-    return valueField(false);
-  }
-  if (value === 1n) {
-    return valueField(true);
-  }
-  return unavailableField("unsupported_value");
-}
-
-function preservedString(
-  value: RawHistoryValue,
-  columnPresent: boolean,
-  relatedRowPresent = true,
-): FieldState<string> {
-  if (!columnPresent) {
-    return absentField();
-  }
-  if (!relatedRowPresent) {
-    return unavailableField("related_row_missing");
-  }
-  if (value === null) {
-    return absentField();
-  }
-  return typeof value === "string"
-    ? valueField(value)
-    : unavailableField("unsupported_value");
 }
 
 function resolveHistoryEpoch(
   schemaVersion: number,
   declaredOriginOs: DeclaredOriginOs | null,
-): {
-  readonly epochFamily: "1601-us" | "unix-us";
-  readonly resolution: string;
-} | null {
+): TimestampEpoch | null {
   if (schemaVersion >= 17) {
     return {
       epochFamily: "1601-us",
@@ -201,44 +142,7 @@ function resolveHistoryEpoch(
   };
 }
 
-function timestampField(
-  raw: RawHistoryValue,
-  columnPresent: boolean,
-  schemaVersion: number,
-  declaredOriginOs: DeclaredOriginOs | null,
-  declaredTimezone: string,
-): FieldState<ForensicTimestamp> {
-  if (!columnPresent || raw === null || raw === 0n) {
-    return absentField();
-  }
-  if (typeof raw !== "bigint") {
-    return unavailableField("unsupported_value");
-  }
-  const resolution = resolveHistoryEpoch(schemaVersion, declaredOriginOs);
-  if (resolution === null) {
-    return unavailableField("epoch_requires_declared_origin_os");
-  }
-  const unixMicros =
-    resolution.epochFamily === "1601-us"
-      ? raw - WINDOWS_EPOCH_OFFSET_MICROS
-      : raw;
-  const utc = utcFromUnixMicros(unixMicros);
-  if (utc === null) {
-    return unavailableField("timestamp_out_of_range");
-  }
-  return valueField(
-    {
-      raw: raw.toString(),
-      epochFamily: resolution.epochFamily,
-      utc,
-      declaredTimezone,
-      resolution: resolution.resolution,
-    },
-    { synthetic: false },
-  );
-}
-
-function transitionDetails(raw: RawHistoryValue): {
+function transitionDetails(raw: RawSqliteValue): {
   readonly raw: FieldState<string>;
   readonly core: FieldState<string>;
   readonly qualifiers: FieldState<readonly string[]>;
@@ -281,22 +185,6 @@ function transitionDetails(raw: RawHistoryValue): {
   };
 }
 
-function sourceRowProvenance(
-  manifest: ManifestIdentity,
-  table: string,
-  rowId: string,
-): SourceRowProvenance {
-  return {
-    manifestEntryId: `${manifest.sourceId}:${manifest.ordinal}`,
-    sourceId: manifest.sourceId,
-    manifestEntryOrdinal: manifest.ordinal,
-    manifestPath: manifest.path,
-    database: manifest.databasePath,
-    table,
-    rowId,
-  };
-}
-
 function urlField<T>(
   field: FieldState<T>,
   relatedRowPresent: boolean,
@@ -310,14 +198,11 @@ interface RedirectRelationships {
 }
 
 function redirectRelationshipsForRows(
-  rowSets: readonly {
-    readonly rows: readonly RawHistoryVisit[];
-    readonly manifest: ManifestIdentity;
-  }[],
+  rowSets: readonly CitedPass<HistoryPass>[],
 ): ReadonlyMap<string, RedirectRelationships> {
   const redirectChildren = new Map<string, Map<string, SourceRowProvenance>>();
   for (const rowSet of rowSets) {
-    for (const row of rowSet.rows) {
+    for (const row of rowSet.pass.rows) {
       const visitId = bigintValue(row.visitId)?.toString();
       const fromVisit = bigintValue(row.fromVisit);
       const transition = transitionDetails(row.transition);
@@ -358,19 +243,20 @@ function redirectRelationshipsForRows(
   );
 }
 
-function buildVisits(options: {
-  readonly rows: readonly RawHistoryVisit[];
-  readonly schema: HistorySchema;
-  readonly commitState: CommitState;
-  readonly profile: string;
-  readonly manifest: ManifestIdentity;
-  readonly committedManifest?: ManifestIdentity;
-  readonly recoveredVia?: ManifestEntryReference;
-  readonly redirectRelationships: ReadonlyMap<string, RedirectRelationships>;
-  readonly declaredTimezone: string;
-  readonly declaredOriginOs: DeclaredOriginOs | null;
-}): BuiltVisit[] {
-  return options.rows.map((row) => {
+function buildVisits(
+  cited: CitedPass<HistoryPass>,
+  options: {
+    readonly profile: string;
+    /** The main database entry, cited by the tables a sidecar did not change. */
+    readonly committedManifest: ManifestIdentity;
+    readonly redirectRelationships: ReadonlyMap<string, RedirectRelationships>;
+    readonly declaredTimezone: string;
+    readonly declaredOriginOs: DeclaredOriginOs | null;
+  },
+): BuiltVisit[] {
+  const { schema } = cited.pass;
+  const epoch = resolveHistoryEpoch(schema.version, options.declaredOriginOs);
+  return cited.pass.rows.map((row) => {
     const visitId = bigintValue(row.visitId)?.toString();
     if (visitId === undefined) {
       throw new ForensixError(
@@ -383,17 +269,15 @@ function buildVisits(options: {
     const transition = transitionDetails(row.transition);
     const visitTime = timestampField(
       row.visitTime,
-      options.schema.visitColumns.has("visit_time"),
-      options.schema.version,
-      options.declaredOriginOs,
+      schema.visitColumns.has("visit_time"),
+      epoch,
       options.declaredTimezone,
     );
     const lastVisitTime = urlField(
       timestampField(
         row.lastVisitTime,
-        options.schema.urlColumns.has("last_visit_time"),
-        options.schema.version,
-        options.declaredOriginOs,
+        schema.urlColumns.has("last_visit_time"),
+        epoch,
         options.declaredTimezone,
       ),
       relatedUrlPresent,
@@ -403,7 +287,7 @@ function buildVisits(options: {
       value.endsWith("_redirect"),
     );
     const visitSourceRaw =
-      row.visitSource === null && options.schema.hasVisitSource
+      row.visitSource === null && schema.hasVisitSource
         ? 1n
         : bigintValue(row.visitSource);
     const visitSource =
@@ -414,8 +298,8 @@ function buildVisits(options: {
           : unavailableField("unsupported_value");
     const manifestForTable = (table: HistorySourceTable): ManifestIdentity =>
       row.sidecarTables.includes(table)
-        ? options.manifest
-        : (options.committedManifest ?? options.manifest);
+        ? cited.manifest
+        : options.committedManifest;
     const provenance = sourceRowProvenance(
       manifestForTable("visits"),
       "visits",
@@ -440,11 +324,11 @@ function buildVisits(options: {
     for (const sidecarRow of row.sidecarRows) {
       if (
         sidecarRow.table !== "visits" ||
-        provenance.manifestPath !== options.manifest.path
+        provenance.manifestPath !== cited.manifest.path
       ) {
         supportingRows.push(
           sourceRowProvenance(
-            options.manifest,
+            cited.manifest,
             sidecarRow.table,
             sidecarRow.rowId,
           ),
@@ -464,29 +348,24 @@ function buildVisits(options: {
       ...(uniqueSupportingRows.length === 0
         ? {}
         : { supportingRows: uniqueSupportingRows }),
-      ...(options.recoveredVia === undefined
+      ...(cited.recoveredVia === undefined
         ? {}
-        : { recoveredVia: options.recoveredVia }),
+        : { recoveredVia: cited.recoveredVia }),
     };
-    const url = preservedString(
-      row.url,
-      options.schema.urlColumns.has("url"),
+    const url = urlField(
+      preservedString(row.url, schema.urlColumns.has("url")),
       relatedUrlPresent,
     );
-    const title = preservedString(
-      row.title,
-      options.schema.urlColumns.has("title"),
+    const title = urlField(
+      preservedString(row.title, schema.urlColumns.has("title")),
       relatedUrlPresent,
     );
     const duration = bigintValue(row.visitDuration);
     const fields = {
       visitId: valueField(visitId),
-      urlId: preservedInteger(
-        row.urlId,
-        options.schema.visitColumns.has("url"),
-      ),
+      urlId: preservedInteger(row.urlId, schema.visitColumns.has("url")),
       urlRecordId: urlField(
-        preservedInteger(row.urlRecordId, options.schema.urlColumns.has("id")),
+        preservedInteger(row.urlRecordId, schema.urlColumns.has("id")),
         relatedUrlPresent,
       ),
       url,
@@ -494,30 +373,27 @@ function buildVisits(options: {
       urlVisitCount: urlField(
         preservedInteger(
           row.urlVisitCount,
-          options.schema.urlColumns.has("visit_count"),
+          schema.urlColumns.has("visit_count"),
         ),
         relatedUrlPresent,
       ),
       typedCount: urlField(
-        preservedInteger(
-          row.typedCount,
-          options.schema.urlColumns.has("typed_count"),
-        ),
+        preservedInteger(row.typedCount, schema.urlColumns.has("typed_count")),
         relatedUrlPresent,
       ),
       lastVisitTime,
       hidden: urlField(
-        preservedBoolean(row.hidden, options.schema.urlColumns.has("hidden")),
+        preservedBoolean(row.hidden, schema.urlColumns.has("hidden")),
         relatedUrlPresent,
       ),
       visitTime,
       fromVisit: preservedInteger(
         row.fromVisit,
-        options.schema.visitColumns.has("from_visit"),
+        schema.visitColumns.has("from_visit"),
       ),
       externalReferrerUrl: preservedString(
         row.externalReferrerUrl,
-        options.schema.visitColumns.has("external_referrer_url"),
+        schema.visitColumns.has("external_referrer_url"),
       ),
       transitionRaw: transition.raw,
       transitionCore: transition.core,
@@ -531,52 +407,49 @@ function buildVisits(options: {
       ),
       segmentId: preservedInteger(
         row.segmentId,
-        options.schema.visitColumns.has("segment_id"),
+        schema.visitColumns.has("segment_id"),
       ),
       visitDurationMicros: preservedInteger(
         row.visitDuration,
-        options.schema.visitColumns.has("visit_duration"),
+        schema.visitColumns.has("visit_duration"),
       ),
       incrementedOmniboxTypedScore: preservedBoolean(
         row.incrementedOmniboxTypedScore,
-        options.schema.visitColumns.has("incremented_omnibox_typed_score"),
+        schema.visitColumns.has("incremented_omnibox_typed_score"),
       ),
       openerVisit: preservedInteger(
         row.openerVisit,
-        options.schema.visitColumns.has("opener_visit"),
+        schema.visitColumns.has("opener_visit"),
       ),
       originatorCacheGuid: preservedString(
         row.originatorCacheGuid,
-        options.schema.visitColumns.has("originator_cache_guid"),
+        schema.visitColumns.has("originator_cache_guid"),
       ),
       originatorVisitId: preservedInteger(
         row.originatorVisitId,
-        options.schema.visitColumns.has("originator_visit_id"),
+        schema.visitColumns.has("originator_visit_id"),
       ),
       originatorFromVisit: preservedInteger(
         row.originatorFromVisit,
-        options.schema.visitColumns.has("originator_from_visit"),
+        schema.visitColumns.has("originator_from_visit"),
       ),
       originatorOpenerVisit: preservedInteger(
         row.originatorOpenerVisit,
-        options.schema.visitColumns.has("originator_opener_visit"),
+        schema.visitColumns.has("originator_opener_visit"),
       ),
       isKnownToSync: preservedBoolean(
         row.isKnownToSync,
-        options.schema.visitColumns.has("is_known_to_sync"),
+        schema.visitColumns.has("is_known_to_sync"),
       ),
       considerForNtpMostVisited: preservedBoolean(
         row.considerForNtpMostVisited,
-        options.schema.visitColumns.has("consider_for_ntp_most_visited"),
+        schema.visitColumns.has("consider_for_ntp_most_visited"),
       ),
       visitedLinkId: preservedInteger(
         row.visitedLinkId,
-        options.schema.visitColumns.has("visited_link_id"),
+        schema.visitColumns.has("visited_link_id"),
       ),
-      appId: preservedString(
-        row.appId,
-        options.schema.visitColumns.has("app_id"),
-      ),
+      appId: preservedString(row.appId, schema.visitColumns.has("app_id")),
       visitSourceRaw:
         visitSourceRaw === null
           ? unavailableField("missing_column")
@@ -586,7 +459,7 @@ function buildVisits(options: {
     const finding = createFinding({
       findingKind: "history_visit",
       profile: options.profile,
-      commitState: options.commitState,
+      commitState: cited.commitState,
       provenance: fullProvenance,
       fields,
     });
@@ -830,35 +703,11 @@ function buildSummaries(
   return results;
 }
 
-function manifestIdentity(
-  source: CaseSourceRecord,
-  path: string,
-  databasePath = path,
-): ManifestIdentity | null {
-  const ordinal = source.entries.findIndex((entry) => entry.path === path);
-  return ordinal < 0
-    ? null
-    : { sourceId: source.sourceId, ordinal, path, databasePath };
-}
-
 function unavailableArtifact(
-  sourceId: string,
-  profile: string,
-  databasePath: string,
-  manifestEntryOrdinal: number | null,
-  status: "absent" | "unavailable",
-  reason: string,
+  header: SqliteArtifactHeader,
 ): HistoryArtifactWrite {
   return {
-    sourceId,
-    profile,
-    status,
-    manifestEntryOrdinal,
-    databasePath,
-    schemaVersion: null,
-    integrity: null,
-    recoveryStatus: "unavailable",
-    reason,
+    ...header,
     findings: [],
     committedVisitCount: 0,
     recoveredVisitCount: 0,
@@ -872,168 +721,34 @@ export async function analyseProfile(options: {
   readonly declaredTimezone: string;
   readonly declaredOriginOs: DeclaredOriginOs | null;
 }): Promise<HistoryArtifactWrite> {
-  const databasePath =
-    options.profile === "." ? "History" : `${options.profile}/History`;
-  const manifest = manifestIdentity(options.source, databasePath);
-  if (manifest === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      null,
-      "unavailable",
-      "history_manifest_entry_missing",
-    );
+  const resolved = resolveProfileDatabase({
+    ...options,
+    label: "history",
+    relativePaths: ["History"],
+  });
+  if (!resolved.readable) {
+    return unavailableArtifact(resolved.header);
   }
-  const entry = options.source.entries[manifest.ordinal];
-  if (entry === undefined) {
-    throw new Error("Manifest ordinal became invalid.");
-  }
-  if (entry.state === "absent") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "absent",
-      "history_absent",
-    );
-  }
-  if (entry.state === "unavailable") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      `history_unavailable:${entry.unavailable_reason ?? "unknown"}`,
-    );
-  }
-  if (!entry.copied) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "history_not_in_working_copy",
-    );
-  }
-
-  if (entry.size === null || entry.sha256 === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "history_manifest_representation_incomplete",
-    );
-  }
-  const verifiedDatabase: VerifiedHistoryFile = {
-    path: join(options.workingCopyPath, ...databasePath.split("/")),
-    manifestPath: databasePath,
-    size: entry.size,
-    sha256: entry.sha256,
-  };
-  const sidecars: VerifiedHistoryFile[] = options.source.entries
-    .filter(
-      (candidate) =>
-        candidate.copied &&
-        candidate.state === "value" &&
-        candidate.size !== null &&
-        candidate.sha256 !== null &&
-        (candidate.path === `${databasePath}-wal` ||
-          candidate.path === `${databasePath}-shm` ||
-          candidate.path === `${databasePath}-journal`),
-    )
-    .map((candidate) => ({
-      path: join(options.workingCopyPath, ...candidate.path.split("/")),
-      manifestPath: candidate.path,
-      size: candidate.size as number,
-      sha256: candidate.sha256 as string,
-    }));
-
+  const { target } = resolved;
   try {
-    const passes = await readHistoryPasses({
-      database: verifiedDatabase,
-      sidecars,
-    });
-    const sidecarManifest =
-      passes.recovered === null
-        ? null
-        : manifestIdentity(
-            options.source,
-            `${databasePath}${
-              passes.recovered.commitState === "wal_resident"
-                ? "-wal"
-                : "-journal"
-            }`,
-            databasePath,
-          );
-    if (passes.recovered !== null && sidecarManifest === null) {
-      throw new ForensixError(
-        "ANALYSIS_FAILED",
-        "Recovery content has no resolvable sidecar Manifest entry.",
-        { databasePath: databasePath },
-      );
-    }
-    const recoveredCitation =
-      passes.recovered === null || sidecarManifest === null
-        ? null
-        : recoveredRowCitation(
-            passes.recovered.commitState,
-            manifest,
-            sidecarManifest,
-          );
-    const recoveredManifest = recoveredCitation?.manifest ?? null;
-    const redirectRelationships = redirectRelationshipsForRows([
-      { rows: passes.committed.rows, manifest },
-      ...(passes.recovered === null
-        ? []
-        : [
-            {
-              rows: passes.recovered.rows,
-              manifest: recoveredManifest as ManifestIdentity,
-            },
-          ]),
-    ]);
-    const committed = buildVisits({
-      rows: passes.committed.rows,
-      schema: passes.committed.schema,
-      commitState: "committed",
-      profile: options.profile,
-      manifest,
-      redirectRelationships,
-      declaredTimezone: options.declaredTimezone,
-      declaredOriginOs: options.declaredOriginOs,
-    });
-    const recovered =
-      passes.recovered === null
-        ? []
-        : buildVisits({
-            rows: passes.recovered.rows,
-            schema: passes.recovered.schema,
-            commitState: passes.recovered.commitState,
-            profile: options.profile,
-            manifest: recoveredManifest as ManifestIdentity,
-            committedManifest: manifest,
-            recoveredVia: recoveredCitation?.recoveredVia,
-            redirectRelationships,
-            declaredTimezone: options.declaredTimezone,
-            declaredOriginOs: options.declaredOriginOs,
-          });
+    const passes = await readHistoryPasses(target);
+    const cited = citedPasses(target, passes);
+    const redirectRelationships = redirectRelationshipsForRows(
+      cited.recovered === null
+        ? [cited.committed]
+        : [cited.committed, cited.recovered],
+    );
+    const build = (pass: CitedPass<HistoryPass>): BuiltVisit[] =>
+      buildVisits(pass, {
+        ...options,
+        committedManifest: cited.committed.manifest,
+        redirectRelationships,
+      });
+    const committed = build(cited.committed);
+    const recovered = cited.recovered === null ? [] : build(cited.recovered);
     const allVisits = [...committed, ...recovered];
     return {
-      sourceId: options.source.sourceId,
-      profile: options.profile,
-      status: "complete",
-      manifestEntryOrdinal: manifest.ordinal,
-      databasePath,
-      schemaVersion: passes.committed.schema.version,
-      integrity: passes.committed.integrity,
-      recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: sqlitePassesReason(passes),
+      ...completeArtifactHeader(target, passes),
       findings: [
         ...allVisits.map((visit) => visit.persisted),
         ...buildSummaries(allVisits, options.declaredTimezone),
@@ -1042,20 +757,6 @@ export async function analyseProfile(options: {
       recoveredVisitCount: recovered.length,
     };
   } catch (error) {
-    if (error instanceof WorkingCopyIntegrityRefusal) {
-      throw error;
-    }
-    const reason =
-      error instanceof ForensixError
-        ? `${error.code}:${error.message}`
-        : `history_read_failed:${String(error)}`;
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      reason,
-    );
+    return unavailableArtifact(readFailureHeader(target, "history", error));
   }
 }

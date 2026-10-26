@@ -20,24 +20,12 @@ import { cn } from "@/lib/utils";
 import { rowRefOf } from "../router.js";
 import type { FieldState, Finding } from "../types.js";
 import { EmptyRows } from "./data-table.js";
-import {
-  FieldCell,
-  fieldText,
-  SiteAvatar,
-  StateWord,
-} from "./finding-fields.js";
+import { FieldCell, SiteAvatar, StateWord } from "./finding-fields.js";
 import { FilterField } from "./filters.js";
 import { SiteHostLink } from "./host-link.js";
 import { Term } from "./term.js";
 import { ListBlock } from "./list-states.js";
-import {
-  ResponsiveRows,
-  TimeCell,
-  TypeLabel,
-  formatBytes,
-  plural,
-  type RowColumn,
-} from "./page-kit.js";
+import { TimeCell, TypeLabel, plural } from "./page-kit.js";
 import {
   type FileKind,
   KIND_META,
@@ -48,6 +36,9 @@ import {
   type DownloadRow,
   stateLabel,
 } from "./downloads-model.js";
+import { fieldText } from "../field-readers.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
+import { formatBytes } from "./bytes.js";
 
 /* --------------------------------- table ---------------------------------- */
 
@@ -251,8 +242,8 @@ export function downloadColumns(
 
 /** A download's stable key: its row reference, so a sort, a filter or a
  *  range re-renders no kept row. */
-function downloadKey(row: DownloadRow, index: number): string {
-  return rowRefOf(row.finding) ?? `${row.finding.commitState}-${String(index)}`;
+function downloadKey(row: DownloadRow): string {
+  return rowRefOf(row.finding);
 }
 
 function downloadLabel(row: DownloadRow): string {

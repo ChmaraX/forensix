@@ -5,8 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -211,6 +213,79 @@ func TestUnreadableAccountDoesNotBlockReadableAccount(t *testing.T) {
 	if len(bundle.UserDataDirs) != 1 || bundle.UserDataDirs[0].Outcome != Collected {
 		t.Fatalf("unexpected outcomes: %#v", bundle.UserDataDirs)
 	}
+}
+
+func TestFailedWriteRecordsTheErrorText(t *testing.T) {
+	source := t.TempDir()
+	mustWrite(t, filepath.Join(source, "Local State"), "state")
+	out := filepath.Join(t.TempDir(), "bundle")
+	// A regular file where the User Data Dir staging directory must go makes
+	// the Collector's own directory creation fail after the inventory.
+	blocker := filepath.Join(out+".partial", "accounts", "a", "udd-1.partial")
+	testHookAfterInventory = func(platformscanner.UserDataDir) { mustWrite(t, blocker, "blocker") }
+	t.Cleanup(func() { testHookAfterInventory = nil })
+
+	scan := platformscanner.ScanResult{Found: []platformscanner.UserDataDir{{AccountID: "a", Path: source}}}
+	if _, err := (Collector{Scanner: fixedScanner{scan}}).Run(Options{Output: out, OperatorIdentifier: "examiner", AuthorizationReference: "case/ref"}); err != nil {
+		t.Fatal(err)
+	}
+	var bundle BundleManifest
+	readJSON(t, filepath.Join(out, "bundle_manifest.json"), &bundle)
+	udd := bundle.UserDataDirs[0]
+	if udd.Outcome != Failed || !strings.Contains(udd.Error, "mkdir") || !strings.Contains(udd.Error, "udd-1.partial") {
+		t.Fatalf("failed collection lost its error: %#v", udd)
+	}
+}
+
+func TestStagingDirectoryOfDeadRunIsReplaced(t *testing.T) {
+	// A finished child process gives a process ID that is no longer alive.
+	child := exec.Command(os.Args[0], "-test.run=^$")
+	if err := child.Run(); err != nil {
+		t.Fatal(err)
+	}
+	out, staging := stagingWithOwner(t, child.ProcessState.Pid())
+
+	bundle, err := (Collector{Scanner: fixedScanner{}}).Run(Options{Output: out, OperatorIdentifier: "examiner", AuthorizationReference: "case/ref"})
+	if err != nil {
+		t.Fatalf("stale staging directory blocked the rerun: %v", err)
+	}
+	if _, err := os.Stat(staging); !os.IsNotExist(err) {
+		t.Fatalf("staging directory remains after publish: %v", err)
+	}
+	for _, name := range []string{"leftover", stagingOwnerFile} {
+		if _, err := os.Stat(filepath.Join(out, name)); !os.IsNotExist(err) {
+			t.Fatalf("%s entered the published bundle: %v", name, err)
+		}
+	}
+	for _, file := range bundle.Files {
+		if file.Path == "leftover" || file.Path == stagingOwnerFile {
+			t.Fatalf("bundle Manifest lists %s", file.Path)
+		}
+	}
+}
+
+func TestStagingDirectoryOfLiveRunIsRefused(t *testing.T) {
+	out, staging := stagingWithOwner(t, os.Getpid())
+
+	_, err := (Collector{Scanner: fixedScanner{}}).Run(Options{Output: out, OperatorIdentifier: "examiner", AuthorizationReference: "case/ref"})
+	if err == nil || !strings.Contains(err.Error(), staging) || !strings.Contains(err.Error(), "running process") {
+		t.Fatalf("live staging directory was not refused: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(staging, "leftover")); err != nil {
+		t.Fatalf("live run's staging directory was changed: %v", err)
+	}
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		t.Fatal("output was published while another run owns the staging directory")
+	}
+}
+
+func stagingWithOwner(t *testing.T, pid int) (string, string) {
+	t.Helper()
+	out := filepath.Join(t.TempDir(), "bundle")
+	staging := out + ".partial"
+	mustWrite(t, filepath.Join(staging, "leftover"), "partial copy")
+	mustWrite(t, filepath.Join(staging, stagingOwnerFile), strconv.Itoa(pid))
+	return out, staging
 }
 
 func TestAuthorizationClaimIsRequired(t *testing.T) {

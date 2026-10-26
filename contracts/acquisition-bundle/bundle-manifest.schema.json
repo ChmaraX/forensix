@@ -75,8 +75,11 @@
         "liveness_explanation": { "type": "string" },
         "evidence_set_digest": { "$ref": "#/$defs/sha256" },
         "working_copy_digest": { "$ref": "#/$defs/sha256" },
-        "error": { "type": "string" }
-      }
+        "error": { "type": "string", "minLength": 1 }
+      },
+      "if": { "properties": { "outcome": { "const": "collected" } } },
+      "then": { "required": ["evidence_set_digest", "working_copy_digest"] },
+      "else": { "required": ["error"] }
     },
     "keyMaterial": {
       "type": "object",

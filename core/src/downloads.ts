@@ -1,38 +1,42 @@
-import { join } from "node:path";
-
 import type {
   DownloadsArtifactWrite,
   PersistedDownloadFinding,
 } from "./case-findings.js";
 import type { CaseSourceRecord } from "./case.js";
-import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
+import { ForensixError } from "./errors.js";
 import {
   absentField,
   createFinding,
   unavailableField,
   valueField,
-  type CommitState,
   type FieldState,
   type Finding,
-  type ManifestEntryReference,
   type Provenance,
   type SourceRowProvenance,
 } from "./forensic-model.js";
-import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
-import {
-  boundedSortInteger,
-  utcFromUnixMicros,
-  WINDOWS_EPOCH_OFFSET_MICROS,
-} from "./forensic-time.js";
+import { boundedSortInteger } from "./forensic-time.js";
 import type { ForensicTimestamp } from "./history.js";
 import {
   DownloadsTableAbsentError,
   readDownloadsPasses,
-  type DownloadsSchema,
-  type RawDownloadRow,
-  type RawDownloadValue,
+  type DownloadsPass,
 } from "./downloads-sqlite.js";
-import type { VerifiedHistoryFile } from "./history-sqlite.js";
+import {
+  citedPasses,
+  completeArtifactHeader,
+  enumFields,
+  preservedBoolean,
+  preservedInteger,
+  preservedString,
+  readFailureHeader,
+  resolveProfileDatabase,
+  sourceRowProvenance,
+  timestampField,
+  unreadArtifactHeader,
+  type CitedPass,
+  type RawSqliteValue,
+  type SqliteArtifactHeader,
+} from "./sqlite-artifact.js";
 
 /**
  * Chrome serialises `downloads` timestamps as a `base::Time` internal value:
@@ -40,7 +44,6 @@ import type { VerifiedHistoryFile } from "./history-sqlite.js";
  * `target_path` at History schema version 24, which the reader requires, so no
  * Declared Origin OS is needed to resolve the Epoch Family.
  */
-const DOWNLOAD_EPOCH_FAMILY = "1601-us" as const;
 
 /**
  * `downloads.state` — `DownloadDatabase` `DownloadState`. Value 3 (BUG_140687)
@@ -121,114 +124,16 @@ const INTERRUPT_REASONS = new Map<bigint, string>([
   [51n, "local_download_blocked"],
 ]);
 
-interface ManifestIdentity {
-  readonly sourceId: string;
-  readonly ordinal: number;
-  readonly path: string;
-  readonly databasePath: string;
-}
-
-function utcFromWindowsMicros(windowsMicros: bigint): string | null {
-  return utcFromUnixMicros(windowsMicros - WINDOWS_EPOCH_OFFSET_MICROS);
-}
-
-function preservedString(value: RawDownloadValue): FieldState<string> {
-  if (value === undefined || value === null) {
-    return absentField();
-  }
-  return typeof value === "string"
-    ? valueField(value)
-    : unavailableField("unsupported_value");
-}
-
-function preservedInteger(value: RawDownloadValue): FieldState<string> {
-  if (value === undefined || value === null) {
-    return absentField();
-  }
-  return typeof value === "bigint"
-    ? valueField(value.toString())
-    : unavailableField("unsupported_value");
-}
-
-function preservedBoolean(value: RawDownloadValue): FieldState<boolean> {
-  if (value === undefined || value === null) {
-    return absentField();
-  }
-  if (value === 0n) {
-    return valueField(false);
-  }
-  if (value === 1n) {
-    return valueField(true);
-  }
-  return unavailableField("unsupported_value");
-}
-
-function timestampField(
-  raw: RawDownloadValue,
-  schemaVersion: number,
-  declaredTimezone: string,
-): FieldState<ForensicTimestamp> {
-  if (raw === undefined || raw === null || raw === 0n) {
-    return absentField();
-  }
-  if (typeof raw !== "bigint") {
-    return unavailableField("unsupported_value");
-  }
-  const utc = utcFromWindowsMicros(raw);
-  if (utc === null) {
-    return unavailableField("timestamp_out_of_range");
-  }
-  return valueField(
-    {
-      raw: raw.toString(),
-      epochFamily: DOWNLOAD_EPOCH_FAMILY,
-      utc,
-      declaredTimezone,
-      resolution: `verified_history_schema_version_${schemaVersion}`,
-    },
-    { synthetic: false },
-  );
-}
-
-/**
- * Decode an enumerated integer column while retaining its raw value in a
- * companion field, so every decoded meaning stays independently reviewable
- * against ground truth. An unmapped code keeps the raw value and marks the
- * decoded field `unavailable` rather than guessing.
- */
-function decodedEnum(
-  value: RawDownloadValue,
-  table: ReadonlyMap<bigint, string>,
-): { readonly raw: FieldState<string>; readonly decoded: FieldState<string> } {
-  if (value === undefined || value === null) {
-    return { raw: absentField(), decoded: absentField() };
-  }
-  if (typeof value !== "bigint") {
-    return {
-      raw: unavailableField("unsupported_value"),
-      decoded: unavailableField("unsupported_value"),
-    };
-  }
-  const decoded = table.get(value);
-  return {
-    raw: valueField(value.toString()),
-    decoded:
-      decoded === undefined
-        ? unavailableField("unsupported_value")
-        : valueField(decoded),
-  };
-}
-
 /**
  * Represent the `downloads.hash` BLOB (the SHA-256 of the downloaded bytes) as
  * lowercase hex plus its byte length. A digest is rendered in its canonical
  * reviewable form; binary is never base64-smuggled into a Finding row.
  */
-function contentHashField(value: RawDownloadValue): {
+function contentHashField(value: RawSqliteValue): {
   readonly sha256: FieldState<string>;
   readonly byteLength: FieldState<string>;
 } {
-  if (value === undefined || value === null) {
+  if (value === null) {
     return { sha256: absentField(), byteLength: absentField() };
   }
   if (!(value instanceof Uint8Array)) {
@@ -246,22 +151,6 @@ function contentHashField(value: RawDownloadValue): {
   };
 }
 
-function sourceRowProvenance(
-  manifest: ManifestIdentity,
-  table: string,
-  rowId: string,
-): SourceRowProvenance {
-  return {
-    manifestEntryId: `${manifest.sourceId}:${manifest.ordinal}`,
-    sourceId: manifest.sourceId,
-    manifestEntryOrdinal: manifest.ordinal,
-    manifestPath: manifest.path,
-    database: manifest.databasePath,
-    table,
-    rowId,
-  };
-}
-
 function textValue(field: FieldState<string>): string {
   return field.state === "value" ? field.value : "";
 }
@@ -270,16 +159,16 @@ function timeValue(field: FieldState<ForensicTimestamp>): string | null {
   return field.state === "value" ? field.value.utc : null;
 }
 
-function buildDownloads(options: {
-  readonly rows: readonly RawDownloadRow[];
-  readonly schema: DownloadsSchema;
-  readonly commitState: CommitState;
-  readonly profile: string;
-  readonly manifest: ManifestIdentity;
-  readonly recoveredVia?: ManifestEntryReference;
-  readonly declaredTimezone: string;
-}): PersistedDownloadFinding[] {
-  return options.rows.map((row) => {
+function buildDownloads(
+  cited: CitedPass<DownloadsPass>,
+  profile: string,
+  declaredTimezone: string,
+): PersistedDownloadFinding[] {
+  const epoch = {
+    epochFamily: "1601-us",
+    resolution: `verified_history_schema_version_${cited.pass.schema.version}`,
+  } as const;
+  return cited.pass.rows.map((row) => {
     if (row.rowId === null) {
       throw new ForensixError(
         "ANALYSIS_FAILED",
@@ -287,29 +176,19 @@ function buildDownloads(options: {
       );
     }
     const rowId = row.rowId.toString();
-    const get = (column: string): RawDownloadValue =>
+    const get = (column: string): RawSqliteValue =>
       row.values.get(column) ?? null;
+    const time = (column: string): FieldState<ForensicTimestamp> =>
+      timestampField(get(column), true, epoch, declaredTimezone);
 
     const targetPath = preservedString(get("target_path"));
     const currentPath = preservedString(get("current_path"));
-    const startTime = timestampField(
-      get("start_time"),
-      options.schema.version,
-      options.declaredTimezone,
-    );
-    const endTime = timestampField(
-      get("end_time"),
-      options.schema.version,
-      options.declaredTimezone,
-    );
-    const lastAccessTime = timestampField(
-      get("last_access_time"),
-      options.schema.version,
-      options.declaredTimezone,
-    );
-    const state = decodedEnum(get("state"), DOWNLOAD_STATES);
-    const dangerType = decodedEnum(get("danger_type"), DANGER_TYPES);
-    const interruptReason = decodedEnum(
+    const startTime = time("start_time");
+    const endTime = time("end_time");
+    const lastAccessTime = time("last_access_time");
+    const state = enumFields(get("state"), DOWNLOAD_STATES);
+    const dangerType = enumFields(get("danger_type"), DANGER_TYPES);
+    const interruptReason = enumFields(
       get("interrupt_reason"),
       INTERRUPT_REASONS,
     );
@@ -350,11 +229,11 @@ function buildDownloads(options: {
       receivedBytes: preservedInteger(get("received_bytes")),
       totalBytes: preservedInteger(get("total_bytes")),
       stateRaw: state.raw,
-      state: state.decoded,
+      state: state.label,
       dangerTypeRaw: dangerType.raw,
-      dangerType: dangerType.decoded,
+      dangerType: dangerType.label,
       interruptReasonRaw: interruptReason.raw,
-      interruptReason: interruptReason.decoded,
+      interruptReason: interruptReason.label,
       opened: preservedBoolean(get("opened")),
       transient: preservedBoolean(get("transient")),
       referrer: preservedString(get("referrer")),
@@ -385,33 +264,33 @@ function buildDownloads(options: {
           ? []
           : [
               sourceRowProvenance(
-                options.manifest,
+                cited.manifest,
                 "downloads_url_chains",
                 node.rowId,
               ),
             ],
     );
     const provenance: Provenance = {
-      ...sourceRowProvenance(options.manifest, "downloads", rowId),
+      ...sourceRowProvenance(cited.manifest, "downloads", rowId),
       ...(supportingRows.length === 0 ? {} : { supportingRows }),
-      ...(options.recoveredVia === undefined
+      ...(cited.recoveredVia === undefined
         ? {}
-        : { recoveredVia: options.recoveredVia }),
+        : { recoveredVia: cited.recoveredVia }),
     };
     const finding: Finding = createFinding({
       findingKind: "download",
-      profile: options.profile,
-      commitState: options.commitState,
+      profile,
+      commitState: cited.commitState,
       provenance,
       fields,
     });
     return {
       finding,
       searchText: [
-        options.profile,
+        profile,
         textValue(targetPath),
         textValue(currentPath),
-        state.decoded.state === "value" ? state.decoded.value : "",
+        state.label.state === "value" ? state.label.value : "",
         ...chainStrings,
         textValue(fields.referrer),
         textValue(fields.tabUrl),
@@ -421,46 +300,22 @@ function buildDownloads(options: {
       sortStart: timeValue(startTime),
       sortEnd: timeValue(endTime),
       sortTargetPath: textValue(targetPath) || null,
-      sortState: state.decoded.state === "value" ? state.decoded.value : null,
+      sortState: state.label.state === "value" ? state.label.value : null,
       sortTotalBytes:
         fields.totalBytes.state === "value"
           ? boundedSortInteger(BigInt(fields.totalBytes.value))
           : null,
       dangerType:
-        dangerType.decoded.state === "value" ? dangerType.decoded.value : null,
+        dangerType.label.state === "value" ? dangerType.label.value : null,
     };
   });
 }
 
-function manifestIdentity(
-  source: CaseSourceRecord,
-  path: string,
-  databasePath = path,
-): ManifestIdentity | null {
-  const ordinal = source.entries.findIndex((entry) => entry.path === path);
-  return ordinal < 0
-    ? null
-    : { sourceId: source.sourceId, ordinal, path, databasePath };
-}
-
 function unavailableArtifact(
-  sourceId: string,
-  profile: string,
-  databasePath: string,
-  manifestEntryOrdinal: number | null,
-  status: "absent" | "unavailable",
-  reason: string,
+  header: SqliteArtifactHeader,
 ): DownloadsArtifactWrite {
   return {
-    sourceId,
-    profile,
-    status,
-    manifestEntryOrdinal,
-    databasePath,
-    schemaVersion: null,
-    integrity: null,
-    recoveryStatus: "unavailable",
-    reason,
+    ...header,
     findings: [],
     committedDownloadCount: 0,
     recoveredDownloadCount: 0,
@@ -480,186 +335,43 @@ export async function analyseDownloadsProfile(options: {
   readonly workingCopyPath: string;
   readonly declaredTimezone: string;
 }): Promise<DownloadsArtifactWrite> {
-  const databasePath =
-    options.profile === "." ? "History" : `${options.profile}/History`;
-  const manifest = manifestIdentity(options.source, databasePath);
-  if (manifest === null) {
-    // Mirror the sibling per-Profile artifacts (e.g. Web Data): a missing
-    // manifest entry is `absent`, not `unavailable`, so it never degrades an
-    // otherwise clean Analysis Run. The History artifact independently reports
-    // the missing History file.
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      null,
-      "absent",
-      "downloads_manifest_entry_missing",
-    );
+  const resolved = resolveProfileDatabase({
+    ...options,
+    label: "downloads",
+    relativePaths: ["History"],
+  });
+  if (!resolved.readable) {
+    return unavailableArtifact(resolved.header);
   }
-  const entry = options.source.entries[manifest.ordinal];
-  if (entry === undefined) {
-    throw new Error("Manifest ordinal became invalid.");
-  }
-  if (entry.state === "absent") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "absent",
-      "downloads_absent",
-    );
-  }
-  if (entry.state === "unavailable") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      `downloads_unavailable:${entry.unavailable_reason ?? "unknown"}`,
-    );
-  }
-  if (!entry.copied) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "downloads_not_in_working_copy",
-    );
-  }
-  if (entry.size === null || entry.sha256 === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "downloads_manifest_representation_incomplete",
-    );
-  }
-
-  const verifiedDatabase: VerifiedHistoryFile = {
-    path: join(options.workingCopyPath, ...databasePath.split("/")),
-    manifestPath: databasePath,
-    size: entry.size,
-    sha256: entry.sha256,
-  };
-  const sidecars: VerifiedHistoryFile[] = options.source.entries
-    .filter(
-      (candidate) =>
-        candidate.copied &&
-        candidate.state === "value" &&
-        candidate.size !== null &&
-        candidate.sha256 !== null &&
-        (candidate.path === `${databasePath}-wal` ||
-          candidate.path === `${databasePath}-journal`),
-    )
-    .map((candidate) => ({
-      path: join(options.workingCopyPath, ...candidate.path.split("/")),
-      manifestPath: candidate.path,
-      size: candidate.size as number,
-      sha256: candidate.sha256 as string,
-    }));
-
+  const { target } = resolved;
   try {
-    const passes = await readDownloadsPasses({
-      database: verifiedDatabase,
-      sidecars,
-    });
-    const sidecarManifest =
-      passes.recovered === null
-        ? null
-        : manifestIdentity(
-            options.source,
-            `${databasePath}${
-              passes.recovered.commitState === "wal_resident"
-                ? "-wal"
-                : "-journal"
-            }`,
-            databasePath,
-          );
-    if (passes.recovered !== null && sidecarManifest === null) {
-      throw new ForensixError(
-        "ANALYSIS_FAILED",
-        "Downloads recovery content has no resolvable sidecar Manifest entry.",
-        { databasePath: databasePath },
-      );
-    }
-    const recoveredCitation =
-      passes.recovered === null || sidecarManifest === null
-        ? null
-        : recoveredRowCitation(
-            passes.recovered.commitState,
-            manifest,
-            sidecarManifest,
-          );
-    const committed = buildDownloads({
-      rows: passes.committed.rows,
-      schema: passes.committed.schema,
-      commitState: "committed",
-      profile: options.profile,
-      manifest,
-      declaredTimezone: options.declaredTimezone,
-    });
-    const recovered =
-      passes.recovered === null
-        ? []
-        : buildDownloads({
-            rows: passes.recovered.rows,
-            schema: passes.recovered.schema,
-            commitState: passes.recovered.commitState,
-            profile: options.profile,
-            manifest: recoveredCitation?.manifest ?? manifest,
-            recoveredVia: recoveredCitation?.recoveredVia,
-            declaredTimezone: options.declaredTimezone,
-          });
+    const passes = await readDownloadsPasses(target);
+    const cited = citedPasses(target, passes);
+    const build = (
+      pass: CitedPass<DownloadsPass>,
+    ): PersistedDownloadFinding[] =>
+      buildDownloads(pass, options.profile, options.declaredTimezone);
+    const committed = build(cited.committed);
+    const recovered = cited.recovered === null ? [] : build(cited.recovered);
     return {
-      sourceId: options.source.sourceId,
-      profile: options.profile,
-      status: "complete",
-      manifestEntryOrdinal: manifest.ordinal,
-      databasePath,
-      schemaVersion: passes.committed.schema.version,
-      integrity: passes.committed.integrity,
-      recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: sqlitePassesReason(passes),
+      ...completeArtifactHeader(target, passes),
       findings: [...committed, ...recovered],
       committedDownloadCount: committed.length,
       recoveredDownloadCount: recovered.length,
     };
   } catch (error) {
-    if (error instanceof WorkingCopyIntegrityRefusal) {
-      throw error;
-    }
     // A History database that simply has no `downloads` table carries no
     // download evidence: report it as `absent` so it never degrades an
     // otherwise clean Analysis Run, while a corrupt or unreadable database
     // stays `unavailable` with its distinct typed reason.
-    if (error instanceof DownloadsTableAbsentError) {
-      return unavailableArtifact(
-        options.source.sourceId,
-        options.profile,
-        databasePath,
-        manifest.ordinal,
-        "absent",
-        `downloads_table_absent:${error.message}`,
-      );
-    }
-    const reason =
-      error instanceof ForensixError
-        ? `${error.code}:${error.message}`
-        : `downloads_read_failed:${String(error)}`;
     return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      reason,
+      error instanceof DownloadsTableAbsentError
+        ? unreadArtifactHeader(
+            target,
+            "absent",
+            `downloads_table_absent:${error.message}`,
+          )
+        : readFailureHeader(target, "downloads", error),
     );
   }
 }

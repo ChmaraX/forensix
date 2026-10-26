@@ -179,12 +179,13 @@ export function shapeEnvelope(
   }
   const priorWarnings = Array.isArray(result.warnings) ? result.warnings : [];
   if (spec.output !== "records") {
-    const warnings = priorWarnings;
     const marked =
       spec.evidence === undefined
         ? result
         : markEvidence(result, spec.evidence);
-    return warnings.length === 0 ? marked : { ...marked, warnings };
+    return priorWarnings.length === 0
+      ? marked
+      : { ...marked, warnings: priorWarnings };
   }
 
   const single = "item" in result && !("items" in result);

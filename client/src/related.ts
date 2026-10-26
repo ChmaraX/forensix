@@ -18,6 +18,7 @@
  */
 import { FINDING_KINDS } from "./artifacts.js";
 import { localDayOf } from "./components/day-bounds.js";
+import { formatDay } from "./day-format.js";
 import { fieldLabel } from "./field-labels.js";
 import { fieldText, fieldUtc } from "./field-readers.js";
 import type { PageKey } from "./pages.js";
@@ -68,19 +69,6 @@ export function hostLinkOf(row: Finding): RelatedLink | null {
 
 /* ----------------------------------- day ---------------------------------- */
 
-/** "12 Mar 2024" for a `YYYY-MM-DD` day. */
-export function formatCaseDay(day: string): string {
-  const parsed = new Date(`${day}T00:00:00Z`);
-  return Number.isNaN(parsed.getTime())
-    ? day
-    : parsed.toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        timeZone: "UTC",
-      });
-}
-
 /** The Case day of the row's own timestamp, linked to that day on the
  *  Timeline; null when the kind is not dated or the time is not recorded. */
 export function dayLinkOf(
@@ -99,7 +87,7 @@ export function dayLinkOf(
     key: `day:${day}`,
     label: "Day",
     field,
-    value: formatCaseDay(day),
+    value: formatDay(day),
     mono: false,
     page: "timeline",
     extras: { from: day, to: day },
@@ -172,9 +160,6 @@ export function visitLinksOf(
   for (const visit of exact.slice(0, VISIT_LINKS)) {
     const ref = rowRefOf(visit);
     const utc = fieldUtc(visit.fields.visitTime);
-    if (ref === null) {
-      continue;
-    }
     links.push({
       key: `visit:${ref}`,
       label,
@@ -266,7 +251,7 @@ export function citationOf(
     `Table: ${part(table)}`,
     `Row id: ${part(rowId)}`,
     `Commit State: ${row.commitState}`,
-    ...(row.id === undefined || row.id === "" ? [] : [`Record id: ${row.id}`]),
+    `Record id: ${row.id}`,
   ];
   for (const [name, field] of Object.entries(row.fields)) {
     if (!isValueHash(name) || options.redacted?.includes(name) === true) {

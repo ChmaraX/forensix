@@ -18,7 +18,7 @@ func bundleFiles(root string) ([]BundleFile, string, error) {
 		if walkErr != nil {
 			return walkErr
 		}
-		if !entry.Type().IsRegular() {
+		if !entry.Type().IsRegular() || path == filepath.Join(root, stagingOwnerFile) {
 			return nil
 		}
 		info, err := entry.Info()

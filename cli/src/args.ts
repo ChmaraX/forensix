@@ -1,4 +1,4 @@
-import { ForensixError } from "@forensix/core";
+import { ForensixError, parseOption } from "@forensix/core";
 
 /**
  * Command-line argument parsing shared by the CLI entry point and the
@@ -63,28 +63,13 @@ const VALUE_OPTIONS = new Set([
   "--fields",
   "--supporting-rows",
 ]);
-/** Options the parser lets repeat. A command accepts a repeat only when the
- *  option is also in its own repeatable set (see {@link assertAllowedOptions}). */
+/** The only options that may repeat. A command that reads one of them as a
+ *  single value refuses a repeat (see {@link optionValue}). */
 const REPEATABLE_OPTIONS = new Set(["--profile", "--collection", "--kind"]);
-/** The repeatable set a command gets when it names none. */
-export const DEFAULT_REPEATABLE_OPTIONS: ReadonlySet<string> = new Set([
-  "--profile",
-  "--collection",
-]);
 
 /** U+0000-U+001F and U+007F. No option value or positional may hold one. */
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
-
-function assertNoControlCharacters(value: string, option: string): void {
-  if (CONTROL_CHARACTER.test(value)) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      `The value of ${option} contains a control character.`,
-      { option },
-    );
-  }
-}
 
 /**
  * Refuses a control character in any argument before any other handling,
@@ -103,15 +88,19 @@ export function assertArgumentsHaveNoControlCharacters(
           : previous !== undefined && VALUE_OPTIONS.has(previous)
             ? previous
             : "positional";
-    assertNoControlCharacters(argument, option);
+    if (CONTROL_CHARACTER.test(argument)) {
+      throw new ForensixError(
+        "INVALID_ARGUMENT",
+        `The value of ${option} contains a control character.`,
+        { option },
+      );
+    }
   });
 }
 
+/** Call {@link assertArgumentsHaveNoControlCharacters} first. */
 export function parseArguments(arguments_: readonly string[]): ParsedArguments {
   const [command, ...remaining] = arguments_;
-  if (command !== undefined) {
-    assertNoControlCharacters(command, "command");
-  }
   const positionals: string[] = [];
   const options = new Map<string, OptionValue[]>();
 
@@ -121,11 +110,9 @@ export function parseArguments(arguments_: readonly string[]): ParsedArguments {
       continue;
     }
     if (!argument.startsWith("--")) {
-      assertNoControlCharacters(argument, "positional");
       positionals.push(argument);
       continue;
     }
-    assertNoControlCharacters(argument, "option");
     if (!FLAG_OPTIONS.has(argument) && !VALUE_OPTIONS.has(argument)) {
       throw new ForensixError(
         "INVALID_ARGUMENT",
@@ -150,7 +137,6 @@ export function parseArguments(arguments_: readonly string[]): ParsedArguments {
         `Option ${argument} needs a value.`,
       );
     }
-    assertNoControlCharacters(value, argument);
     options.set(argument, [...(existing ?? []), value]);
     index += 1;
   }
@@ -174,25 +160,40 @@ export function optionValues(
   );
 }
 
+/** The one value of an option; a repeat is INVALID_ARGUMENT. */
 export function optionValue(
   arguments_: ParsedArguments,
   option: string,
 ): string | undefined {
-  return optionValues(arguments_, option)[0];
+  const values = optionValues(arguments_, option);
+  if (values.length > 1) {
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      `Option is repeated: ${option}`,
+      { option },
+    );
+  }
+  return values[0];
 }
 
-export function requiredCasePath(arguments_: ParsedArguments): string {
-  const casePath = optionValue(arguments_, "--case");
-  if (casePath === undefined) {
-    throw new ForensixError("INVALID_ARGUMENT", "Option --case is required.");
+export function requiredOption(
+  arguments_: ParsedArguments,
+  option: string,
+): string {
+  const value = optionValue(arguments_, option);
+  if (value === undefined) {
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      `Option ${option} is required.`,
+      { option },
+    );
   }
-  return casePath;
+  return value;
 }
 
 export function assertAllowedOptions(
   arguments_: ParsedArguments,
   allowed: ReadonlySet<string>,
-  repeatable: ReadonlySet<string> = DEFAULT_REPEATABLE_OPTIONS,
 ): void {
   const invalid = [...arguments_.options.keys()].filter(
     (option) => !allowed.has(option),
@@ -203,15 +204,6 @@ export function assertAllowedOptions(
       `The ${arguments_.command ?? "unknown"} command has invalid options.`,
       { invalidOptions: invalid },
     );
-  }
-  for (const [option, values] of arguments_.options) {
-    if (values.length > 1 && !repeatable.has(option)) {
-      throw new ForensixError(
-        "INVALID_ARGUMENT",
-        `Option is repeated: ${option}`,
-        { option },
-      );
-    }
   }
 }
 
@@ -239,18 +231,7 @@ export function enumOption<const Values extends readonly string[]>(
   option: string,
   values: Values,
 ): Values[number] | undefined {
-  const value = optionValue(arguments_, option);
-  if (value === undefined) {
-    return undefined;
-  }
-  if (!values.includes(value)) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      `Option ${option} has an unsupported value: ${value}`,
-      { option, value, allowed: values },
-    );
-  }
-  return value as Values[number];
+  return parseOption(optionValue(arguments_, option), option, values);
 }
 
 export function integerOption(
