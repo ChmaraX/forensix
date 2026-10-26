@@ -172,8 +172,13 @@ try {
 
 /** Kill a holder while it holds the Case lock. */
 function leaveStaleLock(contender: string): void {
-  const killed = spawnSync(process.execPath, [contender, "die"]);
-  expect(killed.signal).toBe("SIGKILL");
+  const killed = spawnSync(process.execPath, [contender, "die"], {
+    encoding: "utf8",
+  });
+  // It took the lock, then died before it printed "won". On Windows a
+  // killed process has an exit status, not a signal.
+  expect(killed.stdout).toBe("");
+  expect(killed.signal === "SIGKILL" || killed.status !== 0).toBe(true);
 }
 
 /** The PID of a process that has already exited. */

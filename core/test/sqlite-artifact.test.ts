@@ -27,14 +27,19 @@ import {
 
 const temporaryRoots: string[] = [];
 const blockedDirectories: string[] = [];
-const originalTmpdir = process.env.TMPDIR;
+// `os.tmpdir()` reads TMPDIR on POSIX and TEMP (then TMP) on Windows.
+const TEMPORARY_VARIABLES = ["TMPDIR", "TEMP", "TMP"] as const;
+const originalTemporary = TEMPORARY_VARIABLES.map((name) => process.env[name]);
 
 afterEach(async () => {
-  if (originalTmpdir === undefined) {
-    delete process.env.TMPDIR;
-  } else {
-    process.env.TMPDIR = originalTmpdir;
-  }
+  TEMPORARY_VARIABLES.forEach((name, index) => {
+    const original = originalTemporary[index];
+    if (original === undefined) {
+      Reflect.deleteProperty(process.env, name);
+    } else {
+      process.env[name] = original;
+    }
+  });
   // Give back the permission that a test took away, then remove the roots.
   for (const directory of blockedDirectories.splice(0)) {
     await chmod(directory, 0o700);
@@ -66,7 +71,9 @@ async function prepare(): Promise<{
   }
   const bytes = await readFile(path);
   await mkdir(snapshots);
-  process.env.TMPDIR = snapshots;
+  for (const name of TEMPORARY_VARIABLES) {
+    process.env[name] = snapshots;
+  }
   return {
     database: {
       path,
