@@ -116,8 +116,13 @@ jobs:
             echo "$TAG is already published."
             exit 0
           fi
-          prerelease=false
-          if [[ "$TAG" == *-* ]]; then
-            prerelease=true
+          # GitHub marks only a non-prerelease as Latest. Until the first
+          # stable vX.Y.Z release, each prerelease is the Latest release, as
+          # it is the npm `latest` dist-tag (release-analyzer.yml).
+          stable=$(gh release list --exclude-drafts --exclude-pre-releases \
+            --json tagName --jq '[.[].tagName | select(test("^v[0-9]+[.][0-9]+[.][0-9]+$"))] | length')
+          if [[ "$TAG" == *-* && "$stable" != "0" ]]; then
+            gh release edit "$TAG" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$TAG" --draft=false --prerelease=false --latest
           fi
-          gh release edit "$TAG" --draft=false --prerelease="$prerelease"
