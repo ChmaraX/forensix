@@ -1,116 +1,30 @@
-import { join } from "node:path";
-
 import type {
   PersistedAutofillFinding,
   WebDataArtifactWrite,
 } from "./case-findings.js";
 import type { CaseSourceRecord } from "./case.js";
-import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
+import { ForensixError } from "./errors.js";
 import {
-  absentField,
   createFinding,
-  unavailableField,
   valueField,
-  type CommitState,
   type FieldState,
   type Finding,
-  type ManifestEntryReference,
-  type SourceRowProvenance,
 } from "./forensic-model.js";
-import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
-import { utcFromUnixMicros } from "./forensic-time.js";
 import type { ForensicTimestamp } from "./history.js";
 import {
-  readWebDataPasses,
-  type RawAutofillRow,
-  type RawWebDataValue,
-  type VerifiedWebDataFile,
-  type WebDataSchema,
-} from "./web-data-sqlite.js";
-
-/**
- * Chrome stores `autofill` timestamps with `base::Time::ToTimeT()`, i.e. whole
- * seconds since 1970-01-01 UTC, on every platform. The epoch does not depend on
- * the origin OS, so no Declared Origin OS is required.
- */
-const AUTOFILL_EPOCH_FAMILY = "unix-seconds" as const;
-
-interface ManifestIdentity {
-  readonly sourceId: string;
-  readonly ordinal: number;
-  readonly path: string;
-  readonly databasePath: string;
-}
-
-/**
- * Render whole seconds in the same 6-digit fractional form as every other
- * artifact, so a text comparison against a normalized `--from`/`--to` instant
- * and the Timeline order stay exact.
- */
-function utcFromUnixSeconds(seconds: bigint): string | null {
-  return utcFromUnixMicros(seconds * 1_000_000n);
-}
-
-function preservedString(value: RawWebDataValue): FieldState<string> {
-  if (value === undefined || value === null) {
-    return absentField();
-  }
-  return typeof value === "string"
-    ? valueField(value)
-    : unavailableField("unsupported_value");
-}
-
-function preservedInteger(value: RawWebDataValue): FieldState<string> {
-  if (value === undefined || value === null) {
-    return absentField();
-  }
-  return typeof value === "bigint"
-    ? valueField(value.toString())
-    : unavailableField("unsupported_value");
-}
-
-function timestampField(
-  raw: RawWebDataValue,
-  columnPresent: boolean,
-  schemaVersion: number,
-  declaredTimezone: string,
-): FieldState<ForensicTimestamp> {
-  if (!columnPresent || raw === undefined || raw === null || raw === 0n) {
-    return absentField();
-  }
-  if (typeof raw !== "bigint") {
-    return unavailableField("unsupported_value");
-  }
-  const utc = utcFromUnixSeconds(raw);
-  if (utc === null) {
-    return unavailableField("timestamp_out_of_range");
-  }
-  return valueField(
-    {
-      raw: raw.toString(),
-      epochFamily: AUTOFILL_EPOCH_FAMILY,
-      utc,
-      declaredTimezone,
-      resolution: `verified_web_data_schema_version_${schemaVersion}`,
-    },
-    { synthetic: false },
-  );
-}
-
-function sourceRowProvenance(
-  manifest: ManifestIdentity,
-  rowId: string,
-): SourceRowProvenance {
-  return {
-    manifestEntryId: `${manifest.sourceId}:${manifest.ordinal}`,
-    sourceId: manifest.sourceId,
-    manifestEntryOrdinal: manifest.ordinal,
-    manifestPath: manifest.path,
-    database: manifest.databasePath,
-    table: "autofill",
-    rowId,
-  };
-}
+  citedPasses,
+  completeArtifactHeader,
+  preservedInteger,
+  preservedString,
+  readFailureHeader,
+  resolveProfileDatabase,
+  sourceRowProvenance,
+  timestampField,
+  type CitedPass,
+  type RawSqliteValue,
+  type SqliteArtifactHeader,
+} from "./sqlite-artifact.js";
+import { readWebDataPasses, type WebDataPass } from "./web-data-sqlite.js";
 
 function textValue(field: FieldState<string>): string {
   return field.state === "value" ? field.value : "";
@@ -120,16 +34,19 @@ function timeValue(field: FieldState<ForensicTimestamp>): string | null {
   return field.state === "value" ? field.value.utc : null;
 }
 
-function buildAutofillEntries(options: {
-  readonly rows: readonly RawAutofillRow[];
-  readonly schema: WebDataSchema;
-  readonly commitState: CommitState;
-  readonly profile: string;
-  readonly manifest: ManifestIdentity;
-  readonly recoveredVia?: ManifestEntryReference;
-  readonly declaredTimezone: string;
-}): PersistedAutofillFinding[] {
-  return options.rows.map((row) => {
+function buildAutofillEntries(
+  cited: CitedPass<WebDataPass>,
+  profile: string,
+  declaredTimezone: string,
+): PersistedAutofillFinding[] {
+  const { schema } = cited.pass;
+  // Chrome stores `autofill` times with `base::Time::ToTimeT()`: whole seconds
+  // since 1970-01-01 UTC on every platform, so no Declared Origin OS is needed.
+  const epoch = {
+    epochFamily: "unix-seconds",
+    resolution: `verified_web_data_schema_version_${schema.version}`,
+  } as const;
+  return cited.pass.rows.map((row) => {
     if (row.rowId === null) {
       throw new ForensixError(
         "ANALYSIS_FAILED",
@@ -137,47 +54,42 @@ function buildAutofillEntries(options: {
       );
     }
     const rowId = row.rowId.toString();
-    const has = (column: string): boolean => options.schema.columns.has(column);
-    const get = (column: string): RawWebDataValue =>
+    const get = (column: string): RawSqliteValue =>
       row.values.get(column) ?? null;
+    const time = (column: string): FieldState<ForensicTimestamp> =>
+      timestampField(
+        get(column),
+        schema.columns.has(column),
+        epoch,
+        declaredTimezone,
+      );
     const fieldName = preservedString(get("name"));
     const fieldValue = preservedString(get("value"));
-    const dateCreated = timestampField(
-      get("date_created"),
-      has("date_created"),
-      options.schema.version,
-      options.declaredTimezone,
-    );
-    const dateLastUsed = timestampField(
-      get("date_last_used"),
-      has("date_last_used"),
-      options.schema.version,
-      options.declaredTimezone,
-    );
-    const fields = {
-      autofillId: valueField(rowId),
-      fieldName,
-      fieldValue,
-      fieldValueLower: preservedString(get("value_lower")),
-      timesUsed: preservedInteger(get("count")),
-      dateCreated,
-      dateLastUsed,
-    };
+    const dateCreated = time("date_created");
+    const dateLastUsed = time("date_last_used");
     const finding: Finding = createFinding({
       findingKind: "autofill_entry",
-      profile: options.profile,
-      commitState: options.commitState,
+      profile,
+      commitState: cited.commitState,
       provenance: {
-        ...sourceRowProvenance(options.manifest, rowId),
-        ...(options.recoveredVia === undefined
+        ...sourceRowProvenance(cited.manifest, "autofill", rowId),
+        ...(cited.recoveredVia === undefined
           ? {}
-          : { recoveredVia: options.recoveredVia }),
+          : { recoveredVia: cited.recoveredVia }),
       },
-      fields,
+      fields: {
+        autofillId: valueField(rowId),
+        fieldName,
+        fieldValue,
+        fieldValueLower: preservedString(get("value_lower")),
+        timesUsed: preservedInteger(get("count")),
+        dateCreated,
+        dateLastUsed,
+      },
     });
     return {
       finding,
-      searchText: [options.profile, textValue(fieldName), textValue(fieldValue)]
+      searchText: [profile, textValue(fieldName), textValue(fieldValue)]
         .join("\n")
         .toLocaleLowerCase("en-US"),
       sortCreated: timeValue(dateCreated),
@@ -188,35 +100,11 @@ function buildAutofillEntries(options: {
   });
 }
 
-function manifestIdentity(
-  source: CaseSourceRecord,
-  path: string,
-  databasePath = path,
-): ManifestIdentity | null {
-  const ordinal = source.entries.findIndex((entry) => entry.path === path);
-  return ordinal < 0
-    ? null
-    : { sourceId: source.sourceId, ordinal, path, databasePath };
-}
-
 function unavailableArtifact(
-  sourceId: string,
-  profile: string,
-  databasePath: string,
-  manifestEntryOrdinal: number | null,
-  status: "absent" | "unavailable",
-  reason: string,
+  header: SqliteArtifactHeader,
 ): WebDataArtifactWrite {
   return {
-    sourceId,
-    profile,
-    status,
-    manifestEntryOrdinal,
-    databasePath,
-    schemaVersion: null,
-    integrity: null,
-    recoveryStatus: "unavailable",
-    reason,
+    ...header,
     findings: [],
     committedFieldCount: 0,
     recoveredFieldCount: 0,
@@ -229,168 +117,29 @@ export async function analyseWebDataProfile(options: {
   readonly workingCopyPath: string;
   readonly declaredTimezone: string;
 }): Promise<WebDataArtifactWrite> {
-  const databasePath =
-    options.profile === "." ? "Web Data" : `${options.profile}/Web Data`;
-  const manifest = manifestIdentity(options.source, databasePath);
-  if (manifest === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      null,
-      "absent",
-      "web_data_manifest_entry_missing",
-    );
+  const resolved = resolveProfileDatabase({
+    ...options,
+    label: "web_data",
+    relativePaths: ["Web Data"],
+  });
+  if (!resolved.readable) {
+    return unavailableArtifact(resolved.header);
   }
-  const entry = options.source.entries[manifest.ordinal];
-  if (entry === undefined) {
-    throw new Error("Manifest ordinal became invalid.");
-  }
-  if (entry.state === "absent") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "absent",
-      "web_data_absent",
-    );
-  }
-  if (entry.state === "unavailable") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      `web_data_unavailable:${entry.unavailable_reason ?? "unknown"}`,
-    );
-  }
-  if (!entry.copied) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "web_data_not_in_working_copy",
-    );
-  }
-  if (entry.size === null || entry.sha256 === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "web_data_manifest_representation_incomplete",
-    );
-  }
-
-  const verifiedDatabase: VerifiedWebDataFile = {
-    path: join(options.workingCopyPath, ...databasePath.split("/")),
-    manifestPath: databasePath,
-    size: entry.size,
-    sha256: entry.sha256,
-  };
-  const sidecars: VerifiedWebDataFile[] = options.source.entries
-    .filter(
-      (candidate) =>
-        candidate.copied &&
-        candidate.state === "value" &&
-        candidate.size !== null &&
-        candidate.sha256 !== null &&
-        (candidate.path === `${databasePath}-wal` ||
-          candidate.path === `${databasePath}-journal`),
-    )
-    .map((candidate) => ({
-      path: join(options.workingCopyPath, ...candidate.path.split("/")),
-      manifestPath: candidate.path,
-      size: candidate.size as number,
-      sha256: candidate.sha256 as string,
-    }));
-
+  const { target } = resolved;
   try {
-    const passes = await readWebDataPasses({
-      database: verifiedDatabase,
-      sidecars,
-    });
-    const sidecarManifest =
-      passes.recovered === null
-        ? null
-        : manifestIdentity(
-            options.source,
-            `${databasePath}${
-              passes.recovered.commitState === "wal_resident"
-                ? "-wal"
-                : "-journal"
-            }`,
-            databasePath,
-          );
-    if (passes.recovered !== null && sidecarManifest === null) {
-      throw new ForensixError(
-        "ANALYSIS_FAILED",
-        "Web Data recovery content has no resolvable sidecar Manifest entry.",
-        { databasePath: databasePath },
-      );
-    }
-    const recoveredCitation =
-      passes.recovered === null || sidecarManifest === null
-        ? null
-        : recoveredRowCitation(
-            passes.recovered.commitState,
-            manifest,
-            sidecarManifest,
-          );
-    const committed = buildAutofillEntries({
-      rows: passes.committed.rows,
-      schema: passes.committed.schema,
-      commitState: "committed",
-      profile: options.profile,
-      manifest,
-      declaredTimezone: options.declaredTimezone,
-    });
-    const recovered =
-      passes.recovered === null
-        ? []
-        : buildAutofillEntries({
-            rows: passes.recovered.rows,
-            schema: passes.recovered.schema,
-            commitState: passes.recovered.commitState,
-            profile: options.profile,
-            manifest: recoveredCitation?.manifest ?? manifest,
-            recoveredVia: recoveredCitation?.recoveredVia,
-            declaredTimezone: options.declaredTimezone,
-          });
+    const passes = await readWebDataPasses(target);
+    const cited = citedPasses(target, passes);
+    const build = (pass: CitedPass<WebDataPass>): PersistedAutofillFinding[] =>
+      buildAutofillEntries(pass, options.profile, options.declaredTimezone);
+    const committed = build(cited.committed);
+    const recovered = cited.recovered === null ? [] : build(cited.recovered);
     return {
-      sourceId: options.source.sourceId,
-      profile: options.profile,
-      status: "complete",
-      manifestEntryOrdinal: manifest.ordinal,
-      databasePath,
-      schemaVersion: passes.committed.schema.version,
-      integrity: passes.committed.integrity,
-      recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: sqlitePassesReason(passes),
+      ...completeArtifactHeader(target, passes),
       findings: [...committed, ...recovered],
       committedFieldCount: committed.length,
       recoveredFieldCount: recovered.length,
     };
   } catch (error) {
-    if (error instanceof WorkingCopyIntegrityRefusal) {
-      throw error;
-    }
-    const reason =
-      error instanceof ForensixError
-        ? `${error.code}:${error.message}`
-        : `web_data_read_failed:${String(error)}`;
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      reason,
-    );
+    return unavailableArtifact(readFailureHeader(target, "web_data", error));
   }
 }

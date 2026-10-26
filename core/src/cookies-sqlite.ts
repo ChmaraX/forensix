@@ -14,31 +14,28 @@ import {
   type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
 
-export type RawCookieValue = RawSqliteValue;
-export type VerifiedCookieFile = VerifiedSqliteFile;
-
 export interface RawCookie {
-  readonly rowId: RawCookieValue;
-  readonly creationUtc: RawCookieValue;
-  readonly hostKey: RawCookieValue;
-  readonly topFrameSiteKey: RawCookieValue;
-  readonly name: RawCookieValue;
-  readonly value: RawCookieValue;
-  readonly encryptedValue: RawCookieValue;
-  readonly path: RawCookieValue;
-  readonly expiresUtc: RawCookieValue;
-  readonly isSecure: RawCookieValue;
-  readonly isHttpOnly: RawCookieValue;
-  readonly lastAccessUtc: RawCookieValue;
-  readonly hasExpires: RawCookieValue;
-  readonly isPersistent: RawCookieValue;
-  readonly priority: RawCookieValue;
-  readonly samesite: RawCookieValue;
-  readonly sourceScheme: RawCookieValue;
-  readonly sourcePort: RawCookieValue;
-  readonly lastUpdateUtc: RawCookieValue;
-  readonly sourceType: RawCookieValue;
-  readonly hasCrossSiteAncestor: RawCookieValue;
+  readonly rowId: RawSqliteValue;
+  readonly creationUtc: RawSqliteValue;
+  readonly hostKey: RawSqliteValue;
+  readonly topFrameSiteKey: RawSqliteValue;
+  readonly name: RawSqliteValue;
+  readonly value: RawSqliteValue;
+  readonly encryptedValue: RawSqliteValue;
+  readonly path: RawSqliteValue;
+  readonly expiresUtc: RawSqliteValue;
+  readonly isSecure: RawSqliteValue;
+  readonly isHttpOnly: RawSqliteValue;
+  readonly lastAccessUtc: RawSqliteValue;
+  readonly hasExpires: RawSqliteValue;
+  readonly isPersistent: RawSqliteValue;
+  readonly priority: RawSqliteValue;
+  readonly samesite: RawSqliteValue;
+  readonly sourceScheme: RawSqliteValue;
+  readonly sourcePort: RawSqliteValue;
+  readonly lastUpdateUtc: RawSqliteValue;
+  readonly sourceType: RawSqliteValue;
+  readonly hasCrossSiteAncestor: RawSqliteValue;
 }
 
 export interface CookieSchema {
@@ -124,7 +121,7 @@ function optionalColumn(
     : `NULL AS "${alias}"`;
 }
 
-const normalize = (value: unknown): RawCookieValue =>
+const normalize = (value: unknown): RawSqliteValue =>
   normalizeSqliteValue(value, "Cookies");
 
 function readPass(database: DatabaseSync): CookiePass {
@@ -188,8 +185,8 @@ function readPass(database: DatabaseSync): CookiePass {
 }
 
 export async function readCookiePasses(options: {
-  readonly database: VerifiedCookieFile;
-  readonly sidecars: readonly VerifiedCookieFile[];
+  readonly database: VerifiedSqliteFile;
+  readonly sidecars: readonly VerifiedSqliteFile[];
 }): Promise<CookiePasses> {
   // The `cookies` table is a single-table artifact: a sidecar row is kept only
   // when the committed image has no row with the same rowid or holds a

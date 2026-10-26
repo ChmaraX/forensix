@@ -1,36 +1,37 @@
 import { createHash } from "node:crypto";
-import { join } from "node:path";
 
-import {
-  WINDOWS_EPOCH_OFFSET_MICROS,
-  utcFromUnixMicros,
-} from "./forensic-time.js";
 import type {
   CookieArtifactWrite,
   DeclaredOriginOs,
   PersistedCookieFinding,
 } from "./case-findings.js";
 import type { CaseSourceRecord } from "./case.js";
-import {
-  readCookiePasses,
-  type CookieSchema,
-  type RawCookie,
-  type RawCookieValue,
-  type VerifiedCookieFile,
-} from "./cookies-sqlite.js";
-import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
+import { readCookiePasses, type CookiePass } from "./cookies-sqlite.js";
+import { ForensixError } from "./errors.js";
 import {
   absentField,
   createFinding,
   unavailableField,
   valueField,
-  type CommitState,
   type FieldState,
   type Finding,
-  type ManifestEntryReference,
-  type Provenance,
 } from "./forensic-model.js";
-import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
+import {
+  citedPasses,
+  completeArtifactHeader,
+  enumFields,
+  preservedBoolean,
+  preservedInteger,
+  preservedString,
+  readFailureHeader,
+  resolveProfileDatabase,
+  sourceRowProvenance,
+  timestampField,
+  type CitedPass,
+  type SqliteArtifactHeader,
+  type RawSqliteValue,
+  type TimestampEpoch,
+} from "./sqlite-artifact.js";
 import type { ForensicTimestamp } from "./history.js";
 import { decryptSecretField, type PlaintextUnwrap } from "./decrypted-field.js";
 import { schemeOf, type DecryptionSettings } from "./oscrypt.js";
@@ -98,88 +99,10 @@ const SOURCE_TYPE_LABELS = new Map<bigint, string>([
   [3n, "other"],
 ]);
 
-interface ManifestIdentity {
-  readonly sourceId: string;
-  readonly ordinal: number;
-  readonly path: string;
-  readonly databasePath: string;
-}
-
-interface BuiltCookie {
-  readonly persisted: PersistedCookieFinding;
-}
-
-function preservedString(
-  value: RawCookieValue,
-  columnPresent: boolean,
-): FieldState<string> {
-  if (!columnPresent) {
-    return absentField();
-  }
-  if (value === null) {
-    return absentField();
-  }
-  return typeof value === "string"
-    ? valueField(value)
-    : unavailableField("unsupported_value");
-}
-
-function preservedInteger(
-  value: RawCookieValue,
-  columnPresent: boolean,
-): FieldState<string> {
-  if (!columnPresent || value === null) {
-    return absentField();
-  }
-  return typeof value === "bigint"
-    ? valueField(value.toString())
-    : unavailableField("unsupported_value");
-}
-
-function preservedBoolean(
-  value: RawCookieValue,
-  columnPresent: boolean,
-): FieldState<boolean> {
-  if (!columnPresent || value === null) {
-    return absentField();
-  }
-  if (value === 0n) {
-    return valueField(false);
-  }
-  if (value === 1n) {
-    return valueField(true);
-  }
-  return unavailableField("unsupported_value");
-}
-
-function enumFields(
-  value: RawCookieValue,
-  columnPresent: boolean,
-  labels: ReadonlyMap<bigint, string>,
-): { readonly raw: FieldState<string>; readonly label: FieldState<string> } {
-  if (!columnPresent || value === null) {
-    return { raw: absentField(), label: absentField() };
-  }
-  if (typeof value !== "bigint") {
-    return {
-      raw: unavailableField("unsupported_value"),
-      label: unavailableField("unsupported_value"),
-    };
-  }
-  const label = labels.get(value);
-  return {
-    raw: valueField(value.toString()),
-    label:
-      label === undefined
-        ? unavailableField("unsupported_value")
-        : valueField(label),
-  };
-}
-
 function resolveCookieEpoch(
   schemaVersion: number,
   declaredOriginOs: DeclaredOriginOs | null,
-): { readonly epochFamily: "1601-us"; readonly resolution: string } | null {
+): TimestampEpoch | null {
   if (schemaVersion >= COOKIE_VERIFIED_SCHEMA_MINIMUM) {
     return {
       epochFamily: "1601-us",
@@ -195,73 +118,26 @@ function resolveCookieEpoch(
   };
 }
 
-function timestampField(
-  raw: RawCookieValue,
-  columnPresent: boolean,
-  schemaVersion: number,
-  declaredOriginOs: DeclaredOriginOs | null,
-  declaredTimezone: string,
-): FieldState<ForensicTimestamp> {
-  if (!columnPresent || raw === null || raw === 0n) {
-    return absentField();
-  }
-  if (typeof raw !== "bigint") {
-    return unavailableField("unsupported_value");
-  }
-  const resolution = resolveCookieEpoch(schemaVersion, declaredOriginOs);
-  if (resolution === null) {
-    return unavailableField("epoch_requires_declared_origin_os");
-  }
-  const utc = utcFromUnixMicros(raw - WINDOWS_EPOCH_OFFSET_MICROS);
-  if (utc === null) {
-    return unavailableField("timestamp_out_of_range");
-  }
-  return valueField(
-    {
-      raw: raw.toString(),
-      epochFamily: resolution.epochFamily,
-      utc,
-      declaredTimezone,
-      resolution: resolution.resolution,
-    },
-    { synthetic: false },
-  );
-}
-
-function buildCookies(options: {
-  readonly rows: readonly RawCookie[];
-  readonly schema: CookieSchema;
-  readonly commitState: CommitState;
-  readonly profile: string;
-  readonly manifest: ManifestIdentity;
-  readonly recoveredVia?: ManifestEntryReference;
-  readonly declaredTimezone: string;
-  readonly declaredOriginOs: DeclaredOriginOs | null;
-  readonly decryption: DecryptionSettings;
-}): BuiltCookie[] {
-  const columns = options.schema.cookieColumns;
-  return options.rows.map((row) => {
-    const rowId =
-      typeof row.rowId === "bigint" ? row.rowId.toString() : undefined;
-    if (rowId === undefined) {
+function buildCookies(
+  cited: CitedPass<CookiePass>,
+  options: {
+    readonly profile: string;
+    readonly declaredTimezone: string;
+    readonly declaredOriginOs: DeclaredOriginOs | null;
+    readonly decryption: DecryptionSettings;
+  },
+): PersistedCookieFinding[] {
+  const { schema } = cited.pass;
+  const columns = schema.cookieColumns;
+  const epoch = resolveCookieEpoch(schema.version, options.declaredOriginOs);
+  return cited.pass.rows.map((row) => {
+    if (typeof row.rowId !== "bigint") {
       throw new ForensixError(
         "ANALYSIS_FAILED",
         "Cookies rowid is not an exact integer.",
       );
     }
-    const provenance: Provenance = {
-      manifestEntryId: `${options.manifest.sourceId}:${options.manifest.ordinal}`,
-      sourceId: options.manifest.sourceId,
-      manifestEntryOrdinal: options.manifest.ordinal,
-      manifestPath: options.manifest.path,
-      database: options.manifest.databasePath,
-      table: "cookies",
-      rowId,
-      ...(options.recoveredVia === undefined
-        ? {}
-        : { recoveredVia: options.recoveredVia }),
-    };
-
+    const rowId = row.rowId.toString();
     const hostKey = preservedString(row.hostKey, columns.has("host_key"));
     const name = preservedString(row.name, columns.has("name"));
     const path = preservedString(row.path, columns.has("path"));
@@ -284,7 +160,7 @@ function buildCookies(options: {
             secretBlob,
             options.profile,
             options.decryption,
-            options.schema.version >= COOKIE_HOST_KEY_HASH_SCHEMA_MINIMUM
+            schema.version >= COOKIE_HOST_KEY_HASH_SCHEMA_MINIMUM
               ? hostKeyHashUnwrap(hostKey)
               : undefined,
           )
@@ -292,53 +168,33 @@ function buildCookies(options: {
 
     const sameSite = enumFields(
       row.samesite,
-      columns.has("samesite"),
       SAME_SITE_LABELS,
+      columns.has("samesite"),
     );
     const priority = enumFields(
       row.priority,
-      columns.has("priority"),
       PRIORITY_LABELS,
+      columns.has("priority"),
     );
     const sourceScheme = enumFields(
       row.sourceScheme,
-      columns.has("source_scheme"),
       SOURCE_SCHEME_LABELS,
+      columns.has("source_scheme"),
     );
     const sourceType = enumFields(
       row.sourceType,
-      columns.has("source_type"),
       SOURCE_TYPE_LABELS,
+      columns.has("source_type"),
     );
-
-    const creationTime = timestampField(
-      row.creationUtc,
-      columns.has("creation_utc"),
-      options.schema.version,
-      options.declaredOriginOs,
-      options.declaredTimezone,
-    );
-    const expiresTime = timestampField(
-      row.expiresUtc,
-      columns.has("expires_utc"),
-      options.schema.version,
-      options.declaredOriginOs,
-      options.declaredTimezone,
-    );
-    const lastAccessTime = timestampField(
-      row.lastAccessUtc,
-      columns.has("last_access_utc"),
-      options.schema.version,
-      options.declaredOriginOs,
-      options.declaredTimezone,
-    );
-    const lastUpdateTime = timestampField(
-      row.lastUpdateUtc,
-      columns.has("last_update_utc"),
-      options.schema.version,
-      options.declaredOriginOs,
-      options.declaredTimezone,
-    );
+    const time = (
+      raw: RawSqliteValue,
+      column: string,
+    ): FieldState<ForensicTimestamp> =>
+      timestampField(raw, columns.has(column), epoch, options.declaredTimezone);
+    const creationTime = time(row.creationUtc, "creation_utc");
+    const expiresTime = time(row.expiresUtc, "expires_utc");
+    const lastAccessTime = time(row.lastAccessUtc, "last_access_utc");
+    const lastUpdateTime = time(row.lastUpdateUtc, "last_update_utc");
 
     const fields = {
       cookieId: valueField(rowId),
@@ -393,73 +249,50 @@ function buildCookies(options: {
     const finding = createFinding({
       findingKind: "cookie",
       profile: options.profile,
-      commitState: options.commitState,
-      provenance,
+      commitState: cited.commitState,
+      provenance: {
+        ...sourceRowProvenance(cited.manifest, "cookies", rowId),
+        ...(cited.recoveredVia === undefined
+          ? {}
+          : { recoveredVia: cited.recoveredVia }),
+      },
       fields,
     });
 
     const hostValue = hostKey.state === "value" ? hostKey.value : null;
     const nameValue = name.state === "value" ? name.value : null;
     return {
-      persisted: {
-        finding,
-        // The Cookie value is a secret (see record-redaction.ts), so it is
-        // never put in the search text: a substring search would otherwise
-        // let a caller rebuild a withheld value one prefix at a time.
-        searchText: [
-          options.profile,
-          hostValue ?? "",
-          nameValue ?? "",
-          path.state === "value" ? path.value : "",
-          isEncrypted ? `encrypted ${scheme ?? "unknown"}` : "",
-        ]
-          .join("\n")
-          .toLocaleLowerCase("en-US"),
-        sortHost: hostValue,
-        sortName: nameValue,
-        sortCreation:
-          creationTime.state === "value" ? creationTime.value.utc : null,
-        sortExpires:
-          expiresTime.state === "value" ? expiresTime.value.utc : null,
-        sortLastAccess:
-          lastAccessTime.state === "value" ? lastAccessTime.value.utc : null,
-        hostKey: hostValue,
-        sameSite:
-          sameSite.label.state === "value" ? sameSite.label.value : null,
-      },
+      finding,
+      // The Cookie value is a secret (see record-redaction.ts), so it is
+      // never put in the search text: a substring search would otherwise
+      // let a caller rebuild a withheld value one prefix at a time.
+      searchText: [
+        options.profile,
+        hostValue ?? "",
+        nameValue ?? "",
+        path.state === "value" ? path.value : "",
+        isEncrypted ? `encrypted ${scheme ?? "unknown"}` : "",
+      ]
+        .join("\n")
+        .toLocaleLowerCase("en-US"),
+      sortHost: hostValue,
+      sortName: nameValue,
+      sortCreation:
+        creationTime.state === "value" ? creationTime.value.utc : null,
+      sortExpires: expiresTime.state === "value" ? expiresTime.value.utc : null,
+      sortLastAccess:
+        lastAccessTime.state === "value" ? lastAccessTime.value.utc : null,
+      hostKey: hostValue,
+      sameSite: sameSite.label.state === "value" ? sameSite.label.value : null,
     };
   });
 }
 
-function manifestIdentity(
-  source: CaseSourceRecord,
-  path: string,
-  databasePath = path,
-): ManifestIdentity | null {
-  const ordinal = source.entries.findIndex((entry) => entry.path === path);
-  return ordinal < 0
-    ? null
-    : { sourceId: source.sourceId, ordinal, path, databasePath };
-}
-
 function unavailableArtifact(
-  sourceId: string,
-  profile: string,
-  databasePath: string,
-  manifestEntryOrdinal: number | null,
-  status: "absent" | "unavailable",
-  reason: string,
+  header: SqliteArtifactHeader,
 ): CookieArtifactWrite {
   return {
-    sourceId,
-    profile,
-    status,
-    manifestEntryOrdinal,
-    databasePath,
-    schemaVersion: null,
-    integrity: null,
-    recoveryStatus: "unavailable",
-    reason,
+    ...header,
     findings: [],
     committedCookieCount: 0,
     recoveredCookieCount: 0,
@@ -473,28 +306,6 @@ function unavailableArtifact(
  * entry falls back: a store that exists but could not be read (`unavailable`)
  * is reported with its reason, and never replaced by an older copy.
  */
-function resolveDatabasePath(
-  source: CaseSourceRecord,
-  profile: string,
-): {
-  readonly databasePath: string;
-  readonly manifest: ManifestIdentity;
-} | null {
-  const prefix = profile === "." ? "" : `${profile}/`;
-  for (const relative of ["Network/Cookies", "Cookies"]) {
-    const databasePath = `${prefix}${relative}`;
-    const manifest = manifestIdentity(source, databasePath);
-    if (manifest === null) {
-      continue;
-    }
-    const entry = source.entries[manifest.ordinal];
-    if (entry !== undefined && entry.state !== "absent") {
-      return { databasePath, manifest };
-    }
-  }
-  return null;
-}
-
 async function analyseProfile(options: {
   readonly source: CaseSourceRecord;
   readonly profile: string;
@@ -503,167 +314,29 @@ async function analyseProfile(options: {
   readonly declaredOriginOs: DeclaredOriginOs | null;
   readonly decryption: DecryptionSettings;
 }): Promise<CookieArtifactWrite> {
-  const modernPath =
-    options.profile === "."
-      ? "Network/Cookies"
-      : `${options.profile}/Network/Cookies`;
-  const resolved = resolveDatabasePath(options.source, options.profile);
-  if (resolved === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      modernPath,
-      null,
-      "absent",
-      "cookies_absent",
-    );
+  const resolved = resolveProfileDatabase({
+    ...options,
+    label: "cookies",
+    relativePaths: ["Network/Cookies", "Cookies"],
+  });
+  if (!resolved.readable) {
+    return unavailableArtifact(resolved.header);
   }
-  const { databasePath, manifest } = resolved;
-  const entry = options.source.entries[manifest.ordinal];
-  if (entry === undefined) {
-    throw new Error("Manifest ordinal became invalid.");
-  }
-  if (entry.state === "unavailable") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      `cookies_unavailable:${entry.unavailable_reason ?? "unknown"}`,
-    );
-  }
-  if (!entry.copied) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "cookies_not_in_working_copy",
-    );
-  }
-  if (entry.size === null || entry.sha256 === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "cookies_manifest_representation_incomplete",
-    );
-  }
-
-  const verifiedDatabase: VerifiedCookieFile = {
-    path: join(options.workingCopyPath, ...databasePath.split("/")),
-    manifestPath: databasePath,
-    size: entry.size,
-    sha256: entry.sha256,
-  };
-  const sidecars: VerifiedCookieFile[] = options.source.entries
-    .filter(
-      (candidate) =>
-        candidate.copied &&
-        candidate.state === "value" &&
-        candidate.size !== null &&
-        candidate.sha256 !== null &&
-        (candidate.path === `${databasePath}-wal` ||
-          candidate.path === `${databasePath}-shm` ||
-          candidate.path === `${databasePath}-journal`),
-    )
-    .map((candidate) => ({
-      path: join(options.workingCopyPath, ...candidate.path.split("/")),
-      manifestPath: candidate.path,
-      size: candidate.size as number,
-      sha256: candidate.sha256 as string,
-    }));
-
+  const { target } = resolved;
   try {
-    const passes = await readCookiePasses({
-      database: verifiedDatabase,
-      sidecars,
-    });
-    const sidecarManifest =
-      passes.recovered === null
-        ? null
-        : manifestIdentity(
-            options.source,
-            `${databasePath}${
-              passes.recovered.commitState === "wal_resident"
-                ? "-wal"
-                : "-journal"
-            }`,
-            databasePath,
-          );
-    if (passes.recovered !== null && sidecarManifest === null) {
-      throw new ForensixError(
-        "ANALYSIS_FAILED",
-        "Cookie recovery content has no resolvable sidecar Manifest entry.",
-        { databasePath: databasePath },
-      );
-    }
-    const recoveredCitation =
-      passes.recovered === null || sidecarManifest === null
-        ? null
-        : recoveredRowCitation(
-            passes.recovered.commitState,
-            manifest,
-            sidecarManifest,
-          );
-    const committed = buildCookies({
-      rows: passes.committed.rows,
-      schema: passes.committed.schema,
-      commitState: "committed",
-      profile: options.profile,
-      manifest,
-      declaredTimezone: options.declaredTimezone,
-      declaredOriginOs: options.declaredOriginOs,
-      decryption: options.decryption,
-    });
+    const passes = await readCookiePasses(target);
+    const cited = citedPasses(target, passes);
+    const committed = buildCookies(cited.committed, options);
     const recovered =
-      passes.recovered === null
-        ? []
-        : buildCookies({
-            rows: passes.recovered.rows,
-            schema: passes.recovered.schema,
-            commitState: passes.recovered.commitState,
-            profile: options.profile,
-            manifest: recoveredCitation?.manifest ?? manifest,
-            recoveredVia: recoveredCitation?.recoveredVia,
-            declaredTimezone: options.declaredTimezone,
-            declaredOriginOs: options.declaredOriginOs,
-            decryption: options.decryption,
-          });
+      cited.recovered === null ? [] : buildCookies(cited.recovered, options);
     return {
-      sourceId: options.source.sourceId,
-      profile: options.profile,
-      status: "complete",
-      manifestEntryOrdinal: manifest.ordinal,
-      databasePath,
-      schemaVersion: passes.committed.schema.version,
-      integrity: passes.committed.integrity,
-      recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: sqlitePassesReason(passes),
-      findings: [...committed, ...recovered].map((cookie) => cookie.persisted),
+      ...completeArtifactHeader(target, passes),
+      findings: [...committed, ...recovered],
       committedCookieCount: committed.length,
       recoveredCookieCount: recovered.length,
     };
   } catch (error) {
-    if (error instanceof WorkingCopyIntegrityRefusal) {
-      throw error;
-    }
-    const reason =
-      error instanceof ForensixError
-        ? `${error.code}:${error.message}`
-        : `cookies_read_failed:${String(error)}`;
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      reason,
-    );
+    return unavailableArtifact(readFailureHeader(target, "cookies", error));
   }
 }
 

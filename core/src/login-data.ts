@@ -1,114 +1,35 @@
-import { join } from "node:path";
-
-import {
-  WINDOWS_EPOCH_OFFSET_MICROS,
-  utcFromUnixMicros,
-} from "./forensic-time.js";
 import type {
   LoginDataArtifactWrite,
   PersistedLoginFinding,
 } from "./case-findings.js";
 import type { CaseSourceRecord } from "./case.js";
-import { ForensixError, WorkingCopyIntegrityRefusal } from "./errors.js";
+import { ForensixError } from "./errors.js";
 import {
   absentField,
   createFinding,
   unavailableField,
   valueField,
-  type CommitState,
   type FieldState,
   type Finding,
-  type ManifestEntryReference,
-  type SourceRowProvenance,
 } from "./forensic-model.js";
-import { recoveredRowCitation, sqlitePassesReason } from "./sqlite-artifact.js";
 import type { ForensicTimestamp } from "./history.js";
 import { decryptSecretField } from "./decrypted-field.js";
 import { schemeOf, type DecryptionSettings } from "./oscrypt.js";
+import { readLoginPasses, type LoginPass } from "./login-data-sqlite.js";
 import {
-  readLoginPasses,
-  type LoginSchema,
-  type RawLoginRow,
-  type RawLoginValue,
-  type VerifiedLoginFile,
-} from "./login-data-sqlite.js";
-
-/**
- * Chrome stores password-store timestamps as `base::Time` internal values, i.e.
- * microseconds since 1601-01-01 UTC, on every platform. Unlike History, the
- * epoch does not depend on the origin OS, so no Declared Origin OS is required.
- */
-const LOGIN_EPOCH_FAMILY = "1601-us" as const;
-
-interface ManifestIdentity {
-  readonly sourceId: string;
-  readonly ordinal: number;
-  readonly path: string;
-  readonly databasePath: string;
-}
-
-interface BuiltCredential {
-  readonly persisted: PersistedLoginFinding;
-}
-
-function preservedString(value: RawLoginValue): FieldState<string> {
-  if (value === undefined || value === null) {
-    return absentField();
-  }
-  return typeof value === "string"
-    ? valueField(value)
-    : unavailableField("unsupported_value");
-}
-
-function preservedInteger(value: RawLoginValue): FieldState<string> {
-  if (value === undefined || value === null) {
-    return absentField();
-  }
-  return typeof value === "bigint"
-    ? valueField(value.toString())
-    : unavailableField("unsupported_value");
-}
-
-function preservedBoolean(value: RawLoginValue): FieldState<boolean> {
-  if (value === undefined || value === null) {
-    return absentField();
-  }
-  if (value === 0n) {
-    return valueField(false);
-  }
-  if (value === 1n) {
-    return valueField(true);
-  }
-  return unavailableField("unsupported_value");
-}
-
-function timestampField(
-  raw: RawLoginValue,
-  columnPresent: boolean,
-  schemaVersion: number,
-  declaredTimezone: string,
-): FieldState<ForensicTimestamp> {
-  if (!columnPresent || raw === undefined || raw === null || raw === 0n) {
-    return absentField();
-  }
-  if (typeof raw !== "bigint") {
-    return unavailableField("unsupported_value");
-  }
-  const utc = utcFromUnixMicros(raw - WINDOWS_EPOCH_OFFSET_MICROS);
-  if (utc === null) {
-    return unavailableField("timestamp_out_of_range");
-  }
-  return valueField(
-    {
-      raw: raw.toString(),
-      epochFamily: LOGIN_EPOCH_FAMILY,
-      utc,
-      declaredTimezone,
-      resolution: `verified_login_data_schema_version_${schemaVersion}`,
-    },
-    { synthetic: false },
-  );
-}
+  citedPasses,
+  completeArtifactHeader,
+  preservedBoolean,
+  preservedInteger,
+  preservedString,
+  readFailureHeader,
+  resolveProfileDatabase,
+  sourceRowProvenance,
+  timestampField,
+  type CitedPass,
+  type RawSqliteValue,
+  type SqliteArtifactHeader,
+} from "./sqlite-artifact.js";
 
 interface SecretDescription {
   readonly secret: FieldState<string>;
@@ -128,12 +49,12 @@ interface SecretDescription {
  * investigator can classify the scheme even when the secret is not disclosed.
  */
 function describeSecret(
-  value: RawLoginValue,
+  value: RawSqliteValue,
   columnPresent: boolean,
   profile: string,
   decryption: DecryptionSettings,
 ): SecretDescription {
-  if (!columnPresent || value === undefined || value === null) {
+  if (!columnPresent || value === null) {
     return {
       secret: absentField(),
       scheme: absentField(),
@@ -180,21 +101,6 @@ function describeSecret(
   };
 }
 
-function sourceRowProvenance(
-  manifest: ManifestIdentity,
-  rowId: string,
-): SourceRowProvenance {
-  return {
-    manifestEntryId: `${manifest.sourceId}:${manifest.ordinal}`,
-    sourceId: manifest.sourceId,
-    manifestEntryOrdinal: manifest.ordinal,
-    manifestPath: manifest.path,
-    database: manifest.databasePath,
-    table: "logins",
-    rowId,
-  };
-}
-
 function textValue(field: FieldState<string>): string {
   return field.state === "value" ? field.value : "";
 }
@@ -203,17 +109,23 @@ function timeValue(field: FieldState<ForensicTimestamp>): string | null {
   return field.state === "value" ? field.value.utc : null;
 }
 
-function buildCredentials(options: {
-  readonly rows: readonly RawLoginRow[];
-  readonly schema: LoginSchema;
-  readonly commitState: CommitState;
-  readonly profile: string;
-  readonly manifest: ManifestIdentity;
-  readonly recoveredVia?: ManifestEntryReference;
-  readonly declaredTimezone: string;
-  readonly decryption: DecryptionSettings;
-}): BuiltCredential[] {
-  return options.rows.map((row) => {
+function buildCredentials(
+  cited: CitedPass<LoginPass>,
+  options: {
+    readonly profile: string;
+    readonly declaredTimezone: string;
+    readonly decryption: DecryptionSettings;
+  },
+): PersistedLoginFinding[] {
+  const { schema } = cited.pass;
+  // Chrome stores password-store times as `base::Time` internal values:
+  // microseconds since 1601-01-01 UTC on every platform, so the epoch does not
+  // depend on the origin OS.
+  const epoch = {
+    epochFamily: "1601-us",
+    resolution: `verified_login_data_schema_version_${schema.version}`,
+  } as const;
+  return cited.pass.rows.map((row) => {
     if (row.id === null) {
       throw new ForensixError(
         "ANALYSIS_FAILED",
@@ -221,12 +133,18 @@ function buildCredentials(options: {
       );
     }
     const rowId = row.id.toString();
-    const has = (column: string): boolean => options.schema.columns.has(column);
-    const get = (column: string): RawLoginValue =>
+    const get = (column: string): RawSqliteValue =>
       row.values.get(column) ?? null;
+    const time = (column: string): FieldState<ForensicTimestamp> =>
+      timestampField(
+        get(column),
+        schema.columns.has(column),
+        epoch,
+        options.declaredTimezone,
+      );
     const secret = describeSecret(
       get("password_value"),
-      has("password_value"),
+      schema.columns.has("password_value"),
       options.profile,
       options.decryption,
     );
@@ -234,112 +152,72 @@ function buildCredentials(options: {
     const signonRealm = preservedString(get("signon_realm"));
     const usernameValue = preservedString(get("username_value"));
     const actionUrl = preservedString(get("action_url"));
-    const dateCreated = timestampField(
-      get("date_created"),
-      has("date_created"),
-      options.schema.version,
-      options.declaredTimezone,
-    );
-    const dateLastUsed = timestampField(
-      get("date_last_used"),
-      has("date_last_used"),
-      options.schema.version,
-      options.declaredTimezone,
-    );
-    const fields = {
-      credentialId: valueField(rowId),
-      originUrl,
-      actionUrl,
-      signonRealm,
-      usernameElement: preservedString(get("username_element")),
-      usernameValue,
-      passwordElement: preservedString(get("password_element")),
-      secret: secret.secret,
-      secretEncryptionScheme: secret.scheme,
-      secretEncryptionPrefix: secret.prefix,
-      secretByteLength: secret.byteLength,
-      secretDecryptionRoute: secret.decryptionRoute,
-      secretKeyMaterialRecordId: secret.keyMaterialRecordId,
-      dateCreated,
-      dateLastUsed,
-      datePasswordModified: timestampField(
-        get("date_password_modified"),
-        has("date_password_modified"),
-        options.schema.version,
-        options.declaredTimezone,
-      ),
-      timesUsed: preservedInteger(get("times_used")),
-      blacklistedByUser: preservedBoolean(get("blacklisted_by_user")),
-      scheme: preservedInteger(get("scheme")),
-      passwordType: preservedInteger(get("password_type")),
-      displayName: preservedString(get("display_name")),
-      iconUrl: preservedString(get("icon_url")),
-      federationUrl: preservedString(get("federation_url")),
-      skipZeroClick: preservedBoolean(get("skip_zero_click")),
-      generationUploadStatus: preservedInteger(get("generation_upload_status")),
-    };
+    const dateCreated = time("date_created");
+    const dateLastUsed = time("date_last_used");
     const finding: Finding = createFinding({
       findingKind: "login_credential",
       profile: options.profile,
-      commitState: options.commitState,
+      commitState: cited.commitState,
       provenance: {
-        ...sourceRowProvenance(options.manifest, rowId),
-        ...(options.recoveredVia === undefined
+        ...sourceRowProvenance(cited.manifest, "logins", rowId),
+        ...(cited.recoveredVia === undefined
           ? {}
-          : { recoveredVia: options.recoveredVia }),
+          : { recoveredVia: cited.recoveredVia }),
       },
-      fields,
+      fields: {
+        credentialId: valueField(rowId),
+        originUrl,
+        actionUrl,
+        signonRealm,
+        usernameElement: preservedString(get("username_element")),
+        usernameValue,
+        passwordElement: preservedString(get("password_element")),
+        secret: secret.secret,
+        secretEncryptionScheme: secret.scheme,
+        secretEncryptionPrefix: secret.prefix,
+        secretByteLength: secret.byteLength,
+        secretDecryptionRoute: secret.decryptionRoute,
+        secretKeyMaterialRecordId: secret.keyMaterialRecordId,
+        dateCreated,
+        dateLastUsed,
+        datePasswordModified: time("date_password_modified"),
+        timesUsed: preservedInteger(get("times_used")),
+        blacklistedByUser: preservedBoolean(get("blacklisted_by_user")),
+        scheme: preservedInteger(get("scheme")),
+        passwordType: preservedInteger(get("password_type")),
+        displayName: preservedString(get("display_name")),
+        iconUrl: preservedString(get("icon_url")),
+        federationUrl: preservedString(get("federation_url")),
+        skipZeroClick: preservedBoolean(get("skip_zero_click")),
+        generationUploadStatus: preservedInteger(
+          get("generation_upload_status"),
+        ),
+      },
     });
     return {
-      persisted: {
-        finding,
-        searchText: [
-          options.profile,
-          textValue(originUrl),
-          textValue(actionUrl),
-          textValue(signonRealm),
-          textValue(usernameValue),
-        ]
-          .join("\n")
-          .toLocaleLowerCase("en-US"),
-        sortCreated: timeValue(dateCreated),
-        sortLastUsed: timeValue(dateLastUsed),
-        sortOrigin: textValue(originUrl) || null,
-        sortUsername: textValue(usernameValue) || null,
-      },
+      finding,
+      searchText: [
+        options.profile,
+        textValue(originUrl),
+        textValue(actionUrl),
+        textValue(signonRealm),
+        textValue(usernameValue),
+      ]
+        .join("\n")
+        .toLocaleLowerCase("en-US"),
+      sortCreated: timeValue(dateCreated),
+      sortLastUsed: timeValue(dateLastUsed),
+      sortOrigin: textValue(originUrl) || null,
+      sortUsername: textValue(usernameValue) || null,
     };
   });
 }
 
-function manifestIdentity(
-  source: CaseSourceRecord,
-  path: string,
-  databasePath = path,
-): ManifestIdentity | null {
-  const ordinal = source.entries.findIndex((entry) => entry.path === path);
-  return ordinal < 0
-    ? null
-    : { sourceId: source.sourceId, ordinal, path, databasePath };
-}
-
 function unavailableArtifact(
-  sourceId: string,
-  profile: string,
-  databasePath: string,
-  manifestEntryOrdinal: number | null,
-  status: "absent" | "unavailable",
-  reason: string,
+  header: SqliteArtifactHeader,
 ): LoginDataArtifactWrite {
   return {
-    sourceId,
-    profile,
-    status,
-    manifestEntryOrdinal,
-    databasePath,
-    schemaVersion: null,
-    integrity: null,
-    recoveryStatus: "unavailable",
-    reason,
+    ...header,
     findings: [],
     committedCredentialCount: 0,
     recoveredCredentialCount: 0,
@@ -353,173 +231,30 @@ export async function analyseLoginDataProfile(options: {
   readonly declaredTimezone: string;
   readonly decryption: DecryptionSettings;
 }): Promise<LoginDataArtifactWrite> {
-  const databasePath =
-    options.profile === "." ? "Login Data" : `${options.profile}/Login Data`;
-  const manifest = manifestIdentity(options.source, databasePath);
-  if (manifest === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      null,
-      "absent",
-      "login_data_manifest_entry_missing",
-    );
+  const resolved = resolveProfileDatabase({
+    ...options,
+    label: "login_data",
+    relativePaths: ["Login Data"],
+  });
+  if (!resolved.readable) {
+    return unavailableArtifact(resolved.header);
   }
-  const entry = options.source.entries[manifest.ordinal];
-  if (entry === undefined) {
-    throw new Error("Manifest ordinal became invalid.");
-  }
-  if (entry.state === "absent") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "absent",
-      "login_data_absent",
-    );
-  }
-  if (entry.state === "unavailable") {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      `login_data_unavailable:${entry.unavailable_reason ?? "unknown"}`,
-    );
-  }
-  if (!entry.copied) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "login_data_not_in_working_copy",
-    );
-  }
-  if (entry.size === null || entry.sha256 === null) {
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      "login_data_manifest_representation_incomplete",
-    );
-  }
-
-  const verifiedDatabase: VerifiedLoginFile = {
-    path: join(options.workingCopyPath, ...databasePath.split("/")),
-    manifestPath: databasePath,
-    size: entry.size,
-    sha256: entry.sha256,
-  };
-  const sidecars: VerifiedLoginFile[] = options.source.entries
-    .filter(
-      (candidate) =>
-        candidate.copied &&
-        candidate.state === "value" &&
-        candidate.size !== null &&
-        candidate.sha256 !== null &&
-        (candidate.path === `${databasePath}-wal` ||
-          candidate.path === `${databasePath}-journal`),
-    )
-    .map((candidate) => ({
-      path: join(options.workingCopyPath, ...candidate.path.split("/")),
-      manifestPath: candidate.path,
-      size: candidate.size as number,
-      sha256: candidate.sha256 as string,
-    }));
-
+  const { target } = resolved;
   try {
-    const passes = await readLoginPasses({
-      database: verifiedDatabase,
-      sidecars,
-    });
-    const sidecarManifest =
-      passes.recovered === null
-        ? null
-        : manifestIdentity(
-            options.source,
-            `${databasePath}${
-              passes.recovered.commitState === "wal_resident"
-                ? "-wal"
-                : "-journal"
-            }`,
-            databasePath,
-          );
-    if (passes.recovered !== null && sidecarManifest === null) {
-      throw new ForensixError(
-        "ANALYSIS_FAILED",
-        "Login Data recovery content has no resolvable sidecar Manifest entry.",
-        { databasePath: databasePath },
-      );
-    }
-    const recoveredCitation =
-      passes.recovered === null || sidecarManifest === null
-        ? null
-        : recoveredRowCitation(
-            passes.recovered.commitState,
-            manifest,
-            sidecarManifest,
-          );
-    const committed = buildCredentials({
-      rows: passes.committed.rows,
-      schema: passes.committed.schema,
-      commitState: "committed",
-      profile: options.profile,
-      manifest,
-      declaredTimezone: options.declaredTimezone,
-      decryption: options.decryption,
-    });
+    const passes = await readLoginPasses(target);
+    const cited = citedPasses(target, passes);
+    const committed = buildCredentials(cited.committed, options);
     const recovered =
-      passes.recovered === null
+      cited.recovered === null
         ? []
-        : buildCredentials({
-            rows: passes.recovered.rows,
-            schema: passes.recovered.schema,
-            commitState: passes.recovered.commitState,
-            profile: options.profile,
-            manifest: recoveredCitation?.manifest ?? manifest,
-            recoveredVia: recoveredCitation?.recoveredVia,
-            declaredTimezone: options.declaredTimezone,
-            decryption: options.decryption,
-          });
+        : buildCredentials(cited.recovered, options);
     return {
-      sourceId: options.source.sourceId,
-      profile: options.profile,
-      status: "complete",
-      manifestEntryOrdinal: manifest.ordinal,
-      databasePath,
-      schemaVersion: passes.committed.schema.version,
-      integrity: passes.committed.integrity,
-      recoveryStatus: passes.recovered === null ? "unavailable" : "complete",
-      reason: sqlitePassesReason(passes),
-      findings: [
-        ...committed.map((credential) => credential.persisted),
-        ...recovered.map((credential) => credential.persisted),
-      ],
+      ...completeArtifactHeader(target, passes),
+      findings: [...committed, ...recovered],
       committedCredentialCount: committed.length,
       recoveredCredentialCount: recovered.length,
     };
   } catch (error) {
-    if (error instanceof WorkingCopyIntegrityRefusal) {
-      throw error;
-    }
-    const reason =
-      error instanceof ForensixError
-        ? `${error.code}:${error.message}`
-        : `login_data_read_failed:${String(error)}`;
-    return unavailableArtifact(
-      options.source.sourceId,
-      options.profile,
-      databasePath,
-      manifest.ordinal,
-      "unavailable",
-      reason,
-    );
+    return unavailableArtifact(readFailureHeader(target, "login_data", error));
   }
 }

@@ -202,11 +202,11 @@ export function createFinding<
 }): Finding<Kind, Fields> {
   assertProvenance(input.provenance);
   if (
-    input.provenance.recoveredVia !== undefined &&
-    input.commitState !== "journal_resident"
+    (input.provenance.recoveredVia !== undefined) !==
+    (input.commitState === "journal_resident")
   ) {
     throw new TypeError(
-      "Only a journal_resident Finding cites a recovery Manifest entry.",
+      "A journal_resident Finding, and only that Finding, cites a recovery Manifest entry.",
     );
   }
   assertFields(input.fields);

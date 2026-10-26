@@ -9,10 +9,10 @@ import {
   sidecarOnlyRows,
   tableColumns,
   tableExists,
+  type RawSqliteValue,
   type SqlitePasses,
+  type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
-
-export type RawLoginValue = null | string | bigint | Uint8Array;
 
 /**
  * One row of the Chrome `logins` table, preserved column-by-column exactly as
@@ -20,7 +20,7 @@ export type RawLoginValue = null | string | bigint | Uint8Array;
  * each Field State (value, absent, or unavailable) without lossy coercion.
  */
 export interface RawLoginRow {
-  readonly values: ReadonlyMap<string, RawLoginValue>;
+  readonly values: ReadonlyMap<string, RawSqliteValue>;
   readonly id: bigint | null;
 }
 
@@ -36,13 +36,6 @@ export interface LoginPass {
 }
 
 export type LoginPasses = SqlitePasses<LoginPass>;
-
-export interface VerifiedLoginFile {
-  readonly path: string;
-  readonly manifestPath: string;
-  readonly size: number;
-  readonly sha256: string;
-}
 
 /**
  * Columns the metadata pipeline preserves when present. `password_value` is the
@@ -123,7 +116,7 @@ function readSchema(database: DatabaseSync): LoginSchema {
   return { version, columns };
 }
 
-const normalize = (value: unknown): RawLoginValue =>
+const normalize = (value: unknown): RawSqliteValue =>
   normalizeSqliteValue(value, "Login Data");
 
 function readPass(database: DatabaseSync): LoginPass {
@@ -142,7 +135,7 @@ function readPass(database: DatabaseSync): LoginPass {
   `);
   const rows: RawLoginRow[] = [];
   for (const row of statement.iterate()) {
-    const values = new Map<string, RawLoginValue>();
+    const values = new Map<string, RawSqliteValue>();
     for (const column of selected) {
       values.set(column, normalize(row[column]));
     }
@@ -157,8 +150,8 @@ function readPass(database: DatabaseSync): LoginPass {
 }
 
 export async function readLoginPasses(options: {
-  readonly database: VerifiedLoginFile;
-  readonly sidecars: readonly VerifiedLoginFile[];
+  readonly database: VerifiedSqliteFile;
+  readonly sidecars: readonly VerifiedSqliteFile[];
 }): Promise<LoginPasses> {
   // A sidecar row is kept only when the committed image has no row with the
   // same `logins.id` or holds a different exact image for it.

@@ -1,5 +1,6 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, readdirSync } from "node:fs";
+import { chmodSync, readFileSync, readdirSync } from "node:fs";
 import {
   chmod,
   mkdir,
@@ -8,6 +9,8 @@ import {
   readdir,
   rm,
   stat,
+  utimes,
+  writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,8 +18,10 @@ import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { ManifestEntry } from "../src/manifest.js";
 import {
   readSqlitePasses,
+  resolveProfileDatabase,
   type VerifiedSqliteFile,
 } from "../src/sqlite-artifact.js";
 
@@ -66,6 +71,7 @@ async function prepare(): Promise<{
     database: {
       path,
       manifestPath: "Default/Artifact",
+      ordinal: 0,
       size: (await stat(path)).size,
       sha256: createHash("sha256").update(bytes).digest("hex"),
     },
@@ -101,7 +107,10 @@ describe("readSqlitePasses snapshot cleanup", () => {
       sidecarOnly: (committed) => committed,
     });
     expect(passes.committed).toEqual([{ id: 1n, value: "alpha" }]);
-    expect(passes.recoveryUnavailableReason).toBe("sidecar_not_supplied");
+    expect(passes.recovery).toEqual({
+      status: "unavailable",
+      reason: "sidecar_not_supplied",
+    });
     expect(passes.cleanupFailureReason).toBeNull();
     expect(await readdir(snapshots)).toEqual([]);
   });
@@ -122,7 +131,10 @@ describe("readSqlitePasses snapshot cleanup", () => {
         sidecarOnly: (committed) => committed,
       });
       expect(passes.committed).toEqual([{ id: 1n, value: "alpha" }]);
-      expect(passes.recoveryUnavailableReason).toBe("sidecar_not_supplied");
+      expect(passes.recovery).toEqual({
+        status: "unavailable",
+        reason: "sidecar_not_supplied",
+      });
       expect(passes.cleanupFailureReason).toMatch(/^snapshot_cleanup_failed:/);
       expect(await readdir(snapshots)).toHaveLength(1);
     },
@@ -148,4 +160,192 @@ describe("readSqlitePasses snapshot cleanup", () => {
       expect(await readdir(snapshots)).toHaveLength(1);
     },
   );
+});
+
+/** A snapshot directory as a read leaves it, with a copied secret store. */
+async function leftSnapshot(
+  snapshots: string,
+  name: string,
+  ownerPid: number | null,
+): Promise<string> {
+  const directory = join(snapshots, name);
+  await mkdir(join(directory, "1"), { recursive: true });
+  await writeFile(join(directory, "1", "Login Data"), "copied secrets");
+  if (ownerPid !== null) {
+    await writeFile(join(directory, "owner.pid"), String(ownerPid));
+  }
+  return name;
+}
+
+describe("readSqlitePasses stale snapshot sweep", () => {
+  it("removes the snapshots of dead processes before the first read", async () => {
+    const { database, snapshots } = await prepare();
+    // The child has exited when spawnSync returns, so its PID is dead.
+    const deadPid = spawnSync(process.execPath, ["-e", ""]).pid;
+    expect(deadPid).toBeGreaterThan(0);
+    await leftSnapshot(
+      snapshots,
+      "forensix-login-data-snapshot-Ab12Cd",
+      deadPid,
+    );
+    const live = await leftSnapshot(
+      snapshots,
+      "forensix-cookies-snapshot-Ef34Gh",
+      process.pid,
+    );
+    // A process stopped before it wrote its PID leaves no owner file.
+    const ownerlessOld = await leftSnapshot(
+      snapshots,
+      "forensix-history-snapshot-Ij56Kl",
+      null,
+    );
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await utimes(join(snapshots, ownerlessOld), twoHoursAgo, twoHoursAgo);
+    const ownerlessNew = await leftSnapshot(
+      snapshots,
+      "forensix-favicons-snapshot-Mn78Op",
+      null,
+    );
+    const unrelated = await leftSnapshot(
+      snapshots,
+      "forensix-acquisition-Qr90St",
+      deadPid,
+    );
+
+    const passes = await readSqlitePasses({
+      artifact: "Login Data",
+      database,
+      sidecars: [],
+      readPass: readRows,
+      sidecarOnly: (committed) => committed,
+    });
+
+    expect(passes.committed).toEqual([{ id: 1n, value: "alpha" }]);
+    expect((await readdir(snapshots)).sort()).toEqual(
+      [live, ownerlessNew, unrelated].sort(),
+    );
+  });
+
+  it("records the owner PID in the snapshot directory of a read", async () => {
+    const { database, snapshots } = await prepare();
+    let owners: string[] = [];
+    await readSqlitePasses({
+      artifact: "Cookies",
+      database,
+      sidecars: [],
+      readPass: (open) => {
+        owners = readdirSync(snapshots).map((name) =>
+          readFileSync(join(snapshots, name, "owner.pid"), "utf8"),
+        );
+        return readRows(open);
+      },
+      sidecarOnly: (committed) => committed,
+    });
+    expect(owners).toEqual([String(process.pid)]);
+    expect(await readdir(snapshots)).toEqual([]);
+  });
+});
+
+function manifestEntry(
+  path: string,
+  state: ManifestEntry["state"],
+  copied = state === "value",
+): ManifestEntry {
+  return {
+    path,
+    state,
+    unavailable_reason: state === "unavailable" ? "permission_denied" : null,
+    node_type: state === "value" ? "file" : "absent",
+    file_kind: path.includes("-") ? "sidecar" : "database",
+    selection_tier: "tier_1",
+    copied,
+    unclassified: false,
+    size: state === "value" ? 4096 : null,
+    mtime_ns: null,
+    hash_algorithm: "sha-256",
+    sha256: state === "value" ? "a".repeat(64) : null,
+    link_target: null,
+  };
+}
+
+describe("resolveProfileDatabase", () => {
+  const resolve = (
+    entries: readonly ManifestEntry[],
+    relativePaths: readonly [string, ...string[]],
+  ) =>
+    resolveProfileDatabase({
+      source: { sourceId: "SRC", entries },
+      profile: "Default",
+      workingCopyPath: join("case", "working-copy"),
+      label: "cookies",
+      relativePaths,
+    });
+
+  it("reports a missing Manifest entry as unavailable, and an absent one as absent", () => {
+    expect(resolve([], ["Network/Cookies", "Cookies"])).toMatchObject({
+      readable: false,
+      header: {
+        status: "unavailable",
+        manifestEntryOrdinal: null,
+        databasePath: "Default/Network/Cookies",
+        reason: "cookies_manifest_entry_missing",
+      },
+    });
+    expect(
+      resolve(
+        [manifestEntry("Default/Network/Cookies", "absent")],
+        ["Network/Cookies", "Cookies"],
+      ),
+    ).toMatchObject({
+      readable: false,
+      header: {
+        status: "absent",
+        manifestEntryOrdinal: 0,
+        reason: "cookies_absent",
+      },
+    });
+  });
+
+  it("falls back only past an absent entry and takes every hashed sidecar", () => {
+    const entries = [
+      manifestEntry("Default/Cookies", "value"),
+      manifestEntry("Default/Cookies-journal", "absent"),
+      manifestEntry("Default/Cookies-shm", "value"),
+      manifestEntry("Default/Cookies-wal", "value"),
+      manifestEntry("Default/Network/Cookies", "absent"),
+    ];
+    const resolved = resolve(entries, ["Network/Cookies", "Cookies"]);
+    expect(resolved.readable && resolved.target.database).toMatchObject({
+      manifestPath: "Default/Cookies",
+      ordinal: 0,
+    });
+    expect(
+      resolved.readable &&
+        resolved.target.sidecars.map((sidecar) => [
+          sidecar.manifestPath,
+          sidecar.ordinal,
+        ]),
+    ).toEqual([
+      ["Default/Cookies-shm", 2],
+      ["Default/Cookies-wal", 3],
+    ]);
+    // A store that exists but is unreadable is never replaced by the legacy
+    // copy.
+    expect(
+      resolve(
+        [
+          entries[0] as ManifestEntry,
+          manifestEntry("Default/Network/Cookies", "unavailable"),
+        ],
+        ["Network/Cookies", "Cookies"],
+      ),
+    ).toMatchObject({
+      readable: false,
+      header: {
+        status: "unavailable",
+        databasePath: "Default/Network/Cookies",
+        reason: "cookies_unavailable:permission_denied",
+      },
+    });
+  });
 });

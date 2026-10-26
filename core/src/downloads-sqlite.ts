@@ -9,6 +9,7 @@ import {
   sidecarOnlyRows,
   tableColumns,
   tableExists,
+  type RawSqliteValue,
   type SqlitePasses,
   type VerifiedSqliteFile,
 } from "./sqlite-artifact.js";
@@ -28,8 +29,6 @@ export class DownloadsTableAbsentError extends Error {
   }
 }
 
-export type RawDownloadValue = null | string | bigint | Uint8Array;
-
 /**
  * One node of a download's redirect URL chain, from the
  * `downloads_url_chains` table. `chainIndex` orders the hops (0 is the URL the
@@ -39,7 +38,7 @@ export type RawDownloadValue = null | string | bigint | Uint8Array;
  */
 export interface RawDownloadUrlChainNode {
   readonly chainIndex: bigint | null;
-  readonly url: RawDownloadValue;
+  readonly url: RawSqliteValue;
   readonly rowId: string | null;
 }
 
@@ -50,7 +49,7 @@ export interface RawDownloadUrlChainNode {
  * unavailable) without lossy coercion.
  */
 export interface RawDownloadRow {
-  readonly values: ReadonlyMap<string, RawDownloadValue>;
+  readonly values: ReadonlyMap<string, RawSqliteValue>;
   readonly rowId: bigint | null;
   readonly urlChain: readonly RawDownloadUrlChainNode[];
   readonly urlChainTablePresent: boolean;
@@ -164,7 +163,7 @@ function readSchema(database: DatabaseSync): DownloadsSchema {
   };
 }
 
-const normalize = (value: unknown): RawDownloadValue =>
+const normalize = (value: unknown): RawSqliteValue =>
   normalizeSqliteValue(value, "Downloads");
 
 function readUrlChains(
@@ -217,7 +216,7 @@ function readPass(database: DatabaseSync): DownloadsPass {
   `);
   const rows: RawDownloadRow[] = [];
   for (const row of statement.iterate()) {
-    const values = new Map<string, RawDownloadValue>();
+    const values = new Map<string, RawSqliteValue>();
     for (const column of selected) {
       values.set(column, normalize(row[column]));
     }
