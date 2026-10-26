@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0](https://github.com/ChmaraX/forensix/compare/v2.0.0-alpha.1...v2.0.0) (2026-10-26)
+
+
+### Miscellaneous Chores
+
+* release 2.0.0 as the first stable v2 ([#225](https://github.com/ChmaraX/forensix/issues/225)) ([1be5f18](https://github.com/ChmaraX/forensix/commit/1be5f182b83905c435abe6b48708232cc5534c09))
+
 ## [2.0.0-alpha.1](https://github.com/ChmaraX/forensix/compare/v2.0.0-alpha.0...v2.0.0-alpha.1) (2026-10-26)
 
 
