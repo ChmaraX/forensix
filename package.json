@@ -21,17 +21,17 @@
     "verify:full": "pnpm verify && pnpm verify:offline"
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.2.2",
-    "@commitlint/config-conventional": "^21.2.2",
-    "@eslint/js": "9.39.2",
-    "@types/node": "24.10.9",
-    "dependency-cruiser": "17.3.8",
-    "eslint": "9.39.2",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.5",
+    "dependency-cruiser": "18.6.0",
+    "eslint": "10.13.0",
     "husky": "^9.1.7",
     "playwright": "1.64.1",
-    "prettier": "3.8.2",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.54.0",
-    "vitest": "4.0.18"
+    "prettier": "3.9.10",
+    "typescript": "7.0.2",
+    "typescript-eslint": "8.71.2",
+    "vitest": "5.0.5"
   }
 }
