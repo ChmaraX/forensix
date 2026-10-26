@@ -50,7 +50,7 @@ The commit type sets the next version and the changelog: `feat` adds a feature, 
    - runs `pnpm verify:full`, then packs and smokes the `forensix` npm package
    - builds the six Collector binaries
    - attests the build provenance of all files and writes their SHA-256 checksums
-   - publishes `forensix` to npm (dist-tag `next` for a pre-release, `latest` for a release)
+   - publishes `forensix` to npm (dist-tag `latest`; after the first release, a pre-release goes to `next`)
    - attaches all files to the draft and publishes it
 3. If a step fails, fix the cause. Then run the workflow `release-please` by hand (**Actions** → **release-please** → **Run workflow**) with `tag` set to the release tag, for example `v2.0.0-alpha.1`. A version that is already on npm is skipped.
 

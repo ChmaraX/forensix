@@ -59,9 +59,11 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "tarball=dist/analyzer/forensix-$version.tgz" >> "$GITHUB_OUTPUT"
-          # A prerelease (1.2.3-alpha.1) goes to the `next` dist-tag; a
-          # release goes to `latest`.
-          if [[ "$version" == *-* ]]; then
+          # A release goes to `latest`. A prerelease (1.2.3-alpha.1) goes to
+          # `next`, but also to `latest` while npm has no release yet, so that
+          # `npm install forensix` gets the newest prerelease.
+          latest=$(npm view forensix dist-tags.latest 2>/dev/null || true)
+          if [[ "$version" == *-* && -n "$latest" && "$latest" != *-* ]]; then
             echo "dist_tag=next" >> "$GITHUB_OUTPUT"
           else
             echo "dist_tag=latest" >> "$GITHUB_OUTPUT"

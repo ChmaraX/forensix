@@ -64,7 +64,7 @@ flowchart LR
 v2 is in pre-release. Install the latest pre-release from npm:
 
 ```sh
-npm install -g forensix@next
+npm install -g forensix
 ```
 
 The `forensix` package contains the CLI, the dashboard, and the agent skill. It
