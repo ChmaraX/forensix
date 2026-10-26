@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest 2.x pre-release gets security fixes.
+Only the latest 2.x release gets security fixes.
 Version 1 (branch `v1`) gets no fixes.
 
 ## Report a vulnerability
