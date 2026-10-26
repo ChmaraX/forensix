@@ -1,0 +1,123 @@
+name: release-please
+
+# One version line for the whole product: tag `v<version>`, one GitHub Release
+# with the `forensix` npm tarball and the six Collector binaries, one
+# CHANGELOG.md (release-please-config.json, .release-please-manifest.json).
+#
+# A push to main opens or updates the release PR from Conventional Commits.
+# Merging the release PR tags the version and creates a DRAFT release. Then,
+# in this run, the analyzer and the Collector are built, verified, attested,
+# published to npm, and attached to the draft. The last job publishes the
+# draft. Immutable releases are on, so assets go on while it is a draft.
+#
+# Retry: run this workflow by hand with `tag` set to an existing release tag.
+# Every step is idempotent: a version already on npm is skipped, and a release
+# that is already published is not changed.
+#
+# npm trusted publishing (OIDC, no token secret) is configured on npmjs.com
+# against THIS workflow file, `release-please.yml`. npm checks the calling
+# workflow, not the reusable release-analyzer.yml. Do not rename this file.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build, publish, and undraft again (for example v2.0.0-alpha.1). Empty runs release-please only.
+        required: false
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: release-please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: rp
+
+      - name: Select the release tag
+        id: tag
+        env:
+          RELEASE_CREATED: ${{ steps.rp.outputs.release_created }}
+          RELEASE_TAG: ${{ steps.rp.outputs.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$RELEASE_CREATED" = "true" ]; then
+            tag="$RELEASE_TAG"
+          elif [ -n "${INPUT_TAG:-}" ]; then
+            tag="$INPUT_TAG"
+            if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+              echo "::error::$tag is not a release tag (v<semver>)."
+              exit 1
+            fi
+            gh release view "$tag" >/dev/null
+          else
+            echo "No release to build."
+            exit 0
+          fi
+          echo "Release tag: $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  analyzer:
+    name: analyzer
+    needs: release-please
+    if: needs.release-please.outputs.tag != ''
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release-analyzer.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag }}
+
+  collector:
+    name: collector
+    needs: release-please
+    if: needs.release-please.outputs.tag != ''
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release-collector.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag }}
+
+  # Publish the draft only after both builds attached their assets.
+  publish-release:
+    name: publish release
+    needs: [release-please, analyzer, collector]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the draft release
+        env:
+          TAG: ${{ needs.release-please.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "true" ]; then
+            echo "$TAG is already published."
+            exit 0
+          fi
+          prerelease=false
+          if [[ "$TAG" == *-* ]]; then
+            prerelease=true
+          fi
+          gh release edit "$TAG" --draft=false --prerelease="$prerelease"

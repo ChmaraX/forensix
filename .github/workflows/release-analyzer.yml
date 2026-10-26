@@ -1,62 +1,70 @@
 name: release-analyzer
 
-# The analyzer publishes on its own SemVer line and tag prefix `analyzer-v*`,
-# independently of the Collector (issue #188, AC5). Each release is gated by the
-# full offline verification. scripts/pack-analyzer.mjs then packs ONE
-# self-contained npm package, `forensix` (compiled CLI + bundled skill, with the
-# core, server, and client builds as bundled dependencies), and stamps the tag
-# version and git SHA into its package.json and dist/build-info.json. The
-# tarball is installed offline and smoked before anything is published. It
-# ships with checksums and a build-provenance attestation (AC6).
+# Called by release-please.yml for a release tag `v<version>`. It does not run
+# on its own. Each release is gated by the full offline verification.
+# scripts/pack-analyzer.mjs then packs ONE self-contained npm package,
+# `forensix` (compiled CLI + bundled skill, with the core, server, and client
+# builds as bundled dependencies), and stamps the tag version and git SHA into
+# its package.json and dist/build-info.json. The tarball is installed offline
+# and smoked before anything is published. It ships with checksums and a
+# build-provenance attestation.
 #
-# Order: npm publish (only when an NPM_TOKEN secret is present) runs BEFORE the
-# GitHub Release, so a failed publish leaves no partial release. Both steps are
-# idempotent: a rerun skips a version that npm already has and updates the
-# assets of a GitHub Release that already exists.
+# Order: npm publish runs BEFORE the assets go on the draft release, and the
+# caller publishes the draft only after this workflow succeeds. Both steps are
+# idempotent: a rerun skips a version that npm already has and replaces the
+# assets of a release that is still a draft.
 #
-# This workflow triggers ONLY on a matching tag push. Opening or merging a PR
-# never runs it, so merging this PR publishes nothing. The packaging path is
-# still validated on every PR by the `package-dry-run` job in analyzer.yml.
+# npm trusted publishing (OIDC): no NPM_TOKEN. npm accepts the OIDC token of
+# the CALLING workflow, release-please.yml, which is the workflow configured as
+# the trusted publisher on npmjs.com. npm adds provenance automatically.
 on:
-  push:
-    tags:
-      - "analyzer-v*"
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to build (for example v2.0.0-alpha.1)
+        required: true
+        type: string
 
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
+permissions: {}
 
 jobs:
   release:
     name: release analyzer (npm)
     runs-on: ubuntu-latest
-    env:
-      # Job-level so the publish step's `if` (evaluated in job context) can see it.
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag }}
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: .nvmrc
-          registry-url: https://registry.npmjs.org
+      # The Collector -> Analyzer E2E in verify:full builds the Go Collector;
+      # pin the same Go as the Collector workflow.
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: collector/go.mod
+          cache-dependency-path: collector/go.mod
 
       - name: Resolve version and SHA
         id: meta
+        env:
+          TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#analyzer-v}"
+          version="${TAG#v}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "tarball=dist/analyzer/forensix-$version.tgz" >> "$GITHUB_OUTPUT"
-          # A prerelease (1.2.3-beta.1) goes to the `next` dist-tag and is
-          # marked as a prerelease on GitHub; a release goes to `latest`.
+          # A prerelease (1.2.3-alpha.1) goes to the `next` dist-tag; a
+          # release goes to `latest`.
           if [[ "$version" == *-* ]]; then
             echo "dist_tag=next" >> "$GITHUB_OUTPUT"
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
             echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Enable Corepack
@@ -86,24 +94,39 @@ jobs:
           node scripts/smoke-analyzer-package.mjs "$TARBALL" \
             --version "$VERSION" --git-sha "$COMMIT"
 
+      # SHA256SUMS-analyzer, so it does not replace the Collector checksums on
+      # the same release.
       - name: Generate checksums
         working-directory: dist/analyzer
         run: |
           set -euo pipefail
-          sha256sum ./*.tgz > SHA256SUMS
-          cat SHA256SUMS
+          sha256sum forensix-*.tgz > SHA256SUMS-analyzer
+          cat SHA256SUMS-analyzer
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: "dist/analyzer/*.tgz"
 
+      # Trusted publishing needs npm 11.5.1 or newer.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          set -euo pipefail
+          current=$(npm --version)
+          if node -e '
+            const [a, b, c] = process.argv[1].split(".").map(Number);
+            process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1);
+          ' "$current"; then
+            echo "npm $current supports trusted publishing."
+          else
+            npm install -g npm@11
+            npm --version
+          fi
+
       # Publish the exact tarball that was smoked and attested. A rerun after a
       # later failure finds the version on npm and skips the publish.
       - name: Publish to npm
-        if: ${{ env.NPM_TOKEN != '' }}
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ steps.meta.outputs.version }}
           DIST_TAG: ${{ steps.meta.outputs.dist_tag }}
           TARBALL: ${{ steps.meta.outputs.tarball }}
@@ -114,26 +137,18 @@ jobs:
             echo "forensix@$VERSION is already on npm; skipping publish."
             exit 0
           fi
-          npm publish "$TARBALL" --access public --provenance --tag "$DIST_TAG"
+          npm publish "$TARBALL" --access public --tag "$DIST_TAG"
 
-      - name: Create or update the GitHub Release
+      # Immutable releases: assets can change only while the release is a draft.
+      - name: Attach the tarball and checksums to the draft release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.meta.outputs.version }}
-          COMMIT: ${{ steps.meta.outputs.sha }}
-          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          assets=(dist/analyzer/*.tgz dist/analyzer/SHA256SUMS)
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "true" ]; then
+            echo "$TAG is already published; its assets cannot change."
             exit 0
           fi
-          flags=()
-          if [ "$PRERELEASE" = "true" ]; then
-            flags+=(--prerelease)
-          fi
-          gh release create "$GITHUB_REF_NAME" "${flags[@]}" \
-            --title "Analyzer $VERSION" \
-            --notes "Analyzer $VERSION ($COMMIT). The \`forensix\` npm package tarball with checksums and a provenance attestation. Install: \`npm i -g forensix@$VERSION\`, or \`npm i -g ./forensix-$VERSION.tgz\` from the attached tarball." \
-            "${assets[@]}"
+          gh release upload "$TAG" dist/analyzer/forensix-*.tgz \
+            dist/analyzer/SHA256SUMS-analyzer --clobber

@@ -2,9 +2,9 @@ name: analyzer
 
 on:
   pull_request:
-    branches: [v2, master]
+    branches: [main]
   push:
-    branches: [v2, master]
+    branches: [main]
 
 permissions:
   contents: read
@@ -109,13 +109,13 @@ jobs:
       - name: Bounded scale gate (25k visits, 180s budget)
         run: corepack pnpm verify:scale 25000 180000
 
-  # Release packaging DRY RUN. Runs the exact packaging path of the
-  # analyzer-v* release (scripts/pack-analyzer.mjs: one self-contained
-  # `forensix` package, version + git SHA stamped at pack time), then installs
-  # the tarball offline into an empty directory and smokes the INSTALLED binary
-  # (--version, skill get, ingest -> analyse -> history, serve). It publishes
-  # NOTHING: no provenance attestation, no GitHub Release, no npm publish.
-  # Those run only from the tag-triggered release-analyzer.yml workflow.
+  # Release packaging DRY RUN. Runs the exact packaging path of the release
+  # (scripts/pack-analyzer.mjs: one self-contained `forensix` package,
+  # version + git SHA stamped at pack time), then installs the tarball offline
+  # into an empty directory and smokes the INSTALLED binary (--version, skill
+  # get, ingest -> analyse -> history, serve). It publishes NOTHING: no
+  # provenance attestation, no GitHub Release, no npm publish. Those run only
+  # from release-please.yml when a release PR is merged.
   package-dry-run:
     name: package (dry run)
     runs-on: ubuntu-latest
@@ -145,5 +145,5 @@ jobs:
         working-directory: dist/analyzer
         run: |
           set -euo pipefail
-          sha256sum ./*.tgz > SHA256SUMS
-          cat SHA256SUMS
+          sha256sum forensix-*.tgz > SHA256SUMS-analyzer
+          cat SHA256SUMS-analyzer

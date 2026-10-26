@@ -1,6 +1,6 @@
 {
   "name": "@forensix/cli",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0-alpha.0",
   "private": true,
   "type": "module",
   "bin": {

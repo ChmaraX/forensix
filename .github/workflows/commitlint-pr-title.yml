@@ -1,12 +1,12 @@
 name: commitlint-pr-title
 
-# Squash-merge promotes the PR title to the commit that lands on v2/master, so
-# the title itself must be a valid Conventional Commit. This job lints it.
+# Squash-merge promotes the PR title to the commit that lands on main, so the
+# title itself must be a valid Conventional Commit. This job lints it.
 
 on:
   pull_request:
     types: [opened, edited, reopened, synchronize]
-    branches: [v2, master]
+    branches: [main]
 
 permissions:
   contents: read
