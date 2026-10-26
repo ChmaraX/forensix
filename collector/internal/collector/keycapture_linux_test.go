@@ -18,12 +18,18 @@ func TestLinuxKeyStoreAdapterRejectsNetworkDBusTransportBeforeDial(t *testing.T)
 			_ = os.Unsetenv("DBUS_SESSION_BUS_ADDRESS")
 		}
 	})
-	if err := os.Setenv("DBUS_SESSION_BUS_ADDRESS", "tcp:host=127.0.0.1,port=1"); err != nil {
-		t.Fatal(err)
-	}
-	_, err := dialLocalSessionBus()
-	if err == nil || !strings.Contains(err.Error(), "non-local") {
-		t.Fatalf("network D-Bus transport was not refused: %v", err)
+	for _, address := range []string{
+		"tcp:host=127.0.0.1,port=1",
+		// A unix entry first must not hide a network fallback entry.
+		"unix:path=/nonexistent/forensix-test-bus;tcp:host=127.0.0.1,port=1",
+	} {
+		if err := os.Setenv("DBUS_SESSION_BUS_ADDRESS", address); err != nil {
+			t.Fatal(err)
+		}
+		_, err := dialLocalSessionBus()
+		if err == nil || !strings.Contains(err.Error(), "non-local") {
+			t.Fatalf("network D-Bus transport in %q was not refused: %v", address, err)
+		}
 	}
 }
 

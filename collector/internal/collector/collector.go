@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -180,10 +182,11 @@ func (c Collector) Run(opts Options) (BundleManifest, error) {
 		outcome.BundlePath = bundleRel
 		if collectErr == nil {
 			if err := os.Rename(staging, destination); err != nil {
-				outcome.Outcome, outcome.Error, collectErr = Failed, err.Error(), err
+				outcome.Outcome, collectErr = Failed, err
 			}
 		}
 		if collectErr != nil {
+			outcome.Error = collectErr.Error()
 			_ = os.RemoveAll(staging)
 		}
 		manifest.UserDataDirs = append(manifest.UserDataDirs, outcome)
@@ -212,7 +215,7 @@ func (c Collector) Run(opts Options) (BundleManifest, error) {
 	if err := conformance.WriteJSON(filepath.Join(tmp, "bundle_manifest.json"), manifest); err != nil {
 		return manifest, err
 	}
-	if err := os.Rename(tmp, opts.Output); err != nil {
+	if err := publishStaging(tmp, opts.Output); err != nil {
 		return manifest, fmt.Errorf("publish bundle: %w", err)
 	}
 	committed = true
@@ -223,7 +226,6 @@ func collectUserDataDir(found platformscanner.UserDataDir, destination string, o
 	result := BundleUserDataDir{AccountID: found.AccountID, SourcePath: found.Path, Outcome: Failed, LivenessEvidence: []string{}}
 	plan, err := planAcquisition(found, opts.IncludeBulk)
 	if err != nil {
-		result.Error = err.Error()
 		return result, err
 	}
 	result.ChromeRunning = plan.running
@@ -232,7 +234,7 @@ func collectUserDataDir(found platformscanner.UserDataDir, destination string, o
 	}
 	result.LivenessExplanation = livenessExplanation(plan.running, plan.liveness)
 	if plan.running && !opts.ContinueIfRunning {
-		result.Outcome, result.Error = SkippedRunning, ErrChromeRunning.Error()
+		result.Outcome = SkippedRunning
 		return result, ErrChromeRunning
 	}
 	if testHookAfterInventory != nil {
@@ -242,7 +244,6 @@ func collectUserDataDir(found platformscanner.UserDataDir, destination string, o
 		return result, err
 	}
 	if err := plan.materialize(destination); err != nil {
-		result.Error = err.Error()
 		return result, err
 	}
 	entries := plan.manifestEntries()
@@ -337,10 +338,51 @@ func prepareOutput(output string) error {
 	if err := os.MkdirAll(filepath.Dir(output), 0o700); err != nil {
 		return fmt.Errorf("create output parent: %w", err)
 	}
-	if err := os.Mkdir(output+".partial", 0o700); err != nil {
+	staging := output + ".partial"
+	err := os.Mkdir(staging, 0o700)
+	if errors.Is(err, fs.ErrExist) {
+		if err := removeStaleStaging(staging); err != nil {
+			return err
+		}
+		err = os.Mkdir(staging, 0o700)
+	}
+	if err != nil {
 		return fmt.Errorf("create bundle staging directory: %w", err)
 	}
+	if err := os.WriteFile(filepath.Join(staging, stagingOwnerFile), []byte(strconv.Itoa(os.Getpid())), 0o600); err != nil {
+		_ = os.RemoveAll(staging)
+		return fmt.Errorf("record bundle staging owner: %w", err)
+	}
 	return nil
+}
+
+// stagingOwnerFile holds the process ID of the run that owns `<out>.partial`.
+// A killed run leaves it behind; the next run removes the staging directory
+// only when that process is no longer alive.
+const stagingOwnerFile = ".forensix-owner-pid"
+
+func removeStaleStaging(staging string) error {
+	content, err := os.ReadFile(filepath.Join(staging, stagingOwnerFile))
+	pid, parseErr := strconv.Atoi(string(content))
+	if err != nil || parseErr != nil || pid <= 0 {
+		return fmt.Errorf("bundle staging directory %s exists without an owner process ID; remove it if no collection is running", staging)
+	}
+	if processAlive(pid) {
+		return fmt.Errorf("bundle staging directory %s is in use by running process %d", staging, pid)
+	}
+	if err := os.RemoveAll(staging); err != nil {
+		return fmt.Errorf("remove stale bundle staging directory %s: %w", staging, err)
+	}
+	return nil
+}
+
+// publishStaging removes the owner file and moves the finished staging
+// directory to the output path.
+func publishStaging(staging, output string) error {
+	if err := os.Remove(filepath.Join(staging, stagingOwnerFile)); err != nil {
+		return err
+	}
+	return os.Rename(staging, output)
 }
 
 func safeComponent(value string) string {
