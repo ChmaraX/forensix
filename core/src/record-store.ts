@@ -463,19 +463,20 @@ export function decodeIdentityCandidate(
   store: RecordStore,
   row: StoredRecordRow,
 ): Identified<IdentityCandidateRecord> {
-  const id = recordId(store.key, row.row_id);
-  const { provenance, fields } = decodeRecordJson(row, id);
+  // The Candidate decoder checks rank, count, Provenance and fields.
+  const { id, candidateKind, rank, count, provenance, fields } =
+    decodeCandidate(store, row);
   if (row.category !== "identity" && row.category !== "behavior") {
     throw invalidRecord("Case contains an invalid Candidate category.", id);
   }
   return {
     id,
     recordType: "candidate",
-    candidateKind: row.kind,
+    candidateKind,
     category: row.category,
     profile: row.profile_path,
-    rank: Number(row.rank),
-    supportingCount: Number(row.supporting_count),
+    rank,
+    supportingCount: count,
     provenance,
     fields,
   };

@@ -382,6 +382,6 @@ export {
   parseOption,
   type QueryDirection,
 } from "./finding-query.js";
-export * from "./serve-lock.js";
+export * from "./case-lock.js";
 
 export const MINIMUM_NODE_VERSION = "24.15.0" as const;

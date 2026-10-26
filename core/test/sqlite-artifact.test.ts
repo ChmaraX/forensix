@@ -162,17 +162,21 @@ describe("readSqlitePasses snapshot cleanup", () => {
   );
 });
 
+/** The owner record of a ForensiX process with this PID. */
+const forensixOwner = (pid: number): string =>
+  JSON.stringify({ tool: "forensix", pid, nonce: "left" });
+
 /** A snapshot directory as a read leaves it, with a copied secret store. */
 async function leftSnapshot(
   snapshots: string,
   name: string,
-  ownerPid: number | null,
+  owner: string | null,
 ): Promise<string> {
   const directory = join(snapshots, name);
   await mkdir(join(directory, "1"), { recursive: true });
   await writeFile(join(directory, "1", "Login Data"), "copied secrets");
-  if (ownerPid !== null) {
-    await writeFile(join(directory, "owner.pid"), String(ownerPid));
+  if (owner !== null) {
+    await writeFile(join(directory, ".forensix-owner"), owner);
   }
   return name;
 }
@@ -186,14 +190,14 @@ describe("readSqlitePasses stale snapshot sweep", () => {
     await leftSnapshot(
       snapshots,
       "forensix-login-data-snapshot-Ab12Cd",
-      deadPid,
+      forensixOwner(deadPid),
     );
     const live = await leftSnapshot(
       snapshots,
       "forensix-cookies-snapshot-Ef34Gh",
-      process.pid,
+      forensixOwner(process.pid),
     );
-    // A process stopped before it wrote its PID leaves no owner file.
+    // A directory without an owner record is never removed, however old.
     const ownerlessOld = await leftSnapshot(
       snapshots,
       "forensix-history-snapshot-Ij56Kl",
@@ -201,15 +205,21 @@ describe("readSqlitePasses stale snapshot sweep", () => {
     );
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
     await utimes(join(snapshots, ownerlessOld), twoHoursAgo, twoHoursAgo);
-    const ownerlessNew = await leftSnapshot(
+    // Nor is one whose owner record is not a ForensiX record.
+    const plainPid = await leftSnapshot(
       snapshots,
       "forensix-favicons-snapshot-Mn78Op",
-      null,
+      String(deadPid),
+    );
+    const foreign = await leftSnapshot(
+      snapshots,
+      "forensix-top-sites-snapshot-Uv12Wx",
+      JSON.stringify({ tool: "other", pid: deadPid, nonce: "left" }),
     );
     const unrelated = await leftSnapshot(
       snapshots,
       "forensix-acquisition-Qr90St",
-      deadPid,
+      forensixOwner(deadPid),
     );
 
     const passes = await readSqlitePasses({
@@ -222,26 +232,30 @@ describe("readSqlitePasses stale snapshot sweep", () => {
 
     expect(passes.committed).toEqual([{ id: 1n, value: "alpha" }]);
     expect((await readdir(snapshots)).sort()).toEqual(
-      [live, ownerlessNew, unrelated].sort(),
+      [live, ownerlessOld, plainPid, foreign, unrelated].sort(),
     );
   });
 
-  it("records the owner PID in the snapshot directory of a read", async () => {
+  it("records a ForensiX owner record in the snapshot directory of a read", async () => {
     const { database, snapshots } = await prepare();
-    let owners: string[] = [];
+    let owners: unknown[] = [];
     await readSqlitePasses({
       artifact: "Cookies",
       database,
       sidecars: [],
       readPass: (open) => {
         owners = readdirSync(snapshots).map((name) =>
-          readFileSync(join(snapshots, name, "owner.pid"), "utf8"),
+          JSON.parse(
+            readFileSync(join(snapshots, name, ".forensix-owner"), "utf8"),
+          ),
         );
         return readRows(open);
       },
       sidecarOnly: (committed) => committed,
     });
-    expect(owners).toEqual([String(process.pid)]);
+    expect(owners).toEqual([
+      { tool: "forensix", pid: process.pid, nonce: expect.any(String) },
+    ]);
     expect(await readdir(snapshots)).toEqual([]);
   });
 });

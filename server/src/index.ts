@@ -29,7 +29,7 @@ import {
   QUERY_DIRECTIONS,
   TOP_SITE_SORTS,
   TOPIC_CANDIDATE_SORTS,
-  acquireServeLock,
+  acquireCaseLock,
   getRecord,
   parseOption,
   queryAutofill,
@@ -659,8 +659,9 @@ function handleRequest(
  * is no host option. Every API route opens the Case read-only.
  *
  * Returns a `DashboardServer` with the URL, the per-run token, the bound port,
- * the loopback host, and a `close()` handle that also releases the serve
- * lock. A second serve of the same Case stops with CASE_IN_USE.
+ * the loopback host, and a `close()` handle that also releases the Case
+ * lock. While the lock is held, `analyse` or a second `serve` of the same
+ * Case stops with CASE_IN_USE; a serve stops the same way while analyse runs.
  */
 export async function startDashboardServer(
   options: StartDashboardServerOptions,
@@ -668,9 +669,9 @@ export async function startDashboardServer(
   const token = randomBytes(32).toString("base64url");
   // Load the client bundle up front so a missing build fails before binding.
   const clientBundle = loadClientBundle();
-  // The serve lock makes `analyse` of this Case stop with CASE_IN_USE while
-  // the dashboard runs. It is a file outside the Case Directory.
-  const lock = await acquireServeLock(options.caseDirectory);
+  // The Case lock keeps `analyse` out of this Case while the dashboard runs.
+  // It is a file outside the Case Directory.
+  const lock = await acquireCaseLock(options.caseDirectory, "serve");
   const server: Server = createServer((request, response) => {
     handleRequest(
       request,

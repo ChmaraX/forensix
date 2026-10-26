@@ -961,20 +961,30 @@ export async function exportCase(
   await mkdir(dirname(physicalOut), { recursive: true });
   const staging = `${physicalOut}.tmp-${randomUUID()}`;
   await mkdir(staging);
+  let removedEmptyOut = false;
   try {
     for (const file of emitted) {
       await writeFile(join(staging, file.path), file.bytes, { flag: "wx" });
     }
     await assertEmptyOutDirectory(physicalOut);
     // An empty output directory is replaced; rmdir refuses one that is not.
-    await rmdir(physicalOut).catch((error: unknown) => {
-      if (filesystemErrorCode(error) !== "ENOENT") {
-        throw error;
-      }
-    });
+    await rmdir(physicalOut).then(
+      () => {
+        removedEmptyOut = true;
+      },
+      (error: unknown) => {
+        if (filesystemErrorCode(error) !== "ENOENT") {
+          throw error;
+        }
+      },
+    );
     await rename(staging, physicalOut);
   } catch (error) {
     await rm(staging, { recursive: true, force: true }).catch(() => undefined);
+    // Give the caller back the empty output directory that was removed.
+    if (removedEmptyOut) {
+      await mkdir(physicalOut).catch(() => undefined);
+    }
     throw error;
   }
 

@@ -193,6 +193,12 @@ async function createBundle(
       join(destination, "working_copy"),
       { recursive: true },
     );
+    const header = JSON.parse(
+      await readFile(join(input.caseDirectory, "manifest_header.json"), "utf8"),
+    ) as {
+      readonly evidence_set_digest: string;
+      readonly working_copy_digest: string;
+    };
     userDataDirs.push({
       account_id: input.account,
       bundle_path: bundlePath,
@@ -201,6 +207,8 @@ async function createBundle(
       chrome_running: false,
       liveness_evidence: [],
       liveness_explanation: "No supported Chrome Liveness Evidence was found.",
+      evidence_set_digest: header.evidence_set_digest,
+      working_copy_digest: header.working_copy_digest,
     });
   }
   await writeFixtureFile(
@@ -599,6 +607,60 @@ describe("compiled analyzer CLI Source kinds", () => {
     );
     // Bundle Histories are placeholders, so analysis exits failed (3).
     expect(runCli(["analyse", "--case", validCase, "--json"]).status).toBe(3);
+
+    // A User Data Dir outcome or field outside the bundle manifest schema is
+    // refused with a typed reason; it is never skipped in silence.
+    const manifestText = await readFile(
+      join(bundle, "bundle_manifest.json"),
+      "utf8",
+    );
+    for (const [label, replace] of [
+      [
+        "unknown-outcome",
+        (text: string) =>
+          text.replace('"outcome": "collected"', '"outcome": "copied"'),
+      ],
+      [
+        "failed-without-error",
+        (text: string) =>
+          text.replace('"outcome": "collected"', '"outcome": "failed"'),
+      ],
+      [
+        "collected-without-digest",
+        (text: string) =>
+          text.replace(
+            /"working_copy_digest": "[0-9a-f]{64}"/,
+            '"working_copy_digest": ""',
+          ),
+      ],
+    ] as const) {
+      const invalidBundle = join(root, `bundle-${label}`);
+      await cp(bundle, invalidBundle, { recursive: true });
+      const invalidText = replace(manifestText);
+      expect(invalidText, label).not.toBe(manifestText);
+      await writeFile(join(invalidBundle, "bundle_manifest.json"), invalidText);
+      const invalidCase = join(root, `CASE-${label}`);
+      const refused = runCli([
+        "ingest",
+        invalidBundle,
+        "--source-kind",
+        "ACQUISITION_BUNDLE",
+        "--case",
+        invalidCase,
+        "--json",
+      ]);
+      expect(refused.status, label).toBe(1);
+      expect(
+        parseJson<Record<string, unknown>>(refused.stderr),
+        label,
+      ).toMatchObject({
+        code: "INGEST_FAILED",
+        details: { reason: "bundle_manifest_invalid" },
+      });
+      await expect(lstat(invalidCase)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    }
 
     const damagedBundle = join(root, "damaged-bundle");
     await cp(bundle, damagedBundle, { recursive: true });

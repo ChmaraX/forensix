@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import {
   lstat,
   mkdir,
-  readFile,
   readdir,
   realpath,
   rename,
@@ -51,10 +50,14 @@ import {
   type SourceKind,
 } from "./manifest.js";
 import {
+  ownerIsDead,
+  removeOwnerMarker,
+  writeOwnerMarker,
+} from "./owner-marker.js";
+import {
   CHROME_USERDATA_POLICY,
   browserLevelEvidence,
 } from "./selection-policy.js";
-import { isProcessAlive } from "./serve-lock.js";
 import {
   discoverChromeSources,
   type DiscoveredChromeSource,
@@ -561,14 +564,12 @@ function bundleVerificationResult(
   };
 }
 
-/** The staging marker that holds the PID of the ingest that owns it. */
-const STAGING_OWNER_FILE = ".forensix-staging-owner";
-
 /**
  * Remove the `<case>.tmp-*` staging directories that a killed ingest left
  * beside the Case Directory. A staging directory holds a full Working Copy,
- * secrets included. Only a staging directory whose owner PID is dead is
- * removed; a live or unknown owner is never touched.
+ * secrets included. Only a staging directory with a ForensiX owner record
+ * whose PID is dead is removed; a live, unknown or foreign owner is never
+ * touched.
  */
 async function removeStaleStaging(caseDirectory: string): Promise<void> {
   const parent = dirname(caseDirectory);
@@ -578,16 +579,7 @@ async function removeStaleStaging(caseDirectory: string): Promise<void> {
       continue;
     }
     const staging = join(parent, name);
-    const owner = await readFile(join(staging, STAGING_OWNER_FILE), "utf8")
-      .then((text) => Number(text.trim()))
-      .catch(() => null);
-    if (
-      owner !== null &&
-      Number.isSafeInteger(owner) &&
-      owner > 0 &&
-      !isProcessAlive(owner) &&
-      (await lstat(staging)).isDirectory()
-    ) {
+    if ((await ownerIsDead(staging)) && (await lstat(staging)).isDirectory()) {
       await rm(staging, { recursive: true, force: true });
     }
   }
@@ -664,14 +656,7 @@ export async function* ingestSource(
     `${basename(caseDirectory)}.tmp-${randomUUID()}`,
   );
   await mkdir(stagingDirectory, { recursive: false, mode: 0o700 });
-  await writeFile(
-    join(stagingDirectory, STAGING_OWNER_FILE),
-    `${process.pid}\n`,
-    {
-      flag: "wx",
-      mode: 0o600,
-    },
-  );
+  await writeOwnerMarker(stagingDirectory);
 
   try {
     const includeTier2 = options.includeTier2 ?? false;
@@ -704,7 +689,7 @@ export async function* ingestSource(
       sources: prepared.sources,
       bundleVerification: prepared.bundleVerification,
     });
-    await rm(join(stagingDirectory, STAGING_OWNER_FILE));
+    await removeOwnerMarker(stagingDirectory);
     await rename(stagingDirectory, caseDirectory);
 
     yield {

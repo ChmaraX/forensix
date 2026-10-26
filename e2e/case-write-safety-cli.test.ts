@@ -1,8 +1,9 @@
 /**
  * Write-side safety of the Case commands, through the compiled CLI:
  *
- *  - `analyse` refuses a Case that a live `serve` holds (serve lock outside
- *    the Case Directory) and removes a stale lock whose owner is dead;
+ *  - `analyse` and `serve` exclude each other through one Case lock outside
+ *    the Case Directory; a killed holder does not block the Case, and only
+ *    one of many parallel contenders wins the lock;
  *  - a failed `export` leaves no partial Extract, so a rerun succeeds;
  *  - a killed `ingest` leaves a staging directory (a full Working Copy) that
  *    the next ingest removes, while a live ingest's staging stays.
@@ -11,6 +12,7 @@
  * (`fs/promises` patched), so the CLI code under test is unchanged.
  */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
@@ -29,7 +31,7 @@ import { pathToFileURL } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { acquireServeLock } from "../core/dist/serve-lock.js";
+import { acquireCaseLock } from "../core/dist/case-lock.js";
 import {
   compiledCli,
   parseJson,
@@ -124,12 +126,54 @@ function analyse(caseDirectory: string): CliResult {
   ]);
 }
 
-/** The serve lock path of a Case, as `serve` and `analyse` compute it. */
-async function serveLockPath(caseDirectory: string): Promise<string> {
+/** The Case lock files of a Case, as `serve` and `analyse` name them. */
+async function caseLockFiles(caseDirectory: string): Promise<string[]> {
   const digest = createHash("sha256")
     .update(await realpath(caseDirectory))
     .digest("hex");
-  return join(tmpdir(), `forensix-serve-${digest.slice(0, 16)}.lock`);
+  const prefix = `forensix-case-${digest.slice(0, 16)}.lock`;
+  return (await readdir(tmpdir()))
+    .filter((name) => name.startsWith(prefix))
+    .map((name) => join(tmpdir(), name))
+    .sort();
+}
+
+/**
+ * Write a script that takes the Case lock as `serve` and prints `won` or the
+ * error code. The winner holds the lock until its stdin ends. With `die`, it
+ * is killed while it holds the lock.
+ */
+async function writeContender(
+  root: string,
+  caseDirectory: string,
+): Promise<string> {
+  const path = join(root, "contender.mjs");
+  const caseLock = pathToFileURL(
+    join(import.meta.dirname, "..", "core", "dist", "case-lock.js"),
+  ).href;
+  await writeFile(
+    path,
+    `import { acquireCaseLock } from ${JSON.stringify(caseLock)};
+const [mode, start] = process.argv.slice(2);
+while (Date.now() < Number(start ?? 0)) {}
+try {
+  await acquireCaseLock(${JSON.stringify(caseDirectory)}, "serve");
+  if (mode === "die") process.kill(process.pid, "SIGKILL");
+  process.stdout.write("won\\n");
+  process.stdin.resume();
+  process.stdin.on("end", () => process.exit(0));
+} catch (error) {
+  process.stdout.write(String(error.code ?? error.message) + "\\n");
+}
+`,
+  );
+  return path;
+}
+
+/** Kill a holder while it holds the Case lock. */
+function leaveStaleLock(contender: string): void {
+  const killed = spawnSync(process.execPath, [contender, "die"]);
+  expect(killed.signal).toBe("SIGKILL");
 }
 
 /** The PID of a process that has already exited. */
@@ -193,29 +237,52 @@ async function stagingDirectories(
     .sort();
 }
 
-describe("analyse and the serve lock", () => {
-  it("refuses a Case a live serve holds and ignores a stale lock", async () => {
+interface CaseInUse {
+  readonly code: string;
+  readonly details: { readonly holder: string; readonly pid: number };
+}
+
+/** Run `serve` of a Case; a serve that is not refused is stopped after 15 s. */
+function serve(caseDirectory: string): CliResult {
+  const result = spawnSync(
+    process.execPath,
+    [compiledCli, "serve", "--case", caseDirectory, "--port", "0", "--json"],
+    { encoding: "utf8", timeout: 15_000 },
+  );
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+}
+
+describe("the Case lock of analyse and serve", () => {
+  it("refuses analyse and a second serve while serve holds the Case, and a killed holder does not block it", async () => {
     const root = await temporaryRoot();
     const caseDirectory = await ingest(root);
-    const lockPath = await serveLockPath(caseDirectory);
 
     // This test process takes the lock, as `serve` does on start.
-    const lock = await acquireServeLock(caseDirectory);
+    const lock = await acquireCaseLock(caseDirectory, "serve");
     try {
-      expect((await readFile(lockPath, "utf8")).trim()).toBe(
-        String(process.pid),
-      );
+      const [lockFile, holderFile, ...others] =
+        await caseLockFiles(caseDirectory);
+      expect(others).toEqual([]);
+      expect(holderFile).toBe(`${lockFile as string}.holder.json`);
+      expect(JSON.parse(await readFile(holderFile as string, "utf8"))).toEqual({
+        holder: "serve",
+        pid: process.pid,
+      });
       // The lock never lives inside the Case Directory.
-      expect(relative(caseDirectory, lockPath).startsWith("..")).toBe(true);
-      expect(await readdir(caseDirectory)).not.toContain(
-        lockPath.split(/[\\/]/).pop(),
+      expect(relative(caseDirectory, lockFile as string).startsWith("..")).toBe(
+        true,
       );
 
       const refused = analyse(caseDirectory);
       expect(refused.status).toBe(1);
-      expect(parseJson<{ code: string }>(refused.stderr).code).toBe(
-        "CASE_IN_USE",
-      );
+      expect(parseJson<CaseInUse>(refused.stderr)).toMatchObject({
+        code: "CASE_IN_USE",
+        details: { holder: "serve", pid: process.pid, lockPath: lockFile },
+      });
       // The refusal comes before any write: the Case has no Analysis Run.
       const database = new DatabaseSync(join(caseDirectory, "case.fxdb"), {
         readOnly: true,
@@ -233,21 +300,137 @@ describe("analyse and the serve lock", () => {
       }
 
       // A second serve on the same Case is refused too.
-      await expect(acquireServeLock(caseDirectory)).rejects.toMatchObject({
-        code: "CASE_IN_USE",
-      });
+      await expect(
+        acquireCaseLock(caseDirectory, "serve"),
+      ).rejects.toMatchObject({ code: "CASE_IN_USE" });
     } finally {
       await lock.release();
     }
-    expect(existsSync(lockPath)).toBe(false);
+    expect(analyse(caseDirectory).status).toBe(0);
 
-    // A serve that died without release leaves a stale lock.
-    await writeFile(lockPath, `${deadPid()}\n`);
+    // A serve killed while it holds the lock does not block the Case: the
+    // operating system releases its lock when the process ends.
+    leaveStaleLock(await writeContender(root, caseDirectory));
     const analysed = analyse(caseDirectory);
     expect(analysed.status).toBe(0);
     expect(parseJson<{ status: string }>(analysed.stdout).status).toBe("ok");
-    expect(existsSync(lockPath)).toBe(false);
   });
+
+  it("refuses serve while analyse holds the Case", async () => {
+    const root = await temporaryRoot();
+    const caseDirectory = await ingest(root);
+    const lock = await acquireCaseLock(caseDirectory, "analyse");
+    try {
+      const refused = serve(caseDirectory);
+      expect(refused.status).toBe(1);
+      expect(parseJson<CaseInUse>(refused.stderr)).toMatchObject({
+        code: "CASE_IN_USE",
+        details: { holder: "analyse", pid: process.pid },
+      });
+      // A second analyse is refused the same way.
+      expect(parseJson<CaseInUse>(analyse(caseDirectory).stderr)).toMatchObject(
+        { code: "CASE_IN_USE", details: { holder: "analyse" } },
+      );
+    } finally {
+      await lock.release();
+    }
+  });
+
+  it("holds the lock for the whole analyse run", async () => {
+    const root = await temporaryRoot();
+    const caseDirectory = await ingest(root);
+    const ready = join(root, "analyse-storing");
+    // Stop analyse where it starts to store the run: after every parser ran.
+    const preload = join(root, "hang-analyse.mjs");
+    await writeFile(
+      preload,
+      `import { writeFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
+const original = DatabaseSync.prototype.exec;
+DatabaseSync.prototype.exec = function (sql) {
+  if (String(sql).startsWith("BEGIN IMMEDIATE")) {
+    writeFileSync(${JSON.stringify(ready)}, "ready");
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 60_000);
+  }
+  return original.call(this, sql);
+};
+`,
+    );
+    const running = spawn(
+      process.execPath,
+      [
+        "--import",
+        pathToFileURL(preload).href,
+        compiledCli,
+        "analyse",
+        "--case",
+        caseDirectory,
+        "--no-topic-classification",
+        "--json",
+      ],
+      { stdio: "ignore" },
+    );
+    children.push(running);
+    await expect.poll(() => existsSync(ready), { timeout: 15_000 }).toBe(true);
+
+    const refused = serve(caseDirectory);
+    expect(refused.status).toBe(1);
+    expect(parseJson<CaseInUse>(refused.stderr)).toMatchObject({
+      code: "CASE_IN_USE",
+      details: { holder: "analyse", pid: running.pid },
+    });
+
+    // A killed analyse does not block the Case: its lock ends with it.
+    running.kill("SIGKILL");
+    await once(running, "exit");
+    const lock = await acquireCaseLock(caseDirectory, "serve");
+    await lock.release();
+  });
+
+  it("lets exactly one of many parallel contenders take the lock after a killed holder", async () => {
+    const root = await temporaryRoot();
+    const caseDirectory = await ingest(root);
+    const contender = await writeContender(root, caseDirectory);
+    for (let round = 0; round < 10; round += 1) {
+      leaveStaleLock(contender);
+      // All contenders start at the same time, after their start-up.
+      const start = String(Date.now() + 500);
+      const contenders = Array.from({ length: 8 }, () => {
+        const child = spawn(process.execPath, [contender, "race", start], {
+          stdio: ["pipe", "pipe", "inherit"],
+        });
+        children.push(child);
+        return child;
+      });
+      const outcomes = await Promise.all(
+        contenders.map(
+          (child) =>
+            new Promise<string>((resolvePromise) => {
+              let output = "";
+              child.stdout?.on("data", (chunk: Buffer) => {
+                output += chunk.toString("utf8");
+                if (output.includes("\n")) resolvePromise(output.trim());
+              });
+              child.on("exit", () => {
+                resolvePromise(output.trim());
+              });
+            }),
+        ),
+      );
+      for (const child of contenders) child.stdin?.end();
+      await Promise.all(
+        contenders.map((child) =>
+          child.exitCode === null ? once(child, "exit") : undefined,
+        ),
+      );
+      expect(outcomes.filter((outcome) => outcome === "won")).toHaveLength(1);
+      expect(outcomes.filter((outcome) => outcome !== "won")).toEqual(
+        Array.from({ length: 7 }, () => "CASE_IN_USE"),
+      );
+      // One lock database and its holder note; no other lock files.
+      expect(await caseLockFiles(caseDirectory)).toHaveLength(2);
+    }
+  }, 60_000);
 });
 
 describe("export after a failed write", () => {
@@ -291,6 +474,42 @@ describe("export after a failed write", () => {
       .trim()
       .split("\n");
     expect(findings.length).toBeGreaterThan(0);
+    expect(await stagingDirectories(root, "extract")).toEqual([]);
+  });
+
+  it("keeps an existing empty --out when the publish rename fails", async () => {
+    const root = await temporaryRoot();
+    const caseDirectory = await ingest(root);
+    expect(analyse(caseDirectory).status).toBe(0);
+    const out = join(root, "extract");
+    await mkdir(out);
+    // Fail the rename that publishes the staging directory as --out.
+    const preload = join(root, "fail-publish.mjs");
+    await writeFile(
+      preload,
+      `import fs from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
+const original = fs.rename;
+fs.rename = async (from, to, ...rest) => {
+  if (String(to) === ${JSON.stringify(out)}) {
+    throw Object.assign(new Error("injected rename failure"), { code: "EIO" });
+  }
+  return original(from, to, ...rest);
+};
+syncBuiltinESMExports();
+`,
+    );
+
+    const failed = runCliWithPreload(pathToFileURL(preload).href, [
+      "export",
+      "--case",
+      caseDirectory,
+      "--out",
+      out,
+      "--json",
+    ]);
+    expect(failed.status).toBe(1);
+    expect(await readdir(out)).toEqual([]);
     expect(await stagingDirectories(root, "extract")).toEqual([]);
   });
 
@@ -350,6 +569,14 @@ describe("ingest staging left by a killed ingest", () => {
       ),
     ).toBe(true);
 
+    // Staging without a ForensiX owner record, or with a foreign one, is
+    // never removed: it may not be ForensiX's.
+    const unmarked = join(cases, "CASE.tmp-unmarked");
+    const foreign = join(cases, "CASE.tmp-foreign");
+    await mkdir(unmarked);
+    await mkdir(foreign);
+    await writeFile(join(foreign, ".forensix-owner"), `${deadPid()}\n`);
+
     // 2. A second ingest of the same Case path is still running.
     const live = spawn(
       process.execPath,
@@ -367,14 +594,19 @@ describe("ingest staging left by a killed ingest", () => {
     children.push(live);
     await expect.poll(() => existsSync(ready), { timeout: 15_000 }).toBe(true);
     const liveStaging = (await stagingDirectories(cases, "CASE")).filter(
-      (entry) => entry !== dead,
+      (entry) =>
+        entry !== dead &&
+        entry !== "CASE.tmp-unmarked" &&
+        entry !== "CASE.tmp-foreign",
     );
     expect(liveStaging).toHaveLength(1);
 
     // 3. A third ingest removes the dead staging, keeps the live one.
     const third = runCli(["ingest", source, "--case", caseDirectory, "--json"]);
     expect(third.status).toBe(0);
-    expect(await stagingDirectories(cases, "CASE")).toEqual(liveStaging);
+    expect(await stagingDirectories(cases, "CASE")).toEqual(
+      ["CASE.tmp-foreign", "CASE.tmp-unmarked", ...liveStaging].sort(),
+    );
     expect(existsSync(join(caseDirectory, "case.fxdb"))).toBe(true);
     // The Case holds what a clean ingest writes, and nothing more.
     const clean = join(root, "CLEAN");

@@ -235,7 +235,7 @@ const SECTIONS: readonly UsageSection[] = [
   {
     command: "serve",
     text: `  forensix serve --case <case-directory> [--port <port>] [--json]
-                   While serve runs, analyse of the same Case stops with CASE_IN_USE.`,
+                   serve and analyse of the same Case exclude each other (CASE_IN_USE).`,
   },
   {
     command: "export",

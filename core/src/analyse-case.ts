@@ -17,6 +17,7 @@ import {
   type TopSitesArtifactWrite,
   type WebDataArtifactWrite,
 } from "./case-findings.js";
+import { acquireCaseLock } from "./case-lock.js";
 import { loadCaseSources, workingCopyAbsolutePath } from "./case.js";
 import { analyseSourceCookies } from "./cookies.js";
 import { analyseDownloadsProfile } from "./downloads.js";
@@ -35,7 +36,6 @@ import {
 } from "./key-material.js";
 import { DECRYPTION_DISABLED, type DecryptionSettings } from "./oscrypt.js";
 import { analyseSourcePreferences } from "./preferences.js";
-import { assertNoLiveServeLock } from "./serve-lock.js";
 import { analyseSourceTopSites } from "./top-sites.js";
 import { type EmbeddingEngine } from "./topic-candidates.js";
 import { verifyWorkingCopy, type WorkingCopyVerification } from "./verify.js";
@@ -259,13 +259,26 @@ export interface AnalyseCaseResult extends Omit<
  * an encrypted value stays `unavailable` with a typed reason whenever key
  * material is missing or fails.
  *
+ * The pass holds the Case lock from start to end, so a `serve` or a second
+ * `analyse` of the same Case stops with `CASE_IN_USE` while it runs.
+ *
  * Returns the per-artifact summaries, the new `runId`, and the run exit state.
  */
 export async function analyseCase(
   options: AnalyseCaseOptions,
 ): Promise<AnalyseCaseResult> {
+  const lock = await acquireCaseLock(options.caseDirectory, "analyse");
+  try {
+    return await runAnalysis(options);
+  } finally {
+    await lock.release();
+  }
+}
+
+async function runAnalysis(
+  options: AnalyseCaseOptions,
+): Promise<AnalyseCaseResult> {
   const caseDirectory = resolve(options.caseDirectory);
-  await assertNoLiveServeLock(caseDirectory);
   const declaredTimezone = validateDeclaredTimezone(
     options.declaredTimezone ?? "UTC",
   );

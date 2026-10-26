@@ -127,11 +127,12 @@ The accepted values are `windows`, `macos`, and `linux`.
 The command refuses a missing, moved, changed, or extended Working Copy.
 The refusal has the JSON code `WORKING_COPY_INTEGRITY_REFUSAL`.
 
-`analyse` stops with `CASE_IN_USE` when a `forensix serve` process has the Case open.
-Stop `serve`, then run `analyse` again.
-The serve lock is a file in the temporary directory of the system, not in the Case Directory.
-When its process is not running, `analyse` removes it.
-A second `serve` of the same Case also stops with `CASE_IN_USE`.
+`analyse` and `serve` of the same Case exclude each other.
+Two `analyse` processes or two `serve` processes of the same Case also exclude each other.
+The second command stops with `CASE_IN_USE`, and the error details name the holder (`analyse` or `serve`) and its PID.
+Stop the holder, or let it complete, then run the command again.
+The Case lock is a file lock on a database in the temporary directory of the system, not in the Case Directory.
+The operating system releases the lock when its process stops, also when the process is killed.
 
 ### Analysis Run identity
 

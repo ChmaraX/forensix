@@ -1121,9 +1121,10 @@ describe("compiled analyzer CLI dashboard origin check", () => {
     const serving = runningServers.at(-1);
     const analyse = runCli(["analyse", "--case", caseDirectory, "--json"]);
     expect(analyse.status).toBe(1);
-    expect(
-      (JSON.parse(analyse.stderr.trim()) as { readonly code: string }).code,
-    ).toBe("CASE_IN_USE");
+    expect(JSON.parse(analyse.stderr.trim())).toMatchObject({
+      code: "CASE_IN_USE",
+      details: { holder: "serve", pid: serving?.pid },
+    });
     await expect(startServer(caseDirectory)).rejects.toThrow(
       "serve exited early with code 1",
     );

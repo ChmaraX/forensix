@@ -1,13 +1,4 @@
-import {
-  lstat,
-  mkdir,
-  mkdtemp,
-  open,
-  readFile,
-  readdir,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, open, readdir, rm } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -30,6 +21,7 @@ import {
   WINDOWS_EPOCH_OFFSET_MICROS,
 } from "./forensic-time.js";
 import type { ForensicTimestamp } from "./history.js";
+import { ownerIsDead, writeOwnerMarker } from "./owner-marker.js";
 import { openDatabaseSync } from "./sqlite-open.js";
 import { readStableRegularFile } from "./stable-file.js";
 
@@ -748,48 +740,21 @@ async function removeSnapshots(directory: string): Promise<string | null> {
 
 /** Snapshot directories are `forensix-<artifact>-snapshot-<random>`. */
 const SNAPSHOT_DIRECTORY = /^forensix-[a-z0-9-]+-snapshot-[A-Za-z0-9]+$/;
-/** Each snapshot directory holds the PID of the process that made it. */
-const SNAPSHOT_OWNER_FILE = "owner.pid";
-/**
- * A snapshot directory without an owner file was left by a process that was
- * stopped just after it made the directory. A live read writes the owner file
- * at once, so a directory this old without one has no live owner.
- */
-const OWNERLESS_SNAPSHOT_AGE_MS = 60 * 60 * 1000;
-
-function processIsAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    // EPERM: the process exists, but belongs to another user.
-    return (error as NodeJS.ErrnoException).code !== "ESRCH";
-  }
-}
-
 async function snapshotIsStale(directory: string): Promise<boolean> {
   const stats = await lstat(directory);
-  if (
-    !stats.isDirectory() ||
-    (process.getuid !== undefined && stats.uid !== process.getuid())
-  ) {
-    return false;
-  }
-  let owner: string;
-  try {
-    owner = await readFile(join(directory, SNAPSHOT_OWNER_FILE), "utf8");
-  } catch {
-    return Date.now() - stats.mtimeMs > OWNERLESS_SNAPSHOT_AGE_MS;
-  }
-  const pid = Number(owner);
-  return Number.isSafeInteger(pid) && pid > 0 && !processIsAlive(pid);
+  return (
+    stats.isDirectory() &&
+    (process.getuid === undefined || stats.uid === process.getuid()) &&
+    (await ownerIsDead(directory))
+  );
 }
 
 /**
  * Remove the snapshot directories that a killed process left in the
  * temporary directory. They can hold copies of secrets (Cookies, Login Data).
- * A directory is removed only when its owner process is dead, or when it has
- * no owner file and is old. The sweep is best effort and never fails a read.
+ * A directory is removed only when it holds a ForensiX owner record whose
+ * process is dead; any other directory stays. The sweep is best effort and
+ * never fails a read.
  */
 async function sweepStaleSnapshots(directory: string): Promise<void> {
   let names: string[];
@@ -871,11 +836,7 @@ export async function readSqlitePasses<Pass>(
   );
   let passes: Omit<SqlitePasses<Pass>, "cleanupFailureReason">;
   try {
-    await writeFile(
-      join(temporaryDirectory, SNAPSHOT_OWNER_FILE),
-      String(process.pid),
-      { mode: 0o600 },
-    );
+    await writeOwnerMarker(temporaryDirectory);
     passes = await readSnapshotPasses(options, temporaryDirectory);
   } catch (error) {
     // The read error is the result. A cleanup failure cannot replace it.

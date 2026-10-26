@@ -399,7 +399,7 @@ async function run(arguments_: readonly string[]): Promise<CommandOutcome> {
               `Press Ctrl+C to stop.\n`,
           );
         }
-        // Closing the server releases its serve lock.
+        // Closing the server releases its Case lock.
         const stop = (): void => {
           void server.close().finally(() => {
             process.exit(0);

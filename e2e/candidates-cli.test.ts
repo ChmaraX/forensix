@@ -403,7 +403,7 @@ describe("compiled analyzer CLI identity and behavior Candidates", () => {
     expect(metadata.items.length).toBeGreaterThan(0);
   });
 
-  it("reports a stored Candidate with an unknown Field State or bad Provenance as CASE_INVALID", async () => {
+  it("reports a stored Candidate with an unknown Field State, bad Provenance or bad rank as CASE_INVALID", async () => {
     const root = await mkdtemp(join(tmpdir(), "forensix-candidates-bad-"));
     temporaryRoots.push(root);
     const source = await createSource(root);
@@ -420,14 +420,29 @@ describe("compiled analyzer CLI identity and behavior Candidates", () => {
     const id = (first as { readonly id?: string } | undefined)?.id ?? "";
     const rowId = Number(id.split(":")[1]);
 
-    const tamper = (column: string, json: string): void => {
+    const original = new DatabaseSync(join(caseDirectory, "case.fxdb"), {
+      readOnly: true,
+    });
+    let provenanceJson: string;
+    try {
+      provenanceJson = (
+        original
+          .prepare(
+            "SELECT provenance_json FROM identity_candidates WHERE candidate_id = ?",
+          )
+          .get(rowId) as { readonly provenance_json: string }
+      ).provenance_json;
+    } finally {
+      original.close();
+    }
+    const tamper = (column: string, value: string | bigint): void => {
       const database = new DatabaseSync(join(caseDirectory, "case.fxdb"));
       try {
         database
           .prepare(
             `UPDATE identity_candidates SET ${column} = ? WHERE candidate_id = ?`,
           )
-          .run(json, rowId);
+          .run(value, rowId);
       } finally {
         database.close();
       }
@@ -459,6 +474,11 @@ describe("compiled analyzer CLI identity and behavior Candidates", () => {
       JSON.stringify({ candidateValue: { state: "absent" } }),
     );
     tamper("provenance_json", "null");
+    refused();
+    // A rank that is not a safe positive integer is refused too: the column
+    // CHECK (rank > 0) lets 2^53 + 1 in, so only the decoder catches it.
+    tamper("provenance_json", provenanceJson);
+    tamper("rank", 2n ** 53n + 1n);
     refused();
   });
 });
