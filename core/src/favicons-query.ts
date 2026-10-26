@@ -1,31 +1,18 @@
 import {
-  assertCommitState,
   createConditions,
-  decodeRecordJson,
   normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
   resolveCommitState,
   resolveProfiles,
   resolveSearch,
   runFindingQuery,
-  validateEnum,
-  type EngineRow,
   type FindingQuerySpec,
+  type QueryDirection,
   type SortDefinition,
 } from "./finding-query.js";
-import type { Identified } from "./record-store.js";
-import {
-  createFinding,
-  type CommitState,
-  type Finding,
-} from "./forensic-model.js";
-
-export type FaviconDirection = "asc" | "desc";
-export type FaviconSort =
-  | "icon-url"
-  | "page-url"
-  | "last-updated"
-  | "width"
-  | "profile";
+import { decodeFinding, type Identified } from "./record-store.js";
+import type { CommitState, Finding } from "./forensic-model.js";
 
 export interface FaviconQuery {
   readonly caseDirectory: string;
@@ -33,7 +20,7 @@ export interface FaviconQuery {
   readonly search?: string;
   readonly commitState?: CommitState;
   readonly sort?: FaviconSort;
-  readonly direction?: FaviconDirection;
+  readonly direction?: QueryDirection;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -46,14 +33,14 @@ export interface FaviconPage {
   readonly limit: number;
 }
 
-const FAVICON_DIRECTIONS = ["asc", "desc"] as const;
-const FAVICON_SORTS = [
+export const FAVICON_SORTS = [
   "icon-url",
   "page-url",
   "last-updated",
   "width",
   "profile",
 ] as const;
+export type FaviconSort = (typeof FAVICON_SORTS)[number];
 const FAVICON_KIND = "favicon";
 
 // `width` keys on the integer `sort_width` column (with a -1 COALESCE sentinel,
@@ -74,54 +61,18 @@ const FAVICON_SPEC: FindingQuerySpec<FaviconQuery, Finding> = {
   label: "Favicons",
   store: "favicons",
   analysisNotFound: "Case has no Favicons analysis. Run analyse first.",
-  schemaTable: "favicon_findings",
-  mainTable: "favicon_findings",
-  resultsTable: "favicon_artifact_results",
-  idColumn: "finding_id",
-  cursorIdField: "findingId",
-  selectColumns: "f.finding_kind, f.profile_path, f.commit_state",
-  parse: (row: EngineRow): Finding => {
-    const { provenance, fields } = decodeRecordJson(
-      row,
-      "Case contains invalid Favicon Finding JSON.",
-      "findingId",
-    );
-    const commitState = assertCommitState(
-      row.commit_state,
-      "findingId",
-      row.entity_id.toString(),
-    );
-    return createFinding({
-      findingKind: row.finding_kind as string,
-      profile: row.profile_path as string,
-      commitState,
-      provenance,
-      fields,
-    });
-  },
+  decode: decodeFinding,
   plan: (input) => {
-    const direction = validateEnum(
-      input.direction,
-      "asc",
-      FAVICON_DIRECTIONS,
-      "--direction",
-      "Favicons",
-    );
-    const sort = validateEnum(
-      input.sort,
-      "icon-url",
-      FAVICON_SORTS,
-      "--sort",
-      "Favicons",
-    );
-    const commitState = resolveCommitState(input.commitState, "Favicons");
+    const direction =
+      parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "asc";
+    const sort = parseOption(input.sort, "--sort", FAVICON_SORTS) ?? "icon-url";
+    const commitState = resolveCommitState(input.commitState);
     const limit = normalizeLimit(input.limit, "Favicons");
     const profiles = resolveProfiles(input.profiles, "Favicons");
     const search = resolveSearch(input.search);
 
     const where = createConditions();
     where.add("f.finding_kind = ?", FAVICON_KIND);
-    where.add("f.record_type = 'finding'");
     if (commitState !== null) {
       where.add("f.commit_state = ?", commitState);
     }
@@ -129,7 +80,6 @@ const FAVICON_SPEC: FindingQuerySpec<FaviconQuery, Finding> = {
     where.addSearch(search);
 
     return {
-      sort,
       direction,
       limit,
       sortDefinition: SORTS[sort],

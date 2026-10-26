@@ -1,26 +1,18 @@
 import {
-  assertCommitState,
   createConditions,
-  decodeRecordJson,
   normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
   resolveCommitState,
   resolveProfiles,
   resolveSearch,
   runFindingQuery,
-  validateEnum,
-  type EngineRow,
   type FindingQuerySpec,
+  type QueryDirection,
   type SortDefinition,
 } from "./finding-query.js";
-import type { Identified } from "./record-store.js";
-import {
-  createFinding,
-  type CommitState,
-  type Finding,
-} from "./forensic-model.js";
-
-export type TopSiteDirection = "asc" | "desc";
-export type TopSiteSort = "rank" | "url" | "title" | "profile";
+import { decodeFinding, type Identified } from "./record-store.js";
+import type { CommitState, Finding } from "./forensic-model.js";
 
 export interface TopSiteQuery {
   readonly caseDirectory: string;
@@ -28,7 +20,7 @@ export interface TopSiteQuery {
   readonly search?: string;
   readonly commitState?: CommitState;
   readonly sort?: TopSiteSort;
-  readonly direction?: TopSiteDirection;
+  readonly direction?: QueryDirection;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -41,8 +33,8 @@ export interface TopSitePage {
   readonly limit: number;
 }
 
-const TOP_SITE_DIRECTIONS = ["asc", "desc"] as const;
-const TOP_SITE_SORTS = ["rank", "url", "title", "profile"] as const;
+export const TOP_SITE_SORTS = ["rank", "url", "title", "profile"] as const;
+export type TopSiteSort = (typeof TOP_SITE_SORTS)[number];
 const TOP_SITE_KIND = "top_site";
 
 // `rank` keys on the integer `sort_rank` column (with a -1 COALESCE sentinel, so
@@ -59,54 +51,18 @@ const TOP_SITE_SPEC: FindingQuerySpec<TopSiteQuery, Finding> = {
   label: "Top Sites",
   store: "top-sites",
   analysisNotFound: "Case has no Top Sites analysis. Run analyse first.",
-  schemaTable: "top_sites_findings",
-  mainTable: "top_sites_findings",
-  resultsTable: "top_sites_artifact_results",
-  idColumn: "finding_id",
-  cursorIdField: "findingId",
-  selectColumns: "f.finding_kind, f.profile_path, f.commit_state",
-  parse: (row: EngineRow): Finding => {
-    const { provenance, fields } = decodeRecordJson(
-      row,
-      "Case contains invalid Top Site Finding JSON.",
-      "findingId",
-    );
-    const commitState = assertCommitState(
-      row.commit_state,
-      "findingId",
-      row.entity_id.toString(),
-    );
-    return createFinding({
-      findingKind: row.finding_kind as string,
-      profile: row.profile_path as string,
-      commitState,
-      provenance,
-      fields,
-    });
-  },
+  decode: decodeFinding,
   plan: (input) => {
-    const direction = validateEnum(
-      input.direction,
-      "asc",
-      TOP_SITE_DIRECTIONS,
-      "--direction",
-      "Top Sites",
-    );
-    const sort = validateEnum(
-      input.sort,
-      "rank",
-      TOP_SITE_SORTS,
-      "--sort",
-      "Top Sites",
-    );
-    const commitState = resolveCommitState(input.commitState, "Top Sites");
+    const direction =
+      parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "asc";
+    const sort = parseOption(input.sort, "--sort", TOP_SITE_SORTS) ?? "rank";
+    const commitState = resolveCommitState(input.commitState);
     const limit = normalizeLimit(input.limit, "Top Sites");
     const profiles = resolveProfiles(input.profiles, "Top Sites");
     const search = resolveSearch(input.search);
 
     const where = createConditions();
     where.add("f.finding_kind = ?", TOP_SITE_KIND);
-    where.add("f.record_type = 'finding'");
     if (commitState !== null) {
       where.add("f.commit_state = ?", commitState);
     }
@@ -114,7 +70,6 @@ const TOP_SITE_SPEC: FindingQuerySpec<TopSiteQuery, Finding> = {
     where.addSearch(search);
 
     return {
-      sort,
       direction,
       limit,
       sortDefinition: SORTS[sort],

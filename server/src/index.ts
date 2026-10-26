@@ -9,8 +9,29 @@ import {
 import { createRequire } from "node:module";
 
 import {
+  AUTOFILL_SORTS,
+  BOOKMARK_SORTS,
+  BOOKMARK_SOURCES,
+  CACHE_RECORD_TYPES,
+  CACHE_SORTS,
+  CANDIDATE_CATEGORIES,
+  CANDIDATE_SORTS,
+  COMMIT_STATES,
+  COOKIE_SORTS,
+  CREDENTIAL_SORTS,
+  DOWNLOAD_SORTS,
+  FAVICON_SORTS,
   ForensixError,
+  HISTORY_SORTS,
+  HISTORY_VIEWS,
+  METADATA_SORTS,
+  METADATA_TYPES,
+  QUERY_DIRECTIONS,
+  TOP_SITE_SORTS,
+  TOPIC_CANDIDATE_SORTS,
+  acquireServeLock,
   getRecord,
+  parseOption,
   queryAutofill,
   queryBookmarks,
   queryCache,
@@ -33,36 +54,6 @@ import {
   queryTimeline,
   queryTopSites,
   queryTopicCandidates,
-  type AutofillDirection,
-  type AutofillSort,
-  type BookmarkDirection,
-  type BookmarkSort,
-  type BookmarkSource,
-  type CacheDirection,
-  type CacheRecordType,
-  type CacheSort,
-  type CandidateDirection,
-  type CandidateSort,
-  type CommitState,
-  type CookieDirection,
-  type CookieSort,
-  type CredentialDirection,
-  type CredentialSort,
-  type DownloadDirection,
-  type DownloadSort,
-  type FaviconDirection,
-  type FaviconSort,
-  type HistoryDirection,
-  type HistorySort,
-  type HistoryView,
-  type MetadataDirection,
-  type MetadataSort,
-  type MetadataType,
-  type TimelineDirection,
-  type TopSiteDirection,
-  type TopSiteSort,
-  type TopicCandidateDirection,
-  type TopicCandidateSort,
 } from "@forensix/core";
 
 /**
@@ -295,30 +286,31 @@ function integerParameter(
 }
 
 /**
- * The paginated fields every artifact list route shares. Each route spreads
- * this and adds only its own filters; the sort/direction unions are supplied by
- * the caller so the per-route query keeps its exact input type. Sort and
- * direction stay pass-through strings here — the analyzer core validates them
- * with the same wording the CLI relies on, so the HTTP layer adds no divergent
- * error path.
+ * One enumerated parameter, checked against core's allowed values with the
+ * same INVALID_ARGUMENT error the CLI gives for the option of the same name.
  */
-function listParameters<Sort extends string, Direction extends string>(
+function enumParameter<const Values extends readonly string[]>(
   parameters: URLSearchParams,
-): {
-  readonly profiles: string[];
-  readonly search: string | undefined;
-  readonly sort: Sort | undefined;
-  readonly direction: Direction | undefined;
-  readonly limit: number | undefined;
-  readonly after: string | undefined;
-} {
+  name: string,
+  values: Values,
+): Values[number] | undefined {
+  return parseOption(parameters.get(name), `--${name}`, values);
+}
+
+function commitStateParameter(parameters: URLSearchParams) {
+  return enumParameter(parameters, "commit-state", COMMIT_STATES);
+}
+
+/** The paginated fields every artifact list route shares. */
+function listParameters<const Sorts extends readonly string[]>(
+  parameters: URLSearchParams,
+  sorts: Sorts,
+) {
   return {
     profiles: parameters.getAll("profile"),
     search: firstString(parameters.get("search")),
-    sort: firstString(parameters.get("sort")) as Sort | undefined,
-    direction: firstString(parameters.get("direction")) as
-      | Direction
-      | undefined,
+    sort: enumParameter(parameters, "sort", sorts),
+    direction: enumParameter(parameters, "direction", QUERY_DIRECTIONS),
     limit: integerParameter(parameters, "limit"),
     after: firstString(parameters.get("after")),
   };
@@ -358,9 +350,7 @@ export const API_ROUTES = new Map<
         by: parameters.get("by") ?? "",
         profiles: parameters.getAll("profile"),
         search: firstString(parameters.get("search")),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        commitState: commitStateParameter(parameters),
         limit: integerParameter(parameters, "limit"),
       }),
   ],
@@ -374,11 +364,9 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryHistory({
         caseDirectory,
-        ...listParameters<HistorySort, HistoryDirection>(parameters),
-        view: firstString(parameters.get("view")) as HistoryView | undefined,
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        ...listParameters(parameters, HISTORY_SORTS),
+        view: enumParameter(parameters, "view", HISTORY_VIEWS),
+        commitState: commitStateParameter(parameters),
         transition: firstString(parameters.get("transition")),
         from: firstString(parameters.get("from")),
         to: firstString(parameters.get("to")),
@@ -393,15 +381,11 @@ export const API_ROUTES = new Map<
         after: firstString(parameters.get("after")),
         from: firstString(parameters.get("from")),
         to: firstString(parameters.get("to")),
-        direction: firstString(parameters.get("direction")) as
-          | TimelineDirection
-          | undefined,
+        direction: enumParameter(parameters, "direction", QUERY_DIRECTIONS),
         profiles: parameters.getAll("profile"),
         kinds: parameters.getAll("kind"),
         search: firstString(parameters.get("search")),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        commitState: commitStateParameter(parameters),
       }),
   ],
   [
@@ -426,9 +410,7 @@ export const API_ROUTES = new Map<
         after: firstString(parameters.get("after")),
         kinds: parameters.getAll("kind"),
         profiles: parameters.getAll("profile"),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        commitState: commitStateParameter(parameters),
       }),
   ],
   [
@@ -449,10 +431,8 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryCookies({
         caseDirectory,
-        ...listParameters<CookieSort, CookieDirection>(parameters),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        ...listParameters(parameters, COOKIE_SORTS),
+        commitState: commitStateParameter(parameters),
         host: firstString(parameters.get("host")),
         sameSite: firstString(parameters.get("same-site")),
       }),
@@ -462,10 +442,8 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryCredentials({
         caseDirectory,
-        ...listParameters<CredentialSort, CredentialDirection>(parameters),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        ...listParameters(parameters, CREDENTIAL_SORTS),
+        commitState: commitStateParameter(parameters),
       }),
   ],
   [
@@ -473,10 +451,8 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryTopSites({
         caseDirectory,
-        ...listParameters<TopSiteSort, TopSiteDirection>(parameters),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        ...listParameters(parameters, TOP_SITE_SORTS),
+        commitState: commitStateParameter(parameters),
       }),
   ],
   [
@@ -484,10 +460,12 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryCache({
         caseDirectory,
-        ...listParameters<CacheSort, CacheDirection>(parameters),
-        recordType: firstString(parameters.get("record-type")) as
-          | CacheRecordType
-          | undefined,
+        ...listParameters(parameters, CACHE_SORTS),
+        recordType: enumParameter(
+          parameters,
+          "record-type",
+          CACHE_RECORD_TYPES,
+        ),
         backend: firstString(parameters.get("backend")),
       }),
   ],
@@ -496,10 +474,8 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryFavicons({
         caseDirectory,
-        ...listParameters<FaviconSort, FaviconDirection>(parameters),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        ...listParameters(parameters, FAVICON_SORTS),
+        commitState: commitStateParameter(parameters),
       }),
   ],
   [
@@ -507,8 +483,8 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryCandidates({
         caseDirectory,
-        ...listParameters<CandidateSort, CandidateDirection>(parameters),
-        category: firstString(parameters.get("category")),
+        ...listParameters(parameters, CANDIDATE_SORTS),
+        category: enumParameter(parameters, "category", CANDIDATE_CATEGORIES),
         kind: firstString(parameters.get("kind")),
       }),
   ],
@@ -517,12 +493,7 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryTopicCandidates({
         caseDirectory,
-        ...listParameters<TopicCandidateSort, TopicCandidateDirection>(
-          parameters,
-        ),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        ...listParameters(parameters, TOPIC_CANDIDATE_SORTS),
         label: firstString(parameters.get("label")),
       }),
   ],
@@ -531,11 +502,9 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryMetadata({
         caseDirectory,
-        ...listParameters<MetadataSort, MetadataDirection>(parameters),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
-        type: firstString(parameters.get("type")) as MetadataType | undefined,
+        ...listParameters(parameters, METADATA_SORTS),
+        commitState: commitStateParameter(parameters),
+        type: enumParameter(parameters, "type", METADATA_TYPES),
       }),
   ],
   [
@@ -543,10 +512,8 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryDownloads({
         caseDirectory,
-        ...listParameters<DownloadSort, DownloadDirection>(parameters),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        ...listParameters(parameters, DOWNLOAD_SORTS),
+        commitState: commitStateParameter(parameters),
         state: firstString(parameters.get("state")),
         dangerType: firstString(parameters.get("danger-type")),
       }),
@@ -556,13 +523,9 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryBookmarks({
         caseDirectory,
-        ...listParameters<BookmarkSort, BookmarkDirection>(parameters),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
-        source: firstString(parameters.get("source")) as
-          | BookmarkSource
-          | undefined,
+        ...listParameters(parameters, BOOKMARK_SORTS),
+        commitState: commitStateParameter(parameters),
+        source: enumParameter(parameters, "source", BOOKMARK_SOURCES),
       }),
   ],
   [
@@ -570,10 +533,8 @@ export const API_ROUTES = new Map<
     (parameters, caseDirectory) =>
       queryAutofill({
         caseDirectory,
-        ...listParameters<AutofillSort, AutofillDirection>(parameters),
-        commitState: firstString(parameters.get("commit-state")) as
-          | CommitState
-          | undefined,
+        ...listParameters(parameters, AUTOFILL_SORTS),
+        commitState: commitStateParameter(parameters),
       }),
   ],
 ]);
@@ -698,7 +659,8 @@ function handleRequest(
  * is no host option. Every API route opens the Case read-only.
  *
  * Returns a `DashboardServer` with the URL, the per-run token, the bound port,
- * the loopback host, and a `close()` handle.
+ * the loopback host, and a `close()` handle that also releases the serve
+ * lock. A second serve of the same Case stops with CASE_IN_USE.
  */
 export async function startDashboardServer(
   options: StartDashboardServerOptions,
@@ -706,6 +668,9 @@ export async function startDashboardServer(
   const token = randomBytes(32).toString("base64url");
   // Load the client bundle up front so a missing build fails before binding.
   const clientBundle = loadClientBundle();
+  // The serve lock makes `analyse` of this Case stop with CASE_IN_USE while
+  // the dashboard runs. It is a file outside the Case Directory.
+  const lock = await acquireServeLock(options.caseDirectory);
   const server: Server = createServer((request, response) => {
     handleRequest(
       request,
@@ -716,18 +681,24 @@ export async function startDashboardServer(
     );
   });
 
-  await new Promise<void>((resolvePromise, rejectPromise) => {
-    server.once("error", rejectPromise);
-    // Bind loopback only. There is deliberately no host option.
-    server.listen(options.port ?? 0, LOOPBACK_HOST, () => {
-      server.removeListener("error", rejectPromise);
-      resolvePromise();
+  try {
+    await new Promise<void>((resolvePromise, rejectPromise) => {
+      server.once("error", rejectPromise);
+      // Bind loopback only. There is deliberately no host option.
+      server.listen(options.port ?? 0, LOOPBACK_HOST, () => {
+        server.removeListener("error", rejectPromise);
+        resolvePromise();
+      });
     });
-  });
+  } catch (error) {
+    await lock.release();
+    throw error;
+  }
 
   const address = server.address();
   if (address === null || typeof address === "string") {
     server.close();
+    await lock.release();
     throw new Error("The dashboard could not bind a loopback port.");
   }
   const port = address.port;
@@ -738,16 +709,20 @@ export async function startDashboardServer(
     token,
     port,
     host: LOOPBACK_HOST,
-    close(): Promise<void> {
-      return new Promise<void>((resolvePromise, rejectPromise) => {
-        server.close((error) => {
-          if (error) {
-            rejectPromise(error);
-            return;
-          }
-          resolvePromise();
+    async close(): Promise<void> {
+      try {
+        await new Promise<void>((resolvePromise, rejectPromise) => {
+          server.close((error) => {
+            if (error) {
+              rejectPromise(error);
+              return;
+            }
+            resolvePromise();
+          });
         });
-      });
+      } finally {
+        await lock.release();
+      }
     },
   };
 }

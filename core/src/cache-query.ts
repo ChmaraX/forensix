@@ -1,27 +1,33 @@
 import {
-  assertCommitState,
   createConditions,
-  decodeRecordJson,
   normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
   resolveProfiles,
   resolveSearch,
   runFindingQuery,
-  validateEnum,
-  type EngineRow,
   type FindingQuerySpec,
+  type QueryDirection,
   type SortDefinition,
 } from "./finding-query.js";
-import type { Identified, RecordStoreKey } from "./record-store.js";
 import {
-  createCandidate,
-  createFinding,
-  type Candidate,
-  type Finding,
-} from "./forensic-model.js";
+  decodeCandidate,
+  decodeFinding,
+  type Identified,
+} from "./record-store.js";
+import type { Candidate, Finding } from "./forensic-model.js";
 
-export type CacheDirection = "asc" | "desc";
-export type CacheRecordType = "finding" | "candidate";
-export type CacheSort = "key" | "last-used" | "size" | "entry-hash" | "profile";
+export const CACHE_RECORD_TYPES = ["finding", "candidate"] as const;
+export type CacheRecordType = (typeof CACHE_RECORD_TYPES)[number];
+/** Every Cache sort; a Candidate list takes only `key`, `last-used`, `profile`. */
+export const CACHE_SORTS = [
+  "key",
+  "last-used",
+  "size",
+  "entry-hash",
+  "profile",
+] as const;
+export type CacheSort = (typeof CACHE_SORTS)[number];
 
 export interface CacheQuery {
   readonly caseDirectory: string;
@@ -30,7 +36,7 @@ export interface CacheQuery {
   readonly recordType?: CacheRecordType;
   readonly backend?: string;
   readonly sort?: CacheSort;
-  readonly direction?: CacheDirection;
+  readonly direction?: QueryDirection;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -44,19 +50,14 @@ export interface CachePage {
   readonly limit: number;
 }
 
-const CACHE_DIRECTIONS = ["asc", "desc"] as const;
-const CACHE_RECORD_TYPES = ["finding", "candidate"] as const;
-const FINDING_SORTS = [
+const CANDIDATE_SORTS = [
   "key",
   "last-used",
-  "size",
-  "entry-hash",
   "profile",
-] as const;
-const CANDIDATE_SORTS = ["key", "last-used", "profile"] as const;
+] as const satisfies readonly CacheSort[];
 const CACHE_FINDING_KIND = "cache_entry";
 
-const FINDING_SORT_SQL: Readonly<Record<string, SortDefinition>> = {
+const SORT_SQL: Readonly<Record<CacheSort, SortDefinition>> = {
   key: { expression: "COALESCE(f.sort_key, '')", kind: "text" },
   "last-used": { expression: "COALESCE(f.sort_last_used, '')", kind: "text" },
   size: { expression: "COALESCE(f.sort_size, -1)", kind: "integer" },
@@ -64,91 +65,33 @@ const FINDING_SORT_SQL: Readonly<Record<string, SortDefinition>> = {
   profile: { expression: "f.profile_path", kind: "text" },
 };
 
-const CANDIDATE_SORT_SQL: Readonly<Record<string, SortDefinition>> = {
-  key: { expression: "COALESCE(f.sort_key, '')", kind: "text" },
-  "last-used": { expression: "COALESCE(f.sort_last_used, '')", kind: "text" },
-  profile: { expression: "f.profile_path", kind: "text" },
-};
-
 /**
  * Everything that differs between a Finding query and a Candidate query, keyed
- * by record type and resolved once. Findings and Candidates share the cache
- * tables' shape but diverge in table, id column, kind filter, sortable columns,
- * and how a row is rehydrated — collecting that here keeps the shared engine a
- * single code path instead of a cluster of parallel ternaries.
+ * by record type: the store, the kind filter, and the sortable columns.
  */
 interface RecordTypeConfig {
-  readonly store: RecordStoreKey;
-  readonly mainTable: string;
-  readonly idColumn: string;
-  readonly kindFilter: {
-    readonly column: string;
-    readonly value: string;
-  } | null;
-  readonly sorts: readonly string[];
-  readonly defaultSort: string;
-  readonly sortSql: Readonly<Record<string, SortDefinition>>;
-  readonly selectColumns: string;
-  readonly parse: (row: EngineRow) => Finding | Candidate;
+  readonly store: "cache" | "cache-candidates";
+  readonly kindFilter: string | null;
+  readonly sorts: readonly CacheSort[];
+  readonly defaultSort: CacheSort;
+  readonly decode: FindingQuerySpec<CacheQuery, Finding | Candidate>["decode"];
 }
-
-const CACHE_INVALID_JSON = "Case contains invalid Cache record JSON.";
 
 const RECORD_TYPE_CONFIG: Readonly<Record<CacheRecordType, RecordTypeConfig>> =
   {
     finding: {
       store: "cache",
-      mainTable: "cache_findings",
-      idColumn: "finding_id",
-      kindFilter: { column: "finding_kind", value: CACHE_FINDING_KIND },
-      sorts: FINDING_SORTS,
+      kindFilter: CACHE_FINDING_KIND,
+      sorts: CACHE_SORTS,
       defaultSort: "key",
-      sortSql: FINDING_SORT_SQL,
-      selectColumns: "f.profile_path, f.finding_kind, f.commit_state",
-      parse: (row) => {
-        const { provenance, fields } = decodeRecordJson(
-          row,
-          CACHE_INVALID_JSON,
-          "rowId",
-        );
-        const commitState = assertCommitState(
-          row.commit_state,
-          "rowId",
-          row.entity_id.toString(),
-        );
-        return createFinding({
-          findingKind: row.finding_kind as string,
-          profile: row.profile_path as string,
-          commitState,
-          provenance,
-          fields,
-        });
-      },
+      decode: decodeFinding,
     },
     candidate: {
       store: "cache-candidates",
-      mainTable: "cache_candidates",
-      idColumn: "candidate_id",
       kindFilter: null,
       sorts: CANDIDATE_SORTS,
       defaultSort: "last-used",
-      sortSql: CANDIDATE_SORT_SQL,
-      selectColumns:
-        "f.profile_path, f.candidate_kind, f.rank, f.supporting_count",
-      parse: (row) => {
-        const { provenance, fields } = decodeRecordJson(
-          row,
-          CACHE_INVALID_JSON,
-          "rowId",
-        );
-        return createCandidate({
-          candidateKind: row.candidate_kind as string,
-          rank: Number(row.rank),
-          count: Number(row.supporting_count),
-          provenance,
-          fields,
-        });
-      },
+      decode: decodeCandidate,
     },
   };
 
@@ -161,36 +104,20 @@ function createCacheSpec(
     store: config.store,
     analysisNotFound: "Case has no Cache analysis. Run analyse first.",
     schemaTable: "cache_findings",
-    mainTable: config.mainTable,
-    resultsTable: "cache_artifact_results",
-    idColumn: config.idColumn,
-    cursorIdField: "rowId",
-    selectColumns: config.selectColumns,
-    parse: config.parse,
+    decode: config.decode,
     plan: (input) => {
-      const direction = validateEnum(
-        input.direction,
-        "asc",
-        CACHE_DIRECTIONS,
-        "--direction",
-        "Cache",
-      );
-      const sort = validateEnum(
-        input.sort,
-        config.defaultSort,
-        config.sorts,
-        "--sort",
-        "Cache",
-      );
+      const direction =
+        parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "asc";
+      const sort =
+        parseOption(input.sort, "--sort", config.sorts) ?? config.defaultSort;
       const limit = normalizeLimit(input.limit, "Cache");
       const profiles = resolveProfiles(input.profiles, "Cache");
       const search = resolveSearch(input.search);
       const backend = input.backend ?? null;
 
       const where = createConditions();
-      where.add("f.record_type = ?", recordType);
       if (config.kindFilter !== null) {
-        where.add(`f.${config.kindFilter.column} = ?`, config.kindFilter.value);
+        where.add("f.finding_kind = ?", config.kindFilter);
       }
       if (backend !== null) {
         where.add("f.backend = ?", backend);
@@ -199,10 +126,9 @@ function createCacheSpec(
       where.addSearch(search);
 
       return {
-        sort,
         direction,
         limit,
-        sortDefinition: config.sortSql[sort] as SortDefinition,
+        sortDefinition: SORT_SQL[sort],
         conditions: where.conditions,
         parameters: where.parameters,
         fingerprint: (identity) => ({
@@ -221,13 +147,9 @@ function createCacheSpec(
 }
 
 export function queryCache(input: CacheQuery): CachePage {
-  const recordType = validateEnum(
-    input.recordType,
-    "finding",
-    CACHE_RECORD_TYPES,
-    "--record-type",
-    "Cache",
-  );
+  const recordType =
+    parseOption(input.recordType, "--record-type", CACHE_RECORD_TYPES) ??
+    "finding";
   const { items, nextCursor, limit } = runFindingQuery(
     createCacheSpec(recordType),
     input,

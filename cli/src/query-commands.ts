@@ -1,5 +1,23 @@
 import {
-  ForensixError,
+  AUTOFILL_SORTS,
+  BOOKMARK_SORTS,
+  BOOKMARK_SOURCES,
+  CACHE_RECORD_TYPES,
+  CACHE_SORTS,
+  CANDIDATE_CATEGORIES,
+  CANDIDATE_SORTS,
+  COMMIT_STATES,
+  COOKIE_SORTS,
+  CREDENTIAL_SORTS,
+  DOWNLOAD_SORTS,
+  FAVICON_SORTS,
+  HISTORY_SORTS,
+  HISTORY_VIEWS,
+  METADATA_SORTS,
+  METADATA_TYPES,
+  QUERY_DIRECTIONS,
+  TOP_SITE_SORTS,
+  TOPIC_CANDIDATE_SORTS,
   getRecord,
   queryAutofill,
   queryBookmarks,
@@ -29,55 +47,19 @@ import {
   integerOption,
   optionValue,
   optionValues,
-  requiredCasePath,
+  requiredOption,
   type ParsedArguments,
 } from "./args.js";
 
 /**
- * Declarative command table for the cloned artifact list commands. Each of the
- * history, cookies, metadata, bookmarks, credentials, top-sites,
- * topic-candidates, favicons, cache, autofill, candidates, and downloads
- * commands is the same shape: validate the allowed options, reject positionals,
- * map parsed options onto a core read query, then emit its JSON. The runner in
- * the CLI entry point owns that shared shape; the specs below own only the
- * per-surface allowed options, filters, and sort union. Because each spec feeds
- * the query function's own input type, the sort/direction unions are inferred
- * and the previous `as XSort | undefined` coercions are gone.
+ * Declarative table of the query commands. Each entry names its allowed
+ * options and maps the parsed options onto one core read query. The CLI entry
+ * point checks the options and positionals, runs the query, and the output
+ * layer prints it. The allowed values of each enumerated option come from
+ * core, so the CLI and the server refuse a bad value with the same error.
  */
 
-const COMMIT_STATES = [
-  "committed",
-  "wal_resident",
-  "journal_resident",
-] as const;
-const DIRECTIONS = ["asc", "desc"] as const;
-/** Commands whose core query takes a list of kinds. */
-const LIST_FILTER_REPEATS: ReadonlySet<string> = new Set([
-  "--profile",
-  "--kind",
-]);
-
-function requiredOption(parsed: ParsedArguments, option: string): string {
-  const value = optionValue(parsed, option);
-  if (value === undefined) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      `Option ${option} is required.`,
-      {
-        option,
-      },
-    );
-  }
-  return value;
-}
-
-/**
- * Fields every artifact list query shares. The command table below spreads this
- * and adds only the per-surface filters, sort union, and query function, so the
- * option parsing, positional check, and JSON emission live in one runner. The
- * sort/direction unions flow straight from each query function's input type, so
- * the previous `as XSort | undefined` coercions are gone.
- */
+/** The options every artifact list query shares. */
 function baseListInput(
   parsed: ParsedArguments,
   paging: Paging,
@@ -89,7 +71,7 @@ function baseListInput(
   readonly after: string | undefined;
 } {
   return {
-    caseDirectory: requiredCasePath(parsed),
+    caseDirectory: requiredOption(parsed, "--case"),
     profiles: optionValues(parsed, "--profile"),
     search: optionValue(parsed, "--search"),
     ...pagingInput(parsed, paging),
@@ -97,11 +79,10 @@ function baseListInput(
 }
 
 /**
- * A page request the output layer can override: `--page-all` follows
- * `nextCursor`. An unset key falls back to the parsed `--limit` / `--after`.
+ * The page to read: with `--page-all` the output layer sets `after` to the
+ * `nextCursor` of the previous page; else the parsed `--after` applies.
  */
 export interface Paging {
-  readonly limit?: number;
   readonly after?: string;
 }
 
@@ -110,7 +91,7 @@ function pagingInput(
   paging: Paging,
 ): { readonly limit: number | undefined; readonly after: string | undefined } {
   return {
-    limit: paging.limit ?? integerOption(parsed, "--limit"),
+    limit: integerOption(parsed, "--limit"),
     after: paging.after ?? optionValue(parsed, "--after"),
   };
 }
@@ -126,8 +107,6 @@ export type QueryOutput = "records" | "data";
 
 export interface QueryCommandSpec {
   readonly allowedOptions: ReadonlySet<string>;
-  /** Options this command lets repeat (default: --profile). */
-  readonly repeatableOptions?: ReadonlySet<string>;
   readonly output: QueryOutput;
   /** The result pages with limit / nextCursor. */
   readonly paged: boolean;
@@ -142,12 +121,6 @@ export interface QueryCommandSpec {
   readonly execute: (parsed: ParsedArguments, paging: Paging) => unknown;
 }
 
-/**
- * Declarative table of the artifact list commands. Each spec owns its exact
- * allowed-option set (so INVALID_ARGUMENT wording stays identical) and builds
- * its query input; {@link run} shares the positional check, execution, and JSON
- * emission for every entry.
- */
 export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
   [
     "timeline",
@@ -165,19 +138,18 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         "--limit",
         "--after",
       ]),
-      repeatableOptions: LIST_FILTER_REPEATS,
       output: "records",
       paged: true,
       execute: (parsed, paging) =>
         queryTimeline({
-          caseDirectory: requiredCasePath(parsed),
+          caseDirectory: requiredOption(parsed, "--case"),
           from: optionValue(parsed, "--from"),
           to: optionValue(parsed, "--to"),
           profiles: optionValues(parsed, "--profile"),
           kinds: optionValues(parsed, "--kind"),
           search: optionValue(parsed, "--search"),
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
           ...pagingInput(parsed, paging),
         }),
     },
@@ -197,7 +169,7 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       paged: true,
       execute: (parsed, paging) =>
         querySiteHosts({
-          caseDirectory: requiredCasePath(parsed),
+          caseDirectory: requiredOption(parsed, "--case"),
           search: optionValue(parsed, "--search"),
           ...pagingInput(parsed, paging),
         }),
@@ -216,20 +188,17 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         "--limit",
         "--after",
       ]),
-      repeatableOptions: LIST_FILTER_REPEATS,
       output: "records",
       paged: true,
-      execute: (parsed, paging) => {
-        const host = requiredOption(parsed, "--host");
-        return querySiteFindings({
-          caseDirectory: requiredCasePath(parsed),
-          host,
+      execute: (parsed, paging) =>
+        querySiteFindings({
+          caseDirectory: requiredOption(parsed, "--case"),
+          host: requiredOption(parsed, "--host"),
           kinds: optionValues(parsed, "--kind"),
           profiles: optionValues(parsed, "--profile"),
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
           ...pagingInput(parsed, paging),
-        });
-      },
+        }),
     },
   ],
   [
@@ -242,7 +211,7 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       supportingRowsDefault: "all",
       execute: (parsed) =>
         getRecord({
-          caseDirectory: requiredCasePath(parsed),
+          caseDirectory: requiredOption(parsed, "--case"),
           id: requiredOption(parsed, "--id"),
         }),
     },
@@ -255,7 +224,7 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       paged: false,
       execute: (parsed) =>
         querySchema({
-          caseDirectory: requiredCasePath(parsed),
+          caseDirectory: requiredOption(parsed, "--case"),
           kind: optionValue(parsed, "--kind"),
         }),
     },
@@ -280,7 +249,7 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       paged: false,
       execute: (parsed) =>
         queryCount({
-          caseDirectory: requiredCasePath(parsed),
+          caseDirectory: requiredOption(parsed, "--case"),
           kind: requiredOption(parsed, "--kind"),
           by: requiredOption(parsed, "--by"),
           profiles: optionValues(parsed, "--profile"),
@@ -298,7 +267,7 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       output: "data",
       paged: false,
       execute: (parsed) =>
-        querySummary({ caseDirectory: requiredCasePath(parsed) }),
+        querySummary({ caseDirectory: requiredOption(parsed, "--case") }),
     },
   ],
   [
@@ -308,7 +277,7 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       output: "data",
       paged: false,
       execute: (parsed) =>
-        queryCompleteness({ caseDirectory: requiredCasePath(parsed) }),
+        queryCompleteness({ caseDirectory: requiredOption(parsed, "--case") }),
     },
   ],
   [
@@ -318,7 +287,7 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       output: "data",
       paged: false,
       execute: (parsed) =>
-        queryProfiles({ caseDirectory: requiredCasePath(parsed) }),
+        queryProfiles({ caseDirectory: requiredOption(parsed, "--case") }),
     },
   ],
   [
@@ -344,25 +313,13 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       execute: (parsed, paging) =>
         queryHistory({
           ...baseListInput(parsed, paging),
-          view: enumOption(parsed, "--view", [
-            "visits",
-            "activity",
-            "most-visited",
-            "durations",
-          ] as const),
+          view: enumOption(parsed, "--view", HISTORY_VIEWS),
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
           transition: optionValue(parsed, "--transition"),
           from: optionValue(parsed, "--from"),
           to: optionValue(parsed, "--to"),
-          sort: enumOption(parsed, "--sort", [
-            "visit-time",
-            "local-time",
-            "url",
-            "duration",
-            "visit-count",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          sort: enumOption(parsed, "--sort", HISTORY_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -390,15 +347,8 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
           host: optionValue(parsed, "--host"),
           sameSite: optionValue(parsed, "--same-site"),
-          sort: enumOption(parsed, "--sort", [
-            "host",
-            "name",
-            "creation-time",
-            "expires-time",
-            "last-access-time",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          sort: enumOption(parsed, "--sort", COOKIE_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -423,12 +373,9 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         queryMetadata({
           ...baseListInput(parsed, paging),
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
-          type: enumOption(parsed, "--type", [
-            "browser_metadata",
-            "profile_metadata",
-          ] as const),
-          sort: enumOption(parsed, "--sort", ["type", "profile"] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          type: enumOption(parsed, "--type", METADATA_TYPES),
+          sort: enumOption(parsed, "--sort", METADATA_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -453,18 +400,9 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         queryBookmarks({
           ...baseListInput(parsed, paging),
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
-          source: enumOption(parsed, "--source", [
-            "primary",
-            "backup",
-          ] as const),
-          sort: enumOption(parsed, "--sort", [
-            "name",
-            "url",
-            "date-added",
-            "folder",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          source: enumOption(parsed, "--source", BOOKMARK_SOURCES),
+          sort: enumOption(parsed, "--sort", BOOKMARK_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -488,14 +426,8 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         queryCredentials({
           ...baseListInput(parsed, paging),
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
-          sort: enumOption(parsed, "--sort", [
-            "created-time",
-            "last-used-time",
-            "origin",
-            "username",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          sort: enumOption(parsed, "--sort", CREDENTIAL_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -519,13 +451,8 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         queryTopSites({
           ...baseListInput(parsed, paging),
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
-          sort: enumOption(parsed, "--sort", [
-            "rank",
-            "url",
-            "title",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          sort: enumOption(parsed, "--sort", TOP_SITE_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -537,7 +464,6 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         "--json",
         "--profile",
         "--search",
-        "--commit-state",
         "--label",
         "--sort",
         "--direction",
@@ -549,15 +475,9 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       execute: (parsed, paging) =>
         queryTopicCandidates({
           ...baseListInput(parsed, paging),
-          commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
           label: optionValue(parsed, "--label"),
-          sort: enumOption(parsed, "--sort", [
-            "rank",
-            "supporting",
-            "label",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          sort: enumOption(parsed, "--sort", TOPIC_CANDIDATE_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -581,14 +501,8 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         queryFavicons({
           ...baseListInput(parsed, paging),
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
-          sort: enumOption(parsed, "--sort", [
-            "icon-url",
-            "page-url",
-            "last-updated",
-            "width",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          sort: enumOption(parsed, "--sort", FAVICON_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -612,19 +526,10 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       execute: (parsed, paging) =>
         queryCache({
           ...baseListInput(parsed, paging),
-          recordType: enumOption(parsed, "--record-type", [
-            "finding",
-            "candidate",
-          ] as const),
+          recordType: enumOption(parsed, "--record-type", CACHE_RECORD_TYPES),
           backend: optionValue(parsed, "--backend"),
-          sort: enumOption(parsed, "--sort", [
-            "key",
-            "last-used",
-            "size",
-            "entry-hash",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          sort: enumOption(parsed, "--sort", CACHE_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -648,14 +553,8 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
         queryAutofill({
           ...baseListInput(parsed, paging),
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
-          sort: enumOption(parsed, "--sort", [
-            "created-time",
-            "last-used-time",
-            "field-name",
-            "value",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          sort: enumOption(parsed, "--sort", AUTOFILL_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -679,19 +578,10 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
       execute: (parsed, paging) =>
         queryCandidates({
           ...baseListInput(parsed, paging),
-          category: enumOption(parsed, "--category", [
-            "identity",
-            "behavior",
-          ] as const),
+          category: enumOption(parsed, "--category", CANDIDATE_CATEGORIES),
           kind: optionValue(parsed, "--kind"),
-          sort: enumOption(parsed, "--sort", [
-            "rank",
-            "kind",
-            "supporting-count",
-            "value",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          sort: enumOption(parsed, "--sort", CANDIDATE_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],
@@ -719,15 +609,8 @@ export const QUERY_COMMANDS: ReadonlyMap<string, QueryCommandSpec> = new Map([
           commitState: enumOption(parsed, "--commit-state", COMMIT_STATES),
           state: optionValue(parsed, "--state"),
           dangerType: optionValue(parsed, "--danger"),
-          sort: enumOption(parsed, "--sort", [
-            "start-time",
-            "end-time",
-            "target-path",
-            "state",
-            "total-bytes",
-            "profile",
-          ] as const),
-          direction: enumOption(parsed, "--direction", DIRECTIONS),
+          sort: enumOption(parsed, "--sort", DOWNLOAD_SORTS),
+          direction: enumOption(parsed, "--direction", QUERY_DIRECTIONS),
         }),
     },
   ],

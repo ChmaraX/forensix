@@ -462,12 +462,23 @@ describe("schema, count and summary", () => {
         ).code,
       ).toBe("INVALID_ARGUMENT");
     }
+    // No Candidate kind has a Commit State to count or filter by.
     expect(
       caught(() =>
         core.queryCount({
           caseDirectory,
           kind: "behavior_frequent_host",
           by: "commitState",
+        }),
+      ).code,
+    ).toBe("INVALID_ARGUMENT");
+    expect(
+      caught(() =>
+        core.queryCount({
+          caseDirectory,
+          kind: "doomed_entry",
+          by: "profile",
+          commitState: "committed",
         }),
       ).code,
     ).toBe("INVALID_ARGUMENT");

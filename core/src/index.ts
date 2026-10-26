@@ -3,8 +3,6 @@ export {
   CASE_SCHEMA_VERSION,
   TOOL_VERSION,
   caseArtifactAbsolutePath,
-  openCaseReadOnly,
-  type OpenCaseOptions,
   loadCaseSource,
   loadCaseSources,
   workingCopyAbsolutePath,
@@ -95,7 +93,7 @@ export {
 } from "./topic-candidates-onnx.js";
 export {
   queryTopicCandidates,
-  type TopicCandidateDirection,
+  TOPIC_CANDIDATE_SORTS,
   type TopicCandidatePage,
   type TopicCandidateQuery,
   type TopicCandidateSort,
@@ -174,7 +172,6 @@ export {
 export {
   TIMELINE_KINDS,
   queryTimeline,
-  type TimelineDirection,
   type TimelinePage,
   type TimelineQuery,
 } from "./timeline-query.js";
@@ -210,8 +207,9 @@ export {
   type SiteHostQuery,
 } from "./sites-query.js";
 export {
+  HISTORY_SORTS,
+  HISTORY_VIEWS,
   queryHistory,
-  type HistoryDirection,
   type HistoryPage,
   type HistoryQuery,
   type HistorySort,
@@ -240,36 +238,37 @@ export {
   type RenderReportResult,
 } from "./report.js";
 export {
+  CREDENTIAL_SORTS,
   queryCredentials,
-  type CredentialDirection,
   type CredentialPage,
   type CredentialQuery,
   type CredentialSort,
 } from "./login-data-query.js";
 export {
+  COOKIE_SORTS,
   queryCookies,
-  type CookieDirection,
   type CookiePage,
   type CookieQuery,
   type CookieSort,
 } from "./cookies-query.js";
 export {
+  TOP_SITE_SORTS,
   queryTopSites,
-  type TopSiteDirection,
   type TopSitePage,
   type TopSiteQuery,
   type TopSiteSort,
 } from "./top-sites-query.js";
 export {
+  AUTOFILL_SORTS,
   queryAutofill,
-  type AutofillDirection,
   type AutofillPage,
   type AutofillQuery,
   type AutofillSort,
 } from "./web-data-query.js";
 export {
+  CANDIDATE_CATEGORIES,
+  CANDIDATE_SORTS,
   queryCandidates,
-  type CandidateDirection,
   type CandidatePage,
   type CandidateQuery,
   type CandidateRecord,
@@ -282,38 +281,41 @@ export {
   type CandidateCategory,
 } from "./identity-candidates.js";
 export {
+  FAVICON_SORTS,
   queryFavicons,
-  type FaviconDirection,
   type FaviconPage,
   type FaviconQuery,
   type FaviconSort,
 } from "./favicons-query.js";
 export {
+  DOWNLOAD_SORTS,
   queryDownloads,
-  type DownloadDirection,
   type DownloadPage,
   type DownloadQuery,
   type DownloadSort,
 } from "./downloads-query.js";
 export {
+  METADATA_SORTS,
+  METADATA_TYPES,
   queryMetadata,
-  type MetadataDirection,
   type MetadataPage,
   type MetadataQuery,
   type MetadataSort,
   type MetadataType,
 } from "./preferences-query.js";
 export {
+  BOOKMARK_SORTS,
+  BOOKMARK_SOURCES,
   queryBookmarks,
-  type BookmarkDirection,
   type BookmarkPage,
   type BookmarkQuery,
   type BookmarkSort,
   type BookmarkSource,
 } from "./bookmarks-query.js";
 export {
+  CACHE_RECORD_TYPES,
+  CACHE_SORTS,
   queryCache,
-  type CacheDirection,
   type CachePage,
   type CacheQuery,
   type CacheRecordType,
@@ -332,28 +334,20 @@ export {
 } from "./cache-format.js";
 export {
   type AnalysisRunExitState,
-  type BookmarksArtifactWrite,
-  type BookmarkSourceFile,
-  type CacheArtifactWrite,
-  type CandidateArtifactWrite,
   type DeclaredOriginOs,
-  type PersistedIdentityCandidate,
 } from "./case-findings.js";
 export { openDatabaseSync, type OpenDatabaseConfig } from "./sqlite-open.js";
 export {
-  RECORD_STORES,
   RECORD_STORE_KEYS,
   parseRecordId,
   recordId,
   type Identified,
   type IdentityCandidateRecord,
-  type RecordStore,
   type RecordStoreKey,
   type StoredRecord,
 } from "./record-store.js";
+export { SECRET_FIELDS_BY_KIND, isSecretField } from "./secret-fields.js";
 export {
-  SECRET_FIELDS_BY_KIND,
-  isSecretField,
   limitSupportingRows,
   redactSecrets,
   type RedactedRecord,
@@ -381,5 +375,13 @@ export {
   type SummaryResult,
   type SummarySource,
 } from "./record-queries.js";
+
+export {
+  COMMIT_STATES,
+  QUERY_DIRECTIONS,
+  parseOption,
+  type QueryDirection,
+} from "./finding-query.js";
+export * from "./serve-lock.js";
 
 export const MINIMUM_NODE_VERSION = "24.15.0" as const;

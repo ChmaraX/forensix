@@ -101,6 +101,9 @@ It refuses another version with `INGEST_FAILED` and the reason `unsupported_bund
 Verification reports `match`, `mismatch`, `missing_on_disk`, and `missing_in_manifest` per file.
 Divergent files do not enter the Working Copy. Unaffected evidence remains available.
 
+`ingest` removes the temporary directories that a stopped ingest left next to the Case Directory.
+It does not remove the directory of an ingest that is running.
+
 Tier 2 content is off by default for direct, filesystem, and image ingestion.
 Add `--include-tier-2` to copy Tier 2 paths from Selection Policy `chrome-userdata/1`.
 An Acquisition Bundle retains the Collector's recorded Tier 2 choice.
@@ -123,6 +126,12 @@ The accepted values are `windows`, `macos`, and `linux`.
 
 The command refuses a missing, moved, changed, or extended Working Copy.
 The refusal has the JSON code `WORKING_COPY_INTEGRITY_REFUSAL`.
+
+`analyse` stops with `CASE_IN_USE` when a `forensix serve` process has the Case open.
+Stop `serve`, then run `analyse` again.
+The serve lock is a file in the temporary directory of the system, not in the Case Directory.
+When its process is not running, `analyse` removes it.
+A second `serve` of the same Case also stops with `CASE_IN_USE`.
 
 ### Analysis Run identity
 
@@ -269,7 +278,7 @@ An agent skill ships with the CLI. See [Agent skill](#agent-skill).
 - If the reader of stdout closes the pipe (for example `| head`), the CLI stops quietly with exit code 0.
 
 The error codes are:
-`INVALID_ARGUMENT`, `INVALID_CURSOR`, `CASE_NOT_FOUND`, `CASE_INVALID`, `CASE_ALREADY_EXISTS`, `CASE_INSIDE_SOURCE`,
+`INVALID_ARGUMENT`, `INVALID_CURSOR`, `CASE_NOT_FOUND`, `CASE_INVALID`, `CASE_ALREADY_EXISTS`, `CASE_INSIDE_SOURCE`, `CASE_IN_USE`,
 `SOURCE_NOT_FOUND`, `SOURCE_NOT_DIRECTORY`, `INGEST_FAILED`, `ANALYSIS_FAILED`, `ANALYSIS_NOT_FOUND`,
 `WORKING_COPY_INTEGRITY_REFUSAL`, `RECORD_NOT_FOUND`, `EXTRACT_NOT_FOUND`, `EXTRACT_INVALID`,
 `SKILLS_UNAVAILABLE`, and `UNSUPPORTED_NODE_VERSION`.
@@ -297,6 +306,9 @@ These commands return counts, not rows:
 | `summary`                          | Sources, Profiles, the latest Analysis Run, record counts per kind (committed and recovered), the time span, and the completeness per artifact.                                                                                                                                                                                                                       |
 | `schema [--kind <kind>]`           | For each kind: the field names, the count of each Field State, the count of empty strings, and the value types.                                                                                                                                                                                                                                                       |
 | `count --kind <kind> --by <field>` | The number of active records per value of one field, or per `profile` or `commitState`. Each bucket has `state` (`value`, `absent`, `unavailable`, `missing`, or `redacted`) and `key`. A timestamp field counts per UTC day. A secret field counts per hash unless `--include-secrets`. Value keys are copied from the Source: `trust.untrusted` is `buckets[].key`. |
+
+A Candidate kind has no Commit State: `count` refuses `--by commitState` and `--commit-state` for it, and `summary` gives `committed: null` and `recovered: null`.
+`topic-candidates`, `candidates`, and `cache` have no `--commit-state` option.
 
 `timeline` accepts `--kind` (repeatable), `--profile`, `--search`, and `--commit-state`.
 `site-findings` accepts `--kind` (a site artifact kind such as `downloads`, repeatable), `--profile`, and `--commit-state`.
@@ -397,6 +409,9 @@ node cli/dist/cli.js export \
   --csv \
   --json
 ```
+
+`export` writes the Extract to a temporary directory next to `--out`, then moves it to `--out`.
+A failed export leaves no files in `--out`.
 
 The output directory must be empty.
 It must be outside the Case Directory and outside each recorded Source path (and its Working Copy).

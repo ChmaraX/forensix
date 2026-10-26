@@ -1,27 +1,18 @@
 import {
-  assertCommitState,
   createConditions,
-  decodeRecordJson,
   normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
   resolveCommitState,
   resolveProfiles,
   resolveSearch,
   runFindingQuery,
-  validateEnum,
-  type EngineRow,
   type FindingQuerySpec,
+  type QueryDirection,
   type SortDefinition,
 } from "./finding-query.js";
-import type { Identified } from "./record-store.js";
-import {
-  createFinding,
-  type CommitState,
-  type Finding,
-} from "./forensic-model.js";
-
-export type MetadataDirection = "asc" | "desc";
-export type MetadataSort = "type" | "profile";
-export type MetadataType = "browser_metadata" | "profile_metadata";
+import { decodeFinding, type Identified } from "./record-store.js";
+import type { CommitState, Finding } from "./forensic-model.js";
 
 export interface MetadataQuery {
   readonly caseDirectory: string;
@@ -30,7 +21,7 @@ export interface MetadataQuery {
   readonly commitState?: CommitState;
   readonly type?: MetadataType;
   readonly sort?: MetadataSort;
-  readonly direction?: MetadataDirection;
+  readonly direction?: QueryDirection;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -43,9 +34,10 @@ export interface MetadataPage {
   readonly limit: number;
 }
 
-const METADATA_DIRECTIONS = ["asc", "desc"] as const;
-const METADATA_SORTS = ["type", "profile"] as const;
-const METADATA_TYPES = ["browser_metadata", "profile_metadata"] as const;
+export const METADATA_SORTS = ["type", "profile"] as const;
+export type MetadataSort = (typeof METADATA_SORTS)[number];
+export const METADATA_TYPES = ["browser_metadata", "profile_metadata"] as const;
+export type MetadataType = (typeof METADATA_TYPES)[number];
 
 const SORTS: Readonly<Record<MetadataSort, SortDefinition>> = {
   type: { expression: "f.sort_type", kind: "text" },
@@ -56,63 +48,18 @@ const METADATA_SPEC: FindingQuerySpec<MetadataQuery, Finding> = {
   label: "Metadata",
   store: "preferences",
   analysisNotFound: "Case has no Metadata analysis. Run analyse first.",
-  schemaTable: "preferences_findings",
-  mainTable: "preferences_findings",
-  resultsTable: "preferences_artifact_results",
-  idColumn: "finding_id",
-  cursorIdField: "findingId",
-  selectColumns: "f.finding_kind, f.profile_path, f.commit_state",
-  parse: (row: EngineRow): Finding => {
-    const { provenance, fields } = decodeRecordJson(
-      row,
-      "Case contains invalid Metadata Finding JSON.",
-      "findingId",
-    );
-    const commitState = assertCommitState(
-      row.commit_state,
-      "findingId",
-      row.entity_id.toString(),
-    );
-    return createFinding({
-      findingKind: row.finding_kind as string,
-      profile: row.profile_path as string,
-      commitState,
-      provenance,
-      fields,
-    });
-  },
+  decode: decodeFinding,
   plan: (input) => {
-    const direction = validateEnum(
-      input.direction,
-      "asc",
-      METADATA_DIRECTIONS,
-      "--direction",
-      "Metadata",
-    );
-    const sort = validateEnum(
-      input.sort,
-      "profile",
-      METADATA_SORTS,
-      "--sort",
-      "Metadata",
-    );
-    const commitState = resolveCommitState(input.commitState, "Metadata");
-    const type =
-      input.type === undefined
-        ? null
-        : validateEnum(
-            input.type,
-            "browser_metadata",
-            METADATA_TYPES,
-            "--type",
-            "Metadata",
-          );
+    const direction =
+      parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "asc";
+    const sort = parseOption(input.sort, "--sort", METADATA_SORTS) ?? "profile";
+    const commitState = resolveCommitState(input.commitState);
+    const type = parseOption(input.type, "--type", METADATA_TYPES) ?? null;
     const limit = normalizeLimit(input.limit, "Metadata");
     const profiles = resolveProfiles(input.profiles, "Metadata");
     const search = resolveSearch(input.search);
 
     const where = createConditions();
-    where.add("f.record_type = 'finding'");
     if (type !== null) {
       where.add("f.finding_kind = ?", type);
     }
@@ -123,7 +70,6 @@ const METADATA_SPEC: FindingQuerySpec<MetadataQuery, Finding> = {
     where.addSearch(search);
 
     return {
-      sort,
       direction,
       limit,
       sortDefinition: SORTS[sort],

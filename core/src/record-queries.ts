@@ -9,12 +9,14 @@ import {
 } from "./case-overview.js";
 import { ForensixError } from "./errors.js";
 import {
+  normalizeLimit,
   resolveCommitState,
   resolveProfiles,
   resolveSearch,
 } from "./finding-query.js";
 import type { CommitState } from "./forensic-model.js";
-import { isSecretField, secretValueSha256 } from "./record-redaction.js";
+import { secretValueSha256 } from "./record-redaction.js";
+import { isSecretField } from "./secret-fields.js";
 import {
   RECORD_STORES,
   decodeStoredRecord,
@@ -27,6 +29,7 @@ import {
   type StoredRecordRow,
 } from "./record-store.js";
 import { tableExists } from "./sqlite-artifact.js";
+import { TIMELINE_SOURCES } from "./timeline-query.js";
 
 /**
  * Small, agent-facing read queries over one Case: fetch one record by id,
@@ -378,32 +381,20 @@ const BUCKET_KEY_SQL = `CASE
   ELSE '(' || COALESCE(json_extract(fs, '$.state'), 'unknown') || ')'
 END`;
 
-function normalizeBucketLimit(value: number | undefined): number {
-  const limit = value ?? 20;
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      "Count --limit must be an integer from 1 through 100.",
-      { limit },
-    );
-  }
-  return limit;
-}
-
 /** Active records of one kind, grouped by one field, counted in SQL. */
 export function queryCount(input: CountQuery): CountResult {
   const { store, kind } = resolveKind(input.kind);
-  const limit = normalizeBucketLimit(input.limit);
+  const limit = normalizeLimit(input.limit ?? 20, "Count");
   const profiles = resolveProfiles(input.profiles, "Count");
-  const commitState = resolveCommitState(input.commitState, "Count");
+  const commitState = resolveCommitState(input.commitState);
   const search = resolveSearch(input.search);
   if (
-    !store.hasCommitState &&
+    store.recordType === "candidate" &&
     (commitState !== null || input.by === "commitState")
   ) {
     throw new ForensixError(
       "INVALID_ARGUMENT",
-      `Kind ${kind} records have no Commit State.`,
+      `Kind ${kind} records are Candidates. A Candidate has no Commit State.`,
       { kind },
     );
   }
@@ -585,7 +576,7 @@ export interface SummaryRecordCount {
   readonly recordType: "finding" | "candidate";
   readonly kind: string;
   readonly store: RecordStoreKey;
-  /** Null for identity Candidates, which carry no Commit State. */
+  /** Null for Candidates, which carry no Commit State. */
   readonly committed: number | null;
   /** WAL- or journal-resident records; null without a Commit State. */
   readonly recovered: number | null;
@@ -616,17 +607,6 @@ export interface SummaryResult {
   } | null;
   readonly completeness: readonly SummaryCompleteness[];
 }
-
-const TIME_SPAN_COLUMNS: readonly {
-  readonly store: RecordStoreKey;
-  readonly column: string;
-  readonly kind: string | null;
-}[] = [
-  { store: "history", column: "sort_time", kind: "history_visit" },
-  { store: "downloads", column: "sort_start", kind: null },
-  { store: "cookies", column: "sort_creation", kind: null },
-  { store: "web-data", column: "sort_last_used", kind: "autofill_entry" },
-];
 
 /** Counts only: Sources, Profiles, the last run, records, span, coverage. */
 export function querySummary(input: SummaryQuery): SummaryResult {
@@ -721,9 +701,10 @@ function recordCounts(
   database: DatabaseSync,
   store: RecordStore,
 ): SummaryRecordCount[] {
-  const committed = store.hasCommitState
-    ? "sum(f.commit_state = 'committed')"
-    : "NULL";
+  const committed =
+    store.recordType === "finding"
+      ? "sum(f.commit_state = 'committed')"
+      : "NULL";
   const rows = database
     .prepare(
       `SELECT f.${store.kindColumn} AS kind, count(*) AS total,
@@ -761,7 +742,7 @@ function timeSpan(
 ): SummaryResult["timeSpan"] {
   let earliest: string | null = null;
   let latest: string | null = null;
-  for (const entry of TIME_SPAN_COLUMNS) {
+  for (const entry of TIMELINE_SOURCES) {
     const store = stores.find((candidate) => candidate.key === entry.store);
     if (store === undefined) continue;
     const row = database
@@ -772,9 +753,9 @@ function timeSpan(
            JOIN ${store.resultsTable} r
              ON r.artifact_result_id = f.artifact_result_id
           WHERE r.active = 1 AND f.${entry.column} IS NOT NULL
-                ${entry.kind === null ? "" : "AND f.finding_kind = ?"}`,
+                AND f.finding_kind = ?`,
       )
-      .get(...(entry.kind === null ? [] : [entry.kind])) as {
+      .get(entry.kind) as {
       readonly earliest: string | null;
       readonly latest: string | null;
     };

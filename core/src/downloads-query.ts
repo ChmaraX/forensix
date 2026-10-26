@@ -1,32 +1,18 @@
 import {
-  assertCommitState,
   createConditions,
-  decodeRecordJson,
   normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
   resolveCommitState,
   resolveProfiles,
   resolveSearch,
   runFindingQuery,
-  validateEnum,
-  type EngineRow,
   type FindingQuerySpec,
+  type QueryDirection,
   type SortDefinition,
 } from "./finding-query.js";
-import type { Identified } from "./record-store.js";
-import {
-  createFinding,
-  type CommitState,
-  type Finding,
-} from "./forensic-model.js";
-
-export type DownloadSort =
-  | "start-time"
-  | "end-time"
-  | "target-path"
-  | "state"
-  | "total-bytes"
-  | "profile";
-export type DownloadDirection = "asc" | "desc";
+import { decodeFinding, type Identified } from "./record-store.js";
+import type { CommitState, Finding } from "./forensic-model.js";
 
 export interface DownloadQuery {
   readonly caseDirectory: string;
@@ -36,7 +22,7 @@ export interface DownloadQuery {
   readonly state?: string;
   readonly dangerType?: string;
   readonly sort?: DownloadSort;
-  readonly direction?: DownloadDirection;
+  readonly direction?: QueryDirection;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -49,7 +35,7 @@ export interface DownloadPage {
   readonly limit: number;
 }
 
-const DOWNLOAD_SORTS = [
+export const DOWNLOAD_SORTS = [
   "start-time",
   "end-time",
   "target-path",
@@ -57,7 +43,7 @@ const DOWNLOAD_SORTS = [
   "total-bytes",
   "profile",
 ] as const;
-const DOWNLOAD_DIRECTIONS = ["asc", "desc"] as const;
+export type DownloadSort = (typeof DOWNLOAD_SORTS)[number];
 const DOWNLOAD_KIND = "download";
 
 const SORTS: Readonly<Record<DownloadSort, SortDefinition>> = {
@@ -73,47 +59,13 @@ const DOWNLOAD_SPEC: FindingQuerySpec<DownloadQuery, Finding> = {
   label: "Downloads",
   store: "downloads",
   analysisNotFound: "Case has no Downloads analysis. Run analyse first.",
-  schemaTable: "downloads_findings",
-  mainTable: "downloads_findings",
-  resultsTable: "downloads_artifact_results",
-  idColumn: "finding_id",
-  cursorIdField: "findingId",
-  selectColumns: "f.finding_kind, f.profile_path, f.commit_state",
-  parse: (row: EngineRow): Finding => {
-    const { provenance, fields } = decodeRecordJson(
-      row,
-      "Case contains invalid Downloads Finding JSON.",
-      "findingId",
-    );
-    const commitState = assertCommitState(
-      row.commit_state,
-      "findingId",
-      row.entity_id.toString(),
-    );
-    return createFinding({
-      findingKind: row.finding_kind as string,
-      profile: row.profile_path as string,
-      commitState,
-      provenance,
-      fields,
-    });
-  },
+  decode: decodeFinding,
   plan: (input) => {
-    const direction = validateEnum(
-      input.direction,
-      "desc",
-      DOWNLOAD_DIRECTIONS,
-      "--direction",
-      "Downloads",
-    );
-    const sort = validateEnum(
-      input.sort,
-      "start-time",
-      DOWNLOAD_SORTS,
-      "--sort",
-      "Downloads",
-    );
-    const commitState = resolveCommitState(input.commitState, "Downloads");
+    const direction =
+      parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "desc";
+    const sort =
+      parseOption(input.sort, "--sort", DOWNLOAD_SORTS) ?? "start-time";
+    const commitState = resolveCommitState(input.commitState);
     const limit = normalizeLimit(input.limit, "Downloads");
     const profiles = resolveProfiles(input.profiles, "Downloads");
     const search = resolveSearch(input.search);
@@ -122,7 +74,6 @@ const DOWNLOAD_SPEC: FindingQuerySpec<DownloadQuery, Finding> = {
 
     const where = createConditions();
     where.add("f.finding_kind = ?", DOWNLOAD_KIND);
-    where.add("f.record_type = 'finding'");
     if (commitState !== null) {
       where.add("f.commit_state = ?", commitState);
     }
@@ -136,7 +87,6 @@ const DOWNLOAD_SPEC: FindingQuerySpec<DownloadQuery, Finding> = {
     where.addSearch(search);
 
     return {
-      sort,
       direction,
       limit,
       sortDefinition: SORTS[sort],

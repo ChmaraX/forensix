@@ -1,31 +1,18 @@
 import {
-  assertCommitState,
   createConditions,
-  decodeRecordJson,
   normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
   resolveCommitState,
   resolveProfiles,
   resolveSearch,
   runFindingQuery,
-  validateEnum,
-  type EngineRow,
   type FindingQuerySpec,
+  type QueryDirection,
   type SortDefinition,
 } from "./finding-query.js";
-import type { Identified } from "./record-store.js";
-import {
-  createFinding,
-  type CommitState,
-  type Finding,
-} from "./forensic-model.js";
-
-export type AutofillSort =
-  | "created-time"
-  | "last-used-time"
-  | "field-name"
-  | "value"
-  | "profile";
-export type AutofillDirection = "asc" | "desc";
+import { decodeFinding, type Identified } from "./record-store.js";
+import type { CommitState, Finding } from "./forensic-model.js";
 
 export interface AutofillQuery {
   readonly caseDirectory: string;
@@ -33,7 +20,7 @@ export interface AutofillQuery {
   readonly search?: string;
   readonly commitState?: CommitState;
   readonly sort?: AutofillSort;
-  readonly direction?: AutofillDirection;
+  readonly direction?: QueryDirection;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -46,14 +33,14 @@ export interface AutofillPage {
   readonly limit: number;
 }
 
-const AUTOFILL_SORTS = [
+export const AUTOFILL_SORTS = [
   "created-time",
   "last-used-time",
   "field-name",
   "value",
   "profile",
 ] as const;
-const AUTOFILL_DIRECTIONS = ["asc", "desc"] as const;
+export type AutofillSort = (typeof AUTOFILL_SORTS)[number];
 const AUTOFILL_KIND = "autofill_entry";
 
 const SORTS: Readonly<Record<AutofillSort, SortDefinition>> = {
@@ -71,54 +58,19 @@ const AUTOFILL_SPEC: FindingQuerySpec<AutofillQuery, Finding> = {
   label: "Autofill",
   store: "web-data",
   analysisNotFound: "Case has no Web Data analysis. Run analyse first.",
-  schemaTable: "web_data_findings",
-  mainTable: "web_data_findings",
-  resultsTable: "web_data_artifact_results",
-  idColumn: "finding_id",
-  cursorIdField: "findingId",
-  selectColumns: "f.finding_kind, f.profile_path, f.commit_state",
-  parse: (row: EngineRow): Finding => {
-    const { provenance, fields } = decodeRecordJson(
-      row,
-      "Case contains invalid Web Data Finding JSON.",
-      "findingId",
-    );
-    const commitState = assertCommitState(
-      row.commit_state,
-      "findingId",
-      row.entity_id.toString(),
-    );
-    return createFinding({
-      findingKind: row.finding_kind as string,
-      profile: row.profile_path as string,
-      commitState,
-      provenance,
-      fields,
-    });
-  },
+  decode: decodeFinding,
   plan: (input) => {
-    const direction = validateEnum(
-      input.direction,
-      "desc",
-      AUTOFILL_DIRECTIONS,
-      "--direction",
-      "Autofill",
-    );
-    const sort = validateEnum(
-      input.sort,
-      "created-time",
-      AUTOFILL_SORTS,
-      "--sort",
-      "Autofill",
-    );
-    const commitState = resolveCommitState(input.commitState, "Autofill");
+    const direction =
+      parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "desc";
+    const sort =
+      parseOption(input.sort, "--sort", AUTOFILL_SORTS) ?? "created-time";
+    const commitState = resolveCommitState(input.commitState);
     const limit = normalizeLimit(input.limit, "Autofill");
     const profiles = resolveProfiles(input.profiles, "Autofill");
     const search = resolveSearch(input.search);
 
     const where = createConditions();
     where.add("f.finding_kind = ?", AUTOFILL_KIND);
-    where.add("f.record_type = 'finding'");
     if (commitState !== null) {
       where.add("f.commit_state = ?", commitState);
     }
@@ -126,7 +78,6 @@ const AUTOFILL_SPEC: FindingQuerySpec<AutofillQuery, Finding> = {
     where.addSearch(search);
 
     return {
-      sort,
       direction,
       limit,
       sortDefinition: SORTS[sort],

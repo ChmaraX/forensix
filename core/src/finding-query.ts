@@ -2,34 +2,81 @@ import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 
 import { openCaseReadOnly } from "./case.js";
+import { readCaseId } from "./case-overview.js";
 import { ForensixError } from "./errors.js";
 import { SQLITE_MAX_INTEGER, SQLITE_MIN_INTEGER } from "./forensic-time.js";
+import type { CommitState } from "./forensic-model.js";
 import {
-  withRecordId,
+  recordStore,
+  storedRecordColumns,
   type Identified,
+  type RecordStore,
   type RecordStoreKey,
+  type StoredRecordRow,
 } from "./record-store.js";
-import type {
-  CommitState,
-  ForensicFields,
-  Provenance,
-} from "./forensic-model.js";
+import { tableExists } from "./sqlite-artifact.js";
 
 /**
  * Shared read-only query engine for every artifact list surface.
  *
- * The bookmarks, cache, cookies, downloads, favicons, identity/topic
+ * The bookmarks, cache, cookies, downloads, favicons, History, identity/topic
  * Candidate, Login Data, Preferences, Top Sites, and Web Data queries are all
  * the same query: open the immutable Case, confirm the analysis exists, pin the
  * active artifact results, hash a fingerprint over the resolved filters, decode
  * an optional keyset cursor, then run a deterministic keyset page. They differ
- * only in table names, kind constants, sortable columns, extra filters, output
- * record shape, and human wording. Those differences live in a per-surface
- * {@link FindingQuerySpec}; the engine below owns everything else so the SQL
- * assembly, cursor encoding, and pagination cannot drift between surfaces.
+ * only in their record store, sortable columns, extra filters, and wording.
+ * Those differences live in a per-surface {@link FindingQuerySpec}; the engine
+ * below owns everything else so the SQL assembly, cursor encoding, and
+ * pagination cannot drift between surfaces.
  */
 
-export type QueryDirection = "asc" | "desc";
+export const COMMIT_STATES = [
+  "committed",
+  "wal_resident",
+  "journal_resident",
+] as const satisfies readonly CommitState[];
+
+export const QUERY_DIRECTIONS = ["asc", "desc"] as const;
+export type QueryDirection = (typeof QUERY_DIRECTIONS)[number];
+
+/**
+ * Parses one option value against its allowed values. The CLI, the server,
+ * and every core query use it, so a bad value gives one INVALID_ARGUMENT error.
+ */
+export function parseOption<const Values extends readonly string[]>(
+  value: string,
+  option: string,
+  values: Values,
+): Values[number];
+export function parseOption<const Values extends readonly string[]>(
+  value: string | null | undefined,
+  option: string,
+  values: Values,
+): Values[number] | undefined;
+export function parseOption<const Values extends readonly string[]>(
+  value: string | null | undefined,
+  option: string,
+  values: Values,
+): Values[number] | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (!isOneOf(value, values)) {
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      `Option ${option} has an unsupported value: ${value}`,
+      { option, value, allowed: values },
+    );
+  }
+  return value;
+}
+
+function isOneOf<const Values extends readonly string[]>(
+  value: string,
+  values: Values,
+): value is Values[number] {
+  return values.includes(value);
+}
 
 export interface SortDefinition {
   readonly expression: string;
@@ -41,24 +88,8 @@ export interface AnalysisIdentity {
   readonly artifactResultIds: readonly string[];
 }
 
-/** Row shape returned by the engine's SELECT; parsers cast the columns they own. */
-export interface EngineRow {
-  readonly entity_id: bigint;
-  readonly provenance_json: string;
-  readonly fields_json: string;
-  readonly cursor_key: string | bigint;
-  readonly finding_kind?: string;
-  readonly candidate_kind?: string;
-  readonly category?: string;
-  readonly profile_path?: string;
-  readonly commit_state?: string;
-  readonly rank?: bigint;
-  readonly supporting_count?: bigint;
-}
-
 /** Everything a single call resolves before any database work happens. */
 export interface QueryPlan {
-  readonly sort: string;
   readonly direction: QueryDirection;
   readonly limit: number;
   readonly sortDefinition: SortDefinition;
@@ -75,17 +106,15 @@ export interface FindingQuerySpec<
 > {
   /** Human label used in every INVALID_ARGUMENT / INVALID_CURSOR message. */
   readonly label: string;
-  /** The record-id store key every returned item's `id` starts with. */
+  /** The record store the query reads; it names the tables and columns. */
   readonly store: RecordStoreKey;
   readonly analysisNotFound: string;
-  readonly schemaTable: string;
-  readonly mainTable: string;
-  readonly resultsTable: string;
-  readonly idColumn: string;
-  readonly cursorIdField: string;
-  /** Columns between the aliased id and provenance/fields, joined verbatim. */
-  readonly selectColumns: string;
-  readonly parse: (row: EngineRow) => TItem;
+  /** The table that proves the analysis ran, when not the store's own table. */
+  readonly schemaTable?: string;
+  readonly decode: (
+    store: RecordStore,
+    row: StoredRecordRow,
+  ) => Identified<TItem>;
   readonly plan: (input: TInput) => QueryPlan;
 }
 
@@ -98,30 +127,6 @@ export interface QueryPageParts<TItem> {
   readonly items: readonly Identified<TItem>[];
   readonly nextCursor: string | null;
   readonly limit: number;
-}
-
-const COMMIT_STATES: readonly CommitState[] = [
-  "committed",
-  "wal_resident",
-  "journal_resident",
-];
-
-export function validateEnum<const Values extends readonly string[]>(
-  value: string | undefined,
-  fallback: Values[number],
-  values: Values,
-  name: string,
-  label: string,
-): Values[number] {
-  const result = value ?? fallback;
-  if (!values.includes(result)) {
-    throw new ForensixError(
-      "INVALID_ARGUMENT",
-      `${label} ${name} has an unsupported value.`,
-      { value: result, allowed: values },
-    );
-  }
-  return result;
 }
 
 export function normalizeLimit(
@@ -137,6 +142,49 @@ export function normalizeLimit(
     );
   }
   return limit;
+}
+
+/** An ISO 8601 instant with an offset, as a microsecond UTC string. */
+export function normalizeInstant(
+  value: string | undefined,
+  option: string,
+  label: string,
+): string | null {
+  if (value === undefined) {
+    return null;
+  }
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}:\d{2})$/.exec(
+      value,
+    );
+  const date = new Date(value);
+  const year = Number(match?.[1]);
+  const month = Number(match?.[2]);
+  const day = Number(match?.[3]);
+  const hour = Number(match?.[4]);
+  const minute = Number(match?.[5]);
+  const second = Number(match?.[6]);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  if (
+    match === null ||
+    Number.isNaN(date.getTime()) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    throw new ForensixError(
+      "INVALID_ARGUMENT",
+      `${label} ${option} must be an ISO 8601 instant with an offset.`,
+      { value },
+    );
+  }
+  const fraction = (match[7] ?? "").padEnd(6, "0");
+  const milliseconds = date.toISOString();
+  return `${milliseconds.slice(0, -5)}.${milliseconds.slice(-4, -1)}${fraction.slice(3)}Z`;
 }
 
 export function resolveProfiles(
@@ -161,11 +209,8 @@ export function resolveSearch(search: string | undefined): string | null {
 /** Optional Commit-State filter shared by every Finding surface. */
 export function resolveCommitState(
   value: CommitState | undefined,
-  label: string,
 ): CommitState | null {
-  return value === undefined
-    ? null
-    : validateEnum(value, "committed", COMMIT_STATES, "--commit-state", label);
+  return parseOption(value, "--commit-state", COMMIT_STATES) ?? null;
 }
 
 /** Accumulates paired WHERE fragments and their positional parameters. */
@@ -204,99 +249,44 @@ export function createConditions(): ConditionBuilder {
   };
 }
 
-/** Parses provenance/fields JSON, raising a typed CASE_INVALID on corruption. */
-export function decodeRecordJson(
-  row: EngineRow,
-  invalidJsonMessage: string,
-  idKey: string,
-): { readonly provenance: Provenance; readonly fields: ForensicFields } {
-  try {
-    return {
-      provenance: JSON.parse(row.provenance_json) as Provenance,
-      fields: JSON.parse(row.fields_json) as ForensicFields,
-    };
-  } catch (error) {
-    throw new ForensixError(
-      "CASE_INVALID",
-      invalidJsonMessage,
-      { [idKey]: row.entity_id.toString() },
-      { cause: error },
-    );
-  }
-}
-
-/** Validates a stored Commit State, raising a typed CASE_INVALID otherwise. */
-export function assertCommitState(
-  value: string | undefined,
-  idKey: string,
-  idValue: string,
-): CommitState {
-  if (
-    value !== "committed" &&
-    value !== "wal_resident" &&
-    value !== "journal_resident"
-  ) {
-    throw new ForensixError(
-      "CASE_INVALID",
-      "Case contains an invalid Commit State.",
-      { [idKey]: idValue },
-    );
-  }
-  return value;
-}
-
-function schemaExists(database: DatabaseSync, table: string): boolean {
-  return (
-    database
-      .prepare(
-        "SELECT 1 AS present FROM sqlite_schema WHERE type = 'table' AND name = ?",
-      )
-      .get(table) !== undefined
-  );
-}
-
-function activeAnalysisIdentity(
+/** The active artifact result ids of one results table, in order. */
+export function activeArtifactResultIds(
   database: DatabaseSync,
   resultsTable: string,
-): AnalysisIdentity {
-  const caseRow = database
-    .prepare("SELECT case_id FROM case_info LIMIT 1")
-    .get();
-  if (typeof caseRow?.case_id !== "string") {
-    throw new ForensixError("CASE_INVALID", "Case identity is missing.");
-  }
-  const resultRows = database
+): string[] {
+  return database
     .prepare(
       `SELECT artifact_result_id
          FROM ${resultsTable}
         WHERE active = 1
         ORDER BY artifact_result_id`,
     )
-    .all();
-  return {
-    caseId: caseRow.case_id,
-    artifactResultIds: resultRows.map((row) => String(row.artifact_result_id)),
-  };
+    .all()
+    .map((row) => String(row.artifact_result_id));
 }
 
-function encodeCursor(
+/** SHA-256 over the Case identity and the resolved filters of one query. */
+export function queryFingerprint(query: Record<string, unknown>): string {
+  return createHash("sha256").update(JSON.stringify(query)).digest("hex");
+}
+
+export function encodeCursor(
   fingerprint: string,
-  key: string,
-  idField: string,
-  idValue: string,
+  position: Readonly<Record<string, string>>,
 ): string {
   return Buffer.from(
-    JSON.stringify({ version: 1, fingerprint, key, [idField]: idValue }),
+    JSON.stringify({ version: 1, fingerprint, ...position }),
     "utf8",
   ).toString("base64url");
 }
 
-function decodeCursor(
+/** The named string keys of a cursor minted for this exact query. */
+export function decodeCursor<const Key extends string>(
   value: string,
-  expectedFingerprint: string,
+  fingerprint: string,
   label: string,
-  idField: string,
-): { readonly key: string; readonly id: string } {
+  keys: readonly Key[],
+): Readonly<Record<Key, string>> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
@@ -308,58 +298,61 @@ function decodeCursor(
       { cause: error },
     );
   }
+  const record = parsed as Record<string, unknown> | null;
   if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("version" in parsed) ||
-    parsed.version !== 1 ||
-    !("fingerprint" in parsed) ||
-    parsed.fingerprint !== expectedFingerprint ||
-    !("key" in parsed) ||
-    typeof parsed.key !== "string" ||
-    !(idField in parsed) ||
-    typeof (parsed as Record<string, unknown>)[idField] !== "string" ||
-    !/^[0-9]+$/.test((parsed as Record<string, unknown>)[idField] as string)
+    typeof record !== "object" ||
+    record === null ||
+    record.version !== 1 ||
+    record.fingerprint !== fingerprint ||
+    !keys.every((key) => typeof record[key] === "string")
   ) {
     throw new ForensixError(
       "INVALID_CURSOR",
       `${label} cursor does not belong to this query.`,
     );
   }
-  const record = parsed as Record<string, unknown>;
-  return { key: record.key as string, id: record[idField] as string };
+  return record as Record<Key, string>;
 }
 
-/**
- * Runs one keyset page for a surface. The returned parts are wrapped by each
- * surface into its own typed page literal so emitted JSON field order stays
- * byte-for-byte identical to the pre-refactor modules.
- */
+/** A cursor's row id: a decimal SQLite integer, or INVALID_CURSOR. */
+export function cursorRowId(value: string, label: string): bigint {
+  const id = /^[0-9]{1,19}$/.test(value) ? BigInt(value) : null;
+  if (id === null || id > SQLITE_MAX_INTEGER) {
+    throw new ForensixError(
+      "INVALID_CURSOR",
+      `${label} cursor does not belong to this query.`,
+    );
+  }
+  return id;
+}
+
+/** Runs one keyset page for a surface. */
 export function runFindingQuery<
   TInput extends BaseQueryInput,
   TItem extends object,
 >(spec: FindingQuerySpec<TInput, TItem>, input: TInput): QueryPageParts<TItem> {
   const plan = spec.plan(input);
+  const store = recordStore(spec.store);
   const sortExpression = plan.sortDefinition.expression;
 
   const database = openCaseReadOnly(input.caseDirectory, { readBigInts: true });
   try {
-    if (!schemaExists(database, spec.schemaTable)) {
+    if (!tableExists(database, spec.schemaTable ?? store.table)) {
       throw new ForensixError("ANALYSIS_NOT_FOUND", spec.analysisNotFound);
     }
-    const identity = activeAnalysisIdentity(database, spec.resultsTable);
-    const fingerprint = createHash("sha256")
-      .update(JSON.stringify(plan.fingerprint(identity)))
-      .digest("hex");
+    const fingerprint = queryFingerprint(
+      plan.fingerprint({
+        caseId: readCaseId(database),
+        artifactResultIds: activeArtifactResultIds(
+          database,
+          store.resultsTable,
+        ),
+      }),
+    );
     const cursor =
       input.after === undefined
         ? null
-        : decodeCursor(
-            input.after,
-            fingerprint,
-            spec.label,
-            spec.cursorIdField,
-          );
+        : decodeCursor(input.after, fingerprint, spec.label, ["key", "id"]);
 
     const conditions = ["r.active = 1", ...plan.conditions];
     const parameters: (string | bigint)[] = [...plan.parameters];
@@ -367,32 +360,29 @@ export function runFindingQuery<
       const operator = plan.direction === "asc" ? ">" : "<";
       conditions.push(
         `(${sortExpression} ${operator} ? OR ` +
-          `(${sortExpression} = ? AND f.${spec.idColumn} ${operator} ?))`,
+          `(${sortExpression} = ? AND f.${store.idColumn} ${operator} ?))`,
       );
-      const id = BigInt(cursor.id);
+      const id = cursorRowId(cursor.id, spec.label);
       // An integer sort validates its key with the same regex and int64 range
-      // guard History uses, so a forged or out-of-range cursor surfaces a typed
-      // INVALID_CURSOR instead of a raw BigInt/node:sqlite throw.
-      const integerCursorKey =
-        plan.sortDefinition.kind === "integer" && /^-?[0-9]+$/.test(cursor.key)
+      // guard as the row id, so a forged or out-of-range cursor surfaces a
+      // typed INVALID_CURSOR instead of a raw BigInt/node:sqlite throw.
+      let cursorKey: string | bigint = cursor.key;
+      if (plan.sortDefinition.kind === "integer") {
+        const integerKey = /^-?[0-9]+$/.test(cursor.key)
           ? BigInt(cursor.key)
           : null;
-      if (
-        id > SQLITE_MAX_INTEGER ||
-        (plan.sortDefinition.kind === "integer" &&
-          (integerCursorKey === null ||
-            integerCursorKey < SQLITE_MIN_INTEGER ||
-            integerCursorKey > SQLITE_MAX_INTEGER))
-      ) {
-        throw new ForensixError(
-          "INVALID_CURSOR",
-          `${spec.label} cursor contains an invalid sort key.`,
-        );
+        if (
+          integerKey === null ||
+          integerKey < SQLITE_MIN_INTEGER ||
+          integerKey > SQLITE_MAX_INTEGER
+        ) {
+          throw new ForensixError(
+            "INVALID_CURSOR",
+            `${spec.label} cursor contains an invalid sort key.`,
+          );
+        }
+        cursorKey = integerKey;
       }
-      const cursorKey =
-        plan.sortDefinition.kind === "integer"
-          ? (integerCursorKey as bigint)
-          : cursor.key;
       parameters.push(cursorKey, cursorKey, id);
     }
 
@@ -400,33 +390,30 @@ export function runFindingQuery<
     const sqlDirection = plan.direction === "asc" ? "ASC" : "DESC";
     const rows = database
       .prepare(
-        `SELECT f.${spec.idColumn} AS entity_id, ${spec.selectColumns},
-                f.provenance_json, f.fields_json,
+        `SELECT ${storedRecordColumns(store)},
                 ${sortExpression} AS cursor_key
-           FROM ${spec.mainTable} f
-           JOIN ${spec.resultsTable} r
+           FROM ${store.table} f
+           JOIN ${store.resultsTable} r
              ON r.artifact_result_id = f.artifact_result_id
           WHERE ${conditions.join(" AND ")}
           ORDER BY ${sortExpression} ${sqlDirection},
-                   f.${spec.idColumn} ${sqlDirection}
+                   f.${store.idColumn} ${sqlDirection}
           LIMIT ?`,
       )
-      .all(...parameters) as unknown as EngineRow[];
+      .all(...parameters) as unknown as (StoredRecordRow & {
+      readonly cursor_key: string | bigint;
+    })[];
     const hasNext = rows.length > plan.limit;
     const pageRows = hasNext ? rows.slice(0, plan.limit) : rows;
     const last = pageRows.at(-1);
     return {
-      items: pageRows.map((row) =>
-        withRecordId(spec.store, row.entity_id, spec.parse(row)),
-      ),
+      items: pageRows.map((row) => spec.decode(store, row)),
       nextCursor:
         hasNext && last !== undefined
-          ? encodeCursor(
-              fingerprint,
-              last.cursor_key.toString(),
-              spec.cursorIdField,
-              last.entity_id.toString(),
-            )
+          ? encodeCursor(fingerprint, {
+              key: last.cursor_key.toString(),
+              id: last.row_id.toString(),
+            })
           : null,
       limit: plan.limit,
     };

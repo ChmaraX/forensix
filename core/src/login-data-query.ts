@@ -1,31 +1,18 @@
 import {
-  assertCommitState,
   createConditions,
-  decodeRecordJson,
   normalizeLimit,
+  parseOption,
+  QUERY_DIRECTIONS,
   resolveCommitState,
   resolveProfiles,
   resolveSearch,
   runFindingQuery,
-  validateEnum,
-  type EngineRow,
   type FindingQuerySpec,
+  type QueryDirection,
   type SortDefinition,
 } from "./finding-query.js";
-import type { Identified } from "./record-store.js";
-import {
-  createFinding,
-  type CommitState,
-  type Finding,
-} from "./forensic-model.js";
-
-export type CredentialSort =
-  | "created-time"
-  | "last-used-time"
-  | "origin"
-  | "username"
-  | "profile";
-export type CredentialDirection = "asc" | "desc";
+import { decodeFinding, type Identified } from "./record-store.js";
+import type { CommitState, Finding } from "./forensic-model.js";
 
 export interface CredentialQuery {
   readonly caseDirectory: string;
@@ -33,7 +20,7 @@ export interface CredentialQuery {
   readonly search?: string;
   readonly commitState?: CommitState;
   readonly sort?: CredentialSort;
-  readonly direction?: CredentialDirection;
+  readonly direction?: QueryDirection;
   readonly limit?: number;
   readonly after?: string;
 }
@@ -46,14 +33,14 @@ export interface CredentialPage {
   readonly limit: number;
 }
 
-const CREDENTIAL_SORTS = [
+export const CREDENTIAL_SORTS = [
   "created-time",
   "last-used-time",
   "origin",
   "username",
   "profile",
 ] as const;
-const CREDENTIAL_DIRECTIONS = ["asc", "desc"] as const;
+export type CredentialSort = (typeof CREDENTIAL_SORTS)[number];
 const CREDENTIAL_KIND = "login_credential";
 
 const SORTS: Readonly<Record<CredentialSort, SortDefinition>> = {
@@ -71,54 +58,19 @@ const CREDENTIAL_SPEC: FindingQuerySpec<CredentialQuery, Finding> = {
   label: "Credential",
   store: "logins",
   analysisNotFound: "Case has no Login Data analysis. Run analyse first.",
-  schemaTable: "login_data_findings",
-  mainTable: "login_data_findings",
-  resultsTable: "login_data_artifact_results",
-  idColumn: "finding_id",
-  cursorIdField: "findingId",
-  selectColumns: "f.finding_kind, f.profile_path, f.commit_state",
-  parse: (row: EngineRow): Finding => {
-    const { provenance, fields } = decodeRecordJson(
-      row,
-      "Case contains invalid Finding JSON.",
-      "findingId",
-    );
-    const commitState = assertCommitState(
-      row.commit_state,
-      "findingId",
-      row.entity_id.toString(),
-    );
-    return createFinding({
-      findingKind: row.finding_kind as string,
-      profile: row.profile_path as string,
-      commitState,
-      provenance,
-      fields,
-    });
-  },
+  decode: decodeFinding,
   plan: (input) => {
-    const direction = validateEnum(
-      input.direction,
-      "desc",
-      CREDENTIAL_DIRECTIONS,
-      "--direction",
-      "Credential",
-    );
-    const sort = validateEnum(
-      input.sort,
-      "created-time",
-      CREDENTIAL_SORTS,
-      "--sort",
-      "Credential",
-    );
-    const commitState = resolveCommitState(input.commitState, "Credential");
+    const direction =
+      parseOption(input.direction, "--direction", QUERY_DIRECTIONS) ?? "desc";
+    const sort =
+      parseOption(input.sort, "--sort", CREDENTIAL_SORTS) ?? "created-time";
+    const commitState = resolveCommitState(input.commitState);
     const limit = normalizeLimit(input.limit, "Credential");
     const profiles = resolveProfiles(input.profiles, "Credential");
     const search = resolveSearch(input.search);
 
     const where = createConditions();
     where.add("f.finding_kind = ?", CREDENTIAL_KIND);
-    where.add("f.record_type = 'finding'");
     if (commitState !== null) {
       where.add("f.commit_state = ?", commitState);
     }
@@ -126,7 +78,6 @@ const CREDENTIAL_SPEC: FindingQuerySpec<CredentialQuery, Finding> = {
     where.addSearch(search);
 
     return {
-      sort,
       direction,
       limit,
       sortDefinition: SORTS[sort],
