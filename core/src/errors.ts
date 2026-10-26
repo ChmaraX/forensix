@@ -8,6 +8,7 @@ export type ForensixErrorCode =
   | "INGEST_FAILED"
   | "CASE_NOT_FOUND"
   | "CASE_INVALID"
+  | "CASE_IN_USE"
   | "ANALYSIS_FAILED"
   | "ANALYSIS_NOT_FOUND"
   | "EXTRACT_NOT_FOUND"

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { analyseSourceBookmarks } from "./bookmarks.js";
 import { analyseSourceCache } from "./cache.js";
 import {
-  storeHistoryAnalysis,
+  storeAnalysisWrites,
   type AnalysisRunExitState,
   type BookmarksArtifactWrite,
   type CacheArtifactWrite,
@@ -35,6 +35,7 @@ import {
 } from "./key-material.js";
 import { DECRYPTION_DISABLED, type DecryptionSettings } from "./oscrypt.js";
 import { analyseSourcePreferences } from "./preferences.js";
+import { assertNoLiveServeLock } from "./serve-lock.js";
 import { analyseSourceTopSites } from "./top-sites.js";
 import { type EmbeddingEngine } from "./topic-candidates.js";
 import { verifyWorkingCopy, type WorkingCopyVerification } from "./verify.js";
@@ -264,6 +265,7 @@ export async function analyseCase(
   options: AnalyseCaseOptions,
 ): Promise<AnalyseCaseResult> {
   const caseDirectory = resolve(options.caseDirectory);
+  await assertNoLiveServeLock(caseDirectory);
   const declaredTimezone = validateDeclaredTimezone(
     options.declaredTimezone ?? "UTC",
   );
@@ -396,25 +398,29 @@ export async function analyseCase(
   });
 
   await verifyWorkingCopy(caseDirectory);
-  const stored = storeHistoryAnalysis({
-    caseDirectory,
-    sourceIds: sources.map((source) => source.sourceId),
-    declaredTimezone,
-    declaredOriginOs,
-    invocation: options.invocation ?? ["analyse", "--case", caseDirectory],
-    startedAt,
-    artifacts: classification.artifacts,
-    cookieArtifacts,
-    loginDataArtifacts,
-    topSitesArtifacts,
-    webDataArtifacts,
-    faviconArtifacts,
-    downloadsArtifacts,
-    metadataArtifacts,
-    bookmarksArtifacts,
-    cacheArtifacts,
-    candidateArtifacts,
-  });
+  const stored = storeAnalysisWrites(
+    {
+      caseDirectory,
+      sourceIds: sources.map((source) => source.sourceId),
+      declaredTimezone,
+      declaredOriginOs,
+      invocation: options.invocation ?? ["analyse", "--case", caseDirectory],
+      startedAt,
+    },
+    {
+      historyArtifacts: classification.artifacts,
+      cookieArtifacts,
+      loginDataArtifacts,
+      topSitesArtifacts,
+      webDataArtifacts,
+      faviconArtifacts,
+      downloadsArtifacts,
+      metadataArtifacts,
+      bookmarksArtifacts,
+      cacheArtifacts,
+      candidateArtifacts,
+    },
+  );
   const singletonLockPresent = sources.some((source) =>
     source.entries.some(
       (entry) =>
