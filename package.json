@@ -1,6 +1,6 @@
 {
   "name": "forensix-v2",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0",
   "private": true,
   "description": "Local, offline Chrome forensic analyzer",
   "packageManager": "pnpm@11.0.9",
