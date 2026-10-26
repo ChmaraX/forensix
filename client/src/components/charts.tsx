@@ -23,7 +23,7 @@
  *  - fluid hover on bars: one `--hover` band glides between categories on
  *    `spring.fast` (`FluidBandCursor`, the chart's analogue of
  *    `FluidHoverHighlight`), and the bar under it gains strength on the same
- *    spring (`FluidBar`);
+ *    spring (`SeriesBar`);
  *  - no entrance animation of their own: bars draw in the frame their data
  *    and layout land, and the panel's `reveal-swap` is the entrance
  *    (`CHART_STATIC`).
@@ -43,12 +43,7 @@
  */
 import { motion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  Rectangle,
-  type BarShapeProps,
-  type MouseHandlerDataParam,
-  type RectangleProps,
-} from "recharts";
+import { Rectangle, type BarShapeProps, type RectangleProps } from "recharts";
 
 import { EvidenceDot, type EvidenceState } from "@/components/evidence";
 import { Elevated } from "@/lib/elevated";
@@ -382,41 +377,9 @@ export function FluidBandCursor({
 }
 
 /**
- * A bar whose strength springs with hover: the resting `opacity` (the
- * peak-at-full / others-reduced reading) rises toward full while the bar is
- * under the pointer, on `spring.fast`. Use from a Bar's `shape` render
- * function, passing the per-bar `opacity` and whether it is `hovered`.
- */
-export function FluidBar({
-  opacity,
-  hovered,
-  ...props
-}: BarShapeProps & {
-  readonly opacity: number;
-  readonly hovered: boolean;
-}) {
-  const target = hovered ? Math.min(1, opacity + 0.3) : opacity;
-  // Recharts hands the shape its whole entry (payload, tooltip position,
-  // indices…); Rectangle reads only the geometry and SVG props it knows.
-  const rectangle = props as unknown as RectangleProps;
-  // A zero draws nothing: no 1px stub that reads as "some".
-  if (!(Number(rectangle.height) > 0) || !(Number(rectangle.width) > 0)) {
-    return <g />;
-  }
-  return (
-    <motion.g
-      initial={false}
-      animate={{ opacity: target }}
-      transition={spring.fast}
-    >
-      <Rectangle {...rectangle} fillOpacity={1} />
-    </motion.g>
-  );
-}
-
-/**
  * A bar in the one series style: ink, at the opacity `seriesOpacity` gives
- * it, lifting while hovered. Use from a Bar's `shape` render function:
+ * it, its strength springing toward full while hovered (`spring.fast`). Use
+ * from a Bar's `shape` render function:
  *
  *   shape={(props: BarShapeProps) => (
  *     <SeriesBar {...props} tokens={tokens}
@@ -436,41 +399,25 @@ export function SeriesBar({
   readonly dimmed?: boolean;
   readonly hovered: boolean;
 }) {
+  const opacity = seriesOpacity({ emphasis, dimmed });
+  const target = hovered ? Math.min(1, opacity + 0.3) : opacity;
+  // Recharts hands the shape its whole entry (payload, tooltip position,
+  // indices…); Rectangle reads only the geometry and SVG props it knows.
+  const rectangle = props as unknown as RectangleProps;
+  // A zero draws nothing: no 1px stub that reads as "some".
+  if (!(Number(rectangle.height) > 0) || !(Number(rectangle.width) > 0)) {
+    return <g />;
+  }
   return (
-    <FluidBar
-      {...props}
-      fill={seriesColor(tokens)}
-      opacity={seriesOpacity({ emphasis, dimmed })}
-      hovered={hovered}
-    />
+    <motion.g
+      initial={false}
+      animate={{ opacity: target }}
+      transition={spring.fast}
+    >
+      <Rectangle {...rectangle} fill={seriesColor(tokens)} fillOpacity={1} />
+    </motion.g>
   );
 }
-
-/** The hovered category index from a Recharts mouse event, or null. */
-export function activeIndexOf(
-  state: MouseHandlerDataParam | undefined,
-): number | null {
-  const index = state?.activeTooltipIndex;
-  if (index === undefined || index === null) {
-    return null;
-  }
-  const parsed = typeof index === "number" ? index : Number(index);
-  return Number.isInteger(parsed) ? parsed : null;
-}
-
-/**
- * For a chart that keeps Recharts' own keyboard layer (a focusable plot):
- * the browser's outline is dropped on a pointer press and kept, as the 2px
- * FF focus ring, for keyboard focus. Put it on the `ResponsiveContainer`
- * (or any wrapper around a chart). The ready charts (`DayBars`,
- * `ActivityBars`, `HourBars`) don't need it: their `ChartFrame` is the
- * focusable element and draws the ring itself.
- *
- * (`:focus` and `:focus-visible` both match a keyboard-focused plot, so the
- * outline is removed only for focus that is *not* focus-visible.)
- */
-export const CHART_FOCUS_CLASS =
-  "[&_:focus:not(:focus-visible)]:outline-none [&_:focus-visible]:rounded-lg [&_:focus-visible]:outline-2 [&_:focus-visible]:outline-solid [&_:focus-visible]:outline-offset-2 [&_:focus-visible]:outline-focus-ring";
 
 /** Centred note for a chart with nothing to draw (body, muted). */
 export function ChartEmpty({ children }: { readonly children: ReactNode }) {

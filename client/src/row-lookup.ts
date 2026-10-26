@@ -14,11 +14,9 @@
  * pages. The row comes from the page's route, in the page's shape (a
  * Sites row keeps its `hostFields`), and only when the page lists it.
  *
- * An older link holds a legacy source-chain reference (file | table | row
- * id | profile | Commit State); it is read the same way, its profile and
- * Commit State taken from the reference itself. Nothing is matched
- * loosely: a row is found only by its own reference, or not at all ("not
- * found within the first N rows"), never replaced by a look-alike.
+ * Nothing is matched loosely: a row is found only by its own id, or not at
+ * all ("not found within the first N rows"), never replaced by a
+ * look-alike.
  *
  * `useRowSelection(rows, lookup)` (view-state) runs it when the URL names a
  * row the page's lists do not hold, so "Open this row in Cookies" from the
@@ -26,25 +24,12 @@
  */
 import { ApiError, callApi, type QueryParameters } from "./api.js";
 import { readPages } from "./read-pages.js";
-import { isRecordId, rowMatchesRef, type RowRefSource } from "./router.js";
+import { rowMatchesRef, type RowRefSource } from "./router.js";
 
 /** Pages of 100 the lookup reads before it gives up. */
 export const ROW_LOOKUP_PAGE_CAP = 50;
 /** Rows the lookup reads at most (for the "not found" words). */
 export const ROW_LOOKUP_ROW_CAP = ROW_LOOKUP_PAGE_CAP * 100;
-
-/** The parts of a legacy row reference the routes can filter by. */
-export function refFilterOf(
-  ref: string,
-): { readonly profile: string; readonly commitState: string } | null {
-  const parts = ref.split("|");
-  if (parts.length < 5) {
-    return null;
-  }
-  const commitState = parts[parts.length - 1] ?? "";
-  const profile = parts[parts.length - 2] ?? "";
-  return commitState === "" ? null : { profile, commitState };
-}
 
 /** How a page's route is read for a row lookup. Keep it stable (a module
  *  constant or a memo): a new source starts a new lookup. */
@@ -77,9 +62,8 @@ interface RecordRead {
   };
 }
 
-/** The profile and Commit State a reference's row has: from the record
- *  itself (`get`) for a record id, from the reference for a legacy one.
- *  Null when the Case holds no such active row. */
+/** The profile and Commit State the record `ref` names has (`get`). Null
+ *  when the Case holds no such active row. */
 async function filterOf(
   ref: string,
   signal: AbortSignal | undefined,
@@ -87,9 +71,6 @@ async function filterOf(
   readonly profile: string | null;
   readonly commitState: string | null;
 } | null> {
-  if (!isRecordId(ref)) {
-    return refFilterOf(ref);
-  }
   let read: RecordRead;
   try {
     read = await callApi<RecordRead>("get", [["id", ref]], { signal });

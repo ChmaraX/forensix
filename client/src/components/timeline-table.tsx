@@ -42,27 +42,24 @@ import {
 import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 import { EmptyRows } from "./data-table.js";
-import {
-  FieldCell,
-  fieldText,
-  isCodeLike,
-  StateWord,
-} from "./finding-fields.js";
+import { FieldCell, StateWord } from "./finding-fields.js";
 import { fileNameOf } from "./downloads-model.js";
 import { formFieldLabel } from "./form-data.js";
-import { SecretValueCell, secretFieldsOf } from "./row-sheet.js";
+import { SecretValueCell } from "./row-sheet.js";
+import { secretFieldsOf } from "./secrets.js";
 import { ListBlock, type ListSource } from "./list-states.js";
 import {
   CommitStateSplit,
   CountChips,
-  ResponsiveRows,
   SectionPanel,
   splitByCommit,
   TimeCell,
   TypeLabel,
   type CountChip,
-  type RowColumn,
 } from "./page-kit.js";
+import { fieldText } from "../field-readers.js";
+import { isCodeLike } from "./field-state.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
 
 export type TimelineDirection = "asc" | "desc";
 
@@ -298,10 +295,10 @@ function recordColumns(
   return columns;
 }
 
-/** An event's stable key: its row reference (the stream merges four
- *  artifacts, each reference names its own file and table). */
-function recordKey(row: Finding, index: number): string {
-  return rowRefOf(row) ?? `${row.commitState}-${String(index)}`;
+/** An event's stable key: its row reference (a record id, unique across
+ *  the four artifacts the stream merges). */
+function recordKey(row: Finding): string {
+  return rowRefOf(row);
 }
 
 function recordLabel(row: Finding): string {

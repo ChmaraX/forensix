@@ -20,13 +20,7 @@ import {
 import { DayBars } from "./charts-ready.js";
 import { EmptyRows } from "./data-table.js";
 import { caseDayTotals } from "./day-bounds.js";
-import {
-  CHART_HEIGHT,
-  ShareBar,
-  formatBytes,
-  plural,
-  WeightLabel,
-} from "./page-kit.js";
+import { CHART_HEIGHT, ShareBar, plural, WeightLabel } from "./page-kit.js";
 import {
   type FileKind,
   KIND_META,
@@ -34,6 +28,7 @@ import {
   type DayRange,
   type DownloadRow,
 } from "./downloads-model.js";
+import { formatBytes } from "./bytes.js";
 
 /* -------------------------------- widgets --------------------------------- */
 

@@ -23,12 +23,6 @@ export const COMMIT_STATES = [
   "journal_resident",
 ] as const satisfies readonly CommitState[];
 
-/** The two sidecar Commit States: a page's Recovered list. */
-export const RECOVERED_STATES = [
-  "wal_resident",
-  "journal_resident",
-] as const satisfies readonly CommitState[];
-
 /** `parameters` narrowed to one Commit State (any earlier pick replaced). */
 export function withCommitState(
   parameters: QueryParameters,

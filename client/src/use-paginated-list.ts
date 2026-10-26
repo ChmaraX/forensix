@@ -12,17 +12,31 @@
  * one. A new generation (or unmounting) also aborts the old one's read in
  * flight (`AbortController`), so a stale request stops on the wire too.
  * `loadMore` does nothing while a read is in flight.
+ *
+ * A `hold` keeps the list from reading: it reads as loading while the read
+ * it waits for is in flight, and as that read's error (its `retry` re-runs
+ * it) once it failed.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { callApi, type QueryParameters } from "./api.js";
 import type { PageOf } from "./types.js";
 
+/** Why a list waits: another read in flight (`error` null) or failed. */
+export interface ListHold {
+  readonly error: string | null;
+  readonly retry: () => void;
+}
+
+/** A held list's rows: one array, so memos over them stay put. */
+const NO_ROWS: readonly never[] = [];
+
 export function usePaginatedList<Row>(
   route: string,
   parameters: QueryParameters,
-  enabled = true,
+  hold: ListHold | null = null,
 ) {
+  const enabled = hold === null;
   const [rows, setRows] = useState<readonly Row[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,5 +146,14 @@ export function usePaginatedList<Row>(
     setReloadNonce((nonce) => nonce + 1);
   }, [failedPage, loadMore]);
 
-  return { rows, cursor, loading, error, loadMore, retry };
+  return hold === null
+    ? { rows, cursor, loading, error, loadMore, retry }
+    : {
+        rows: NO_ROWS,
+        cursor: null,
+        loading: hold.error === null,
+        error: hold.error,
+        loadMore,
+        retry: hold.retry,
+      };
 }

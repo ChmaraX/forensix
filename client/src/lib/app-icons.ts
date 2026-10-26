@@ -92,8 +92,6 @@ export const ARTIFACT_ICONS = {
   metadata: Fingerprint01,
 } as const satisfies Record<string, AppIcon>;
 
-export type ArtifactIconKey = keyof typeof ARTIFACT_ICONS;
-
 /* Actions and controls. */
 export const SearchIcon: AppIcon = SearchMd;
 export const RefreshIcon: AppIcon = RefreshCcw01;

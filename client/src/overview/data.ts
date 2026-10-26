@@ -6,7 +6,6 @@
 import { callApi } from "@/api";
 import { ARTIFACTS, EVIDENCE_ORDER, type EvidenceKey } from "@/artifacts";
 import { caseSiteHosts } from "@/case-reads";
-import { formatDay } from "@/components/page-kit";
 import { caseActivity, type ActivityBucket } from "@/components/activity-data";
 import {
   dayRangeParameters,
@@ -14,18 +13,18 @@ import {
   localDayOf,
 } from "@/components/day-bounds";
 import { fetchSiteFavicons } from "@/components/site-favicons";
-import { fieldString, fieldUtc } from "@/components/finding-fields";
 import { siteHostKey } from "@/site-host-key";
 import { readPages } from "@/read-pages";
 import type {
   CountResult,
   FieldState,
   Finding,
+  OverviewArtifact,
   PageOf,
   SummaryResult,
 } from "@/types";
-
-export { fieldString };
+import { fieldString, fieldUtc } from "@/field-readers";
+import { formatDay } from "@/day-format";
 
 /**
  * One Most visited sites row: a host as the Sites page keys it
@@ -345,7 +344,7 @@ export interface RecoveredCount {
   readonly page: EvidenceKey;
   readonly label: string;
   /** The Completeness artifact, for the page's coverage. */
-  readonly artifact: string;
+  readonly artifact: OverviewArtifact;
   readonly wal: number;
   readonly journal: number;
 }
@@ -423,12 +422,9 @@ export async function loadRecovered(
   );
 }
 
-/** "4 Mar 2024" (UTC) — the shared page-kit day label. */
-export { formatDay };
-
 /** The full recorded span with years, "4 Mar 2024 - 17 Apr 2024" (one day:
  *  "4 Mar 2024"), or `null` with no dated bound. The masthead keeps the
- *  years that page-kit's shorter `formatDaySpan` drops within one year. */
+ *  years that the shorter `formatDaySpan` drops within one year. */
 export function formatSpan(
   first: string | null,
   last: string | null,

@@ -29,7 +29,8 @@ import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { ErrorRows, RevealSwap } from "./list-states.js";
 import { Skeleton } from "./ui/misc.js";
-import { CHART_HEIGHT, formatDay } from "./page-kit.js";
+import { CHART_HEIGHT } from "./page-kit.js";
+import { formatDay } from "../day-format.js";
 
 export interface DayRange {
   /** ISO `YYYY-MM-DD`, or `""` when that bound is unset. */

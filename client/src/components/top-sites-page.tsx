@@ -50,9 +50,6 @@ import {
 import { EmptyRows } from "./data-table.js";
 import {
   FieldCell,
-  fieldInteger,
-  fieldText,
-  hostOf,
   profileLabel,
   SiteAvatar,
   StateWord,
@@ -61,15 +58,13 @@ import {
 import { FilterTextField, matchesSearch, ProfilePicker } from "./filters.js";
 import { useProfileLens } from "./identity-kit.js";
 import { ListBlock } from "./list-states.js";
-import {
-  CommitStateSplit,
-  ResponsiveRows,
-  SectionPanel,
-  type RowColumn,
-} from "./page-kit.js";
+import { CommitStateSplit, SectionPanel } from "./page-kit.js";
 import { RowSheet } from "./row-sheet.js";
 import { Term } from "./term.js";
 import { UrlWithSiteLink } from "./host-link.js";
+import { fieldInteger, fieldText } from "../field-readers.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
+import { urlHostOf } from "./url-host.js";
 
 /** Chrome's own order: rank ascending (Commit State is added per list). */
 const RANK_ORDER: readonly (readonly [string, string])[] = [
@@ -93,7 +88,7 @@ function SitePage({ row }: { readonly row: Finding }) {
 function SitePageLinked({ row }: { readonly row: Finding }) {
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      <SiteAvatar host={hostOf(fieldText(row.fields.url))} />
+      <SiteAvatar host={urlHostOf(fieldText(row.fields.url))} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="block min-w-0 text-foreground">
           <FieldCell field={row.fields.title} mono={false} />
@@ -254,8 +249,8 @@ function rankColumns({
 }
 
 /** A row's stable key: its row reference. */
-function topSiteKey(row: Finding, index: number): string {
-  return rowRefOf(row) ?? `${row.commitState}-${String(index)}`;
+function topSiteKey(row: Finding): string {
+  return rowRefOf(row);
 }
 
 function topSiteLabel(row: Finding): string {

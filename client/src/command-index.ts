@@ -15,14 +15,12 @@
  * row's text, case-insensitively); nothing is matched loosely or inferred.
  */
 import { fileNameOf } from "./components/downloads-model.js";
-import {
-  fieldText,
-  hostOf,
-  profileLabel,
-} from "./components/finding-fields.js";
-import { formatCaseDay } from "./related.js";
+import { profileLabel } from "./components/finding-fields.js";
+import { formatDay } from "./day-format.js";
 import { rowRefOf } from "./router.js";
 import type { Finding } from "./types.js";
+import { fieldText } from "./field-readers.js";
+import { urlHostOf } from "./components/url-host.js";
 
 /** Matches listed per group before its "N more" row. */
 export const INDEX_GROUP_CAP = 8;
@@ -55,7 +53,7 @@ export function dayKeywords(day: string): readonly string[] {
   const dayNumber = String(Number(date));
   return [
     day,
-    formatCaseDay(day),
+    formatDay(day),
     `${short} ${dayNumber} ${year}`,
     `${dayNumber} ${long} ${year}`,
     `${long} ${dayNumber} ${year}`,
@@ -105,13 +103,12 @@ export interface FileEntry {
   readonly ref: string;
 }
 
-/** Every download with a file name and a reference, in read order. */
+/** Every download with a file name, in read order. */
 export function fileEntriesOf(rows: readonly Finding[]): readonly FileEntry[] {
   return rows.flatMap((row) => {
     const path = fieldText(row.fields.targetPath);
     const name = fileNameOf(path);
-    const ref = rowRefOf(row);
-    if (path === null || name === null || ref === null) {
+    if (path === null || name === null) {
       return [];
     }
     return [
@@ -119,11 +116,11 @@ export function fileEntriesOf(rows: readonly Finding[]): readonly FileEntry[] {
         name,
         path,
         host:
-          hostOf(fieldText(row.fields.tabUrl)) ??
-          hostOf(fieldText(row.fields.siteUrl)),
+          urlHostOf(fieldText(row.fields.tabUrl)) ??
+          urlHostOf(fieldText(row.fields.siteUrl)),
         profile: row.profile,
         recovered: row.commitState !== "committed",
-        ref,
+        ref: rowRefOf(row),
       },
     ];
   });
@@ -139,15 +136,14 @@ export interface UsernameEntry {
   readonly ref: string;
 }
 
-/** Every saved login with a recorded username and a reference. Only the
+/** Every saved login with a recorded username. Only the
  *  username and the site are kept - never a password field. */
 export function usernameEntriesOf(
   rows: readonly Finding[],
 ): readonly UsernameEntry[] {
   return rows.flatMap((row) => {
     const username = fieldText(row.fields.usernameValue);
-    const ref = rowRefOf(row);
-    if (username === null || ref === null) {
+    if (username === null) {
       return [];
     }
     const origin = fieldText(row.fields.originUrl);
@@ -155,10 +151,10 @@ export function usernameEntriesOf(
     return [
       {
         username,
-        site: hostOf(origin) ?? hostOf(realm) ?? realm,
+        site: urlHostOf(origin) ?? urlHostOf(realm) ?? realm,
         profile: row.profile,
         recovered: row.commitState !== "committed",
-        ref,
+        ref: rowRefOf(row),
       },
     ];
   });

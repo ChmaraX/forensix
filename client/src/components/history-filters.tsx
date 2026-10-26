@@ -31,7 +31,7 @@ import {
   FilterTextField,
   ProfilePicker,
 } from "./filters.js";
-import { formatDay, formatDaySpan } from "./page-kit.js";
+import { formatDay, formatDaySpan } from "../day-format.js";
 
 /** How many visit rows each list loads per request. */
 const VISITS_PAGE_LIMIT = 100;

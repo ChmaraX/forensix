@@ -47,7 +47,7 @@ The defaults are unchanged: `dist/index.js` and port 7799.
   real server's Content-Security-Policy header.
 - `GET /index.js` - the built client bundle.
 - `GET /api/<route>` for every route the real server exposes: `completeness`,
-  `profiles`, `summary`, `count`, `get`, `history`, `timeline`,
+  `profiles`, `summary`, `schema`, `count`, `get`, `history`, `timeline`,
   `site-hosts`, `site-findings`, `site-favicons`, `favicon-bitmaps`,
   `cookies`, `credentials`, `top-sites`, `cache`, `favicons`, `candidates`,
   `topic-candidates`, `metadata`, `downloads`, `bookmarks`, `autofill`.
@@ -60,8 +60,10 @@ answers one record by it (a 404 `RECORD_NOT_FOUND` for an unknown id).
 day), any other Field State in words (`(absent)`, `(unavailable:reason)`),
 honoring `profile` and `commit-state`, the largest `limit` buckets and the
 rest in `otherCount`. `summary` answers the Case id, its two Sources, the
-Profiles, the records per kind (committed and recovered) and the coverage.
-`candidates` honors `category` and `kind`, and orders by rank.
+Profiles, the records per kind (committed and recovered; null for
+Candidates) and the coverage. `schema` (optional `kind`) answers each
+kind's fields with their counts per Field State, as core's `querySchema`
+does. `candidates` honors `category` and `kind`, and orders by rank.
 
 `timeline` merges history visits, downloads, cookie creation, and autofill
 last-used rows by timestamp, newest first - mirroring core's
@@ -144,9 +146,12 @@ rejects is rejected here first, with the real 400 body (`{"status": "error",
 - `commit-state` (`committed`, `wal_resident`, `journal_resident`) - applied
   on exactly the routes the real server filters by it (`history`, `timeline`,
   `site-findings`, `cookies`, `credentials`, `top-sites`, `favicons`,
-  `topic-candidates`, `metadata`, `downloads`, `bookmarks`, `autofill`,
-  `count`); any other value is a 400. `cache` ignores it, as the real server
-  does.
+  `metadata`, `downloads`, `bookmarks`, `autofill`, `count`); any other
+  value is a 400. `cache` ignores it, as the real server does. Candidates
+  have no Commit State: `commit-state` or `by=commitState` on a `count` of
+  a Candidate kind is a 400, as on the real server. `commit-state` on
+  `candidates` or `topic-candidates` is a 400 too (the real server has no
+  such filter there), so a client that sends one fails against the mock.
 - `profile` (repeated) - applied on every route that takes it (every list
   route, `timeline`, `site-findings`, `candidates`, `count`): only rows of a
   named profile.

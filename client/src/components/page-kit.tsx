@@ -4,15 +4,13 @@
  * reads and filters its own rows and hands these parts plain values.
  *
  * Formatting
- *  - `formatBytes`, `plural`, `formatDay`, `formatDayTick`, `formatDaySpan`,
- *    `CHART_HEIGHT`.
+ *  - `plural`, `CHART_HEIGHT` (days in words: day-format.ts; byte sizes:
+ *    bytes.ts).
  * Text
  *  - `TimeText` / `TimeCell` (UTC instant or the word "absent"), `Count`,
  *    `WeightLabel` (semibold-when-active without reflow), `CountChips`
  *    (chip filters with counts).
  * Layout
- *  - `ResponsiveRows` (an FF Table above `sm`, stacked row cards on a
- *    phone; one column list with a `stack` role per column),
  *  - `SectionPanel` (a Panel with title, count, description, trailing aside),
  *    `Toolbar` (a compact filter bar), `IconTile`.
  * Bars
@@ -67,65 +65,17 @@ import {
 } from "@/components/ui/select";
 import { Term, TermTooltip } from "./term.js";
 import { SERIES } from "./charts.js";
-import {
-  AbsentWord,
-  FieldCell,
-  fieldUtc,
-  formatInstant,
-} from "./finding-fields.js";
+import { FieldCell, formatInstant } from "./finding-fields.js";
+import { fieldUtc } from "../field-readers.js";
+import { AbsentWord } from "./field-state.js";
 
 /** Table above `sm`, stacked row cards below (see responsive-rows.tsx). */
-export { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
 
 /* -------------------------------- formatting ------------------------------- */
-
-export { formatBytes } from "./bytes.js";
 
 /** "1 visit" / "1,204 visits". */
 export function plural(count: number, one: string, many: string): string {
   return `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
-}
-
-function parseDay(date: string): Date | null {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-/** A `YYYY-MM-DD` day as "4 Mar 2024" (UTC); unparseable input is returned
- *  as is. Chart tooltips and range labels. */
-export function formatDay(date: string): string {
-  const parsed = parseDay(date);
-  return parsed === null
-    ? date
-    : parsed.toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        timeZone: "UTC",
-      });
-}
-
-/** A `YYYY-MM-DD` day as "4 Mar" (UTC), for chart axis ticks. */
-export function formatDayTick(date: string): string {
-  const parsed = parseDay(date);
-  return parsed === null
-    ? date
-    : parsed.toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        timeZone: "UTC",
-      });
-}
-
-/** A recorded span as data, shortened: "11 Mar - 17 Apr" within one year,
- *  "9 Dec 2023 - 4 Jan 2024" across years, "4 Mar 2024" for one day. */
-export function formatDaySpan(first: string, last: string): string {
-  if (first === last) {
-    return formatDay(first);
-  }
-  return first.slice(0, 4) === last.slice(0, 4)
-    ? `${formatDayTick(first)} - ${formatDayTick(last)}`
-    : `${formatDay(first)} - ${formatDay(last)}`;
 }
 
 /** Height of a page's over-time chart, shared by the chart and its
@@ -140,30 +90,26 @@ export const CHART_HEIGHT = "h-[220px]";
  * full instant is the hover title. `TimeText` sets the body role (follows the
  * SizeProvider); `TimeCell` inherits the cell's type instead.
  *
- * Pass the FieldState as `field` (preferred): a recorded instant renders as
- * above, and every other state keeps its own word — "absent", "(empty)", or
- * "unavailable - reason" (`FieldCell`). Passing a bare `utc` string (from
- * `fieldUtc`) still works, but then `null` can only read "absent".
+ * A recorded instant renders as above, and every other state of the
+ * `field` keeps its own word — "absent", "(empty)", or "unavailable -
+ * reason" (`FieldCell`); a field the row does not carry reads "absent".
  */
 export function TimeText({
   field,
-  utc,
   inheritType = false,
   className,
 }: {
   /** The timestamp field (`{ utc, … }` value shape). */
-  readonly field?: FieldState;
-  /** A bare UTC instant; used when `field` is not given. */
-  readonly utc?: string | null;
+  readonly field: FieldState | undefined;
   /** Leave the type size to the parent (a table cell). */
   readonly inheritType?: boolean;
   readonly className?: string;
 }) {
   const size = useSize();
-  const instant = utc !== undefined ? utc : fieldUtc(field);
+  const instant = fieldUtc(field);
   const parts = instant === null ? null : formatInstant(instant);
   if (instant === null || parts === null) {
-    return utc !== undefined || field === undefined ? (
+    return field === undefined ? (
       <AbsentWord />
     ) : (
       <FieldCell field={field} className={className} />
@@ -184,16 +130,14 @@ export function TimeText({
   );
 }
 
-/** `TimeText` for a table cell: inherits the cell's type role. Prefer
- *  `<TimeCell field={row.fields.visitTime} />`. */
+/** `TimeText` for a table cell: inherits the cell's type role
+ *  (`<TimeCell field={row.fields.visitTime} />`). */
 export function TimeCell({
   field,
-  utc,
 }: {
-  readonly field?: FieldState;
-  readonly utc?: string | null;
+  readonly field: FieldState | undefined;
 }) {
-  return <TimeText field={field} utc={utc} inheritType />;
+  return <TimeText field={field} inheritType />;
 }
 
 /** A count beside a title: caption role (follows the SizeProvider), muted,
@@ -548,46 +492,27 @@ export function IconTile({
  * compact `SizeProvider`), gaps from `useSize().gap`, wrapping on narrow
  * screens.
  *
- * `placement="panel"` (default, the canonical place): directly under the
- * list's `PanelHeader`, padded `px-4 pt-1 pb-3`. The `start` slot (the
- * `CommitStateTabs` switch) sits on the left; `children` — filters
- * (`FilterField` + Select, `ProfilePicker`), then `FilterTextField` last —
- * are pushed right with `ml-auto`.
- *
- * `placement="inline"`: no padding, controls in one wrapping row 20px apart —
- * for a toolbar placed in another container's slot (e.g. a SectionHeading's
- * trailing children).
+ * It sits directly under the list's `PanelHeader`, padded `px-4 pt-1
+ * pb-3`. The `start` slot (the `CommitStateTabs` switch) sits on the left;
+ * `children` — filters (`FilterField` + Select, `ProfilePicker`), then
+ * `FilterTextField` last — are pushed right with `ml-auto`.
  */
 export function Toolbar({
   start,
   children,
-  placement = "panel",
   className,
 }: {
   /** Leading control, usually `CommitStateTabs`. */
   readonly start?: ReactNode;
   /** Trailing filters; `FilterTextField` last. */
   readonly children?: ReactNode;
-  readonly placement?: "panel" | "inline";
   readonly className?: string;
 }) {
   return (
     <SizeProvider size="compact">
-      {placement === "inline" ? (
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-x-5 gap-y-2 max-sm:w-full",
-            className,
-          )}
-        >
-          {start}
-          {children}
-        </div>
-      ) : (
-        <PanelToolbar start={start} className={className}>
-          {children}
-        </PanelToolbar>
-      )}
+      <PanelToolbar start={start} className={className}>
+        {children}
+      </PanelToolbar>
     </SizeProvider>
   );
 }

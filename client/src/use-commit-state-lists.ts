@@ -4,22 +4,24 @@
  * Forensic rule 4: sidecar (WAL / rollback-journal) rows are a separate list
  * from committed rows, never sorted in. Every Finding route that accepts the
  * `commit-state` query parameter (history, cookies, credentials, top-sites,
- * favicons, metadata, downloads, bookmarks, autofill, topic-candidates) is
+ * favicons, metadata, downloads, bookmarks, autofill) is
  * read three times — `committed`, `wal_resident`, `journal_resident` — each
  * its own keyset-paginated list on `usePaginatedList`. The two sidecar reads
  * are joined into one "recovered" list: WAL-resident rows first, then
  * journal-resident rows, each block in the server's own order, so the two
  * sidecars are never interleaved either.
  *
- * Routes without a `commit-state` filter (cache, timeline, site-*) cannot use
+ * Routes without a `commit-state` filter (cache, timeline, site-*, and the
+ * Candidate routes: Candidates have no Commit State) cannot use
  * this hook; Cache splits its mixed page with `splitByCommit` (page-kit), and
  * the Timeline stays one chronological stream on purpose.
  */
 import { useCallback, useMemo } from "react";
 
 import type { QueryParameters } from "./api.js";
+import type { Read } from "./components/metric-band.js";
 import { withCommitState } from "./read-pages.js";
-import { usePaginatedList } from "./use-paginated-list.js";
+import { usePaginatedList, type ListHold } from "./use-paginated-list.js";
 
 /** One keyset-paginated list (the shape `usePaginatedList` returns). */
 export interface PaginatedList<Row> {
@@ -99,28 +101,24 @@ export interface CommitStateStatus {
 }
 
 /** The page's state from its two lists and the rows they hold (`shown`:
- *  the loaded rows of the lens, already filtered by the server). With
- *  `totals` (the server's count of each list, `useCommitStateTotals`) the
- *  tabs read the whole lists' sizes; without them, the loaded rows and a
- *  "+" while more pages stand. */
+ *  the loaded rows of the lens, already filtered by the server). Once
+ *  `totals` (the server's count of each list, `useCommitStateTotals`) is
+ *  read, the tabs read the whole lists' sizes; until then, the loaded rows
+ *  and a "+" while more pages stand. `filtered`: a server filter (the
+ *  profile pick) narrows both lists, so empty lists say so under the
+ *  filter, never as the page's empty state. */
 export function commitStateStatus(
   lists: CommitStateLists<unknown>,
   shown: { readonly saved: number; readonly recovered: number },
-  totals?: { readonly saved: number; readonly recovered: number } | null,
-  options: {
-    /** A server filter (the profile pick) narrows both lists: empty lists
-     *  then say so under the filter, never as the page's empty state. */
-    readonly filtered?: boolean;
-  } = {},
+  totals?: Read<{ readonly saved: number; readonly recovered: number }>,
+  filtered = false,
 ): CommitStateStatus {
   const { saved, recovered, settled } = lists;
   const savedState = listState(saved);
-  const known = totals !== undefined && totals !== null;
+  const known = totals?.state === "ready" ? totals.value : null;
   return {
     pageEmpty:
-      options.filtered !== true &&
-      savedState === "empty" &&
-      listState(recovered) === "empty",
+      !filtered && savedState === "empty" && listState(recovered) === "empty",
     figures:
       saved.error === null && !settled.saved
         ? "loading"
@@ -128,12 +126,10 @@ export function commitStateStatus(
           ? "show"
           : "hide",
     split: {
-      savedCount: known ? totals.saved : tabCount(saved, shown.saved),
-      recoveredCount: known
-        ? totals.recovered
-        : tabCount(recovered, shown.recovered),
-      savedMore: !known && saved.cursor !== null,
-      recoveredMore: !known && recovered.cursor !== null,
+      savedCount: known?.saved ?? tabCount(saved, shown.saved),
+      recoveredCount: known?.recovered ?? tabCount(recovered, shown.recovered),
+      savedMore: known === null && saved.cursor !== null,
+      recoveredMore: known === null && recovered.cursor !== null,
     },
   };
 }
@@ -182,12 +178,9 @@ export function mixedReadStatus(
 export function useCommitStateLists<Row>(
   route: string,
   parameters: QueryParameters,
-  options: {
-    /** False skips every read (same as `usePaginatedList`'s `enabled`). */
-    readonly enabled?: boolean;
-  } = {},
+  /** Holds every read (`usePaginatedList`'s `hold`). */
+  hold: ListHold | null = null,
 ): CommitStateLists<Row> {
-  const enabled = options.enabled ?? true;
   // Keyed by value, like usePaginatedList: callers may pass a fresh array
   // on every render.
   const key = JSON.stringify(parameters);
@@ -204,9 +197,9 @@ export function useCommitStateLists<Row>(
     [key],
   );
 
-  const saved = usePaginatedList<Row>(route, savedParameters, enabled);
-  const wal = usePaginatedList<Row>(route, walParameters, enabled);
-  const journal = usePaginatedList<Row>(route, journalParameters, enabled);
+  const saved = usePaginatedList<Row>(route, savedParameters, hold);
+  const wal = usePaginatedList<Row>(route, walParameters, hold);
+  const journal = usePaginatedList<Row>(route, journalParameters, hold);
 
   const recoveredRows = useMemo(
     () => [...wal.rows, ...journal.rows],

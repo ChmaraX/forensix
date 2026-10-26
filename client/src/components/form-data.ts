@@ -144,7 +144,7 @@ export function isSecretFormField(
 }
 
 /** Fields that hold a Payment entry's secret (the value and its folded copy),
- *  for `RowSheet redactedFields`. */
+ *  for `secretFieldsOf`. */
 export const PAYMENT_SECRET_FIELDS: readonly string[] = [
   "fieldValue",
   "fieldValueLower",

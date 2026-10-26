@@ -14,9 +14,6 @@ import { EmptyRows } from "./data-table.js";
 import { EvidenceDot, type EvidenceState } from "./evidence.js";
 import {
   FieldCell,
-  fieldBool,
-  fieldInteger,
-  fieldText,
   SiteAvatar,
   StateWord,
   profileLabel,
@@ -29,13 +26,11 @@ import {
   LoadingRows,
   RevealSwap,
 } from "./list-states.js";
-import {
-  formatBytes,
-  ResponsiveRows,
-  type RowColumn,
-  TimeCell,
-} from "./page-kit.js";
+import { TimeCell } from "./page-kit.js";
 import { SiteHostLink } from "./host-link.js";
+import { fieldBool, fieldInteger, fieldText } from "../field-readers.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
+import { formatBytes } from "./bytes.js";
 
 /**
  * The payload size an entry stores on disk, in bytes, or `null` when the
@@ -60,13 +55,6 @@ export function integrityVerified(row: Finding): boolean {
   const keyHashValid = fieldBool(row.fields.keyHashValid) === true;
   const crc = fieldBool(row.fields.stream1Crc32Valid);
   return keyHashValid && crc !== false;
-}
-
-/** The resource host a cache key names ("www.example.com"), or `null` when
- *  the key names no URL or is `unavailable`. A scope prefix ("_dk_…") is
- *  read past: the resource is the key's last part (`cacheResourceUrl`). */
-export function keyHost(row: Finding): string | null {
-  return cacheResourceHost(row);
 }
 
 /**
@@ -125,7 +113,7 @@ function ResourceCell({
   readonly wide?: boolean;
 }) {
   const size = useSize();
-  const host = keyHost(row);
+  const host = cacheResourceHost(row);
   if (host === null) {
     return <FieldCell field={row.fields.key} mono />;
   }
@@ -259,7 +247,7 @@ const entryKey = (row: Finding) =>
   `${row.commitState}:${row.profile}:${row.provenance.manifestPath ?? ""}:${row.provenance.table ?? ""}:${row.provenance.rowId ?? fieldText(row.fields.entryHash) ?? ""}`;
 
 const entryLabel = (row: Finding) => {
-  const host = keyHost(row);
+  const host = cacheResourceHost(row);
   return `Open cache entry detail${host === null ? "" : ` for ${host}`}`;
 };
 

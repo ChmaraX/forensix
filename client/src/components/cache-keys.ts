@@ -10,8 +10,6 @@ import { cacheResourceUrl, siteHostKey } from "../site-host-key.js";
 import type { Finding } from "../types.js";
 import { urlHostOf } from "./url-host.js";
 
-export { cacheResourceUrl };
-
 /** The host of the entry's resource URL ("www.example.com:8443"), or null. */
 export function cacheResourceHost(row: Finding): string | null {
   return urlHostOf(cacheResourceUrl(fieldText(row.fields.key)));

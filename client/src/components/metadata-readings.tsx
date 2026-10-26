@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import type { FieldState, Finding } from "../types.js";
 import { EvidenceDot } from "./evidence.js";
 import { MaybeFieldStateText } from "./field-state.js";
-import { fieldBool, fieldString, profileLabel } from "./finding-fields.js";
+import { profileLabel } from "./finding-fields.js";
+import { fieldBool, fieldString } from "../field-readers.js";
 
 /* ------------------------- Field readers (never invent) ------------------- */
 

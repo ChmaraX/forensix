@@ -53,19 +53,15 @@ import { usePaginatedList } from "../use-paginated-list.js";
 import { useRowSelection, useViewFilter } from "../view-state.js";
 import { EmptyRows } from "./data-table.js";
 import { FieldStateText } from "./field-state.js";
-import { FieldCell, fieldText, profileLabel } from "./finding-fields.js";
+import { FieldCell, profileLabel } from "./finding-fields.js";
 import { CompactFilters, FilterField, ProfilePicker } from "./filters.js";
 import { clearSearchAndProfiles, useProfileLens } from "./identity-kit.js";
 import { ListBlock } from "./list-states.js";
-import {
-  Count,
-  ResponsiveRows,
-  SectionPanel,
-  Toolbar,
-  type RowColumn,
-} from "./page-kit.js";
+import { Count, SectionPanel, Toolbar } from "./page-kit.js";
 import { PROPERTY_ROW, ProvenanceLine, SectionTitle } from "./row-sheet.js";
 import { Term, TermExplanation, TermTooltip } from "./term.js";
+import { fieldText } from "../field-readers.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
 
 /* --------------------------------- kinds ---------------------------------- */
 
@@ -203,8 +199,8 @@ function candidateColumns(
   return columns;
 }
 
-function candidateKey(row: IdentityCandidate, index: number): string {
-  return rowRefOf(row) ?? `${row.candidateKind}-${String(index)}`;
+function candidateKey(row: IdentityCandidate): string {
+  return rowRefOf(row);
 }
 
 function candidateLabel(row: IdentityCandidate): string {

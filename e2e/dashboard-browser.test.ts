@@ -34,11 +34,7 @@ import {
 } from "playwright";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import {
-  legacyRowRefOf,
-  rowRefOf,
-  type RowRefSource,
-} from "../client/src/router.js";
+import { rowRefOf, type RowRefSource } from "../client/src/router.js";
 import {
   buildDashboardCase,
   COOKIE,
@@ -124,7 +120,13 @@ async function knownGap(
 const GAP_TIMEOUT = 4_000;
 
 interface Row extends RowRefSource {
-  readonly id?: string;
+  readonly profile: string;
+  readonly commitState?: string;
+  readonly provenance: {
+    readonly manifestPath?: string;
+    readonly table?: string;
+    readonly rowId?: string;
+  };
   readonly findingKind: string;
   readonly fields: Readonly<
     Record<string, { readonly state: string; readonly value?: unknown }>
@@ -137,11 +139,10 @@ interface RowPage {
 }
 
 function refOf(row: Row | undefined): string {
-  const ref = row === undefined ? null : rowRefOf(row);
-  if (ref === null) {
-    throw new Error("The fixture row has no row reference.");
+  if (row === undefined) {
+    throw new Error("The fixture row is missing.");
   }
-  return ref;
+  return rowRefOf(row);
 }
 
 const urlOf = (row: Row) => row.fields.url?.value;
@@ -542,6 +543,48 @@ describe.skipIf(!CHROMIUM_AVAILABLE)(
       },
     );
 
+    it("masks a cookie value and a saved password in the row sheet on every page that shows them", async () => {
+      const cookies = await readApi<RowPage>(dashboard, "cookies", {
+        limit: "100",
+      });
+      const credentials = await readApi<RowPage>(dashboard, "credentials", {
+        limit: "100",
+      });
+      const cookie = cookies.items.find(
+        (item) => item.fields.value?.value === COOKIE.value,
+      );
+      const login = credentials.items.find(
+        (item) => item.fields.usernameValue?.value === LOGINS[0].username,
+      );
+      // The scenario: the values are decrypted (`--decrypt`), so only the
+      // dashboard keeps them off the screen.
+      expect(cookie?.fields.value?.state).toBe("value");
+      expect(login?.fields.secret).toEqual({
+        state: "value",
+        value: LOGINS[0].password,
+      });
+      const cases = [
+        ["cookies", {}, cookie, COOKIE.value],
+        ["timeline", {}, cookie, COOKIE.value],
+        ["sites", { host: "alpha.example" }, cookie, COOKIE.value],
+        ["credentials", {}, login, LOGINS[0].password],
+        ["sites", { host: "alpha.example" }, login, LOGINS[0].password],
+      ] as const;
+      await open("secret-masking", "#/overview");
+      for (const [where, extras, target, secret] of cases) {
+        await page.goto(
+          `${dashboard.url}${deepLink(where, { ...extras, row: refOf(target) })}`,
+        );
+        await page.reload();
+        const opened = page.getByRole("dialog");
+        await visible(opened.getByRole("button", { name: "Reveal" }));
+        await visible(opened.getByText("value hidden"));
+        expect(await page.getByText(secret).count(), where).toBe(0);
+        await opened.getByRole("button", { name: "Reveal" }).click();
+        await visible(opened.getByText(secret, { exact: true }));
+      }
+    });
+
     it(
       titled(
         "says nothing about a topic model when the Case has no topic Candidates",
@@ -721,6 +764,134 @@ describe.skipIf(!CHROMIUM_AVAILABLE)(
       await visible(sheet(page, "alpha.example"));
     });
 
+    describe("a Case analysed in America/New_York", () => {
+      let newYork: Dashboard;
+      /** 12 Mar 2024 on the Case's clock (EDT, UTC-4) and in UTC. */
+      const DAY = "2024-03-12";
+      const ZONE_BOUNDS = {
+        from: "2024-03-12T04:00:00.000Z",
+        to: "2024-03-13T03:59:59.999999Z",
+      };
+
+      beforeAll(async () => {
+        const caseDirectory = join(ARTIFACTS, "new-york", "case");
+        mustRunCli([
+          "ingest",
+          join(ARTIFACTS, "source"),
+          "--case",
+          caseDirectory,
+          "--json",
+        ]);
+        mustRunCli([
+          "analyse",
+          "--case",
+          caseDirectory,
+          "--timezone",
+          "America/New_York",
+          "--no-topic-classification",
+          "--json",
+        ]);
+        newYork = await startDashboard(caseDirectory);
+      }, 180_000);
+
+      afterAll(() => {
+        newYork?.stop();
+      });
+
+      /** Every `from` / `to` pair the page sends on `route` (a History
+       *  `view` when given). */
+      function rangedReads(route: string, view?: string) {
+        const reads: { from: string | null; to: string | null }[] = [];
+        page.on("request", (request) => {
+          const url = new URL(request.url());
+          if (
+            url.pathname === `/api/${route}` &&
+            (view === undefined || url.searchParams.get("view") === view) &&
+            (url.searchParams.has("from") || url.searchParams.has("to"))
+          ) {
+            reads.push({
+              from: url.searchParams.get("from"),
+              to: url.searchParams.get("to"),
+            });
+          }
+        });
+        return reads;
+      }
+
+      it("reads a ranged History and Timeline in the Case's days, never in UTC days", async () => {
+        const range = new URLSearchParams({ from: DAY, to: DAY }).toString();
+        // A page with no ranged reads of its own.
+        await open("new-york-ranged-reads", "#/cookies", newYork);
+        await page.waitForLoadState("networkidle");
+        const visits = rangedReads("history", "visits");
+        const events = rangedReads("timeline");
+        // Fresh loads: the zone is not known until the activity lands.
+        await page.goto(`${newYork.url}#/history?${range}`);
+        await page.reload();
+        await visible(
+          page
+            .getByRole("region", { name: "Recorded visits" })
+            .getByRole("row", { name: /Alpha page/ }),
+        );
+        await page.goto(`${newYork.url}#/timeline?${range}`);
+        await page.reload();
+        await visible(
+          page
+            .getByRole("region", { name: "Chronological records" })
+            .getByRole("row", { name: /Alpha page/ }),
+        );
+        await page.waitForLoadState("networkidle");
+        expect(visits.length).toBeGreaterThan(0);
+        expect(events.length).toBeGreaterThan(0);
+        for (const read of [...visits, ...events]) {
+          expect(read).toEqual(ZONE_BOUNDS);
+        }
+      });
+
+      it("shows the activity error on a ranged list instead of reading UTC days", async () => {
+        const range = new URLSearchParams({ from: DAY, to: DAY }).toString();
+        // A page with no ranged reads of its own.
+        await open("new-york-activity-failed", "#/cookies", newYork);
+        await page.waitForLoadState("networkidle");
+        // The activity is read once per page load: the History load below
+        // reads it through this route.
+        await page.route(
+          (url) =>
+            url.pathname === "/api/history" &&
+            url.searchParams.get("view") === "activity",
+          (route) =>
+            route.fulfill({
+              status: 500,
+              contentType: "application/json",
+              body: JSON.stringify({
+                status: "error",
+                code: "INTERNAL_ERROR",
+                message: "Activity read failed in this test.",
+              }),
+            }),
+        );
+        const visits = rangedReads("history", "visits");
+        const events = rangedReads("timeline");
+        await page.goto(`${newYork.url}#/history?${range}`);
+        await page.reload();
+        await visible(
+          page
+            .getByRole("region", { name: "Recorded visits" })
+            .getByText(/Activity read failed in this test\./),
+        );
+        await page.goto(`${newYork.url}#/timeline?${range}`);
+        await page.reload();
+        await visible(
+          page
+            .getByRole("region", { name: "Chronological records" })
+            .getByText(/Activity read failed in this test\./),
+        );
+        await page.waitForLoadState("networkidle");
+        expect(visits).toEqual([]);
+        expect(events).toEqual([]);
+      });
+    });
+
     describe("a Case with two Sources and three Profiles", () => {
       let twoSources: Dashboard;
 
@@ -783,10 +954,12 @@ describe.skipIf(!CHROMIUM_AVAILABLE)(
           (item) => item.fields.title?.value === SECOND_SOURCE_TITLE,
         );
         const first = copies.find((item) => item !== second);
-        // The scenario: one legacy reference names both rows.
-        expect(legacyRowRefOf(first ?? copies[0])).toBe(
-          legacyRowRefOf(second ?? copies[1]),
-        );
+        // The scenario: both rows have one file, table and row id.
+        expect(first?.provenance).toMatchObject({
+          manifestPath: second?.provenance.manifestPath,
+          table: second?.provenance.table,
+          rowId: second?.provenance.rowId,
+        });
         expect(first?.id).not.toBe(second?.id);
 
         // Clicking the second Source's row puts its own id in the URL.

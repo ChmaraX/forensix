@@ -3,34 +3,13 @@ import { createHash } from "node:crypto";
 import { ForensixError } from "./errors.js";
 import { canonicalJson, type RedactedField } from "./export.js";
 import type { FieldState, SourceRowProvenance } from "./forensic-model.js";
+import { SECRET_FIELDS_BY_KIND } from "./secret-fields.js";
 
 /**
  * Pure record transforms for agent-facing output: secret redaction and the
  * supporting-row limit. Neither reads the Case and neither changes the
  * Extract (`exportCase`) redaction rules.
  */
-
-/**
- * The explicit secret table: for each record kind, the fields that hold a
- * decrypted or plaintext secret. Only these fields are redacted. A field is
- * added here only when the analyzer can write a plaintext secret to it:
- *
- *  - `cookie.value`: the Cookie value, plaintext in the store or decrypted
- *    with `--decrypt`;
- *  - `login_credential.secret`: the saved password, decrypted with
- *    `--decrypt`.
- */
-export const SECRET_FIELDS_BY_KIND: Readonly<
-  Record<string, readonly string[]>
-> = {
-  cookie: ["value"],
-  login_credential: ["secret"],
-};
-
-/** True when `field` of a `kind` record holds a plaintext secret. */
-export function isSecretField(kind: string, field: string): boolean {
-  return SECRET_FIELDS_BY_KIND[kind]?.includes(field) ?? false;
-}
 
 /** The marker hash of a withheld value (the same hash the Extract uses). */
 export function secretValueSha256(value: unknown): string {

@@ -25,7 +25,7 @@ import { FaviconBitmapsContext } from "./favicons-fields.js";
 import { SiteAvatar } from "./finding-fields.js";
 import { ErrorRows, LoadingRows } from "./list-states.js";
 import { CountChips, plural, type CountChip } from "./page-kit.js";
-import { RowSheet, secretFieldsOf } from "./row-sheet.js";
+import { RowSheet } from "./row-sheet.js";
 import { useOwnBitmaps } from "./site-favicons.js";
 import { SITE_KINDS } from "./site-kinds.js";
 import { KindPanel, sheetTitle, type SiteRow } from "./sites-kind-tables.js";
@@ -262,7 +262,6 @@ export function HostDetail({
         <RowSheet
           selected={sheet.selected}
           title={sheetTitle(sheet.selected.row)}
-          redactedFields={secretFieldsOf(sheet.selected.row)}
           onClose={sheet.close}
         />
       )}

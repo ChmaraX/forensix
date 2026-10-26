@@ -15,12 +15,9 @@ import { artifactStoreOf } from "../artifacts.js";
 import { useCaseContext } from "../case-context.js";
 import { hrefFor, updateView, useViewProfiles } from "../view-state.js";
 import type { PageKey } from "../pages.js";
-import { caseProfilesOf, type CoverageScope } from "./completeness.js";
-import {
-  emptyCoverageOf as coverageWordsOf,
-  joinWords,
-  type EmptyCoverage,
-} from "./identity-coverage.js";
+import type { OverviewArtifact } from "../types.js";
+import { caseProfilesOf } from "./completeness.js";
+import { joinWords, type EmptyCoverage } from "./identity-coverage.js";
 import { EmptyRows } from "./data-table.js";
 import { profileLabel } from "./finding-fields.js";
 
@@ -88,11 +85,6 @@ export function clearSearchAndProfiles(): void {
 
 /* ------------------------------- empty states ----------------------------- */
 
-/** How an artifact with no rows was covered, profiles in their one name. */
-export function emptyCoverageOf(scope: CoverageScope | null): EmptyCoverage {
-  return coverageWordsOf(scope, profileLabel);
-}
-
 /**
  * The empty state of an identity page with no rows at all, worded from its
  * coverage (onboard: what would be here, why there is nothing, where to
@@ -117,7 +109,7 @@ export function ArtifactEmpty({
   readonly coverage: EmptyCoverage;
   /** The Completeness artifact Chrome keeps these rows in ("Login
    *  Data"); its store word (database / file) follows from it. */
-  readonly artifact: string;
+  readonly artifact: OverviewArtifact;
   /** "No saved logins". */
   readonly title: string;
   /** "stored logins" (plural noun, lower case). */

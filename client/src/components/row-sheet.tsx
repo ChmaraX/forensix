@@ -19,8 +19,9 @@
  * report - never a field value, so a secret stays out of it whether or
  * not it is revealed.
  *
- * `redactedFields` names fields that hold secrets (a cookie value, a payment
- * card number). Each recorded, non-empty one opens as the words "value
+ * The sheet masks every field that holds a secret (`secretFieldsOf`: a
+ * cookie value, a saved password, a payment card number) itself, whatever
+ * page opens it. Each recorded, non-empty one opens as the words "value
  * hidden" with a Reveal button beside it, hidden every time the sheet opens;
  * "(empty)", "absent" and "unavailable" still show as they are, since none
  * of them carries a secret.
@@ -59,19 +60,14 @@ import { useSize } from "@/lib/size-context";
 import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 import { AbsentWord, FieldStateText } from "./field-state.js";
-import { fieldUtc, profileLabel } from "./finding-fields.js";
+import { profileLabel } from "./finding-fields.js";
 import { TimeText } from "./page-kit.js";
 import { RelatedLinks } from "./related-links.js";
 import { humanizeFieldValue } from "../field-values.js";
+import { secretFieldsOf } from "./secrets.js";
+import { fieldUtc } from "../field-readers.js";
 
 export type SelectedRow = { readonly kind: "finding"; readonly row: Finding };
-
-export {
-  COOKIE_SECRET_FIELDS,
-  CREDENTIAL_SECRET_FIELDS,
-  SEALED_REASON,
-  secretFieldsOf,
-} from "./secrets.js";
 
 /** "value hidden": a recorded secret withheld until "Show values" is on.
  *  No own tab stop: the row is the focus target and its sheet the reveal.
@@ -435,31 +431,10 @@ function FieldValue({
   return <FieldStateText field={field} mono={mono} />;
 }
 
-/** Rows with no reference, each given its own key (by object identity). */
-const unreferencedKeys = new WeakMap<Finding, string>();
-let unreferencedCount = 0;
-
-/** A key that differs for every row: its reference, or - fail closed - a
- *  key of its own when it has none. */
-function rowKeyOf(row: Finding): string {
-  const ref = rowRefOf(row);
-  if (ref !== null) {
-    return `ref:${ref}`;
-  }
-  let key = unreferencedKeys.get(row);
-  if (key === undefined) {
-    unreferencedCount += 1;
-    key = `object:${String(unreferencedCount)}`;
-    unreferencedKeys.set(row, key);
-  }
-  return key;
-}
-
 export function RowSheet({
   selected,
   onClose,
   title,
-  redactedFields,
   related = true,
   children,
 }: {
@@ -468,9 +443,6 @@ export function RowSheet({
   /** Replaces the row kind as the sheet title (e.g. "Page visit"). The
    *  kind still shows in the description. */
   readonly title?: ReactNode;
-  /** Field names whose recorded values stay hidden until the examiner
-   *  reveals them (e.g. `["value"]` for a cookie). */
-  readonly redactedFields?: readonly string[];
   /** The "Related" block (exact-value links to other pages). Turn off
    *  only where the sheet already sits on the related page. @default true */
   readonly related?: boolean;
@@ -479,8 +451,8 @@ export function RowSheet({
 }) {
   const size = useSize();
   const { row } = selected;
-  const rowKey = rowKeyOf(row);
   const fields = Object.entries(row.fields);
+  const redactedFields = secretFieldsOf(row);
   const kindNoun = FINDING_KINDS[row.findingKind]?.noun ?? row.findingKind;
   const citation = citationOf(row, {
     artifact: artifactLabelOfKind(row.findingKind),
@@ -586,7 +558,10 @@ export function RowSheet({
               // Keyed by the row: a revealed secret never carries over to
               // the next row the open sheet shows (a click, ⌘K) - its fields mount
               // afresh, hidden.
-              <dl key={rowKey} className="flex flex-col divide-y divide-border">
+              <dl
+                key={rowRefOf(row)}
+                className="flex flex-col divide-y divide-border"
+              >
                 {fields.map(([name, field]) => (
                   <div
                     key={name}
@@ -611,7 +586,7 @@ export function RowSheet({
                       </span>
                     </dt>
                     <dd className="min-w-0 text-foreground">
-                      {redactedFields?.includes(name) === true ? (
+                      {redactedFields.includes(name) ? (
                         <RedactedValue
                           field={field}
                           mono={isIdField(name) ? true : "auto"}

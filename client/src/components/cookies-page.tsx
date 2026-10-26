@@ -10,7 +10,7 @@
  * Cookie values are session secrets, so the table keeps them **hidden by
  * default**: a recorded value reads "value hidden" until the examiner turns
  * on "Show values"; the row sheet keeps it hidden too, behind its own Reveal
- * (`redactedFields`). A value that could not be decrypted offline reads
+ * (`RowSheet`). A value that could not be decrypted offline reads
  * "unavailable" with its reason, an empty one "(empty)", a missing one
  * "absent" — distinct words, never a colour alone.
  *
@@ -50,9 +50,6 @@ import { EmptyRows } from "./data-table.js";
 import { EvidenceDot } from "./evidence.js";
 import {
   FieldCell,
-  fieldBool,
-  fieldText,
-  fieldUtc,
   SiteAvatar,
   StateWord,
   TwoLineCell,
@@ -72,28 +69,24 @@ import { MetricBand, MetricBandItem, TooltipFigure } from "./metric-band.js";
 import {
   ArtifactEmpty,
   clearSearchAndProfiles,
-  emptyCoverageOf,
   EmptyPivot,
   useProfileLens,
 } from "./identity-kit.js";
 import { SiteHostLink } from "./host-link.js";
 import { siteHostKey } from "../site-host-key.js";
 import { useArtifactCoverage } from "../case-context.js";
-import {
-  COOKIE_SECRET_FIELDS,
-  RowSheet,
-  SEALED_REASON,
-  SecretValueCell,
-} from "./row-sheet.js";
+import { RowSheet, SecretValueCell } from "./row-sheet.js";
+import { SEALED_REASON } from "./secrets.js";
 import {
   CommitStateSplit,
   plural,
-  ResponsiveRows,
   SectionPanel,
   TimeCell,
-  type RowColumn,
 } from "./page-kit.js";
 import { Term } from "./term.js";
+import { fieldBool, fieldText, fieldUtc } from "../field-readers.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
+import { emptyCoverageOf } from "./identity-coverage.js";
 
 /* ------------------------------ data reading ------------------------------ */
 
@@ -612,10 +605,10 @@ function cookieColumns(
   return columns;
 }
 
-/** A row's key: its reference (source chain, profile, Commit State), so a
- *  filter never hands one row's memoised cells to another. */
-function cookieKey(row: CookieRow, index: number): string {
-  return rowRefOf(row.finding) ?? `${row.finding.commitState}-${String(index)}`;
+/** A row's key: its reference, so a filter never hands one row's
+ *  memoised cells to another. */
+function cookieKey(row: CookieRow): string {
+  return rowRefOf(row.finding);
 }
 
 function cookieLabel(row: CookieRow): string {
@@ -781,8 +774,8 @@ export function CookiesPage() {
   const status = commitStateStatus(
     lists,
     { saved: savedRows.length, recovered: recoveredRows.length },
-    totals.state === "ready" ? totals.value : null,
-    { filtered: lens.selected.length > 0 },
+    totals,
+    lens.selected.length > 0,
   );
   // A profile pick that leaves a list empty says so in its own words.
   const filteredMessage =
@@ -815,7 +808,6 @@ export function CookiesPage() {
           <RowSheet
             selected={sheet.selected}
             title={fieldText(sheet.selected.row.fields.name) ?? "Cookie"}
-            redactedFields={COOKIE_SECRET_FIELDS}
             onClose={sheet.close}
           />
         )

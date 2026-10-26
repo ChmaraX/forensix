@@ -69,12 +69,7 @@ import {
   KeyboardIcon,
   UserIcon,
 } from "@/lib/app-icons";
-import {
-  caseActivity,
-  caseDownloads,
-  caseSavedLogins,
-  caseSiteHosts,
-} from "./case-reads.js";
+import { caseDownloads, caseSavedLogins, caseSiteHosts } from "./case-reads.js";
 import {
   capMatches,
   dayKeywords,
@@ -85,12 +80,12 @@ import {
   type FileEntry,
   type UsernameEntry,
 } from "./command-index.js";
-import { bucketsToDays } from "./components/activity-data.js";
+import { bucketsToDays, caseActivity } from "./components/activity-data.js";
 import { hostSummary } from "./components/site-kinds.js";
 import { returnTarget } from "./focus.js";
 import { setCommandMenuOpen } from "./menu-open.js";
 import { PAGE_KEYS, PAGES } from "./pages.js";
-import { formatCaseDay } from "./related.js";
+import { formatDay } from "./day-format.js";
 import {
   moveRowFocus,
   setSingleKeyShortcuts,
@@ -401,7 +396,7 @@ export function CaseCommandMenu({
     () =>
       days.slice(0, RECENT_DAYS).map((day) => ({
         value: `recent:${day.date}`,
-        label: formatCaseDay(day.date),
+        label: formatDay(day.date),
         description: `${day.count.toLocaleString("en-US")} saved page ${day.count === 1 ? "visit" : "visits"}`,
         action: "Open in Timeline",
         icon: CalendarIcon,
@@ -519,7 +514,7 @@ export function CaseCommandMenu({
     for (const day of dayMatch.shown) {
       rows.push({
         value: `day:${day.date}`,
-        label: formatCaseDay(day.date),
+        label: formatDay(day.date),
         description: `${day.count.toLocaleString("en-US")} saved page ${day.count === 1 ? "visit" : "visits"}`,
         action: "Open in Timeline",
         icon: CalendarIcon,

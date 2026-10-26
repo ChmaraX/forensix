@@ -56,19 +56,11 @@ import { usePrefersReducedMotion } from "./charts.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
 import { caseDayOf, inCaseDays, zonesNote } from "./day-bounds.js";
-import { fieldText } from "./finding-fields.js";
 import { CompactFilters, FilterTextField, ProfilePicker } from "./filters.js";
 import { DrainNote, RevealSwap } from "./list-states.js";
 import { MetricBand, MetricBandItem } from "./metric-band.js";
 import { RowSheet } from "./row-sheet.js";
-import {
-  CommitStateSplit,
-  SectionPanel,
-  formatBytes,
-  formatDay,
-  formatDaySpan,
-  plural,
-} from "./page-kit.js";
+import { CommitStateSplit, SectionPanel, plural } from "./page-kit.js";
 import {
   useDownloads,
   joinRecovered,
@@ -87,6 +79,9 @@ import {
   DownloadsLoading,
   DownloadList,
 } from "./downloads-table.js";
+import { fieldText } from "../field-readers.js";
+import { formatBytes } from "./bytes.js";
+import { formatDay, formatDaySpan } from "../day-format.js";
 
 /* ---------------------------------- page ---------------------------------- */
 

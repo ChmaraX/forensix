@@ -12,7 +12,7 @@ import { rowRefOf, type ViewLocation } from "../router.js";
 import type { Finding } from "../types.js";
 
 /** Where the row lives: its page and that page's view of it; null when
- *  the kind has no page or the row no reference. */
+ *  the kind has no page. */
 export function sourceRowOf(
   row: Finding,
   lensProfiles: readonly string[],
@@ -23,8 +23,7 @@ export function sourceRowOf(
 } | null {
   const page = FINDING_KINDS[row.findingKind]?.artifact;
   const label = artifactLabelOfKind(row.findingKind);
-  const ref = rowRefOf(row);
-  if (page === undefined || label === null || ref === null) {
+  if (page === undefined || label === null) {
     return null;
   }
   const url =
@@ -33,7 +32,7 @@ export function sourceRowOf(
     page,
     label,
     extras: {
-      row: ref,
+      row: rowRefOf(row),
       tab: row.commitState === "committed" ? "saved" : "recovered",
       ...(url === null ? {} : { q: url }),
       // A profile pick that leaves this row's profile out would hide the

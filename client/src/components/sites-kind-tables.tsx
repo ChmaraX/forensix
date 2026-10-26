@@ -14,14 +14,11 @@ import { cn } from "@/lib/utils";
 
 import { fieldLabel } from "../field-labels.js";
 import type { SiteArtifactKind, SiteFinding } from "../types.js";
-import { cacheResourceUrl } from "./cache-keys.js";
 import { fileNameOf } from "./downloads-model.js";
 import { DownloadState } from "./downloads-table.js";
 import { FaviconBitmapsContext, ResolutionCell } from "./favicons-fields.js";
 import {
   FieldCell,
-  fieldInteger,
-  fieldText,
   SiteAvatar,
   StateWord,
   TwoLineCell,
@@ -30,14 +27,15 @@ import {
 import {
   CommitStateSplit,
   Count,
-  formatBytes,
   IconTile,
-  ResponsiveRows,
-  type RowColumn,
   splitByCommit,
   TimeCell,
 } from "./page-kit.js";
 import { SITE_KINDS, siteKind, type SiteKindMeta } from "./site-kinds.js";
+import { fieldInteger, fieldText } from "../field-readers.js";
+import { ResponsiveRows, type RowColumn } from "./responsive-rows.js";
+import { formatBytes } from "./bytes.js";
+import { cacheResourceUrl } from "../site-host-key.js";
 
 /** A row of a host's detail (`site-findings`): its kind and the fields
  *  that put it on the host. */

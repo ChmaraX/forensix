@@ -84,7 +84,7 @@ describe("humanizeFieldValue", () => {
 
   it("does not format a password length as a byte size", () => {
     expect(
-      humanizeFieldValue("secretByteLength", "saved_login", 4096),
+      humanizeFieldValue("secretByteLength", "login_credential", 4096),
     ).toBeNull();
   });
 });

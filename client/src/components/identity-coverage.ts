@@ -5,6 +5,7 @@
  * identity-coverage.test.ts.
  */
 import type { CoverageScope } from "./completeness.js";
+import { profileLabel } from "./finding-fields.js";
 
 /** "A", "A and B", "A, B and C". */
 export function joinWords(words: readonly string[]): string {
@@ -27,11 +28,9 @@ export type EmptyCoverage =
    *  not read, the shell's banner names above the page). */
   | { readonly kind: "read"; readonly read: string };
 
-export function emptyCoverageOf(
-  scope: CoverageScope | null,
-  /** How a profile is written (`profileLabel`). */
-  labelOf: (profile: string) => string,
-): EmptyCoverage {
+/** How an artifact with no rows was covered, profiles in their one name
+ *  (`profileLabel`). */
+export function emptyCoverageOf(scope: CoverageScope | null): EmptyCoverage {
   if (scope === null) {
     return { kind: "unknown" };
   }
@@ -41,7 +40,7 @@ export function emptyCoverageOf(
   const read = scope.statements.flatMap((statement) =>
     statement.artifacts
       .filter((entry) => entry.outcome === "produced")
-      .map((entry) => labelOf(entry.profile)),
+      .map((entry) => profileLabel(entry.profile)),
   );
   if (read.length === 0) {
     return scope.unavailable === 0 ? { kind: "no-file" } : { kind: "unknown" };

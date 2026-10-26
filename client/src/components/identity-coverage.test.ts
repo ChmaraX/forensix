@@ -4,9 +4,6 @@ import type { CompletenessStatement } from "../types.js";
 import type { CoverageScope } from "./completeness.js";
 import { emptyCoverageOf, joinWords } from "./identity-coverage.js";
 
-const label = (profile: string) =>
-  profile === "Default" ? "Default profile" : profile;
-
 function entry(
   profile: string,
   outcome: "produced" | "absent" | "unavailable",
@@ -60,14 +57,13 @@ describe("joinWords", () => {
 
 describe("emptyCoverageOf", () => {
   it("is unknown until the statement is read", () => {
-    expect(emptyCoverageOf(null, label)).toEqual({ kind: "unknown" });
+    expect(emptyCoverageOf(null)).toEqual({ kind: "unknown" });
   });
 
   it("names the profiles whose file was read", () => {
     expect(
       emptyCoverageOf(
         scopeOf([entry("Default", "produced"), entry("Profile 2", "produced")]),
-        label,
       ),
     ).toEqual({ kind: "read", read: "Default profile and Profile 2" });
   });
@@ -76,7 +72,6 @@ describe("emptyCoverageOf", () => {
     expect(
       emptyCoverageOf(
         scopeOf([entry("Default", "produced"), entry("Profile 3", "absent")]),
-        label,
       ),
     ).toEqual({ kind: "read", read: "Default profile" });
   });
@@ -85,7 +80,6 @@ describe("emptyCoverageOf", () => {
     expect(
       emptyCoverageOf(
         scopeOf([entry("Default", "absent"), entry("Profile 2", "absent")]),
-        label,
       ),
     ).toEqual({ kind: "no-file" });
   });
@@ -97,13 +91,12 @@ describe("emptyCoverageOf", () => {
           entry("Default", "unavailable"),
           entry("Profile 2", "absent"),
         ]),
-        label,
       ),
     ).toEqual({ kind: "unknown" });
   });
 
   it("says when the artifact was not analysed", () => {
-    expect(emptyCoverageOf(scopeOf([], false), label)).toEqual({
+    expect(emptyCoverageOf(scopeOf([], false))).toEqual({
       kind: "not-analysed",
     });
   });

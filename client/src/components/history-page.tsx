@@ -61,7 +61,6 @@ import { useChartTokens } from "./charts.js";
 import { ActivityBars } from "./charts-ready.js";
 import { ChartSection } from "./chart-section.js";
 import { DateRangePicker } from "./date-range-picker.js";
-import { fieldText } from "./finding-fields.js";
 import {
   DEFAULT_VISIT_FILTERS,
   useVisitFilters,
@@ -81,12 +80,12 @@ import {
 import {
   CHART_HEIGHT,
   CommitStateSplit,
-  formatDay,
-  formatDaySpan,
   plural,
   SectionPanel,
 } from "./page-kit.js";
 import { RowSheet } from "./row-sheet.js";
+import { fieldText } from "../field-readers.js";
+import { formatDay, formatDaySpan } from "../day-format.js";
 
 const NO_PROFILES: readonly string[] = [];
 
@@ -287,12 +286,23 @@ export function HistoryPage() {
           },
     [caseWideActivity, filters.profiles],
   );
-  const timeZone = activity?.timeZone ?? null;
+  // The Case zone: `undefined` until the activity read lands (or when it
+  // failed), `null` when no one zone was declared (UTC days). A ranged
+  // read waits for it, and shows the activity error when it failed: its
+  // bounds are never guessed in UTC.
+  const timeZone =
+    caseWideActivity === null ? undefined : caseWideActivity.timeZone;
   const parameters = useMemo(
-    () => visitParameters(filters, timeZone),
+    () => visitParameters(filters, timeZone ?? null),
     [filters, timeZone],
   );
-  const visits = useCommitStateLists<Finding>("history", parameters);
+  const visits = useCommitStateLists<Finding>(
+    "history",
+    parameters,
+    timeZone === undefined && (filters.from !== "" || filters.to !== "")
+      ? { error: activityError, retry }
+      : null,
+  );
   const [view, setView] = useViewTab();
   // The open row lives in the URL: Back and a refresh re-open it.
   const loadedVisits = useMemo(
