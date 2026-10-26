@@ -1,7 +1,7 @@
 name: scale-million (manual)
 
 # The million-row scale case is manual pre-release validation, not a required
-# per-PR check (issue #188, AC4). Trigger it before cutting an analyzer release.
+# per-PR check (issue #188, AC4). Trigger it before merging a release PR.
 on:
   workflow_dispatch:
     inputs:

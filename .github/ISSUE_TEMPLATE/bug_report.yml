@@ -1,0 +1,55 @@
+name: Bug report
+description: Report a problem in the analyzer or the Collector.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report a security vulnerability here. Read SECURITY.md.
+        Do not attach real evidence or personal data.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Analyzer (forensix CLI or dashboard)
+        - Collector (forensix-collect)
+        - Agent skill
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `forensix --version` or `forensix-collect --version`.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Node.js version, and Chrome version of the Source.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The commands that you ran.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Include the error code and the stderr output. Remove personal data.
+    validations:
+      required: true

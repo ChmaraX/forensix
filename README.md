@@ -5,7 +5,7 @@
 <h1 align="center">ForensiX</h1>
 
 <p align="center">
-  <a href="https://github.com/ChmaraX/forensix/actions/workflows/analyzer.yml"><img src="https://github.com/ChmaraX/forensix/actions/workflows/analyzer.yml/badge.svg?branch=v2" alt="CI"></a>
+  <a href="https://github.com/ChmaraX/forensix/actions/workflows/analyzer.yml"><img src="https://github.com/ChmaraX/forensix/actions/workflows/analyzer.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ChmaraX/forensix" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%E2%89%A5%2024.15-339933?logo=node.js&logoColor=white" alt="Node 24.15+">
   <img src="https://img.shields.io/badge/runs-offline-555" alt="Runs offline">
@@ -61,27 +61,36 @@ flowchart LR
 
 ## Install
 
-From npm (available after the first analyzer release):
+v2 is in pre-release. Install the latest pre-release from npm:
 
 ```sh
-npm i -g forensix
+npm install -g forensix@next
 ```
 
 The `forensix` package contains the CLI, the dashboard, and the agent skill. It
-has no other runtime dependencies. Each
-[GitHub release](https://github.com/ChmaraX/forensix/releases) also attaches the
-package tarball, its SHA-256 checksums, and a build-provenance attestation.
+has no other runtime dependencies. Requires Node.js 24.15 or newer.
 
-> [!NOTE]
-> v2 is in pre-release. Until the first release ships, build from source.
+The Collector is a separate static binary for each platform. Download it from
+[GitHub Releases](https://github.com/ChmaraX/forensix/releases). Each release
+also has the npm tarball, the files `SHA256SUMS-analyzer` and
+`SHA256SUMS-collector`, and build-provenance attestations. Verify a download
+before you use it:
+
+```sh
+gh attestation verify forensix-collect-<version>-linux-amd64 --repo ChmaraX/forensix
+sha256sum --check --ignore-missing SHA256SUMS-collector
+```
+
+Install the agent skill with `npx skills add ChmaraX/forensix` (see
+[Agent skill](#agent-skill)).
+
+To build from source:
 
 ```sh
 git clone https://github.com/ChmaraX/forensix && cd forensix
 corepack enable && pnpm install --frozen-lockfile && pnpm build
 alias forensix="node $PWD/cli/dist/cli.js"
 ```
-
-Requires Node.js 24.15 or newer.
 
 ## Quick start
 
@@ -167,7 +176,9 @@ pnpm verify:full     # plus offline end-to-end verification
 ```
 
 Reference: [docs/reference.md](docs/reference.md) covers the Case layout,
-Analysis Runs, every query, decryption, export, and verification.
+Analysis Runs, every query, decryption, export, and verification. To
+contribute, read [CONTRIBUTING.md](CONTRIBUTING.md). To report a vulnerability,
+read [SECURITY.md](SECURITY.md).
 
 ## License
 

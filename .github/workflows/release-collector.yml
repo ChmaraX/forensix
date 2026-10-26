@@ -1,29 +1,35 @@
 name: release-collector
 
-# The Collector publishes on its own SemVer line and tag prefix `collector-v*`,
-# independently of the analyzer (issue #188, AC5). Each release ships six raw
-# static Go binaries with checksums and build-provenance attestations, and the
-# version plus git SHA injected at build time (AC6).
+# Called by release-please.yml for a release tag `v<version>`. It does not run
+# on its own. The Collector shares the product version line. Each release
+# attaches six raw static Go binaries with checksums and build-provenance
+# attestations to the draft release. The version and git SHA of the tag are
+# injected at build time.
 #
-# This workflow triggers ONLY on a matching tag push. Opening or merging a PR
-# never runs it, so merging this PR publishes nothing. The six-target build is
-# still validated on every PR by the `race-and-cross-build` job in collector.yml.
+# A rerun replaces the assets of a release that is still a draft. The six-target
+# build is also validated on every PR by `race-and-cross-build` in collector.yml.
 on:
-  push:
-    tags:
-      - "collector-v*"
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to build (for example v2.0.0-alpha.1)
+        required: true
+        type: string
 
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
+permissions: {}
 
 jobs:
   release:
     name: release collector binaries
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag }}
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: collector/go.mod
@@ -31,11 +37,12 @@ jobs:
 
       - name: Resolve version and SHA
         id: meta
+        env:
+          TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#collector-v}"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Test and vet before release
         working-directory: collector
@@ -63,32 +70,30 @@ jobs:
               go build -trimpath -ldflags "$ldflags" -o "$out" ./cmd/forensix-collect
           done
 
+      # SHA256SUMS-collector, so it does not replace the analyzer checksums on
+      # the same release.
       - name: Generate checksums
         working-directory: dist/collector
         run: |
           set -euo pipefail
-          sha256sum forensix-collect-* > SHA256SUMS
-          cat SHA256SUMS
+          sha256sum forensix-collect-* > SHA256SUMS-collector
+          cat SHA256SUMS-collector
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: "dist/collector/forensix-collect-*"
 
-      # A rerun after a later failure finds the release and updates its assets.
-      - name: Create or update the GitHub Release
+      # Immutable releases: assets can change only while the release is a draft.
+      - name: Attach the binaries and checksums to the draft release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.meta.outputs.version }}
-          COMMIT: ${{ steps.meta.outputs.sha }}
+          TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          assets=(dist/collector/forensix-collect-* dist/collector/SHA256SUMS)
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "true" ]; then
+            echo "$TAG is already published; its assets cannot change."
             exit 0
           fi
-          gh release create "$GITHUB_REF_NAME" \
-            --title "Collector $VERSION" \
-            --notes "Collector $VERSION ($COMMIT). Six static binaries with checksums and provenance attestations." \
-            "${assets[@]}"
+          gh release upload "$TAG" dist/collector/forensix-collect-* \
+            dist/collector/SHA256SUMS-collector --clobber
