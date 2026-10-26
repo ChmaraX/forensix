@@ -6,9 +6,6 @@
   "packages": {
     ".": {
       "package-name": "forensix",
-      "versioning": "prerelease",
-      "prerelease": true,
-      "prerelease-type": "alpha",
       "draft": true,
       "force-tag-creation": true,
       "changelog-sections": [
