@@ -20,10 +20,13 @@ export default defineConfig({
       // the download size reading.
       "client/src/**/*.test.ts",
     ],
-    testTimeout: 30_000,
-    // Windows CI runners are slow spawning the compiled CLI + SQLite I/O; run
-    // E2E files serially there to remove resource contention (not a hang).
-    // Linux/macOS stay parallel.
+    // Windows CI runners are slow spawning the compiled CLI + SQLite I/O, and
+    // some runners are 3x slower than others: an E2E test that takes 10 s
+    // there can take 30 s. Run E2E files serially there to remove resource
+    // contention, and give tests and hooks more time (not a hang).
+    // Linux/macOS stay parallel with the default hook timeout.
+    testTimeout: isWindows ? 90_000 : 30_000,
+    hookTimeout: isWindows ? 60_000 : 10_000,
     fileParallelism: !isWindows,
   },
 });
