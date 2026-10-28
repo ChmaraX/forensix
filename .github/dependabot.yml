@@ -2,6 +2,7 @@
 # make each PR title a valid Conventional Commit (commitlint-pr-title.yml),
 # for example "chore(deps): bump the npm group across 1 directory with 3 updates".
 # The cooldown waits 7 days after a version is published before it is proposed.
+# Major versions are ignored: they need code changes, so upgrade them by hand.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -13,22 +14,32 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm:
         patterns: ["*"]
+        update-types: [minor, patch]
 
+  # Monthly: a Collector update can change what the binary links, and the
+  # safety tests then ask for a review.
   - package-ecosystem: gomod
     directory: /collector
     schedule:
-      interval: weekly
+      interval: monthly
     cooldown:
       default-days: 7
     commit-message:
       prefix: chore
       include: scope
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       gomod:
         patterns: ["*"]
+        update-types: [minor, patch]
 
   - package-ecosystem: github-actions
     directory: /
