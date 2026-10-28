@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/ChmaraX/forensix/compare/v2.0.0...v2.0.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **core:** let one of many simultaneous commands take the Case lock ([#233](https://github.com/ChmaraX/forensix/issues/233)) ([b507c4a](https://github.com/ChmaraX/forensix/commit/b507c4ae5f29b1333e2345c74f16eb826e90c7a3))
+
 ## [2.0.0](https://github.com/ChmaraX/forensix/compare/v2.0.0-alpha.1...v2.0.0) (2026-10-26)
 
 

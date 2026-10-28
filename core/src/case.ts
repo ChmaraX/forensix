@@ -21,7 +21,7 @@ export const CASE_SCHEMA_VERSION = 2;
 /** `PRAGMA application_id` of every Case database ("FXJ2"). */
 const CASE_APPLICATION_ID = 0x46584a32;
 export const CASE_FILENAME = "case.fxdb";
-export const TOOL_VERSION = "2.0.0"; // x-release-please-version
+export const TOOL_VERSION = "2.0.1"; // x-release-please-version
 
 export interface CaseProfileInput {
   readonly profileId: string;
