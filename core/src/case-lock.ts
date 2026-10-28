@@ -16,6 +16,8 @@ import { ForensixError } from "./errors.js";
 
 export type CaseLockHolder = "analyse" | "serve";
 
+const LOCK_BUSY_TIMEOUT_MS = 1_000;
+
 async function lockPath(caseDirectory: string): Promise<string> {
   const target = resolve(caseDirectory);
   const physical = await realpath(target).catch(() => target);
@@ -46,7 +48,14 @@ export async function acquireCaseLock(
   holder: CaseLockHolder,
 ): Promise<{ release(): Promise<void> }> {
   const path = await lockPath(caseDirectory);
-  const database = new DatabaseSync(path, { timeout: 0 });
+  // A busy timeout, not 0: when processes start at the same time, each can
+  // first hold the shared lock that the leader must see released (on Windows,
+  // taking the shared lock also takes a short pending lock). With a timeout of
+  // 0 every one of them can fail, and nobody gets the lock. With a timeout,
+  // the losers back off and the leader gets it. Windows can also release the
+  // lock of a killed process with a delay. A held lock still refuses with
+  // CASE_IN_USE after the timeout.
+  const database = new DatabaseSync(path, { timeout: LOCK_BUSY_TIMEOUT_MS });
   try {
     // The lock database holds no data: an in-memory journal leaves no
     // journal file next to it.
