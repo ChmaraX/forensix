@@ -60,10 +60,10 @@
       "sealed_material": {
         "algorithm": "x25519-hkdf-sha256-aes-256-gcm",
         "recipient_fingerprint": "sha256:d19bf3f082782c87b783fe7134698aeff6e66d9f86afaf7cf9e9b8bf40bab3ff",
-        "ephemeral_public_key": "sNCPNbRoM4FImvsygl5ZFS1H0ZvJ4FDW1alUmEydHiw=",
+        "ephemeral_public_key": "4Lot4yPU37yfzmGrX/D1XyJVt2TEuQqS+jEbTtFPhDs=",
         "salt": "WlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlo=",
         "nonce": "WlpaWlpaWlpaWlpa",
-        "ciphertext": "e1TD0+O4niysMGh/qDekb7wNcZPOmYKbNL2GTlMKAXE=",
+        "ciphertext": "0Ix6buRWriYUfCmZRQWDPMPoeCFWxBvGQIlODKQBz7s=",
         "associated_data_sha256": "a1e4dc106adf84c9ddcdfee681156ea8befade916c247d83748d8f0d1ea35d33"
       }
     }

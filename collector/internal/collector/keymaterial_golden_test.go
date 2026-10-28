@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"runtime"
 	"testing"
+	"testing/cryptotest"
 )
 
 // The analyzer reads a Collector key-material subtree with
@@ -85,6 +86,11 @@ func writeGoldenKeyMaterialSubtree(t *testing.T, recipient []byte) string {
 		unavailableProviderKey("linux-kwallet-unavailable", "linux", "kwallet6", "Chrome Safe Storage", "live_account_session", "v11", "provider-store-locked"),
 	}}
 	generated := filepath.Join(t.TempDir(), "subtree")
+	// Since Go 1.26, crypto/ecdh ignores the random reader and uses the
+	// global source, so fix that source too. The fixture can change again
+	// when Go changes how a crypto function uses randomness: then check
+	// that only sealed_material changed and write the fixture again.
+	cryptotest.SetGlobalRandom(t, 0x5a)
 	random := bytes.NewReader(bytes.Repeat([]byte{0x5a}, 4096))
 	if _, err := writeKeyMaterialSubtree(generated, "key_material/alice/udd-1", "alice", capture, recipient, random); err != nil {
 		t.Fatal(err)
