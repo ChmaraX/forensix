@@ -555,14 +555,14 @@ function runBrokenInputFixture(root) {
   // Analyse must then refuse to fabricate: it exits with a nonzero typed exit
   // state and reports the History artifact as unavailable (not complete),
   // rather than crashing or inventing rows.
-  let refused = false;
+  let refused;
   let outcome = { status: ingest.status, stderr: ingest.stderr };
   if (ingest.status === 0) {
     const analyse = runCli(["analyse", "--case", caseDirectory, "--json"]);
     outcome = { status: analyse.status, stdout: analyse.stdout.slice(0, 200) };
     // Exit states: 2 = partial, 3 = failed. Either is an honest nonzero exit.
     const honestExit = analyse.status === 2 || analyse.status === 3;
-    let honestReport = false;
+    let honestReport;
     try {
       const s = parseJson(analyse.stdout);
       honestReport =
