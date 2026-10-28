@@ -29,15 +29,10 @@ import { classifySourcePath } from "./selection-policy.js";
 import { readStableRegularFile } from "./stable-file.js";
 
 export type AcquisitionVerificationOutcome =
-  | "match"
-  | "mismatch"
-  | "missing_on_disk"
-  | "missing_in_manifest";
+  "match" | "mismatch" | "missing_on_disk" | "missing_in_manifest";
 
 export type AcquisitionBundleStatus =
-  | "verified"
-  | "verified_with_divergence"
-  | "failed_to_open";
+  "verified" | "verified_with_divergence" | "failed_to_open";
 
 export interface AcquisitionVerificationRecord {
   readonly scope: "bundle" | "source_manifest";

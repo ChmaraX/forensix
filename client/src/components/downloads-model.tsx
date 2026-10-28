@@ -259,12 +259,7 @@ export interface DayRange {
 
 /** What the lists sort by. */
 export type SortKey =
-  | "started"
-  | "type"
-  | "file"
-  | "size"
-  | "source"
-  | "outcome";
+  "started" | "type" | "file" | "size" | "source" | "outcome";
 
 /** Toolbar order and wording of the sort keys. */
 export const SORT_KEYS: readonly SortKey[] = [

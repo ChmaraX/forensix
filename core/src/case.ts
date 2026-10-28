@@ -517,8 +517,7 @@ export function openCaseReadOnly(
 function assertCaseIdentity(database: DatabaseSync): void {
   const pragma = (name: string): bigint | number | undefined => {
     const row = database.prepare(`PRAGMA ${name}`).get() as
-      | Record<string, bigint | number>
-      | undefined;
+      Record<string, bigint | number> | undefined;
     return row === undefined ? undefined : Object.values(row)[0];
   };
   const applicationId = Number(pragma("application_id"));
@@ -711,8 +710,7 @@ export function loadCaseSources(
         evidenceSetDigest: source.evidence_set_digest,
         workingCopyPath: source.working_copy_path,
         workingCopyPathKind: source.working_copy_path_kind as
-          | "relative"
-          | "absolute",
+          "relative" | "absolute",
         workingCopyDigest: source.working_copy_digest,
         entryCount: source.entry_count,
         copiedEntryCount: source.copied_entry_count,

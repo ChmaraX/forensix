@@ -217,13 +217,11 @@ export function HostDetail({
                     <CountChips
                       label="Evidence kind"
                       total={saved}
-                      chips={presentKinds.map(
-                        (meta): CountChip => ({
-                          key: meta.kind,
-                          label: meta.label,
-                          count: savedIn(grouped.get(meta.kind) ?? []),
-                        }),
-                      )}
+                      chips={presentKinds.map((meta): CountChip => ({
+                        key: meta.kind,
+                        label: meta.label,
+                        count: savedIn(grouped.get(meta.kind) ?? []),
+                      }))}
                       active={kindFilter}
                       partial={incomplete}
                       onChange={(key) => {

@@ -363,13 +363,11 @@ function CategoryChips({
         (category) =>
           (counts.get(category.key) ?? 0) > 0 || category.key === active,
       )
-      .map(
-        (category): CountChip => ({
-          key: category.key,
-          label: category.label,
-          count: counts.get(category.key) ?? 0,
-        }),
-      );
+      .map((category): CountChip => ({
+        key: category.key,
+        label: category.label,
+        count: counts.get(category.key) ?? 0,
+      }));
   }, [categories, entries, active]);
   return (
     <CountChips

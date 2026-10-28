@@ -47,11 +47,7 @@ import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 
 type MetricBandTone =
-  | "neutral"
-  | "success"
-  | "warning"
-  | "destructive"
-  | "violet";
+  "neutral" | "success" | "warning" | "destructive" | "violet";
 
 interface MetricBandProgress {
   readonly value: number;

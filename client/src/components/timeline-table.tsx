@@ -351,13 +351,11 @@ function KindChips({
 }) {
   const chips = FILTER_KINDS.filter(
     (kind) => (counts.get(kind) ?? 0) > 0 || kind === active,
-  ).map(
-    (kind): CountChip => ({
-      key: kind,
-      label: timelineEventLabel(kind),
-      count: counts.get(kind) ?? 0,
-    }),
-  );
+  ).map((kind): CountChip => ({
+    key: kind,
+    label: timelineEventLabel(kind),
+    count: counts.get(kind) ?? 0,
+  }));
   // One event type on show: "All 2 · Page visit 2" would filter nothing.
   if (chips.length < 2 && active === null) {
     return null;
