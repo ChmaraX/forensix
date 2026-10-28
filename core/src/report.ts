@@ -70,12 +70,7 @@ interface ExtractManifest {
 }
 
 type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | Json[]
-  | { readonly [key: string]: Json };
+  string | number | boolean | null | Json[] | { readonly [key: string]: Json };
 
 interface ExtractRow {
   readonly record_type?: string;

@@ -56,8 +56,7 @@ interface HistoryFinding {
     readonly transitionCore: FieldValue<string>;
     readonly transitionQualifiers: FieldValue<readonly string[]>;
     readonly redirectFromVisitId:
-      | FieldValue<string>
-      | { readonly state: "absent" };
+      FieldValue<string> | { readonly state: "absent" };
     readonly redirectToVisitIds: FieldValue<readonly string[]>;
     readonly visitSource: FieldValue<string>;
     readonly visitDurationMicros: FieldValue<string>;

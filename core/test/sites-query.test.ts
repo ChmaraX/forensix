@@ -93,9 +93,7 @@ function insertRow(
   directory: string,
   row: {
     readonly table:
-      | "downloads_findings"
-      | "cache_findings"
-      | "favicon_findings";
+      "downloads_findings" | "cache_findings" | "favicon_findings";
     readonly kind: string;
     readonly id: number;
     readonly fields: Readonly<Record<string, unknown>>;

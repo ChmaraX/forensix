@@ -433,17 +433,15 @@ function buildCompleteness(
           compareBytes(left.sourceId, right.sourceId) ||
           compareBytes(left.profile, right.profile),
       )
-      .map(
-        (artifact): ExtractCompletenessArtifact => ({
-          sourceId: artifact.sourceId,
-          profile: artifact.profile,
-          artifact: artifact.artifact,
-          databasePath: artifact.databasePath,
-          outcome: artifact.outcome,
-          reason: artifact.reason,
-          runId: artifact.runId,
-        }),
-      ),
+      .map((artifact): ExtractCompletenessArtifact => ({
+        sourceId: artifact.sourceId,
+        profile: artifact.profile,
+        artifact: artifact.artifact,
+        databasePath: artifact.databasePath,
+        outcome: artifact.outcome,
+        reason: artifact.reason,
+        runId: artifact.runId,
+      })),
   );
   return {
     attempted: artifacts.length,

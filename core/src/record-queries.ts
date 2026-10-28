@@ -72,8 +72,7 @@ export function getRecord(input: GetRecordQuery): GetRecordResult {
           WHERE f.${store.idColumn} = ?`,
       )
       .get(rowId) as
-      | (StoredRecordRow & { readonly active: bigint })
-      | undefined;
+      (StoredRecordRow & { readonly active: bigint }) | undefined;
     if (row === undefined) {
       throw recordNotFound(input.id);
     }
@@ -99,13 +98,7 @@ function recordNotFound(id: string): ForensixError {
 // ---------------------------------------------------------------- schema
 
 export type SchemaValueType =
-  | "string"
-  | "number"
-  | "boolean"
-  | "array"
-  | "object"
-  | "timestamp"
-  | "null";
+  "string" | "number" | "boolean" | "array" | "object" | "timestamp" | "null";
 
 export interface SchemaField {
   readonly name: string;
