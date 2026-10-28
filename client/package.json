@@ -37,7 +37,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^14.6.0",
-    "lucide-react": "^0.577.0",
+    "lucide-react": "^1.63.0",
     "motion": "^14.6.0",
     "react": "^19.3.1",
     "react-day-picker": "^10.0.2",
