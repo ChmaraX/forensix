@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/ChmaraX/forensix/compare/v2.0.1...v2.0.2) (2026-10-28)
+
+
+### Documentation
+
+* show a white logo in the README on dark themes ([#235](https://github.com/ChmaraX/forensix/issues/235)) ([8a58a16](https://github.com/ChmaraX/forensix/commit/8a58a1690e2e44410fbfb606bd7b3c376bf7ace5))
+
 ## [2.0.1](https://github.com/ChmaraX/forensix/compare/v2.0.0...v2.0.1) (2026-10-28)
 
 
