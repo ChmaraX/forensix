@@ -15,14 +15,13 @@ const modulePrefix = "github.com/ChmaraX/forensix/collector/"
 // allowedDependencies lists every non-standard package that the release
 // binary can link. A new module dependency fails the test until it is reviewed.
 var allowedDependencies = map[string]string{
-	"github.com/godbus/dbus/v5":                      "D-Bus over the local unix socket for the Linux key capture only",
-	"golang.org/x/sys/unix":                          "sysctl for the macOS version and kill(pid, 0) to test if a staging owner is alive",
-	"golang.org/x/sys/windows":                       "DPAPI, the account SID, and the process query for a staging owner on Windows",
-	"golang.org/x/sys/windows/registry":              "reads the Windows ProfileList and OS version registry keys",
-	"github.com/ebitengine/purego":                   "calls the macOS Security framework for the Keychain key capture without cgo",
-	"github.com/ebitengine/purego/internal/fakecgo":  "part of purego: runtime setup for library calls without cgo",
-	"github.com/ebitengine/purego/internal/strings":  "part of purego: C string conversion",
-	"github.com/ebitengine/purego/internal/xreflect": "part of purego: reflection helpers",
+	"github.com/godbus/dbus/v5":                     "D-Bus over the local unix socket for the Linux key capture only",
+	"golang.org/x/sys/unix":                         "sysctl for the macOS version and kill(pid, 0) to test if a staging owner is alive",
+	"golang.org/x/sys/windows":                      "DPAPI, the account SID, and the process query for a staging owner on Windows",
+	"golang.org/x/sys/windows/registry":             "reads the Windows ProfileList and OS version registry keys",
+	"github.com/ebitengine/purego":                  "calls the macOS Security framework for the Keychain key capture without cgo",
+	"github.com/ebitengine/purego/internal/fakecgo": "part of purego: runtime setup for library calls without cgo",
+	"github.com/ebitengine/purego/internal/strings": "part of purego: C string conversion",
 }
 
 // capabilities are the standard packages that open sockets, start processes,
