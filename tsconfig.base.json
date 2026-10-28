@@ -10,7 +10,7 @@
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
+    "types": ["node"],
     "paths": {
       "@forensix/core": ["./core/src/index.ts"]
     },

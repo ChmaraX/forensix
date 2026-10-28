@@ -10,7 +10,6 @@
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "next/link": ["./src/lib/shims/next-link.tsx"]
