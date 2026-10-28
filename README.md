@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/media/logo.png" width="64" alt="ForensiX">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/logo-dark.png">
+    <img src="docs/media/logo.png" width="64" alt="ForensiX">
+  </picture>
 </p>
 
 <h1 align="center">ForensiX</h1>
