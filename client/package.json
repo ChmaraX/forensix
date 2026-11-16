@@ -36,9 +36,9 @@
     "@untitledui/icons": "^0.0.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "framer-motion": "^14.9.0",
-    "lucide-react": "^1.66.0",
-    "motion": "^14.9.0",
+    "framer-motion": "^14.11.0",
+    "lucide-react": "^1.70.0",
+    "motion": "^14.11.0",
     "react": "^19.3.1",
     "react-day-picker": "^10.0.2",
     "react-dom": "^19.3.1",
@@ -46,10 +46,10 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.1.0",
+    "@tailwindcss/cli": "^4.3.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "esbuild": "^0.28.2",
-    "tailwindcss": "^4.1.0"
+    "tailwindcss": "^4.3.5"
   }
 }
